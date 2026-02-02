@@ -1,0 +1,313 @@
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
+
+const db = admin.firestore();
+
+/**
+ * Scheduled function to lock teams before qualifying
+ * Runs every 15 minutes to check for upcoming qualifying sessions
+ */
+export const autoLockTeams = functions.pubsub
+  .schedule('every 15 minutes')
+  .onRun(async (context) => {
+    const now = admin.firestore.Timestamp.now();
+    const oneHourFromNow = new Date(now.toMillis() + 60 * 60 * 1000);
+
+    // Find races with qualifying starting within the next hour
+    const racesSnapshot = await db
+      .collection('races')
+      .where('status', '==', 'upcoming')
+      .where('schedule.qualifying', '<=', admin.firestore.Timestamp.fromDate(oneHourFromNow))
+      .where('schedule.qualifying', '>', now)
+      .get();
+
+    if (racesSnapshot.empty) {
+      console.log('No races with qualifying starting soon');
+      return null;
+    }
+
+    for (const raceDoc of racesSnapshot.docs) {
+      const race = raceDoc.data();
+      const qualifyingTime = race.schedule.qualifying.toDate();
+
+      // Lock all teams for leagues using this race's season
+      const teamsSnapshot = await db
+        .collection('fantasyTeams')
+        .where('isLocked', '==', false)
+        .get();
+
+      const batch = db.batch();
+      let lockedCount = 0;
+
+      for (const teamDoc of teamsSnapshot.docs) {
+        const team = teamDoc.data();
+
+        // Check if team's league allows late changes
+        const leagueDoc = await db.collection('leagues').doc(team.leagueId).get();
+        const league = leagueDoc.data();
+
+        if (league?.settings?.lockDeadline === 'qualifying') {
+          batch.update(teamDoc.ref, {
+            isLocked: true,
+            'lockStatus.canModify': false,
+            'lockStatus.lockReason': `Locked for ${race.name} qualifying`,
+            'lockStatus.nextUnlockTime': race.schedule.race,
+          });
+          lockedCount++;
+        }
+      }
+
+      if (lockedCount > 0) {
+        await batch.commit();
+        console.log(`Locked ${lockedCount} teams for race ${race.name}`);
+      }
+
+      // Update race status
+      await raceDoc.ref.update({ status: 'in_progress' });
+    }
+
+    return null;
+  });
+
+/**
+ * Scheduled function to unlock teams after race completion
+ * Runs every 30 minutes to check for completed races
+ */
+export const autoUnlockTeams = functions.pubsub
+  .schedule('every 30 minutes')
+  .onRun(async (context) => {
+    const now = admin.firestore.Timestamp.now();
+
+    // Find completed races
+    const racesSnapshot = await db
+      .collection('races')
+      .where('status', '==', 'completed')
+      .get();
+
+    for (const raceDoc of racesSnapshot.docs) {
+      const race = raceDoc.data();
+
+      // Check if results have been processed
+      if (!race.results?.processedAt) {
+        continue;
+      }
+
+      // Unlock teams that were locked for this race
+      const teamsSnapshot = await db
+        .collection('fantasyTeams')
+        .where('isLocked', '==', true)
+        .where('lockStatus.isSeasonLocked', '==', false) // Don't unlock season-locked teams
+        .get();
+
+      const batch = db.batch();
+      let unlockedCount = 0;
+
+      for (const teamDoc of teamsSnapshot.docs) {
+        const team = teamDoc.data();
+        const nextUnlock = team.lockStatus?.nextUnlockTime?.toDate();
+
+        // Only unlock if the unlock time has passed
+        if (nextUnlock && nextUnlock <= now.toDate()) {
+          batch.update(teamDoc.ref, {
+            isLocked: false,
+            'lockStatus.canModify': true,
+            'lockStatus.lockReason': null,
+            'lockStatus.nextUnlockTime': null,
+          });
+          unlockedCount++;
+        }
+      }
+
+      if (unlockedCount > 0) {
+        await batch.commit();
+        console.log(`Unlocked ${unlockedCount} teams after race ${race.name}`);
+      }
+    }
+
+    return null;
+  });
+
+/**
+ * HTTP function to manually lock a team (for testing/admin)
+ */
+export const lockTeam = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { teamId, reason } = data;
+  if (!teamId) {
+    throw new functions.https.HttpsError('invalid-argument', 'teamId is required');
+  }
+
+  const teamDoc = await db.collection('fantasyTeams').doc(teamId).get();
+  if (!teamDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Team not found');
+  }
+
+  const team = teamDoc.data()!;
+
+  // Verify user owns this team
+  if (team.userId !== context.auth.uid) {
+    throw new functions.https.HttpsError('permission-denied', 'Not your team');
+  }
+
+  await teamDoc.ref.update({
+    isLocked: true,
+    'lockStatus.canModify': false,
+    'lockStatus.lockReason': reason || 'Manually locked',
+  });
+
+  return { success: true };
+});
+
+/**
+ * HTTP function to season lock a team
+ */
+export const seasonLockTeam = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { teamId, racesRemaining } = data;
+  if (!teamId || typeof racesRemaining !== 'number') {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'teamId and racesRemaining are required'
+    );
+  }
+
+  const teamDoc = await db.collection('fantasyTeams').doc(teamId).get();
+  if (!teamDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Team not found');
+  }
+
+  const team = teamDoc.data()!;
+
+  // Verify user owns this team
+  if (team.userId !== context.auth.uid) {
+    throw new functions.https.HttpsError('permission-denied', 'Not your team');
+  }
+
+  // Validate team is complete (5 drivers + 1 constructor)
+  if (team.drivers.length < 5 || !team.constructor) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Team must be complete (5 drivers + 1 constructor) before season lock'
+    );
+  }
+
+  await teamDoc.ref.update({
+    isLocked: true,
+    'lockStatus.isSeasonLocked': true,
+    'lockStatus.seasonLockRacesRemaining': racesRemaining,
+    'lockStatus.canModify': false,
+    'lockStatus.lockReason': 'Season locked',
+  });
+
+  return { success: true, message: `Team locked for ${racesRemaining} remaining races` };
+});
+
+/**
+ * HTTP function to early unlock a season-locked team (with fee)
+ */
+export const earlyUnlockTeam = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { teamId } = data;
+  if (!teamId) {
+    throw new functions.https.HttpsError('invalid-argument', 'teamId is required');
+  }
+
+  const EARLY_UNLOCK_FEE = 50;
+
+  const teamDoc = await db.collection('fantasyTeams').doc(teamId).get();
+  if (!teamDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Team not found');
+  }
+
+  const team = teamDoc.data()!;
+
+  // Verify user owns this team
+  if (team.userId !== context.auth.uid) {
+    throw new functions.https.HttpsError('permission-denied', 'Not your team');
+  }
+
+  // Verify team is season locked
+  if (!team.lockStatus?.isSeasonLocked) {
+    throw new functions.https.HttpsError('failed-precondition', 'Team is not season locked');
+  }
+
+  // Check budget
+  if (team.budget < EARLY_UNLOCK_FEE) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Not enough budget. Early unlock requires ${EARLY_UNLOCK_FEE} points`
+    );
+  }
+
+  await teamDoc.ref.update({
+    isLocked: false,
+    'lockStatus.isSeasonLocked': false,
+    'lockStatus.seasonLockRacesRemaining': 0,
+    'lockStatus.canModify': true,
+    'lockStatus.lockReason': null,
+    budget: admin.firestore.FieldValue.increment(-EARLY_UNLOCK_FEE),
+  });
+
+  return {
+    success: true,
+    message: `Team unlocked. ${EARLY_UNLOCK_FEE} points deducted from budget`,
+  };
+});
+
+/**
+ * Check lock status for a race
+ */
+export const checkLockStatus = functions.https.onCall(async (data, context) => {
+  const { raceId, teamId } = data;
+
+  if (!raceId) {
+    throw new functions.https.HttpsError('invalid-argument', 'raceId is required');
+  }
+
+  const raceDoc = await db.collection('races').doc(raceId).get();
+  if (!raceDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Race not found');
+  }
+
+  const race = raceDoc.data()!;
+  const now = new Date();
+  const qualifyingTime = race.schedule.qualifying.toDate();
+
+  const isLockTime = now >= qualifyingTime;
+  const timeUntilLock = qualifyingTime.getTime() - now.getTime();
+
+  let teamLockStatus = null;
+  if (teamId) {
+    const teamDoc = await db.collection('fantasyTeams').doc(teamId).get();
+    if (teamDoc.exists) {
+      const team = teamDoc.data()!;
+      teamLockStatus = {
+        isLocked: team.isLocked,
+        isSeasonLocked: team.lockStatus?.isSeasonLocked || false,
+        canModify: team.lockStatus?.canModify ?? !team.isLocked,
+        lockReason: team.lockStatus?.lockReason,
+      };
+    }
+  }
+
+  return {
+    race: {
+      id: raceId,
+      name: race.name,
+      qualifyingTime: qualifyingTime.toISOString(),
+      status: race.status,
+    },
+    isLockTime,
+    timeUntilLock: isLockTime ? 0 : timeUntilLock,
+    teamLockStatus,
+  };
+});
