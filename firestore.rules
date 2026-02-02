@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isLeagueMember(leagueId) {
+      return exists(/databases/$(database)/documents/leagues/$(leagueId)/members/$(request.auth.uid));
+    }
+
+    function isLeagueOwner(leagueId) {
+      return get(/databases/$(database)/documents/leagues/$(leagueId)).data.ownerId == request.auth.uid;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update, delete: if isOwner(userId);
+    }
+
+    // Leagues collection
+    match /leagues/{leagueId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isLeagueOwner(leagueId);
+      allow delete: if isLeagueOwner(leagueId);
+
+      // League members subcollection
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update: if isLeagueOwner(leagueId) || isOwner(memberId);
+        allow delete: if isLeagueOwner(leagueId) || isOwner(memberId);
+      }
+
+      // League invites subcollection
+      match /invites/{inviteId} {
+        allow read: if isAuthenticated();
+        allow create: if isLeagueMember(leagueId);
+        allow update, delete: if isLeagueOwner(leagueId);
+      }
+    }
+
+    // Drivers collection (read-only for users)
+    match /drivers/{driverId} {
+      allow read: if true;
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // Constructors collection (read-only for users)
+    match /constructors/{constructorId} {
+      allow read: if true;
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // Fantasy teams collection
+    match /fantasyTeams/{teamId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(resource.data.userId);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Races collection (read-only for users)
+    match /races/{raceId} {
+      allow read: if true;
+      allow write: if false; // Only Cloud Functions can write
+
+      match /results/{resultId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // Transactions collection
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Seasons collection (read-only)
+    match /seasons/{seasonId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Price history (read-only)
+    match /priceHistory/{historyId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create, delete: if false; // Only Cloud Functions can create/delete
+    }
+  }
+}

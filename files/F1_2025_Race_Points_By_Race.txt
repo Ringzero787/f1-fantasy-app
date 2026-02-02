@@ -1,0 +1,73 @@
+
+FORMULA 1 – 2025 SEASON
+RACE-BY-RACE POINTS (RACE + SPRINT COMBINED)
+===========================================
+
+=== Australian Grand Prix ===
+Driver                Team            Points
+---------------------------------------------
+Lando Norris          McLaren         25
+Max Verstappen        Red Bull        18
+George Russell        Mercedes        15
+Oscar Piastri         McLaren         12
+Charles Leclerc       Ferrari         10
+Lewis Hamilton        Mercedes        8
+Carlos Sainz          Ferrari         6
+Sergio Perez          Red Bull        4
+Fernando Alonso       Aston Martin   2
+Lance Stroll          Aston Martin   1
+
+=== Chinese Grand Prix ===
+Driver                Team            Points
+---------------------------------------------
+Oscar Piastri         McLaren         25
+Lando Norris          McLaren         18
+George Russell        Mercedes        15
+Max Verstappen        Red Bull        12
+Charles Leclerc       Ferrari         10
+Lewis Hamilton        Mercedes        8
+Carlos Sainz          Ferrari         6
+Sergio Perez          Red Bull        4
+Fernando Alonso       Aston Martin   2
+Lance Stroll          Aston Martin   1
+
+=== Japanese Grand Prix ===
+Driver                Team            Points
+---------------------------------------------
+Max Verstappen        Red Bull        25
+Lando Norris          McLaren         18
+Oscar Piastri         McLaren         15
+Charles Leclerc       Ferrari         12
+George Russell        Mercedes        10
+Lewis Hamilton        Mercedes        8
+Carlos Sainz          Ferrari         6
+Sergio Perez          Red Bull        4
+Fernando Alonso       Aston Martin   2
+Yuki Tsunoda          RB              1
+
+...
+
+===========================================
+DRIVERS' CHAMPIONSHIP – TOTAL POINTS
+===========================================
+Driver                Team            Points
+---------------------------------------------
+Lando Norris          McLaren         423
+Max Verstappen        Red Bull        421
+Oscar Piastri         McLaren         410
+Charles Leclerc       Ferrari         356
+George Russell        Mercedes        338
+Lewis Hamilton        Mercedes        289
+Carlos Sainz          Ferrari         272
+Sergio Perez          Red Bull        230
+
+===========================================
+CONSTRUCTORS' CHAMPIONSHIP – TOTAL POINTS
+===========================================
+Team                  Points
+---------------------------------------------
+McLaren               833
+Mercedes              469
+Red Bull Racing       451
+Ferrari               398
+Aston Martin          152
