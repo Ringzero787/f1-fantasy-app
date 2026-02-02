@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(where:*)",
+      "Bash(where npm:*)",
+      "Bash(cmd /c \"where node && where npm\")",
+      "Bash(powershell -Command \"Get-Command node -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(npm install)",
+      "Bash(npx expo install:*)",
+      "Bash(keytool -list:*)",
+      "Bash(npm install:*)",
+      "Bash(eas credentials:*)",
+      "Bash(npx tsc:*)",
+      "Bash(taskkill:*)",
+      "Bash(copy \"C:\\\\Users\\\\natha\\\\f1-app\\\\pics\\\\app graphics\\\\banner_upper.png\" \"C:\\\\Users\\\\natha\\\\f1-app\\\\assets\\\\header-banner.png\")",
+      "Bash(npm ls:*)",
+      "Bash(npx expo start:*)",
+      "Bash(dir \"C:\\\\Users\\\\natha\\\\f1-app\\\\app\\\\\\(tabs\\)\" /b)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:github.com)",
+      "Bash(ls:*)"
+    ]
+  }
+}
