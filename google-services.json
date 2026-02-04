@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "95743527146",
+    "project_id": "f1-app-18077",
+    "storage_bucket": "f1-app-18077.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:95743527146:android:50497c79acc5b6d149af93",
+        "android_client_info": {
+          "package_name": "com.f1fantasy.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "95743527146-ij73ua8s6oobhnedfarv14ao0flf0j3t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdBitPNc2BcFdKphvALFSwXm_Nmximzgw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "95743527146-ij73ua8s6oobhnedfarv14ao0flf0j3t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
