@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { constructorService } from '../services/constructor.service';
 import { useAuthStore } from '../store/auth.store';
+import { useAdminStore } from '../store/admin.store';
 import { demoConstructors } from '../data/demoData';
+import type { Constructor } from '../types';
 
 export const constructorKeys = {
   all: ['constructors'] as const,
@@ -12,30 +14,92 @@ export const constructorKeys = {
   top: (limit: number) => [...constructorKeys.all, 'top', limit] as const,
 };
 
+// Helper to calculate 2026 season points from race results
+function getConstructorSeasonPoints(constructorId: string, raceResults: Record<string, any>): number {
+  let total = 0;
+  Object.values(raceResults).forEach((result: any) => {
+    if (result.isComplete) {
+      // Race points
+      const constructorResult = result.constructorResults?.find((cr: any) => cr.constructorId === constructorId);
+      if (constructorResult) {
+        total += constructorResult.points;
+      }
+      // Sprint points
+      const sprintResult = result.sprintConstructorResults?.find((scr: any) => scr.constructorId === constructorId);
+      if (sprintResult) {
+        total += sprintResult.points;
+      }
+    }
+  });
+  return total;
+}
+
 export function useConstructors() {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const raceResults = useAdminStore((state) => state.raceResults);
+  const constructorPrices = useAdminStore((state) => state.constructorPrices);
 
   return useQuery({
-    queryKey: constructorKeys.lists(),
-    queryFn: () => {
+    queryKey: [...constructorKeys.lists(), raceResults, constructorPrices],
+    queryFn: async () => {
+      const addSeasonPointsAndPrices = (constructors: Constructor[]) => {
+        return constructors.map(c => {
+          const priceUpdate = constructorPrices[c.id];
+          return {
+            ...c,
+            price: priceUpdate?.currentPrice ?? c.price,
+            previousPrice: priceUpdate?.previousPrice ?? c.previousPrice,
+            // currentSeasonPoints is 2026 data (displayed to users)
+            currentSeasonPoints: priceUpdate?.totalPoints ?? getConstructorSeasonPoints(c.id, raceResults),
+          };
+        });
+      };
+
       if (isDemoMode) {
-        return [...demoConstructors].sort((a, b) => b.price - a.price);
+        const constructors = [...demoConstructors].sort((a, b) => b.price - a.price);
+        return addSeasonPointsAndPrices(constructors);
       }
-      return constructorService.getAllConstructors();
+      // Try Firestore first, fall back to demo data if empty
+      const firestoreData = await constructorService.getAllConstructors();
+      if (firestoreData.length === 0) {
+        const constructors = [...demoConstructors].sort((a, b) => b.price - a.price);
+        return addSeasonPointsAndPrices(constructors);
+      }
+      return addSeasonPointsAndPrices(firestoreData);
     },
   });
 }
 
 export function useConstructor(constructorId: string) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const raceResults = useAdminStore((state) => state.raceResults);
+  const constructorPrices = useAdminStore((state) => state.constructorPrices);
 
   return useQuery({
-    queryKey: constructorKeys.detail(constructorId),
-    queryFn: () => {
+    queryKey: [...constructorKeys.detail(constructorId), raceResults, constructorPrices],
+    queryFn: async () => {
+      const addSeasonPointsAndPrice = (constructor: Constructor | null) => {
+        if (!constructor) return null;
+        const priceUpdate = constructorPrices[constructor.id];
+        return {
+          ...constructor,
+          price: priceUpdate?.currentPrice ?? constructor.price,
+          previousPrice: priceUpdate?.previousPrice ?? constructor.previousPrice,
+          // currentSeasonPoints is 2026 data (displayed to users)
+          currentSeasonPoints: priceUpdate?.totalPoints ?? getConstructorSeasonPoints(constructor.id, raceResults),
+        };
+      };
+
       if (isDemoMode) {
-        return demoConstructors.find(c => c.id === constructorId) || null;
+        const constructor = demoConstructors.find(c => c.id === constructorId) || null;
+        return addSeasonPointsAndPrice(constructor);
       }
-      return constructorService.getConstructorById(constructorId);
+      const firestoreData = await constructorService.getConstructorById(constructorId);
+      if (!firestoreData) {
+        const constructor = demoConstructors.find(c => c.id === constructorId) || null;
+        return addSeasonPointsAndPrice(constructor);
+      }
+      return addSeasonPointsAndPrice(firestoreData);
     },
     enabled: !!constructorId,
   });
@@ -43,16 +107,33 @@ export function useConstructor(constructorId: string) {
 
 export function useAffordableConstructors(maxPrice: number) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const constructorPrices = useAdminStore((state) => state.constructorPrices);
 
   return useQuery({
-    queryKey: constructorKeys.affordable(maxPrice),
-    queryFn: () => {
-      if (isDemoMode) {
+    queryKey: [...constructorKeys.affordable(maxPrice), constructorPrices],
+    queryFn: async () => {
+      const getDemoAffordable = () => {
         return demoConstructors
+          .map(c => {
+            const priceUpdate = constructorPrices[c.id];
+            return {
+              ...c,
+              price: priceUpdate?.currentPrice ?? c.price,
+              previousPrice: priceUpdate?.previousPrice ?? c.previousPrice,
+            };
+          })
           .filter(c => c.price <= maxPrice)
           .sort((a, b) => b.price - a.price);
+      };
+
+      if (isDemoMode) {
+        return getDemoAffordable();
       }
-      return constructorService.getAffordableConstructors(maxPrice);
+      const firestoreData = await constructorService.getAffordableConstructors(maxPrice);
+      if (firestoreData.length === 0) {
+        return getDemoAffordable();
+      }
+      return firestoreData;
     },
     enabled: maxPrice > 0,
   });
@@ -60,16 +141,36 @@ export function useAffordableConstructors(maxPrice: number) {
 
 export function useTopConstructors(limit: number = 5) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const constructorPrices = useAdminStore((state) => state.constructorPrices);
+  const raceResults = useAdminStore((state) => state.raceResults);
 
   return useQuery({
-    queryKey: constructorKeys.top(limit),
-    queryFn: () => {
-      if (isDemoMode) {
+    queryKey: [...constructorKeys.top(limit), constructorPrices, raceResults],
+    queryFn: async () => {
+      const getDemoTop = () => {
         return [...demoConstructors]
-          .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
+          .map(c => {
+            const priceUpdate = constructorPrices[c.id];
+            const currentSeasonPts = priceUpdate?.totalPoints ?? getConstructorSeasonPoints(c.id, raceResults);
+            return {
+              ...c,
+              price: priceUpdate?.currentPrice ?? c.price,
+              previousPrice: priceUpdate?.previousPrice ?? c.previousPrice,
+              currentSeasonPoints: currentSeasonPts,
+            };
+          })
+          .sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0))
           .slice(0, limit);
+      };
+
+      if (isDemoMode) {
+        return getDemoTop();
       }
-      return constructorService.getTopConstructors(limit);
+      const firestoreData = await constructorService.getTopConstructors(limit);
+      if (firestoreData.length === 0) {
+        return getDemoTop();
+      }
+      return firestoreData;
     },
   });
 }

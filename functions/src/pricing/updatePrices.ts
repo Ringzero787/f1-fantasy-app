@@ -29,6 +29,12 @@ const PRICE_CHANGES = {
 
 const MIN_PRICE = 50;
 
+// DNF Price Penalty Configuration
+// DNF on lap 1 = -10 price points
+// DNF on final lap = -1 price point
+const DNF_PRICE_PENALTY_MAX = 10;
+const DNF_PRICE_PENALTY_MIN = 1;
+
 type PerformanceTier = 'great' | 'good' | 'poor' | 'terrible';
 
 /**
@@ -62,6 +68,32 @@ function calculatePriceChange(points: number, currentPrice: number): number {
 }
 
 /**
+ * Calculate DNF price penalty based on which lap the driver retired
+ * - DNF on lap 1 = maximum penalty (10 points)
+ * - DNF on final lap = minimum penalty (1 point)
+ * - Linear scale between based on race progress
+ *
+ * @param dnfLap - The lap number where the driver retired
+ * @param totalLaps - Total laps in the race
+ * @returns Price penalty (positive number to be subtracted from price)
+ */
+function calculateDnfPricePenalty(dnfLap: number, totalLaps: number): number {
+  // Safety checks
+  if (totalLaps <= 1) return DNF_PRICE_PENALTY_MIN;
+  if (dnfLap <= 0) return DNF_PRICE_PENALTY_MAX;
+  if (dnfLap >= totalLaps) return DNF_PRICE_PENALTY_MIN;
+
+  // Calculate penalty: early DNF = higher penalty
+  // Formula: min + (max - min) * (1 - progress)
+  // where progress = (dnfLap - 1) / (totalLaps - 1)
+  const progress = (dnfLap - 1) / (totalLaps - 1);
+  const penalty = DNF_PRICE_PENALTY_MIN +
+    (DNF_PRICE_PENALTY_MAX - DNF_PRICE_PENALTY_MIN) * (1 - progress);
+
+  return Math.ceil(penalty); // Round up to ensure at least 1 point penalty
+}
+
+/**
  * Triggered after race results are processed
  * Updates driver and constructor prices based on performance
  */
@@ -90,6 +122,22 @@ export const onRaceCompleted = functions.firestore
     const driverPoints = new Map<string, number>();
     const constructorPoints = new Map<string, number>();
 
+    // Track DNF penalties: driverId -> { dnfLap, totalLaps }
+    const driverDnfPenalties = new Map<string, number>();
+    const constructorDnfPenalties = new Map<string, number>();
+
+    // Determine total laps from race data or from results
+    // Use the max laps completed by any finished driver, or fall back to race.totalLaps
+    let totalLaps = afterData.totalLaps || 0;
+    if (!totalLaps) {
+      // Find max laps from finished drivers
+      for (const result of results.raceResults) {
+        if (result.status === 'finished' && result.laps > totalLaps) {
+          totalLaps = result.laps;
+        }
+      }
+    }
+
     // Calculate race points
     for (const result of results.raceResults) {
       let points = 0;
@@ -106,6 +154,17 @@ export const onRaceCompleted = functions.firestore
         if (result.fastestLap && result.position <= 10) {
           points += 1;
         }
+      } else if (result.status === 'dnf' && totalLaps > 0) {
+        // Calculate DNF price penalty for driver
+        const dnfLap = result.laps || 1; // Default to lap 1 if not specified
+        const dnfPenalty = calculateDnfPricePenalty(dnfLap, totalLaps);
+        driverDnfPenalties.set(result.driverId, dnfPenalty);
+
+        // Also penalize the constructor for DNF (add to existing penalty)
+        const existingConstructorPenalty = constructorDnfPenalties.get(result.constructorId) || 0;
+        constructorDnfPenalties.set(result.constructorId, existingConstructorPenalty + dnfPenalty);
+
+        console.log(`DNF penalty for ${result.driverId}: -${dnfPenalty} (lap ${dnfLap}/${totalLaps})`);
       }
 
       driverPoints.set(result.driverId, (driverPoints.get(result.driverId) || 0) + points);
@@ -134,8 +193,16 @@ export const onRaceCompleted = functions.firestore
     for (const driverDoc of driversSnapshot.docs) {
       const driver = driverDoc.data();
       const points = driverPoints.get(driverDoc.id) || 0;
-      const priceChange = calculatePriceChange(points, driver.price);
-      const newPrice = Math.max(MIN_PRICE, driver.price + priceChange);
+
+      // Calculate performance-based price change
+      const performanceChange = calculatePriceChange(points, driver.price);
+
+      // Get DNF penalty if applicable
+      const dnfPenalty = driverDnfPenalties.get(driverDoc.id) || 0;
+
+      // Total price change: performance change minus DNF penalty
+      const totalPriceChange = performanceChange - dnfPenalty;
+      const newPrice = Math.max(MIN_PRICE, driver.price + totalPriceChange);
 
       driverBatch.update(driverDoc.ref, {
         previousPrice: driver.price,
@@ -144,13 +211,15 @@ export const onRaceCompleted = functions.firestore
         tier: newPrice >= TIER_A_THRESHOLD ? 'A' : 'B',
       });
 
-      // Record price history
+      // Record price history with DNF penalty info
       await db.collection('priceHistory').add({
         entityId: driverDoc.id,
         entityType: 'driver',
         price: newPrice,
         previousPrice: driver.price,
-        change: priceChange,
+        change: totalPriceChange,
+        performanceChange,
+        dnfPenalty,
         points,
         raceId,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -169,8 +238,16 @@ export const onRaceCompleted = functions.firestore
     for (const constructorDoc of constructorsSnapshot.docs) {
       const constructor = constructorDoc.data();
       const points = constructorPoints.get(constructorDoc.id) || 0;
-      const priceChange = calculatePriceChange(points, constructor.price);
-      const newPrice = Math.max(MIN_PRICE, constructor.price + priceChange);
+
+      // Calculate performance-based price change
+      const performanceChange = calculatePriceChange(points, constructor.price);
+
+      // Get DNF penalty if applicable (sum of both drivers' DNF penalties)
+      const dnfPenalty = constructorDnfPenalties.get(constructorDoc.id) || 0;
+
+      // Total price change: performance change minus DNF penalty
+      const totalPriceChange = performanceChange - dnfPenalty;
+      const newPrice = Math.max(MIN_PRICE, constructor.price + totalPriceChange);
 
       constructorBatch.update(constructorDoc.ref, {
         previousPrice: constructor.price,
@@ -178,13 +255,15 @@ export const onRaceCompleted = functions.firestore
         fantasyPoints: admin.firestore.FieldValue.increment(points),
       });
 
-      // Record price history
+      // Record price history with DNF penalty info
       await db.collection('priceHistory').add({
         entityId: constructorDoc.id,
         entityType: 'constructor',
         price: newPrice,
         previousPrice: constructor.price,
-        change: priceChange,
+        change: totalPriceChange,
+        performanceChange,
+        dnfPenalty,
         points,
         raceId,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,35 +13,99 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../../src/hooks/useAuth';
 import { useLeagueStore } from '../../../../src/store/league.store';
+import { useTeamStore } from '../../../../src/store/team.store';
 import { useAvatarGeneration } from '../../../../src/hooks';
-import { Card, Loading, LeaderboardItem, Button, EmptyState, Avatar } from '../../../../src/components';
+import { Card, Loading, LeaderboardItem, Button, EmptyState, Avatar, AvatarPicker } from '../../../../src/components';
+import { saveAvatarUrl } from '../../../../src/services/avatarGeneration.service';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
+import type { LeagueMember } from '../../../../src/types';
 
 export default function LeagueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const {
     currentLeague,
-    members,
     isLoading,
     loadLeague,
-    loadLeagueMembers,
     leaveLeague,
   } = useLeagueStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const { generate: generateAvatar, regenerate: regenerateAvatar, isGenerating, isAvailable } = useAvatarGeneration({
     onSuccess: (url) => setAvatarUrl(url),
   });
 
-  useEffect(() => {
-    if (id) {
-      loadLeague(id);
-      loadLeagueMembers(id);
+  // Subscribe to team store for real-time updates
+  const { userTeams, currentTeam, loadUserTeams } = useTeamStore();
+
+  // Compute league members directly from team data (more reliable than async loading)
+  const members = useMemo((): LeagueMember[] => {
+    if (!id || !currentLeague || !user) return [];
+
+    // Build comprehensive list of teams
+    const teamMap = new Map<string, typeof currentTeam>();
+    userTeams.forEach(team => {
+      if (team) teamMap.set(team.id, team);
+    });
+    if (currentTeam) {
+      teamMap.set(currentTeam.id, currentTeam);
     }
-  }, [id]);
+
+    // Filter teams in this league
+    const teamsInLeague = Array.from(teamMap.values()).filter(
+      team => team && team.leagueId === id
+    );
+
+    // Create member entries
+    const memberList: LeagueMember[] = teamsInLeague.map((team) => ({
+      id: team.id,
+      leagueId: id,
+      userId: team.userId,
+      displayName: team.userId === user.id ? (user.displayName || 'Demo User') : 'League Member',
+      teamName: team.name,
+      teamAvatarUrl: team.avatarUrl,
+      role: team.userId === currentLeague.ownerId ? 'owner' as const : 'member' as const,
+      totalPoints: team.totalPoints || 0,
+      rank: 0,
+      joinedAt: team.createdAt,
+    }));
+
+    // Sort by points and assign ranks
+    memberList.sort((a, b) => b.totalPoints - a.totalPoints);
+    memberList.forEach((member, index) => {
+      member.rank = index + 1;
+    });
+
+    // Fallback: if no teams found but user is owner, show them
+    if (memberList.length === 0 && currentLeague.ownerId === user.id) {
+      const userTeam = currentTeam?.userId === user.id ? currentTeam :
+                       userTeams.find(t => t.userId === user.id);
+      memberList.push({
+        id: user.id,
+        leagueId: id,
+        userId: user.id,
+        displayName: user.displayName || 'Demo User',
+        teamName: userTeam?.name,
+        teamAvatarUrl: userTeam?.avatarUrl,
+        role: 'owner',
+        totalPoints: userTeam?.totalPoints || 0,
+        rank: 1,
+        joinedAt: new Date(),
+      });
+    }
+
+    return memberList;
+  }, [id, currentLeague, user, userTeams, currentTeam]);
+
+  useEffect(() => {
+    if (id && user) {
+      loadLeague(id);
+      loadUserTeams(user.id);
+    }
+  }, [id, user]);
 
   // Update avatar URL when league loads
   useEffect(() => {
@@ -59,10 +123,25 @@ export default function LeagueDetailScreen() {
     }
   };
 
+  const handleSelectLeagueAvatar = async (url: string) => {
+    if (!id) return;
+    const result = await saveAvatarUrl('league', id, url);
+    if (result.success && result.imageUrl) {
+      setAvatarUrl(result.imageUrl);
+    }
+  };
+
+  const handleOpenAvatarPicker = () => {
+    if (currentLeague && currentLeague.ownerId === user?.id) {
+      setShowAvatarPicker(true);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
-    if (id) {
-      await Promise.all([loadLeague(id), loadLeagueMembers(id)]);
+    if (id && user) {
+      await loadLeague(id);
+      await loadUserTeams(user.id);
     }
     setRefreshing(false);
   };
@@ -109,13 +188,15 @@ export default function LeagueDetailScreen() {
 
   if (!currentLeague) {
     return (
-      <EmptyState
-        icon="alert-circle-outline"
-        title="League Not Found"
-        message="This league may have been deleted or you don't have access"
-        actionLabel="Go Back"
-        onAction={() => router.back()}
-      />
+      <View style={styles.emptyContainer}>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="League Not Found"
+          message="This league may have been deleted or you don't have access"
+          actionLabel="Go Back"
+          onAction={() => router.back()}
+        />
+      </View>
     );
   }
 
@@ -141,8 +222,8 @@ export default function LeagueDetailScreen() {
             variant="league"
             imageUrl={avatarUrl}
             isGenerating={isGenerating}
-            showGenerateButton={isOwner && isAvailable}
-            onGeneratePress={handleGenerateAvatar}
+            editable={isOwner}
+            onPress={handleOpenAvatarPicker}
           />
           <View style={styles.headerInfo}>
             <Text style={styles.leagueName}>{currentLeague.name}</Text>
@@ -205,7 +286,7 @@ export default function LeagueDetailScreen() {
       {/* Invite Code - Compact */}
       <TouchableOpacity style={styles.inviteRow} onPress={handleShareCode}>
         <View style={styles.inviteRowLeft}>
-          <Ionicons name="link-outline" size={18} color={COLORS.gray[500]} />
+          <Ionicons name="link-outline" size={18} color={COLORS.text.muted} />
           <Text style={styles.inviteRowLabel}>Invite Code:</Text>
           <Text style={styles.inviteRowCode}>{currentLeague.inviteCode}</Text>
         </View>
@@ -236,6 +317,21 @@ export default function LeagueDetailScreen() {
           />
         )}
       </View>
+
+      {/* Avatar Picker Modal */}
+      {currentLeague && id && (
+        <AvatarPicker
+          visible={showAvatarPicker}
+          onClose={() => setShowAvatarPicker(false)}
+          name={currentLeague.name}
+          type="league"
+          currentAvatarUrl={avatarUrl}
+          onSelectAvatar={handleSelectLeagueAvatar}
+          onGenerateAI={handleGenerateAvatar}
+          isGeneratingAI={isGenerating}
+          canGenerateAI={isAvailable}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -243,7 +339,12 @@ export default function LeagueDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
+  },
+
+  emptyContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -270,18 +371,18 @@ const styles = StyleSheet.create({
   leagueName: {
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   ownerText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
   description: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.md,
     lineHeight: 22,
   },
@@ -291,7 +392,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   stat: {
@@ -302,31 +403,31 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   statLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
   statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: COLORS.gray[200],
+    backgroundColor: COLORS.border.default,
   },
 
   inviteRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
     marginBottom: SPACING.lg,
   },
 
@@ -338,13 +439,13 @@ const styles = StyleSheet.create({
 
   inviteRowLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   inviteRowCode: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     letterSpacing: 2,
   },
 
@@ -367,13 +468,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.md,
   },
 
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
   },
 
@@ -386,7 +487,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,

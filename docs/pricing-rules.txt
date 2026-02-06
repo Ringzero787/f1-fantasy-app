@@ -1,0 +1,169 @@
+================================================================================
+F1 FANTASY - PRICING & SCORING RULES (V3)
+================================================================================
+
+Currency: Dollars ($)
+
+================================================================================
+INITIAL PRICE CALCULATION
+================================================================================
+
+Formula:
+  INITIAL_PRICE = (PREVIOUS_YEAR_TOTAL_POINTS / 24) * $10
+
+Parameters:
+  - RACES_PER_SEASON: 24
+  - SPRINTS_PER_SEASON: 4
+  - DOLLARS_PER_POINT: $10 per average point per race
+
+Example:
+  - Driver with 240 total points last season
+  - Average per race: 240 / 24 = 10 points per race
+  - Initial price: 10 * $10 = $100
+
+================================================================================
+DYNAMIC PRICE UPDATES
+================================================================================
+
+Prices update after each race based on a 5-race rolling average.
+
+Formula:
+  NEW_PRICE = ROLLING_AVG_POINTS * $10
+
+Parameters:
+  - ROLLING_WINDOW: 5 races
+  - MAX_CHANGE_PER_RACE: $25 (increased volatility!)
+  - MIN_PRICE: $3
+  - MAX_PRICE: $500
+
+================================================================================
+SPRINT WEEKEND ADJUSTMENT
+================================================================================
+
+Sprint weekends weighted at 0.75 to normalize higher scoring potential.
+
+  - Normal race max: 25 + 1 (fastest lap) = 26 points
+  - Sprint weekend max: 25 + 1 + 8 (sprint) = 34 points
+  - Weight of 0.75 normalizes this difference
+
+================================================================================
+CAPTAIN SYSTEM (Weekly Decision)
+================================================================================
+
+Each race weekend, choose 1 driver as Captain:
+  - Captain scores 2x points
+  - Must be selected before qualifying
+  - Creates weekly engagement
+
+Example:
+  - Verstappen scores 25 points as Captain = 50 fantasy points
+  - Same race without Captain = 25 fantasy points
+
+================================================================================
+STALE ROSTER PENALTY (Encourages Active Play)
+================================================================================
+
+Players who don't make transfers are penalized:
+
+  - THRESHOLD: 5 races without a transfer
+  - PENALTY: -5 points per race after threshold
+  - MAX PENALTY: -95 points (19 races × -5)
+
+Example:
+  - No transfers all season = -95 points penalty
+  - Transfer once every 5 races = no penalty
+
+================================================================================
+TRANSFER BONUSES (Rewards Smart Moves)
+================================================================================
+
+HOT HAND BONUS:
+  - New transfer scores 15+ points: +10 bonus
+  - New transfer finishes on podium: +15 bonus
+  - Only applies to the race immediately after transfer
+
+VALUE CAPTURE BONUS:
+  - Sell driver for profit: +5 points per $10 profit
+  - Example: Buy at $100, sell at $150 = +25 bonus points
+
+================================================================================
+POINTS REFERENCE
+================================================================================
+
+Race Points (Top 10):
+  1st: 25    6th: 8
+  2nd: 18    7th: 6
+  3rd: 15    8th: 4
+  4th: 12    9th: 2
+  5th: 10   10th: 1
+
+Sprint Points (Top 8):
+  1st: 8     5th: 4
+  2nd: 7     6th: 3
+  3rd: 6     7th: 2
+  4th: 5     8th: 1
+
+Bonus Points:
+  - Fastest Lap: +1 (if finished in top 10)
+  - Position Gained: +1 per position (grid vs finish)
+
+================================================================================
+TIER CLASSIFICATION
+================================================================================
+
+  A-TIER: Price > $200
+    - Larger price swings (+/- up to $25 per race)
+    - Premium drivers, higher risk/reward
+
+  B-TIER: Price <= $200
+    - Moderate price swings
+    - Budget-friendly options
+
+================================================================================
+TEAM BUDGET
+================================================================================
+
+  - Starting Budget: $1,000
+  - Team Composition: 5 drivers + 1 constructor
+  - Budget must cover all selections
+
+================================================================================
+STRATEGY SIMULATION RESULTS
+================================================================================
+
+Based on 10 simulated seasons:
+
+  STRATEGY              TOTAL PTS   GAP VS PREMIUM
+  ─────────────────────────────────────────────────
+  🔥 Form Chaser        2,484       +124 pts
+  🎯 Minimal Transfer   2,468       +108 pts
+  💎 Premium Stack      2,360       baseline
+  ⚖️ Balanced Mix       2,232       -128 pts
+
+KEY INSIGHT: Active management (making transfers) clearly outperforms
+             "set and forget" strategies by 100+ points per season.
+
+================================================================================
+CONFIGURATION SUMMARY
+================================================================================
+
+PARAMETER                 | VALUE  | DESCRIPTION
+--------------------------|--------|------------------------------------------
+RACES_PER_SEASON          | 24     | Total races in season
+SPRINTS_PER_SEASON        | 4      | Total sprint races in season
+DOLLARS_PER_POINT         | $10    | Dollars per avg point per race
+ROLLING_WINDOW            | 5      | Races used for rolling average
+SPRINT_WEIGHT             | 0.75   | Weight multiplier for sprint weekends
+MIN_PRICE                 | $3     | Minimum driver price
+MAX_PRICE                 | $500   | Maximum driver price
+MAX_CHANGE_PER_RACE       | $25    | Max price delta per race
+A_TIER_THRESHOLD          | $200   | Price threshold for A-tier
+STARTING_BUDGET           | $1,000 | Initial team budget
+CAPTAIN_MULTIPLIER        | 2.0    | Captain scores 2x
+STALE_ROSTER_THRESHOLD    | 5      | Races before penalty
+STALE_ROSTER_PENALTY      | 5      | Points lost per race
+HOT_HAND_BONUS            | 10     | Bonus for 15+ pts after transfer
+HOT_HAND_PODIUM_BONUS     | 15     | Bonus for podium after transfer
+VALUE_CAPTURE_RATE        | 5      | Pts per $10 profit on sale
+
+================================================================================

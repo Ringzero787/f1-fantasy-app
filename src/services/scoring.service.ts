@@ -7,6 +7,7 @@ import {
   DSQ_PENALTY,
   LOCK_BONUS,
 } from '../config/constants';
+import { PRICING_CONFIG } from '../config/pricing.config';
 import type {
   RaceResult,
   SprintResult,
@@ -16,6 +17,7 @@ import type {
   ScoreItem,
   FantasyDriver,
   FantasyConstructor,
+  FantasyTeam,
   ScoringRules,
 } from '../types';
 
@@ -209,6 +211,7 @@ export const scoringService = {
 
   /**
    * Calculate total driver score for a race weekend
+   * V3: Supports captain system (2x points) and hot hand bonus
    */
   calculateDriverScore(
     driverId: string,
@@ -216,7 +219,11 @@ export const scoringService = {
     raceResult: RaceResult | null,
     sprintResult: SprintResult | null,
     fantasyDriver: FantasyDriver,
-    rules: ScoringRules = DEFAULT_SCORING_RULES
+    rules: ScoringRules = DEFAULT_SCORING_RULES,
+    options: {
+      isCaptain?: boolean;
+      isNewTransfer?: boolean; // True if driver was purchased this race
+    } = {}
   ): DriverScore {
     const items: ScoreItem[] = [];
     let totalPoints = 0;
@@ -242,17 +249,28 @@ export const scoringService = {
     const lockBonus = lockCalc.bonus;
     items.push(...lockCalc.breakdown);
 
-    totalPoints = racePoints + sprintPoints + lockBonus;
+    // Base points before captain multiplier
+    const basePoints = racePoints + sprintPoints;
+    totalPoints = basePoints + lockBonus;
 
-    // Star driver bonus (20% extra points)
-    if (fantasyDriver.isStarDriver) {
-      const starBonus = Math.round((racePoints + sprintPoints) * 0.2); // 20% bonus
-      totalPoints += starBonus;
+    // V3: Captain bonus (2x points on race + sprint, not lock bonus)
+    if (options.isCaptain) {
+      const captainBonus = basePoints; // Double the base points (2x total = basePoints + basePoints)
+      totalPoints += captainBonus;
       items.push({
-        label: 'Star Driver Bonus',
-        points: starBonus,
-        description: '+20% points for star driver',
+        label: 'Captain Bonus',
+        points: captainBonus,
+        description: '2x points for captain',
       });
+    }
+
+    // V3: Hot Hand Bonus (for newly transferred drivers)
+    if (options.isNewTransfer && raceResult) {
+      const hotHandCalc = this.calculateHotHandBonus(raceResult.position, basePoints);
+      if (hotHandCalc.bonus > 0) {
+        totalPoints += hotHandCalc.bonus;
+        items.push(...hotHandCalc.breakdown);
+      }
     }
 
     return {
@@ -274,7 +292,85 @@ export const scoringService = {
   },
 
   /**
+   * V3: Calculate Hot Hand Bonus for newly transferred drivers
+   * +10 bonus if driver scores 15+ points
+   * +15 bonus if driver finishes on podium (P1, P2, P3)
+   */
+  calculateHotHandBonus(racePosition: number, totalPoints: number): { bonus: number; breakdown: ScoreItem[] } {
+    const breakdown: ScoreItem[] = [];
+    let bonus = 0;
+
+    // Podium bonus (takes precedence)
+    if (racePosition >= 1 && racePosition <= 3) {
+      bonus = PRICING_CONFIG.HOT_HAND_PODIUM_BONUS;
+      breakdown.push({
+        label: 'Hot Hand Podium',
+        points: bonus,
+        description: `New transfer finished P${racePosition}!`,
+      });
+    }
+    // 15+ points bonus
+    else if (totalPoints >= 15) {
+      bonus = PRICING_CONFIG.HOT_HAND_BONUS;
+      breakdown.push({
+        label: 'Hot Hand Bonus',
+        points: bonus,
+        description: `New transfer scored ${totalPoints}+ points!`,
+      });
+    }
+
+    return { bonus, breakdown };
+  },
+
+  /**
+   * V3: Calculate Stale Roster Penalty
+   * After STALE_ROSTER_THRESHOLD races without a transfer, lose STALE_ROSTER_PENALTY points per race
+   */
+  calculateStaleRosterPenalty(racesSinceTransfer: number): { penalty: number; breakdown: ScoreItem[] } {
+    const breakdown: ScoreItem[] = [];
+    let penalty = 0;
+
+    if (racesSinceTransfer > PRICING_CONFIG.STALE_ROSTER_THRESHOLD) {
+      const racesOverThreshold = racesSinceTransfer - PRICING_CONFIG.STALE_ROSTER_THRESHOLD;
+      penalty = racesOverThreshold * PRICING_CONFIG.STALE_ROSTER_PENALTY;
+      breakdown.push({
+        label: 'Stale Roster Penalty',
+        points: -penalty,
+        description: `${racesOverThreshold} race(s) past transfer threshold`,
+      });
+    }
+
+    return { penalty, breakdown };
+  },
+
+  /**
+   * V3: Calculate Value Capture Bonus when selling a driver for profit
+   * Earn PRICING_CONFIG.VALUE_CAPTURE_RATE points per $10 profit
+   */
+  calculateValueCaptureBonus(purchasePrice: number, salePrice: number): { bonus: number; breakdown: ScoreItem[] } {
+    const breakdown: ScoreItem[] = [];
+    let bonus = 0;
+
+    const profit = salePrice - purchasePrice;
+    if (profit > 0) {
+      // Points per $10 profit
+      const profitUnits = Math.floor(profit / 10);
+      bonus = profitUnits * PRICING_CONFIG.VALUE_CAPTURE_RATE;
+      if (bonus > 0) {
+        breakdown.push({
+          label: 'Value Capture Bonus',
+          points: bonus,
+          description: `$${profit} profit on sale`,
+        });
+      }
+    }
+
+    return { bonus, breakdown };
+  },
+
+  /**
    * Calculate constructor score (sum of both drivers)
+   * V3: Removed star constructor bonus (captain system is driver-only)
    */
   calculateConstructorScore(
     constructorId: string,
@@ -286,16 +382,59 @@ export const scoringService = {
     const lockCalc = this.calculateLockBonus(fantasyConstructor.racesHeld);
     const basePoints = driver1Score.totalPoints + driver2Score.totalPoints;
 
-    // Star constructor bonus (20%)
-    const starBonus = fantasyConstructor.isStarDriver ? Math.round(basePoints * 0.2) : 0;
-
     return {
       constructorId,
       raceId,
       driver1Points: driver1Score.totalPoints,
       driver2Points: driver2Score.totalPoints,
       lockBonus: lockCalc.bonus,
-      totalPoints: basePoints + lockCalc.bonus + starBonus,
+      totalPoints: basePoints + lockCalc.bonus,
+    };
+  },
+
+  /**
+   * V3: Calculate team points with all V3 bonuses and penalties
+   */
+  calculateTeamPointsV3(
+    team: FantasyTeam,
+    driverScores: DriverScore[],
+    constructorScore: ConstructorScore | null
+  ): { total: number; breakdown: ScoreBreakdown; staleRosterPenalty: number } {
+    const items: ScoreItem[] = [];
+    let total = 0;
+
+    // Add driver points
+    for (const score of driverScores) {
+      total += score.totalPoints;
+      items.push({
+        label: `Driver Points`,
+        points: score.totalPoints,
+        description: `Driver ID: ${score.driverId}`,
+      });
+    }
+
+    // Add constructor points
+    if (constructorScore) {
+      total += constructorScore.totalPoints;
+      items.push({
+        label: 'Constructor Points',
+        points: constructorScore.totalPoints,
+        description: `Constructor ID: ${constructorScore.constructorId}`,
+      });
+    }
+
+    // V3: Calculate stale roster penalty
+    const staleCalc = this.calculateStaleRosterPenalty(team.racesSinceTransfer || 0);
+    const staleRosterPenalty = staleCalc.penalty;
+    if (staleRosterPenalty > 0) {
+      total -= staleRosterPenalty;
+      items.push(...staleCalc.breakdown);
+    }
+
+    return {
+      total,
+      breakdown: { items, total },
+      staleRosterPenalty,
     };
   },
 

@@ -1,5 +1,7 @@
 import React from 'react';
-import { Stack } from 'expo-router';
+import { TouchableOpacity } from 'react-native';
+import { Stack, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/config/constants';
 
 export default function CalendarLayout() {
@@ -7,9 +9,9 @@ export default function CalendarLayout() {
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: COLORS.primary,
+          backgroundColor: COLORS.surface,
         },
-        headerTintColor: COLORS.white,
+        headerTintColor: COLORS.text.primary,
         headerTitleStyle: {
           fontWeight: '600',
         },
@@ -25,6 +27,14 @@ export default function CalendarLayout() {
         name="[id]"
         options={{
           title: 'Race Details',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.navigate('/calendar')}
+              style={{ marginRight: 16 }}
+            >
+              <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+            </TouchableOpacity>
+          ),
         }}
       />
     </Stack>

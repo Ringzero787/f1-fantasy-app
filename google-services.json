@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "95743527146-9ifafbg1ipcutcblsnac5rlp1ltuubsl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.f1fantasy.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
           "client_id": "95743527146-ij73ua8s6oobhnedfarv14ao0flf0j3t.apps.googleusercontent.com",
           "client_type": 3
         }

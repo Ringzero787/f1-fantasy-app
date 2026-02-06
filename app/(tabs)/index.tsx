@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,18 @@ export default function HomeScreen() {
   const { leagues, loadUserLeagues } = useLeagueStore();
 
   const [refreshing, setRefreshing] = React.useState(false);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  // Sort drivers based on current sort order (using 2026 points)
+  const sortedTopDrivers = useMemo(() => {
+    if (!topDrivers) return [];
+    const sorted = [...topDrivers].sort((a, b) => {
+      const pointsA = a.currentSeasonPoints || 0;
+      const pointsB = b.currentSeasonPoints || 0;
+      return sortOrder === 'desc' ? pointsB - pointsA : pointsA - pointsB;
+    });
+    return sorted.slice(0, 3);
+  }, [topDrivers, sortOrder]);
 
   // Load user's leagues and teams on mount
   React.useEffect(() => {
@@ -42,8 +54,10 @@ export default function HomeScreen() {
   // Calculate team stats
   const teamDriverCount = currentTeam?.drivers.length || 0;
   const hasConstructor = !!currentTeam?.constructor;
-  const starDriver = currentTeam?.drivers.find(d => d.isStarDriver);
-  const starConstructor = currentTeam?.constructor?.isStarDriver ? currentTeam.constructor : null;
+  // V3: Captain system - find the captain driver
+  const captainDriver = currentTeam?.captainDriverId
+    ? currentTeam.drivers.find(d => d.driverId === currentTeam.captainDriverId)
+    : null;
   const isTeamComplete = teamDriverCount === TEAM_SIZE && hasConstructor;
 
   // Calculate actual stats
@@ -124,42 +138,6 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/my-team')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              <Ionicons name="people" size={24} color={COLORS.primary} />
-            </View>
-            <Text style={styles.actionText}>Manage Teams</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/leagues')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: COLORS.accent + '20' }]}>
-              <Ionicons name="trophy" size={24} color={COLORS.accent} />
-            </View>
-            <Text style={styles.actionText}>Join League</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/market')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: COLORS.warning + '20' }]}>
-              <Ionicons name="trending-up" size={24} color={COLORS.warning} />
-            </View>
-            <Text style={styles.actionText}>View Market</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
       {/* My Teams Summary */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -198,7 +176,7 @@ export default function HomeScreen() {
                 {team.leagueId ? (
                   <Ionicons name="trophy" size={12} color={currentTeam?.id === team.id ? COLORS.white : COLORS.accent} />
                 ) : (
-                  <Ionicons name="person" size={12} color={currentTeam?.id === team.id ? COLORS.white : COLORS.gray[400]} />
+                  <Ionicons name="person" size={12} color={currentTeam?.id === team.id ? COLORS.white : COLORS.text.muted} />
                 )}
               </TouchableOpacity>
             ))}
@@ -238,7 +216,7 @@ export default function HomeScreen() {
             {/* Drivers Row */}
             <View style={styles.teamRow}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="people" size={18} color={teamDriverCount < TEAM_SIZE ? COLORS.warning : COLORS.gray[500]} />
+                <Ionicons name="people" size={18} color={teamDriverCount < TEAM_SIZE ? COLORS.warning : COLORS.text.muted} />
                 <Text style={styles.teamRowLabel}>Drivers</Text>
               </View>
               <Text style={[styles.teamRowValue, teamDriverCount < TEAM_SIZE && styles.incompleteValue]}>
@@ -249,7 +227,7 @@ export default function HomeScreen() {
             {/* Constructor Row */}
             <View style={styles.teamRow}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="car-sport" size={18} color={!hasConstructor ? COLORS.warning : COLORS.gray[500]} />
+                <Ionicons name="car-sport" size={18} color={!hasConstructor ? COLORS.warning : COLORS.text.muted} />
                 <Text style={styles.teamRowLabel}>Constructor</Text>
               </View>
               <Text style={[styles.teamRowValue, !hasConstructor && styles.incompleteValue]}>
@@ -257,14 +235,14 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            {/* Star Selection Row */}
+            {/* Captain Selection Row */}
             <View style={styles.teamRow}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="star" size={18} color={COLORS.gold} />
-                <Text style={styles.teamRowLabel}>Star (+50%)</Text>
+                <Ionicons name="shield" size={18} color={COLORS.primary} />
+                <Text style={styles.teamRowLabel}>Captain (2x)</Text>
               </View>
-              <Text style={[styles.teamRowValue, (starDriver || starConstructor) && styles.starText]}>
-                {starDriver?.name || starConstructor?.name || 'Not selected'}
+              <Text style={[styles.teamRowValue, captainDriver && styles.captainText]}>
+                {captainDriver?.name || 'Not selected'}
               </Text>
             </View>
 
@@ -293,7 +271,7 @@ export default function HomeScreen() {
         ) : (
           <Card variant="outlined" padding="large">
             <View style={styles.noTeamContainer}>
-              <Ionicons name="people-outline" size={32} color={COLORS.gray[400]} />
+              <Ionicons name="people-outline" size={32} color={COLORS.text.muted} />
               <Text style={styles.noTeamText}>No team created yet</Text>
               <TouchableOpacity
                 style={styles.createTeamButton}
@@ -306,10 +284,61 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {/* Quick Actions */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/my-team')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.success + '20' }]}>
+              <Ionicons name="people" size={24} color={COLORS.success} />
+            </View>
+            <Text style={styles.actionText}>Manage Teams</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/leagues')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.accent + '20' }]}>
+              <Ionicons name="trophy" size={24} color={COLORS.accent} />
+            </View>
+            <Text style={styles.actionText}>Join League</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/market')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.warning + '20' }]}>
+              <Ionicons name="trending-up" size={24} color={COLORS.warning} />
+            </View>
+            <Text style={styles.actionText}>View Market</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Top Performers */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Top Performers</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>2026 Top Performers</Text>
+            <TouchableOpacity
+              style={styles.sortToggle}
+              onPress={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            >
+              <Ionicons
+                name={sortOrder === 'desc' ? 'arrow-down' : 'arrow-up'}
+                size={16}
+                color={COLORS.primary}
+              />
+              <Text style={styles.sortToggleText}>
+                {sortOrder === 'desc' ? 'High' : 'Low'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity onPress={() => router.push('/market')}>
             <Text style={styles.seeAllText}>See All</Text>
           </TouchableOpacity>
@@ -317,13 +346,15 @@ export default function HomeScreen() {
 
         {driversLoading ? (
           <Loading />
-        ) : topDrivers && topDrivers.length > 0 ? (
-          topDrivers.slice(0, 3).map((driver) => (
+        ) : sortedTopDrivers && sortedTopDrivers.length > 0 ? (
+          sortedTopDrivers.map((driver) => (
             <DriverCard
               key={driver.id}
               driver={driver}
               compact
               showPrice
+              showPoints
+              isTopTen={true}
               onPress={() => router.push(`/market/${driver.id}`)}
             />
           ))
@@ -361,13 +392,13 @@ const styles = StyleSheet.create({
 
   greeting: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
   },
 
   userName: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   leagueBadge: {
@@ -402,12 +433,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   statLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: SPACING.xs,
   },
 
@@ -430,11 +461,32 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
 
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
-    marginBottom: SPACING.md,
+    color: COLORS.text.primary,
+  },
+
+  sortToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary + '15',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.full,
+  },
+
+  sortToggleText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
 
   seeAllText: {
@@ -452,11 +504,11 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: COLORS.border.default,
   },
 
   actionIcon: {
@@ -471,13 +523,13 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '500',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
     textAlign: 'center',
   },
 
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
   },
 
@@ -493,13 +545,13 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
+    borderBottomColor: COLORS.border.default,
   },
 
   teamName: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     flex: 1,
   },
 
@@ -509,7 +561,7 @@ const styles = StyleSheet.create({
 
   budgetLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   budgetValue: {
@@ -524,7 +576,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
+    borderBottomColor: COLORS.border.default,
   },
 
   teamRowLast: {
@@ -540,17 +592,17 @@ const styles = StyleSheet.create({
 
   teamRowLabel: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
   },
 
   teamRowValue: {
     fontSize: FONTS.sizes.md,
     fontWeight: '500',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
-  starText: {
-    color: COLORS.gold,
+  captainText: {
+    color: COLORS.primary,
   },
 
   pointsValue: {
@@ -574,9 +626,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   teamSelectorItemActive: {
@@ -587,7 +639,7 @@ const styles = StyleSheet.create({
   teamSelectorText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '500',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
     maxWidth: 100,
   },
 
@@ -614,7 +666,7 @@ const styles = StyleSheet.create({
 
   noTeamText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   createTeamButton: {

@@ -25,6 +25,9 @@ export default function LeagueAdminScreen() {
     deleteLeague,
     removeMember,
     inviteMemberByEmail,
+    promoteToCoAdmin,
+    demoteFromCoAdmin,
+    isUserAdmin,
   } = useLeagueStore();
 
   const [inviteEmail, setInviteEmail] = useState('');
@@ -33,16 +36,18 @@ export default function LeagueAdminScreen() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
-  // Check if user is owner
+  // Check if user is owner or admin
   const isOwner = currentLeague?.ownerId === user?.id;
+  const isAdmin = user ? isUserAdmin(user.id) : false;
+  const isCoAdmin = isAdmin && !isOwner;
 
-  if (!isOwner) {
+  if (!isAdmin) {
     return (
       <View style={styles.accessDenied}>
-        <Ionicons name="lock-closed" size={48} color={COLORS.gray[400]} />
+        <Ionicons name="lock-closed" size={48} color={COLORS.text.muted} />
         <Text style={styles.accessDeniedTitle}>Access Denied</Text>
         <Text style={styles.accessDeniedText}>
-          Only league owners can access this page.
+          Only league owners and co-admins can access this page.
         </Text>
         <Button
           title="Go Back"
@@ -128,8 +133,59 @@ export default function LeagueAdminScreen() {
     }
   };
 
+  const handlePromoteToCoAdmin = (memberId: string, memberName: string) => {
+    Alert.alert(
+      'Promote to Co-Admin',
+      `Are you sure you want to make ${memberName} a co-admin? They will be able to manage members and invite others.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Promote',
+          onPress: async () => {
+            try {
+              await promoteToCoAdmin(currentLeague.id, memberId);
+              Alert.alert('Success', `${memberName} is now a co-admin`);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to promote member');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDemoteFromCoAdmin = (memberId: string, memberName: string) => {
+    Alert.alert(
+      'Remove Co-Admin',
+      `Are you sure you want to remove ${memberName} as co-admin? They will become a regular member.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await demoteFromCoAdmin(currentLeague.id, memberId);
+              Alert.alert('Success', `${memberName} is no longer a co-admin`);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to demote co-admin');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Filter out the owner from removable members
   const removableMembers = members.filter((m) => m.userId !== currentLeague.ownerId);
+
+  // Get co-admins and regular members separately
+  const coAdminIds = currentLeague.coAdminIds || [];
+  const coAdmins = members.filter((m) => coAdminIds.includes(m.userId));
+  const regularMembers = removableMembers.filter((m) => !coAdminIds.includes(m.userId));
+
+  // Only show co-admin section if there are other members (not just the owner)
+  const hasOtherMembers = removableMembers.length > 0;
 
   // Calculate stats
   const totalPoints = members.reduce((sum, m) => sum + m.totalPoints, 0);
@@ -182,7 +238,7 @@ export default function LeagueAdminScreen() {
             <TextInput
               style={styles.emailInput}
               placeholder="Enter email address"
-              placeholderTextColor={COLORS.gray[400]}
+              placeholderTextColor={COLORS.text.muted}
               value={inviteEmail}
               onChangeText={setInviteEmail}
               keyboardType="email-address"
@@ -198,7 +254,7 @@ export default function LeagueAdminScreen() {
                 <Text style={styles.inviteButtonText}>...</Text>
               ) : (
                 <>
-                  <Ionicons name="paper-plane" size={16} color={COLORS.white} />
+                  <Ionicons name="paper-plane" size={16} color={COLORS.card} />
                   <Text style={styles.inviteButtonText}>Invite</Text>
                 </>
               )}
@@ -210,24 +266,102 @@ export default function LeagueAdminScreen() {
         </Card>
       </View>
 
+      {/* Co-Admin Management Section - Only show for owner and when there are other members */}
+      {isOwner && hasOtherMembers && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Co-Admins</Text>
+          <Card variant="outlined" style={styles.coAdminCard}>
+            <View style={styles.coAdminInfo}>
+              <Ionicons name="shield-checkmark" size={20} color={COLORS.primary} />
+              <Text style={styles.coAdminInfoText}>
+                Co-admins can invite members, remove members, and manage the league alongside you.
+              </Text>
+            </View>
+
+            {/* Current Co-Admins */}
+            {coAdmins.length > 0 && (
+              <View style={styles.coAdminList}>
+                <Text style={styles.coAdminSubtitle}>Current Co-Admins</Text>
+                {coAdmins.map((member) => (
+                  <View key={member.userId} style={styles.coAdminRow}>
+                    <View style={styles.memberInfo}>
+                      <View style={styles.memberNameRow}>
+                        <Text style={styles.memberName}>{member.displayName}</Text>
+                        <View style={styles.adminBadge}>
+                          <Text style={styles.adminBadgeText}>Admin</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.memberPoints}>{member.totalPoints} pts • Rank #{member.rank}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.demoteButton}
+                      onPress={() => handleDemoteFromCoAdmin(member.userId, member.displayName)}
+                    >
+                      <Ionicons name="arrow-down-circle" size={20} color={COLORS.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Promotable Members */}
+            {regularMembers.length > 0 && (
+              <View style={styles.promotableList}>
+                <Text style={styles.coAdminSubtitle}>Promote to Co-Admin</Text>
+                {regularMembers.map((member) => (
+                  <View key={member.userId} style={styles.promotableRow}>
+                    <View style={styles.memberInfo}>
+                      <Text style={styles.memberName}>{member.displayName}</Text>
+                      <Text style={styles.memberPoints}>{member.totalPoints} pts • Rank #{member.rank}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.promoteButton}
+                      onPress={() => handlePromoteToCoAdmin(member.userId, member.displayName)}
+                    >
+                      <Ionicons name="arrow-up-circle" size={20} color={COLORS.success} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {regularMembers.length === 0 && coAdmins.length === 0 && (
+              <Text style={styles.noMembersText}>
+                Invite members to your league to promote them as co-admins
+              </Text>
+            )}
+          </Card>
+        </View>
+      )}
+
       {/* Manage Members Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Manage Members</Text>
         {removableMembers.length > 0 ? (
-          removableMembers.map((member) => (
-            <View key={member.userId} style={styles.memberRow}>
-              <View style={styles.memberInfo}>
-                <Text style={styles.memberName}>{member.displayName}</Text>
-                <Text style={styles.memberPoints}>{member.totalPoints} pts • Rank #{member.rank}</Text>
+          removableMembers.map((member) => {
+            const isMemberCoAdmin = coAdminIds.includes(member.userId);
+            return (
+              <View key={member.userId} style={styles.memberRow}>
+                <View style={styles.memberInfo}>
+                  <View style={styles.memberNameRow}>
+                    <Text style={styles.memberName}>{member.displayName}</Text>
+                    {isMemberCoAdmin && (
+                      <View style={styles.adminBadge}>
+                        <Text style={styles.adminBadgeText}>Admin</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.memberPoints}>{member.totalPoints} pts • Rank #{member.rank}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => handleRemoveMember(member.userId, member.displayName)}
+                >
+                  <Ionicons name="person-remove" size={18} color={COLORS.error} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => handleRemoveMember(member.userId, member.displayName)}
-              >
-                <Ionicons name="person-remove" size={18} color={COLORS.error} />
-              </TouchableOpacity>
-            </View>
-          ))
+            );
+          })
         ) : (
           <Card variant="outlined" padding="large">
             <Text style={styles.emptyText}>No other members to manage</Text>
@@ -235,7 +369,8 @@ export default function LeagueAdminScreen() {
         )}
       </View>
 
-      {/* Danger Zone */}
+      {/* Danger Zone - Only for owner */}
+      {isOwner && (
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, styles.dangerTitle]}>Danger Zone</Text>
         <Card variant="outlined" style={styles.dangerCard}>
@@ -272,7 +407,7 @@ export default function LeagueAdminScreen() {
                 value={deleteConfirmText}
                 onChangeText={setDeleteConfirmText}
                 placeholder="Type league name here"
-                placeholderTextColor={COLORS.gray[400]}
+                placeholderTextColor={COLORS.text.muted}
               />
               <View style={styles.deleteConfirmButtons}>
                 <Button
@@ -295,6 +430,7 @@ export default function LeagueAdminScreen() {
           )}
         </Card>
       </View>
+      )}
     </ScrollView>
   );
 }
@@ -302,7 +438,7 @@ export default function LeagueAdminScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -326,7 +462,7 @@ const styles = StyleSheet.create({
   leagueName: {
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.lg,
   },
 
@@ -337,7 +473,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.sm,
   },
 
@@ -357,12 +493,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   statLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
@@ -373,13 +509,13 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
     gap: SPACING.xs,
   },
 
   topScorerText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
   },
 
   inviteRow: {
@@ -389,12 +525,12 @@ const styles = StyleSheet.create({
 
   emailInput: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   inviteButton: {
@@ -418,19 +554,19 @@ const styles = StyleSheet.create({
 
   inviteHint: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: SPACING.sm,
   },
 
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   memberInfo: {
@@ -440,12 +576,12 @@ const styles = StyleSheet.create({
   memberName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   memberPoints: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
@@ -453,6 +589,93 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
     backgroundColor: COLORS.error + '15',
     borderRadius: BORDER_RADIUS.sm,
+  },
+
+  // Co-Admin styles
+  coAdminCard: {
+    padding: SPACING.md,
+  },
+
+  coAdminInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
+  },
+
+  coAdminInfoText: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+    lineHeight: 20,
+  },
+
+  coAdminList: {
+    marginBottom: SPACING.md,
+  },
+
+  promotableList: {
+    marginTop: SPACING.sm,
+  },
+
+  coAdminSubtitle: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.sm,
+  },
+
+  coAdminRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
+  },
+
+  promotableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
+  },
+
+  memberNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+
+  adminBadge: {
+    backgroundColor: COLORS.primary + '20',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+
+  adminBadgeText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  promoteButton: {
+    padding: SPACING.xs,
+  },
+
+  demoteButton: {
+    padding: SPACING.xs,
+  },
+
+  noMembersText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 
   dangerTitle: {
@@ -476,12 +699,12 @@ const styles = StyleSheet.create({
   dangerLabel: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   dangerDescription: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 4,
   },
 
@@ -502,30 +725,30 @@ const styles = StyleSheet.create({
 
   deleteConfirmText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     textAlign: 'center',
     marginTop: SPACING.sm,
   },
 
   deleteConfirmPrompt: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
     marginTop: SPACING.md,
   },
 
   leagueNameHighlight: {
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   deleteConfirmInput: {
     width: '100%',
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginTop: SPACING.sm,
     textAlign: 'center',
     borderWidth: 1,
@@ -550,7 +773,7 @@ const styles = StyleSheet.create({
 
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
   },
 
@@ -559,19 +782,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.xl,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   accessDeniedTitle: {
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginTop: SPACING.md,
   },
 
   accessDeniedText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
     marginTop: SPACING.sm,
   },

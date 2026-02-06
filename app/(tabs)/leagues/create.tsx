@@ -26,14 +26,15 @@ const CURRENT_SEASON_ID = '2026';
 
 export default function CreateLeagueScreen() {
   const { user } = useAuth();
-  const { createLeague, isLoading, error, clearRecentlyCreatedLeague } = useLeagueStore();
+  const { createLeague, isLoading, error, clearRecentlyCreatedLeague, clearError } = useLeagueStore();
   const { createTeam, userTeams, loadUserTeams, assignTeamToLeague } = useTeamStore();
 
   // Find solo teams (teams not assigned to any league)
   const soloTeams = userTeams.filter(team => !team.leagueId);
 
-  // Load user teams on mount
+  // Load user teams on mount and clear any previous errors
   useEffect(() => {
+    clearError();
     if (user) {
       loadUserTeams(user.id);
     }
@@ -50,6 +51,7 @@ export default function CreateLeagueScreen() {
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
   const [createdLeague, setCreatedLeague] = useState<League | null>(null);
   const [isAssigningTeam, setIsAssigningTeam] = useState(false);
+  const [modalSoloTeams, setModalSoloTeams] = useState<FantasyTeam[]>([]);
 
   const handleCreate = async () => {
     setValidationError(null);
@@ -90,10 +92,15 @@ export default function CreateLeagueScreen() {
         // Clear the recently created league flag
         clearRecentlyCreatedLeague();
 
+        // Get fresh teams from store to check for solo teams
+        const freshTeams = useTeamStore.getState().userTeams;
+        const freshSoloTeams = freshTeams.filter(team => !team.leagueId);
+
         // Check if user has existing solo teams
-        if (soloTeams.length > 0) {
-          // Store the created league and show team selection modal
+        if (freshSoloTeams.length > 0) {
+          // Store the created league and solo teams, then show team selection modal
           setCreatedLeague(league);
+          setModalSoloTeams(freshSoloTeams);
           setShowTeamSelectModal(true);
           setIsCreating(false);
         } else {
@@ -224,8 +231,8 @@ export default function CreateLeagueScreen() {
             <Switch
               value={isPublic}
               onValueChange={setIsPublic}
-              trackColor={{ false: COLORS.gray[300], true: COLORS.primary + '60' }}
-              thumbColor={isPublic ? COLORS.primary : COLORS.gray[100]}
+              trackColor={{ false: COLORS.border.default, true: COLORS.primary + '60' }}
+              thumbColor={isPublic ? COLORS.primary : COLORS.surface}
             />
           </View>
 
@@ -274,7 +281,7 @@ export default function CreateLeagueScreen() {
             </Text>
 
             <ScrollView style={styles.teamList} showsVerticalScrollIndicator={false}>
-              {soloTeams.map((team) => (
+              {modalSoloTeams.map((team) => (
                 <TouchableOpacity
                   key={team.id}
                   style={styles.teamOption}
@@ -293,7 +300,7 @@ export default function CreateLeagueScreen() {
                       {team.drivers.length}/5 drivers • {team.totalPoints} pts
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -326,7 +333,7 @@ export default function CreateLeagueScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
   },
 
   keyboardView: {
@@ -340,13 +347,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.xs,
   },
 
   description: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.xl,
   },
 
@@ -378,17 +385,17 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   switchDescription: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
   infoBox: {
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.surface,
     padding: SPACING.md,
     borderRadius: 8,
     marginBottom: SPACING.xl,
@@ -397,13 +404,13 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[800],
+    color: COLORS.text.primary,
     marginBottom: SPACING.xs,
   },
 
   infoText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     lineHeight: 20,
   },
 
@@ -421,7 +428,7 @@ const styles = StyleSheet.create({
   },
 
   modalContent: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.xl,
     width: '100%',
@@ -440,12 +447,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   modalSubtitle: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
@@ -458,11 +465,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   teamOptionInfo: {
@@ -473,12 +480,12 @@ const styles = StyleSheet.create({
   teamOptionName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   teamOptionDetails: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
@@ -491,12 +498,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: COLORS.gray[200],
+    backgroundColor: COLORS.border.default,
   },
 
   dividerText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[400],
+    color: COLORS.text.muted,
     paddingHorizontal: SPACING.md,
   },
 
@@ -521,7 +528,7 @@ const styles = StyleSheet.create({
 
   assigningText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
     marginTop: SPACING.md,
     fontStyle: 'italic',

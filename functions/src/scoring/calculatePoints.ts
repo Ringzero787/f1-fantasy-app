@@ -4,7 +4,6 @@ import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
 // Points allocation
-#const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 const RACE_POINTS = [45, 37, 33, 29, 26, 23, 20, 17, 14, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1];
 const FASTEST_LAP_BONUS = 1;
@@ -43,7 +42,8 @@ interface FantasyDriver {
   currentPrice: number;
   pointsScored: number;
   racesHeld: number;
-  isStarDriver: boolean; // Star driver gets 20% bonus points
+  // V3: purchasedAtRaceId tracks when driver was added for hot hand bonus
+  purchasedAtRaceId?: string;
 }
 
 interface FantasyConstructor {
@@ -53,7 +53,20 @@ interface FantasyConstructor {
   currentPrice: number;
   pointsScored: number;
   racesHeld: number;
-  isStarDriver: boolean; // Constructor can also be star (+20% bonus)
+}
+
+interface FantasyTeam {
+  userId: string;
+  leagueId: string;
+  drivers: FantasyDriver[];
+  constructor: FantasyConstructor | null;
+  totalPoints: number;
+  budget: number;
+  // V3: Captain system - one driver gets 2x points
+  captainDriverId?: string;
+  // V3: Transfer tracking for stale roster penalty and hot hand bonus
+  lastTransferRaceId?: string;
+  racesSinceTransfer: number;
 }
 
 /**
@@ -89,27 +102,24 @@ function calculateLockBonus(racesHeld: number): number {
 
 /**
  * Calculate points for a driver based on race result
+ * V3: isCaptain gives 2x multiplier on all points
  */
 function calculateDriverPoints(
   result: RaceResult,
   sprintResult: SprintResult | null,
   racesHeld: number,
-  isStarDriver: boolean
+  isCaptain: boolean
 ): number {
   let points = 0;
 
   // Race points
-  let racePoints = 0;
   if (result.status === 'finished' && result.position <= RACE_POINTS.length) {
-    racePoints = RACE_POINTS[result.position - 1];
-    points += racePoints;
+    points += RACE_POINTS[result.position - 1];
   }
 
   // Sprint points
-  let sprintPoints = 0;
   if (sprintResult && sprintResult.status === 'finished' && sprintResult.position <= SPRINT_POINTS.length) {
-    sprintPoints = SPRINT_POINTS[sprintResult.position - 1];
-    points += sprintPoints;
+    points += SPRINT_POINTS[sprintResult.position - 1];
   }
 
   // Position gained bonus
@@ -131,10 +141,9 @@ function calculateDriverPoints(
   // Lock bonus
   points += calculateLockBonus(racesHeld);
 
-  // Star driver gets 20% bonus on race/sprint points
-  if (isStarDriver) {
-    const starBonus = Math.round((racePoints + sprintPoints) * 0.2);
-    points += starBonus;
+  // V3: Captain gets 2x multiplier on all points (including lock bonus)
+  if (isCaptain) {
+    points *= 2;
   }
 
   return points;
@@ -181,14 +190,20 @@ export const onRaceResultsUpdated = functions.firestore
     const pointsUpdates: { leagueId: string; userId: string; points: number }[] = [];
 
     for (const teamDoc of teamsSnapshot.docs) {
-      const team = teamDoc.data();
+      const team = teamDoc.data() as FantasyTeam;
       let teamPoints = 0;
+
+      // V3: Get captain driver ID for 2x multiplier
+      const captainDriverId = team.captainDriverId;
 
       // Calculate driver points
       const updatedDrivers: FantasyDriver[] = [];
-      for (const driver of team.drivers as FantasyDriver[]) {
+      for (const driver of team.drivers) {
         const raceResult = raceResultsMap.get(driver.driverId);
         const sprintResult = sprintResultsMap.get(driver.driverId) || null;
+
+        // V3: Check if this driver is the captain
+        const isCaptain = driver.driverId === captainDriverId;
 
         let driverPoints = 0;
         if (raceResult) {
@@ -196,7 +211,7 @@ export const onRaceResultsUpdated = functions.firestore
             raceResult,
             sprintResult,
             driver.racesHeld,
-            driver.isStarDriver
+            isCaptain
           );
         }
 
@@ -209,29 +224,21 @@ export const onRaceResultsUpdated = functions.firestore
         });
       }
 
-      // Calculate constructor points
+      // Calculate constructor points (V3: no star/captain bonus for constructors)
       let updatedConstructor: FantasyConstructor | null = null;
       if (team.constructor) {
-        const constructor = team.constructor as FantasyConstructor;
+        const constructor = team.constructor;
         let constructorPoints = 0;
-        let basePoints = 0;
 
-        // Constructor points = sum of both drivers' points
+        // Constructor points = sum of both drivers' race points
         const constructorDriverResults = raceResults.filter(
           (r) => r.constructorId === constructor.constructorId
         );
 
         for (const result of constructorDriverResults) {
           if (result.status === 'finished' && result.position <= RACE_POINTS.length) {
-            basePoints += RACE_POINTS[result.position - 1];
+            constructorPoints += RACE_POINTS[result.position - 1];
           }
-        }
-
-        constructorPoints = basePoints;
-
-        // Add star constructor bonus (20%)
-        if (constructor.isStarDriver) {
-          constructorPoints += Math.round(basePoints * 0.2);
         }
 
         // Add lock bonus for constructor
@@ -246,11 +253,20 @@ export const onRaceResultsUpdated = functions.firestore
         };
       }
 
+      // V3: Calculate stale roster penalty
+      const racesSinceTransfer = team.racesSinceTransfer || 0;
+      if (racesSinceTransfer > 5) {
+        const stalePenalty = (racesSinceTransfer - 5) * 5; // -5 points per race after 5 races
+        teamPoints -= stalePenalty;
+      }
+
       // Update team document
       batch.update(teamDoc.ref, {
         drivers: updatedDrivers,
         constructor: updatedConstructor,
         totalPoints: admin.firestore.FieldValue.increment(teamPoints),
+        // V3: Increment races since transfer
+        racesSinceTransfer: admin.firestore.FieldValue.increment(1),
       });
 
       pointsUpdates.push({

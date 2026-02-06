@@ -7,9 +7,9 @@ export default function MarketLayout() {
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: COLORS.primary,
+          backgroundColor: COLORS.surface,
         },
-        headerTintColor: COLORS.white,
+        headerTintColor: COLORS.text.primary,
         headerTitleStyle: {
           fontWeight: '600',
         },

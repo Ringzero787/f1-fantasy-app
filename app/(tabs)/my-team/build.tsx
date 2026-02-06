@@ -46,6 +46,13 @@ export default function BuildTeamScreen() {
 
   const remainingBudget = selectionState.remainingBudget;
 
+  // Calculate top 10 driver IDs by 2026 season points (highest points = top positions)
+  const topTenDriverIds = useMemo(() => {
+    if (!allDrivers) return new Set<string>();
+    const sorted = [...allDrivers].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));
+    return new Set(sorted.slice(0, 10).map(d => d.id));
+  }, [allDrivers]);
+
   // Filter drivers
   const availableDrivers = useMemo(() => {
     if (!allDrivers) return [];
@@ -124,13 +131,13 @@ export default function BuildTeamScreen() {
       {/* Fixed Budget Header */}
       <View style={styles.budgetHeader}>
         <View style={styles.budgetRow}>
-          <Text style={styles.budgetLabel}>Budget Remaining</Text>
+          <Text style={styles.budgetLabel}>Dollars Remaining</Text>
           <Text style={[
             styles.budgetAmount,
             remainingBudget < 100 && styles.budgetLow,
             remainingBudget < 0 && styles.budgetOver,
           ]}>
-            {remainingBudget} / {BUDGET} pts
+            ${remainingBudget} / ${BUDGET}
           </Text>
         </View>
         <BudgetBar remaining={remainingBudget} total={BUDGET} />
@@ -189,17 +196,17 @@ export default function BuildTeamScreen() {
 
       {/* Search */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={COLORS.gray[400]} />
+        <Ionicons name="search" size={20} color={COLORS.text.muted} />
         <TextInput
           style={styles.searchInput}
           placeholder={activeTab === 'drivers' ? 'Search drivers...' : 'Search constructors...'}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor={COLORS.gray[400]}
+          placeholderTextColor={COLORS.text.muted}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={COLORS.gray[400]} />
+            <Ionicons name="close-circle" size={20} color={COLORS.text.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -256,6 +263,7 @@ export default function BuildTeamScreen() {
                   showPrice
                   showPoints
                   isSelected={false}
+                  isTopTen={topTenDriverIds.has(item.id)}
                   onSelect={() => canSelect && handleDriverSelect(item)}
                 />
                 {!isAffordable && (
@@ -333,11 +341,11 @@ export default function BuildTeamScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   budgetHeader: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
@@ -355,7 +363,7 @@ const styles = StyleSheet.create({
   budgetLabel: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
   },
 
   budgetAmount: {
@@ -378,7 +386,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     paddingTop: SPACING.sm,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   summaryItem: {
@@ -387,14 +395,14 @@ const styles = StyleSheet.create({
 
   summaryLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginBottom: 2,
   },
 
   summaryValue: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   summaryComplete: {
@@ -419,7 +427,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: SPACING.md,
     marginTop: SPACING.md,
-    backgroundColor: COLORS.gray[200],
+    backgroundColor: COLORS.border.default,
     borderRadius: BORDER_RADIUS.md,
     padding: 4,
   },
@@ -432,12 +440,12 @@ const styles = StyleSheet.create({
   },
 
   activeTab: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
   },
 
   tabText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     fontWeight: '500',
   },
 
@@ -448,13 +456,13 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     marginHorizontal: SPACING.md,
     marginTop: SPACING.md,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   searchInput: {
@@ -462,7 +470,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   selectedSection: {
@@ -472,7 +480,7 @@ const styles = StyleSheet.create({
 
   selectedTitle: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.sm,
   },
 
@@ -537,7 +545,7 @@ const styles = StyleSheet.create({
 
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   confirmContainer: {
@@ -545,10 +553,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
+    borderTopColor: COLORS.border.default,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -561,6 +569,6 @@ const styles = StyleSheet.create({
 
   validationText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 });

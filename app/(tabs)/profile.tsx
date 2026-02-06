@@ -14,18 +14,25 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { useAuth } from '../../src/hooks/useAuth';
-import { useAvatarGeneration } from '../../src/hooks';
+import { useAvatarGeneration, useAutoSyncOpenF1 } from '../../src/hooks';
 import { authService } from '../../src/services/auth.service';
 import { Card } from '../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
 import { useAuthStore } from '../../src/store/auth.store';
+import { useAdminStore } from '../../src/store/admin.store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen() {
   const { user, isDemoMode, signOut } = useAuth();
   const setUser = useAuthStore((state) => state.setUser);
+  const resetAdminData = useAdminStore((state) => state.resetAllData);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.photoURL || null);
   const [isUploading, setIsUploading] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
+
+  // OpenF1 import functionality
+  const autoSyncOpenF1 = useAutoSyncOpenF1();
+  const [isImporting, setIsImporting] = useState(false);
 
   const { generate: generateAvatar, isGenerating, isAvailable: isAvatarGenerationAvailable } = useAvatarGeneration({
     onSuccess: async (url) => {
@@ -169,6 +176,67 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleResetData = () => {
+    Alert.alert(
+      'Reset All Data',
+      'This will clear all cached data including race results and price updates. The app will reload with fresh data. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear all AsyncStorage
+              await AsyncStorage.clear();
+              // Reset admin store
+              resetAdminData();
+              Alert.alert('Success', 'All data has been reset. Please restart the app.', [
+                { text: 'OK', onPress: () => router.replace('/(auth)/login') }
+              ]);
+            } catch (error) {
+              console.error('Reset error:', error);
+              Alert.alert('Error', 'Failed to reset data');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleImportOpenF1 = async () => {
+    Alert.alert(
+      'Import Race Results',
+      'This will fetch the latest race results from OpenF1 and import them into the app. This may update driver prices. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          onPress: async () => {
+            setIsImporting(true);
+            try {
+              const result = await autoSyncOpenF1.mutateAsync(2025);
+              Alert.alert(
+                'Import Successful',
+                `Imported ${result.driversImported} driver results.\n` +
+                `Race: ${result.raceImported ? 'Yes' : 'No'}\n` +
+                `Sprint: ${result.sprintImported ? 'Yes' : 'No'}`
+              );
+            } catch (error) {
+              console.error('OpenF1 import error:', error);
+              Alert.alert(
+                'Import Failed',
+                error instanceof Error ? error.message : 'Failed to import race results from OpenF1'
+              );
+            } finally {
+              setIsImporting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* User Info Card */}
@@ -252,7 +320,7 @@ export default function ProfileScreen() {
             <Ionicons name="swap-horizontal" size={22} color={COLORS.primary} />
             <Text style={styles.menuItemText}>Switch Account</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+          <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
         </TouchableOpacity>
 
         <View style={styles.menuDivider} />
@@ -264,7 +332,7 @@ export default function ProfileScreen() {
               Sign Out
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+          <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
         </TouchableOpacity>
       </Card>
 
@@ -273,7 +341,7 @@ export default function ProfileScreen() {
       <Card style={styles.menuCard}>
         <View style={styles.menuItem}>
           <View style={styles.menuItemLeft}>
-            <Ionicons name="information-circle-outline" size={22} color={COLORS.gray[600]} />
+            <Ionicons name="information-circle-outline" size={22} color={COLORS.text.secondary} />
             <Text style={styles.menuItemText}>Version</Text>
           </View>
           <Text style={styles.menuItemValue}>1.0.0</Text>
@@ -283,7 +351,7 @@ export default function ProfileScreen() {
 
         <View style={styles.menuItem}>
           <View style={styles.menuItemLeft}>
-            <Ionicons name="calendar-outline" size={22} color={COLORS.gray[600]} />
+            <Ionicons name="calendar-outline" size={22} color={COLORS.text.secondary} />
             <Text style={styles.menuItemText}>Season</Text>
           </View>
           <Text style={styles.menuItemValue}>2025</Text>
@@ -293,13 +361,50 @@ export default function ProfileScreen() {
 
         <View style={styles.menuItem}>
           <View style={styles.menuItemLeft}>
-            <Ionicons name="cloud-outline" size={22} color={COLORS.gray[600]} />
+            <Ionicons name="cloud-outline" size={22} color={COLORS.text.secondary} />
             <Text style={styles.menuItemText}>Mode</Text>
           </View>
           <Text style={styles.menuItemValue}>
             {isDemoMode ? 'Demo (Offline)' : 'Online'}
           </Text>
         </View>
+      </Card>
+
+      {/* Data Management */}
+      <Text style={styles.sectionTitle}>Data</Text>
+      <Card style={styles.menuCard}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={handleImportOpenF1}
+          disabled={isImporting}
+        >
+          <View style={styles.menuItemLeft}>
+            {isImporting ? (
+              <ActivityIndicator size="small" color={COLORS.success} />
+            ) : (
+              <Ionicons name="cloud-download-outline" size={22} color={COLORS.success} />
+            )}
+            <View>
+              <Text style={[styles.menuItemText, { color: COLORS.success }]}>
+                {isImporting ? 'Importing...' : 'Import from OpenF1'}
+              </Text>
+              <Text style={styles.menuItemSubtext}>Fetch latest race results</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
+        </TouchableOpacity>
+
+        <View style={styles.menuDivider} />
+
+        <TouchableOpacity style={styles.menuItem} onPress={handleResetData}>
+          <View style={styles.menuItemLeft}>
+            <Ionicons name="refresh-outline" size={22} color={COLORS.warning} />
+            <Text style={[styles.menuItemText, { color: COLORS.warning }]}>
+              Reset All Data
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
+        </TouchableOpacity>
       </Card>
 
       {/* Debug Info for Demo Mode */}
@@ -322,7 +427,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -390,7 +495,7 @@ const styles = StyleSheet.create({
 
   tapToChange: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[400],
+    color: COLORS.text.muted,
     marginTop: SPACING.sm,
   },
 
@@ -413,19 +518,19 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.xs,
   },
 
   userEmail: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   sectionTitle: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: SPACING.sm,
@@ -453,28 +558,34 @@ const styles = StyleSheet.create({
 
   menuItemText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[800],
+    color: COLORS.text.primary,
   },
 
   menuItemValue: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
+  },
+
+  menuItemSubtext: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    marginTop: 2,
   },
 
   menuDivider: {
     height: 1,
-    backgroundColor: COLORS.gray[200],
+    backgroundColor: COLORS.border.default,
     marginHorizontal: SPACING.md,
   },
 
   debugCard: {
     padding: SPACING.md,
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.surface,
   },
 
   debugText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     fontFamily: 'monospace',
     marginBottom: SPACING.xs,
   },
@@ -492,7 +603,7 @@ const styles = StyleSheet.create({
   },
 
   optionsCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: BORDER_RADIUS.xl,
     borderTopRightRadius: BORDER_RADIUS.xl,
     padding: SPACING.lg,
@@ -502,7 +613,7 @@ const styles = StyleSheet.create({
   optionsTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
@@ -511,7 +622,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     gap: SPACING.md,
@@ -524,19 +635,19 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '500',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   optionSubtext: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
   cancelOption: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
     justifyContent: 'center',
     marginTop: SPACING.sm,
   },
@@ -544,7 +655,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '500',
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     textAlign: 'center',
     flex: 1,
   },

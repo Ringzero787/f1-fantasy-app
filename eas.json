@@ -5,12 +5,56 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyA2XPcAPkT0021fZrXwoKTJ8FKyg7B11Do",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "f1-app-18077.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "f1-app-18077",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "f1-app-18077.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "95743527146",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:95743527146:web:16cf5e86854787ca49af93",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "95743527146-ij73ua8s6oobhnedfarv14ao0flf0j3t.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "95743527146-6ubcfmuu64kkrgc58a5q6f9jf9ouukev.apps.googleusercontent.com"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "environment": "preview",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyA2XPcAPkT0021fZrXwoKTJ8FKyg7B11Do",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "f1-app-18077.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "f1-app-18077",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "f1-app-18077.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "95743527146",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:95743527146:web:16cf5e86854787ca49af93",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "95743527146-ij73ua8s6oobhnedfarv14ao0flf0j3t.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "95743527146-6ubcfmuu64kkrgc58a5q6f9jf9ouukev.apps.googleusercontent.com"
+      }
     },
-    "production": {}
+    "production": {
+      "environment": "production",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyA2XPcAPkT0021fZrXwoKTJ8FKyg7B11Do",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "f1-app-18077.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "f1-app-18077",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "f1-app-18077.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "95743527146",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:95743527146:web:16cf5e86854787ca49af93",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "95743527146-ij73ua8s6oobhnedfarv14ao0flf0j3t.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "95743527146-6ubcfmuu64kkrgc58a5q6f9jf9ouukev.apps.googleusercontent.com"
+      }
+    }
   },
   "submit": {
     "production": {}

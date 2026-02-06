@@ -59,7 +59,7 @@ export default function DriverDetailScreen() {
         <Text style={styles.teamName}>{driver.constructorName}</Text>
 
         <View style={styles.nationalityRow}>
-          <Ionicons name="flag-outline" size={16} color={COLORS.gray[500]} />
+          <Ionicons name="flag-outline" size={16} color={COLORS.text.muted} />
           <Text style={styles.nationality}>{driver.nationality}</Text>
         </View>
 
@@ -117,15 +117,9 @@ export default function DriverDetailScreen() {
         <Text style={styles.sectionTitle}>Statistics</Text>
         <Card variant="outlined">
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Fantasy Points</Text>
+            <Text style={styles.statLabel}>2026 Season Points</Text>
             <Text style={styles.statValue}>
-              {formatPoints(driver.fantasyPoints)}
-            </Text>
-          </View>
-          <View style={[styles.statRow, styles.statBorder]}>
-            <Text style={styles.statLabel}>Season Points (F1)</Text>
-            <Text style={styles.statValue}>
-              {formatPoints(driver.seasonPoints)}
+              {formatPoints(driver.currentSeasonPoints || 0)}
             </Text>
           </View>
           <View style={[styles.statRow, styles.statBorder]}>
@@ -168,7 +162,7 @@ export default function DriverDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -185,7 +179,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: BORDER_RADIUS.lg,
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.md,
@@ -194,19 +188,19 @@ const styles = StyleSheet.create({
   numberText: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[800],
+    color: COLORS.text.primary,
   },
 
   driverName: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     textAlign: 'center',
   },
 
   teamName: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginTop: SPACING.xs,
   },
 
@@ -219,7 +213,7 @@ const styles = StyleSheet.create({
 
   nationality: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   tierBadge: {
@@ -247,7 +241,7 @@ const styles = StyleSheet.create({
 
   priceLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginBottom: SPACING.xs,
   },
 
@@ -260,7 +254,7 @@ const styles = StyleSheet.create({
   priceValue: {
     fontSize: FONTS.sizes.xxxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   changeBadge: {
@@ -288,7 +282,7 @@ const styles = StyleSheet.create({
 
   priceDivider: {
     height: 1,
-    backgroundColor: COLORS.gray[200],
+    backgroundColor: COLORS.border.default,
     marginVertical: SPACING.md,
   },
 
@@ -303,13 +297,13 @@ const styles = StyleSheet.create({
 
   priceStatLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   priceStatValue: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginTop: 2,
   },
 
@@ -328,7 +322,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.md,
   },
 
@@ -340,28 +334,28 @@ const styles = StyleSheet.create({
 
   statBorder: {
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   statLabel: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
   },
 
   statValue: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   tierInfoText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     lineHeight: 22,
   },
 
   bold: {
     fontWeight: '600',
-    color: COLORS.gray[800],
+    color: COLORS.text.primary,
   },
 });

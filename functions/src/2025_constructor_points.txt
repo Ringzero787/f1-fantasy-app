@@ -1,0 +1,12 @@
+Constructor	
+McLaren	833
+Mercedes	469
+Red Bull Racing	451
+Ferrari	398
+Williams	137
+Racing Bulls	92
+Aston Martin	89
+Haas F1 Team	79
+Kick Sauber	70
+Alpine	22
+Cadillac 0

@@ -55,11 +55,11 @@ export default function SelectConstructorScreen() {
     [availableConstructors, remainingBudget]
   );
 
-  // Calculate constructor positions based on points (highest points = #1)
+  // Calculate constructor positions based on 2026 points (highest points = #1)
   const constructorPositions = useMemo(() => {
     if (!allConstructors) return new Map<string, number>();
 
-    const sorted = [...allConstructors].sort((a, b) => b.seasonPoints - a.seasonPoints);
+    const sorted = [...allConstructors].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));
     const positions = new Map<string, number>();
     sorted.forEach((c, index) => {
       positions.set(c.id, index + 1);
@@ -81,12 +81,12 @@ export default function SelectConstructorScreen() {
 
     // Best Value - highest points per cost
     const sortedByValue = [...available].sort((a, b) =>
-      (b.seasonPoints / b.price) - (a.seasonPoints / a.price)
+      ((b.currentSeasonPoints || 0) / b.price) - ((a.currentSeasonPoints || 0) / a.price)
     );
     const bestValue = sortedByValue[0];
     if (bestValue) {
       usedIds.add(bestValue.id);
-      const ppm = ((bestValue.seasonPoints / bestValue.price) * 100).toFixed(1);
+      const ppm = (((bestValue.currentSeasonPoints || 0) / bestValue.price) * 100).toFixed(1);
       recs.push({
         constructor: bestValue,
         tag: 'Best Value',
@@ -98,13 +98,13 @@ export default function SelectConstructorScreen() {
     // Top Performer - highest points overall
     const topPerformer = available
       .filter(c => !usedIds.has(c.id))
-      .sort((a, b) => b.seasonPoints - a.seasonPoints)[0];
-    if (topPerformer && topPerformer.seasonPoints > 0) {
+      .sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0))[0];
+    if (topPerformer && (topPerformer.currentSeasonPoints || 0) > 0) {
       usedIds.add(topPerformer.id);
       recs.push({
         constructor: topPerformer,
         tag: 'Top Performer',
-        reason: `${topPerformer.seasonPoints} pts this season`,
+        reason: `${topPerformer.currentSeasonPoints || 0} pts this season`,
         tagColor: COLORS.gold || COLORS.warning,
       });
     }
@@ -112,7 +112,7 @@ export default function SelectConstructorScreen() {
     // Budget Pick - leaves more for drivers
     const budgetPick = available
       .filter(c => !usedIds.has(c.id) && c.price <= remainingBudget * 0.7)
-      .sort((a, b) => b.seasonPoints - a.seasonPoints)[0];
+      .sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0))[0];
     if (budgetPick) {
       const savings = Math.round(remainingBudget - budgetPick.price);
       recs.push({
@@ -170,19 +170,19 @@ export default function SelectConstructorScreen() {
       {/* Budget Header - Fixed at top */}
       <View style={styles.budgetHeader}>
         <View style={styles.budgetRow}>
-          <Text style={styles.budgetTitle}>Budget Available</Text>
+          <Text style={styles.budgetTitle}>Dollars Available</Text>
           <Text style={[
             styles.budgetAmount,
             remainingBudget < 100 && styles.budgetLow,
             remainingBudget < 0 && styles.budgetOver,
           ]}>
-            {remainingBudget} pts
+            ${remainingBudget}
           </Text>
         </View>
         <BudgetBar remaining={remainingBudget} total={BUDGET} />
         {currentTeam?.constructor && (
           <Text style={styles.swapNote}>
-            Swapping {currentTeam.constructor.name} (+{currentConstructorPrice} returned)
+            Swapping {currentTeam.constructor.name} (+${currentConstructorPrice} returned)
           </Text>
         )}
       </View>
@@ -196,17 +196,17 @@ export default function SelectConstructorScreen() {
 
       {/* Search */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={COLORS.gray[400]} />
+        <Ionicons name="search" size={20} color={COLORS.text.muted} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search constructors..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor={COLORS.gray[400]}
+          placeholderTextColor={COLORS.text.muted}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={COLORS.gray[400]} />
+            <Ionicons name="close-circle" size={20} color={COLORS.text.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -340,11 +340,11 @@ export default function SelectConstructorScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   budgetHeader: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   budgetTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
   },
 
   budgetAmount: {
@@ -388,13 +388,13 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     marginHorizontal: SPACING.md,
     marginTop: SPACING.md,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   searchInput: {
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   filterInfo: {
@@ -415,15 +415,15 @@ const styles = StyleSheet.create({
 
   filterText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   recsContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.sm,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
+    borderBottomColor: COLORS.border.default,
   },
 
   recsHeader: {
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   recsTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   recsScroll: {
@@ -453,11 +453,11 @@ const styles = StyleSheet.create({
 
   recCard: {
     width: 150,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[100],
+    borderColor: COLORS.border.default,
     marginRight: SPACING.sm,
   },
 
@@ -477,13 +477,13 @@ const styles = StyleSheet.create({
   recName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: 2,
   },
 
   recReason: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginBottom: SPACING.sm,
   },
 
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
 
   recPriceLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginLeft: 2,
   },
 
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
 
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   confirmContainer: {
@@ -566,10 +566,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
+    borderTopColor: COLORS.border.default,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
   selectedName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   selectedPrice: {
