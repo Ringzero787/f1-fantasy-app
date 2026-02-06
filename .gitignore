@@ -45,8 +45,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # Secrets
-# google-services.json  # Included for EAS build - contains no secrets (just project IDs)
+google-services.json
 GoogleService-Info.plist
+**/client_secret*.json
 *.keystore
 *.jks
 credentials.json
