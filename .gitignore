@@ -52,6 +52,9 @@ GoogleService-Info.plist
 credentials.json
 scripts/serviceAccountKey.json
 serviceAccountKey.json
+functions/serviceAccountKey.json
+firebase/*.json
+**/firebase-adminsdk*.json
 
 # Windows artifacts
 nul
