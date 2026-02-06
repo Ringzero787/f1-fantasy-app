@@ -407,6 +407,19 @@ export default function CreateTeamScreen() {
             autoFocus
           />
 
+          {/* Quick Action - Auto Create at the top for easy access */}
+          <Button
+            title={dataLoading ? "Loading data..." : "⚡ Auto Create Optimized Team"}
+            onPress={handleCreateRecommended}
+            loading={isCreatingRecommended}
+            disabled={(isLoading && !isCreatingRecommended) || dataLoading || !teamName.trim()}
+            fullWidth
+            style={styles.quickActionButton}
+          />
+          <Text style={styles.quickActionHint}>
+            One tap to create a balanced team within budget
+          </Text>
+
           {/* Pre-selected League Banner (from league creation flow) */}
           {hasPreselectedLeague && selectedLeague && (
             <View style={styles.preselectedLeagueBanner}>
@@ -742,31 +755,17 @@ export default function CreateTeamScreen() {
             </View>
           </View>
 
-          <Text style={styles.hintText}>
-            Create your team and add drivers from the My Team tab, or let us pick a random balanced team for you.
-          </Text>
-
           <Button
-            title="Create Team"
+            title="Create Empty Team"
             onPress={handleCreate}
             loading={isLoading && !isCreatingRecommended}
             disabled={isCreatingRecommended}
-            fullWidth
-            style={styles.button}
-          />
-
-          <Button
-            title={dataLoading ? "Loading data..." : "Auto Create Optimized Team"}
-            onPress={handleCreateRecommended}
-            loading={isCreatingRecommended}
-            disabled={(isLoading && !isCreatingRecommended) || dataLoading}
             variant="outline"
             fullWidth
             style={styles.button}
           />
-
           <Text style={styles.recommendedHint}>
-            Random team picks a mix of drivers and a constructor within your dollar limit.
+            Create an empty team and add drivers manually
           </Text>
 
           <Button
@@ -1218,6 +1217,19 @@ const styles = StyleSheet.create({
 
   button: {
     marginBottom: SPACING.md,
+  },
+
+  quickActionButton: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
+    backgroundColor: COLORS.success,
+  },
+
+  quickActionHint: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
   },
 
   recommendedHint: {
