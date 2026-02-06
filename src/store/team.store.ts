@@ -1168,9 +1168,9 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
-    // V3 Rule: Drivers with price over CAPTAIN_MAX_PRICE cannot be captain
+    // V3 Rule: Drivers with price over CAPTAIN_MAX_PRICE cannot be ace
     if (driver.currentPrice > PRICING_CONFIG.CAPTAIN_MAX_PRICE) {
-      set({ error: `Drivers with price over $${PRICING_CONFIG.CAPTAIN_MAX_PRICE} cannot be captain` });
+      set({ error: `Drivers over $${PRICING_CONFIG.CAPTAIN_MAX_PRICE} cannot be your Ace` });
       return;
     }
 
@@ -1188,12 +1188,12 @@ export const useTeamStore = create<TeamState>()(
       // Sync updated team to Firebase in background
       syncTeamToFirebase(updatedTeam, 'setCaptain');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to set captain';
+      const message = error instanceof Error ? error.message : 'Failed to set Ace';
       set({ error: message, isLoading: false });
     }
   },
 
-  // V3: Clear captain selection
+  // V3: Clear ace selection
   clearCaptain: async () => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
     const { currentTeam } = get();
@@ -1228,7 +1228,7 @@ export const useTeamStore = create<TeamState>()(
       // Sync updated team to Firebase in background
       syncTeamToFirebase(updatedTeam, 'clearCaptain');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to clear captain';
+      const message = error instanceof Error ? error.message : 'Failed to clear Ace';
       set({ error: message, isLoading: false });
     }
   },

@@ -257,7 +257,7 @@ export default function EditTeamScreen() {
                   disabled={!currentTeam.lockStatus.canModify || isLoading}
                 >
                   <Ionicons
-                    name={isCaptain ? 'shield' : 'shield-outline'}
+                    name={isCaptain ? 'diamond' : 'diamond-outline'}
                     size={16}
                     color={isCaptain ? COLORS.white : COLORS.primary}
                   />
@@ -265,7 +265,7 @@ export default function EditTeamScreen() {
                     styles.actionButtonText,
                     isCaptain && styles.captainActiveText,
                   ]}>
-                    {isCaptain ? 'Captain (2x)' : 'Set Captain'}
+                    {isCaptain ? 'Ace (2x)' : 'Set Ace'}
                   </Text>
                 </TouchableOpacity>
 

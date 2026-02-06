@@ -235,11 +235,11 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            {/* Captain Selection Row */}
+            {/* Ace Selection Row */}
             <View style={styles.teamRow}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="shield" size={18} color={COLORS.primary} />
-                <Text style={styles.teamRowLabel}>Captain (2x)</Text>
+                <Ionicons name="diamond" size={18} color={COLORS.primary} />
+                <Text style={styles.teamRowLabel}>Ace (2x)</Text>
               </View>
               <Text style={[styles.teamRowValue, captainDriver && styles.captainText]}>
                 {captainDriver?.name || 'Not selected'}

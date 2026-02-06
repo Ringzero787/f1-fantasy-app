@@ -339,12 +339,12 @@ export default function MyTeamScreen() {
     );
   };
 
-  // V3: Set captain driver (any driver can be captain, gets 2x points)
+  // V3: Set ace driver (any driver can be ace, gets 2x points)
   const handleSetCaptain = async (driverId: string) => {
     try {
       await setCaptain(driverId);
     } catch (err) {
-      Alert.alert('Error', 'Failed to set captain');
+      Alert.alert('Error', 'Failed to set Ace');
     }
   };
 
@@ -352,7 +352,7 @@ export default function MyTeamScreen() {
     try {
       await clearCaptain();
     } catch (err) {
-      Alert.alert('Error', 'Failed to clear captain');
+      Alert.alert('Error', 'Failed to clear Ace');
     }
   };
 
@@ -527,8 +527,8 @@ export default function MyTeamScreen() {
       // Update the team store directly
       setCurrentTeam(updatedTeam);
 
-      // V3: Don't auto-set captain - user chooses each race weekend
-      Alert.alert('Success', `Your recommended team has been built! ($${totalCost} spent, $${BUDGET - totalCost} remaining)\n\nSelect a captain before qualifying.`);
+      // V3: Don't auto-set ace - user chooses each race weekend
+      Alert.alert('Success', `Your recommended team has been built! ($${totalCost} spent, $${BUDGET - totalCost} remaining)\n\nSelect an Ace before qualifying.`);
     } catch (err) {
       console.error('Build recommended team error:', err);
       Alert.alert('Error', 'Failed to build recommended team. Please try again.');
@@ -751,14 +751,14 @@ export default function MyTeamScreen() {
         </View>
       </View>
 
-      {/* V3: Captain Reminder Note */}
+      {/* V3: Ace Reminder Note */}
       {currentTeam &&
        !currentTeam.captainDriverId &&
        driversCount > 0 && (
         <View style={styles.starReminderNote}>
-          <Ionicons name="shield-outline" size={16} color={COLORS.primary} />
+          <Ionicons name="diamond-outline" size={16} color={COLORS.primary} />
           <Text style={styles.starReminderText}>
-            Select a Captain (drivers under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE} only) to earn 2x points this race weekend!
+            Select an Ace (drivers under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE} only) to earn 2x points this race weekend!
           </Text>
         </View>
       )}
@@ -812,11 +812,11 @@ export default function MyTeamScreen() {
                   </View>
                   <View style={styles.driverCodeRow}>
                     <Text style={styles.driverTeam}>{driver.shortName}</Text>
-                    {/* V3: Captain icon inline with driver code */}
-                    {/* V3 Rule: Only drivers with price <= CAPTAIN_MAX_PRICE can be captain */}
+                    {/* V3: Ace icon inline with driver code */}
+                    {/* V3 Rule: Only drivers with price <= CAPTAIN_MAX_PRICE can be ace */}
                     {currentTeam?.captainDriverId === driver.driverId && (
                       <View style={styles.captainBadgeInline}>
-                        <Ionicons name="shield" size={12} color={COLORS.white} />
+                        <Ionicons name="diamond" size={12} color={COLORS.white} />
                       </View>
                     )}
                     {currentTeam?.captainDriverId !== driver.driverId &&
@@ -826,7 +826,7 @@ export default function MyTeamScreen() {
                         style={styles.captainIconButton}
                         onPress={() => handleSetCaptain(driver.driverId)}
                       >
-                        <Ionicons name="shield-outline" size={16} color={COLORS.primary} />
+                        <Ionicons name="diamond-outline" size={16} color={COLORS.primary} />
                       </TouchableOpacity>
                     )}
                   </View>
