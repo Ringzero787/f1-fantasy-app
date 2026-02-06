@@ -380,7 +380,8 @@ export const scoringService = {
     fantasyConstructor: FantasyConstructor
   ): ConstructorScore {
     const lockCalc = this.calculateLockBonus(fantasyConstructor.racesHeld);
-    const basePoints = driver1Score.totalPoints + driver2Score.totalPoints;
+    // Constructor gets average of both drivers' points (divided by 2)
+    const basePoints = Math.floor((driver1Score.totalPoints + driver2Score.totalPoints) / 2);
 
     return {
       constructorId,
