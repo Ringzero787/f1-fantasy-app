@@ -795,7 +795,15 @@ export default function MyTeamScreen() {
         )}
 
         {currentTeam?.drivers && currentTeam.drivers.length > 0 ? (
-          [...currentTeam.drivers].sort((a, b) => b.currentPrice - a.currentPrice).map((driver) => (
+          [...currentTeam.drivers]
+            .map(driver => {
+              // Look up live market price from allDrivers
+              const marketDriver = allDrivers?.find(d => d.id === driver.driverId);
+              const livePrice = marketDriver?.price ?? driver.currentPrice;
+              return { ...driver, livePrice, marketDriver };
+            })
+            .sort((a, b) => b.livePrice - a.livePrice)
+            .map((driver) => (
             <Card
               key={driver.driverId}
               variant="outlined"
@@ -806,7 +814,7 @@ export default function MyTeamScreen() {
                 <View style={styles.driverMain}>
                   <View style={styles.driverNameRow}>
                     <Text style={styles.driverNumber}>
-                      #{allDrivers?.find(d => d.id === driver.driverId)?.number || ''}
+                      #{driver.marketDriver?.number || ''}
                     </Text>
                     <Text style={styles.driverName}>{driver.name}</Text>
                   </View>
@@ -822,7 +830,7 @@ export default function MyTeamScreen() {
                     )}
                     {currentTeam?.captainDriverId !== driver.driverId &&
                      currentTeam?.lockStatus.canModify &&
-                     driver.currentPrice <= PRICING_CONFIG.CAPTAIN_MAX_PRICE && (
+                     driver.livePrice <= PRICING_CONFIG.CAPTAIN_MAX_PRICE && (
                       <TouchableOpacity
                         style={styles.aceIconButton}
                         onPress={() => handleSetCaptain(driver.driverId)}
@@ -846,28 +854,28 @@ export default function MyTeamScreen() {
                       <View style={styles.currentValueRow}>
                         <Text style={[
                           styles.currentValueLabel,
-                          driver.currentPrice > driver.purchasePrice && styles.priceUp,
-                          driver.currentPrice < driver.purchasePrice && styles.priceDown,
+                          driver.livePrice > driver.purchasePrice && styles.priceUp,
+                          driver.livePrice < driver.purchasePrice && styles.priceDown,
                         ]}>Now: </Text>
                         <Text style={[
                           styles.currentValue,
-                          driver.currentPrice > driver.purchasePrice && styles.priceUp,
-                          driver.currentPrice < driver.purchasePrice && styles.priceDown,
+                          driver.livePrice > driver.purchasePrice && styles.priceUp,
+                          driver.livePrice < driver.purchasePrice && styles.priceDown,
                         ]}>
-                          ${driver.currentPrice}
+                          ${driver.livePrice}
                         </Text>
-                        {driver.currentPrice !== driver.purchasePrice && (
+                        {driver.livePrice !== driver.purchasePrice && (
                           <View style={[
                             styles.profitBadge,
-                            driver.currentPrice > driver.purchasePrice ? styles.profitUp : styles.profitDown,
+                            driver.livePrice > driver.purchasePrice ? styles.profitUp : styles.profitDown,
                           ]}>
                             <Ionicons
-                              name={driver.currentPrice > driver.purchasePrice ? 'arrow-up' : 'arrow-down'}
+                              name={driver.livePrice > driver.purchasePrice ? 'arrow-up' : 'arrow-down'}
                               size={10}
                               color={COLORS.white}
                             />
                             <Text style={styles.profitText}>
-                              {Math.abs(driver.currentPrice - driver.purchasePrice)}
+                              {Math.abs(driver.livePrice - driver.purchasePrice)}
                             </Text>
                           </View>
                         )}
@@ -944,50 +952,55 @@ export default function MyTeamScreen() {
           </TouchableOpacity>
         )}
 
-        {currentTeam?.constructor ? (
+        {currentTeam?.constructor ? (() => {
+          // Look up live market price from allConstructors
+          const marketConstructor = allConstructors?.find(c => c.id === currentTeam.constructor!.constructorId);
+          const livePrice = marketConstructor?.price ?? currentTeam.constructor.currentPrice;
+          const constructor = currentTeam.constructor;
+          return (
           <Card variant="outlined" padding="small" style={styles.constructorItem}>
             <View style={styles.constructorInfo}>
               <View style={styles.constructorMain}>
                 <Text style={styles.constructorName}>
-                  {currentTeam.constructor.name}
+                  {constructor.name}
                 </Text>
                 {/* V3: Constructors don't have captain option - only drivers */}
               </View>
               <View style={styles.constructorActions}>
                 <View style={styles.constructorStats}>
                   <Text style={styles.constructorPoints}>
-                    {formatPoints(currentTeam.constructor.pointsScored)} pts
+                    {formatPoints(constructor.pointsScored)} pts
                   </Text>
                   {/* Purchase price and current value with profit/loss */}
                   <View style={styles.priceComparison}>
                     <Text style={styles.purchasePrice}>
-                      Paid: ${currentTeam.constructor.purchasePrice}
+                      Paid: ${constructor.purchasePrice}
                     </Text>
                     <View style={styles.currentValueRow}>
                       <Text style={[
                         styles.currentValueLabel,
-                        currentTeam.constructor.currentPrice > currentTeam.constructor.purchasePrice && styles.priceUp,
-                        currentTeam.constructor.currentPrice < currentTeam.constructor.purchasePrice && styles.priceDown,
+                        livePrice > constructor.purchasePrice && styles.priceUp,
+                        livePrice < constructor.purchasePrice && styles.priceDown,
                       ]}>Now: </Text>
                       <Text style={[
                         styles.currentValue,
-                        currentTeam.constructor.currentPrice > currentTeam.constructor.purchasePrice && styles.priceUp,
-                        currentTeam.constructor.currentPrice < currentTeam.constructor.purchasePrice && styles.priceDown,
+                        livePrice > constructor.purchasePrice && styles.priceUp,
+                        livePrice < constructor.purchasePrice && styles.priceDown,
                       ]}>
-                        ${currentTeam.constructor.currentPrice}
+                        ${livePrice}
                       </Text>
-                      {currentTeam.constructor.currentPrice !== currentTeam.constructor.purchasePrice && (
+                      {livePrice !== constructor.purchasePrice && (
                         <View style={[
                           styles.profitBadge,
-                          currentTeam.constructor.currentPrice > currentTeam.constructor.purchasePrice ? styles.profitUp : styles.profitDown,
+                          livePrice > constructor.purchasePrice ? styles.profitUp : styles.profitDown,
                         ]}>
                           <Ionicons
-                            name={currentTeam.constructor.currentPrice > currentTeam.constructor.purchasePrice ? 'arrow-up' : 'arrow-down'}
+                            name={livePrice > constructor.purchasePrice ? 'arrow-up' : 'arrow-down'}
                             size={10}
                             color={COLORS.white}
                           />
                           <Text style={styles.profitText}>
-                            {Math.abs(currentTeam.constructor.currentPrice - currentTeam.constructor.purchasePrice)}
+                            {Math.abs(livePrice - constructor.purchasePrice)}
                           </Text>
                         </View>
                       )}
@@ -1005,13 +1018,14 @@ export default function MyTeamScreen() {
                 )}
               </View>
             </View>
-            {currentTeam.constructor.racesHeld > 0 && (
+            {constructor.racesHeld > 0 && (
               <Text style={styles.lockBonusCompact}>
-                +{currentTeam.constructor.racesHeld} race lock
+                +{constructor.racesHeld} race lock
               </Text>
             )}
           </Card>
-        ) : (
+          );
+        })() : (
           <Card variant="outlined" padding="large">
             <Text style={styles.emptyText}>
               No constructor selected. Add a constructor to your team.
