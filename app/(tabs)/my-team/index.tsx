@@ -47,6 +47,44 @@ interface SwapRecommendation {
   canAfford: boolean;
 }
 
+// Loyalty bonus calculation helper
+function calculateLoyaltyBonus(racesHeld: number): { bonus: number; tier: 'none' | 'bronze' | 'silver' | 'gold' } {
+  if (racesHeld === 0) return { bonus: 0, tier: 'none' };
+
+  let bonus = 0;
+  // 1-3 races: +1 per race
+  const tier1Races = Math.min(racesHeld, 3);
+  bonus += tier1Races * 1;
+
+  // 4-6 races: +2 per race
+  if (racesHeld > 3) {
+    const tier2Races = Math.min(racesHeld - 3, 3);
+    bonus += tier2Races * 2;
+  }
+
+  // 7+ races: +3 per race
+  if (racesHeld > 6) {
+    const tier3Races = racesHeld - 6;
+    bonus += tier3Races * 3;
+  }
+
+  // Determine tier based on races held
+  let tier: 'none' | 'bronze' | 'silver' | 'gold' = 'none';
+  if (racesHeld >= 7) tier = 'gold';
+  else if (racesHeld >= 4) tier = 'silver';
+  else if (racesHeld >= 1) tier = 'bronze';
+
+  return { bonus, tier };
+}
+
+// Tier colors
+const LOYALTY_COLORS = {
+  none: COLORS.gray[600],
+  bronze: '#CD7F32',
+  silver: '#C0C0C0',
+  gold: COLORS.gold,
+};
+
 export default function MyTeamScreen() {
   const { user } = useAuth();
   const { currentTeam, userTeams, isLoading, error, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setCaptain, clearCaptain, selectTeam, recalculateAllTeamsPoints, swapDriver, addDriver, setConstructor, setCurrentTeam } = useTeamStore();
@@ -65,6 +103,8 @@ export default function MyTeamScreen() {
   const [teamAvatarUrl, setTeamAvatarUrl] = useState<string | null>(null);
   const [isBuildingRecommended, setIsBuildingRecommended] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showLoyaltyInfoModal, setShowLoyaltyInfoModal] = useState(false);
+  const [selectedLoyaltyInfo, setSelectedLoyaltyInfo] = useState<{ name: string; racesHeld: number; bonus: number } | null>(null);
 
   const { generate: generateAvatar, regenerate: regenerateAvatar, isGenerating: isGeneratingAvatar, isAvailable: isAvatarAvailable } = useAvatarGeneration({
     onSuccess: (url) => setTeamAvatarUrl(url),
@@ -920,11 +960,35 @@ export default function MyTeamScreen() {
                   </TouchableOpacity>
                 );
               })()}
-              {driver.racesHeld > 0 && (
-                <Text style={styles.lockBonusCompact}>
-                  +{driver.racesHeld} race lock
-                </Text>
-              )}
+              {/* Loyalty Streak Badge */}
+              {(() => {
+                const loyalty = calculateLoyaltyBonus(driver.racesHeld || 0);
+                return (
+                  <TouchableOpacity
+                    style={[styles.loyaltyBadge, { borderColor: LOYALTY_COLORS[loyalty.tier] }]}
+                    onPress={() => {
+                      setSelectedLoyaltyInfo({
+                        name: driver.name,
+                        racesHeld: driver.racesHeld || 0,
+                        bonus: loyalty.bonus,
+                      });
+                      setShowLoyaltyInfoModal(true);
+                    }}
+                  >
+                    <Ionicons
+                      name="flame"
+                      size={14}
+                      color={loyalty.tier === 'none' ? COLORS.gray[500] : LOYALTY_COLORS[loyalty.tier]}
+                    />
+                    <Text style={[styles.loyaltyText, { color: LOYALTY_COLORS[loyalty.tier] }]}>
+                      +{loyalty.bonus}
+                    </Text>
+                    <Text style={styles.loyaltyRaces}>
+                      {driver.racesHeld || 0} {(driver.racesHeld || 0) === 1 ? 'race' : 'races'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })()}
             </Card>
           ))
         ) : (
@@ -1018,11 +1082,35 @@ export default function MyTeamScreen() {
                 )}
               </View>
             </View>
-            {constructor.racesHeld > 0 && (
-              <Text style={styles.lockBonusCompact}>
-                +{constructor.racesHeld} race lock
-              </Text>
-            )}
+            {/* Loyalty Streak Badge */}
+            {(() => {
+              const loyalty = calculateLoyaltyBonus(constructor.racesHeld || 0);
+              return (
+                <TouchableOpacity
+                  style={[styles.loyaltyBadge, { borderColor: LOYALTY_COLORS[loyalty.tier] }]}
+                  onPress={() => {
+                    setSelectedLoyaltyInfo({
+                      name: constructor.name,
+                      racesHeld: constructor.racesHeld || 0,
+                      bonus: loyalty.bonus,
+                    });
+                    setShowLoyaltyInfoModal(true);
+                  }}
+                >
+                  <Ionicons
+                    name="flame"
+                    size={14}
+                    color={loyalty.tier === 'none' ? COLORS.gray[500] : LOYALTY_COLORS[loyalty.tier]}
+                  />
+                  <Text style={[styles.loyaltyText, { color: LOYALTY_COLORS[loyalty.tier] }]}>
+                    +{loyalty.bonus}
+                  </Text>
+                  <Text style={styles.loyaltyRaces}>
+                    {constructor.racesHeld || 0} {(constructor.racesHeld || 0) === 1 ? 'race' : 'races'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
           </Card>
           );
         })() : (
@@ -1205,6 +1293,65 @@ export default function MyTeamScreen() {
             )}
           </View>
         </View>
+      </Modal>
+
+      {/* Loyalty Info Modal */}
+      <Modal
+        visible={showLoyaltyInfoModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLoyaltyInfoModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLoyaltyInfoModal(false)}
+        >
+          <View style={styles.loyaltyModalContent}>
+            <View style={styles.loyaltyModalHeader}>
+              <Ionicons name="flame" size={24} color={COLORS.gold} />
+              <Text style={styles.loyaltyModalTitle}>Loyalty Bonus</Text>
+            </View>
+
+            <Text style={styles.loyaltyModalDescription}>
+              Hold drivers & constructors longer for bonus points each race!
+            </Text>
+
+            <View style={styles.loyaltyTierList}>
+              <View style={styles.loyaltyTierRow}>
+                <View style={[styles.loyaltyTierDot, { backgroundColor: '#CD7F32' }]} />
+                <Text style={styles.loyaltyTierLabel}>1-3 races:</Text>
+                <Text style={styles.loyaltyTierValue}>+1 pt/race</Text>
+              </View>
+              <View style={styles.loyaltyTierRow}>
+                <View style={[styles.loyaltyTierDot, { backgroundColor: '#C0C0C0' }]} />
+                <Text style={styles.loyaltyTierLabel}>4-6 races:</Text>
+                <Text style={styles.loyaltyTierValue}>+2 pts/race</Text>
+              </View>
+              <View style={styles.loyaltyTierRow}>
+                <View style={[styles.loyaltyTierDot, { backgroundColor: COLORS.gold }]} />
+                <Text style={styles.loyaltyTierLabel}>7+ races:</Text>
+                <Text style={styles.loyaltyTierValue}>+3 pts/race</Text>
+              </View>
+            </View>
+
+            {selectedLoyaltyInfo && (
+              <View style={styles.loyaltyCurrentInfo}>
+                <Text style={styles.loyaltyCurrentTitle}>{selectedLoyaltyInfo.name}</Text>
+                <Text style={styles.loyaltyCurrentText}>
+                  {selectedLoyaltyInfo.racesHeld} {selectedLoyaltyInfo.racesHeld === 1 ? 'race' : 'races'} held = <Text style={styles.loyaltyCurrentBonus}>+{selectedLoyaltyInfo.bonus} pts</Text>
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.loyaltyModalClose}
+              onPress={() => setShowLoyaltyInfoModal(false)}
+            >
+              <Text style={styles.loyaltyModalCloseText}>Got it!</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* Avatar Picker Modal */}
@@ -2257,5 +2404,127 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     color: COLORS.text.inverse,
     fontWeight: '600',
+  },
+
+  // Loyalty Badge Styles
+  loyaltyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    marginTop: SPACING.xs,
+    backgroundColor: COLORS.card,
+  },
+
+  loyaltyText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  loyaltyRaces: {
+    fontSize: 10,
+    color: COLORS.text.muted,
+    marginLeft: 2,
+  },
+
+  // Loyalty Modal Styles
+  loyaltyModalContent: {
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    width: '85%',
+    maxWidth: 320,
+  },
+
+  loyaltyModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+
+  loyaltyModalTitle: {
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+  },
+
+  loyaltyModalDescription: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.md,
+    lineHeight: 20,
+  },
+
+  loyaltyTierList: {
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    gap: SPACING.sm,
+  },
+
+  loyaltyTierRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+
+  loyaltyTierDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+
+  loyaltyTierLabel: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+    flex: 1,
+  },
+
+  loyaltyTierValue: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+
+  loyaltyCurrentInfo: {
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border.default,
+  },
+
+  loyaltyCurrentTitle: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    marginBottom: 4,
+  },
+
+  loyaltyCurrentText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+  },
+
+  loyaltyCurrentBonus: {
+    fontWeight: '700',
+    color: COLORS.gold,
+  },
+
+  loyaltyModalClose: {
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.button,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+  },
+
+  loyaltyModalCloseText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.text.inverse,
   },
 });
