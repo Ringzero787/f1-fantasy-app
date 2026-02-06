@@ -18,7 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useTeamStore } from '../../../src/store/team.store';
 import { useLeagueStore } from '../../../src/store/league.store';
+import { useAdminStore } from '../../../src/store/admin.store';
 import { useDrivers, useConstructors, useAvatarGeneration } from '../../../src/hooks';
+import { saveAvatarUrl } from '../../../src/services/avatarGeneration.service';
 import {
   Card,
   Loading,
@@ -28,8 +30,10 @@ import {
   ConstructorCard,
   Button,
   Avatar,
+  AvatarPicker,
 } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS, SALE_COMMISSION_RATE } from '../../../src/config/constants';
+import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import { formatPoints } from '../../../src/utils/formatters';
 import type { Driver, FantasyDriver } from '../../../src/types';
 
@@ -45,11 +49,9 @@ interface SwapRecommendation {
 
 export default function MyTeamScreen() {
   const { user } = useAuth();
-  const { currentTeam, userTeams, isLoading, error, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setStarDriver, setStarConstructor, getEligibleStarDrivers, selectTeam, recalculateAllTeamsPoints, swapDriver, addDriver, setConstructor } = useTeamStore();
-
-  // Get eligible star drivers (bottom 10 by points)
-  const eligibleStarDrivers = getEligibleStarDrivers();
+  const { currentTeam, userTeams, isLoading, error, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setCaptain, clearCaptain, selectTeam, recalculateAllTeamsPoints, swapDriver, addDriver, setConstructor } = useTeamStore();
   const { leagues, loadUserLeagues } = useLeagueStore();
+  const { raceResults } = useAdminStore();
   const { data: allDrivers, isLoading: isLoadingDrivers } = useDrivers();
   const { data: allConstructors, isLoading: isLoadingConstructors } = useConstructors();
 
@@ -62,6 +64,7 @@ export default function MyTeamScreen() {
   const [isSwapping, setIsSwapping] = useState(false);
   const [teamAvatarUrl, setTeamAvatarUrl] = useState<string | null>(null);
   const [isBuildingRecommended, setIsBuildingRecommended] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const { generate: generateAvatar, regenerate: regenerateAvatar, isGenerating: isGeneratingAvatar, isAvailable: isAvatarAvailable } = useAvatarGeneration({
     onSuccess: (url) => setTeamAvatarUrl(url),
@@ -88,8 +91,8 @@ export default function MyTeamScreen() {
 
       // Score each driver by value (points per price) and total points
       const scoredDrivers = availableDrivers.map(d => {
-        const ppm = d.seasonPoints / d.price; // Points per million
-        const pointsDiff = d.seasonPoints - fantasyDriver.pointsScored;
+        const ppm = (d.currentSeasonPoints || 0) / d.price; // Points per million
+        const pointsDiff = (d.currentSeasonPoints || 0) - fantasyDriver.pointsScored;
         const priceDiff = d.price - fantasyDriver.currentPrice;
 
         return {
@@ -155,59 +158,81 @@ export default function MyTeamScreen() {
     }
   };
 
-  // Load user teams on mount and ensure currentTeam is synced
+  // Load user teams on mount
   useEffect(() => {
     if (user) {
       loadUserLeagues(user.id);
       loadUserTeams(user.id);
-      // Recalculate points from race results
       recalculateAllTeamsPoints();
     }
   }, [user]);
 
-  // Reload team and league data when screen comes into focus (handles navigation from create/build/join screens)
+  // Reload data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       if (user) {
-        // First, directly check the store state and auto-select if needed
-        const storeState = useTeamStore.getState();
-        if (storeState.userTeams.length > 0 && !storeState.currentTeam) {
-          storeState.selectTeam(storeState.userTeams[0].id);
-        }
-        // Then refresh from store
         loadUserTeams(user.id);
         loadUserLeagues(user.id);
       }
     }, [user])
   );
 
-  // Ensure currentTeam is synced with userTeams (in case of stale data or missing selection)
+  // Auto-select team when userTeams changes and no team is selected
   useEffect(() => {
-    if (userTeams.length > 0) {
-      if (!currentTeam) {
-        // No current team selected but we have teams - auto-select the first one
-        useTeamStore.getState().selectTeam(userTeams[0].id);
-      } else {
-        // Find the matching team in userTeams to ensure we have latest data
-        const teamInList = userTeams.find(t => t.id === currentTeam.id);
-        if (teamInList) {
-          // Check if the stored currentTeam is stale compared to userTeams
-          const driversOutOfSync = teamInList.drivers.length !== currentTeam.drivers.length;
-          const constructorOutOfSync = !!teamInList.constructor !== !!currentTeam.constructor;
-          const leagueOutOfSync = teamInList.leagueId !== currentTeam.leagueId;
+    if (userTeams.length > 0 && !currentTeam) {
+      selectTeam(userTeams[0].id);
+    }
+  }, [userTeams.length, currentTeam, selectTeam]);
 
-          if (driversOutOfSync || constructorOutOfSync || leagueOutOfSync) {
-            // Team data is out of sync, update currentTeam from userTeams
-            useTeamStore.getState().selectTeam(currentTeam.id);
-          }
-        } else {
-          // Current team not in userTeams, select first available
-          useTeamStore.getState().selectTeam(userTeams[0].id);
+  // Calculate team stats (must be before any conditional returns)
+  const teamStats = useMemo(() => {
+    // Get last completed race points
+    const completedRaces = Object.entries(raceResults)
+      .filter(([_, result]) => result.isComplete)
+      .sort((a, b) => b[0].localeCompare(a[0]));
+
+    let lastRacePoints = 0;
+    if (completedRaces.length > 0 && currentTeam) {
+      const [_, lastResult] = completedRaces[0];
+      currentTeam.drivers.forEach(driver => {
+        const driverResult = lastResult.driverResults.find(dr => dr.driverId === driver.driverId);
+        if (driverResult) {
+          // V3: Captain gets 2x points
+          const multiplier = currentTeam.captainDriverId === driver.driverId ? 2 : 1;
+          lastRacePoints += Math.floor(driverResult.points * multiplier);
+        }
+      });
+      if (currentTeam.constructor) {
+        const constructorResult = lastResult.constructorResults.find(
+          cr => cr.constructorId === currentTeam.constructor?.constructorId
+        );
+        if (constructorResult) {
+          // V3: Constructor doesn't get captain bonus
+          lastRacePoints += constructorResult.points;
         }
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userTeams]); // Only run when userTeams changes, not on every currentTeam change
+
+    let leagueRank: number | null = null;
+    let leagueSize = 0;
+    if (currentTeam?.leagueId) {
+      const leagueTeams = userTeams.filter(t => t.leagueId === currentTeam.leagueId);
+      leagueSize = leagueTeams.length;
+      const sorted = [...leagueTeams].sort((a, b) => b.totalPoints - a.totalPoints);
+      const rankIndex = sorted.findIndex(t => t.id === currentTeam.id);
+      if (rankIndex !== -1) {
+        leagueRank = rankIndex + 1;
+      }
+    }
+
+    return {
+      lastRacePoints,
+      totalPoints: currentTeam?.totalPoints || 0,
+      leagueRank,
+      leagueSize,
+      hasCompletedRaces: completedRaces.length > 0,
+    };
+  }, [raceResults, currentTeam, userTeams]);
 
   // Update avatar URL when team changes
   useEffect(() => {
@@ -224,6 +249,20 @@ export default function MyTeamScreen() {
       await regenerateAvatar(currentTeam.name, 'team', currentTeam.id);
     } else {
       await generateAvatar(currentTeam.name, 'team', currentTeam.id);
+    }
+  };
+
+  const handleSelectTeamAvatar = async (url: string) => {
+    if (!currentTeam) return;
+    const result = await saveAvatarUrl('team', currentTeam.id, url);
+    if (result.success && result.imageUrl) {
+      setTeamAvatarUrl(result.imageUrl);
+    }
+  };
+
+  const handleOpenAvatarPicker = () => {
+    if (currentTeam?.lockStatus.canModify) {
+      setShowAvatarPicker(true);
     }
   };
 
@@ -300,23 +339,20 @@ export default function MyTeamScreen() {
     );
   };
 
-  const handleSetStarDriver = async (driverId: string) => {
-    if (!eligibleStarDrivers.includes(driverId)) {
-      Alert.alert('Not Eligible', 'Only bottom 10 drivers by points can be star driver. Try setting your constructor as star instead.');
-      return;
-    }
+  // V3: Set captain driver (any driver can be captain, gets 2x points)
+  const handleSetCaptain = async (driverId: string) => {
     try {
-      await setStarDriver(driverId);
+      await setCaptain(driverId);
     } catch (err) {
-      Alert.alert('Error', 'Failed to set star driver');
+      Alert.alert('Error', 'Failed to set captain');
     }
   };
 
-  const handleSetStarConstructor = async () => {
+  const handleClearCaptain = async () => {
     try {
-      await setStarConstructor();
+      await clearCaptain();
     } catch (err) {
-      Alert.alert('Error', 'Failed to set star constructor');
+      Alert.alert('Error', 'Failed to clear captain');
     }
   };
 
@@ -436,16 +472,14 @@ export default function MyTeamScreen() {
     try {
       // Add all recommended drivers
       for (const driver of recommended.drivers) {
-        await addDriver(driver.id, false);
+        await addDriver(driver.id);
       }
 
       // Add constructor
       await setConstructor(recommended.constructor.id);
 
-      // Set constructor as star (since we're building fresh)
-      await setStarConstructor();
-
-      Alert.alert('Success', 'Your recommended team has been built!');
+      // V3: Don't auto-set captain - user chooses each race weekend
+      Alert.alert('Success', 'Your recommended team has been built! Select a captain before qualifying.');
     } catch (err) {
       Alert.alert('Error', 'Failed to build recommended team. Please try again.');
     } finally {
@@ -458,22 +492,13 @@ export default function MyTeamScreen() {
     return <Loading fullScreen message="Loading..." />;
   }
 
-  // Double-check store state directly to handle potential stale hook values
-  const storeState = useTeamStore.getState();
-  const actualUserTeams = storeState.userTeams;
-  const actualCurrentTeam = storeState.currentTeam;
-
   // If we have teams but no current team selected, show loading while auto-selection happens
-  if ((!currentTeam && userTeams.length > 0) || (!actualCurrentTeam && actualUserTeams.length > 0)) {
-    // Trigger auto-selection if not already done
-    if (actualUserTeams.length > 0 && !actualCurrentTeam) {
-      storeState.selectTeam(actualUserTeams[0].id);
-    }
+  if (!currentTeam && userTeams.length > 0) {
     return <Loading fullScreen message="Loading your team..." />;
   }
 
-  // No team created - prompt to create team (check both hook state and direct state)
-  if (!isLoading && !currentTeam && userTeams.length === 0 && actualUserTeams.length === 0) {
+  // No team created - prompt to create team
+  if (!isLoading && !currentTeam && userTeams.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.welcomeContainer}>
@@ -507,6 +532,11 @@ export default function MyTeamScreen() {
 
   const driversCount = currentTeam?.drivers.length || 0;
   const hasConstructor = !!currentTeam?.constructor;
+
+  // Check if team has a valid league (league exists in user's leagues)
+  const teamLeague = currentTeam?.leagueId
+    ? leagues.find(l => l.id === currentTeam.leagueId)
+    : null;
 
   return (
     <View style={styles.container}>
@@ -589,8 +619,8 @@ export default function MyTeamScreen() {
             variant="team"
             imageUrl={teamAvatarUrl}
             isGenerating={isGeneratingAvatar}
-            showGenerateButton={isAvatarAvailable}
-            onGeneratePress={handleGenerateTeamAvatar}
+            editable={currentTeam?.lockStatus.canModify}
+            onPress={handleOpenAvatarPicker}
           />
           <View style={styles.teamNameRow}>
             <View style={styles.teamNameContainer}>
@@ -614,16 +644,14 @@ export default function MyTeamScreen() {
         </View>
 
         {/* League Info or Join League */}
-        {currentTeam?.leagueId ? (
+        {teamLeague ? (
           <TouchableOpacity
             style={styles.leagueInfoRow}
-            onPress={() => router.push(`/leagues/${currentTeam.leagueId}`)}
+            onPress={() => router.push(`/leagues/${teamLeague.id}`)}
           >
             <View style={styles.leagueInfoLeft}>
               <Ionicons name="trophy" size={14} color={COLORS.accent} />
-              <Text style={styles.leagueInfoText}>
-                {leagues.find(l => l.id === currentTeam.leagueId)?.name || 'League'}
-              </Text>
+              <Text style={styles.leagueInfoText}>{teamLeague.name}</Text>
             </View>
             <Ionicons name="chevron-forward" size={14} color={COLORS.gray[400]} />
           </TouchableOpacity>
@@ -647,55 +675,111 @@ export default function MyTeamScreen() {
         total={BUDGET}
       />
 
+      {/* Team Stats */}
+      <View style={styles.statsCard}>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>
+              {teamStats.hasCompletedRaces ? teamStats.lastRacePoints : '-'}
+            </Text>
+            <Text style={styles.statLabel}>Last Race</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{teamStats.totalPoints}</Text>
+            <Text style={styles.statLabel}>Total Points</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>
+              {teamStats.leagueRank !== null
+                ? `${teamStats.leagueRank}/${teamStats.leagueSize}`
+                : '-'}
+            </Text>
+            <Text style={styles.statLabel}>League Rank</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* V3: Captain Reminder Note */}
+      {currentTeam &&
+       !currentTeam.captainDriverId &&
+       driversCount > 0 && (
+        <View style={styles.starReminderNote}>
+          <Ionicons name="shield-outline" size={16} color={COLORS.primary} />
+          <Text style={styles.starReminderText}>
+            Select a Captain (drivers under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE} only) to earn 2x points this race weekend!
+          </Text>
+        </View>
+      )}
+
       {/* Team Composition Status */}
       <View style={styles.compositionStatus}>
-        <View style={styles.compositionItem}>
-          <Text style={styles.compositionLabel}>Drivers</Text>
-          <Text style={[
-            styles.compositionValue,
-            driversCount === TEAM_SIZE && styles.compositionComplete,
-          ]}>
+        <Text style={styles.compositionText}>
+          <Text style={driversCount === TEAM_SIZE ? styles.compositionComplete : styles.compositionIncomplete}>
             {driversCount}/{TEAM_SIZE}
           </Text>
-        </View>
-        <View style={styles.compositionItem}>
-          <Text style={styles.compositionLabel}>Constructor</Text>
-          <Text style={[
-            styles.compositionValue,
-            hasConstructor && styles.compositionComplete,
-          ]}>
+          <Text style={styles.compositionLabel}> Drivers</Text>
+          <Text style={styles.compositionDivider}>  •  </Text>
+          <Text style={hasConstructor ? styles.compositionComplete : styles.compositionIncomplete}>
             {hasConstructor ? '1/1' : '0/1'}
           </Text>
-        </View>
+          <Text style={styles.compositionLabel}> Constructor</Text>
+        </Text>
       </View>
 
       {/* Drivers Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Drivers</Text>
-          {driversCount < TEAM_SIZE && currentTeam?.lockStatus.canModify && (
-            <TouchableOpacity
-              onPress={() => router.push('/my-team/select-driver')}
-              style={styles.addButton}
-            >
-              <Ionicons name="add" size={20} color={COLORS.primary} />
-              <Text style={styles.addButtonText}>Add</Text>
-            </TouchableOpacity>
-          )}
         </View>
+        {driversCount < TEAM_SIZE && currentTeam?.lockStatus.canModify && (
+          <TouchableOpacity
+            onPress={() => router.push('/my-team/select-driver')}
+            style={styles.addLargeButton}
+          >
+            <Ionicons name="add-circle" size={28} color={COLORS.primary} />
+            <Text style={styles.addLargeButtonText}>Add Driver</Text>
+            <Text style={styles.addLargeButtonSubtext}>{driversCount}/{TEAM_SIZE} selected</Text>
+          </TouchableOpacity>
+        )}
 
         {currentTeam?.drivers && currentTeam.drivers.length > 0 ? (
-          currentTeam.drivers.map((driver) => (
+          [...currentTeam.drivers].sort((a, b) => b.pointsScored - a.pointsScored).map((driver) => (
             <Card
               key={driver.driverId}
               variant="outlined"
-              padding="medium"
+              padding="small"
               style={styles.driverItem}
             >
               <View style={styles.driverInfo}>
                 <View style={styles.driverMain}>
-                  <Text style={styles.driverName}>{driver.name}</Text>
-                  <Text style={styles.driverTeam}>{driver.shortName}</Text>
+                  <View style={styles.driverNameRow}>
+                    <Text style={styles.driverNumber}>
+                      #{allDrivers?.find(d => d.id === driver.driverId)?.number || ''}
+                    </Text>
+                    <Text style={styles.driverName}>{driver.name}</Text>
+                  </View>
+                  <View style={styles.driverCodeRow}>
+                    <Text style={styles.driverTeam}>{driver.shortName}</Text>
+                    {/* V3: Captain icon inline with driver code */}
+                    {/* V3 Rule: Only drivers with price <= CAPTAIN_MAX_PRICE can be captain */}
+                    {currentTeam?.captainDriverId === driver.driverId && (
+                      <View style={styles.captainBadgeInline}>
+                        <Ionicons name="shield" size={12} color={COLORS.white} />
+                      </View>
+                    )}
+                    {currentTeam?.captainDriverId !== driver.driverId &&
+                     currentTeam?.lockStatus.canModify &&
+                     driver.currentPrice <= PRICING_CONFIG.CAPTAIN_MAX_PRICE && (
+                      <TouchableOpacity
+                        style={styles.captainIconButton}
+                        onPress={() => handleSetCaptain(driver.driverId)}
+                      >
+                        <Ionicons name="shield-outline" size={16} color={COLORS.primary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
                 <View style={styles.driverActions}>
                   <View style={styles.driverStats}>
@@ -711,65 +795,41 @@ export default function MyTeamScreen() {
                       style={styles.deleteButton}
                       onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
                     >
-                      <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+                      <Ionicons name="trash-outline" size={22} color={COLORS.error} />
                     </TouchableOpacity>
                   )}
                 </View>
               </View>
-              {/* Star Driver Selection */}
-              {eligibleStarDrivers.includes(driver.driverId) && (
-                <View style={styles.driverActionsRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.starButton,
-                      driver.isStarDriver && styles.starButtonActive,
-                    ]}
-                    onPress={() => handleSetStarDriver(driver.driverId)}
-                    disabled={!currentTeam?.lockStatus.canModify || driver.isStarDriver}
-                  >
-                    <Ionicons
-                      name={driver.isStarDriver ? 'star' : 'star-outline'}
-                      size={16}
-                      color={driver.isStarDriver ? COLORS.white : COLORS.gold}
-                    />
-                    <Text style={[
-                      styles.starButtonText,
-                      driver.isStarDriver && styles.starButtonTextActive,
-                    ]}>
-                      {driver.isStarDriver ? 'Star (+50%)' : 'Set as Star'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              {/* Swap Recommendation */}
+              {/* Alternative Recommendation - always show for all drivers */}
               {currentTeam?.lockStatus.canModify && (() => {
                 const swap = getSwapRecommendation(driver);
-                if (!swap) return null;
+                if (!swap) {
+                  // Show "No better alternative" when none available
+                  return (
+                    <View style={styles.alternativeRowCompact}>
+                      <Ionicons name="checkmark-circle" size={12} color={COLORS.success} />
+                      <Text style={styles.alternativeCompactTextMuted}>
+                        Alternative: None better available
+                      </Text>
+                    </View>
+                  );
+                }
                 return (
                   <TouchableOpacity
-                    style={styles.swapRecommendationRow}
+                    style={styles.alternativeRowCompact}
                     onPress={() => handleShowSwap(driver)}
                   >
-                    <View style={styles.swapRecommendationContent}>
-                      <View style={styles.swapRecommendationHeader}>
-                        <Ionicons name="swap-horizontal" size={14} color={COLORS.primary} />
-                        <Text style={styles.swapRecommendationLabel}>Alternate: </Text>
-                        <Text style={styles.swapRecommendationDriver}>{swap.recommendedDriver.name}</Text>
-                      </View>
-                      <View style={styles.swapRecommendationDetails}>
-                        <Text style={styles.swapBenefit}>+{swap.pointsDiff} pts</Text>
-                        <Text style={styles.swapCost}>
-                          {swap.priceDiff > 0 ? `+${swap.priceDiff}` : swap.priceDiff} cost
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={COLORS.gray[400]} />
+                    <Ionicons name="swap-horizontal" size={12} color={COLORS.primary} />
+                    <Text style={styles.alternativeCompactText}>
+                      Alternative: {swap.recommendedDriver.shortName || swap.recommendedDriver.name.split(' ').pop()} (+{swap.pointsDiff} pts)
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color={COLORS.gray[400]} />
                   </TouchableOpacity>
                 );
               })()}
               {driver.racesHeld > 0 && (
-                <Text style={styles.lockBonus}>
-                  Lock bonus: {driver.racesHeld} race(s)
+                <Text style={styles.lockBonusCompact}>
+                  +{driver.racesHeld} race lock
                 </Text>
               )}
             </Card>
@@ -787,23 +847,27 @@ export default function MyTeamScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Constructor</Text>
-          {!hasConstructor && currentTeam?.lockStatus.canModify && (
-            <TouchableOpacity
-              onPress={() => router.push('/my-team/select-constructor')}
-              style={styles.addButton}
-            >
-              <Ionicons name="add" size={20} color={COLORS.primary} />
-              <Text style={styles.addButtonText}>Add</Text>
-            </TouchableOpacity>
-          )}
         </View>
+        {!hasConstructor && currentTeam?.lockStatus.canModify && (
+          <TouchableOpacity
+            onPress={() => router.push('/my-team/select-constructor')}
+            style={styles.addLargeButton}
+          >
+            <Ionicons name="add-circle" size={28} color={COLORS.primary} />
+            <Text style={styles.addLargeButtonText}>Add Constructor</Text>
+            <Text style={styles.addLargeButtonSubtext}>0/1 selected</Text>
+          </TouchableOpacity>
+        )}
 
         {currentTeam?.constructor ? (
-          <Card variant="outlined" padding="medium" style={styles.constructorItem}>
+          <Card variant="outlined" padding="small" style={styles.constructorItem}>
             <View style={styles.constructorInfo}>
-              <Text style={styles.constructorName}>
-                {currentTeam.constructor.name}
-              </Text>
+              <View style={styles.constructorMain}>
+                <Text style={styles.constructorName}>
+                  {currentTeam.constructor.name}
+                </Text>
+                {/* V3: Constructors don't have captain option - only drivers */}
+              </View>
               <View style={styles.constructorActions}>
                 <View style={styles.constructorStats}>
                   <Text style={styles.constructorPoints}>
@@ -818,37 +882,14 @@ export default function MyTeamScreen() {
                     style={styles.deleteButton}
                     onPress={handleRemoveConstructor}
                   >
-                    <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+                    <Ionicons name="trash-outline" size={22} color={COLORS.error} />
                   </TouchableOpacity>
                 )}
               </View>
             </View>
-            {/* Star Constructor Selection */}
-            <View style={styles.driverActionsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.starButton,
-                  currentTeam.constructor.isStarDriver && styles.starButtonActive,
-                ]}
-                onPress={handleSetStarConstructor}
-                disabled={!currentTeam?.lockStatus.canModify || currentTeam.constructor.isStarDriver}
-              >
-                <Ionicons
-                  name={currentTeam.constructor.isStarDriver ? 'star' : 'star-outline'}
-                  size={16}
-                  color={currentTeam.constructor.isStarDriver ? COLORS.white : COLORS.gold}
-                />
-                <Text style={[
-                  styles.starButtonText,
-                  currentTeam.constructor.isStarDriver && styles.starButtonTextActive,
-                ]}>
-                  {currentTeam.constructor.isStarDriver ? 'Star (+50%)' : 'Set as Star'}
-                </Text>
-              </TouchableOpacity>
-            </View>
             {currentTeam.constructor.racesHeld > 0 && (
-              <Text style={styles.lockBonus}>
-                Lock bonus: {currentTeam.constructor.racesHeld} race(s)
+              <Text style={styles.lockBonusCompact}>
+                +{currentTeam.constructor.racesHeld} race lock
               </Text>
             )}
           </Card>
@@ -980,7 +1021,7 @@ export default function MyTeamScreen() {
                   <View style={styles.swapDriverInfo}>
                     <Text style={styles.swapDriverName}>{selectedSwap.recommendedDriver.name}</Text>
                     <View style={styles.swapDriverStats}>
-                      <Text style={styles.swapDriverPointsGreen}>{selectedSwap.recommendedDriver.seasonPoints} pts</Text>
+                      <Text style={styles.swapDriverPointsGreen}>{selectedSwap.recommendedDriver.currentSeasonPoints || 0} pts</Text>
                       <Text style={styles.swapDriverPrice}>{formatPoints(selectedSwap.recommendedDriver.price)}</Text>
                     </View>
                   </View>
@@ -1033,6 +1074,21 @@ export default function MyTeamScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Avatar Picker Modal */}
+      {currentTeam && (
+        <AvatarPicker
+          visible={showAvatarPicker}
+          onClose={() => setShowAvatarPicker(false)}
+          name={currentTeam.name}
+          type="team"
+          currentAvatarUrl={teamAvatarUrl}
+          onSelectAvatar={handleSelectTeamAvatar}
+          onGenerateAI={handleGenerateTeamAvatar}
+          isGeneratingAI={isGeneratingAvatar}
+          canGenerateAI={isAvatarAvailable}
+        />
+      )}
     </View>
   );
 }
@@ -1040,17 +1096,17 @@ export default function MyTeamScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   content: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.xxl,
+    padding: SPACING.sm,
+    paddingBottom: SPACING.lg,
   },
 
   emptyContainer: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   welcomeContainer: {
@@ -1063,7 +1119,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: COLORS.primary + '15',
+    backgroundColor: COLORS.glass.cyan,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
@@ -1073,14 +1129,14 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },
 
   welcomeMessage: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     textAlign: 'center',
     marginBottom: SPACING.xl,
   },
@@ -1091,7 +1147,7 @@ const styles = StyleSheet.create({
 
   createHint: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
   },
 
@@ -1117,19 +1173,19 @@ const styles = StyleSheet.create({
   optionBadgeText: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.text.inverse,
   },
 
   optionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.xs,
   },
 
   optionDescription: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.md,
     lineHeight: 20,
   },
@@ -1140,7 +1196,7 @@ const styles = StyleSheet.create({
 
   currentLeagueHint: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
     marginTop: SPACING.md,
   },
@@ -1152,7 +1208,7 @@ const styles = StyleSheet.create({
   teamSelectorLabel: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.sm,
   },
 
@@ -1168,9 +1224,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
     minWidth: 120,
   },
 
@@ -1186,11 +1242,11 @@ const styles = StyleSheet.create({
   teamSelectorName: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   teamSelectorNameActive: {
-    color: COLORS.white,
+    color: COLORS.text.inverse,
   },
 
   teamSelectorMeta: {
@@ -1201,11 +1257,11 @@ const styles = StyleSheet.create({
 
   teamSelectorPoints: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   teamSelectorPointsActive: {
-    color: COLORS.white,
+    color: COLORS.text.inverse,
     opacity: 0.8,
   },
 
@@ -1216,9 +1272,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.primary + '10',
+    backgroundColor: COLORS.glass.cyan,
     borderWidth: 1,
-    borderColor: COLORS.primary + '30',
+    borderColor: COLORS.border.accent,
     borderStyle: 'dashed',
   },
 
@@ -1229,13 +1285,18 @@ const styles = StyleSheet.create({
   },
 
   teamHeader: {
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
+    padding: SPACING.sm,
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   teamHeaderTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.xs,
   },
 
   teamNameRow: {
@@ -1245,13 +1306,13 @@ const styles = StyleSheet.create({
   teamNameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
+    gap: 2,
   },
 
   teamName: {
     fontSize: FONTS.sizes.lg,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   editNameButton: {
@@ -1259,9 +1320,9 @@ const styles = StyleSheet.create({
   },
 
   teamPoints: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[600],
-    marginTop: 2,
+    fontSize: 10,
+    color: COLORS.text.secondary,
+    marginTop: 1,
   },
 
   leagueInfoRow: {
@@ -1271,7 +1332,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.sm,
     marginTop: SPACING.sm,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   leagueInfoLeft: {
@@ -1281,7 +1342,7 @@ const styles = StyleSheet.create({
   },
 
   leagueInfoText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.md,
     fontWeight: '500',
     color: COLORS.accent,
   },
@@ -1293,13 +1354,70 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.sm,
     marginTop: SPACING.sm,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   joinLeagueText: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '500',
     color: COLORS.primary,
+  },
+
+  statsCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+  },
+
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  statValue: {
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+  },
+
+  statLabel: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    marginTop: 2,
+  },
+
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: COLORS.border.default,
+  },
+
+  starReminderNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+
+  starReminderText: {
+    flex: 1,
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.gold,
+    fontWeight: '500',
   },
 
   lockBadge: {
@@ -1319,52 +1437,57 @@ const styles = StyleSheet.create({
   },
 
   compositionStatus: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
+    backgroundColor: COLORS.surface,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.md,
+    alignItems: 'center',
   },
 
-  compositionItem: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    padding: SPACING.md,
-    borderRadius: SPACING.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.gray[200],
+  compositionText: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '600',
   },
 
   compositionLabel: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '600',
+    color: COLORS.text.primary,
   },
 
-  compositionValue: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: 'bold',
-    color: COLORS.gray[900],
-    marginTop: SPACING.xs,
+  compositionDivider: {
+    fontSize: FONTS.sizes.lg,
+    color: COLORS.text.muted,
   },
 
   compositionComplete: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '700',
     color: COLORS.success,
   },
 
+  compositionIncomplete: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+  },
+
   section: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
 
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.xs,
   },
 
   sectionTitle: {
-    fontSize: FONTS.sizes.lg,
+    fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   addButton: {
@@ -1379,8 +1502,40 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
 
+  addLargeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.primary + '15',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+    borderRadius: BORDER_RADIUS.lg,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.sm,
+  },
+
+  addLargeButtonText: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+
+  addLargeButtonSubtext: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+    marginLeft: SPACING.xs,
+  },
+
   driverItem: {
     marginBottom: SPACING.sm,
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+    padding: SPACING.md,
   },
 
   driverInfo: {
@@ -1391,15 +1546,62 @@ const styles = StyleSheet.create({
 
   driverMain: {},
 
+  driverNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+
+  driverNumber: {
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+
   driverName: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.gray[900],
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+  },
+
+  driverCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
   },
 
   driverTeam: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.muted,
+  },
+
+  // V3: Captain badge styles (replaces star)
+  captainBadgeInline: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  captainIconButton: {
+    padding: SPACING.xs,
+  },
+
+  // Keep for backwards compatibility in case needed
+  starBadgeInline: {
+    backgroundColor: COLORS.gold,
+    borderRadius: 8,
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  starIconButton: {
+    padding: SPACING.xs,
   },
 
   driverActions: {
@@ -1417,71 +1619,84 @@ const styles = StyleSheet.create({
   },
 
   driverPoints: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.gray[900],
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '700',
+    color: COLORS.primary,
   },
 
   driverPrice: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.muted,
   },
 
   driverActionsRow: {
     flexDirection: 'row',
-    marginTop: SPACING.sm,
-    gap: SPACING.sm,
-    flexWrap: 'wrap',
-  },
-
-  starButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: SPACING.xs,
-    borderWidth: 1,
-    borderColor: COLORS.gold,
+    marginTop: SPACING.xs,
     gap: SPACING.xs,
-  },
-
-  starButtonActive: {
-    backgroundColor: COLORS.gold,
-    borderColor: COLORS.gold,
-  },
-
-  starButtonText: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '500',
-    color: COLORS.gold,
-  },
-
-  starButtonTextActive: {
-    color: COLORS.white,
-  },
-
-  starDriverBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.gold,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: SPACING.xs,
-    marginTop: SPACING.sm,
-  },
-
-  starDriverText: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.white,
+    flexWrap: 'wrap',
   },
 
   lockBonus: {
     fontSize: FONTS.sizes.xs,
     color: COLORS.accent,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
   },
 
-  constructorItem: {},
+  lockBonusCompact: {
+    fontSize: 10,
+    color: COLORS.accent,
+    marginTop: 2,
+  },
+
+  swapRecommendationRowCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border.default,
+  },
+
+  swapRecommendationCompactText: {
+    flex: 1,
+    fontSize: 10,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+
+  alternativeRowCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border.default,
+  },
+
+  alternativeCompactText: {
+    flex: 1,
+    fontSize: 10,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+
+  alternativeCompactTextMuted: {
+    flex: 1,
+    fontSize: 10,
+    color: COLORS.text.muted,
+    fontWeight: '500',
+  },
+
+  constructorItem: {
+    marginBottom: SPACING.sm,
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+    padding: SPACING.md,
+  },
 
   constructorInfo: {
     flexDirection: 'row',
@@ -1489,16 +1704,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  constructorMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+
   constructorName: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.gray[900],
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '700',
+    color: COLORS.text.primary,
   },
 
   constructorActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
+    gap: SPACING.sm,
   },
 
   constructorStats: {
@@ -1506,19 +1727,19 @@ const styles = StyleSheet.create({
   },
 
   constructorPoints: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.gray[900],
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '700',
+    color: COLORS.primary,
   },
 
   constructorPrice: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.muted,
   },
 
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
   },
 
@@ -1541,35 +1762,38 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.xl,
   },
 
   modalContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.xl,
     width: '100%',
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   modalTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.lg,
     textAlign: 'center',
   },
 
   modalInput: {
     borderWidth: 1,
-    borderColor: COLORS.gray[300],
-    borderRadius: 8,
+    borderColor: COLORS.border.default,
+    borderRadius: BORDER_RADIUS.input,
     padding: SPACING.md,
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
+    backgroundColor: COLORS.card,
     marginBottom: SPACING.lg,
   },
 
@@ -1582,14 +1806,15 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: SPACING.md,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.button,
     borderWidth: 1,
-    borderColor: COLORS.gray[300],
+    borderColor: COLORS.border.default,
+    backgroundColor: COLORS.card,
   },
 
   modalCancelText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     fontWeight: '500',
   },
 
@@ -1597,7 +1822,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: SPACING.md,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.button,
     backgroundColor: COLORS.primary,
   },
 
@@ -1607,7 +1832,7 @@ const styles = StyleSheet.create({
 
   modalSaveText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.white,
+    color: COLORS.text.inverse,
     fontWeight: '600',
   },
 
@@ -1665,11 +1890,13 @@ const styles = StyleSheet.create({
 
   // Swap Modal Styles
   swapModalContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.xl,
     width: '100%',
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   swapModalHeader: {
@@ -1683,26 +1910,26 @@ const styles = StyleSheet.create({
   swapModalTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   swapDriverCard: {
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   swapDriverCardRecommended: {
-    backgroundColor: COLORS.success + '10',
+    backgroundColor: COLORS.successLight,
     borderColor: COLORS.success,
   },
 
   swapDriverLabel: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginBottom: SPACING.xs,
   },
 
@@ -1722,7 +1949,7 @@ const styles = StyleSheet.create({
   swapDriverName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   swapDriverStats: {
@@ -1732,7 +1959,7 @@ const styles = StyleSheet.create({
   swapDriverPoints: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
   },
 
   swapDriverPointsGreen: {
@@ -1743,7 +1970,7 @@ const styles = StyleSheet.create({
 
   swapDriverPrice: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   swapReason: {
@@ -1762,7 +1989,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.lg,
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
+    borderTopColor: COLORS.border.default,
   },
 
   swapSummaryRow: {
@@ -1773,7 +2000,7 @@ const styles = StyleSheet.create({
 
   swapSummaryLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
   },
 
   swapSummaryValue: {
@@ -1794,13 +2021,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: SPACING.xs,
     paddingVertical: SPACING.md,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.button,
     backgroundColor: COLORS.primary,
   },
 
   swapConfirmText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.white,
+    color: COLORS.text.inverse,
     fontWeight: '600',
   },
 });

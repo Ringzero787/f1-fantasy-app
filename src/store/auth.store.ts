@@ -4,11 +4,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User } from '../types';
 import { authService } from '../services/auth.service';
 
+// Admin email addresses
+const ADMIN_EMAILS = ['nathan.shanks@gmail.com'];
+
+// Helper to check if user is admin
+const checkIsAdmin = (email: string): boolean => {
+  return ADMIN_EMAILS.includes(email.toLowerCase());
+};
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isDemoMode: boolean;
+  isAdmin: boolean;
   error: string | null;
 
   // Actions
@@ -32,12 +41,14 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,  // Start as false - will show login if no persisted user
       isDemoMode: false,
+      isAdmin: false,
       error: null,
 
       setUser: (user) =>
         set({
           user,
           isAuthenticated: !!user,
+          isAdmin: user ? checkIsAdmin(user.email) : false,
           isLoading: false,
         }),
 
@@ -49,7 +60,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const user = await authService.signIn({ email, password });
-          set({ user, isAuthenticated: true, isLoading: false });
+          set({ user, isAuthenticated: true, isAdmin: checkIsAdmin(user.email), isLoading: false });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Sign in failed';
           set({ error: message, isLoading: false });
@@ -61,7 +72,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const user = await authService.signInWithGoogle(idToken);
-          set({ user, isAuthenticated: true, isLoading: false });
+          set({ user, isAuthenticated: true, isAdmin: checkIsAdmin(user.email), isLoading: false });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Google sign in failed';
           set({ error: message, isLoading: false });
@@ -73,7 +84,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const user = await authService.signInWithApple(identityToken, nonce);
-          set({ user, isAuthenticated: true, isLoading: false });
+          set({ user, isAuthenticated: true, isAdmin: checkIsAdmin(user.email), isLoading: false });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Apple sign in failed';
           set({ error: message, isLoading: false });
@@ -90,7 +101,7 @@ export const useAuthStore = create<AuthState>()(
             confirmPassword: password,
             displayName,
           });
-          set({ user, isAuthenticated: true, isLoading: false });
+          set({ user, isAuthenticated: true, isAdmin: checkIsAdmin(user.email), isLoading: false });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Sign up failed';
           set({ error: message, isLoading: false });
@@ -105,7 +116,7 @@ export const useAuthStore = create<AuthState>()(
           if (!isDemoMode) {
             await authService.signOut();
           }
-          set({ user: null, isAuthenticated: false, isDemoMode: false, isLoading: false });
+          set({ user: null, isAuthenticated: false, isDemoMode: false, isAdmin: false, isLoading: false });
 
           // Clear other stores on sign out
           import('./league.store').then(({ useLeagueStore }) => {
@@ -139,6 +150,7 @@ export const useAuthStore = create<AuthState>()(
           id: 'demo-user',
           email: 'demo@f1fantasy.app',
           displayName: 'Demo User',
+          isAdmin: true, // Demo users get admin access
           createdAt: new Date(),
           updatedAt: new Date(),
           settings: {
@@ -150,6 +162,7 @@ export const useAuthStore = create<AuthState>()(
           user: demoUser,
           isAuthenticated: true,
           isDemoMode: true,
+          isAdmin: true, // Demo mode has admin access
           isLoading: false,
         });
 
@@ -173,6 +186,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         isDemoMode: state.isDemoMode,
+        isAdmin: state.isAdmin,
       }),
     }
   )

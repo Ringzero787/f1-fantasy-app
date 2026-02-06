@@ -70,6 +70,9 @@ export const teamService = {
         seasonLockRacesRemaining: 0,
         canModify: true,
       },
+      // V3: Captain and transfer tracking
+      captainDriverId: null,
+      racesSinceTransfer: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -150,11 +153,12 @@ export const teamService = {
 
   /**
    * Add a driver to the team
+   * V3: Tracks purchasedAtRaceId for hot hand bonus, updates transfer tracking
    */
   async addDriver(
     teamId: string,
     driverId: string,
-    isStarDriver: boolean = false
+    currentRaceId?: string
   ): Promise<FantasyTeam> {
     const team = await this.getTeamById(teamId);
     if (!team) {
@@ -194,19 +198,17 @@ export const teamService = {
       currentPrice: driver.price,
       pointsScored: 0,
       racesHeld: 0,
-      isStarDriver,
+      purchasedAtRaceId: currentRaceId, // V3: Track for hot hand bonus
     };
-
-    // If this is star driver, remove star status from others
-    const updatedDrivers = isStarDriver
-      ? team.drivers.map((d) => ({ ...d, isStarDriver: false }))
-      : team.drivers;
 
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {
-      drivers: [...updatedDrivers, fantasyDriver],
+      drivers: [...team.drivers, fantasyDriver],
       budget: team.budget - driver.price,
       totalSpent: team.totalSpent + driver.price,
+      // V3: Update transfer tracking
+      lastTransferRaceId: currentRaceId || team.lastTransferRaceId,
+      racesSinceTransfer: currentRaceId ? 0 : (team.racesSinceTransfer || 0),
       updatedAt: serverTimestamp(),
     });
 
@@ -227,6 +229,7 @@ export const teamService = {
 
   /**
    * Remove a driver from the team
+   * V3: Clears captain if removed driver was captain, updates transfer tracking
    */
   async removeDriver(teamId: string, driverId: string): Promise<FantasyTeam> {
     const team = await this.getTeamById(teamId);
@@ -249,11 +252,17 @@ export const teamService = {
     // Sell at current price minus 5% commission
     const saleValue = calculateSaleValue(driver.currentPrice);
 
+    // V3: Clear captain if removed driver was captain
+    const newCaptainId = team.captainDriverId === driverId ? null : team.captainDriverId;
+
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {
       drivers: updatedDrivers,
       budget: team.budget + saleValue,
       totalSpent: team.totalSpent - driver.purchasePrice,
+      // V3: Update captain and transfer tracking
+      captainDriverId: newCaptainId,
+      racesSinceTransfer: 0,
       updatedAt: serverTimestamp(),
     });
 
@@ -307,7 +316,6 @@ export const teamService = {
       currentPrice: constructor.price,
       pointsScored: 0,
       racesHeld: 0,
-      isStarDriver: false,
     };
 
     const newBudget = availableBudget - constructor.price;
@@ -340,10 +348,10 @@ export const teamService = {
   },
 
   /**
-   * Set star driver (gets 20% bonus points)
-   * Only bottom 10 drivers by points are eligible
+   * V3: Set captain driver (gets 2x points for that race weekend)
+   * Any driver on the team can be captain - must be set before qualifying
    */
-  async setStarDriver(teamId: string, driverId: string): Promise<FantasyTeam> {
+  async setCaptain(teamId: string, driverId: string): Promise<FantasyTeam> {
     const team = await this.getTeamById(teamId);
     if (!team) {
       throw new Error('Team not found');
@@ -358,21 +366,9 @@ export const teamService = {
       throw new Error('Driver not in team');
     }
 
-    // Set driver as star and clear from others and constructor
-    const updatedDrivers = team.drivers.map((d) => ({
-      ...d,
-      isStarDriver: d.driverId === driverId,
-    }));
-
-    const updatedConstructor = team.constructor ? {
-      ...team.constructor,
-      isStarDriver: false,
-    } : null;
-
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {
-      drivers: updatedDrivers,
-      constructor: updatedConstructor,
+      captainDriverId: driverId,
       updatedAt: serverTimestamp(),
     });
 
@@ -380,41 +376,44 @@ export const teamService = {
   },
 
   /**
-   * Set constructor as star (gets 20% bonus points)
+   * V3: Clear captain selection
    */
-  async setStarConstructor(teamId: string): Promise<FantasyTeam> {
+  async clearCaptain(teamId: string): Promise<FantasyTeam> {
     const team = await this.getTeamById(teamId);
     if (!team) {
       throw new Error('Team not found');
     }
 
-    if (!team.lockStatus.canModify) {
-      throw new Error('Team is locked and cannot be modified');
-    }
-
-    if (!team.constructor) {
-      throw new Error('No constructor to set as star');
-    }
-
-    // Set constructor as star and clear from drivers
-    const updatedDrivers = team.drivers.map((d) => ({
-      ...d,
-      isStarDriver: false,
-    }));
-
-    const updatedConstructor = {
-      ...team.constructor,
-      isStarDriver: true,
-    };
-
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {
-      drivers: updatedDrivers,
-      constructor: updatedConstructor,
+      captainDriverId: null,
       updatedAt: serverTimestamp(),
     });
 
     return this.getTeamById(teamId) as Promise<FantasyTeam>;
+  },
+
+  /**
+   * V3: Update transfer tracking after a transfer is made
+   */
+  async updateTransferTracking(teamId: string, raceId: string): Promise<void> {
+    const teamRef = doc(db, 'fantasyTeams', teamId);
+    await updateDoc(teamRef, {
+      lastTransferRaceId: raceId,
+      racesSinceTransfer: 0,
+      updatedAt: serverTimestamp(),
+    });
+  },
+
+  /**
+   * V3: Increment races since transfer counter (called after each race)
+   */
+  async incrementRacesSinceTransfer(teamId: string): Promise<void> {
+    const teamRef = doc(db, 'fantasyTeams', teamId);
+    await updateDoc(teamRef, {
+      racesSinceTransfer: increment(1),
+      updatedAt: serverTimestamp(),
+    });
   },
 
   /**
@@ -504,18 +503,24 @@ export const teamService = {
       currentPrice: newDriver.price,
       pointsScored: 0,
       racesHeld: 0,
-      isStarDriver: oldDriver.isStarDriver,
+      // V3: Track for hot hand bonus (will be set to current race ID in real usage)
     };
 
     const updatedDrivers = team.drivers.map((d, i) =>
       i === oldDriverIndex ? fantasyDriver : d
     );
 
+    // V3: If swapped driver was captain, clear captain
+    const newCaptainId = team.captainDriverId === oldDriverId ? undefined : team.captainDriverId;
+
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {
       drivers: updatedDrivers,
       budget: team.budget - netCost,
       totalSpent: team.totalSpent - oldDriver.purchasePrice + newDriver.price,
+      captainDriverId: newCaptainId,
+      // V3: Update transfer tracking
+      racesSinceTransfer: 0,
       updatedAt: serverTimestamp(),
     });
 
@@ -570,6 +575,48 @@ export const teamService = {
     });
 
     return this.getTeamById(teamId) as Promise<FantasyTeam>;
+  },
+
+  /**
+   * Sync full team state to Firebase (local-first pattern)
+   * Used to push local changes to Firebase in background
+   */
+  async syncTeam(team: FantasyTeam): Promise<void> {
+    const teamRef = doc(db, 'fantasyTeams', team.id);
+
+    // Convert to Firebase-compatible format (remove id, use serverTimestamp)
+    // Firebase doesn't accept undefined values, so convert them to null
+    const { id, createdAt, updatedAt, ...teamData } = team;
+
+    // Helper to convert undefined to null recursively
+    const sanitizeForFirebase = (obj: any): any => {
+      if (obj === undefined) return null;
+      if (obj === null) return null;
+      if (Array.isArray(obj)) return obj.map(sanitizeForFirebase);
+      if (typeof obj === 'object' && obj !== null) {
+        const result: any = {};
+        for (const key of Object.keys(obj)) {
+          result[key] = sanitizeForFirebase(obj[key]);
+        }
+        return result;
+      }
+      return obj;
+    };
+
+    const sanitizedData = sanitizeForFirebase(teamData);
+
+    await setDoc(teamRef, {
+      ...sanitizedData,
+      createdAt: createdAt instanceof Date ? createdAt : new Date(createdAt),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  },
+
+  /**
+   * Sync multiple teams to Firebase
+   */
+  async syncTeams(teams: FantasyTeam[]): Promise<void> {
+    await Promise.all(teams.map(team => this.syncTeam(team)));
   },
 
   /**

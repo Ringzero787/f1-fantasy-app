@@ -21,7 +21,7 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <Ionicons name={icon} size={64} color={COLORS.gray[300]} />
+      <Ionicons name={icon} size={64} color={COLORS.text.muted} />
       <Text style={styles.title}>{title}</Text>
       {message && <Text style={styles.message}>{message}</Text>}
       {actionLabel && onAction && (
@@ -47,14 +47,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.primary,
     marginTop: SPACING.md,
     textAlign: 'center',
   },
 
   message: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.secondary,
     marginTop: SPACING.sm,
     textAlign: 'center',
     lineHeight: 22,

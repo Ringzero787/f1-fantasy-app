@@ -181,7 +181,7 @@ export default function LeaguesScreen() {
             {item.memberCount} / {item.maxMembers} members
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+        <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
       </View>
 
       {item.description && (
@@ -192,7 +192,7 @@ export default function LeaguesScreen() {
 
       <View style={styles.leagueMeta}>
         <View style={styles.metaItem}>
-          <Ionicons name="person-outline" size={14} color={COLORS.gray[500]} />
+          <Ionicons name="person-outline" size={14} color={COLORS.text.muted} />
           <Text style={styles.metaText}>{item.ownerName}</Text>
         </View>
         {item.isPublic && (
@@ -245,7 +245,7 @@ export default function LeaguesScreen() {
               onChangeText={setInviteCode}
               autoCapitalize="characters"
               maxLength={8}
-              placeholderTextColor={COLORS.gray[400]}
+              placeholderTextColor={COLORS.text.muted}
             />
 
             {joinError && <Text style={styles.errorText}>{joinError}</Text>}
@@ -283,13 +283,60 @@ export default function LeaguesScreen() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <EmptyState
-          icon="trophy-outline"
-          title="No Leagues Yet"
-          message="Create your own league or join one with an invite code to start competing"
-          actionLabel="Create League"
-          onAction={() => router.push('/leagues/create')}
-        />
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="trophy" size={48} color={COLORS.primary} />
+          </View>
+          <Text style={styles.emptyTitle}>No Leagues Yet</Text>
+          <Text style={styles.emptyMessage}>
+            Compete with friends and track your standings together
+          </Text>
+
+          {/* Join with Code Card */}
+          <Card variant="elevated" style={styles.optionCard}>
+            <View style={styles.optionHeader}>
+              <Ionicons name="enter" size={24} color={COLORS.accent} />
+              <Text style={styles.optionTitle}>Join with Code</Text>
+            </View>
+            <Text style={styles.optionDescription}>
+              Have an invite code? Enter it below to join an existing league.
+            </Text>
+            <TextInput
+              style={styles.inlineCodeInput}
+              placeholder="ENTER CODE"
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              autoCapitalize="characters"
+              maxLength={8}
+              placeholderTextColor={COLORS.text.muted}
+            />
+            {joinError && <Text style={styles.inlineErrorText}>{joinError}</Text>}
+            <Button
+              title={joining ? "Joining..." : "Join League"}
+              onPress={handleJoinLeague}
+              loading={joining}
+              disabled={!inviteCode.trim()}
+              fullWidth
+            />
+          </Card>
+
+          {/* Create League Card */}
+          <Card variant="outlined" style={styles.optionCard}>
+            <View style={styles.optionHeader}>
+              <Ionicons name="add-circle" size={24} color={COLORS.primary} />
+              <Text style={styles.optionTitle}>Create Your Own</Text>
+            </View>
+            <Text style={styles.optionDescription}>
+              Start a new league and invite your friends to compete.
+            </Text>
+            <Button
+              title="Create League"
+              variant="outline"
+              onPress={() => router.push('/leagues/create')}
+              fullWidth
+            />
+          </Card>
+        </View>
       )}
     </View>
   );
@@ -298,7 +345,7 @@ export default function LeaguesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   actions: {
@@ -312,7 +359,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
@@ -348,18 +395,18 @@ const styles = StyleSheet.create({
   leagueName: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   leagueMembers: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
   leagueDescription: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginTop: SPACING.md,
     lineHeight: 20,
   },
@@ -371,7 +418,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   metaItem: {
@@ -382,7 +429,7 @@ const styles = StyleSheet.create({
 
   metaText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   publicBadge: {
@@ -404,37 +451,39 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
   },
 
   modal: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.xl,
     width: '85%',
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   modalTitle: {
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.sm,
   },
 
   modalDescription: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.lg,
   },
 
   codeInput: {
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     fontSize: FONTS.sizes.xl,
@@ -442,6 +491,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 4,
     marginBottom: SPACING.md,
+    color: COLORS.text.primary,
   },
 
   errorText: {
@@ -454,5 +504,84 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: SPACING.md,
+  },
+
+  // Empty State Styles
+  emptyContainer: {
+    flex: 1,
+    padding: SPACING.lg,
+    alignItems: 'center',
+  },
+
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.lg,
+    marginTop: SPACING.xl,
+  },
+
+  emptyTitle: {
+    fontSize: FONTS.sizes.xxl,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
+    marginBottom: SPACING.sm,
+  },
+
+  emptyMessage: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
+  },
+
+  optionCard: {
+    width: '100%',
+    marginBottom: SPACING.md,
+    padding: SPACING.lg,
+  },
+
+  optionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+
+  optionTitle: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+
+  optionDescription: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.md,
+    lineHeight: 20,
+  },
+
+  inlineCodeInput: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 4,
+    marginBottom: SPACING.md,
+    color: COLORS.text.primary,
+  },
+
+  inlineErrorText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.error,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
   },
 });

@@ -68,6 +68,9 @@ interface LeagueState {
   // Admin actions
   removeMember: (leagueId: string, memberId: string) => Promise<void>;
   inviteMemberByEmail: (leagueId: string, email: string) => Promise<void>;
+  promoteToCoAdmin: (leagueId: string, userId: string) => Promise<void>;
+  demoteFromCoAdmin: (leagueId: string, userId: string) => Promise<void>;
+  isUserAdmin: (userId: string) => boolean;
 
   clearError: () => void;
   clearRecentlyCreatedLeague: () => void;
@@ -136,31 +139,73 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       if (isDemoMode) {
-        // In demo mode, return only the owner (founder)
+        // In demo mode, find all teams assigned to this league
         const user = useAuthStore.getState().user;
-        const { currentLeague } = get();
+        const { leagues } = get();
+        const league = leagues.find(l => l.id === leagueId);
 
-        if (user && currentLeague) {
-          // Get user's team for this league to get their actual points and team name
-          const { userTeams } = useTeamStore.getState();
-          const userTeamInLeague = userTeams.find(t => t.leagueId === leagueId);
-          const userPoints = userTeamInLeague?.totalPoints || 0;
-          const teamName = userTeamInLeague?.name;
+        if (user && league) {
+          // Get all teams for this league from team store
+          const teamState = useTeamStore.getState();
+          const { userTeams, currentTeam } = teamState;
 
-          // Only include the owner/founder
-          const members: LeagueMember[] = [
-            {
+          // Build a comprehensive list of all teams, prioritizing currentTeam
+          const teamMap = new Map<string, typeof currentTeam>();
+
+          // Add all userTeams
+          userTeams.forEach(team => {
+            if (team) teamMap.set(team.id, team);
+          });
+
+          // Add/update with currentTeam (ensures latest state is used)
+          if (currentTeam) {
+            teamMap.set(currentTeam.id, currentTeam);
+          }
+
+          // Filter teams that belong to this league
+          const teamsInLeague = Array.from(teamMap.values()).filter(
+            team => team && team.leagueId === leagueId
+          );
+
+          // Create member entries for each team in the league
+          const members: LeagueMember[] = teamsInLeague.map((team, index) => ({
+            id: team.id,
+            leagueId,
+            userId: team.userId,
+            displayName: team.userId === user.id ? (user.displayName || 'Demo User') : 'League Member',
+            teamName: team.name,
+            teamAvatarUrl: team.avatarUrl,
+            role: team.userId === league.ownerId ? 'owner' as const : 'member' as const,
+            totalPoints: team.totalPoints || 0,
+            rank: index + 1,
+            joinedAt: team.createdAt,
+          }));
+
+          // Sort by points and assign ranks
+          members.sort((a, b) => b.totalPoints - a.totalPoints);
+          members.forEach((member, index) => {
+            member.rank = index + 1;
+          });
+
+          // If no teams found but user is the owner, check if currentTeam should be associated
+          if (members.length === 0 && league.ownerId === user.id) {
+            // Try to find user's team that might not have leagueId set yet
+            const userTeam = currentTeam?.userId === user.id ? currentTeam :
+                            userTeams.find(t => t.userId === user.id);
+
+            members.push({
               id: user.id,
               leagueId,
               userId: user.id,
               displayName: user.displayName || 'Demo User',
-              teamName, // Include the team name
+              teamName: userTeam?.name || undefined,
+              teamAvatarUrl: userTeam?.avatarUrl,
               role: 'owner',
-              totalPoints: userPoints, // Use actual team points
-              rank: 1, // Owner is rank 1 when solo
+              totalPoints: userTeam?.totalPoints || 0,
+              rank: 1,
               joinedAt: new Date(),
-            },
-          ];
+            });
+          }
 
           set({ members, isLoading: false });
         } else {
@@ -461,5 +506,100 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ error: message, isLoading: false });
       throw error;
     }
+  },
+
+  promoteToCoAdmin: async (leagueId, userId) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    set({ isLoading: true, error: null });
+    try {
+      if (isDemoMode) {
+        // In demo mode, update local state
+        const { currentLeague, leagues, members } = get();
+        if (currentLeague) {
+          const coAdminIds = currentLeague.coAdminIds || [];
+          const updatedLeague = {
+            ...currentLeague,
+            coAdminIds: [...coAdminIds, userId],
+          };
+          const updatedLeagues = leagues.map((l) =>
+            l.id === leagueId ? updatedLeague : l
+          );
+          const updatedMembers = members.map((m) =>
+            m.userId === userId ? { ...m, role: 'admin' as const } : m
+          );
+          set({
+            currentLeague: updatedLeague,
+            leagues: updatedLeagues,
+            members: updatedMembers,
+            isLoading: false,
+          });
+        } else {
+          set({ isLoading: false });
+        }
+        return;
+      }
+
+      await leagueService.promoteToCoAdmin(leagueId, userId);
+      // Reload league and members after promotion
+      await get().loadLeague(leagueId);
+      await get().loadLeagueMembers(leagueId);
+      set({ isLoading: false });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to promote member';
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
+
+  demoteFromCoAdmin: async (leagueId, userId) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    set({ isLoading: true, error: null });
+    try {
+      if (isDemoMode) {
+        // In demo mode, update local state
+        const { currentLeague, leagues, members } = get();
+        if (currentLeague) {
+          const coAdminIds = currentLeague.coAdminIds || [];
+          const updatedLeague = {
+            ...currentLeague,
+            coAdminIds: coAdminIds.filter(id => id !== userId),
+          };
+          const updatedLeagues = leagues.map((l) =>
+            l.id === leagueId ? updatedLeague : l
+          );
+          const updatedMembers = members.map((m) =>
+            m.userId === userId ? { ...m, role: 'member' as const } : m
+          );
+          set({
+            currentLeague: updatedLeague,
+            leagues: updatedLeagues,
+            members: updatedMembers,
+            isLoading: false,
+          });
+        } else {
+          set({ isLoading: false });
+        }
+        return;
+      }
+
+      await leagueService.demoteFromCoAdmin(leagueId, userId);
+      // Reload league and members after demotion
+      await get().loadLeague(leagueId);
+      await get().loadLeagueMembers(leagueId);
+      set({ isLoading: false });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to demote co-admin';
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
+
+  isUserAdmin: (userId) => {
+    const { currentLeague } = get();
+    if (!currentLeague) return false;
+    if (currentLeague.ownerId === userId) return true;
+    return currentLeague.coAdminIds?.includes(userId) || false;
   },
 }));

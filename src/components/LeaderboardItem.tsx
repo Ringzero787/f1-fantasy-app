@@ -106,18 +106,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.lg,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.sm,
     gap: SPACING.md,
-    ...SHADOWS.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   currentUser: {
-    backgroundColor: COLORS.purple[50],
+    backgroundColor: COLORS.primary + '15',
     borderWidth: 2,
-    borderColor: COLORS.purple[200],
-    ...SHADOWS.glow,
+    borderColor: COLORS.primary,
   },
 
   rankBadge: {
@@ -152,11 +152,11 @@ const styles = StyleSheet.create({
   },
 
   currentUserText: {
-    color: COLORS.purple[700],
+    color: COLORS.primary,
   },
 
   youBadge: {
-    backgroundColor: COLORS.purple[100],
+    backgroundColor: COLORS.primary + '20',
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
     borderRadius: BORDER_RADIUS.full,
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   youText: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
-    color: COLORS.purple[600],
+    color: COLORS.primary,
   },
 
   ownerName: {
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
 
   topPointsValue: {
-    color: COLORS.purple[700],
+    color: COLORS.primary,
   },
 
   pointsLabel: {

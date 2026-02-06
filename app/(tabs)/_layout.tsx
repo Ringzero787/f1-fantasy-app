@@ -6,20 +6,22 @@ import { useAuthStore } from '../../src/store/auth.store';
 
 export default function TabLayout() {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const isAdmin = useAuthStore((state) => state.isAdmin);
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.gray[500],
+        tabBarInactiveTintColor: COLORS.text.muted,
         tabBarStyle: {
-          backgroundColor: COLORS.white,
-          borderTopColor: COLORS.cardBorder,
+          backgroundColor: COLORS.surface,
+          borderTopColor: COLORS.border.default,
+          borderTopWidth: 1,
         },
         headerStyle: {
-          backgroundColor: COLORS.primary,
+          backgroundColor: COLORS.surface,
         },
-        headerTintColor: COLORS.white,
+        headerTintColor: COLORS.text.primary,
         headerTitleStyle: {
           fontWeight: '600',
         },
@@ -80,8 +82,8 @@ export default function TabLayout() {
         options={{
           title: 'Admin',
           headerShown: false,
-          // Only show admin tab in demo mode (type assertion needed for dynamic href)
-          href: isDemoMode ? ('/(tabs)/admin' as unknown as '/') : null,
+          // Only show admin tab for admins or demo mode
+          href: (isAdmin || isDemoMode) ? ('/(tabs)/admin' as unknown as '/') : null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings" size={size} color={color} />
           ),

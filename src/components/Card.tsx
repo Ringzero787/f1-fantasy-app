@@ -59,10 +59,10 @@ export function Card({
   if (variant === 'gradient') {
     const content = (
       <LinearGradient
-        colors={[COLORS.purple[600], COLORS.purple[800]]}
+        colors={[COLORS.cyan[600], COLORS.cyan[800]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.base, styles[`padding_${padding}`], SHADOWS.md, style]}
+        style={[styles.base, styles[`padding_${padding}`], SHADOWS.glow, style]}
       >
         {children}
       </LinearGradient>
@@ -97,29 +97,31 @@ export function Card({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: BORDER_RADIUS.lg,
-    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.card,
+    backgroundColor: COLORS.card,
     overflow: 'hidden',
   },
 
   // Variants
   default: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: COLORS.gray[100],
+    borderColor: COLORS.border.default,
   },
   elevated: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.cardElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
   outlined: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1.5,
-    borderColor: COLORS.gray[200],
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
   glass: {
     backgroundColor: COLORS.glass.white,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: COLORS.border.light,
   },
   gradient: {
     // Styles applied via LinearGradient

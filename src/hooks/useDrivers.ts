@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { driverService } from '../services/driver.service';
 import { useAuthStore } from '../store/auth.store';
+import { useAdminStore } from '../store/admin.store';
 import { demoDrivers } from '../data/demoData';
 import type { Driver, DriverFilter } from '../types';
 
@@ -71,30 +72,137 @@ function getDemoDriversFiltered(filter: DriverFilter): Driver[] {
   return drivers;
 }
 
+// Helper to calculate 2026 season points from race results
+function getSeasonPointsFromRaces(driverId: string, raceResults: Record<string, any>): number {
+  let total = 0;
+  Object.values(raceResults).forEach((result: any) => {
+    if (result.isComplete) {
+      // Race points
+      const driverResult = result.driverResults?.find((dr: any) => dr.driverId === driverId);
+      if (driverResult) {
+        total += driverResult.points;
+      }
+      // Sprint points
+      const sprintResult = result.sprintResults?.find((sr: any) => sr.driverId === driverId);
+      if (sprintResult) {
+        total += sprintResult.points;
+      }
+    }
+  });
+  return total;
+}
+
 export function useDrivers(filter?: DriverFilter) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const raceResults = useAdminStore((state) => state.raceResults);
+  const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: filter ? driverKeys.list(filter) : driverKeys.lists(),
-    queryFn: () => {
+    queryKey: filter ? [...driverKeys.list(filter), raceResults, driverPrices] : [...driverKeys.lists(), raceResults, driverPrices],
+    queryFn: async () => {
+      // Add 2026 season points and apply price updates to drivers
+      const addSeasonPointsAndPrices = (drivers: Driver[], sortFilter?: DriverFilter) => {
+        let updated = drivers.map(d => {
+          const priceUpdate = driverPrices[d.id];
+          return {
+            ...d,
+            // Apply price updates from race results
+            price: priceUpdate?.currentPrice ?? d.price,
+            previousPrice: priceUpdate?.previousPrice ?? d.previousPrice,
+            // seasonPoints stays as 2025 data (used for pricing calculations)
+            // currentSeasonPoints is 2026 data (displayed to users)
+            currentSeasonPoints: priceUpdate?.totalPoints ?? getSeasonPointsFromRaces(d.id, raceResults),
+          };
+        });
+
+        // Re-sort after price updates are applied (ensures correct order with updated prices)
+        if (sortFilter?.sortBy) {
+          updated.sort((a, b) => {
+            let comparison = 0;
+            switch (sortFilter.sortBy) {
+              case 'price':
+                comparison = a.price - b.price;
+                break;
+              case 'points':
+                comparison = (a.currentSeasonPoints || 0) - (b.currentSeasonPoints || 0);
+                break;
+              case 'name':
+                comparison = a.name.localeCompare(b.name);
+                break;
+              case 'priceChange':
+                comparison = (a.price - a.previousPrice) - (b.price - b.previousPrice);
+                break;
+            }
+            return sortFilter.sortOrder === 'desc' ? -comparison : comparison;
+          });
+        } else {
+          // Default sort by price descending
+          updated.sort((a, b) => b.price - a.price);
+        }
+
+        return updated;
+      };
+
       if (isDemoMode) {
-        return filter ? getDemoDriversFiltered(filter) : getDemoDrivers();
+        const drivers = filter ? getDemoDriversFiltered(filter) : getDemoDrivers();
+        return addSeasonPointsAndPrices(drivers, filter);
       }
-      return filter ? driverService.getDriversFiltered(filter) : driverService.getAllDrivers();
+      // Try Firestore first, fall back to demo data on error or empty
+      try {
+        const firestoreData = filter
+          ? await driverService.getDriversFiltered(filter)
+          : await driverService.getAllDrivers();
+        if (firestoreData.length === 0) {
+          console.log('Firestore empty, using demo drivers');
+          const drivers = filter ? getDemoDriversFiltered(filter) : getDemoDrivers();
+          return addSeasonPointsAndPrices(drivers, filter);
+        }
+        return addSeasonPointsAndPrices(firestoreData, filter);
+      } catch (error) {
+        console.log('Firestore error, using demo drivers:', error);
+        const drivers = filter ? getDemoDriversFiltered(filter) : getDemoDrivers();
+        return addSeasonPointsAndPrices(drivers, filter);
+      }
     },
   });
 }
 
 export function useDriver(driverId: string) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const raceResults = useAdminStore((state) => state.raceResults);
+  const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: driverKeys.detail(driverId),
-    queryFn: () => {
+    queryKey: [...driverKeys.detail(driverId), raceResults, driverPrices],
+    queryFn: async () => {
+      const addSeasonPointsAndPrice = (driver: Driver | null) => {
+        if (!driver) return null;
+        const priceUpdate = driverPrices[driver.id];
+        return {
+          ...driver,
+          price: priceUpdate?.currentPrice ?? driver.price,
+          previousPrice: priceUpdate?.previousPrice ?? driver.previousPrice,
+          // currentSeasonPoints is 2026 data (displayed to users)
+          currentSeasonPoints: priceUpdate?.totalPoints ?? getSeasonPointsFromRaces(driver.id, raceResults),
+        };
+      };
+
       if (isDemoMode) {
-        return demoDrivers.find(d => d.id === driverId) || null;
+        const driver = demoDrivers.find(d => d.id === driverId) || null;
+        return addSeasonPointsAndPrice(driver);
       }
-      return driverService.getDriverById(driverId);
+      try {
+        const firestoreData = await driverService.getDriverById(driverId);
+        if (!firestoreData) {
+          const driver = demoDrivers.find(d => d.id === driverId) || null;
+          return addSeasonPointsAndPrice(driver);
+        }
+        return addSeasonPointsAndPrice(firestoreData);
+      } catch (error) {
+        console.log('Firestore error, using demo driver:', error);
+        const driver = demoDrivers.find(d => d.id === driverId) || null;
+        return addSeasonPointsAndPrice(driver);
+      }
     },
     enabled: !!driverId,
   });
@@ -105,11 +213,20 @@ export function useDriversByConstructor(constructorId: string) {
 
   return useQuery({
     queryKey: driverKeys.byConstructor(constructorId),
-    queryFn: () => {
+    queryFn: async () => {
       if (isDemoMode) {
         return demoDrivers.filter(d => d.constructorId === constructorId);
       }
-      return driverService.getDriversByConstructor(constructorId);
+      try {
+        const firestoreData = await driverService.getDriversByConstructor(constructorId);
+        if (firestoreData.length === 0) {
+          return demoDrivers.filter(d => d.constructorId === constructorId);
+        }
+        return firestoreData;
+      } catch (error) {
+        console.log('Firestore error, using demo drivers:', error);
+        return demoDrivers.filter(d => d.constructorId === constructorId);
+      }
     },
     enabled: !!constructorId,
   });
@@ -117,16 +234,36 @@ export function useDriversByConstructor(constructorId: string) {
 
 export function useAffordableDrivers(maxPrice: number, excludeIds: string[] = []) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: [...driverKeys.affordable(maxPrice), excludeIds],
-    queryFn: () => {
+    queryKey: [...driverKeys.affordable(maxPrice), excludeIds, driverPrices],
+    queryFn: async () => {
+      const getDemoAffordable = () => demoDrivers
+        .map(d => {
+          const priceUpdate = driverPrices[d.id];
+          return {
+            ...d,
+            price: priceUpdate?.currentPrice ?? d.price,
+            previousPrice: priceUpdate?.previousPrice ?? d.previousPrice,
+          };
+        })
+        .filter(d => d.price <= maxPrice && !excludeIds.includes(d.id))
+        .sort((a, b) => b.price - a.price);
+
       if (isDemoMode) {
-        return demoDrivers
-          .filter(d => d.price <= maxPrice && !excludeIds.includes(d.id))
-          .sort((a, b) => b.price - a.price);
+        return getDemoAffordable();
       }
-      return driverService.getAffordableDrivers(maxPrice, excludeIds);
+      try {
+        const firestoreData = await driverService.getAffordableDrivers(maxPrice, excludeIds);
+        if (firestoreData.length === 0) {
+          return getDemoAffordable();
+        }
+        return firestoreData;
+      } catch (error) {
+        console.log('Firestore error, using demo drivers:', error);
+        return getDemoAffordable();
+      }
     },
     enabled: maxPrice > 0,
   });
@@ -134,29 +271,90 @@ export function useAffordableDrivers(maxPrice: number, excludeIds: string[] = []
 
 export function useTopDrivers(limit: number = 10) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const raceResults = useAdminStore((state) => state.raceResults);
+  const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: driverKeys.top(limit),
-    queryFn: () => {
+    queryKey: [...driverKeys.top(limit), raceResults, driverPrices],
+    queryFn: async () => {
+      // Calculate 2026 season points from race results
+      const getSeasonPoints = (driverId: string): number => {
+        // First check if we have tracked points from price updates
+        const priceUpdate = driverPrices[driverId];
+        if (priceUpdate) {
+          return priceUpdate.totalPoints;
+        }
+        // Otherwise calculate from race results
+        let total = 0;
+        Object.values(raceResults).forEach(result => {
+          if (result.isComplete) {
+            // Race points
+            const driverResult = result.driverResults.find(dr => dr.driverId === driverId);
+            if (driverResult) {
+              total += driverResult.points;
+            }
+            // Sprint points
+            const sprintResult = result.sprintResults?.find(sr => sr.driverId === driverId);
+            if (sprintResult) {
+              total += sprintResult.points;
+            }
+          }
+        });
+        return total;
+      };
+
+      const getDemoTop = () => [...demoDrivers]
+        .filter(d => d.isActive)
+        .map(d => {
+          const priceUpdate = driverPrices[d.id];
+          const currentSeasonPts = getSeasonPoints(d.id);
+          return {
+            ...d,
+            price: priceUpdate?.currentPrice ?? d.price,
+            previousPrice: priceUpdate?.previousPrice ?? d.previousPrice,
+            currentSeasonPoints: currentSeasonPts,
+          };
+        })
+        .sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0))
+        .slice(0, limit);
+
       if (isDemoMode) {
-        return [...demoDrivers]
-          .sort((a, b) => b.fantasyPoints - a.fantasyPoints)
-          .slice(0, limit);
+        return getDemoTop();
       }
-      return driverService.getTopDrivers(limit);
+      try {
+        const firestoreData = await driverService.getTopDrivers(limit);
+        if (firestoreData.length === 0) {
+          return getDemoTop();
+        }
+        return firestoreData;
+      } catch (error) {
+        console.log('Firestore error, using demo drivers:', error);
+        return getDemoTop();
+      }
     },
   });
 }
 
 export function usePriceMovers(direction: 'up' | 'down', limit: number = 5) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: driverKeys.movers(direction),
-    queryFn: () => {
-      if (isDemoMode) {
-        const sorted = [...demoDrivers]
-          .map(d => ({ ...d, priceChange: d.price - d.previousPrice }))
+    queryKey: [...driverKeys.movers(direction), driverPrices],
+    queryFn: async () => {
+      const getDemoMovers = () => {
+        return [...demoDrivers]
+          .map(d => {
+            const priceUpdate = driverPrices[d.id];
+            const currentPrice = priceUpdate?.currentPrice ?? d.price;
+            const previousPrice = priceUpdate?.previousPrice ?? d.previousPrice;
+            return {
+              ...d,
+              price: currentPrice,
+              previousPrice: previousPrice,
+              priceChange: currentPrice - previousPrice,
+            };
+          })
           .sort((a, b) => {
             if (direction === 'up') {
               return b.priceChange - a.priceChange;
@@ -164,9 +362,21 @@ export function usePriceMovers(direction: 'up' | 'down', limit: number = 5) {
             return a.priceChange - b.priceChange;
           })
           .slice(0, limit);
-        return sorted;
+      };
+
+      if (isDemoMode) {
+        return getDemoMovers();
       }
-      return driverService.getPriceMovers(direction, limit);
+      try {
+        const firestoreData = await driverService.getPriceMovers(direction, limit);
+        if (firestoreData.length === 0) {
+          return getDemoMovers();
+        }
+        return firestoreData;
+      } catch (error) {
+        console.log('Firestore error, using demo drivers:', error);
+        return getDemoMovers();
+      }
     },
   });
 }

@@ -19,6 +19,8 @@ import {
   PPM_GOOD,
   PPM_POOR,
   PRICE_CHANGES,
+  DNF_PRICE_PENALTY_MAX,
+  DNF_PRICE_PENALTY_MIN,
 } from '../config/constants';
 import type { Driver, Constructor, PriceHistory } from '../types';
 
@@ -30,6 +32,45 @@ const constructorsCollection = collection(db, 'constructors');
 const priceHistoryCollection = collection(db, 'priceHistory');
 
 export const pricingService = {
+  /**
+   * Calculate DNF price penalty based on which lap the driver retired
+   * - DNF on lap 1 = maximum penalty (10 points)
+   * - DNF on final lap = minimum penalty (1 point)
+   * - Linear scale between based on race progress
+   *
+   * @param dnfLap - The lap number where the driver retired
+   * @param totalLaps - Total laps in the race
+   * @returns Price penalty (positive number to be subtracted from price)
+   */
+  calculateDnfPricePenalty(dnfLap: number, totalLaps: number): number {
+    // Safety checks
+    if (totalLaps <= 1) return DNF_PRICE_PENALTY_MIN;
+    if (dnfLap <= 0) return DNF_PRICE_PENALTY_MAX;
+    if (dnfLap >= totalLaps) return DNF_PRICE_PENALTY_MIN;
+
+    // Calculate penalty: early DNF = higher penalty
+    // Formula: min + (max - min) * (1 - progress)
+    // where progress = (dnfLap - 1) / (totalLaps - 1)
+    const progress = (dnfLap - 1) / (totalLaps - 1);
+    const penalty = DNF_PRICE_PENALTY_MIN +
+      (DNF_PRICE_PENALTY_MAX - DNF_PRICE_PENALTY_MIN) * (1 - progress);
+
+    return Math.ceil(penalty); // Round up to ensure at least 1 point penalty
+  },
+
+  /**
+   * Apply DNF price penalty to current price
+   * @returns New price after penalty (minimum 50)
+   */
+  applyDnfPenalty(currentPrice: number, dnfLap: number, totalLaps: number): {
+    newPrice: number;
+    penalty: number;
+  } {
+    const penalty = this.calculateDnfPricePenalty(dnfLap, totalLaps);
+    const newPrice = Math.max(50, currentPrice - penalty); // Minimum price of 50
+    return { newPrice, penalty };
+  },
+
   /**
    * Calculate Points Per Million (PPM) for a driver
    */

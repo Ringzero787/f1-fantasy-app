@@ -1,9 +1,7 @@
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db, firebaseAuth } from '../config/firebase';
-import { useAuthStore } from '../store/auth.store';
-
-// Firebase Storage bucket name from environment
-const STORAGE_BUCKET = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || '';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import * as FileSystem from 'expo-file-system';
+import { db, firebaseAuth, storage } from '../config/firebase';
 
 /**
  * Generate a placeholder avatar URL for demo mode using DiceBear API
@@ -128,7 +126,7 @@ async function tryGenerateWithModel(
 }
 
 /**
- * Upload base64 image to Firebase Storage using REST API
+ * Upload base64 image to Firebase Storage using expo-file-system
  * This avoids Blob/ArrayBuffer issues in React Native
  */
 async function uploadBase64ToStorage(
@@ -136,43 +134,69 @@ async function uploadBase64ToStorage(
   path: string,
   contentType: string
 ): Promise<string> {
-  // Get current user's auth token for authenticated upload
+  // Get current user to verify authentication
   const user = firebaseAuth.currentUser;
   if (!user) {
     throw new Error('User must be authenticated to upload avatar');
   }
 
-  const token = await user.getIdToken();
+  // Get file extension from content type
+  const extension = contentType.split('/')[1] || 'png';
+  const tempFilePath = `${FileSystem.cacheDirectory}avatar_temp_${Date.now()}.${extension}`;
 
-  // Encode the path for the URL
-  const encodedPath = encodeURIComponent(path);
+  try {
+    // Write base64 data to a temp file
+    await FileSystem.writeAsStringAsync(tempFilePath, base64Data, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
 
-  // Upload using Firebase Storage REST API
-  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodedPath}`;
+    console.log('Temp file written:', tempFilePath);
 
-  const response = await fetch(uploadUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Firebase ${token}`,
-      'Content-Type': contentType,
-      'Content-Transfer-Encoding': 'base64',
-    },
-    body: base64Data,
-  });
+    // Read the file as a blob using fetch (works with file:// URIs in RN)
+    const response = await fetch(tempFilePath);
+    const blob = await response.blob();
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Storage upload failed:', response.status, errorText);
-    throw new Error(`Failed to upload image: ${response.status}`);
+    console.log('Blob created, size:', blob.size);
+
+    // Create a reference to the file location
+    const storageRef = ref(storage, path);
+
+    // Upload using uploadBytesResumable
+    const uploadTask = uploadBytesResumable(storageRef, blob, {
+      contentType,
+    });
+
+    // Wait for upload to complete
+    await new Promise<void>((resolve, reject) => {
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          console.log('Upload progress:', progress.toFixed(0) + '%');
+        },
+        (error) => {
+          console.error('Upload error:', error);
+          reject(error);
+        },
+        () => {
+          console.log('Upload complete');
+          resolve();
+        }
+      );
+    });
+
+    // Get the download URL
+    const downloadUrl = await getDownloadURL(storageRef);
+
+    // Clean up temp file
+    await FileSystem.deleteAsync(tempFilePath, { idempotent: true });
+
+    return downloadUrl;
+  } catch (error) {
+    // Clean up temp file on error
+    await FileSystem.deleteAsync(tempFilePath, { idempotent: true }).catch(() => {});
+    throw error;
   }
-
-  const result = await response.json();
-
-  // Construct the download URL
-  const downloadToken = result.downloadTokens;
-  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodedPath}?alt=media&token=${downloadToken}`;
-
-  return downloadUrl;
 }
 
 /**
@@ -183,20 +207,17 @@ export async function generateAvatar(
   type: AvatarType,
   entityId: string
 ): Promise<GenerateAvatarResult> {
-  // Check if in demo mode - use placeholder avatar instead of AI generation
-  const isDemoMode = useAuthStore.getState().isDemoMode;
-
-  if (isDemoMode) {
-    console.log('Demo mode: using placeholder avatar');
-    const imageUrl = generateDemoAvatarUrl(name, type);
-    return { success: true, imageUrl };
-  }
-
+  // If no Gemini API key, use DiceBear placeholder avatars
   if (!GEMINI_API_KEY) {
-    return {
-      success: false,
-      error: 'Gemini API key not configured. Set EXPO_PUBLIC_GEMINI_API_KEY in your environment.'
-    };
+    console.log('No Gemini API key: using placeholder avatar');
+    const imageUrl = generateDemoAvatarUrl(name, type);
+    // Save the placeholder URL to the entity
+    try {
+      await updateEntityAvatar(type, entityId, imageUrl);
+    } catch (err) {
+      console.log('Could not save avatar URL to entity:', err);
+    }
+    return { success: true, imageUrl };
   }
 
   try {
@@ -224,22 +245,38 @@ export async function generateAvatar(
 
     const { imageData, mimeType } = imageResult;
 
-    // Upload to Firebase Storage using REST API (React Native compatible - avoids Blob issues)
-    const extension = mimeType.split('/')[1] || 'png';
-    const storagePath = `avatars/${type}s/${entityId}.${extension}`;
+    // Try to upload to Firebase Storage
+    try {
+      const extension = mimeType.split('/')[1] || 'png';
+      const storagePath = `avatars/${type}s/${entityId}.${extension}`;
 
-    const imageUrl = await uploadBase64ToStorage(imageData, storagePath, mimeType);
+      const imageUrl = await uploadBase64ToStorage(imageData, storagePath, mimeType);
 
-    // Update the entity with the avatar URL
-    await updateEntityAvatar(type, entityId, imageUrl);
+      // Update the entity with the avatar URL
+      await updateEntityAvatar(type, entityId, imageUrl);
 
-    return { success: true, imageUrl };
+      return { success: true, imageUrl };
+    } catch (uploadError) {
+      // If storage upload fails, fall back to DiceBear placeholder
+      console.log('Storage upload failed, using DiceBear fallback:', uploadError);
+      const fallbackUrl = generateDemoAvatarUrl(name, type);
+      try {
+        await updateEntityAvatar(type, entityId, fallbackUrl);
+      } catch (err) {
+        console.log('Could not save fallback avatar URL:', err);
+      }
+      return { success: true, imageUrl: fallbackUrl };
+    }
   } catch (error) {
-    console.error('Avatar generation error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate avatar'
-    };
+    // If Gemini fails, fall back to DiceBear
+    console.error('Avatar generation error, using fallback:', error);
+    const fallbackUrl = generateDemoAvatarUrl(name, type);
+    try {
+      await updateEntityAvatar(type, entityId, fallbackUrl);
+    } catch (err) {
+      console.log('Could not save fallback avatar URL:', err);
+    }
+    return { success: true, imageUrl: fallbackUrl };
   }
 }
 
@@ -286,12 +323,11 @@ export async function getAvatarUrl(
 }
 
 /**
- * Check if avatar generation is available (API key configured)
+ * Check if avatar generation is available
+ * Always returns true - we use DiceBear placeholders as fallback when no API key
  */
 export function isAvatarGenerationAvailable(): boolean {
-  // Available in demo mode (uses placeholder) or when API key is configured
-  const isDemoMode = useAuthStore.getState().isDemoMode;
-  return isDemoMode || !!GEMINI_API_KEY;
+  return true;
 }
 
 /**
@@ -304,4 +340,24 @@ export async function regenerateAvatar(
 ): Promise<GenerateAvatarResult> {
   // Simply call generateAvatar again - it will overwrite the existing avatar
   return generateAvatar(name, type, entityId);
+}
+
+/**
+ * Save a preset avatar URL (e.g., from DiceBear) to an entity
+ */
+export async function saveAvatarUrl(
+  type: AvatarType,
+  entityId: string,
+  imageUrl: string
+): Promise<GenerateAvatarResult> {
+  try {
+    await updateEntityAvatar(type, entityId, imageUrl);
+    return { success: true, imageUrl };
+  } catch (error) {
+    console.error('Error saving avatar URL:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to save avatar',
+    };
+  }
 }

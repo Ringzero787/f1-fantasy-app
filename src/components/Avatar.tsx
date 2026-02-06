@@ -17,6 +17,8 @@ interface AvatarProps {
   isGenerating?: boolean;
   onGeneratePress?: () => void;
   showGenerateButton?: boolean;
+  onPress?: () => void;
+  editable?: boolean;
   style?: object;
 }
 
@@ -43,6 +45,8 @@ export function Avatar({
   isGenerating = false,
   onGeneratePress,
   showGenerateButton = false,
+  onPress,
+  editable = false,
   style,
 }: AvatarProps) {
   const [imageError, setImageError] = useState(false);
@@ -67,87 +71,126 @@ export function Avatar({
     borderRadius: borderRadius,
   };
 
+  const isClickable = onPress || editable;
+
+  // Render the edit badge
+  const renderEditBadge = () => {
+    if (!editable) return null;
+    return (
+      <View style={styles.editBadge}>
+        <Ionicons name="pencil" size={10} color={COLORS.white} />
+      </View>
+    );
+  };
+
+  // Render the generate button
+  const renderGenerateButton = () => {
+    if (!showGenerateButton || !onGeneratePress) return null;
+    return (
+      <TouchableOpacity
+        style={styles.generateButton}
+        onPress={(e) => {
+          e.stopPropagation?.();
+          onGeneratePress();
+        }}
+        disabled={isGenerating}
+      >
+        {isGenerating ? (
+          <ActivityIndicator size="small" color={COLORS.white} />
+        ) : (
+          <Ionicons name="sparkles" size={10} color={COLORS.white} />
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // Render the regenerate button (for when image exists)
+  const renderRegenerateButton = () => {
+    if (!showGenerateButton || !onGeneratePress) return null;
+    return (
+      <TouchableOpacity
+        style={styles.regenerateButton}
+        onPress={(e) => {
+          e.stopPropagation?.();
+          onGeneratePress();
+        }}
+        disabled={isGenerating}
+      >
+        {isGenerating ? (
+          <ActivityIndicator size="small" color={COLORS.white} />
+        ) : (
+          <Ionicons name="refresh" size={12} color={COLORS.white} />
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // Wrapper component - TouchableOpacity if clickable, View otherwise
+  const Wrapper = isClickable ? TouchableOpacity : View;
+  const wrapperProps = isClickable
+    ? { onPress, activeOpacity: 0.7 }
+    : {};
+
   // If we have a valid image URL and no error, show the image
   if (imageUrl && !imageError) {
     return (
-      <View style={[styles.imageContainer, containerStyle, style]}>
+      <Wrapper {...wrapperProps} style={[styles.imageContainer, containerStyle, style]}>
         <Image
           source={{ uri: imageUrl }}
           style={[styles.image, { borderRadius }]}
           onError={() => setImageError(true)}
           resizeMode="cover"
         />
-        {showGenerateButton && onGeneratePress && (
-          <TouchableOpacity
-            style={styles.regenerateButton}
-            onPress={onGeneratePress}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <Ionicons name="refresh" size={12} color={COLORS.white} />
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
+        {renderEditBadge()}
+        {renderRegenerateButton()}
+      </Wrapper>
     );
   }
 
   // Show generating state
   if (isGenerating) {
     return (
-      <LinearGradient
-        colors={gradient}
-        style={[styles.container, containerStyle, style]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <ActivityIndicator size="small" color={COLORS.white} />
-      </LinearGradient>
+      <Wrapper {...wrapperProps} style={style}>
+        <LinearGradient
+          colors={gradient}
+          style={[styles.container, containerStyle]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <ActivityIndicator size="small" color={COLORS.white} />
+        </LinearGradient>
+        {renderEditBadge()}
+      </Wrapper>
     );
   }
 
-  // Fallback to initials
-  const content = (
-    <>
-      <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
-      {showGenerateButton && onGeneratePress && (
-        <TouchableOpacity
-          style={styles.generateButton}
-          onPress={onGeneratePress}
-        >
-          <Ionicons name="sparkles" size={10} color={COLORS.white} />
-        </TouchableOpacity>
-      )}
-    </>
-  );
-
+  // Fallback to initials with gradient
   if (useGradient) {
     return (
-      <LinearGradient
-        colors={gradient}
-        style={[styles.container, containerStyle, style]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        {content}
-      </LinearGradient>
+      <Wrapper {...wrapperProps} style={style}>
+        <LinearGradient
+          colors={gradient}
+          style={[styles.container, containerStyle]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
+        </LinearGradient>
+        {renderEditBadge()}
+        {renderGenerateButton()}
+      </Wrapper>
     );
   }
 
+  // Fallback to initials without gradient
   return (
-    <View style={[styles.container, containerStyle, { backgroundColor: colors.bg }, style]}>
-      <Text style={[styles.initials, { fontSize, color: colors.text }]}>{initials}</Text>
-      {showGenerateButton && onGeneratePress && (
-        <TouchableOpacity
-          style={styles.generateButton}
-          onPress={onGeneratePress}
-        >
-          <Ionicons name="sparkles" size={10} color={COLORS.white} />
-        </TouchableOpacity>
-      )}
-    </View>
+    <Wrapper {...wrapperProps} style={style}>
+      <View style={[styles.container, containerStyle, { backgroundColor: colors.bg }]}>
+        <Text style={[styles.initials, { fontSize, color: colors.text }]}>{initials}</Text>
+      </View>
+      {renderEditBadge()}
+      {renderGenerateButton()}
+    </Wrapper>
   );
 }
 
@@ -186,6 +229,16 @@ const styles = StyleSheet.create({
     bottom: -2,
     right: -2,
     backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.full,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: COLORS.white,
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: COLORS.gray[600],
     borderRadius: BORDER_RADIUS.full,
     padding: 4,
     borderWidth: 2,

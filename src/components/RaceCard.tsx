@@ -46,7 +46,7 @@ export function RaceCard({
       case 'in_progress':
         return COLORS.success;
       case 'completed':
-        return COLORS.gray[400];
+        return COLORS.text.muted;
       default:
         return COLORS.primary;
     }
@@ -86,7 +86,7 @@ export function RaceCard({
             <Text style={styles.sprintTagText}>S</Text>
           </View>
         )}
-        <Ionicons name="chevron-forward" size={18} color={COLORS.gray[300]} />
+        <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
       </Pressable>
     );
   }
@@ -149,7 +149,7 @@ export function RaceCard({
 
         {race.status === 'completed' && (
           <View style={styles.completedBadge}>
-            <Ionicons name="checkmark-circle" size={16} color={COLORS.gray[400]} />
+            <Ionicons name="checkmark-circle" size={16} color={COLORS.text.muted} />
             <Text style={styles.completedText}>Completed</Text>
           </View>
         )}
@@ -160,22 +160,24 @@ export function RaceCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.xl,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
-    ...SHADOWS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   compactContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
-    ...SHADOWS.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   header: {
@@ -205,7 +207,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.white,
+    borderColor: COLORS.card,
   },
 
   roundOverlayText: {
@@ -241,7 +243,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.purple[100],
+    backgroundColor: COLORS.purple[600] + '30',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -249,7 +251,7 @@ const styles = StyleSheet.create({
   compactRoundText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.purple[700],
+    color: COLORS.purple[400],
   },
 
   raceInfo: {
@@ -335,7 +337,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   dateSection: {},
@@ -408,7 +410,7 @@ const styles = StyleSheet.create({
 
   completedText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[400],
+    color: COLORS.text.muted,
     fontWeight: '500',
   },
 });

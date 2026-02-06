@@ -134,16 +134,18 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     margin: SPACING.md,
     padding: SPACING.xs,
     borderRadius: BORDER_RADIUS.md,
     gap: SPACING.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   filterButton: {
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
   filterButtonText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '500',
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
   },
 
   filterButtonTextActive: {
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
 
   countText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   listContent: {
@@ -190,6 +192,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 });

@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
     fontSize: FONTS.sizes.md,
-    color: COLORS.text.primary,
+    color: COLORS.gray[900],
     textAlignVertical: 'center',
   },
 

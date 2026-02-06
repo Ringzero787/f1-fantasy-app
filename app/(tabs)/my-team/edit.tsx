@@ -22,9 +22,7 @@ export default function EditTeamScreen() {
     currentTeam,
     isLoading,
     removeDriver,
-    setStarDriver,
-    setStarConstructor,
-    getEligibleStarDrivers,
+    setCaptain,
     deleteTeam,
   } = useTeamStore();
 
@@ -33,9 +31,6 @@ export default function EditTeamScreen() {
 
   // Get all drivers for swap recommendations
   const { data: allDrivers = [] } = useDrivers();
-
-  // Get list of eligible star drivers (bottom 10 by points)
-  const eligibleStarDrivers = getEligibleStarDrivers();
 
   // Calculate value (points per price unit) and find better swap options
   const getSwapRecommendation = useMemo(() => {
@@ -129,23 +124,12 @@ export default function EditTeamScreen() {
     );
   };
 
-  const handleSetStarDriver = async (driverId: string) => {
-    if (!eligibleStarDrivers.includes(driverId)) {
-      Alert.alert('Not Eligible', 'Only bottom 10 drivers by points can be star driver. Try setting your constructor as star instead.');
-      return;
-    }
+  // V3: Set captain driver (any driver can be captain, gets 2x points)
+  const handleSetCaptain = async (driverId: string) => {
     try {
-      await setStarDriver(driverId);
+      await setCaptain(driverId);
     } catch (error) {
-      Alert.alert('Error', 'Failed to set star driver');
-    }
-  };
-
-  const handleSetStarConstructor = async () => {
-    try {
-      await setStarConstructor();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to set star constructor');
+      Alert.alert('Error', 'Failed to set captain');
     }
   };
 
@@ -224,6 +208,7 @@ export default function EditTeamScreen() {
           const recommendation = getSwapRecommendation(driver.driverId, driver.currentPrice);
           const profitLoss = formatProfitLoss(driver.purchasePrice, driver.currentPrice);
           const saleValue = calculateSaleValue(driver.currentPrice);
+          const isCaptain = currentTeam.captainDriverId === driver.driverId;
 
           return (
             <Card key={driver.driverId} variant="outlined" style={styles.driverCard}>
@@ -262,29 +247,27 @@ export default function EditTeamScreen() {
               </View>
 
               <View style={styles.driverActions}>
-                {/* Star Driver button - only show if eligible (bottom 10) */}
-                {eligibleStarDrivers.includes(driver.driverId) && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      driver.isStarDriver && styles.starDriverActive,
-                    ]}
-                    onPress={() => handleSetStarDriver(driver.driverId)}
-                    disabled={!currentTeam.lockStatus.canModify || isLoading}
-                  >
-                    <Ionicons
-                      name={driver.isStarDriver ? 'star' : 'star-outline'}
-                      size={16}
-                      color={driver.isStarDriver ? COLORS.white : COLORS.gold}
-                    />
-                    <Text style={[
-                      styles.actionButtonText,
-                      driver.isStarDriver && styles.starDriverActiveText,
-                    ]}>
-                      {driver.isStarDriver ? 'Star (+50%)' : 'Set Star'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                {/* V3: Captain button - any driver can be captain */}
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    isCaptain && styles.captainActive,
+                  ]}
+                  onPress={() => handleSetCaptain(driver.driverId)}
+                  disabled={!currentTeam.lockStatus.canModify || isLoading}
+                >
+                  <Ionicons
+                    name={isCaptain ? 'shield' : 'shield-outline'}
+                    size={16}
+                    color={isCaptain ? COLORS.white : COLORS.primary}
+                  />
+                  <Text style={[
+                    styles.actionButtonText,
+                    isCaptain && styles.captainActiveText,
+                  ]}>
+                    {isCaptain ? 'Captain (2x)' : 'Set Captain'}
+                  </Text>
+                </TouchableOpacity>
 
                 {/* Swap button */}
                 <TouchableOpacity
@@ -428,29 +411,7 @@ export default function EditTeamScreen() {
               );
             })()}
 
-            {/* Star Constructor button */}
-            <View style={styles.constructorActions}>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  currentTeam.constructor.isStarDriver && styles.starDriverActive,
-                ]}
-                onPress={handleSetStarConstructor}
-                disabled={!currentTeam.lockStatus.canModify || isLoading}
-              >
-                <Ionicons
-                  name={currentTeam.constructor.isStarDriver ? 'star' : 'star-outline'}
-                  size={16}
-                  color={currentTeam.constructor.isStarDriver ? COLORS.white : COLORS.gold}
-                />
-                <Text style={[
-                  styles.actionButtonText,
-                  currentTeam.constructor.isStarDriver && styles.starDriverActiveText,
-                ]}>
-                  {currentTeam.constructor.isStarDriver ? 'Star (+50%)' : 'Set Star'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* V3: No captain option for constructors */}
 
             {currentTeam.constructor.racesHeld > 0 && (
               <View style={styles.lockBonusContainer}>
@@ -497,7 +458,7 @@ export default function EditTeamScreen() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   backgroundBanner: {
@@ -550,7 +511,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   addButton: {
@@ -579,19 +540,19 @@ const styles = StyleSheet.create({
   driverName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   driverTeam: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
   driverPrice: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
   },
 
   priceColumn: {
@@ -600,13 +561,13 @@ const styles = StyleSheet.create({
 
   purchasePrice: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
   tradingInfo: {
     flexDirection: 'row',
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.sm,
     padding: SPACING.sm,
     marginBottom: SPACING.sm,
@@ -619,19 +580,19 @@ const styles = StyleSheet.create({
 
   tradingLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginBottom: 2,
   },
 
   tradingValue: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[800],
+    color: COLORS.text.primary,
   },
 
   tradingHint: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[400],
+    color: COLORS.text.muted,
   },
 
   profitText: {
@@ -654,21 +615,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     borderRadius: BORDER_RADIUS.sm,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
     gap: SPACING.xs,
   },
 
-  starDriverActive: {
-    backgroundColor: COLORS.gold,
-    borderColor: COLORS.gold,
+  // V3: Captain styles (replaces star)
+  captainActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
 
   actionButtonText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
   },
 
-  starDriverActiveText: {
+  captainActiveText: {
     color: COLORS.white,
   },
 
@@ -711,7 +673,7 @@ const styles = StyleSheet.create({
 
   recommendationText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     flex: 1,
   },
 
@@ -740,24 +702,24 @@ const styles = StyleSheet.create({
   constructorName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   constructorPoints: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: 2,
   },
 
   constructorPrice: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
   },
 
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
   },
 
