@@ -122,7 +122,7 @@ type TeamMode = 'solo' | 'league';
 export default function CreateTeamScreen() {
   const { user } = useAuth();
   const { leagues, loadUserLeagues, lookupLeagueByCode, recentlyCreatedLeague, clearRecentlyCreatedLeague } = useLeagueStore();
-  const { createTeam, addDriver, setConstructor, userTeams, isLoading, error } = useTeamStore();
+  const { createTeam, addDriver, setConstructor, userTeams, isLoading, error, currentTeam, setCurrentTeam } = useTeamStore();
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
 
@@ -321,13 +321,41 @@ export default function CreateTeamScreen() {
       // Create the team first (support solo teams with null leagueId)
       await createTeam(user.id, currentLeague?.id || null, teamName.trim());
 
-      // V3: Add all recommended drivers (captain selection is done separately)
-      for (const driver of recommended.drivers) {
-        await addDriver(driver.id);
-      }
+      // Build team atomically - convert Driver[] to FantasyDriver[]
+      const totalCost = recommended.drivers.reduce((sum, d) => sum + d.price, 0) + recommended.constructor.price;
 
-      // Add constructor
-      await setConstructor(recommended.constructor.id);
+      const fantasyDrivers = recommended.drivers.map(driver => ({
+        driverId: driver.id,
+        name: driver.name,
+        shortName: driver.shortName || driver.name.substring(0, 3).toUpperCase(),
+        purchasePrice: driver.price,
+        currentPrice: driver.price,
+        pointsScored: 0,
+      }));
+
+      const fantasyConstructor = {
+        constructorId: recommended.constructor.id,
+        name: recommended.constructor.name,
+        shortName: recommended.constructor.shortName || recommended.constructor.name.substring(0, 3).toUpperCase(),
+        purchasePrice: recommended.constructor.price,
+        currentPrice: recommended.constructor.price,
+        pointsScored: 0,
+      };
+
+      // Get the newly created team and update it atomically
+      const newTeam = useTeamStore.getState().currentTeam;
+      if (newTeam) {
+        const updatedTeam = {
+          ...newTeam,
+          drivers: fantasyDrivers,
+          constructor: fantasyConstructor,
+          totalSpent: totalCost,
+          budget: BUDGET - totalCost,
+          racesSinceTransfer: 0,
+          updatedAt: new Date(),
+        };
+        setCurrentTeam(updatedTeam);
+      }
 
       // Clear the recently created league since we've used it
       if (recentlyCreatedLeague) {
