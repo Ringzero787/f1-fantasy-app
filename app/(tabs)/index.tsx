@@ -142,8 +142,12 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>My Teams</Text>
-          <TouchableOpacity onPress={() => router.push('/my-team')}>
-            <Text style={styles.seeAllText}>Manage</Text>
+          <TouchableOpacity
+            style={styles.manageButton}
+            onPress={() => router.push('/my-team')}
+          >
+            <Ionicons name="settings-outline" size={16} color={COLORS.primary} />
+            <Text style={styles.manageButtonText}>Manage</Text>
           </TouchableOpacity>
         </View>
 
@@ -493,6 +497,22 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.primary,
     fontWeight: '500',
+  },
+
+  manageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: BORDER_RADIUS.button,
+  },
+
+  manageButtonText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
 
   actionsRow: {
