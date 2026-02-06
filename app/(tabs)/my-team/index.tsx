@@ -836,16 +836,48 @@ export default function MyTeamScreen() {
                     <Text style={styles.driverPoints}>
                       {formatPoints(driver.pointsScored)} pts
                     </Text>
-                    <Text style={styles.driverPrice}>
-                      {formatPoints(driver.currentPrice)}
-                    </Text>
+                    {/* Purchase price and current value with profit/loss */}
+                    <View style={styles.priceComparison}>
+                      <Text style={styles.purchasePrice}>
+                        Paid: ${driver.purchasePrice}
+                      </Text>
+                      <View style={styles.currentValueRow}>
+                        <Text style={styles.currentValueLabel}>Now: </Text>
+                        <Text style={[
+                          styles.currentValue,
+                          driver.currentPrice > driver.purchasePrice && styles.priceUp,
+                          driver.currentPrice < driver.purchasePrice && styles.priceDown,
+                        ]}>
+                          ${driver.currentPrice}
+                        </Text>
+                        {driver.currentPrice !== driver.purchasePrice && (
+                          <View style={[
+                            styles.profitBadge,
+                            driver.currentPrice > driver.purchasePrice ? styles.profitUp : styles.profitDown,
+                          ]}>
+                            <Ionicons
+                              name={driver.currentPrice > driver.purchasePrice ? 'arrow-up' : 'arrow-down'}
+                              size={10}
+                              color={COLORS.white}
+                            />
+                            <Text style={styles.profitText}>
+                              {Math.abs(driver.currentPrice - driver.purchasePrice)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.sellValue}>
+                        Sell: ${Math.floor(driver.currentPrice * (1 - SALE_COMMISSION_RATE))}
+                      </Text>
+                    </View>
                   </View>
                   {currentTeam?.lockStatus.canModify && (
                     <TouchableOpacity
-                      style={styles.deleteButton}
+                      style={styles.sellButton}
                       onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
                     >
-                      <Ionicons name="trash-outline" size={22} color={COLORS.error} />
+                      <Ionicons name="cash-outline" size={22} color={COLORS.error} />
+                      <Text style={styles.sellButtonText}>Sell</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -923,16 +955,48 @@ export default function MyTeamScreen() {
                   <Text style={styles.constructorPoints}>
                     {formatPoints(currentTeam.constructor.pointsScored)} pts
                   </Text>
-                  <Text style={styles.constructorPrice}>
-                    {formatPoints(currentTeam.constructor.currentPrice)}
-                  </Text>
+                  {/* Purchase price and current value with profit/loss */}
+                  <View style={styles.priceComparison}>
+                    <Text style={styles.purchasePrice}>
+                      Paid: ${currentTeam.constructor.purchasePrice}
+                    </Text>
+                    <View style={styles.currentValueRow}>
+                      <Text style={styles.currentValueLabel}>Now: </Text>
+                      <Text style={[
+                        styles.currentValue,
+                        currentTeam.constructor.currentPrice > currentTeam.constructor.purchasePrice && styles.priceUp,
+                        currentTeam.constructor.currentPrice < currentTeam.constructor.purchasePrice && styles.priceDown,
+                      ]}>
+                        ${currentTeam.constructor.currentPrice}
+                      </Text>
+                      {currentTeam.constructor.currentPrice !== currentTeam.constructor.purchasePrice && (
+                        <View style={[
+                          styles.profitBadge,
+                          currentTeam.constructor.currentPrice > currentTeam.constructor.purchasePrice ? styles.profitUp : styles.profitDown,
+                        ]}>
+                          <Ionicons
+                            name={currentTeam.constructor.currentPrice > currentTeam.constructor.purchasePrice ? 'arrow-up' : 'arrow-down'}
+                            size={10}
+                            color={COLORS.white}
+                          />
+                          <Text style={styles.profitText}>
+                            {Math.abs(currentTeam.constructor.currentPrice - currentTeam.constructor.purchasePrice)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.sellValue}>
+                      Sell: ${Math.floor(currentTeam.constructor.currentPrice * (1 - SALE_COMMISSION_RATE))}
+                    </Text>
+                  </View>
                 </View>
                 {currentTeam?.lockStatus.canModify && (
                   <TouchableOpacity
-                    style={styles.deleteButton}
+                    style={styles.sellButton}
                     onPress={handleRemoveConstructor}
                   >
-                    <Ionicons name="trash-outline" size={22} color={COLORS.error} />
+                    <Ionicons name="cash-outline" size={22} color={COLORS.error} />
+                    <Text style={styles.sellButtonText}>Sell</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1668,15 +1732,94 @@ const styles = StyleSheet.create({
     padding: SPACING.xs,
   },
 
+  sellButton: {
+    padding: SPACING.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  sellButtonText: {
+    fontSize: 10,
+    color: COLORS.error,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+
   driverPoints: {
-    fontSize: FONTS.sizes.xl,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '700',
     color: COLORS.primary,
+    marginBottom: 4,
   },
 
   driverPrice: {
     fontSize: FONTS.sizes.md,
     color: COLORS.text.muted,
+  },
+
+  priceComparison: {
+    alignItems: 'flex-end',
+  },
+
+  purchasePrice: {
+    fontSize: 11,
+    color: COLORS.text.muted,
+  },
+
+  currentValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+
+  currentValueLabel: {
+    fontSize: 11,
+    color: COLORS.text.muted,
+  },
+
+  currentValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+
+  priceUp: {
+    color: COLORS.success,
+  },
+
+  priceDown: {
+    color: COLORS.error,
+  },
+
+  profitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 8,
+    marginLeft: 4,
+    gap: 2,
+  },
+
+  profitUp: {
+    backgroundColor: COLORS.success,
+  },
+
+  profitDown: {
+    backgroundColor: COLORS.error,
+  },
+
+  profitText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+
+  sellValue: {
+    fontSize: 11,
+    color: COLORS.text.secondary,
+    marginTop: 2,
+    fontWeight: '500',
   },
 
   driverActionsRow: {
