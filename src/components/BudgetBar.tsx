@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, BUDGET, SHADOWS } from '../config/constants';
-import { formatPoints } from '../utils/formatters';
+import { formatDollars } from '../utils/formatters';
 
 interface BudgetBarProps {
   remaining: number;
@@ -24,7 +24,7 @@ export function BudgetBar({
 
   // Get gradient colors based on spending
   const getBarColors = (): readonly [string, string] => {
-    if (isOverBudget) return [COLORS.error, '#DC2626'] as const;
+    if (isOverBudget) return [COLORS.error, '#7C3AED'] as const;
     if (remaining >= total) return [COLORS.success, '#059669'] as const;
 
     if (spentPercentage >= 90) {
@@ -36,7 +36,7 @@ export function BudgetBar({
     } else if (spentPercentage >= 25) {
       return ['#F97316', '#EA580C'] as const;
     } else {
-      return [COLORS.error, '#DC2626'] as const;
+      return [COLORS.error, '#7C3AED'] as const;
     }
   };
 
@@ -67,7 +67,7 @@ export function BudgetBar({
           />
         </View>
         <Text style={[styles.compactValue, { color: getTextColor() }]}>
-          {formatPoints(remaining)}
+          {formatDollars(remaining)}
         </Text>
       </View>
     );
@@ -77,7 +77,7 @@ export function BudgetBar({
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.labelContainer}>
-          <Text style={styles.label}>Budget</Text>
+          <Text style={styles.label}>Dollars</Text>
           {showPercentage && (
             <View style={[styles.percentBadge, { backgroundColor: getTextColor() + '15' }]}>
               <Text style={[styles.percentText, { color: getTextColor() }]}>
@@ -87,7 +87,7 @@ export function BudgetBar({
           )}
         </View>
         <Text style={[styles.value, { color: getTextColor() }]}>
-          {formatPoints(remaining)} / {formatPoints(total)}
+          {formatDollars(remaining)} / {formatDollars(total)}
         </Text>
       </View>
 
@@ -108,7 +108,7 @@ export function BudgetBar({
       {isOverBudget && (
         <View style={styles.warningContainer}>
           <Text style={styles.warning}>
-            Over budget by {formatPoints(Math.abs(remaining))} points
+            Over budget by {formatDollars(Math.abs(remaining))}
           </Text>
         </View>
       )}
@@ -119,9 +119,10 @@ export function BudgetBar({
 const styles = StyleSheet.create({
   container: {
     padding: SPACING.sm,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
-    ...SHADOWS.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   compactContainer: {
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
 
   barContainer: {
     height: 6,
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.full,
     overflow: 'hidden',
   },
@@ -177,7 +178,7 @@ const styles = StyleSheet.create({
   compactBarContainer: {
     flex: 1,
     height: 4,
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.full,
     overflow: 'hidden',
   },

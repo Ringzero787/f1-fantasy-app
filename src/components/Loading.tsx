@@ -9,18 +9,21 @@ interface LoadingProps {
 }
 
 export function Loading({ message, size = 'large', fullScreen = false }: LoadingProps) {
-  const content = (
-    <>
-      <ActivityIndicator size={size} color={COLORS.primary} />
-      {message && <Text style={styles.message}>{message}</Text>}
-    </>
-  );
-
   if (fullScreen) {
-    return <View style={styles.fullScreen}>{content}</View>;
+    return (
+      <View style={styles.fullScreen}>
+        <ActivityIndicator size={size} color={COLORS.primary} />
+        {message && <Text style={styles.message}>{message}</Text>}
+      </View>
+    );
   }
 
-  return <View style={styles.container}>{content}</View>;
+  return (
+    <View style={styles.container}>
+      <ActivityIndicator size={size} color={COLORS.primary} />
+      {message && <Text style={styles.message}>{message}</Text>}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -34,13 +37,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
   },
 
   message: {
     marginTop: SPACING.md,
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     textAlign: 'center',
   },
 });

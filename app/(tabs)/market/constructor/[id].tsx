@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useConstructor, useDriversByConstructor } from '../../../../src/hooks';
+import { useConstructor, useDriversByConstructor, useDrivers } from '../../../../src/hooks';
 import { Card, Loading, EmptyState, DriverCard } from '../../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
 import { formatPoints, formatPriceChange } from '../../../../src/utils/formatters';
@@ -17,7 +17,15 @@ export default function ConstructorDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: constructor, isLoading, refetch } = useConstructor(id || '');
   const { data: drivers } = useDriversByConstructor(id || '');
+  const { data: allDrivers } = useDrivers();
   const [refreshing, setRefreshing] = React.useState(false);
+
+  // Calculate top 10 driver IDs by 2026 season points
+  const topTenDriverIds = React.useMemo(() => {
+    if (!allDrivers) return new Set<string>();
+    const sorted = [...allDrivers].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));
+    return new Set(sorted.slice(0, 10).map(d => d.id));
+  }, [allDrivers]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -114,15 +122,9 @@ export default function ConstructorDetailScreen() {
         <Text style={styles.sectionTitle}>Statistics</Text>
         <Card variant="outlined">
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Fantasy Points</Text>
+            <Text style={styles.statLabel}>2026 Season Points</Text>
             <Text style={styles.statValue}>
-              {formatPoints(constructor.fantasyPoints)}
-            </Text>
-          </View>
-          <View style={[styles.statRow, styles.statBorder]}>
-            <Text style={styles.statLabel}>Season Points (F1)</Text>
-            <Text style={styles.statValue}>
-              {formatPoints(constructor.seasonPoints)}
+              {formatPoints(constructor.currentSeasonPoints || 0)}
             </Text>
           </View>
         </Card>
@@ -138,6 +140,7 @@ export default function ConstructorDetailScreen() {
               driver={driver}
               compact
               showPrice
+              isTopTen={topTenDriverIds.has(driver.id)}
             />
           ))
         ) : (

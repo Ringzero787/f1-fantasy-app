@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS } from '../config/constants';
-import { formatPoints } from '../utils/formatters';
+import { formatPoints, formatDollars } from '../utils/formatters';
 import type { Constructor } from '../types';
 
 interface ConstructorCardProps {
@@ -48,7 +48,7 @@ export function ConstructorCard({
           <Text style={styles.compactName} numberOfLines={1}>{constructor.name}</Text>
         </View>
         {showPrice && (
-          <Text style={styles.compactPrice}>{formatPoints(constructor.price)}</Text>
+          <Text style={styles.compactPrice}>{formatDollars(constructor.price)}</Text>
         )}
         {isSelected && (
           <View style={styles.checkContainer}>
@@ -92,7 +92,7 @@ export function ConstructorCard({
                 {isSelected ? (
                   <Ionicons name="checkmark" size={18} color={COLORS.white} />
                 ) : (
-                  <Ionicons name="add" size={18} color={COLORS.gray[400]} />
+                  <Ionicons name="add" size={18} color={COLORS.text.muted} />
                 )}
               </View>
             </Pressable>
@@ -105,7 +105,7 @@ export function ConstructorCard({
             <View style={styles.stat}>
               <Text style={styles.statLabel}>PRICE</Text>
               <View style={styles.priceRow}>
-                <Text style={styles.statValue}>{formatPoints(constructor.price)}</Text>
+                <Text style={styles.statValue}>{formatDollars(constructor.price)}</Text>
                 {showPriceChange && priceDirection !== 'neutral' && (
                   <View style={[styles.priceBadge, priceDirection === 'up' ? styles.priceUp : styles.priceDown]}>
                     <Ionicons
@@ -122,8 +122,8 @@ export function ConstructorCard({
 
           {showPoints && (
             <View style={styles.stat}>
-              <Text style={styles.statLabel}>POINTS</Text>
-              <Text style={styles.statValue}>{formatPoints(constructor.fantasyPoints)}</Text>
+              <Text style={styles.statLabel}>2026 PTS</Text>
+              <Text style={styles.statValue}>{formatPoints(constructor.currentSeasonPoints || 0)}</Text>
             </View>
           )}
 
@@ -153,22 +153,24 @@ export function ConstructorCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.xl,
     marginBottom: SPACING.md,
     flexDirection: 'row',
     overflow: 'hidden',
-    ...SHADOWS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   compactContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
-    ...SHADOWS.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   selected: {
@@ -256,11 +258,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   selectCircleActive: {
@@ -273,7 +275,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   stat: {

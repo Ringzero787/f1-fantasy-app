@@ -1,0 +1,23 @@
+DRIVER	Price
+Lando Norris	423
+Max Verstappen	421
+Oscar Piastri	410
+George Russell	319
+Charles Leclerc	242
+Kimi Antonelli	150
+Lewis Hamilton	156
+Carlos Sainz	64
+Fernando Alonso	56
+Oliver Bearman	41
+Liam Lawson	38
+Isack Hadjar	51
+Pierre Gasly	22
+Lance Stroll	33
+Arvid Lindblad	0
+Esteban Ocon	38
+Alexander Albon	73
+Franco Colapinto	0
+Gabriel Bortoleto	19
+Nico Hulkenberg	51
+Sergio Perez	0
+Valtteri Bottas	0

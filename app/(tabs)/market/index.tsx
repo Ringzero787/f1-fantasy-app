@@ -34,6 +34,13 @@ export default function MarketScreen() {
 
   const isLoading = activeTab === 'drivers' ? driversLoading : constructorsLoading;
 
+  // Calculate top 10 driver IDs by 2026 season points (highest points = top positions)
+  const topTenDriverIds = React.useMemo(() => {
+    if (!drivers) return new Set<string>();
+    const sorted = [...drivers].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));
+    return new Set(sorted.slice(0, 10).map(d => d.id));
+  }, [drivers]);
+
   const toggleSort = (option: SortOption) => {
     if (sortBy === option) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -71,17 +78,17 @@ export default function MarketScreen() {
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={COLORS.gray[400]} />
+        <Ionicons name="search" size={20} color={COLORS.text.muted} />
         <TextInput
           style={styles.searchInput}
           placeholder={`Search ${activeTab}...`}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor={COLORS.gray[400]}
+          placeholderTextColor={COLORS.text.muted}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={COLORS.gray[400]} />
+            <Ionicons name="close-circle" size={20} color={COLORS.text.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -130,6 +137,7 @@ export default function MarketScreen() {
                 showPrice
                 showPoints
                 showPriceChange
+                isTopTen={topTenDriverIds.has(item.id)}
                 onPress={() => router.push(`/market/driver/${item.id}`)}
               />
             )}
@@ -173,15 +181,17 @@ export default function MarketScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     padding: SPACING.xs,
     margin: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   tab: {
@@ -198,7 +208,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
   },
 
   activeTabText: {
@@ -208,13 +218,13 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     marginHorizontal: SPACING.md,
     marginBottom: SPACING.md,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   searchInput: {
@@ -222,7 +232,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   sortContainer: {
@@ -234,7 +244,7 @@ const styles = StyleSheet.create({
 
   sortLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginRight: SPACING.sm,
   },
 
@@ -248,10 +258,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.sm,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.sm,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
     gap: SPACING.xs,
   },
 
@@ -262,7 +272,7 @@ const styles = StyleSheet.create({
 
   sortButtonText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
   },
 
   sortButtonTextActive: {

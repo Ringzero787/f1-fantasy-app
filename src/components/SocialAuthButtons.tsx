@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
+import Constants from 'expo-constants';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
 
-// Required for Google auth session
-WebBrowser.maybeCompleteAuthSession();
+// Check if running in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
 
 interface SocialAuthButtonsProps {
   onGoogleSignIn: (idToken: string) => Promise<void>;
@@ -24,45 +23,72 @@ export function SocialAuthButtons({
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
 
-  // Google Auth - You'll need to add your own client IDs in app.json or here
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    // Add your Google OAuth client IDs here
-    // Get these from Google Cloud Console -> APIs & Services -> Credentials
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-  });
-
-  React.useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      if (id_token) {
-        handleGoogleSuccess(id_token);
-      }
-    }
-  }, [response]);
-
-  const handleGoogleSuccess = async (idToken: string) => {
-    setIsGoogleLoading(true);
-    try {
-      await onGoogleSignIn(idToken);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Google sign in failed';
-      Alert.alert('Error', message);
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
-
   const handleGooglePress = async () => {
-    if (!request) {
+    if (isExpoGo) {
+      // Google Sign-In requires native modules not available in Expo Go
       Alert.alert(
         'Google Sign In',
-        'Google Sign In is not configured. Please add your Google OAuth client IDs to the environment variables.'
+        'Google Sign In is not available in Expo Go. Please use Demo Mode or build a development version.',
+        [{ text: 'OK' }]
       );
       return;
     }
-    await promptAsync();
+
+    // In development build, use native Google Sign-In
+    setIsGoogleLoading(true);
+    try {
+      // Dynamic import to avoid crash in Expo Go
+      const { GoogleSignin, isSuccessResponse, statusCodes } = require('@react-native-google-signin/google-signin');
+
+      const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+
+      // Debug logging
+      console.log('=== Google Sign-In Debug ===');
+      console.log('webClientId:', webClientId);
+      console.log('webClientId length:', webClientId?.length);
+
+      // Configure Google Sign-In
+      GoogleSignin.configure({
+        webClientId,
+        offlineAccess: true,
+        scopes: ['profile', 'email'],
+      });
+      console.log('GoogleSignin configured');
+
+      // Check Play Services
+      const hasPlayServices = await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      console.log('hasPlayServices:', hasPlayServices);
+
+      // Sign in
+      console.log('Calling GoogleSignin.signIn()...');
+      const response = await GoogleSignin.signIn();
+      console.log('signIn response:', JSON.stringify(response, null, 2));
+
+      if (isSuccessResponse(response) && response.data.idToken) {
+        console.log('Got idToken, calling onGoogleSignIn');
+        await onGoogleSignIn(response.data.idToken);
+      } else {
+        throw new Error('No ID token received from Google');
+      }
+    } catch (error: any) {
+      console.error('=== Google Sign-In Error ===');
+      console.error('Error object:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('Full error JSON:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+
+      // Handle specific error codes
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        // User cancelled - don't show error
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : 'Google sign in failed';
+      Alert.alert('Sign In Error', `${message}\n\nCode: ${error.code || 'unknown'}`);
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   const handleApplePress = async () => {
@@ -108,7 +134,7 @@ export function SocialAuthButtons({
         onPress={handleGooglePress}
         disabled={disabled || isGoogleLoading}
       >
-        <Ionicons name="logo-google" size={20} color={COLORS.gray[700]} />
+        <Ionicons name="logo-google" size={20} color="#374151" />
         <Text style={[styles.buttonText, styles.googleText]}>
           {isGoogleLoading ? 'Signing in...' : 'Continue with Google'}
         </Text>
@@ -126,6 +152,13 @@ export function SocialAuthButtons({
             {isAppleLoading ? 'Signing in...' : 'Continue with Apple'}
           </Text>
         </TouchableOpacity>
+      )}
+
+      {/* Info notice - only show in Expo Go */}
+      {isExpoGo && (
+        <Text style={styles.notice}>
+          Use Demo Mode for testing in Expo Go
+        </Text>
       )}
     </View>
   );
@@ -147,9 +180,9 @@ const styles = StyleSheet.create({
   },
 
   googleButton: {
-    backgroundColor: COLORS.white,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: COLORS.gray[300],
+    borderColor: '#E5E7EB',
   },
 
   appleButton: {
@@ -162,7 +195,7 @@ const styles = StyleSheet.create({
   },
 
   googleText: {
-    color: COLORS.gray[700],
+    color: '#374151',
   },
 
   appleText: {
@@ -171,5 +204,12 @@ const styles = StyleSheet.create({
 
   disabled: {
     opacity: 0.5,
+  },
+
+  notice: {
+    fontSize: FONTS.sizes.xs,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: SPACING.xs,
   },
 });

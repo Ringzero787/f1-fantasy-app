@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS } from '../config/constants';
-import { formatPoints } from '../utils/formatters';
+import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS, TEAM_COLORS } from '../config/constants';
+import { formatPoints, formatDollars } from '../utils/formatters';
 import type { Driver } from '../types';
 
 interface DriverCardProps {
@@ -15,6 +15,7 @@ interface DriverCardProps {
   showPoints?: boolean;
   showPriceChange?: boolean;
   compact?: boolean;
+  isTopTen?: boolean; // If true, hides star icon (top 10 drivers can't be starred)
 }
 
 export function DriverCard({
@@ -26,11 +27,13 @@ export function DriverCard({
   showPoints = false,
   showPriceChange = false,
   compact = false,
+  isTopTen = false,
 }: DriverCardProps) {
   const priceChange = driver.price - driver.previousPrice;
   const priceDirection = priceChange > 0 ? 'up' : priceChange < 0 ? 'down' : 'neutral';
 
   if (compact) {
+    const teamColor = TEAM_COLORS[driver.constructorId]?.primary || '#4B5563';
     return (
       <Pressable
         style={({ pressed }) => [
@@ -40,10 +43,12 @@ export function DriverCard({
         ]}
         onPress={onPress || onSelect}
       >
+        {/* Team color indicator */}
+        <View style={[styles.compactTeamColor, { backgroundColor: teamColor }]} />
         <View style={styles.compactLeft}>
           <View style={styles.compactNameRow}>
             <Text style={styles.shortName}>{driver.shortName}</Text>
-            {driver.tier === 'A' && (
+            {driver.tier === 'A' && !isTopTen && (
               <View style={styles.compactTierBadge}>
                 <Text style={styles.compactTierText}>A</Text>
               </View>
@@ -51,20 +56,28 @@ export function DriverCard({
           </View>
           <Text style={styles.compactTeam} numberOfLines={1}>{driver.constructorName}</Text>
         </View>
-        {showPrice && (
-          <View style={styles.compactPriceContainer}>
-            <Text style={styles.compactPrice}>{formatPoints(driver.price)}</Text>
-            {showPriceChange && priceDirection !== 'neutral' && (
-              <View style={[styles.miniPriceBadge, priceDirection === 'up' ? styles.priceUp : styles.priceDown]}>
-                <Ionicons
-                  name={priceDirection === 'up' ? 'caret-up' : 'caret-down'}
-                  size={10}
-                  color={COLORS.white}
-                />
-              </View>
-            )}
-          </View>
-        )}
+        <View style={styles.compactRight}>
+          {showPoints && (
+            <View style={styles.compactPointsContainer}>
+              <Text style={styles.compactPointsValue}>{formatPoints(driver.currentSeasonPoints || 0)}</Text>
+              <Text style={styles.compactPointsLabel}>pts</Text>
+            </View>
+          )}
+          {showPrice && (
+            <View style={styles.compactPriceContainer}>
+              <Text style={styles.compactPrice}>{formatDollars(driver.price)}</Text>
+              {showPriceChange && priceDirection !== 'neutral' && (
+                <View style={[styles.miniPriceBadge, priceDirection === 'up' ? styles.priceUp : styles.priceDown]}>
+                  <Ionicons
+                    name={priceDirection === 'up' ? 'caret-up' : 'caret-down'}
+                    size={10}
+                    color={COLORS.white}
+                  />
+                </View>
+              )}
+            </View>
+          )}
+        </View>
         {isSelected && (
           <View style={styles.checkContainer}>
             <Ionicons name="checkmark-circle" size={22} color={COLORS.success} />
@@ -83,11 +96,14 @@ export function DriverCard({
       ]}
       onPress={onPress || onSelect}
     >
-      {/* Driver number badge with gradient */}
+      {/* Driver number badge with team color gradient */}
       <View style={styles.header}>
         <View style={styles.driverInfo}>
           <LinearGradient
-            colors={driver.tier === 'A' ? [COLORS.purple[600], COLORS.purple[800]] : [COLORS.gray[400], COLORS.gray[600]]}
+            colors={[
+              TEAM_COLORS[driver.constructorId]?.primary || '#4B5563',
+              TEAM_COLORS[driver.constructorId]?.secondary || '#374151'
+            ]}
             style={styles.numberBadge}
           >
             <Text style={styles.number}>{driver.number}</Text>
@@ -95,7 +111,7 @@ export function DriverCard({
           <View style={styles.nameContainer}>
             <View style={styles.nameRow}>
               <Text style={styles.name}>{driver.name}</Text>
-              {driver.tier === 'A' && (
+              {driver.tier === 'A' && !isTopTen && (
                 <View style={styles.tierIndicator}>
                   <Ionicons name="star" size={12} color={COLORS.gold} />
                 </View>
@@ -113,7 +129,7 @@ export function DriverCard({
               {isSelected ? (
                 <Ionicons name="checkmark" size={18} color={COLORS.white} />
               ) : (
-                <Ionicons name="add" size={18} color={COLORS.gray[400]} />
+                <Ionicons name="add" size={18} color={COLORS.text.muted} />
               )}
             </View>
           </Pressable>
@@ -126,7 +142,7 @@ export function DriverCard({
           <View style={styles.stat}>
             <Text style={styles.statLabel}>PRICE</Text>
             <View style={styles.priceRow}>
-              <Text style={styles.statValue}>{formatPoints(driver.price)}</Text>
+              <Text style={styles.statValue}>{formatDollars(driver.price)}</Text>
               {showPriceChange && priceDirection !== 'neutral' && (
                 <View style={[styles.priceBadge, priceDirection === 'up' ? styles.priceUp : styles.priceDown]}>
                   <Ionicons
@@ -143,8 +159,8 @@ export function DriverCard({
 
         {showPoints && (
           <View style={styles.stat}>
-            <Text style={styles.statLabel}>POINTS</Text>
-            <Text style={styles.statValue}>{formatPoints(driver.fantasyPoints)}</Text>
+            <Text style={styles.statLabel}>2026 PTS</Text>
+            <Text style={styles.statValue}>{formatPoints(driver.currentSeasonPoints || 0)}</Text>
           </View>
         )}
 
@@ -163,22 +179,24 @@ export function DriverCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.xl,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
-    ...SHADOWS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   compactContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    ...SHADOWS.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
   selected: {
@@ -250,11 +268,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   selectCircleActive: {
@@ -267,7 +285,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   stat: {
@@ -330,25 +348,61 @@ const styles = StyleSheet.create({
   },
 
   tierA: {
-    backgroundColor: COLORS.purple[100],
+    backgroundColor: COLORS.purple[600] + '30',
   },
 
   tierB: {
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.surface,
   },
 
   tierText: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
-    color: COLORS.gray[600],
+    color: COLORS.text.muted,
   },
 
   tierAText: {
-    color: COLORS.purple[700],
+    color: COLORS.purple[400],
+  },
+
+  compactTeamColor: {
+    width: 4,
+    height: '100%',
+    borderRadius: 2,
+    marginRight: SPACING.sm,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
   },
 
   compactLeft: {
     flex: 1,
+    marginLeft: SPACING.sm,
+  },
+
+  compactRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+
+  compactPointsContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+  },
+
+  compactPointsValue: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+
+  compactPointsLabel: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    fontWeight: '500',
   },
 
   compactNameRow: {
@@ -364,7 +418,7 @@ const styles = StyleSheet.create({
   },
 
   compactTierBadge: {
-    backgroundColor: COLORS.purple[100],
+    backgroundColor: COLORS.purple[600] + '30',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BORDER_RADIUS.sm,
@@ -373,7 +427,7 @@ const styles = StyleSheet.create({
   compactTierText: {
     fontSize: 10,
     fontWeight: '700',
-    color: COLORS.purple[700],
+    color: COLORS.purple[400],
   },
 
   compactTeam: {

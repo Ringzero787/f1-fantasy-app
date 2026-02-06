@@ -122,7 +122,7 @@ type TeamMode = 'solo' | 'league';
 export default function CreateTeamScreen() {
   const { user } = useAuth();
   const { leagues, loadUserLeagues, lookupLeagueByCode, recentlyCreatedLeague, clearRecentlyCreatedLeague } = useLeagueStore();
-  const { createTeam, addDriver, setConstructor, setStarConstructor, getEligibleStarDrivers, userTeams, isLoading, error } = useTeamStore();
+  const { createTeam, addDriver, setConstructor, userTeams, isLoading, error } = useTeamStore();
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
 
@@ -321,26 +321,13 @@ export default function CreateTeamScreen() {
       // Create the team first (support solo teams with null leagueId)
       await createTeam(user.id, currentLeague?.id || null, teamName.trim());
 
-      // Get eligible star drivers (bottom 10 by points)
-      const eligibleStarDrivers = getEligibleStarDrivers();
-
-      // Find first eligible driver for star
-      const firstEligibleDriver = recommended.drivers.find(d => eligibleStarDrivers.includes(d.id));
-
-      // Add all recommended drivers
-      for (let i = 0; i < recommended.drivers.length; i++) {
-        const driver = recommended.drivers[i];
-        const isStarDriver = firstEligibleDriver && driver.id === firstEligibleDriver.id;
-        await addDriver(driver.id, isStarDriver);
+      // V3: Add all recommended drivers (captain selection is done separately)
+      for (const driver of recommended.drivers) {
+        await addDriver(driver.id);
       }
 
       // Add constructor
       await setConstructor(recommended.constructor.id);
-
-      // If no eligible driver, set constructor as star
-      if (!firstEligibleDriver) {
-        await setStarConstructor();
-      }
 
       // Clear the recently created league since we've used it
       if (recentlyCreatedLeague) {
@@ -714,8 +701,8 @@ export default function CreateTeamScreen() {
           <View style={styles.infoBox}>
             <Text style={styles.infoTitle}>Team Rules</Text>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Budget:</Text>
-              <Text style={styles.infoValue}>{BUDGET} points</Text>
+              <Text style={styles.infoLabel}>Starting Dollars:</Text>
+              <Text style={styles.infoValue}>${BUDGET}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Drivers:</Text>
@@ -751,7 +738,7 @@ export default function CreateTeamScreen() {
           />
 
           <Text style={styles.recommendedHint}>
-            Random team picks a mix of drivers and a constructor within your budget.
+            Random team picks a mix of drivers and a constructor within your dollar limit.
           </Text>
 
           <Button
@@ -776,7 +763,7 @@ export default function CreateTeamScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
   },
 
   keyboardView: {
@@ -790,18 +777,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.xs,
   },
 
   description: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.xl,
   },
 
   errorContainer: {
-    backgroundColor: COLORS.error + '15',
+    backgroundColor: COLORS.errorLight,
     padding: SPACING.md,
     borderRadius: 8,
     marginBottom: SPACING.md,
@@ -815,13 +802,13 @@ const styles = StyleSheet.create({
   preselectedLeagueBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary + '10',
+    backgroundColor: COLORS.primary + '15',
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.lg,
     gap: SPACING.md,
-    borderWidth: 2,
-    borderColor: COLORS.primary + '30',
+    borderWidth: 1,
+    borderColor: COLORS.primary + '40',
   },
 
   preselectedLeagueInfo: {
@@ -830,7 +817,7 @@ const styles = StyleSheet.create({
 
   preselectedLeagueLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
   },
 
   preselectedLeagueName: {
@@ -842,7 +829,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.sm,
     marginTop: SPACING.md,
   },
@@ -857,9 +844,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.gray[50],
-    borderWidth: 2,
-    borderColor: COLORS.gray[200],
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
     alignItems: 'center',
   },
 
@@ -871,22 +858,22 @@ const styles = StyleSheet.create({
   modeOptionText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[800],
+    color: COLORS.text.primary,
     marginTop: SPACING.xs,
   },
 
   modeOptionTextSelected: {
-    color: COLORS.white,
+    color: COLORS.text.inverse,
   },
 
   modeOptionHint: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: SPACING.xs,
   },
 
   modeOptionHintSelected: {
-    color: COLORS.white + 'CC',
+    color: COLORS.text.inverse + 'CC',
   },
 
   leagueSection: {
@@ -916,8 +903,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.primary + '10',
-    borderWidth: 2,
+    backgroundColor: COLORS.primary + '15',
+    borderWidth: 1,
     borderColor: COLORS.primary + '40',
   },
 
@@ -936,7 +923,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -949,21 +936,21 @@ const styles = StyleSheet.create({
   recentLeagueName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   recentLeagueNameSelected: {
-    color: COLORS.white,
+    color: COLORS.text.inverse,
   },
 
   recentLeagueCode: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginTop: 2,
   },
 
   recentLeagueCodeSelected: {
-    color: COLORS.white + 'CC',
+    color: COLORS.text.inverse + 'CC',
   },
 
   codeInputRow: {
@@ -978,14 +965,14 @@ const styles = StyleSheet.create({
 
   codeInput: {
     height: 48,
-    borderWidth: 2,
-    borderColor: COLORS.gray[200],
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
-    backgroundColor: COLORS.white,
+    color: COLORS.text.primary,
+    backgroundColor: COLORS.card,
     letterSpacing: 2,
   },
 
@@ -999,11 +986,11 @@ const styles = StyleSheet.create({
   },
 
   lookupButtonDisabled: {
-    backgroundColor: COLORS.gray[300],
+    backgroundColor: COLORS.gray[700],
   },
 
   lookupButtonText: {
-    color: COLORS.white,
+    color: COLORS.text.inverse,
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
   },
@@ -1025,8 +1012,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.success + '10',
-    borderWidth: 2,
+    backgroundColor: COLORS.successLight,
+    borderWidth: 1,
     borderColor: COLORS.success,
   },
 
@@ -1044,12 +1031,12 @@ const styles = StyleSheet.create({
   foundLeagueName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   foundLeagueDetails: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginTop: 2,
   },
 
@@ -1062,12 +1049,12 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: COLORS.gray[200],
+    backgroundColor: COLORS.border.default,
   },
 
   dividerText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     paddingHorizontal: SPACING.md,
   },
 
@@ -1095,9 +1082,9 @@ const styles = StyleSheet.create({
     width: 140,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.gray[50],
-    borderWidth: 2,
-    borderColor: COLORS.gray[200],
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
     marginRight: SPACING.sm,
     alignItems: 'center',
   },
@@ -1120,22 +1107,22 @@ const styles = StyleSheet.create({
   leagueCardName: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[800],
+    color: COLORS.text.primary,
     textAlign: 'center',
   },
 
   leagueCardNameSelected: {
-    color: COLORS.white,
+    color: COLORS.text.inverse,
   },
 
   leagueCardMembers: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginTop: SPACING.xs,
   },
 
   leagueCardMembersSelected: {
-    color: COLORS.white + 'CC',
+    color: COLORS.text.inverse + 'CC',
   },
 
   leagueCardCheck: {
@@ -1147,7 +1134,7 @@ const styles = StyleSheet.create({
   modeDescription: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.primary + '10',
+    backgroundColor: COLORS.primary + '15',
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.lg,
@@ -1157,23 +1144,23 @@ const styles = StyleSheet.create({
   modeDescriptionText: {
     flex: 1,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
     lineHeight: 20,
   },
 
   infoBox: {
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.card,
     padding: SPACING.sm,
     borderRadius: BORDER_RADIUS.sm,
     marginBottom: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   infoTitle: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.sm,
   },
 
@@ -1185,18 +1172,18 @@ const styles = StyleSheet.create({
 
   infoLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   infoValue: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[800],
+    color: COLORS.text.primary,
   },
 
   hintText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     marginBottom: SPACING.xl,
     lineHeight: 20,
   },
@@ -1207,7 +1194,7 @@ const styles = StyleSheet.create({
 
   recommendedHint: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[400],
+    color: COLORS.text.muted,
     textAlign: 'center',
     marginBottom: SPACING.lg,
     fontStyle: 'italic',
@@ -1216,7 +1203,7 @@ const styles = StyleSheet.create({
   warningBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.warning + '15',
+    backgroundColor: COLORS.warningLight,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.lg,
@@ -1238,7 +1225,7 @@ const styles = StyleSheet.create({
 
   warningText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
     lineHeight: 20,
   },
 });

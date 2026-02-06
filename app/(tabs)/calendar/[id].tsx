@@ -89,7 +89,7 @@ export default function RaceDetailScreen() {
         <Text style={styles.circuitName}>{race.circuitName}</Text>
 
         <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={16} color={COLORS.gray[500]} />
+          <Ionicons name="location-outline" size={16} color={COLORS.text.secondary} />
           <Text style={styles.location}>
             {race.city}, {race.country}
           </Text>
@@ -126,7 +126,7 @@ export default function RaceDetailScreen() {
                 <Ionicons
                   name={session.icon as any}
                   size={20}
-                  color={COLORS.gray[500]}
+                  color={COLORS.text.secondary}
                 />
               </View>
               <View style={styles.sessionInfo}>
@@ -202,7 +202,7 @@ export default function RaceDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -242,13 +242,13 @@ const styles = StyleSheet.create({
   raceName: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     textAlign: 'center',
   },
 
   circuitName: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     marginTop: SPACING.xs,
     textAlign: 'center',
   },
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
 
   location: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.secondary,
   },
 
   sprintBadge: {
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
 
   countdownLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.secondary,
   },
 
   countdownValue: {
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.md,
   },
 
@@ -318,14 +318,14 @@ const styles = StyleSheet.create({
 
   sessionBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
+    borderBottomColor: COLORS.border.default,
   },
 
   sessionIcon: {
     width: 36,
     height: 36,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -338,19 +338,19 @@ const styles = StyleSheet.create({
   sessionName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   sessionDate: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.secondary,
     marginTop: 2,
   },
 
   sessionTime: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.primary,
   },
 
   resultRow: {
@@ -361,14 +361,14 @@ const styles = StyleSheet.create({
 
   resultBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
+    borderBottomColor: COLORS.border.default,
   },
 
   positionBadge: {
     width: 32,
     height: 32,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.gray[300],
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -399,12 +399,12 @@ const styles = StyleSheet.create({
   resultDriver: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   resultStatus: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.secondary,
     marginTop: 2,
   },
 
@@ -419,17 +419,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
+    borderBottomColor: COLORS.border.default,
   },
 
   infoLabel: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.secondary,
   },
 
   infoValue: {
     fontSize: FONTS.sizes.md,
     fontWeight: '500',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 });

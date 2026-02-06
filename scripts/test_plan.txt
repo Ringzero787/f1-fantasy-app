@@ -1,0 +1,79 @@
+Team Management
+
+  - Create new team with name
+  - Team budget initialization (1000 points)
+  - Add driver to team (within budget)
+  - Remove driver from team (with 5% commission on sale)
+  - Swap driver (sell + buy in one transaction)
+  - Set constructor
+  - Remove constructor (with 5% commission)
+  - Budget calculation after transactions
+  - Maximum 5 drivers validation
+  - Prevent duplicate driver selection
+  - Team name update
+  - Delete team
+
+  Captain System (V3)
+
+  - Set captain on eligible driver (price ≤ 200)
+  - Prevent captain on expensive drivers (price > 200)
+  - Clear captain selection
+  - Captain cleared when driver is removed/swapped
+  - Captain 2x points multiplier applied correctly
+
+  Pricing & Market
+
+  - Initial driver prices load correctly
+  - Price updates after race results
+  - Sale value calculation (price - 5% commission)
+  - Price tier classification (A-tier >200, B-tier <200)
+  - PPM-based price changes
+
+  League System
+
+  - Create league
+  - Generate invite code
+  - Join league via code
+  - Leave league
+  - Admin: remove member
+  - League standings/leaderboard
+  - Assign team to league
+
+  Scoring
+
+  - Race points calculation (25-18-15-12-10-8-6-4-2-1)
+  - Sprint points calculation (8-7-6-5-4-3-2-1)
+  - Position bonus (+1 per position gained)
+  - Constructor points aggregation
+  - Stale roster penalty (after threshold races)
+  - Total points recalculation
+
+  Race Calendar
+
+  - Load season races
+  - Get next upcoming race
+  - Get current race
+  - Get completed races
+  - Race results display
+
+  Data Persistence
+
+  - Local state persistence (Zustand + AsyncStorage)
+  - Firebase sync on modifications
+  - Periodic sync (every 60 seconds)
+  - Team deduplication on hydration
+  - User ID filtering (multi-user support)
+
+  Lock System
+
+  - Team locks before qualifying
+  - Team unlocks after race
+  - Multi-race lock bonus tracking
+  - Season lock feature
+
+  Edge Cases
+
+  - Empty team handling
+  - Insufficient budget rejection
+  - Firebase unavailable fallback to demo data
+  - Date serialization/deserialization

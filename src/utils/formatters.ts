@@ -8,15 +8,22 @@ export function formatPoints(points: number): string {
 }
 
 /**
- * Format price with trend indicator
+ * Format price as dollars
+ */
+export function formatDollars(amount: number): string {
+  return `$${amount.toLocaleString('en-US')}`;
+}
+
+/**
+ * Format price with trend indicator (in dollars)
  */
 export function formatPrice(price: number, previousPrice?: number): string {
-  const formatted = formatPoints(price);
+  const formatted = formatDollars(price);
   if (previousPrice === undefined) return formatted;
 
   const diff = price - previousPrice;
-  if (diff > 0) return `${formatted} (+${diff})`;
-  if (diff < 0) return `${formatted} (${diff})`;
+  if (diff > 0) return `${formatted} (+$${diff})`;
+  if (diff < 0) return `${formatted} (-$${Math.abs(diff)})`;
   return formatted;
 }
 
@@ -125,10 +132,10 @@ export function formatPriceChange(current: number, previous: number): string {
 }
 
 /**
- * Format budget display
+ * Format budget display (in dollars)
  */
 export function formatBudget(remaining: number, total: number): string {
-  return `${formatPoints(remaining)} / ${formatPoints(total)}`;
+  return `$${formatPoints(remaining)} / $${formatPoints(total)}`;
 }
 
 /**
@@ -156,32 +163,30 @@ export function truncate(text: string, maxLength: number): string {
 }
 
 /**
- * Calculate sale value after 5% commission
+ * Calculate sale value (no commission - players get full current market value)
  */
 export function calculateSaleValue(currentPrice: number): number {
-  const COMMISSION_RATE = 0.05;
-  return Math.floor(currentPrice * (1 - COMMISSION_RATE));
+  return currentPrice; // Full current price, no commission
 }
 
 /**
- * Format sale value with commission info
+ * Format sale value (in dollars)
  */
 export function formatSaleValue(currentPrice: number): string {
   const saleValue = calculateSaleValue(currentPrice);
-  const commission = currentPrice - saleValue;
-  return `${formatPoints(saleValue)} (${formatPoints(commission)} fee)`;
+  return formatDollars(saleValue);
 }
 
 /**
  * Calculate profit/loss from a trade
+ * Profit = current price - purchase price
  */
 export function calculateProfitLoss(purchasePrice: number, currentPrice: number): number {
-  const saleValue = calculateSaleValue(currentPrice);
-  return saleValue - purchasePrice;
+  return currentPrice - purchasePrice;
 }
 
 /**
- * Format profit/loss with color indicator
+ * Format profit/loss with color indicator (in dollars)
  */
 export function formatProfitLoss(purchasePrice: number, currentPrice: number): {
   text: string;
@@ -195,11 +200,11 @@ export function formatProfitLoss(purchasePrice: number, currentPrice: number): {
 
   let text: string;
   if (profitLoss > 0) {
-    text = `+${formatPoints(profitLoss)}`;
+    text = `+$${formatPoints(profitLoss)}`;
   } else if (profitLoss < 0) {
-    text = formatPoints(profitLoss);
+    text = `-$${formatPoints(Math.abs(profitLoss))}`;
   } else {
-    text = '0';
+    text = '$0';
   }
 
   return { text, isProfit, isLoss, value: profitLoss };

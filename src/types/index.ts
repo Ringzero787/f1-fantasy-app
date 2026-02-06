@@ -7,6 +7,7 @@ export interface User {
   email: string;
   displayName: string;
   photoURL?: string;
+  isAdmin?: boolean;
   createdAt: Date;
   updatedAt: Date;
   settings: UserSettings;
@@ -33,7 +34,8 @@ export interface Driver {
   photoURL?: string;
   price: number; // Current price in fantasy points
   previousPrice: number;
-  seasonPoints: number; // Total F1 championship points
+  seasonPoints: number; // 2025 F1 championship points (used for initial price calculation)
+  currentSeasonPoints: number; // 2026 F1 championship points (displayed to users)
   fantasyPoints: number; // Total fantasy points scored
   tier: 'A' | 'B'; // A = >200 price, B = <200 price
   isActive: boolean;
@@ -49,7 +51,8 @@ export interface Constructor {
   secondaryColor: string;
   price: number;
   previousPrice: number;
-  seasonPoints: number;
+  seasonPoints: number; // 2025 points (used for initial pricing)
+  currentSeasonPoints?: number; // 2026 points (displayed to users)
   fantasyPoints: number;
   drivers: string[]; // Driver IDs
   isActive: boolean;
@@ -60,6 +63,11 @@ export interface PriceHistory {
   entityId: string; // Driver or Constructor ID
   entityType: 'driver' | 'constructor';
   price: number;
+  previousPrice?: number;
+  change?: number; // Total price change (performance + dnf penalty)
+  performanceChange?: number; // Price change from PPM-based performance
+  dnfPenalty?: number; // Price penalty from DNF (positive number)
+  points?: number; // Fantasy points scored in the race
   raceId: string;
   timestamp: Date;
 }
@@ -74,6 +82,7 @@ export interface League {
   description?: string;
   ownerId: string;
   ownerName: string;
+  coAdminIds?: string[]; // User IDs of co-admins
   inviteCode: string;
   isPublic: boolean;
   maxMembers: number;
@@ -136,6 +145,11 @@ export interface FantasyTeam {
   updatedAt: Date;
   avatarUrl?: string;
   avatarGeneratedAt?: string;
+  // V3: Captain System - choose one driver each race weekend for 2x points
+  captainDriverId?: string;
+  // V3: Transfer tracking for stale roster penalty and hot hand bonus
+  lastTransferRaceId?: string; // Race ID when last transfer was made
+  racesSinceTransfer: number; // Count of races since last transfer
 }
 
 export interface FantasyDriver {
@@ -148,7 +162,8 @@ export interface FantasyDriver {
   pointsScored: number;
   racesHeld: number; // For multi-race lock bonus
   lockedAt?: Date;
-  isStarDriver: boolean; // Star driver gets 20% bonus points
+  // V3: Track when driver was purchased for hot hand bonus
+  purchasedAtRaceId?: string;
 }
 
 export interface FantasyConstructor {
@@ -159,7 +174,6 @@ export interface FantasyConstructor {
   pointsScored: number;
   racesHeld: number;
   lockedAt?: Date;
-  isStarDriver: boolean; // Constructor can also be star (+20% bonus)
 }
 
 export interface LockStatus {
@@ -188,6 +202,7 @@ export interface Race {
   schedule: RaceSchedule;
   hasSprint: boolean;
   status: 'upcoming' | 'in_progress' | 'completed' | 'cancelled';
+  totalLaps?: number; // Total laps in the race (used for DNF penalty calculation)
   results?: RaceResults;
 }
 

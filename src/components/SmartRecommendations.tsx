@@ -15,7 +15,7 @@ interface Recommendation {
 interface SmartRecommendationsProps {
   availableDrivers: Driver[];
   selectedDrivers: Driver[];
-  currentTeamDrivers: { driverId: string; tier: string }[];
+  currentTeamDrivers: { driverId: string; tier?: string }[];
   budget: number;
   slotsRemaining: number;
   onSelectDriver: (driver: Driver) => void;
@@ -45,10 +45,10 @@ export function SmartRecommendations({
 
     if (affordableDrivers.length === 0) return [];
 
-    // Count current tier composition
-    const currentTierA = currentTeamDrivers.filter(d => d.tier === 'A').length +
+    // Count current tier composition (default to 'B' if tier not specified)
+    const currentTierA = currentTeamDrivers.filter(d => (d.tier || 'B') === 'A').length +
       selectedDrivers.filter(d => d.tier === 'A').length;
-    const currentTierB = currentTeamDrivers.filter(d => d.tier === 'B').length +
+    const currentTierB = currentTeamDrivers.filter(d => (d.tier || 'B') === 'B').length +
       selectedDrivers.filter(d => d.tier === 'B').length;
 
     // Calculate value score (points per cost)
@@ -230,11 +230,11 @@ export function SmartRecommendations({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
+    borderBottomColor: COLORS.border.default,
   },
 
   header: {
@@ -269,11 +269,11 @@ const styles = StyleSheet.create({
 
   card: {
     width: 160,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[100],
+    borderColor: COLORS.border.default,
   },
 
   tag: {

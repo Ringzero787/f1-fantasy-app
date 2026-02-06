@@ -102,9 +102,8 @@ export default function ViewTeamScreen() {
           {/* Budget Display */}
           <View style={styles.budgetSection}>
             <BudgetBar
-              used={BUDGET.INITIAL - team.budget}
-              total={BUDGET.INITIAL}
-              showLabels
+              remaining={team.budget}
+              total={BUDGET}
             />
             <View style={styles.budgetDetails}>
               <View style={styles.budgetItem}>
@@ -177,10 +176,10 @@ export default function ViewTeamScreen() {
                     </Text>
                   </View>
                 </View>
-                {driver.isStarDriver && (
-                  <View style={styles.starBadge}>
-                    <Ionicons name="star" size={12} color={COLORS.gold} />
-                    <Text style={styles.starBadgeText}>Star Driver (+50%)</Text>
+                {team.captainDriverId === driver.driverId && (
+                  <View style={styles.captainBadge}>
+                    <Ionicons name="shield" size={12} color={COLORS.primary} />
+                    <Text style={styles.captainBadgeText}>Captain (2x)</Text>
                   </View>
                 )}
                 {driver.racesHeld > 0 && (
@@ -216,12 +215,6 @@ export default function ViewTeamScreen() {
                   </Text>
                 </View>
               </View>
-              {team.constructor.isStarDriver && (
-                <View style={styles.starBadge}>
-                  <Ionicons name="star" size={12} color={COLORS.gold} />
-                  <Text style={styles.starBadgeText}>Star Constructor (+50%)</Text>
-                </View>
-              )}
             </Card>
           ) : (
             <Card variant="outlined" padding="large">
@@ -376,20 +369,20 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.gray[500],
   },
-  starBadge: {
+  captainBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginTop: SPACING.sm,
-    backgroundColor: COLORS.gold + '20',
+    backgroundColor: COLORS.primary + '20',
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.sm,
     alignSelf: 'flex-start',
   },
-  starBadgeText: {
+  captainBadgeText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gold,
+    color: COLORS.primary,
     fontWeight: '600',
   },
   lockBonus: {

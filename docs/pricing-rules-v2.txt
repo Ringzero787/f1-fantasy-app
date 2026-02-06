@@ -1,0 +1,130 @@
+================================================================================
+F1 FANTASY - PRICING RULES V2 (PROPOSED CHANGES)
+================================================================================
+
+PROBLEM: Premium Stack vs Form Chaser too close (1886 vs 1909 points)
+GOAL: Reward active management, create more strategic depth
+
+================================================================================
+PROPOSED CHANGES
+================================================================================
+
+1. PRICE VOLATILITY (Increase swing potential)
+   ─────────────────────────────────────────────
+   OLD: MAX_CHANGE_PER_RACE = $15
+   NEW: MAX_CHANGE_PER_RACE = $25
+
+   OLD: A-Tier swings: +/-15 max
+   NEW: A-Tier swings: +/-25 max (premium drivers are riskier!)
+
+   EFFECT: Bigger price movements = more buy low/sell high opportunity
+
+2. TRANSFER BONUS SYSTEM (Reward smart moves)
+   ─────────────────────────────────────────────
+   NEW RULE: "Hot Hand Bonus"
+   - If you buy a driver and they score 15+ points that race: +5 bonus
+   - If you buy a driver and they podium: +10 bonus
+   - Encourages timing transfers with form
+
+   NEW RULE: "Value Capture Bonus"
+   - Sell a driver for more than you paid: +2 points per $10 profit
+   - Example: Buy at $100, sell at $150 = +10 bonus points
+
+3. HOLD DECAY (Penalize pure holding)
+   ─────────────────────────────────────────────
+   NEW RULE: "Stale Roster Penalty"
+   - After 8 races with no transfers: -2 points per race
+   - Resets when you make a transfer
+   - Encourages at least occasional management
+
+4. CAPTAIN SYSTEM (Weekly decision point)
+   ─────────────────────────────────────────────
+   NEW RULE: "Star Driver" becomes weekly captain pick
+   - Choose 1 driver each race weekend to be captain
+   - Captain scores 2x points (not 1.5x)
+   - Must be set before qualifying
+   - Creates weekly engagement even without transfers
+
+5. DIFFERENTIAL SCORING (Reward unique picks)
+   ─────────────────────────────────────────────
+   NEW RULE: "Ownership Bonus"
+   - Drivers owned by <10% of players: +3 points per race
+   - Drivers owned by <5% of players: +5 points per race
+   - Encourages finding hidden gems vs everyone picking same 5
+
+6. FORM MULTIPLIER (Recent performance matters more)
+   ─────────────────────────────────────────────
+   NEW RULE: "Hot Streak Bonus"
+   - Driver scores 15+ points 3 races in a row: +10 bonus
+   - Driver scores 20+ points 3 races in a row: +20 bonus
+   - Only awarded to owners at start of streak
+
+7. PRICE FLOOR PROTECTION REMOVAL
+   ─────────────────────────────────────────────
+   OLD: MIN_PRICE = $5 (can't go lower)
+   NEW: MIN_PRICE = $3 (deeper value opportunities)
+
+   OLD: Rookies start at reasonable prices
+   NEW: Rookies can drop to $3 if performing badly
+        = massive upside if they turn it around
+
+================================================================================
+IMPACT ANALYSIS
+================================================================================
+
+PREMIUM STACK (Hold top 5 all season):
+  - No transfer bonuses earned
+  - Stale roster penalty kicks in (-2/race after race 8) = -32 points
+  - No value capture bonuses
+  - Captain pick helps but same for everyone
+  - NET CHANGE: ~-50 to -100 points
+
+FORM CHASER (Active transfers):
+  - Hot Hand bonuses: ~+50 points (5 good transfers × 10)
+  - Value capture: ~+30 points (selling risers)
+  - No stale penalty (regular transfers)
+  - Can exploit ownership bonuses
+  - NET CHANGE: ~+80 to +150 points
+
+NEW PROJECTED GAP: ~150-250 points (vs current ~23 points)
+
+================================================================================
+RECOMMENDED IMPLEMENTATION PRIORITY
+================================================================================
+
+PHASE 1 (Easy, High Impact):
+  [x] Increase MAX_CHANGE_PER_RACE to $25
+  [x] Add Captain system (2x points)
+  [x] Reduce MIN_PRICE to $3
+
+PHASE 2 (Medium Complexity):
+  [ ] Add Hot Hand Bonus (+5/+10 for post-transfer performance)
+  [ ] Add Stale Roster Penalty (-2 after 8 races)
+
+PHASE 3 (Requires League Data):
+  [ ] Ownership bonus (needs % calculation across league)
+  [ ] Value Capture Bonus (track purchase prices)
+
+================================================================================
+UPDATED CONFIGURATION
+================================================================================
+
+// pricing.config.ts changes:
+
+export const PRICING_CONFIG = {
+  // ... existing ...
+
+  // CHANGED VALUES:
+  MAX_CHANGE_PER_RACE: 25,        // was 15
+  MIN_PRICE: 3,                    // was 5
+
+  // NEW VALUES:
+  CAPTAIN_MULTIPLIER: 2.0,         // 2x points for captain
+  STALE_ROSTER_THRESHOLD: 8,       // races before penalty
+  STALE_ROSTER_PENALTY: 2,         // points lost per race
+  HOT_HAND_BONUS: 5,               // bonus for good transfer timing
+  HOT_HAND_PODIUM_BONUS: 10,       // bonus if transfer podiums
+  VALUE_CAPTURE_RATE: 2,           // points per $10 profit on sale
+};
+
+================================================================================

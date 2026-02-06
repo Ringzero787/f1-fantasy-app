@@ -43,7 +43,6 @@ Lewis Hamilton        Mercedes        8
 Carlos Sainz          Ferrari         6
 Sergio Perez          Red Bull        4
 Fernando Alonso       Aston Martin   2
-Yuki Tsunoda          RB              1
 
 ...
 

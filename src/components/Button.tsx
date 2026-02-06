@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.button,
     flexDirection: 'row',
   },
 
@@ -122,12 +122,12 @@ const styles = StyleSheet.create({
   // Variants
   primary: {
     backgroundColor: COLORS.primary,
-    ...SHADOWS.sm,
+    ...SHADOWS.glow,
   },
   secondary: {
-    backgroundColor: COLORS.gray[100],
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
   outline: {
     backgroundColor: 'transparent',
@@ -139,6 +139,7 @@ const styles = StyleSheet.create({
   },
   gradient: {
     // Styles applied via LinearGradient
+    ...SHADOWS.glow,
   },
 
   // Sizes
@@ -174,7 +175,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   primaryText: {
-    color: COLORS.white,
+    color: COLORS.text.inverse,
   },
   secondaryText: {
     color: COLORS.text.primary,
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   gradientText: {
-    color: COLORS.white,
+    color: COLORS.text.inverse,
   },
 
   smallText: {

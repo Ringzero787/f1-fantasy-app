@@ -50,6 +50,14 @@ GoogleService-Info.plist
 *.keystore
 *.jks
 credentials.json
+scripts/serviceAccountKey.json
+serviceAccountKey.json
+
+# Windows artifacts
+nul
+
+# Screenshots (optional - for debugging)
+# pics/screen*.png
 
 # Build
 *.apk

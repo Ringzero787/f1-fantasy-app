@@ -158,31 +158,50 @@ export const leagueService = {
    * Get leagues for a user
    */
   async getUserLeagues(userId: string): Promise<League[]> {
-    // Get all league IDs where user is a member using collection group
-    const membershipQuery = query(
-      collectionGroup(db, 'members'),
-      where('userId', '==', userId)
-    );
-    const membershipSnapshot = await getDocs(membershipQuery);
+    try {
+      // Get all league IDs where user is a member using collection group
+      const membershipQuery = query(
+        collectionGroup(db, 'members'),
+        where('userId', '==', userId)
+      );
+      const membershipSnapshot = await getDocs(membershipQuery);
 
-    if (membershipSnapshot.empty) {
-      return [];
-    }
+      if (membershipSnapshot.empty) {
+        return [];
+      }
 
-    const leagueIds = membershipSnapshot.docs
-      .map((doc) => doc.ref.parent.parent?.id)
-      .filter(Boolean) as string[];
+      const leagueIds = membershipSnapshot.docs
+        .map((doc) => doc.ref.parent.parent?.id)
+        .filter(Boolean) as string[];
 
-    // Fetch league details
-    const leagues: League[] = [];
-    for (const leagueId of leagueIds) {
-      const league = await this.getLeagueById(leagueId);
-      if (league) {
-        leagues.push(league);
+      // Fetch league details
+      const leagues: League[] = [];
+      for (const leagueId of leagueIds) {
+        const league = await this.getLeagueById(leagueId);
+        if (league) {
+          leagues.push(league);
+        }
+      }
+
+      return leagues;
+    } catch (error) {
+      // If collection group query fails (permissions/index), try alternate approach
+      // Query leagues where user is owner as fallback
+      console.log('Collection group query failed, trying fallback:', error);
+      try {
+        const ownerQuery = query(leaguesCollection, where('ownerId', '==', userId));
+        const ownerSnapshot = await getDocs(ownerQuery);
+        return ownerSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate() || new Date(),
+          updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+        })) as League[];
+      } catch (fallbackError) {
+        console.log('Fallback query also failed:', fallbackError);
+        return [];
       }
     }
-
-    return leagues;
   },
 
   /**
@@ -421,5 +440,71 @@ export const leagueService = {
       createdAt: serverTimestamp(),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     });
+  },
+
+  /**
+   * Promote a member to co-admin
+   */
+  async promoteToCoAdmin(leagueId: string, userId: string): Promise<void> {
+    const league = await this.getLeagueById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
+
+    // Update league's coAdminIds array
+    const leagueRef = doc(db, 'leagues', leagueId);
+    const currentCoAdmins = league.coAdminIds || [];
+
+    if (currentCoAdmins.includes(userId)) {
+      throw new Error('User is already a co-admin');
+    }
+
+    await updateDoc(leagueRef, {
+      coAdminIds: [...currentCoAdmins, userId],
+      updatedAt: serverTimestamp(),
+    });
+
+    // Update member's role in the members subcollection
+    const memberRef = doc(db, 'leagues', leagueId, 'members', userId);
+    await updateDoc(memberRef, {
+      role: 'admin',
+    });
+  },
+
+  /**
+   * Demote a co-admin back to member
+   */
+  async demoteFromCoAdmin(leagueId: string, userId: string): Promise<void> {
+    const league = await this.getLeagueById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
+
+    // Update league's coAdminIds array
+    const leagueRef = doc(db, 'leagues', leagueId);
+    const currentCoAdmins = league.coAdminIds || [];
+
+    if (!currentCoAdmins.includes(userId)) {
+      throw new Error('User is not a co-admin');
+    }
+
+    await updateDoc(leagueRef, {
+      coAdminIds: currentCoAdmins.filter(id => id !== userId),
+      updatedAt: serverTimestamp(),
+    });
+
+    // Update member's role in the members subcollection
+    const memberRef = doc(db, 'leagues', leagueId, 'members', userId);
+    await updateDoc(memberRef, {
+      role: 'member',
+    });
+  },
+
+  /**
+   * Check if a user is an admin (owner or co-admin) of a league
+   */
+  isUserAdmin(league: League, userId: string): boolean {
+    if (league.ownerId === userId) return true;
+    return league.coAdminIds?.includes(userId) || false;
   },
 };

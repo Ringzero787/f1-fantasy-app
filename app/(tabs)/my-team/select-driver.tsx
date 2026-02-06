@@ -23,13 +23,23 @@ export default function SelectDriverScreen() {
   }>();
 
   const { data: allDrivers, isLoading } = useDrivers();
-  const { currentTeam, addDriver, removeDriver, setStarConstructor, getEligibleStarDrivers, isLoading: teamLoading } = useTeamStore();
+  const { currentTeam, addDriver, removeDriver, isLoading: teamLoading } = useTeamStore();
 
-  const eligibleStarDrivers = getEligibleStarDrivers();
+  // Calculate top 10 driver IDs by 2026 season points (highest points = top positions)
+  const topTenDriverIds = useMemo(() => {
+    if (!allDrivers) return new Set<string>();
+    const sorted = [...allDrivers].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));
+    return new Set(sorted.slice(0, 10).map(d => d.id));
+  }, [allDrivers]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDrivers, setSelectedDrivers] = useState<Driver[]>([]);
   const [showAll, setShowAll] = useState(false);
+
+  // Debug: log when selectedDrivers changes
+  React.useEffect(() => {
+    console.log('selectedDrivers state updated:', selectedDrivers.map(d => d.name));
+  }, [selectedDrivers]);
 
   // Swap mode: we're replacing a specific driver
   const isSwapMode = !!swapDriverId;
@@ -86,20 +96,36 @@ export default function SelectDriverScreen() {
   const handleToggleDriver = (driver: Driver) => {
     const isSelected = selectedDrivers.some((d) => d.id === driver.id);
 
+    console.log('handleToggleDriver:', {
+      driver: driver.name,
+      driverPrice: driver.price,
+      isSelected,
+      selectedCount: selectedDrivers.length,
+      maxSelectable: maxSelectableDrivers,
+      effectiveBudget,
+      currentDriverCount,
+      teamBudget: currentTeam?.budget,
+    });
+
     if (isSelected) {
       // Remove from selection
+      console.log('Removing driver from selection:', driver.name);
       setSelectedDrivers(selectedDrivers.filter((d) => d.id !== driver.id));
     } else {
       // Check if we can add more
       if (selectedDrivers.length >= maxSelectableDrivers) {
+        console.log('Cannot add: slots full');
         return; // Can't add more
       }
       // Check if affordable
       if (driver.price > effectiveBudget) {
+        console.log('Cannot add: over budget', driver.price, '>', effectiveBudget);
         return; // Can't afford
       }
       // Add to selection
-      setSelectedDrivers([...selectedDrivers, driver]);
+      const newSelection = [...selectedDrivers, driver];
+      console.log('Adding driver to selection:', driver.name, 'New selection count:', newSelection.length);
+      setSelectedDrivers(newSelection);
     }
   };
 
@@ -108,49 +134,40 @@ export default function SelectDriverScreen() {
   };
 
   const handleConfirm = async () => {
-    if (selectedDrivers.length === 0) return;
+    console.log('handleConfirm called:', {
+      selectedCount: selectedDrivers.length,
+      isSwapMode,
+      swapDriverId
+    });
+
+    if (selectedDrivers.length === 0) {
+      console.log('No drivers selected, returning');
+      return;
+    }
 
     try {
       if (isSwapMode && swapDriverId) {
         // Swap mode: remove old driver first, then add new one
         const newDriver = selectedDrivers[0];
-
-        // Check if the swapped driver was a star driver
-        const swappedDriver = currentTeam?.drivers.find(d => d.driverId === swapDriverId);
-        const wasStarDriver = swappedDriver?.isStarDriver;
+        console.log('Swap mode: removing', swapDriverId, 'adding', newDriver.id);
 
         // Remove the old driver
         await removeDriver(swapDriverId);
 
-        // Add the new driver (make them star if old one was star and new one is eligible)
-        const shouldBeStar = wasStarDriver && eligibleStarDrivers.includes(newDriver.id);
-        await addDriver(newDriver.id, shouldBeStar);
+        // V3: Add new driver (captain selection is done separately)
+        await addDriver(newDriver.id);
       } else {
-        // Normal add mode
-        // Check if team is empty and needs a star
-        const needsStar = currentDriverCount === 0;
-
-        // Find first eligible driver for star (if needed)
-        const firstEligibleDriver = needsStar
-          ? selectedDrivers.find(d => eligibleStarDrivers.includes(d.id))
-          : null;
-
-        // Add drivers one by one
-        for (let i = 0; i < selectedDrivers.length; i++) {
-          const driver = selectedDrivers[i];
-          // Only set as star if eligible (bottom 10 by points)
-          const isStarDriver = !!(firstEligibleDriver && driver.id === firstEligibleDriver.id);
-          await addDriver(driver.id, isStarDriver);
-        }
-
-        // If team needed star but no eligible driver found, set constructor as star
-        if (needsStar && !firstEligibleDriver && currentTeam?.constructor) {
-          await setStarConstructor();
+        // Normal add mode - V3: no star driver logic, user selects captain separately
+        for (const driver of selectedDrivers) {
+          console.log('Adding driver:', driver.id, driver.name);
+          await addDriver(driver.id);
         }
       }
 
+      console.log('All drivers added, navigating back');
       router.back();
     } catch (error) {
+      console.log('handleConfirm error:', error);
       // Error handled by store
     }
   };
@@ -173,20 +190,20 @@ export default function SelectDriverScreen() {
           <Text style={styles.swapBannerText}>
             Swapping <Text style={styles.swapDriverName}>{swappingDriverName}</Text>
           </Text>
-          <Text style={styles.swapBudgetInfo}>+{swapPrice} pts available</Text>
+          <Text style={styles.swapBudgetInfo}>+${swapPrice} available</Text>
         </View>
       )}
 
       {/* Budget Header - Fixed at top */}
       <View style={styles.budgetHeader}>
         <View style={styles.budgetRow}>
-          <Text style={styles.budgetTitle}>Budget Available</Text>
+          <Text style={styles.budgetTitle}>Dollars Available</Text>
           <Text style={[
             styles.budgetAmount,
             effectiveBudget < 100 && styles.budgetLow,
             effectiveBudget < 0 && styles.budgetOver,
           ]}>
-            {effectiveBudget} pts
+            ${effectiveBudget}
           </Text>
         </View>
         <BudgetBar remaining={effectiveBudget} total={BUDGET} />
@@ -197,7 +214,7 @@ export default function SelectDriverScreen() {
             </Text>
             {selectedDrivers.length > 0 && (
               <Text style={styles.budgetMetaText}>
-                Selected: {selectedTotal} pts
+                Selected: ${selectedTotal}
               </Text>
             )}
           </View>
@@ -237,17 +254,17 @@ export default function SelectDriverScreen() {
 
       {/* Search */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={COLORS.gray[400]} />
+        <Ionicons name="search" size={20} color={COLORS.text.muted} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search drivers..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor={COLORS.gray[400]}
+          placeholderTextColor={COLORS.text.muted}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={COLORS.gray[400]} />
+            <Ionicons name="close-circle" size={20} color={COLORS.text.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -257,7 +274,7 @@ export default function SelectDriverScreen() {
         <SmartRecommendations
           availableDrivers={allDrivers}
           selectedDrivers={selectedDrivers}
-          currentTeamDrivers={currentTeam?.drivers.map(d => ({ driverId: d.driverId, tier: d.tier || 'B' })) || []}
+          currentTeamDrivers={currentTeam?.drivers.map(d => ({ driverId: d.driverId })) || []}
           budget={effectiveBudget}
           slotsRemaining={maxSelectableDrivers - selectedDrivers.length}
           onSelectDriver={handleToggleDriver}
@@ -291,6 +308,7 @@ export default function SelectDriverScreen() {
                 showPrice
                 showPoints
                 isSelected={false}
+                isTopTen={topTenDriverIds.has(item.id)}
                 onSelect={() => canSelect && handleToggleDriver(item)}
               />
               {!isAffordable && (
@@ -313,6 +331,7 @@ export default function SelectDriverScreen() {
       {/* Confirm Button */}
       {selectedDrivers.length > 0 && (
         <View style={styles.confirmContainer}>
+          {console.log('Rendering Confirm button, teamLoading:', teamLoading)}
           <View style={styles.selectedInfo}>
             <Text style={styles.selectedName}>
               {isSwapMode
@@ -339,7 +358,7 @@ export default function SelectDriverScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
+    backgroundColor: COLORS.background,
   },
 
   swapBanner: {
@@ -354,7 +373,7 @@ const styles = StyleSheet.create({
   swapBannerText: {
     flex: 1,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
   },
 
   swapDriverName: {
@@ -369,7 +388,7 @@ const styles = StyleSheet.create({
   },
 
   budgetHeader: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
@@ -387,7 +406,7 @@ const styles = StyleSheet.create({
   budgetTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
   },
 
   budgetAmount: {
@@ -410,28 +429,28 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     paddingTop: SPACING.sm,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderTopColor: COLORS.border.default,
   },
 
   budgetMetaText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     fontWeight: '500',
   },
 
   selectedSection: {
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[200],
+    borderBottomColor: COLORS.border.default,
     paddingBottom: SPACING.md,
   },
 
   selectedTitle: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.gray[700],
+    color: COLORS.text.secondary,
     marginBottom: SPACING.sm,
   },
 
@@ -466,13 +485,13 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     marginHorizontal: SPACING.md,
     marginTop: SPACING.md,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: COLORS.border.default,
   },
 
   searchInput: {
@@ -480,7 +499,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   filterInfo: {
@@ -493,7 +512,7 @@ const styles = StyleSheet.create({
 
   filterText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   showAllText: {
@@ -535,7 +554,7 @@ const styles = StyleSheet.create({
 
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
   },
 
   confirmContainer: {
@@ -543,10 +562,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
+    borderTopColor: COLORS.border.default,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -560,7 +579,7 @@ const styles = StyleSheet.create({
   selectedName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   selectedPrice: {
