@@ -570,6 +570,8 @@ export const useTeamStore = create<TeamState>()(
       if (isDemoMode) {
         // In demo mode, create team locally
         const teamId = `demo-team-${demoTeamIdCounter++}`;
+        // Get current race number from admin store for late joiner tracking
+        const completedRaces = Object.values(useAdminStore.getState().raceResults).filter(r => r.isComplete).length;
         const team: FantasyTeam = {
           id: teamId,
           userId,
@@ -586,6 +588,11 @@ export const useTeamStore = create<TeamState>()(
           updatedAt: new Date(),
           // V3: Initialize transfer tracking
           racesSinceTransfer: 0,
+          // V4: Late joiner support
+          racesPlayed: 0,
+          pointsHistory: [],
+          joinedAtRace: completedRaces, // Track which race they joined at
+          raceWins: 0,
         };
         // Add to userTeams array and set as current (filter out any duplicates first)
         const { userTeams } = get();

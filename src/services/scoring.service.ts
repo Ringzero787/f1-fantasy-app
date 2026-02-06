@@ -394,13 +394,43 @@ export const scoringService = {
   },
 
   /**
+   * V4: Calculate catch-up multiplier for late joiners
+   * First 3 races after joining get 1.5x points
+   */
+  calculateCatchUpMultiplier(
+    joinedAtRace: number,
+    currentRaceNumber: number
+  ): { multiplier: number; isInCatchUp: boolean; racesRemaining: number } {
+    const racesSinceJoining = currentRaceNumber - joinedAtRace;
+    const CATCH_UP_RACES = 3;
+    const CATCH_UP_MULTIPLIER = 1.5;
+
+    if (joinedAtRace === 0) {
+      // Joined at start of season, no catch-up needed
+      return { multiplier: 1, isInCatchUp: false, racesRemaining: 0 };
+    }
+
+    if (racesSinceJoining < CATCH_UP_RACES) {
+      return {
+        multiplier: CATCH_UP_MULTIPLIER,
+        isInCatchUp: true,
+        racesRemaining: CATCH_UP_RACES - racesSinceJoining,
+      };
+    }
+
+    return { multiplier: 1, isInCatchUp: false, racesRemaining: 0 };
+  },
+
+  /**
    * V3: Calculate team points with all V3 bonuses and penalties
+   * V4: Added catch-up multiplier support for late joiners
    */
   calculateTeamPointsV3(
     team: FantasyTeam,
     driverScores: DriverScore[],
-    constructorScore: ConstructorScore | null
-  ): { total: number; breakdown: ScoreBreakdown; staleRosterPenalty: number } {
+    constructorScore: ConstructorScore | null,
+    currentRaceNumber?: number
+  ): { total: number; breakdown: ScoreBreakdown; staleRosterPenalty: number; catchUpBonus: number } {
     const items: ScoreItem[] = [];
     let total = 0;
 
@@ -432,10 +462,26 @@ export const scoringService = {
       items.push(...staleCalc.breakdown);
     }
 
+    // V4: Calculate catch-up bonus for late joiners
+    let catchUpBonus = 0;
+    if (currentRaceNumber !== undefined && team.joinedAtRace > 0) {
+      const catchUp = this.calculateCatchUpMultiplier(team.joinedAtRace, currentRaceNumber);
+      if (catchUp.isInCatchUp) {
+        catchUpBonus = Math.floor(total * (catchUp.multiplier - 1)); // Extra 50%
+        total += catchUpBonus;
+        items.push({
+          label: 'Catch-Up Bonus (1.5x)',
+          points: catchUpBonus,
+          description: `Late joiner bonus - ${catchUp.racesRemaining} races remaining`,
+        });
+      }
+    }
+
     return {
       total,
       breakdown: { items, total },
       staleRosterPenalty,
+      catchUpBonus,
     };
   },
 

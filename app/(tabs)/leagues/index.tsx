@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -32,11 +33,18 @@ export default function LeaguesScreen() {
     clearError,
   } = useLeagueStore();
 
+  const { currentTeam, assignTeamToLeague } = useTeamStore();
+
   const [refreshing, setRefreshing] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
+
+  // Leagues the current team could be assigned to (user's leagues that the team isn't already in)
+  const availableLeagues = leagues.filter(
+    (l) => currentTeam && !currentTeam.leagueId && l.id !== currentTeam.leagueId
+  );
 
   useEffect(() => {
     if (user) {
@@ -66,6 +74,34 @@ export default function LeaguesScreen() {
       await loadUserLeagues(user.id);
     }
     setRefreshing(false);
+  };
+
+  const handleAssignToLeague = async (league: League) => {
+    if (!currentTeam || !user) return;
+
+    setJoining(true);
+    try {
+      await assignTeamToLeague(currentTeam.id, league.id);
+      setShowJoinModal(false);
+      Alert.alert(
+        'Success',
+        `Your team "${currentTeam.name}" is now competing in ${league.name}!`,
+        [
+          {
+            text: 'View League',
+            onPress: () => router.push(`/leagues/${league.id}`),
+          },
+          {
+            text: 'View Team',
+            onPress: () => router.push('/my-team'),
+          },
+        ]
+      );
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : 'Failed to assign team to league');
+    } finally {
+      setJoining(false);
+    }
   };
 
   const handleJoinLeague = async () => {
@@ -233,10 +269,47 @@ export default function LeaguesScreen() {
       {showJoinModal && (
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
+            <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={styles.modalTitle}>Join League</Text>
-            <Text style={styles.modalDescription}>
-              Enter the invite code shared by the league admin
-            </Text>
+
+            {/* Show existing leagues the team can be assigned to */}
+            {availableLeagues.length > 0 && (
+              <>
+                <Text style={styles.modalDescription}>
+                  Select one of your leagues
+                </Text>
+                <View style={styles.leaguePickerList}>
+                  {availableLeagues.map((league) => (
+                    <TouchableOpacity
+                      key={league.id}
+                      style={styles.leaguePickerItem}
+                      onPress={() => handleAssignToLeague(league)}
+                      disabled={joining}
+                    >
+                      <Avatar name={league.name} size="small" variant="league" imageUrl={league.avatarUrl} />
+                      <View style={styles.leaguePickerInfo}>
+                        <Text style={styles.leaguePickerName}>{league.name}</Text>
+                        <Text style={styles.leaguePickerMeta}>
+                          {league.memberCount} members
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.modalDivider}>
+                  <View style={styles.modalDividerLine} />
+                  <Text style={styles.modalDividerText}>or join with code</Text>
+                  <View style={styles.modalDividerLine} />
+                </View>
+              </>
+            )}
+
+            {availableLeagues.length === 0 && (
+              <Text style={styles.modalDescription}>
+                Enter the invite code shared by the league admin
+              </Text>
+            )}
 
             <TextInput
               style={styles.codeInput}
@@ -266,6 +339,7 @@ export default function LeaguesScreen() {
                 loading={joining}
               />
             </View>
+            </ScrollView>
           </View>
         </View>
       )}
@@ -463,6 +537,7 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     width: '85%',
     maxWidth: 400,
+    maxHeight: '80%',
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
@@ -583,5 +658,55 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     marginBottom: SPACING.sm,
     textAlign: 'center',
+  },
+
+  leaguePickerList: {
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+
+  leaguePickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+  },
+
+  leaguePickerInfo: {
+    flex: 1,
+  },
+
+  leaguePickerName: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+
+  leaguePickerMeta: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    marginTop: 2,
+  },
+
+  modalDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+
+  modalDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border.default,
+  },
+
+  modalDividerText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
   },
 });

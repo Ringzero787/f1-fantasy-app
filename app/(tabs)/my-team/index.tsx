@@ -34,6 +34,7 @@ import {
 } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS, SALE_COMMISSION_RATE } from '../../../src/config/constants';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
+import { scoringService } from '../../../src/services/scoring.service';
 import { formatPoints } from '../../../src/utils/formatters';
 import type { Driver, FantasyDriver } from '../../../src/types';
 
@@ -265,12 +266,19 @@ export default function MyTeamScreen() {
       }
     }
 
+    // V4: Calculate catch-up multiplier status
+    const currentRaceNumber = completedRaces.length + 1;
+    const catchUpStatus = currentTeam?.joinedAtRace && currentTeam.joinedAtRace > 0
+      ? scoringService.calculateCatchUpMultiplier(currentTeam.joinedAtRace, currentRaceNumber)
+      : { multiplier: 1, isInCatchUp: false, racesRemaining: 0 };
+
     return {
       lastRacePoints,
       totalPoints: currentTeam?.totalPoints || 0,
       leagueRank,
       leagueSize,
       hasCompletedRaces: completedRaces.length > 0,
+      catchUpStatus,
     };
   }, [raceResults, currentTeam, userTeams]);
 
@@ -658,7 +666,7 @@ export default function MyTeamScreen() {
                   name={team.name}
                   size="small"
                   variant="team"
-                  imageUrl={team.avatarUrl}
+                  imageUrl={currentTeam?.id === team.id ? (teamAvatarUrl ?? team.avatarUrl) : team.avatarUrl}
                   useGradient={currentTeam?.id !== team.id}
                 />
                 <View style={styles.teamSelectorItemContent}>
@@ -790,6 +798,21 @@ export default function MyTeamScreen() {
           </View>
         </View>
       </View>
+
+      {/* V4: Catch-up Multiplier Indicator */}
+      {teamStats.catchUpStatus.isInCatchUp && (
+        <View style={styles.catchUpBanner}>
+          <View style={styles.catchUpIconContainer}>
+            <Ionicons name="rocket" size={20} color={COLORS.white} />
+          </View>
+          <View style={styles.catchUpContent}>
+            <Text style={styles.catchUpTitle}>Catch-Up Boost Active!</Text>
+            <Text style={styles.catchUpDescription}>
+              You're earning {teamStats.catchUpStatus.multiplier}x points for {teamStats.catchUpStatus.racesRemaining} more race{teamStats.catchUpStatus.racesRemaining !== 1 ? 's' : ''}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* V3: Ace Reminder Note */}
       {currentTeam &&
@@ -1678,6 +1701,43 @@ const styles = StyleSheet.create({
     width: 1,
     height: 32,
     backgroundColor: COLORS.border.default,
+  },
+
+  // V4: Catch-up Multiplier Styles
+  catchUpBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accent,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    gap: SPACING.md,
+  },
+
+  catchUpIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  catchUpContent: {
+    flex: 1,
+  },
+
+  catchUpTitle: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+
+  catchUpDescription: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.white,
+    opacity: 0.9,
+    marginTop: 2,
   },
 
   starReminderNote: {

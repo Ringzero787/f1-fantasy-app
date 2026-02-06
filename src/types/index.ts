@@ -112,6 +112,12 @@ export interface LeagueMember {
   totalPoints: number;
   rank: number;
   joinedAt: Date;
+  // V4: Late joiner support
+  racesPlayed?: number; // For PPR calculation
+  pprAverage?: number; // Points Per Race average
+  recentFormPoints?: number; // Last 5 races total
+  raceWins?: number; // Race weekend wins count
+  isInCatchUp?: boolean; // Currently in catch-up multiplier period
 }
 
 export interface LeagueInvite {
@@ -150,6 +156,11 @@ export interface FantasyTeam {
   // V3: Transfer tracking for stale roster penalty and hot hand bonus
   lastTransferRaceId?: string; // Race ID when last transfer was made
   racesSinceTransfer: number; // Count of races since last transfer
+  // V4: Late joiner support
+  racesPlayed: number; // Number of races participated in (for PPR calculation)
+  pointsHistory: number[]; // Points earned per race (for Recent Form leaderboard)
+  joinedAtRace: number; // Season race number when team was created (for catch-up multiplier)
+  raceWins: number; // Number of race weekend wins in league
 }
 
 export interface FantasyDriver {

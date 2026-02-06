@@ -7,13 +7,46 @@ import { formatPoints } from '../utils/formatters';
 import { Avatar } from './Avatar';
 import type { LeagueMember } from '../types';
 
+export type LeaderboardView = 'total' | 'ppr' | 'last5' | 'wins';
+
 interface LeaderboardItemProps {
   member: LeagueMember;
   isCurrentUser?: boolean;
   onPress?: () => void;
+  view?: LeaderboardView;
 }
 
-export function LeaderboardItem({ member, isCurrentUser = false, onPress }: LeaderboardItemProps) {
+export function LeaderboardItem({ member, isCurrentUser = false, onPress, view = 'total' }: LeaderboardItemProps) {
+  // Get value and label based on view type
+  const getDisplayValue = (): { value: number; label: string } => {
+    switch (view) {
+      case 'ppr':
+        return {
+          value: member.pprAverage ?? (member.racesPlayed && member.racesPlayed > 0
+            ? Math.round((member.totalPoints / member.racesPlayed) * 10) / 10
+            : 0),
+          label: 'PPR'
+        };
+      case 'last5':
+        return {
+          value: member.recentFormPoints ?? 0,
+          label: 'last 5'
+        };
+      case 'wins':
+        return {
+          value: member.raceWins ?? 0,
+          label: 'wins'
+        };
+      default:
+        return {
+          value: member.totalPoints,
+          label: 'points'
+        };
+    }
+  };
+
+  const { value: displayValue, label: displayLabel } = getDisplayValue();
+
   const getRankColors = (): readonly [string, string] => {
     switch (member.rank) {
       case 1:
@@ -68,16 +101,30 @@ export function LeaderboardItem({ member, isCurrentUser = false, onPress }: Lead
               <Text style={styles.youText}>You</Text>
             </View>
           )}
+          {member.isInCatchUp && (
+            <View style={styles.catchUpBadge}>
+              <Ionicons name="rocket" size={10} color={COLORS.white} />
+              <Text style={styles.catchUpText}>1.5x</Text>
+            </View>
+          )}
         </View>
-        <Text style={styles.ownerName}>{member.displayName}</Text>
+        <View style={styles.subtitleRow}>
+          <Text style={styles.ownerName}>{member.displayName}</Text>
+          {member.raceWins && member.raceWins > 0 && (
+            <View style={styles.winsBadge}>
+              <Ionicons name="trophy" size={10} color="#FBBF24" />
+              <Text style={styles.winsText}>{member.raceWins}</Text>
+            </View>
+          )}
+        </View>
       </View>
 
-      {/* Points */}
+      {/* Points/Value */}
       <View style={styles.points}>
         <Text style={[styles.pointsValue, member.rank <= 3 && styles.topPointsValue]}>
-          {formatPoints(member.totalPoints)}
+          {view === 'ppr' ? displayValue.toFixed(1) : formatPoints(displayValue)}
         </Text>
-        <Text style={styles.pointsLabel}>points</Text>
+        <Text style={styles.pointsLabel}>{displayLabel}</Text>
       </View>
 
       {/* Chevron for navigation */}
@@ -168,10 +215,48 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
 
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: 2,
+  },
+
   ownerName: {
     fontSize: FONTS.sizes.xs,
     color: COLORS.text.muted,
-    marginTop: 2,
+  },
+
+  catchUpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+  },
+
+  catchUpText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+
+  winsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#FBBF24' + '20',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 1,
+    borderRadius: BORDER_RADIUS.full,
+  },
+
+  winsText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: '#D97706',
   },
 
   points: {

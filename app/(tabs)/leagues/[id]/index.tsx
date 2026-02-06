@@ -16,9 +16,17 @@ import { useLeagueStore } from '../../../../src/store/league.store';
 import { useTeamStore } from '../../../../src/store/team.store';
 import { useAvatarGeneration } from '../../../../src/hooks';
 import { Card, Loading, LeaderboardItem, Button, EmptyState, Avatar, AvatarPicker } from '../../../../src/components';
+import { LeaderboardView } from '../../../../src/components/LeaderboardItem';
 import { saveAvatarUrl } from '../../../../src/services/avatarGeneration.service';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
 import type { LeagueMember } from '../../../../src/types';
+
+const LEADERBOARD_VIEWS: { key: LeaderboardView; label: string; icon: string }[] = [
+  { key: 'total', label: 'Total', icon: 'podium-outline' },
+  { key: 'ppr', label: 'PPR', icon: 'analytics-outline' },
+  { key: 'last5', label: 'Last 5', icon: 'flame-outline' },
+  { key: 'wins', label: 'Wins', icon: 'trophy-outline' },
+];
 
 export default function LeagueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,6 +41,7 @@ export default function LeagueDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [leaderboardView, setLeaderboardView] = useState<LeaderboardView>('total');
 
   const { generate: generateAvatar, regenerate: regenerateAvatar, isGenerating, isAvailable } = useAvatarGeneration({
     onSuccess: (url) => setAvatarUrl(url),
@@ -73,8 +82,23 @@ export default function LeagueDetailScreen() {
       joinedAt: team.createdAt,
     }));
 
-    // Sort by points and assign ranks
-    memberList.sort((a, b) => b.totalPoints - a.totalPoints);
+    // Sort based on selected view and assign ranks
+    const getSortValue = (m: LeagueMember): number => {
+      switch (leaderboardView) {
+        case 'ppr':
+          return m.pprAverage ?? (m.racesPlayed && m.racesPlayed > 0
+            ? m.totalPoints / m.racesPlayed
+            : 0);
+        case 'last5':
+          return m.recentFormPoints ?? 0;
+        case 'wins':
+          return m.raceWins ?? 0;
+        default:
+          return m.totalPoints;
+      }
+    };
+
+    memberList.sort((a, b) => getSortValue(b) - getSortValue(a));
     memberList.forEach((member, index) => {
       member.rank = index + 1;
     });
@@ -98,7 +122,7 @@ export default function LeagueDetailScreen() {
     }
 
     return memberList;
-  }, [id, currentLeague, user, userTeams, currentTeam]);
+  }, [id, currentLeague, user, userTeams, currentTeam, leaderboardView]);
 
   useEffect(() => {
     if (id && user) {
@@ -259,12 +283,41 @@ export default function LeagueDetailScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Leaderboard</Text>
 
+        {/* View Toggle */}
+        <View style={styles.viewToggle}>
+          {LEADERBOARD_VIEWS.map((view) => (
+            <TouchableOpacity
+              key={view.key}
+              style={[
+                styles.viewToggleItem,
+                leaderboardView === view.key && styles.viewToggleItemActive,
+              ]}
+              onPress={() => setLeaderboardView(view.key)}
+            >
+              <Ionicons
+                name={view.icon as any}
+                size={14}
+                color={leaderboardView === view.key ? COLORS.white : COLORS.text.muted}
+              />
+              <Text
+                style={[
+                  styles.viewToggleText,
+                  leaderboardView === view.key && styles.viewToggleTextActive,
+                ]}
+              >
+                {view.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {members.length > 0 ? (
           members.map((member) => (
             <LeaderboardItem
               key={member.userId}
               member={member}
               isCurrentUser={member.userId === user?.id}
+              view={leaderboardView}
               onPress={() => {
                 if (member.userId === user?.id) {
                   // Navigate to own team
@@ -469,7 +522,43 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
     color: COLORS.text.primary,
+    marginBottom: SPACING.sm,
+  },
+
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.md,
+    padding: 4,
     marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+  },
+
+  viewToggleItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+    borderRadius: BORDER_RADIUS.sm,
+    gap: 4,
+  },
+
+  viewToggleItemActive: {
+    backgroundColor: COLORS.primary,
+  },
+
+  viewToggleText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '500',
+    color: COLORS.text.muted,
+  },
+
+  viewToggleTextActive: {
+    color: COLORS.white,
+    fontWeight: '600',
   },
 
   emptyText: {
