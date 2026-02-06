@@ -49,7 +49,7 @@ interface SwapRecommendation {
 
 export default function MyTeamScreen() {
   const { user } = useAuth();
-  const { currentTeam, userTeams, isLoading, error, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setCaptain, clearCaptain, selectTeam, recalculateAllTeamsPoints, swapDriver, addDriver, setConstructor } = useTeamStore();
+  const { currentTeam, userTeams, isLoading, error, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setCaptain, clearCaptain, selectTeam, recalculateAllTeamsPoints, swapDriver, addDriver, setConstructor, setCurrentTeam } = useTeamStore();
   const { leagues, loadUserLeagues } = useLeagueStore();
   const { raceResults } = useAdminStore();
   const { data: allDrivers, isLoading: isLoadingDrivers } = useDrivers();
@@ -468,19 +468,69 @@ export default function MyTeamScreen() {
       return;
     }
 
+    // Verify the recommended team is valid
+    const totalDriverCost = recommended.drivers.reduce((sum, d) => sum + d.price, 0);
+    const totalCost = totalDriverCost + recommended.constructor.price;
+    console.log('Recommended team:', {
+      drivers: recommended.drivers.map(d => `${d.name}: $${d.price}`),
+      constructor: `${recommended.constructor.name}: $${recommended.constructor.price}`,
+      totalCost,
+      budget: BUDGET,
+    });
+
+    if (totalCost > BUDGET) {
+      Alert.alert('Error', `Recommended team costs $${totalCost} but budget is $${BUDGET}. Please try again.`);
+      return;
+    }
+
     setIsBuildingRecommended(true);
     try {
-      // Add all recommended drivers
-      for (const driver of recommended.drivers) {
-        await addDriver(driver.id);
+      // Build the team directly by updating team state atomically
+      // This avoids issues with sequential budget validation
+      if (!currentTeam) {
+        Alert.alert('Error', 'No team found. Please create a team first.');
+        return;
       }
 
-      // Add constructor
-      await setConstructor(recommended.constructor.id);
+      // Create fantasy driver objects with correct prices from allDrivers
+      const fantasyDrivers = recommended.drivers.map(driver => ({
+        driverId: driver.id,
+        name: driver.name,
+        shortName: driver.shortName,
+        constructorId: driver.constructorId,
+        purchasePrice: driver.price,
+        currentPrice: driver.price,
+        pointsScored: 0,
+        racesHeld: 0,
+      }));
+
+      const fantasyConstructor = {
+        constructorId: recommended.constructor.id,
+        name: recommended.constructor.name,
+        purchasePrice: recommended.constructor.price,
+        currentPrice: recommended.constructor.price,
+        pointsScored: 0,
+        racesHeld: 0,
+      };
+
+      // Update team atomically
+      const updatedTeam = {
+        ...currentTeam,
+        drivers: fantasyDrivers,
+        constructor: fantasyConstructor,
+        totalSpent: totalCost,
+        budget: BUDGET - totalCost,
+        racesSinceTransfer: 0,
+        updatedAt: new Date(),
+      };
+
+      // Update the team store directly
+      setCurrentTeam(updatedTeam);
 
       // V3: Don't auto-set captain - user chooses each race weekend
-      Alert.alert('Success', 'Your recommended team has been built! Select a captain before qualifying.');
+      Alert.alert('Success', `Your recommended team has been built! ($${totalCost} spent, $${BUDGET - totalCost} remaining)\n\nSelect a captain before qualifying.`);
     } catch (err) {
+      console.error('Build recommended team error:', err);
       Alert.alert('Error', 'Failed to build recommended team. Please try again.');
     } finally {
       setIsBuildingRecommended(false);
