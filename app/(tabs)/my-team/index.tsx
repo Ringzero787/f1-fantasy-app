@@ -842,7 +842,11 @@ export default function MyTeamScreen() {
                         Paid: ${driver.purchasePrice}
                       </Text>
                       <View style={styles.currentValueRow}>
-                        <Text style={styles.currentValueLabel}>Now: </Text>
+                        <Text style={[
+                          styles.currentValueLabel,
+                          driver.currentPrice > driver.purchasePrice && styles.priceUp,
+                          driver.currentPrice < driver.purchasePrice && styles.priceDown,
+                        ]}>Now: </Text>
                         <Text style={[
                           styles.currentValue,
                           driver.currentPrice > driver.purchasePrice && styles.priceUp,
@@ -866,9 +870,6 @@ export default function MyTeamScreen() {
                           </View>
                         )}
                       </View>
-                      <Text style={styles.sellValue}>
-                        Sell: ${Math.floor(driver.currentPrice * (1 - SALE_COMMISSION_RATE))}
-                      </Text>
                     </View>
                   </View>
                   {currentTeam?.lockStatus.canModify && (
@@ -961,7 +962,11 @@ export default function MyTeamScreen() {
                       Paid: ${currentTeam.constructor.purchasePrice}
                     </Text>
                     <View style={styles.currentValueRow}>
-                      <Text style={styles.currentValueLabel}>Now: </Text>
+                      <Text style={[
+                        styles.currentValueLabel,
+                        currentTeam.constructor.currentPrice > currentTeam.constructor.purchasePrice && styles.priceUp,
+                        currentTeam.constructor.currentPrice < currentTeam.constructor.purchasePrice && styles.priceDown,
+                      ]}>Now: </Text>
                       <Text style={[
                         styles.currentValue,
                         currentTeam.constructor.currentPrice > currentTeam.constructor.purchasePrice && styles.priceUp,
@@ -985,9 +990,6 @@ export default function MyTeamScreen() {
                         </View>
                       )}
                     </View>
-                    <Text style={styles.sellValue}>
-                      Sell: ${Math.floor(currentTeam.constructor.currentPrice * (1 - SALE_COMMISSION_RATE))}
-                    </Text>
                   </View>
                 </View>
                 {currentTeam?.lockStatus.canModify && (
