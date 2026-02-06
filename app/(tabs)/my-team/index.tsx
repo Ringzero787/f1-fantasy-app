@@ -795,7 +795,7 @@ export default function MyTeamScreen() {
         )}
 
         {currentTeam?.drivers && currentTeam.drivers.length > 0 ? (
-          [...currentTeam.drivers].sort((a, b) => b.pointsScored - a.pointsScored).map((driver) => (
+          [...currentTeam.drivers].sort((a, b) => b.currentPrice - a.currentPrice).map((driver) => (
             <Card
               key={driver.driverId}
               variant="outlined"
