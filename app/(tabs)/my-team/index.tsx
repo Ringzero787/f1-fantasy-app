@@ -756,7 +756,7 @@ export default function MyTeamScreen() {
        !currentTeam.captainDriverId &&
        driversCount > 0 && (
         <View style={styles.starReminderNote}>
-          <Ionicons name="diamond-outline" size={16} color={COLORS.primary} />
+          <Ionicons name="diamond-outline" size={16} color={COLORS.gold} />
           <Text style={styles.starReminderText}>
             Select an Ace (drivers under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE} only) to earn 2x points this race weekend!
           </Text>
@@ -815,18 +815,20 @@ export default function MyTeamScreen() {
                     {/* V3: Ace icon inline with driver code */}
                     {/* V3 Rule: Only drivers with price <= CAPTAIN_MAX_PRICE can be ace */}
                     {currentTeam?.captainDriverId === driver.driverId && (
-                      <View style={styles.captainBadgeInline}>
+                      <View style={styles.aceBadgeInline}>
                         <Ionicons name="diamond" size={12} color={COLORS.white} />
+                        <Text style={styles.aceBadgeText}>2x</Text>
                       </View>
                     )}
                     {currentTeam?.captainDriverId !== driver.driverId &&
                      currentTeam?.lockStatus.canModify &&
                      driver.currentPrice <= PRICING_CONFIG.CAPTAIN_MAX_PRICE && (
                       <TouchableOpacity
-                        style={styles.captainIconButton}
+                        style={styles.aceIconButton}
                         onPress={() => handleSetCaptain(driver.driverId)}
                       >
-                        <Ionicons name="diamond-outline" size={16} color={COLORS.primary} />
+                        <Ionicons name="diamond-outline" size={14} color={COLORS.gold} />
+                        <Text style={styles.aceIconText}>2x</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1692,18 +1694,35 @@ const styles = StyleSheet.create({
     color: COLORS.text.muted,
   },
 
-  // V3: Captain badge styles (replaces star)
-  captainBadgeInline: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    width: 18,
-    height: 18,
+  // V3: Ace badge styles (gold theme)
+  aceBadgeInline: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.gold,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    gap: 2,
   },
 
-  captainIconButton: {
-    padding: SPACING.xs,
+  aceBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+
+  aceIconButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    gap: 2,
+  },
+
+  aceIconText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.gold,
   },
 
   // Keep for backwards compatibility in case needed

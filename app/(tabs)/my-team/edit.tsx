@@ -259,13 +259,13 @@ export default function EditTeamScreen() {
                   <Ionicons
                     name={isCaptain ? 'diamond' : 'diamond-outline'}
                     size={16}
-                    color={isCaptain ? COLORS.white : COLORS.primary}
+                    color={isCaptain ? COLORS.white : COLORS.gold}
                   />
                   <Text style={[
                     styles.actionButtonText,
-                    isCaptain && styles.captainActiveText,
+                    isCaptain ? styles.captainActiveText : styles.aceText,
                   ]}>
-                    {isCaptain ? 'Ace (2x)' : 'Set Ace'}
+                    {isCaptain ? 'Ace (2x)' : 'Set Ace (2x)'}
                   </Text>
                 </TouchableOpacity>
 
@@ -632,6 +632,10 @@ const styles = StyleSheet.create({
 
   captainActiveText: {
     color: COLORS.white,
+  },
+
+  aceText: {
+    color: COLORS.gold,
   },
 
   constructorActions: {

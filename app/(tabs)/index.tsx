@@ -238,7 +238,7 @@ export default function HomeScreen() {
             {/* Ace Selection Row */}
             <View style={styles.teamRow}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="diamond" size={18} color={COLORS.primary} />
+                <Ionicons name="diamond" size={18} color={COLORS.gold} />
                 <Text style={styles.teamRowLabel}>Ace (2x)</Text>
               </View>
               <Text style={[styles.teamRowValue, captainDriver && styles.captainText]}>
