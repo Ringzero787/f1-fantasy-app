@@ -80,7 +80,7 @@ export const drivers2026 = [
     id: 'verstappen',
     name: 'Max Verstappen',
     shortName: 'VER',
-    number: 1,
+    number: 3,
     constructorId: 'red_bull',
     constructorName: 'Oracle Red Bull Racing',
     nationality: 'Dutch',

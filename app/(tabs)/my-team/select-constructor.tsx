@@ -29,6 +29,31 @@ export default function SelectConstructorScreen() {
   const flatListRef = useRef<FlatListType<Constructor>>(null);
   const hasScrolledRef = useRef(false);
 
+  // Refs for auto-save on unmount
+  const selectedConstructorRef = useRef<Constructor | null>(null);
+  const confirmedRef = useRef(false);
+
+  useEffect(() => {
+    selectedConstructorRef.current = selectedConstructor;
+  }, [selectedConstructor]);
+
+  // Auto-add selected constructor when navigating away
+  useEffect(() => {
+    return () => {
+      if (confirmedRef.current) return;
+      const pending = selectedConstructorRef.current;
+      if (!pending) return;
+
+      (async () => {
+        try {
+          await setConstructor(pending.id);
+        } catch {
+          // Best effort
+        }
+      })();
+    };
+  }, []);
+
   // Account for current constructor value if swapping
   const currentConstructorPrice = currentTeam?.constructor?.currentPrice || 0;
   const remainingBudget = (currentTeam?.budget || BUDGET) + currentConstructorPrice;
@@ -153,11 +178,13 @@ export default function SelectConstructorScreen() {
   const handleSelectConstructor = async () => {
     if (!selectedConstructor) return;
 
+    confirmedRef.current = true;
+
     try {
       await setConstructor(selectedConstructor.id);
       router.back();
     } catch (error) {
-      // Error handled by store
+      confirmedRef.current = false;
     }
   };
 
