@@ -12,10 +12,14 @@ import { useAdminStore } from './admin.store';
 const calculateSaleValue = (currentPrice: number): number => {
   return Math.floor(currentPrice * (1 - SALE_COMMISSION_RATE));
 };
-import { demoDrivers, demoConstructors } from '../data/demoData';
+import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
 
 // Calculate fantasy points for a team based on race results
 // V3: Uses captain system (2x points) and stale roster penalty
+// Build raceId -> round lookup from demoRaces
+const raceRoundLookup: Record<string, number> = {};
+demoRaces.forEach(r => { raceRoundLookup[r.id] = r.round; });
+
 const calculateTeamPointsFromRaces = (team: FantasyTeam): {
   totalPoints: number;
   driverPoints: Record<string, number>;
@@ -26,31 +30,35 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
   const driverPoints: Record<string, number> = {};
   let constructorPoints = 0;
 
+  // Only count races after the team was created
+  const joinedAtRace = team.joinedAtRace || 0;
+
   // Calculate points for each driver
   team.drivers.forEach(driver => {
     let driverTotal = 0;
-    Object.values(raceResults).forEach(result => {
-      if (result.isComplete) {
-        // Add race points
-        const driverResult = result.driverResults.find(dr => dr.driverId === driver.driverId);
-        if (driverResult) {
-          let points = driverResult.points;
-          // V3: Apply captain bonus (2x points) if this driver is captain
-          if (team.captainDriverId === driver.driverId) {
-            points = points * PRICING_CONFIG.CAPTAIN_MULTIPLIER;
-          }
-          driverTotal += points;
+    Object.entries(raceResults).forEach(([raceId, result]) => {
+      if (!result.isComplete) return;
+      // Skip races before this team existed
+      const round = raceRoundLookup[raceId] || 0;
+      if (round <= joinedAtRace) return;
+
+      // Add race points
+      const driverResult = result.driverResults.find(dr => dr.driverId === driver.driverId);
+      if (driverResult) {
+        let points = driverResult.points;
+        if (team.captainDriverId === driver.driverId) {
+          points = points * PRICING_CONFIG.CAPTAIN_MULTIPLIER;
         }
-        // Add sprint points
-        const sprintResult = result.sprintResults?.find(sr => sr.driverId === driver.driverId);
-        if (sprintResult) {
-          let points = sprintResult.points;
-          // V3: Apply captain bonus (2x points) to sprint as well
-          if (team.captainDriverId === driver.driverId) {
-            points = points * PRICING_CONFIG.CAPTAIN_MULTIPLIER;
-          }
-          driverTotal += points;
+        driverTotal += points;
+      }
+      // Add sprint points
+      const sprintResult = result.sprintResults?.find(sr => sr.driverId === driver.driverId);
+      if (sprintResult) {
+        let points = sprintResult.points;
+        if (team.captainDriverId === driver.driverId) {
+          points = points * PRICING_CONFIG.CAPTAIN_MULTIPLIER;
         }
+        driverTotal += points;
       }
     });
     driverPoints[driver.driverId] = driverTotal;
@@ -59,22 +67,22 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
 
   // Calculate points for constructor (no captain bonus for constructors)
   if (team.constructor) {
-    Object.values(raceResults).forEach(result => {
-      if (result.isComplete) {
-        // Add race points
-        const constructorResult = result.constructorResults.find(
-          cr => cr.constructorId === team.constructor!.constructorId
-        );
-        if (constructorResult) {
-          constructorPoints += constructorResult.points;
-        }
-        // Add sprint constructor points
-        const sprintConstructorResult = result.sprintConstructorResults?.find(
-          scr => scr.constructorId === team.constructor!.constructorId
-        );
-        if (sprintConstructorResult) {
-          constructorPoints += sprintConstructorResult.points;
-        }
+    Object.entries(raceResults).forEach(([raceId, result]) => {
+      if (!result.isComplete) return;
+      const round = raceRoundLookup[raceId] || 0;
+      if (round <= joinedAtRace) return;
+
+      const constructorResult = result.constructorResults.find(
+        cr => cr.constructorId === team.constructor!.constructorId
+      );
+      if (constructorResult) {
+        constructorPoints += constructorResult.points;
+      }
+      const sprintConstructorResult = result.sprintConstructorResults?.find(
+        scr => scr.constructorId === team.constructor!.constructorId
+      );
+      if (sprintConstructorResult) {
+        constructorPoints += sprintConstructorResult.points;
       }
     });
     totalPoints += constructorPoints;

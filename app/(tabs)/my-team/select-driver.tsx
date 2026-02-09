@@ -150,8 +150,8 @@ export default function SelectDriverScreen() {
       if (selectedDrivers.length >= maxSelectableDrivers) return;
       if (driver.price > effectiveBudget) return;
 
-      // If only 1 slot left (or swap mode), add immediately and go back
-      if (maxSelectableDrivers === 1 || slotsLeft === 1) {
+      // If adding/swapping a single driver from My Team, add immediately and go back
+      if (maxSelectableDrivers === 1) {
         confirmedRef.current = true;
         applyDriversToTeam([driver]);
         router.back();

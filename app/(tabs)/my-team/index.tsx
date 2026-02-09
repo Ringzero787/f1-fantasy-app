@@ -43,7 +43,7 @@ function getNextLoyaltyRate(racesHeld: number): number {
 
 export default function MyTeamScreen() {
   const { user } = useAuth();
-  const { currentTeam, userTeams, isLoading, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setCaptain, clearCaptain, selectTeam, recalculateAllTeamsPoints } = useTeamStore();
+  const { currentTeam, userTeams, isLoading, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setCaptain, clearCaptain, selectTeam, recalculateAllTeamsPoints, setCurrentTeam } = useTeamStore();
   const { leagues, loadUserLeagues } = useLeagueStore();
   const { raceResults } = useAdminStore();
   const { data: allDrivers } = useDrivers();
@@ -57,7 +57,13 @@ export default function MyTeamScreen() {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const { generate: generateAvatar, regenerate: regenerateAvatar, isGenerating: isGeneratingAvatar, isAvailable: isAvatarAvailable } = useAvatarGeneration({
-    onSuccess: (url) => setTeamAvatarUrl(url),
+    onSuccess: (url) => {
+      setTeamAvatarUrl(url);
+      const team = useTeamStore.getState().currentTeam;
+      if (team) {
+        useTeamStore.getState().setCurrentTeam({ ...team, avatarUrl: url, updatedAt: new Date() });
+      }
+    },
   });
 
   // Load user teams on mount
@@ -95,6 +101,11 @@ export default function MyTeamScreen() {
     }
   }, [currentTeam?.id, currentTeam?.avatarUrl]);
 
+  const persistAvatarToStore = (url: string) => {
+    if (!currentTeam) return;
+    setCurrentTeam({ ...currentTeam, avatarUrl: url, updatedAt: new Date() });
+  };
+
   const handleGenerateTeamAvatar = async () => {
     if (!currentTeam) return;
     if (teamAvatarUrl) {
@@ -109,6 +120,7 @@ export default function MyTeamScreen() {
     const result = await saveAvatarUrl('team', currentTeam.id, url);
     if (result.success && result.imageUrl) {
       setTeamAvatarUrl(result.imageUrl);
+      persistAvatarToStore(result.imageUrl);
     }
   };
 
