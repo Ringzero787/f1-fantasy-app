@@ -262,6 +262,20 @@ export default function MyTeamScreen() {
     try { await clearCaptain(); } catch { Alert.alert('Error', 'Failed to clear Ace'); }
   };
 
+  // V5: Lockout-aware canModify and canChangeCaptain
+  const canModify = !lockoutInfo.isLocked && (currentTeam?.lockStatus.canModify ?? true);
+  const canChangeCaptain = !lockoutInfo.captainLocked && (currentTeam?.lockStatus.canModify ?? true);
+
+  // Countdown text for lockout
+  const lockCountdownText = useMemo(() => {
+    if (!lockoutInfo.lockTime || lockoutInfo.isLocked) return null;
+    const diff = lockoutInfo.lockTime.getTime() - Date.now();
+    if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return null;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `Locks in ${hours}h ${minutes}m`;
+  }, [lockoutInfo.lockTime, lockoutInfo.isLocked]);
+
   // --- Early returns ---
 
   if (!hasHydrated) {
@@ -304,20 +318,6 @@ export default function MyTeamScreen() {
 
   const driversCount = currentTeam?.drivers.length || 0;
   const hasConstructor = !!currentTeam?.constructor;
-
-  // V5: Lockout-aware canModify and canChangeCaptain
-  const canModify = !lockoutInfo.isLocked && (currentTeam?.lockStatus.canModify ?? true);
-  const canChangeCaptain = !lockoutInfo.captainLocked && (currentTeam?.lockStatus.canModify ?? true);
-
-  // Countdown text for lockout
-  const lockCountdownText = useMemo(() => {
-    if (!lockoutInfo.lockTime || lockoutInfo.isLocked) return null;
-    const diff = lockoutInfo.lockTime.getTime() - Date.now();
-    if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return null;
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return `Locks in ${hours}h ${minutes}m`;
-  }, [lockoutInfo.lockTime, lockoutInfo.isLocked]);
 
   return (
     <View style={styles.container}>
@@ -488,11 +488,12 @@ export default function MyTeamScreen() {
               const marketDriver = allDrivers?.find(d => d.id === driver.driverId);
               const livePrice = marketDriver?.price ?? driver.currentPrice;
               const driverNumber = marketDriver?.number;
-              return { ...driver, livePrice, driverNumber };
+              const resolvedConstructorId = marketDriver?.constructorId ?? driver.constructorId;
+              return { ...driver, livePrice, driverNumber, resolvedConstructorId };
             })
             .sort((a, b) => b.livePrice - a.livePrice)
             .map((driver) => {
-              const cInfo = constructorLookup[driver.constructorId];
+              const cInfo = constructorLookup[driver.resolvedConstructorId];
               const isAce = currentTeam?.captainDriverId === driver.driverId;
               const canBeAce = driver.livePrice <= PRICING_CONFIG.CAPTAIN_MAX_PRICE;
 
