@@ -60,6 +60,9 @@ interface AdminState {
   driverPrices: Record<string, PriceUpdate>;
   constructorPrices: Record<string, PriceUpdate>;
 
+  // V5: Lockout override for testing
+  adminLockOverride: 'locked' | 'unlocked' | null;
+
   // Actions
   initializeRaceResult: (raceId: string) => void;
   updateDriverPoints: (raceId: string, driverId: string, points: number) => void;
@@ -79,6 +82,9 @@ interface AdminState {
   getConstructorTotalPoints: (constructorId: string) => number;
   getDriverPrice: (driverId: string) => PriceUpdate | null;
   getConstructorPrice: (constructorId: string) => PriceUpdate | null;
+
+  // V5: Lockout override
+  setAdminLockOverride: (override: 'locked' | 'unlocked' | null) => void;
 
   // Reset all cached data
   resetAllData: () => void;
@@ -107,6 +113,7 @@ export const useAdminStore = create<AdminState>()(
       raceResults: {},
       driverPrices: {},
       constructorPrices: {},
+      adminLockOverride: null,
 
       initializeRaceResult: (raceId) => {
         const { raceResults } = get();
@@ -443,6 +450,10 @@ export const useAdminStore = create<AdminState>()(
         return constructorPrices[constructorId] || null;
       },
 
+      setAdminLockOverride: (override) => {
+        set({ adminLockOverride: override });
+      },
+
       // Reset all cached data to fresh state
       resetAllData: () => {
         console.log('Resetting all admin data...');
@@ -450,6 +461,7 @@ export const useAdminStore = create<AdminState>()(
           raceResults: {},
           driverPrices: {},
           constructorPrices: {},
+          adminLockOverride: null,
         });
         console.log('Admin data reset complete');
       },

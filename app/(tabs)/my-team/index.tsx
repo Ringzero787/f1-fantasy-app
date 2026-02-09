@@ -19,7 +19,7 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { useTeamStore } from '../../../src/store/team.store';
 import { useLeagueStore } from '../../../src/store/league.store';
 import { useAdminStore } from '../../../src/store/admin.store';
-import { useDrivers, useConstructors, useAvatarGeneration } from '../../../src/hooks';
+import { useDrivers, useConstructors, useAvatarGeneration, useLockoutStatus } from '../../../src/hooks';
 import { saveAvatarUrl } from '../../../src/services/avatarGeneration.service';
 import { Loading, Button, Avatar, AvatarPicker } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../src/config/constants';
@@ -48,6 +48,7 @@ export default function MyTeamScreen() {
   const { raceResults } = useAdminStore();
   const { data: allDrivers } = useDrivers();
   const { data: allConstructors } = useConstructors();
+  const lockoutInfo = useLockoutStatus();
 
   const [refreshing, setRefreshing] = useState(false);
   const [showEditNameModal, setShowEditNameModal] = useState(false);
@@ -304,6 +305,20 @@ export default function MyTeamScreen() {
   const driversCount = currentTeam?.drivers.length || 0;
   const hasConstructor = !!currentTeam?.constructor;
 
+  // V5: Lockout-aware canModify and canChangeCaptain
+  const canModify = !lockoutInfo.isLocked && (currentTeam?.lockStatus.canModify ?? true);
+  const canChangeCaptain = !lockoutInfo.captainLocked && (currentTeam?.lockStatus.canModify ?? true);
+
+  // Countdown text for lockout
+  const lockCountdownText = useMemo(() => {
+    if (!lockoutInfo.lockTime || lockoutInfo.isLocked) return null;
+    const diff = lockoutInfo.lockTime.getTime() - Date.now();
+    if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return null;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `Locks in ${hours}h ${minutes}m`;
+  }, [lockoutInfo.lockTime, lockoutInfo.isLocked]);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -387,6 +402,29 @@ export default function MyTeamScreen() {
           )}
         </View>
 
+        {/* V5: Lockout Banner */}
+        {lockoutInfo.isLocked && (
+          <View style={styles.lockoutBanner}>
+            <Ionicons name="lock-closed" size={16} color={COLORS.white} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.lockoutBannerText}>
+                {lockoutInfo.lockReason || 'Teams locked'}
+              </Text>
+              {!lockoutInfo.captainLocked && (
+                <Text style={styles.lockoutBannerHint}>Ace selection still open until race start</Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* V5: Lockout Countdown */}
+        {lockCountdownText && !lockoutInfo.isLocked && (
+          <View style={styles.lockCountdown}>
+            <Ionicons name="time-outline" size={14} color={COLORS.warning} />
+            <Text style={styles.lockCountdownText}>{lockCountdownText}</Text>
+          </View>
+        )}
+
         {/* Team Name Header with Avatar */}
         <View style={styles.teamNameRow}>
           <Avatar
@@ -395,17 +433,17 @@ export default function MyTeamScreen() {
             variant="team"
             imageUrl={teamAvatarUrl}
             isGenerating={isGeneratingAvatar}
-            editable={currentTeam?.lockStatus.canModify}
-            onPress={currentTeam?.lockStatus.canModify ? () => setShowAvatarPicker(true) : undefined}
+            editable={canModify}
+            onPress={canModify ? () => setShowAvatarPicker(true) : undefined}
           />
           <TouchableOpacity
             style={styles.teamNameContent}
-            onPress={currentTeam?.lockStatus.canModify ? handleEditName : undefined}
-            activeOpacity={currentTeam?.lockStatus.canModify ? 0.6 : 1}
+            onPress={canModify ? handleEditName : undefined}
+            activeOpacity={canModify ? 0.6 : 1}
           >
             <View style={styles.teamNameLine}>
               <Text style={styles.teamName}>{currentTeam?.name || 'My Team'}</Text>
-              {currentTeam?.lockStatus.canModify && (
+              {canModify && (
                 <Ionicons name="pencil" size={14} color={COLORS.text.muted} />
               )}
               {currentTeam?.isLocked && (
@@ -461,6 +499,10 @@ export default function MyTeamScreen() {
               const priceDiff = driver.livePrice - driver.purchasePrice;
               const loyalty = getLoyaltyBonus(driver.racesHeld || 0);
               const nextRate = getNextLoyaltyRate(driver.racesHeld || 0);
+              const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+              const contractRemaining = contractLen - (driver.racesHeld || 0);
+              const isLastRace = contractRemaining === 1;
+              const isReserve = driver.isReservePick;
 
               return (
                 <View key={driver.driverId} style={styles.driverRow}>
@@ -479,6 +521,11 @@ export default function MyTeamScreen() {
                             <Text style={styles.constructorBadgeText}>{cInfo.shortName}</Text>
                           </View>
                         )}
+                        {isReserve && (
+                          <View style={styles.reserveBadge}>
+                            <Text style={styles.reserveBadgeText}>RESERVE</Text>
+                          </View>
+                        )}
                       </View>
                     </View>
                     <View style={styles.driverRowRight}>
@@ -489,14 +536,14 @@ export default function MyTeamScreen() {
                             <Ionicons name="diamond" size={14} color={COLORS.white} />
                           </View>
                         </TouchableOpacity>
-                      ) : canBeAce && currentTeam?.lockStatus.canModify ? (
+                      ) : canBeAce && canChangeCaptain ? (
                         <TouchableOpacity onPress={() => handleSetCaptain(driver.driverId)} hitSlop={8}>
                           <Ionicons name="diamond-outline" size={18} color={COLORS.gold} />
                         </TouchableOpacity>
                       ) : (
                         <View style={{ width: 18 }} />
                       )}
-                      {currentTeam?.lockStatus.canModify && (
+                      {canModify && (
                         <TouchableOpacity
                           onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
                           hitSlop={8}
@@ -522,6 +569,15 @@ export default function MyTeamScreen() {
                       Sell: ${driver.livePrice}{priceDiff > 0 ? ` (+$${priceDiff})` : priceDiff < 0 ? ` (-$${Math.abs(priceDiff)})` : ''}
                     </Text>
                     <Text style={styles.metaSeparator}>·</Text>
+                    <Ionicons name="document-text-outline" size={10} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
+                    {isLastRace ? (
+                      <Text style={styles.contractLastRace}>LAST RACE</Text>
+                    ) : (
+                      <Text style={[styles.contractText, contractRemaining <= 1 && { color: COLORS.warning }]}>
+                        {driver.racesHeld || 0}/{contractLen}
+                      </Text>
+                    )}
+                    <Text style={styles.metaSeparator}>·</Text>
                     <Ionicons name="flame" size={10} color={loyalty > 0 ? COLORS.gold : COLORS.text.muted} />
                     <Text style={[styles.loyaltyText, loyalty > 0 && { color: COLORS.gold }]}>
                       +{nextRate}/race
@@ -533,7 +589,7 @@ export default function MyTeamScreen() {
         ) : null}
 
         {/* Add Driver button */}
-        {driversCount < TEAM_SIZE && currentTeam?.lockStatus.canModify && (
+        {driversCount < TEAM_SIZE && canModify && (
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => router.push('/my-team/select-driver')}
@@ -569,7 +625,7 @@ export default function MyTeamScreen() {
                 <View style={styles.driverRowRight}>
                   <Text style={styles.driverPoints}>{formatPoints(c.pointsScored)} pts</Text>
                   <View style={{ width: 18 }} />
-                  {currentTeam?.lockStatus.canModify && (
+                  {canModify && (
                     <TouchableOpacity
                       onPress={handleRemoveConstructor}
                       hitSlop={8}
@@ -603,7 +659,7 @@ export default function MyTeamScreen() {
         })() : null}
 
         {/* Add Constructor button */}
-        {!hasConstructor && currentTeam?.lockStatus.canModify && (
+        {!hasConstructor && canModify && (
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => router.push('/my-team/select-constructor')}
@@ -614,7 +670,7 @@ export default function MyTeamScreen() {
         )}
 
         {/* Manage button */}
-        {currentTeam?.lockStatus.canModify && (
+        {canModify && (
           <TouchableOpacity
             style={styles.manageButton}
             onPress={() => router.push('/my-team/edit')}
@@ -984,6 +1040,69 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: COLORS.error + '15',
   },
+  // V5: Lockout styles
+  lockoutBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    backgroundColor: COLORS.error,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  lockoutBannerText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  lockoutBannerHint: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.white,
+    opacity: 0.8,
+    marginTop: 2,
+  },
+  lockCountdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    backgroundColor: COLORS.warning + '15',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.warning + '30',
+  },
+  lockCountdownText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.warning,
+  },
+  reserveBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    backgroundColor: COLORS.info + '20',
+    borderWidth: 1,
+    borderColor: COLORS.info + '40',
+  },
+  reserveBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: COLORS.info,
+  },
+  contractText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    fontWeight: '600',
+  },
+  contractLastRace: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: COLORS.warning,
+  },
+
   aceNotice: {
     flexDirection: 'row',
     alignItems: 'center',

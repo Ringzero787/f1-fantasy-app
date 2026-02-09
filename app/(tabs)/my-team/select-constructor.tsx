@@ -7,15 +7,17 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useConstructors } from '../../../src/hooks';
+import { Ionicons } from '@expo/vector-icons';
+import { useConstructors, useLockoutStatus } from '../../../src/hooks';
 import { useTeamStore } from '../../../src/store/team.store';
-import { Loading, ConstructorCard } from '../../../src/components';
+import { Loading, ConstructorCard, Button } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET } from '../../../src/config/constants';
 import type { Constructor, FantasyConstructor, FantasyTeam } from '../../../src/types';
 
 export default function SelectConstructorScreen() {
   const { data: allConstructors, isLoading } = useConstructors();
   const { currentTeam } = useTeamStore();
+  const lockoutInfo = useLockoutStatus();
 
   // Account for current constructor value if swapping
   const currentConstructorPrice = currentTeam?.constructor?.currentPrice || 0;
@@ -56,6 +58,20 @@ export default function SelectConstructorScreen() {
     useTeamStore.getState().setCurrentTeam(updatedTeam);
     router.back();
   };
+
+  // V5: Lockout guard
+  if (lockoutInfo.isLocked) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <View style={styles.lockedContainer}>
+          <Ionicons name="lock-closed" size={48} color={COLORS.error} />
+          <Text style={styles.lockedTitle}>Teams Locked</Text>
+          <Text style={styles.lockedMessage}>{lockoutInfo.lockReason || 'Team changes are locked during race weekend'}</Text>
+          <Button title="Go Back" onPress={() => router.back()} variant="outline" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (isLoading) {
     return <Loading fullScreen message="Loading constructors..." />;
@@ -134,6 +150,27 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: SPACING.md,
     paddingBottom: 40,
+  },
+
+  lockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+    gap: SPACING.md,
+  },
+
+  lockedTitle: {
+    fontSize: FONTS.sizes.xl,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
+  },
+
+  lockedMessage: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
   },
 
   emptyContainer: {

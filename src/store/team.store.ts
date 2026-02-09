@@ -746,6 +746,7 @@ export const useTeamStore = create<TeamState>()(
           currentPrice: currentMarketPrice,
           pointsScored: 0,
           racesHeld: 0,
+          contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
           // V3: purchasedAtRaceId will be set when we have race context
         };
 
@@ -792,6 +793,7 @@ export const useTeamStore = create<TeamState>()(
         currentPrice: currentMarketPrice,
         pointsScored: 0,
         racesHeld: 0,
+        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
       };
 
       const updatedTeam: FantasyTeam = {
@@ -930,6 +932,7 @@ export const useTeamStore = create<TeamState>()(
           currentPrice: newDriverMarketPrice,
           pointsScored: 0,
           racesHeld: 0,
+          contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
           // V3: purchasedAtRaceId will be set when we have race context
         };
 
@@ -989,6 +992,7 @@ export const useTeamStore = create<TeamState>()(
         currentPrice: newDriverMarketPrice,
         pointsScored: 0,
         racesHeld: 0,
+        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
       };
 
       const saleValue = calculateSaleValue(oldDriverMarketPrice);
@@ -1281,6 +1285,7 @@ export const useTeamStore = create<TeamState>()(
           currentPrice: driver.price,
           pointsScored: 0,
           racesHeld: 0,
+          contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
         }));
 
         const fantasyConstructor: FantasyConstructor | null = selectedConstructor ? {
@@ -1323,6 +1328,7 @@ export const useTeamStore = create<TeamState>()(
         currentPrice: driver.price,
         pointsScored: 0,
         racesHeld: 0,
+        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
       }));
 
       const fantasyConstructor: FantasyConstructor | null = selectedConstructor ? {
@@ -1484,7 +1490,7 @@ export const useTeamStore = create<TeamState>()(
       const teamRacesHeld = Math.max(0, completedRaceCount - (team.joinedAtRace || 0));
 
       // Update driver points, sync current prices, and update racesHeld
-      const updatedDrivers = team.drivers.map(driver => {
+      let updatedDrivers = team.drivers.map(driver => {
         const priceUpdate = driverPrices[driver.driverId];
         return {
           ...driver,
@@ -1493,6 +1499,66 @@ export const useTeamStore = create<TeamState>()(
           racesHeld: teamRacesHeld,
         };
       });
+
+      // V5: Contract expiry - remove drivers whose racesHeld >= contractLength
+      let budgetReturn = 0;
+      let captainId = team.captainDriverId;
+      const expiredDriverIds: string[] = [];
+
+      updatedDrivers = updatedDrivers.filter(driver => {
+        const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+        if (driver.racesHeld >= contractLen) {
+          // Contract expired - sell at current market value (minus commission)
+          budgetReturn += calculateSaleValue(driver.currentPrice);
+          expiredDriverIds.push(driver.driverId);
+          // Clear captain if expired driver was captain
+          if (captainId === driver.driverId) {
+            captainId = undefined;
+          }
+          return false; // Remove from team
+        }
+        return true;
+      });
+
+      // V5: Auto-fill empty slots with cheapest available drivers
+      let autoFillBudget = team.budget + budgetReturn;
+      const teamDriverIds = new Set(updatedDrivers.map(d => d.driverId));
+
+      if (updatedDrivers.length < TEAM_SIZE && expiredDriverIds.length > 0) {
+        // Find cheapest available drivers not already on the team
+        const availableForAutoFill = demoDrivers
+          .filter(d => d.isActive && !teamDriverIds.has(d.id))
+          .map(d => {
+            const priceUpdate = driverPrices[d.id];
+            return { ...d, marketPrice: priceUpdate?.currentPrice ?? d.price };
+          })
+          .sort((a, b) => a.marketPrice - b.marketPrice);
+
+        for (const candidate of availableForAutoFill) {
+          if (updatedDrivers.length >= TEAM_SIZE) break;
+          if (candidate.marketPrice > autoFillBudget) break;
+
+          const reserveDriver: FantasyDriver = {
+            driverId: candidate.id,
+            name: candidate.name,
+            shortName: candidate.shortName,
+            constructorId: candidate.constructorId,
+            purchasePrice: candidate.marketPrice,
+            currentPrice: candidate.marketPrice,
+            pointsScored: 0,
+            racesHeld: 0,
+            contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+            isReservePick: true,
+          };
+          updatedDrivers.push(reserveDriver);
+          teamDriverIds.add(candidate.id);
+          autoFillBudget -= candidate.marketPrice;
+        }
+      }
+
+      // Recalculate budget: original budget + sale returns - auto-fill cost
+      const autoFillCost = team.budget + budgetReturn - autoFillBudget;
+      const newBudget = team.budget + budgetReturn - autoFillCost;
 
       // Update constructor points, sync current price, and update racesHeld
       const updatedConstructor = team.constructor ? {
@@ -1507,6 +1573,8 @@ export const useTeamStore = create<TeamState>()(
         drivers: updatedDrivers,
         constructor: updatedConstructor,
         totalPoints,
+        budget: newBudget,
+        captainDriverId: captainId,
         updatedAt: new Date(),
       };
     });

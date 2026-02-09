@@ -9,10 +9,11 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useDrivers } from '../../../src/hooks';
+import { useDrivers, useLockoutStatus } from '../../../src/hooks';
 import { useTeamStore } from '../../../src/store/team.store';
 import { Loading, DriverCard, Button, SmartRecommendations } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE } from '../../../src/config/constants';
+import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import type { Driver, FantasyDriver, FantasyTeam } from '../../../src/types';
 
 export default function SelectDriverScreen() {
@@ -23,6 +24,7 @@ export default function SelectDriverScreen() {
 
   const { data: allDrivers, isLoading } = useDrivers();
   const { currentTeam } = useTeamStore();
+  const lockoutInfo = useLockoutStatus();
 
   const topTenDriverIds = useMemo(() => {
     if (!allDrivers) return new Set<string>();
@@ -59,6 +61,7 @@ export default function SelectDriverScreen() {
         currentPrice: newDriver.price,
         pointsScored: 0,
         racesHeld: 0,
+        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
       };
       const updatedTeam: FantasyTeam = {
         ...team,
@@ -82,6 +85,7 @@ export default function SelectDriverScreen() {
         currentPrice: driver.price,
         pointsScored: 0,
         racesHeld: 0,
+        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
       }));
       const totalCost = pending.reduce((sum, d) => sum + d.price, 0);
       const updatedTeam: FantasyTeam = {
@@ -173,6 +177,20 @@ export default function SelectDriverScreen() {
     applyDriversToTeam(selectedDrivers);
     router.back();
   };
+
+  // V5: Lockout guard - prevent team changes during race weekend
+  if (lockoutInfo.isLocked) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <View style={styles.lockedContainer}>
+          <Ionicons name="lock-closed" size={48} color={COLORS.error} />
+          <Text style={styles.lockedTitle}>Teams Locked</Text>
+          <Text style={styles.lockedMessage}>{lockoutInfo.lockReason || 'Team changes are locked during race weekend'}</Text>
+          <Button title="Go Back" onPress={() => router.back()} variant="outline" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (isLoading) {
     return <Loading fullScreen message="Loading drivers..." />;
@@ -377,6 +395,27 @@ const styles = StyleSheet.create({
 
   listContent: {
     paddingBottom: 120,
+  },
+
+  lockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+    gap: SPACING.md,
+  },
+
+  lockedTitle: {
+    fontSize: FONTS.sizes.xl,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
+  },
+
+  lockedMessage: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
   },
 
   emptyContainer: {

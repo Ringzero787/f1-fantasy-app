@@ -113,6 +113,8 @@ export default function AdminScreen() {
     markRaceComplete,
     resetRaceResults,
     getRaceResult,
+    adminLockOverride,
+    setAdminLockOverride,
   } = useAdminStore();
 
   const { recalculateAllTeamsPoints, userTeams } = useTeamStore();
@@ -687,6 +689,57 @@ export default function AdminScreen() {
         </View>
       </Card>
 
+      {/* V5: Lock Override Toggle */}
+      <View style={styles.lockToggleContainer}>
+        <Text style={styles.lockToggleTitle}>Team Lock Override</Text>
+        <View style={styles.lockToggleRow}>
+          <TouchableOpacity
+            style={[
+              styles.lockToggleButton,
+              adminLockOverride === 'locked' && styles.lockToggleButtonLocked,
+            ]}
+            onPress={() => setAdminLockOverride(adminLockOverride === 'locked' ? null : 'locked')}
+          >
+            <Ionicons name="lock-closed" size={14} color={adminLockOverride === 'locked' ? COLORS.white : COLORS.error} />
+            <Text style={[
+              styles.lockToggleButtonText,
+              adminLockOverride === 'locked' && styles.lockToggleButtonTextActive,
+            ]}>Lock</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.lockToggleButton,
+              adminLockOverride === null && styles.lockToggleButtonAuto,
+            ]}
+            onPress={() => setAdminLockOverride(null)}
+          >
+            <Ionicons name="time-outline" size={14} color={adminLockOverride === null ? COLORS.white : COLORS.text.secondary} />
+            <Text style={[
+              styles.lockToggleButtonText,
+              adminLockOverride === null && styles.lockToggleButtonTextActive,
+            ]}>Auto</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.lockToggleButton,
+              adminLockOverride === 'unlocked' && styles.lockToggleButtonUnlocked,
+            ]}
+            onPress={() => setAdminLockOverride(adminLockOverride === 'unlocked' ? null : 'unlocked')}
+          >
+            <Ionicons name="lock-open" size={14} color={adminLockOverride === 'unlocked' ? COLORS.white : COLORS.success} />
+            <Text style={[
+              styles.lockToggleButtonText,
+              adminLockOverride === 'unlocked' && styles.lockToggleButtonTextActive,
+            ]}>Unlock</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.lockToggleStatus}>
+          {adminLockOverride === 'locked' ? 'Teams Locked (override)' :
+           adminLockOverride === 'unlocked' ? 'Teams Unlocked (override)' :
+           'Following schedule'}
+        </Text>
+      </View>
+
       {/* Race Selector */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Select Race</Text>
@@ -1065,6 +1118,64 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontWeight: '500',
     color: COLORS.error,
+  },
+
+  // V5: Lock toggle
+  lockToggleContainer: {
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+  },
+  lockToggleTitle: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.sm,
+  },
+  lockToggleRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  lockToggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+  },
+  lockToggleButtonLocked: {
+    backgroundColor: COLORS.error,
+    borderColor: COLORS.error,
+  },
+  lockToggleButtonAuto: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  lockToggleButtonUnlocked: {
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
+  },
+  lockToggleButtonText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+  },
+  lockToggleButtonTextActive: {
+    color: COLORS.white,
+  },
+  lockToggleStatus: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
   },
 
   section: {

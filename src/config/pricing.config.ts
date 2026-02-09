@@ -51,6 +51,9 @@ export const PRICING_CONFIG = {
 
   // V4: Late Joiner Catch-Up
   LATE_JOINER_POINTS_PER_RACE: 30, // Flat points awarded per missed race
+
+  // V5: Contract System
+  CONTRACT_LENGTH: 5, // Drivers auto-sell after this many races
 } as const;
 
 // Points awarded per position
