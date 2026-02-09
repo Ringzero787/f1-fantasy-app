@@ -369,14 +369,22 @@ export default function MyTeamScreen() {
             <Text style={styles.statLabel}>Total Pts</Text>
           </View>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {teamStats.leagueRank !== null
-                ? `${teamStats.leagueRank}/${teamStats.leagueSize}`
-                : '-'}
-            </Text>
-            <Text style={styles.statLabel}>League</Text>
-          </View>
+          {teamStats.leagueRank !== null ? (
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {teamStats.leagueRank}/{teamStats.leagueSize}
+              </Text>
+              <Text style={styles.statLabel}>League</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => router.push('/leagues')}
+            >
+              <Ionicons name="trophy-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.joinLeagueText}>Join League</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Team Name Header with Avatar */}
@@ -812,6 +820,12 @@ const styles = StyleSheet.create({
     width: 1,
     height: 24,
     backgroundColor: COLORS.border.default,
+  },
+  joinLeagueText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginTop: 2,
   },
 
   // Team name header
