@@ -21,189 +21,50 @@ import { useLeagueStore } from '../../../src/store/league.store';
 import { useAdminStore } from '../../../src/store/admin.store';
 import { useDrivers, useConstructors, useAvatarGeneration } from '../../../src/hooks';
 import { saveAvatarUrl } from '../../../src/services/avatarGeneration.service';
-import {
-  Card,
-  Loading,
-  EmptyState,
-  BudgetBar,
-  DriverCard,
-  ConstructorCard,
-  Button,
-  Avatar,
-  AvatarPicker,
-} from '../../../src/components';
-import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS, SALE_COMMISSION_RATE } from '../../../src/config/constants';
+import { Loading, Button, Avatar, AvatarPicker } from '../../../src/components';
+import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../src/config/constants';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
-import { scoringService } from '../../../src/services/scoring.service';
 import { formatPoints } from '../../../src/utils/formatters';
-import type { Driver, FantasyDriver } from '../../../src/types';
 
-// Swap recommendation type
-interface SwapRecommendation {
-  currentDriver: FantasyDriver;
-  recommendedDriver: Driver;
-  reason: string;
-  pointsDiff: number;
-  priceDiff: number;
-  canAfford: boolean;
-}
-
-// Loyalty bonus calculation helper
-function calculateLoyaltyBonus(racesHeld: number): { bonus: number; tier: 'none' | 'bronze' | 'silver' | 'gold' } {
-  if (racesHeld === 0) return { bonus: 0, tier: 'none' };
-
+function getLoyaltyBonus(racesHeld: number): number {
+  if (racesHeld === 0) return 0;
   let bonus = 0;
-  // 1-3 races: +1 per race
-  const tier1Races = Math.min(racesHeld, 3);
-  bonus += tier1Races * 1;
-
-  // 4-6 races: +2 per race
-  if (racesHeld > 3) {
-    const tier2Races = Math.min(racesHeld - 3, 3);
-    bonus += tier2Races * 2;
-  }
-
-  // 7+ races: +3 per race
-  if (racesHeld > 6) {
-    const tier3Races = racesHeld - 6;
-    bonus += tier3Races * 3;
-  }
-
-  // Determine tier based on races held
-  let tier: 'none' | 'bronze' | 'silver' | 'gold' = 'none';
-  if (racesHeld >= 7) tier = 'gold';
-  else if (racesHeld >= 4) tier = 'silver';
-  else if (racesHeld >= 1) tier = 'bronze';
-
-  return { bonus, tier };
+  bonus += Math.min(racesHeld, 3) * 1;
+  if (racesHeld > 3) bonus += Math.min(racesHeld - 3, 3) * 2;
+  if (racesHeld > 6) bonus += (racesHeld - 6) * 3;
+  return bonus;
 }
 
-// Tier colors
-const LOYALTY_COLORS = {
-  none: COLORS.gray[600],
-  bronze: '#CD7F32',
-  silver: '#C0C0C0',
-  gold: COLORS.gold,
-};
+function getNextLoyaltyRate(racesHeld: number): number {
+  if (racesHeld < 3) return 1;
+  if (racesHeld < 6) return 2;
+  return 3;
+}
 
 export default function MyTeamScreen() {
   const { user } = useAuth();
-  const { currentTeam, userTeams, isLoading, error, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setCaptain, clearCaptain, selectTeam, recalculateAllTeamsPoints, swapDriver, addDriver, setConstructor, setCurrentTeam } = useTeamStore();
+  const { currentTeam, userTeams, isLoading, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setCaptain, clearCaptain, selectTeam, recalculateAllTeamsPoints } = useTeamStore();
   const { leagues, loadUserLeagues } = useLeagueStore();
   const { raceResults } = useAdminStore();
-  const { data: allDrivers, isLoading: isLoadingDrivers } = useDrivers();
-  const { data: allConstructors, isLoading: isLoadingConstructors } = useConstructors();
+  const { data: allDrivers } = useDrivers();
+  const { data: allConstructors } = useConstructors();
 
   const [refreshing, setRefreshing] = useState(false);
   const [showEditNameModal, setShowEditNameModal] = useState(false);
   const [editingName, setEditingName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
-  const [showSwapModal, setShowSwapModal] = useState(false);
-  const [selectedSwap, setSelectedSwap] = useState<SwapRecommendation | null>(null);
-  const [isSwapping, setIsSwapping] = useState(false);
   const [teamAvatarUrl, setTeamAvatarUrl] = useState<string | null>(null);
-  const [isBuildingRecommended, setIsBuildingRecommended] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [showLoyaltyInfoModal, setShowLoyaltyInfoModal] = useState(false);
-  const [selectedLoyaltyInfo, setSelectedLoyaltyInfo] = useState<{ name: string; racesHeld: number; bonus: number } | null>(null);
 
   const { generate: generateAvatar, regenerate: regenerateAvatar, isGenerating: isGeneratingAvatar, isAvailable: isAvatarAvailable } = useAvatarGeneration({
     onSuccess: (url) => setTeamAvatarUrl(url),
   });
 
-  // Calculate swap recommendations for each driver
-  const getSwapRecommendation = useMemo(() => {
-    return (fantasyDriver: FantasyDriver): SwapRecommendation | null => {
-      if (!allDrivers || !currentTeam) return null;
-
-      // Get IDs of drivers already on the team
-      const teamDriverIds = new Set(currentTeam.drivers.map(d => d.driverId));
-
-      // Calculate sale value of current driver (minus 5% commission)
-      const saleValue = Math.floor(fantasyDriver.currentPrice * (1 - SALE_COMMISSION_RATE));
-      const availableBudget = currentTeam.budget + saleValue;
-
-      // Find drivers not on team that we can afford
-      const availableDrivers = allDrivers.filter(d =>
-        !teamDriverIds.has(d.id) && d.price <= availableBudget
-      );
-
-      if (availableDrivers.length === 0) return null;
-
-      // Score each driver by value (points per price) and total points
-      const scoredDrivers = availableDrivers.map(d => {
-        const ppm = (d.currentSeasonPoints || 0) / d.price; // Points per million
-        const pointsDiff = (d.currentSeasonPoints || 0) - fantasyDriver.pointsScored;
-        const priceDiff = d.price - fantasyDriver.currentPrice;
-
-        return {
-          driver: d,
-          ppm,
-          pointsDiff,
-          priceDiff,
-          // Score: prioritize more points, then better value
-          score: pointsDiff * 2 + (ppm * 100)
-        };
-      });
-
-      // Sort by score descending
-      scoredDrivers.sort((a, b) => b.score - a.score);
-
-      // Get best recommendation
-      const best = scoredDrivers[0];
-      if (!best || best.pointsDiff <= 0) return null; // Only recommend if it's an upgrade
-
-      let reason = '';
-      if (best.pointsDiff > 50) {
-        reason = `+${best.pointsDiff} more season points`;
-      } else if (best.ppm > (fantasyDriver.pointsScored / fantasyDriver.currentPrice)) {
-        reason = 'Better value (points per cost)';
-      } else {
-        reason = `+${best.pointsDiff} pts improvement`;
-      }
-
-      return {
-        currentDriver: fantasyDriver,
-        recommendedDriver: best.driver,
-        reason,
-        pointsDiff: best.pointsDiff,
-        priceDiff: best.priceDiff,
-        canAfford: best.driver.price <= availableBudget,
-      };
-    };
-  }, [allDrivers, currentTeam]);
-
-  const handleShowSwap = (driver: FantasyDriver) => {
-    const recommendation = getSwapRecommendation(driver);
-    if (recommendation) {
-      setSelectedSwap(recommendation);
-      setShowSwapModal(true);
-    } else {
-      Alert.alert('No Recommendation', 'No better driver options available within your budget.');
-    }
-  };
-
-  const handleConfirmSwap = async () => {
-    if (!selectedSwap) return;
-
-    setIsSwapping(true);
-    try {
-      await swapDriver(selectedSwap.currentDriver.driverId, selectedSwap.recommendedDriver.id);
-      setShowSwapModal(false);
-      setSelectedSwap(null);
-      Alert.alert('Success', `Swapped ${selectedSwap.currentDriver.name} for ${selectedSwap.recommendedDriver.name}!`);
-    } catch (err) {
-      Alert.alert('Error', 'Failed to swap driver');
-    } finally {
-      setIsSwapping(false);
-    }
-  };
-
   // Load user teams on mount
   useEffect(() => {
     if (user) {
-      loadUserLeagues(user.id);
       loadUserTeams(user.id);
+      loadUserLeagues(user.id);
       recalculateAllTeamsPoints();
     }
   }, [user]);
@@ -224,63 +85,6 @@ export default function MyTeamScreen() {
       selectTeam(userTeams[0].id);
     }
   }, [userTeams.length, currentTeam, selectTeam]);
-
-  // Calculate team stats (must be before any conditional returns)
-  const teamStats = useMemo(() => {
-    // Get last completed race points
-    const completedRaces = Object.entries(raceResults)
-      .filter(([_, result]) => result.isComplete)
-      .sort((a, b) => b[0].localeCompare(a[0]));
-
-    let lastRacePoints = 0;
-    if (completedRaces.length > 0 && currentTeam) {
-      const [_, lastResult] = completedRaces[0];
-      currentTeam.drivers.forEach(driver => {
-        const driverResult = lastResult.driverResults.find(dr => dr.driverId === driver.driverId);
-        if (driverResult) {
-          // V3: Captain gets 2x points
-          const multiplier = currentTeam.captainDriverId === driver.driverId ? 2 : 1;
-          lastRacePoints += Math.floor(driverResult.points * multiplier);
-        }
-      });
-      if (currentTeam.constructor) {
-        const constructorResult = lastResult.constructorResults.find(
-          cr => cr.constructorId === currentTeam.constructor?.constructorId
-        );
-        if (constructorResult) {
-          // V3: Constructor doesn't get captain bonus
-          lastRacePoints += constructorResult.points;
-        }
-      }
-    }
-
-    let leagueRank: number | null = null;
-    let leagueSize = 0;
-    if (currentTeam?.leagueId) {
-      const leagueTeams = userTeams.filter(t => t.leagueId === currentTeam.leagueId);
-      leagueSize = leagueTeams.length;
-      const sorted = [...leagueTeams].sort((a, b) => b.totalPoints - a.totalPoints);
-      const rankIndex = sorted.findIndex(t => t.id === currentTeam.id);
-      if (rankIndex !== -1) {
-        leagueRank = rankIndex + 1;
-      }
-    }
-
-    // V4: Calculate catch-up multiplier status
-    const currentRaceNumber = completedRaces.length + 1;
-    const catchUpStatus = currentTeam?.joinedAtRace && currentTeam.joinedAtRace > 0
-      ? scoringService.calculateCatchUpMultiplier(currentTeam.joinedAtRace, currentRaceNumber)
-      : { multiplier: 1, isInCatchUp: false, racesRemaining: 0 };
-
-    return {
-      lastRacePoints,
-      totalPoints: currentTeam?.totalPoints || 0,
-      leagueRank,
-      leagueSize,
-      hasCompletedRaces: completedRaces.length > 0,
-      catchUpStatus,
-    };
-  }, [raceResults, currentTeam, userTeams]);
 
   // Update avatar URL when team changes
   useEffect(() => {
@@ -308,17 +112,77 @@ export default function MyTeamScreen() {
     }
   };
 
-  const handleOpenAvatarPicker = () => {
-    if (currentTeam?.lockStatus.canModify) {
-      setShowAvatarPicker(true);
+  // Team stats
+  const teamStats = useMemo(() => {
+    const completedRaces = Object.entries(raceResults)
+      .filter(([_, result]) => result.isComplete)
+      .sort((a, b) => b[0].localeCompare(a[0]));
+
+    let lastRacePoints = 0;
+    if (completedRaces.length > 0 && currentTeam) {
+      const [_, lastResult] = completedRaces[0];
+      currentTeam.drivers.forEach(driver => {
+        const driverResult = lastResult.driverResults.find((dr: any) => dr.driverId === driver.driverId);
+        if (driverResult) {
+          const multiplier = currentTeam.captainDriverId === driver.driverId ? 2 : 1;
+          lastRacePoints += Math.floor(driverResult.points * multiplier);
+        }
+      });
+      if (currentTeam.constructor) {
+        const constructorResult = lastResult.constructorResults.find(
+          (cr: any) => cr.constructorId === currentTeam.constructor?.constructorId
+        );
+        if (constructorResult) lastRacePoints += constructorResult.points;
+      }
     }
-  };
+
+    let leagueRank: number | null = null;
+    let leagueSize = 0;
+    if (currentTeam?.leagueId) {
+      const leagueTeams = userTeams.filter(t => t.leagueId === currentTeam.leagueId);
+      leagueSize = leagueTeams.length;
+      const sorted = [...leagueTeams].sort((a, b) => b.totalPoints - a.totalPoints);
+      const rankIndex = sorted.findIndex(t => t.id === currentTeam.id);
+      if (rankIndex !== -1) leagueRank = rankIndex + 1;
+    }
+
+    return {
+      lastRacePoints,
+      totalPoints: currentTeam?.totalPoints || 0,
+      leagueRank,
+      leagueSize,
+      hasCompletedRaces: completedRaces.length > 0,
+    };
+  }, [raceResults, currentTeam, userTeams]);
+
+  // Build a lookup: constructorId -> { shortName, primaryColor }
+  const constructorLookup = useMemo(() => {
+    const map: Record<string, { shortName: string; primaryColor: string }> = {};
+    allConstructors?.forEach(c => {
+      map[c.id] = { shortName: c.shortName, primaryColor: c.primaryColor };
+    });
+    return map;
+  }, [allConstructors]);
+
+  // Team value = sum of live prices of all drivers + constructor
+  const teamValue = useMemo(() => {
+    if (!currentTeam) return 0;
+    let value = 0;
+    currentTeam.drivers.forEach(d => {
+      const market = allDrivers?.find(md => md.id === d.driverId);
+      value += market?.price ?? d.currentPrice;
+    });
+    if (currentTeam.constructor) {
+      const market = allConstructors?.find(c => c.id === currentTeam.constructor!.constructorId);
+      value += market?.price ?? currentTeam.constructor.currentPrice;
+    }
+    return value;
+  }, [currentTeam, allDrivers, allConstructors]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     if (user) {
       await loadUserTeams(user.id);
-      // Recalculate points from race results
       recalculateAllTeamsPoints();
     }
     setRefreshing(false);
@@ -331,12 +195,11 @@ export default function MyTeamScreen() {
 
   const handleSaveName = async () => {
     if (!editingName.trim()) return;
-
     setIsSavingName(true);
     try {
       await updateTeamName(editingName.trim());
       setShowEditNameModal(false);
-    } catch (err) {
+    } catch {
       // Error handled by store
     } finally {
       setIsSavingName(false);
@@ -353,11 +216,7 @@ export default function MyTeamScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            try {
-              await removeDriver(driverId);
-            } catch (err) {
-              // Error handled by store
-            }
+            try { await removeDriver(driverId); } catch { /* store handles */ }
           },
         },
       ]
@@ -366,7 +225,6 @@ export default function MyTeamScreen() {
 
   const handleRemoveConstructor = () => {
     if (!currentTeam?.constructor) return;
-
     Alert.alert(
       'Remove Constructor',
       `Are you sure you want to remove ${currentTeam.constructor.name} from your team?`,
@@ -376,226 +234,31 @@ export default function MyTeamScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            try {
-              await removeConstructor();
-            } catch (err) {
-              // Error handled by store
-            }
+            try { await removeConstructor(); } catch { /* store handles */ }
           },
         },
       ]
     );
   };
 
-  // V3: Set ace driver (any driver can be ace, gets 2x points)
   const handleSetCaptain = async (driverId: string) => {
-    try {
-      await setCaptain(driverId);
-    } catch (err) {
-      Alert.alert('Error', 'Failed to set Ace');
-    }
+    try { await setCaptain(driverId); } catch { Alert.alert('Error', 'Failed to set Ace'); }
   };
 
   const handleClearCaptain = async () => {
-    try {
-      await clearCaptain();
-    } catch (err) {
-      Alert.alert('Error', 'Failed to clear Ace');
-    }
+    try { await clearCaptain(); } catch { Alert.alert('Error', 'Failed to clear Ace'); }
   };
 
-  // Generate a recommended team that maximizes budget usage
-  const generateRecommendedTeam = useCallback(() => {
-    if (!allDrivers || allDrivers.length < TEAM_SIZE || !allConstructors || allConstructors.length === 0) {
-      return null;
-    }
+  // --- Early returns ---
 
-    // Always use full budget since this is only called when team is empty
-    const budget = BUDGET;
-    let bestTeam: { drivers: Driver[]; constructor: any; totalSpent: number } | null = null;
-
-    // Sort drivers by price descending for greedy selection
-    const sortedDrivers = [...allDrivers].sort((a, b) => b.price - a.price);
-    // Sort constructors by price ascending to leave more budget for drivers
-    const sortedConstructors = [...allConstructors].sort((a, b) => a.price - b.price);
-
-    // Try each constructor starting from cheapest
-    for (const constructor of sortedConstructors) {
-      let remainingBudget = budget - constructor.price;
-      if (remainingBudget < 0) continue;
-
-      const selectedDrivers: Driver[] = [];
-
-      // Greedy: pick cheapest drivers first to ensure we can fit 5
-      const cheapestDrivers = [...sortedDrivers].sort((a, b) => a.price - b.price);
-
-      // First pass: ensure we CAN fit 5 drivers
-      let testBudget = remainingBudget;
-      let canFit = 0;
-      for (const driver of cheapestDrivers) {
-        if (driver.price <= testBudget) {
-          testBudget -= driver.price;
-          canFit++;
-          if (canFit >= TEAM_SIZE) break;
-        }
-      }
-
-      if (canFit < TEAM_SIZE) continue; // Can't fit 5 drivers with this constructor
-
-      // Second pass: greedily pick expensive drivers while ensuring we can still fill the team
-      const availableDrivers = [...sortedDrivers]; // sorted by price desc
-
-      while (selectedDrivers.length < TEAM_SIZE && availableDrivers.length > 0) {
-        const spotsLeft = TEAM_SIZE - selectedDrivers.length;
-
-        // Find the most expensive driver we can afford while still being able to fill remaining spots
-        let picked = false;
-        for (let i = 0; i < availableDrivers.length; i++) {
-          const candidate = availableDrivers[i];
-          if (candidate.price > remainingBudget) continue;
-
-          // Check if we can still fill remaining spots after picking this driver
-          const budgetAfter = remainingBudget - candidate.price;
-          const remainingDrivers = availableDrivers.filter((d, idx) => idx !== i);
-          const cheapest = remainingDrivers.sort((a, b) => a.price - b.price).slice(0, spotsLeft - 1);
-          const minCostToFill = cheapest.reduce((sum, d) => sum + d.price, 0);
-
-          if (budgetAfter >= minCostToFill) {
-            selectedDrivers.push(candidate);
-            remainingBudget -= candidate.price;
-            availableDrivers.splice(i, 1);
-            picked = true;
-            break;
-          }
-        }
-
-        if (!picked) {
-          // Fallback: just pick the cheapest affordable driver
-          const affordable = availableDrivers.filter(d => d.price <= remainingBudget);
-          if (affordable.length === 0) break;
-          const cheapest = affordable.sort((a, b) => a.price - b.price)[0];
-          selectedDrivers.push(cheapest);
-          remainingBudget -= cheapest.price;
-          const idx = availableDrivers.indexOf(cheapest);
-          if (idx !== -1) availableDrivers.splice(idx, 1);
-        }
-      }
-
-      if (selectedDrivers.length === TEAM_SIZE) {
-        const totalSpent = budget - remainingBudget;
-        if (!bestTeam || totalSpent > bestTeam.totalSpent) {
-          bestTeam = { drivers: selectedDrivers, constructor, totalSpent };
-        }
-      }
-    }
-
-    return bestTeam;
-  }, [allDrivers, allConstructors]);
-
-  const handleBuildRecommendedTeam = async () => {
-    // Check if data is still loading
-    if (isLoadingDrivers || isLoadingConstructors) {
-      Alert.alert('Loading', 'Please wait while driver data loads...');
-      return;
-    }
-
-    // Check if we have the required data
-    if (!allDrivers || allDrivers.length < TEAM_SIZE) {
-      Alert.alert('Error', `Not enough drivers available. Need at least ${TEAM_SIZE} drivers.`);
-      return;
-    }
-
-    if (!allConstructors || allConstructors.length === 0) {
-      Alert.alert('Error', 'No constructors available. Please try again later.');
-      return;
-    }
-
-    const recommended = generateRecommendedTeam();
-    if (!recommended) {
-      Alert.alert('Error', 'Could not find a valid team within budget. Please try again.');
-      return;
-    }
-
-    // Verify the recommended team is valid
-    const totalDriverCost = recommended.drivers.reduce((sum, d) => sum + d.price, 0);
-    const totalCost = totalDriverCost + recommended.constructor.price;
-    console.log('Recommended team:', {
-      drivers: recommended.drivers.map(d => `${d.name}: $${d.price}`),
-      constructor: `${recommended.constructor.name}: $${recommended.constructor.price}`,
-      totalCost,
-      budget: BUDGET,
-    });
-
-    if (totalCost > BUDGET) {
-      Alert.alert('Error', `Recommended team costs $${totalCost} but budget is $${BUDGET}. Please try again.`);
-      return;
-    }
-
-    setIsBuildingRecommended(true);
-    try {
-      // Build the team directly by updating team state atomically
-      // This avoids issues with sequential budget validation
-      if (!currentTeam) {
-        Alert.alert('Error', 'No team found. Please create a team first.');
-        return;
-      }
-
-      // Create fantasy driver objects with correct prices from allDrivers
-      const fantasyDrivers = recommended.drivers.map(driver => ({
-        driverId: driver.id,
-        name: driver.name,
-        shortName: driver.shortName,
-        constructorId: driver.constructorId,
-        purchasePrice: driver.price,
-        currentPrice: driver.price,
-        pointsScored: 0,
-        racesHeld: 0,
-      }));
-
-      const fantasyConstructor = {
-        constructorId: recommended.constructor.id,
-        name: recommended.constructor.name,
-        purchasePrice: recommended.constructor.price,
-        currentPrice: recommended.constructor.price,
-        pointsScored: 0,
-        racesHeld: 0,
-      };
-
-      // Update team atomically
-      const updatedTeam = {
-        ...currentTeam,
-        drivers: fantasyDrivers,
-        constructor: fantasyConstructor,
-        totalSpent: totalCost,
-        budget: BUDGET - totalCost,
-        racesSinceTransfer: 0,
-        updatedAt: new Date(),
-      };
-
-      // Update the team store directly
-      setCurrentTeam(updatedTeam);
-
-      // V3: Don't auto-set ace - user chooses each race weekend
-      Alert.alert('Success', `Your recommended team has been built! ($${totalCost} spent, $${BUDGET - totalCost} remaining)\n\nSelect an Ace before qualifying.`);
-    } catch (err) {
-      console.error('Build recommended team error:', err);
-      Alert.alert('Error', 'Failed to build recommended team. Please try again.');
-    } finally {
-      setIsBuildingRecommended(false);
-    }
-  };
-
-  // Wait for hydration before showing empty state
   if (!hasHydrated) {
     return <Loading fullScreen message="Loading..." />;
   }
 
-  // If we have teams but no current team selected, show loading while auto-selection happens
   if (!currentTeam && userTeams.length > 0) {
     return <Loading fullScreen message="Loading your team..." />;
   }
 
-  // No team created - prompt to create team
   if (!isLoading && !currentTeam && userTeams.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -608,15 +271,13 @@ export default function MyTeamScreen() {
             Build your fantasy F1 team with 5 drivers and 1 constructor.
             Play solo or compete in leagues with friends!
           </Text>
-
           <Button
             title="Create Team"
             onPress={() => router.push('/my-team/create')}
             fullWidth
-            style={styles.createButton}
+            style={{ marginBottom: SPACING.md }}
           />
-
-          <Text style={styles.createHint}>
+          <Text style={styles.welcomeHint}>
             You'll choose to play solo or join a league during setup
           </Text>
         </View>
@@ -631,11 +292,6 @@ export default function MyTeamScreen() {
   const driversCount = currentTeam?.drivers.length || 0;
   const hasConstructor = !!currentTeam?.constructor;
 
-  // Check if team has a valid league (league exists in user's leagues)
-  const teamLeague = currentTeam?.leagueId
-    ? leagues.find(l => l.id === currentTeam.leagueId)
-    : null;
-
   return (
     <View style={styles.container}>
       <ScrollView
@@ -644,137 +300,50 @@ export default function MyTeamScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-      {/* Team Selector */}
-      {userTeams.length > 0 && (
-        <View style={styles.teamSelectorSection}>
-          <Text style={styles.teamSelectorLabel}>Your Teams</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.teamSelectorScroll}
-          >
+        {/* Team Switcher */}
+        {userTeams.length > 1 && (
+          <View style={styles.teamSwitcher}>
             {userTeams.map((team) => (
               <TouchableOpacity
                 key={team.id}
                 style={[
-                  styles.teamSelectorItem,
-                  currentTeam?.id === team.id && styles.teamSelectorItemActive,
+                  styles.teamTab,
+                  currentTeam?.id === team.id && styles.teamTabActive,
                 ]}
                 onPress={() => selectTeam(team.id)}
               >
-                <Avatar
-                  name={team.name}
-                  size="small"
-                  variant="team"
-                  imageUrl={currentTeam?.id === team.id ? (teamAvatarUrl ?? team.avatarUrl) : team.avatarUrl}
-                  useGradient={currentTeam?.id !== team.id}
-                />
-                <View style={styles.teamSelectorItemContent}>
-                  <Text
-                    style={[
-                      styles.teamSelectorName,
-                      currentTeam?.id === team.id && styles.teamSelectorNameActive,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {team.name}
-                  </Text>
-                  <View style={styles.teamSelectorMeta}>
-                    {team.leagueId ? (
-                      <Ionicons name="trophy" size={10} color={currentTeam?.id === team.id ? COLORS.white : COLORS.accent} />
-                    ) : (
-                      <Ionicons name="person" size={10} color={currentTeam?.id === team.id ? COLORS.white : COLORS.gray[400]} />
-                    )}
-                    <Text
-                      style={[
-                        styles.teamSelectorPoints,
-                        currentTeam?.id === team.id && styles.teamSelectorPointsActive,
-                      ]}
-                    >
-                      {team.totalPoints} pts
-                    </Text>
-                  </View>
-                </View>
+                <Text
+                  style={[
+                    styles.teamTabText,
+                    currentTeam?.id === team.id && styles.teamTabTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {team.name}
+                </Text>
               </TouchableOpacity>
             ))}
             <TouchableOpacity
-              style={styles.newTeamButton}
+              style={styles.teamTabNew}
               onPress={() => router.push('/my-team/create')}
             >
-              <Ionicons name="add" size={20} color={COLORS.primary} />
-              <Text style={styles.newTeamText}>New Team</Text>
+              <Ionicons name="add" size={18} color={COLORS.primary} />
             </TouchableOpacity>
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Team Header */}
-      <Card variant="elevated" style={styles.teamHeader}>
-        <View style={styles.teamHeaderTop}>
-          <Avatar
-            name={currentTeam?.name || 'My Team'}
-            size="medium"
-            variant="team"
-            imageUrl={teamAvatarUrl}
-            isGenerating={isGeneratingAvatar}
-            editable={currentTeam?.lockStatus.canModify}
-            onPress={handleOpenAvatarPicker}
-          />
-          <View style={styles.teamNameRow}>
-            <View style={styles.teamNameContainer}>
-              <Text style={styles.teamName}>{currentTeam?.name || 'My Team'}</Text>
-              {currentTeam?.lockStatus.canModify && (
-                <TouchableOpacity onPress={handleEditName} style={styles.editNameButton}>
-                  <Ionicons name="pencil" size={14} color={COLORS.gray[500]} />
-                </TouchableOpacity>
-              )}
-            </View>
-            <Text style={styles.teamPoints}>
-              {formatPoints(currentTeam?.totalPoints || 0)} points
-            </Text>
           </View>
-          {currentTeam?.isLocked && (
-            <View style={styles.lockBadge}>
-              <Ionicons name="lock-closed" size={14} color={COLORS.white} />
-              <Text style={styles.lockText}>Locked</Text>
-            </View>
-          )}
-        </View>
+        )}
 
-        {/* League Info or Join League */}
-        {teamLeague ? (
+        {/* New Team button when only 1 team */}
+        {userTeams.length === 1 && (
           <TouchableOpacity
-            style={styles.leagueInfoRow}
-            onPress={() => router.push(`/leagues/${teamLeague.id}`)}
+            style={styles.newTeamLink}
+            onPress={() => router.push('/my-team/create')}
           >
-            <View style={styles.leagueInfoLeft}>
-              <Ionicons name="trophy" size={14} color={COLORS.accent} />
-              <Text style={styles.leagueInfoText}>{teamLeague.name}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={COLORS.gray[400]} />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.joinLeagueRow}
-            onPress={() => router.push('/leagues?join=true')}
-          >
-            <View style={styles.leagueInfoLeft}>
-              <Ionicons name="trophy-outline" size={14} color={COLORS.primary} />
-              <Text style={styles.joinLeagueText}>Join a League</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={COLORS.gray[400]} />
+            <Ionicons name="add-circle-outline" size={14} color={COLORS.primary} />
+            <Text style={styles.newTeamLinkText}>New Team</Text>
           </TouchableOpacity>
         )}
-      </Card>
 
-      {/* Budget Widget */}
-      <BudgetBar
-        remaining={currentTeam?.budget || BUDGET}
-        total={BUDGET}
-      />
-
-      {/* Team Stats */}
-      <View style={styles.statsCard}>
+        {/* Team Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
@@ -784,8 +353,8 @@ export default function MyTeamScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{teamStats.totalPoints}</Text>
-            <Text style={styles.statLabel}>Total Points</Text>
+            <Text style={styles.statValue}>{formatPoints(teamStats.totalPoints)}</Text>
+            <Text style={styles.statLabel}>Total Pts</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
@@ -794,390 +363,262 @@ export default function MyTeamScreen() {
                 ? `${teamStats.leagueRank}/${teamStats.leagueSize}`
                 : '-'}
             </Text>
-            <Text style={styles.statLabel}>League Rank</Text>
+            <Text style={styles.statLabel}>League</Text>
           </View>
         </View>
-      </View>
 
-      {/* V4: Catch-up Multiplier Indicator */}
-      {teamStats.catchUpStatus.isInCatchUp && (
-        <View style={styles.catchUpBanner}>
-          <View style={styles.catchUpIconContainer}>
-            <Ionicons name="rocket" size={20} color={COLORS.white} />
+        {/* Team Name Header with Avatar */}
+        <View style={styles.teamNameRow}>
+          <Avatar
+            name={currentTeam?.name || 'My Team'}
+            size="medium"
+            variant="team"
+            imageUrl={teamAvatarUrl}
+            isGenerating={isGeneratingAvatar}
+            editable={currentTeam?.lockStatus.canModify}
+            onPress={currentTeam?.lockStatus.canModify ? () => setShowAvatarPicker(true) : undefined}
+          />
+          <TouchableOpacity
+            style={styles.teamNameContent}
+            onPress={currentTeam?.lockStatus.canModify ? handleEditName : undefined}
+            activeOpacity={currentTeam?.lockStatus.canModify ? 0.6 : 1}
+          >
+            <View style={styles.teamNameLine}>
+              <Text style={styles.teamName}>{currentTeam?.name || 'My Team'}</Text>
+              {currentTeam?.lockStatus.canModify && (
+                <Ionicons name="pencil" size={14} color={COLORS.text.muted} />
+              )}
+              {currentTeam?.isLocked && (
+                <View style={styles.lockBadge}>
+                  <Ionicons name="lock-closed" size={12} color={COLORS.white} />
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Bank + Team Value row */}
+        <View style={styles.summaryRow}>
+          <View>
+            <Text style={styles.summaryLabel}>BANK</Text>
+            <Text style={styles.summaryValue}>${formatPoints(currentTeam?.budget || 0)}</Text>
           </View>
-          <View style={styles.catchUpContent}>
-            <Text style={styles.catchUpTitle}>Catch-Up Boost Active!</Text>
-            <Text style={styles.catchUpDescription}>
-              You're earning {teamStats.catchUpStatus.multiplier}x points for {teamStats.catchUpStatus.racesRemaining} more race{teamStats.catchUpStatus.racesRemaining !== 1 ? 's' : ''}
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.summaryLabel}>TEAM VALUE</Text>
+            <Text style={styles.summaryValue}>${formatPoints(teamValue)}</Text>
+          </View>
+        </View>
+
+        {/* Ace reminder */}
+        {currentTeam && !currentTeam.captainDriverId && driversCount > 0 &&
+          currentTeam.drivers.some(d => {
+            const md = allDrivers?.find(m => m.id === d.driverId);
+            return (md?.price ?? d.currentPrice) <= PRICING_CONFIG.CAPTAIN_MAX_PRICE;
+          }) && (
+          <View style={styles.aceNotice}>
+            <Ionicons name="diamond-outline" size={14} color={COLORS.gold} />
+            <Text style={styles.aceNoticeText}>
+              Select an Ace driver to earn 2x points! Tap the <Ionicons name="diamond-outline" size={12} color={COLORS.gold} /> icon on an eligible driver (under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE}).
             </Text>
           </View>
-        </View>
-      )}
-
-      {/* V3: Ace Reminder Note */}
-      {currentTeam &&
-       !currentTeam.captainDriverId &&
-       driversCount > 0 && (
-        <View style={styles.starReminderNote}>
-          <Ionicons name="diamond-outline" size={16} color={COLORS.gold} />
-          <Text style={styles.starReminderText}>
-            Select an Ace (drivers under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE} only) to earn 2x points this race weekend!
-          </Text>
-        </View>
-      )}
-
-      {/* Team Composition Status */}
-      <View style={styles.compositionStatus}>
-        <Text style={styles.compositionText}>
-          <Text style={driversCount === TEAM_SIZE ? styles.compositionComplete : styles.compositionIncomplete}>
-            {driversCount}/{TEAM_SIZE}
-          </Text>
-          <Text style={styles.compositionLabel}> Drivers</Text>
-          <Text style={styles.compositionDivider}>  •  </Text>
-          <Text style={hasConstructor ? styles.compositionComplete : styles.compositionIncomplete}>
-            {hasConstructor ? '1/1' : '0/1'}
-          </Text>
-          <Text style={styles.compositionLabel}> Constructor</Text>
-        </Text>
-      </View>
-
-      {/* Drivers Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Drivers</Text>
-        </View>
-        {driversCount < TEAM_SIZE && currentTeam?.lockStatus.canModify && (
-          <TouchableOpacity
-            onPress={() => router.push('/my-team/select-driver')}
-            style={styles.addLargeButton}
-          >
-            <Ionicons name="add-circle" size={28} color={COLORS.primary} />
-            <Text style={styles.addLargeButtonText}>Add Driver</Text>
-            <Text style={styles.addLargeButtonSubtext}>{driversCount}/{TEAM_SIZE} selected</Text>
-          </TouchableOpacity>
         )}
 
+        {/* Driver list */}
         {currentTeam?.drivers && currentTeam.drivers.length > 0 ? (
           [...currentTeam.drivers]
             .map(driver => {
-              // Look up live market price from allDrivers
               const marketDriver = allDrivers?.find(d => d.id === driver.driverId);
               const livePrice = marketDriver?.price ?? driver.currentPrice;
-              return { ...driver, livePrice, marketDriver };
+              const driverNumber = marketDriver?.number;
+              return { ...driver, livePrice, driverNumber };
             })
             .sort((a, b) => b.livePrice - a.livePrice)
-            .map((driver) => (
-            <Card
-              key={driver.driverId}
-              variant="outlined"
-              padding="small"
-              style={styles.driverItem}
-            >
-              <View style={styles.driverInfo}>
-                <View style={styles.driverMain}>
-                  <View style={styles.driverNameRow}>
-                    <Text style={styles.driverNumber}>
-                      #{driver.marketDriver?.number || ''}
-                    </Text>
-                    <Text style={styles.driverName}>{driver.name}</Text>
-                  </View>
-                  <View style={styles.driverCodeRow}>
-                    <Text style={styles.driverTeam}>{driver.shortName}</Text>
-                    {/* V3: Ace icon inline with driver code */}
-                    {/* V3 Rule: Only drivers with price <= CAPTAIN_MAX_PRICE can be ace */}
-                    {currentTeam?.captainDriverId === driver.driverId && (
-                      <View style={styles.aceBadgeInline}>
-                        <Ionicons name="diamond" size={12} color={COLORS.white} />
-                        <Text style={styles.aceBadgeText}>2x</Text>
-                      </View>
-                    )}
-                    {currentTeam?.captainDriverId !== driver.driverId &&
-                     currentTeam?.lockStatus.canModify &&
-                     driver.livePrice <= PRICING_CONFIG.CAPTAIN_MAX_PRICE && (
-                      <TouchableOpacity
-                        style={styles.aceIconButton}
-                        onPress={() => handleSetCaptain(driver.driverId)}
-                      >
-                        <Ionicons name="diamond-outline" size={14} color={COLORS.gold} />
-                        <Text style={styles.aceIconText}>2x</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.driverActions}>
-                  <View style={styles.driverStats}>
-                    <Text style={styles.driverPoints}>
-                      {formatPoints(driver.pointsScored)} pts
-                    </Text>
-                    {/* Purchase price and current value with profit/loss */}
-                    <View style={styles.priceComparison}>
-                      <Text style={styles.purchasePrice}>
-                        Paid: ${driver.purchasePrice}
-                      </Text>
-                      <View style={styles.currentValueRow}>
-                        <Text style={[
-                          styles.currentValueLabel,
-                          driver.livePrice > driver.purchasePrice && styles.priceUp,
-                          driver.livePrice < driver.purchasePrice && styles.priceDown,
-                        ]}>Now: </Text>
-                        <Text style={[
-                          styles.currentValue,
-                          driver.livePrice > driver.purchasePrice && styles.priceUp,
-                          driver.livePrice < driver.purchasePrice && styles.priceDown,
-                        ]}>
-                          ${driver.livePrice}
-                        </Text>
-                        {driver.livePrice !== driver.purchasePrice && (
-                          <View style={[
-                            styles.profitBadge,
-                            driver.livePrice > driver.purchasePrice ? styles.profitUp : styles.profitDown,
-                          ]}>
-                            <Ionicons
-                              name={driver.livePrice > driver.purchasePrice ? 'arrow-up' : 'arrow-down'}
-                              size={10}
-                              color={COLORS.white}
-                            />
-                            <Text style={styles.profitText}>
-                              {Math.abs(driver.livePrice - driver.purchasePrice)}
-                            </Text>
+            .map((driver) => {
+              const cInfo = constructorLookup[driver.constructorId];
+              const isAce = currentTeam?.captainDriverId === driver.driverId;
+              const canBeAce = driver.livePrice <= PRICING_CONFIG.CAPTAIN_MAX_PRICE;
+
+              const priceDiff = driver.livePrice - driver.purchasePrice;
+              const loyalty = getLoyaltyBonus(driver.racesHeld || 0);
+              const nextRate = getNextLoyaltyRate(driver.racesHeld || 0);
+
+              return (
+                <View key={driver.driverId} style={styles.driverRow}>
+                  {/* Top line: name + constructor badge + ace + sell */}
+                  <View style={styles.driverRowTop}>
+                    <View style={styles.driverRowLeft}>
+                      <View style={styles.driverNameLine}>
+                        {driver.driverNumber != null && (
+                          <Text style={[styles.driverNumber, cInfo && { color: cInfo.primaryColor }]}>
+                            {driver.driverNumber}
+                          </Text>
+                        )}
+                        <Text style={styles.driverName}>{driver.name}</Text>
+                        {cInfo && (
+                          <View style={[styles.constructorBadge, { backgroundColor: cInfo.primaryColor }]}>
+                            <Text style={styles.constructorBadgeText}>{cInfo.shortName}</Text>
                           </View>
                         )}
                       </View>
                     </View>
+                    <View style={styles.driverRowRight}>
+                      <Text style={styles.driverPoints}>{formatPoints(driver.pointsScored)} pts</Text>
+                      {isAce ? (
+                        <TouchableOpacity onPress={() => handleClearCaptain()} hitSlop={8}>
+                          <View style={styles.aceBadge}>
+                            <Ionicons name="diamond" size={14} color={COLORS.white} />
+                          </View>
+                        </TouchableOpacity>
+                      ) : canBeAce && currentTeam?.lockStatus.canModify ? (
+                        <TouchableOpacity onPress={() => handleSetCaptain(driver.driverId)} hitSlop={8}>
+                          <Ionicons name="diamond-outline" size={18} color={COLORS.gold} />
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={{ width: 18 }} />
+                      )}
+                      {currentTeam?.lockStatus.canModify && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
+                          hitSlop={8}
+                          style={[styles.sellButton, { backgroundColor: (priceDiff > 0 ? '#16a34a' : priceDiff < 0 ? COLORS.error : COLORS.text.muted) + '15' }]}
+                        >
+                          <Ionicons name="swap-horizontal" size={16} color={priceDiff > 0 ? '#16a34a' : priceDiff < 0 ? COLORS.error : COLORS.text.muted} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
+
+                  {/* Bottom line: price info + loyalty */}
+                  <View style={styles.driverMeta}>
+                    <Text style={styles.driverPrice}>${driver.livePrice}</Text>
+                    {priceDiff !== 0 && (
+                      <View style={[styles.priceDiffBadge, priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
+                        <Ionicons name={priceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={9} color={COLORS.white} />
+                        <Text style={styles.priceDiffText}>${Math.abs(priceDiff)}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.metaSeparator}>·</Text>
+                    <Text style={styles.saleText}>
+                      Sell: ${driver.livePrice}{priceDiff > 0 ? ` (+$${priceDiff})` : priceDiff < 0 ? ` (-$${Math.abs(priceDiff)})` : ''}
+                    </Text>
+                    <Text style={styles.metaSeparator}>·</Text>
+                    <Ionicons name="flame" size={10} color={loyalty > 0 ? COLORS.gold : COLORS.text.muted} />
+                    <Text style={[styles.loyaltyText, loyalty > 0 && { color: COLORS.gold }]}>
+                      +{nextRate}/race
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+        ) : null}
+
+        {/* Add Driver button */}
+        {driversCount < TEAM_SIZE && currentTeam?.lockStatus.canModify && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => router.push('/my-team/select-driver')}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.addButtonText}>Add Driver ({driversCount}/{TEAM_SIZE})</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Constructor row */}
+        {currentTeam?.constructor ? (() => {
+          const c = currentTeam.constructor;
+          const marketC = allConstructors?.find(mc => mc.id === c.constructorId);
+          const livePrice = marketC?.price ?? c.currentPrice;
+          const cInfo = constructorLookup[c.constructorId];
+          const cPriceDiff = livePrice - c.purchasePrice;
+          const cLoyalty = getLoyaltyBonus(c.racesHeld || 0);
+          const cNextRate = getNextLoyaltyRate(c.racesHeld || 0);
+
+          return (
+            <View style={styles.driverRow}>
+              <View style={styles.driverRowTop}>
+                <View style={styles.driverRowLeft}>
+                  <View style={styles.driverNameLine}>
+                    <Text style={styles.driverName}>{c.name}</Text>
+                    {cInfo && (
+                      <View style={[styles.constructorBadge, { backgroundColor: cInfo.primaryColor }]}>
+                        <Text style={styles.constructorBadgeText}>{cInfo.shortName}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.driverRowRight}>
+                  <Text style={styles.driverPoints}>{formatPoints(c.pointsScored)} pts</Text>
+                  <View style={{ width: 18 }} />
                   {currentTeam?.lockStatus.canModify && (
                     <TouchableOpacity
-                      style={styles.sellButton}
-                      onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
+                      onPress={handleRemoveConstructor}
+                      hitSlop={8}
+                      style={[styles.sellButton, { backgroundColor: (cPriceDiff > 0 ? '#16a34a' : cPriceDiff < 0 ? COLORS.error : COLORS.text.muted) + '15' }]}
                     >
-                      <Ionicons name="cash-outline" size={22} color={COLORS.error} />
-                      <Text style={styles.sellButtonText}>Sell</Text>
+                      <Ionicons name="swap-horizontal" size={16} color={cPriceDiff > 0 ? '#16a34a' : cPriceDiff < 0 ? COLORS.error : COLORS.text.muted} />
                     </TouchableOpacity>
                   )}
                 </View>
               </View>
-              {/* Alternative Recommendation - always show for all drivers */}
-              {currentTeam?.lockStatus.canModify && (() => {
-                const swap = getSwapRecommendation(driver);
-                if (!swap) {
-                  // Show "No better alternative" when none available
-                  return (
-                    <View style={styles.alternativeRowCompact}>
-                      <Ionicons name="checkmark-circle" size={12} color={COLORS.success} />
-                      <Text style={styles.alternativeCompactTextMuted}>
-                        Alternative: None better available
-                      </Text>
-                    </View>
-                  );
-                }
-                return (
-                  <TouchableOpacity
-                    style={styles.alternativeRowCompact}
-                    onPress={() => handleShowSwap(driver)}
-                  >
-                    <Ionicons name="swap-horizontal" size={12} color={COLORS.primary} />
-                    <Text style={styles.alternativeCompactText}>
-                      Alternative: {swap.recommendedDriver.shortName || swap.recommendedDriver.name.split(' ').pop()} (+{swap.pointsDiff} pts)
-                    </Text>
-                    <Ionicons name="chevron-forward" size={14} color={COLORS.gray[400]} />
-                  </TouchableOpacity>
-                );
-              })()}
-              {/* Loyalty Streak Badge */}
-              {(() => {
-                const loyalty = calculateLoyaltyBonus(driver.racesHeld || 0);
-                return (
-                  <TouchableOpacity
-                    style={[styles.loyaltyBadge, { borderColor: LOYALTY_COLORS[loyalty.tier] }]}
-                    onPress={() => {
-                      setSelectedLoyaltyInfo({
-                        name: driver.name,
-                        racesHeld: driver.racesHeld || 0,
-                        bonus: loyalty.bonus,
-                      });
-                      setShowLoyaltyInfoModal(true);
-                    }}
-                  >
-                    <Ionicons
-                      name="flame"
-                      size={14}
-                      color={loyalty.tier === 'none' ? COLORS.gray[500] : LOYALTY_COLORS[loyalty.tier]}
-                    />
-                    <Text style={[styles.loyaltyText, { color: LOYALTY_COLORS[loyalty.tier] }]}>
-                      +{loyalty.bonus}
-                    </Text>
-                    <Text style={styles.loyaltyRaces}>
-                      {driver.racesHeld || 0} {(driver.racesHeld || 0) === 1 ? 'race' : 'races'}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })()}
-            </Card>
-          ))
-        ) : (
-          <Card variant="outlined" padding="large">
-            <Text style={styles.emptyText}>
-              No drivers selected. Add drivers to your team.
-            </Text>
-          </Card>
-        )}
-      </View>
+              <View style={styles.driverMeta}>
+                <Text style={styles.driverPrice}>${livePrice}</Text>
+                {cPriceDiff !== 0 && (
+                  <View style={[styles.priceDiffBadge, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
+                    <Ionicons name={cPriceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={9} color={COLORS.white} />
+                    <Text style={styles.priceDiffText}>${Math.abs(cPriceDiff)}</Text>
+                  </View>
+                )}
+                <Text style={styles.metaSeparator}>·</Text>
+                <Text style={styles.saleText}>
+                  Sell: ${livePrice}{cPriceDiff > 0 ? ` (+$${cPriceDiff})` : cPriceDiff < 0 ? ` (-$${Math.abs(cPriceDiff)})` : ''}
+                </Text>
+                <Text style={styles.metaSeparator}>·</Text>
+                <Ionicons name="flame" size={10} color={cLoyalty > 0 ? COLORS.gold : COLORS.text.muted} />
+                <Text style={[styles.loyaltyText, cLoyalty > 0 && { color: COLORS.gold }]}>
+                  +{cNextRate}/race
+                </Text>
+              </View>
+            </View>
+          );
+        })() : null}
 
-      {/* Constructor Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Constructor</Text>
-        </View>
+        {/* Add Constructor button */}
         {!hasConstructor && currentTeam?.lockStatus.canModify && (
           <TouchableOpacity
+            style={styles.addButton}
             onPress={() => router.push('/my-team/select-constructor')}
-            style={styles.addLargeButton}
           >
-            <Ionicons name="add-circle" size={28} color={COLORS.primary} />
-            <Text style={styles.addLargeButtonText}>Add Constructor</Text>
-            <Text style={styles.addLargeButtonSubtext}>0/1 selected</Text>
+            <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.addButtonText}>Add Constructor (0/1)</Text>
           </TouchableOpacity>
         )}
 
-        {currentTeam?.constructor ? (() => {
-          // Look up live market price from allConstructors
-          const marketConstructor = allConstructors?.find(c => c.id === currentTeam.constructor!.constructorId);
-          const livePrice = marketConstructor?.price ?? currentTeam.constructor.currentPrice;
-          const constructor = currentTeam.constructor;
-          return (
-          <Card variant="outlined" padding="small" style={styles.constructorItem}>
-            <View style={styles.constructorInfo}>
-              <View style={styles.constructorMain}>
-                <Text style={styles.constructorName}>
-                  {constructor.name}
-                </Text>
-                {/* V3: Constructors don't have captain option - only drivers */}
-              </View>
-              <View style={styles.constructorActions}>
-                <View style={styles.constructorStats}>
-                  <Text style={styles.constructorPoints}>
-                    {formatPoints(constructor.pointsScored)} pts
-                  </Text>
-                  {/* Purchase price and current value with profit/loss */}
-                  <View style={styles.priceComparison}>
-                    <Text style={styles.purchasePrice}>
-                      Paid: ${constructor.purchasePrice}
-                    </Text>
-                    <View style={styles.currentValueRow}>
-                      <Text style={[
-                        styles.currentValueLabel,
-                        livePrice > constructor.purchasePrice && styles.priceUp,
-                        livePrice < constructor.purchasePrice && styles.priceDown,
-                      ]}>Now: </Text>
-                      <Text style={[
-                        styles.currentValue,
-                        livePrice > constructor.purchasePrice && styles.priceUp,
-                        livePrice < constructor.purchasePrice && styles.priceDown,
-                      ]}>
-                        ${livePrice}
-                      </Text>
-                      {livePrice !== constructor.purchasePrice && (
-                        <View style={[
-                          styles.profitBadge,
-                          livePrice > constructor.purchasePrice ? styles.profitUp : styles.profitDown,
-                        ]}>
-                          <Ionicons
-                            name={livePrice > constructor.purchasePrice ? 'arrow-up' : 'arrow-down'}
-                            size={10}
-                            color={COLORS.white}
-                          />
-                          <Text style={styles.profitText}>
-                            {Math.abs(livePrice - constructor.purchasePrice)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </View>
-                {currentTeam?.lockStatus.canModify && (
-                  <TouchableOpacity
-                    style={styles.sellButton}
-                    onPress={handleRemoveConstructor}
-                  >
-                    <Ionicons name="cash-outline" size={22} color={COLORS.error} />
-                    <Text style={styles.sellButtonText}>Sell</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-            {/* Loyalty Streak Badge */}
-            {(() => {
-              const loyalty = calculateLoyaltyBonus(constructor.racesHeld || 0);
-              return (
-                <TouchableOpacity
-                  style={[styles.loyaltyBadge, { borderColor: LOYALTY_COLORS[loyalty.tier] }]}
-                  onPress={() => {
-                    setSelectedLoyaltyInfo({
-                      name: constructor.name,
-                      racesHeld: constructor.racesHeld || 0,
-                      bonus: loyalty.bonus,
-                    });
-                    setShowLoyaltyInfoModal(true);
-                  }}
-                >
-                  <Ionicons
-                    name="flame"
-                    size={14}
-                    color={loyalty.tier === 'none' ? COLORS.gray[500] : LOYALTY_COLORS[loyalty.tier]}
-                  />
-                  <Text style={[styles.loyaltyText, { color: LOYALTY_COLORS[loyalty.tier] }]}>
-                    +{loyalty.bonus}
-                  </Text>
-                  <Text style={styles.loyaltyRaces}>
-                    {constructor.racesHeld || 0} {(constructor.racesHeld || 0) === 1 ? 'race' : 'races'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })()}
-          </Card>
-          );
-        })() : (
-          <Card variant="outlined" padding="large">
-            <Text style={styles.emptyText}>
-              No constructor selected. Add a constructor to your team.
-            </Text>
-          </Card>
-        )}
-      </View>
-
-        {/* Actions */}
+        {/* Manage button */}
         {currentTeam?.lockStatus.canModify && (
-          <View style={styles.actions}>
-            <View style={styles.actionButtons}>
-              <Button
-                title="Edit Team"
-                onPress={() => router.push('/my-team/edit')}
-                variant="outline"
-                style={styles.actionButton}
-              />
-              {!currentTeam?.leagueId && (
-                <Button
-                  title="Join League"
-                  onPress={() => router.push('/leagues?join=true')}
-                  style={styles.actionButton}
-                />
-              )}
-            </View>
-            {/* Build Recommended Team - only show when no drivers or constructor selected */}
-            {driversCount === 0 && !hasConstructor && (
-              <Button
-                title={isLoadingDrivers || isLoadingConstructors ? "Loading Data..." : "Build Recommended Team"}
-                onPress={handleBuildRecommendedTeam}
-                loading={isBuildingRecommended}
-                disabled={isLoadingDrivers || isLoadingConstructors}
-                style={styles.recommendedButton}
-                fullWidth
-              />
-            )}
-          </View>
+          <TouchableOpacity
+            style={styles.manageButton}
+            onPress={() => router.push('/my-team/edit')}
+          >
+            <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.manageButtonText}>Manage</Text>
+          </TouchableOpacity>
         )}
-
       </ScrollView>
+
+      {/* Avatar Picker Modal */}
+      {currentTeam && (
+        <AvatarPicker
+          visible={showAvatarPicker}
+          onClose={() => setShowAvatarPicker(false)}
+          name={currentTeam.name}
+          type="team"
+          currentAvatarUrl={teamAvatarUrl}
+          onSelectAvatar={handleSelectTeamAvatar}
+          onGenerateAI={handleGenerateTeamAvatar}
+          isGeneratingAI={isGeneratingAvatar}
+          canGenerateAI={isAvatarAvailable}
+        />
+      )}
 
       {/* Edit Name Modal */}
       <Modal
@@ -1211,7 +652,7 @@ export default function MyTeamScreen() {
               <TouchableOpacity
                 style={[
                   styles.modalSaveButton,
-                  (!editingName.trim() || isSavingName) && styles.modalSaveButtonDisabled,
+                  (!editingName.trim() || isSavingName) && { opacity: 0.5 },
                 ]}
                 onPress={handleSaveName}
                 disabled={!editingName.trim() || isSavingName}
@@ -1224,173 +665,6 @@ export default function MyTeamScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-      {/* Swap Recommendation Modal */}
-      <Modal
-        visible={showSwapModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowSwapModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.swapModalContent}>
-            <View style={styles.swapModalHeader}>
-              <Ionicons name="swap-horizontal" size={24} color={COLORS.primary} />
-              <Text style={styles.swapModalTitle}>Swap Recommendation</Text>
-            </View>
-
-            {selectedSwap && (
-              <>
-                {/* Current Driver */}
-                <View style={styles.swapDriverCard}>
-                  <Text style={styles.swapDriverLabel}>Current</Text>
-                  <View style={styles.swapDriverInfo}>
-                    <Text style={styles.swapDriverName}>{selectedSwap.currentDriver.name}</Text>
-                    <View style={styles.swapDriverStats}>
-                      <Text style={styles.swapDriverPoints}>{selectedSwap.currentDriver.pointsScored} pts</Text>
-                      <Text style={styles.swapDriverPrice}>{formatPoints(selectedSwap.currentDriver.currentPrice)}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Arrow */}
-                <View style={styles.swapArrow}>
-                  <Ionicons name="arrow-down" size={24} color={COLORS.primary} />
-                </View>
-
-                {/* Recommended Driver */}
-                <View style={[styles.swapDriverCard, styles.swapDriverCardRecommended]}>
-                  <Text style={styles.swapDriverLabelRecommended}>Recommended</Text>
-                  <View style={styles.swapDriverInfo}>
-                    <Text style={styles.swapDriverName}>{selectedSwap.recommendedDriver.name}</Text>
-                    <View style={styles.swapDriverStats}>
-                      <Text style={styles.swapDriverPointsGreen}>{selectedSwap.recommendedDriver.currentSeasonPoints || 0} pts</Text>
-                      <Text style={styles.swapDriverPrice}>{formatPoints(selectedSwap.recommendedDriver.price)}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.swapReason}>{selectedSwap.reason}</Text>
-                </View>
-
-                {/* Summary */}
-                <View style={styles.swapSummary}>
-                  <View style={styles.swapSummaryRow}>
-                    <Text style={styles.swapSummaryLabel}>Points Improvement</Text>
-                    <Text style={[styles.swapSummaryValue, { color: COLORS.success }]}>
-                      +{selectedSwap.pointsDiff}
-                    </Text>
-                  </View>
-                  <View style={styles.swapSummaryRow}>
-                    <Text style={styles.swapSummaryLabel}>Price Difference</Text>
-                    <Text style={[
-                      styles.swapSummaryValue,
-                      { color: selectedSwap.priceDiff > 0 ? COLORS.error : COLORS.success }
-                    ]}>
-                      {selectedSwap.priceDiff > 0 ? '+' : ''}{selectedSwap.priceDiff}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Buttons */}
-                <View style={styles.swapModalButtons}>
-                  <TouchableOpacity
-                    style={styles.modalCancelButton}
-                    onPress={() => setShowSwapModal(false)}
-                  >
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.swapConfirmButton,
-                      isSwapping && styles.modalSaveButtonDisabled,
-                    ]}
-                    onPress={handleConfirmSwap}
-                    disabled={isSwapping}
-                  >
-                    <Ionicons name="swap-horizontal" size={18} color={COLORS.white} />
-                    <Text style={styles.swapConfirmText}>
-                      {isSwapping ? 'Swapping...' : 'Confirm Swap'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Loyalty Info Modal */}
-      <Modal
-        visible={showLoyaltyInfoModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLoyaltyInfoModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowLoyaltyInfoModal(false)}
-        >
-          <View style={styles.loyaltyModalContent}>
-            <View style={styles.loyaltyModalHeader}>
-              <Ionicons name="flame" size={24} color={COLORS.gold} />
-              <Text style={styles.loyaltyModalTitle}>Loyalty Bonus</Text>
-            </View>
-
-            <Text style={styles.loyaltyModalDescription}>
-              Hold drivers & constructors longer for bonus points each race!
-            </Text>
-
-            <View style={styles.loyaltyTierList}>
-              <View style={styles.loyaltyTierRow}>
-                <View style={[styles.loyaltyTierDot, { backgroundColor: '#CD7F32' }]} />
-                <Text style={styles.loyaltyTierLabel}>1-3 races:</Text>
-                <Text style={styles.loyaltyTierValue}>+1 pt/race</Text>
-              </View>
-              <View style={styles.loyaltyTierRow}>
-                <View style={[styles.loyaltyTierDot, { backgroundColor: '#C0C0C0' }]} />
-                <Text style={styles.loyaltyTierLabel}>4-6 races:</Text>
-                <Text style={styles.loyaltyTierValue}>+2 pts/race</Text>
-              </View>
-              <View style={styles.loyaltyTierRow}>
-                <View style={[styles.loyaltyTierDot, { backgroundColor: COLORS.gold }]} />
-                <Text style={styles.loyaltyTierLabel}>7+ races:</Text>
-                <Text style={styles.loyaltyTierValue}>+3 pts/race</Text>
-              </View>
-            </View>
-
-            {selectedLoyaltyInfo && (
-              <View style={styles.loyaltyCurrentInfo}>
-                <Text style={styles.loyaltyCurrentTitle}>{selectedLoyaltyInfo.name}</Text>
-                <Text style={styles.loyaltyCurrentText}>
-                  {selectedLoyaltyInfo.racesHeld} {selectedLoyaltyInfo.racesHeld === 1 ? 'race' : 'races'} held = <Text style={styles.loyaltyCurrentBonus}>+{selectedLoyaltyInfo.bonus} pts</Text>
-                </Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={styles.loyaltyModalClose}
-              onPress={() => setShowLoyaltyInfoModal(false)}
-            >
-              <Text style={styles.loyaltyModalCloseText}>Got it!</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Avatar Picker Modal */}
-      {currentTeam && (
-        <AvatarPicker
-          visible={showAvatarPicker}
-          onClose={() => setShowAvatarPicker(false)}
-          name={currentTeam.name}
-          type="team"
-          currentAvatarUrl={teamAvatarUrl}
-          onSelectAvatar={handleSelectTeamAvatar}
-          onGenerateAI={handleGenerateTeamAvatar}
-          isGeneratingAI={isGeneratingAvatar}
-          canGenerateAI={isAvatarAvailable}
-        />
-      )}
     </View>
   );
 }
@@ -1400,23 +674,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-
   content: {
-    padding: SPACING.sm,
-    paddingBottom: SPACING.lg,
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xxl,
   },
 
+  // Empty state
   emptyContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-
   welcomeContainer: {
     flex: 1,
     padding: SPACING.lg,
     justifyContent: 'center',
   },
-
   welcomeIconContainer: {
     width: 80,
     height: 80,
@@ -1427,7 +699,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: SPACING.lg,
   },
-
   welcomeTitle: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
@@ -1435,766 +706,313 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },
-
   welcomeMessage: {
     fontSize: FONTS.sizes.md,
     color: COLORS.text.secondary,
     textAlign: 'center',
     marginBottom: SPACING.xl,
   },
-
-  createButton: {
-    marginBottom: SPACING.md,
-  },
-
-  createHint: {
+  welcomeHint: {
     fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     textAlign: 'center',
   },
 
-  optionCard: {
-    marginBottom: SPACING.md,
-    padding: SPACING.lg,
-  },
-
-  optionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-    gap: SPACING.sm,
-  },
-
-  optionBadge: {
-    backgroundColor: COLORS.accent,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: SPACING.xs,
-  },
-
-  optionBadgeText: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.text.inverse,
-  },
-
-  optionTitle: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: SPACING.xs,
-  },
-
-  optionDescription: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.secondary,
-    marginBottom: SPACING.md,
-    lineHeight: 20,
-  },
-
-  optionButton: {
-    marginTop: SPACING.xs,
-  },
-
-  currentLeagueHint: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.muted,
-    textAlign: 'center',
-    marginTop: SPACING.md,
-  },
-
-  teamSelectorSection: {
-    marginBottom: SPACING.md,
-  },
-
-  teamSelectorLabel: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.text.secondary,
-    marginBottom: SPACING.sm,
-  },
-
-  teamSelectorScroll: {
-    gap: SPACING.sm,
-    paddingRight: SPACING.md,
-  },
-
-  teamSelectorItem: {
+  // Team switcher
+  teamSwitcher: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  teamTab: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.pill,
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
-    minWidth: 120,
   },
-
-  teamSelectorItemActive: {
+  teamTabActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-
-  teamSelectorItemContent: {
-    gap: 2,
-  },
-
-  teamSelectorName: {
+  teamTabText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: COLORS.text.secondary,
+    maxWidth: 120,
   },
-
-  teamSelectorNameActive: {
+  teamTabTextActive: {
     color: COLORS.text.inverse,
   },
-
-  teamSelectorMeta: {
-    flexDirection: 'row',
+  teamTabNew: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
-    gap: SPACING.xs,
-  },
-
-  teamSelectorPoints: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
-  },
-
-  teamSelectorPointsActive: {
-    color: COLORS.text.inverse,
-    opacity: 0.8,
-  },
-
-  newTeamButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.glass.cyan,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: COLORS.border.accent,
     borderStyle: 'dashed',
   },
-
-  newTeamText: {
+  newTeamLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    alignSelf: 'flex-end',
+    marginBottom: SPACING.sm,
+  },
+  newTeamLinkText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '500',
     color: COLORS.primary,
   },
 
-  teamHeader: {
-    marginBottom: SPACING.xs,
-    padding: SPACING.sm,
-    backgroundColor: COLORS.card,
-    borderRadius: BORDER_RADIUS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-  },
-
-  teamHeaderTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-
-  teamNameRow: {
-    flex: 1,
-  },
-
-  teamNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-
-  teamName: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: 'bold',
-    color: COLORS.text.primary,
-  },
-
-  editNameButton: {
-    padding: 2,
-  },
-
-  teamPoints: {
-    fontSize: 10,
-    color: COLORS.text.secondary,
-    marginTop: 1,
-  },
-
-  leagueInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: SPACING.sm,
-    marginTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.default,
-  },
-
-  leagueInfoLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-
-  leagueInfoText: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '500',
-    color: COLORS.accent,
-  },
-
-  joinLeagueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: SPACING.sm,
-    marginTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.default,
-  },
-
-  joinLeagueText: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '500',
-    color: COLORS.primary,
-  },
-
-  statsCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-  },
-
+  // Team stats
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.md,
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
-
   statItem: {
     flex: 1,
     alignItems: 'center',
+    paddingVertical: SPACING.xs,
   },
-
   statValue: {
-    fontSize: FONTS.sizes.xl,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '700',
     color: COLORS.text.primary,
   },
-
   statLabel: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: 10,
     color: COLORS.text.muted,
-    marginTop: 2,
+    marginTop: 1,
   },
-
   statDivider: {
     width: 1,
-    height: 32,
+    height: 24,
     backgroundColor: COLORS.border.default,
   },
 
-  // V4: Catch-up Multiplier Styles
-  catchUpBanner: {
+  // Team name header
+  teamNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.accent,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
     gap: SPACING.md,
+    marginBottom: SPACING.lg,
   },
-
-  catchUpIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  catchUpContent: {
+  teamNameContent: {
     flex: 1,
   },
-
-  catchUpTitle: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-
-  catchUpDescription: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.white,
-    opacity: 0.9,
-    marginTop: 2,
-  },
-
-  starReminderNote: {
+  teamNameLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
-    padding: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.sm,
-    gap: SPACING.xs,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
+    gap: SPACING.sm,
   },
-
-  starReminderText: {
-    flex: 1,
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.gold,
-    fontWeight: '500',
+  teamName: {
+    fontSize: FONTS.sizes.xxl,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
   },
-
   lockBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: COLORS.error,
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: 2,
     borderRadius: SPACING.xs,
-    gap: 2,
+    padding: 4,
   },
 
-  lockText: {
+  // Bank + Team Value
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingBottom: SPACING.lg,
+    marginBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
+  },
+  summaryLabel: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
-    color: COLORS.white,
-  },
-
-  compositionStatus: {
-    backgroundColor: COLORS.surface,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.md,
-    alignItems: 'center',
-  },
-
-  compositionText: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '600',
-  },
-
-  compositionLabel: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-
-  compositionDivider: {
-    fontSize: FONTS.sizes.lg,
     color: COLORS.text.muted,
+    letterSpacing: 1,
+    marginBottom: 2,
   },
-
-  compositionComplete: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '700',
-    color: COLORS.success,
-  },
-
-  compositionIncomplete: {
-    fontSize: FONTS.sizes.lg,
+  summaryValue: {
+    fontSize: FONTS.sizes.xl,
     fontWeight: '700',
     color: COLORS.text.primary,
   },
 
-  section: {
-    marginBottom: SPACING.sm,
+  // Driver row
+  driverRow: {
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
   },
-
-  sectionHeader: {
+  driverRowTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xs,
   },
-
-  sectionTitle: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
+  driverRowLeft: {
+    flex: 1,
+  },
+  driverNameLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  driverNumber: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '800',
+    color: COLORS.text.muted,
+    minWidth: 24,
+  },
+  driverName: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '700',
     color: COLORS.text.primary,
   },
+  constructorBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  constructorBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  driverRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  driverPoints: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+  },
+  aceBadge: {
+    backgroundColor: COLORS.gold,
+    borderRadius: 10,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  driverPrice: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+    fontWeight: '500',
+  },
+  priceDiffBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  priceUp: {
+    backgroundColor: '#16a34a',
+  },
+  priceDown: {
+    backgroundColor: COLORS.error,
+  },
+  priceDiffText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  metaSeparator: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    marginHorizontal: 2,
+  },
+  saleText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+  },
+  loyaltyText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    fontWeight: '600',
+  },
+  sellButton: {
+    padding: 4,
+    borderRadius: 6,
+    backgroundColor: COLORS.error + '15',
+  },
+  aceNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    backgroundColor: COLORS.gold + '15',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.gold + '30',
+  },
+  aceNoticeText: {
+    flex: 1,
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.secondary,
+    lineHeight: 16,
+  },
 
+  // Add button
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
-  },
-
-  addButtonText: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-
-  addLargeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    backgroundColor: COLORS.primary + '15',
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderStyle: 'dashed',
-    borderRadius: BORDER_RADIUS.lg,
     paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.xl,
-    marginBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
   },
-
-  addLargeButtonText: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-
-  addLargeButtonSubtext: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.muted,
-    marginLeft: SPACING.xs,
-  },
-
-  driverItem: {
-    marginBottom: SPACING.sm,
-    backgroundColor: COLORS.card,
-    borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-    padding: SPACING.md,
-  },
-
-  driverInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  driverMain: {},
-
-  driverNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-
-  driverNumber: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '800',
-    color: COLORS.primary,
-  },
-
-  driverName: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-  },
-
-  driverCodeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-
-  driverTeam: {
+  addButtonText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.text.muted,
-  },
-
-  // V3: Ace badge styles (gold theme)
-  aceBadgeInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.gold,
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    gap: 2,
-  },
-
-  aceBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-
-  aceIconButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.xs,
-    paddingVertical: 2,
-    gap: 2,
-  },
-
-  aceIconText: {
-    fontSize: 11,
     fontWeight: '600',
-    color: COLORS.gold,
+    color: COLORS.primary,
   },
 
-  // Keep for backwards compatibility in case needed
-  starBadgeInline: {
-    backgroundColor: COLORS.gold,
-    borderRadius: 8,
-    width: 18,
-    height: 18,
+  // Manage button
+  manageButton: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  starIconButton: {
-    padding: SPACING.xs,
-  },
-
-  driverActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-
-  driverStats: {
-    alignItems: 'flex-end',
-  },
-
-  deleteButton: {
-    padding: SPACING.xs,
-  },
-
-  sellButton: {
-    padding: SPACING.xs,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  sellButtonText: {
-    fontSize: 10,
-    color: COLORS.error,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-
-  driverPoints: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '700',
-    color: COLORS.primary,
-    marginBottom: 4,
-  },
-
-  driverPrice: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.text.muted,
-  },
-
-  priceComparison: {
-    alignItems: 'flex-end',
-  },
-
-  purchasePrice: {
-    fontSize: 11,
-    color: COLORS.text.muted,
-  },
-
-  currentValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-
-  currentValueLabel: {
-    fontSize: 11,
-    color: COLORS.text.muted,
-  },
-
-  currentValue: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-
-  priceUp: {
-    color: COLORS.success,
-  },
-
-  priceDown: {
-    color: COLORS.error,
-  },
-
-  profitBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 8,
-    marginLeft: 4,
-    gap: 2,
-  },
-
-  profitUp: {
-    backgroundColor: COLORS.success,
-  },
-
-  profitDown: {
-    backgroundColor: COLORS.error,
-  },
-
-  profitText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-
-  sellValue: {
-    fontSize: 11,
-    color: COLORS.text.secondary,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-
-  driverActionsRow: {
-    flexDirection: 'row',
-    marginTop: SPACING.xs,
-    gap: SPACING.xs,
-    flexWrap: 'wrap',
-  },
-
-  lockBonus: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.accent,
-    marginTop: SPACING.xs,
-  },
-
-  lockBonusCompact: {
-    fontSize: 10,
-    color: COLORS.accent,
-    marginTop: 2,
-  },
-
-  swapRecommendationRowCompact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.default,
-  },
-
-  swapRecommendationCompactText: {
-    flex: 1,
-    fontSize: 10,
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
-
-  alternativeRowCompact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.default,
-  },
-
-  alternativeCompactText: {
-    flex: 1,
-    fontSize: 10,
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
-
-  alternativeCompactTextMuted: {
-    flex: 1,
-    fontSize: 10,
-    color: COLORS.text.muted,
-    fontWeight: '500',
-  },
-
-  constructorItem: {
-    marginBottom: SPACING.sm,
-    backgroundColor: COLORS.card,
-    borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-    padding: SPACING.md,
-  },
-
-  constructorInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  constructorMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-
-  constructorName: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-  },
-
-  constructorActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: SPACING.sm,
+    marginTop: SPACING.xl,
+    paddingVertical: SPACING.lg,
+    borderRadius: BORDER_RADIUS.button,
+    borderWidth: 1,
+    borderColor: COLORS.border.accent,
+    backgroundColor: COLORS.glass.cyan,
   },
-
-  constructorStats: {
-    alignItems: 'flex-end',
-  },
-
-  constructorPoints: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '700',
+  manageButtonText: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '600',
     color: COLORS.primary,
   },
 
-  constructorPrice: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.text.muted,
-  },
-
-  emptyText: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.text.muted,
-    textAlign: 'center',
-  },
-
-  actions: {
-    marginTop: SPACING.md,
-  },
-
-  actionButtons: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-  },
-
-  actionButton: {
-    flex: 1,
-  },
-
-  recommendedButton: {
-    marginTop: SPACING.md,
-  },
-
+  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -2202,7 +1020,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SPACING.xl,
   },
-
   modalContent: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,
@@ -2212,7 +1029,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
-
   modalTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
@@ -2220,7 +1036,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     textAlign: 'center',
   },
-
   modalInput: {
     borderWidth: 1,
     borderColor: COLORS.border.default,
@@ -2231,12 +1046,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     marginBottom: SPACING.lg,
   },
-
   modalButtons: {
     flexDirection: 'row',
     gap: SPACING.md,
   },
-
   modalCancelButton: {
     flex: 1,
     paddingVertical: SPACING.md,
@@ -2246,13 +1059,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border.default,
     backgroundColor: COLORS.card,
   },
-
   modalCancelText: {
     fontSize: FONTS.sizes.md,
     color: COLORS.text.secondary,
     fontWeight: '500',
   },
-
   modalSaveButton: {
     flex: 1,
     paddingVertical: SPACING.md,
@@ -2260,331 +1071,9 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.button,
     backgroundColor: COLORS.primary,
   },
-
-  modalSaveButtonDisabled: {
-    opacity: 0.5,
-  },
-
   modalSaveText: {
     fontSize: FONTS.sizes.md,
     color: COLORS.text.inverse,
     fontWeight: '600',
-  },
-
-  // Swap Recommendation Inline Styles
-  swapRecommendationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
-  },
-
-  swapRecommendationContent: {
-    flex: 1,
-  },
-
-  swapRecommendationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 2,
-  },
-
-  swapRecommendationLabel: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[600],
-    marginLeft: SPACING.xs,
-  },
-
-  swapRecommendationDriver: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-
-  swapRecommendationDetails: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginTop: 2,
-    marginLeft: 18,
-  },
-
-  swapBenefit: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.success,
-  },
-
-  swapCost: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
-  },
-
-  // Swap Modal Styles
-  swapModalContent: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.xl,
-    width: '100%',
-    maxWidth: 400,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-  },
-
-  swapModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.lg,
-  },
-
-  swapModalTitle: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-
-  swapDriverCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-  },
-
-  swapDriverCardRecommended: {
-    backgroundColor: COLORS.successLight,
-    borderColor: COLORS.success,
-  },
-
-  swapDriverLabel: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.text.muted,
-    marginBottom: SPACING.xs,
-  },
-
-  swapDriverLabelRecommended: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.success,
-    marginBottom: SPACING.xs,
-  },
-
-  swapDriverInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  swapDriverName: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-
-  swapDriverStats: {
-    alignItems: 'flex-end',
-  },
-
-  swapDriverPoints: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.text.secondary,
-  },
-
-  swapDriverPointsGreen: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.success,
-  },
-
-  swapDriverPrice: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
-  },
-
-  swapReason: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.success,
-    fontWeight: '500',
-    marginTop: SPACING.sm,
-  },
-
-  swapArrow: {
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-  },
-
-  swapSummary: {
-    marginTop: SPACING.lg,
-    paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.default,
-  },
-
-  swapSummaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.sm,
-  },
-
-  swapSummaryLabel: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.secondary,
-  },
-
-  swapSummaryValue: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-  },
-
-  swapModalButtons: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginTop: SPACING.lg,
-  },
-
-  swapConfirmButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    paddingVertical: SPACING.md,
-    borderRadius: BORDER_RADIUS.button,
-    backgroundColor: COLORS.primary,
-  },
-
-  swapConfirmText: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.text.inverse,
-    fontWeight: '600',
-  },
-
-  // Loyalty Badge Styles
-  loyaltyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    marginTop: SPACING.xs,
-    backgroundColor: COLORS.card,
-  },
-
-  loyaltyText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  loyaltyRaces: {
-    fontSize: 10,
-    color: COLORS.text.muted,
-    marginLeft: 2,
-  },
-
-  // Loyalty Modal Styles
-  loyaltyModalContent: {
-    backgroundColor: COLORS.card,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
-    width: '85%',
-    maxWidth: 320,
-  },
-
-  loyaltyModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-
-  loyaltyModalTitle: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-  },
-
-  loyaltyModalDescription: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.secondary,
-    marginBottom: SPACING.md,
-    lineHeight: 20,
-  },
-
-  loyaltyTierList: {
-    backgroundColor: COLORS.background,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    gap: SPACING.sm,
-  },
-
-  loyaltyTierRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-
-  loyaltyTierDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-
-  loyaltyTierLabel: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.secondary,
-    flex: 1,
-  },
-
-  loyaltyTierValue: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-
-  loyaltyCurrentInfo: {
-    marginTop: SPACING.md,
-    paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.default,
-  },
-
-  loyaltyCurrentTitle: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: 4,
-  },
-
-  loyaltyCurrentText: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.secondary,
-  },
-
-  loyaltyCurrentBonus: {
-    fontWeight: '700',
-    color: COLORS.gold,
-  },
-
-  loyaltyModalClose: {
-    marginTop: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderRadius: BORDER_RADIUS.button,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-  },
-
-  loyaltyModalCloseText: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text.inverse,
   },
 });

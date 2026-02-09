@@ -48,6 +48,9 @@ export const PRICING_CONFIG = {
   HOT_HAND_BONUS: 10,         // Bonus if new transfer scores 15+ points
   HOT_HAND_PODIUM_BONUS: 15,  // Bonus if new transfer finishes on podium
   VALUE_CAPTURE_RATE: 5,      // Points earned per $10 profit when selling
+
+  // V4: Late Joiner Catch-Up
+  LATE_JOINER_POINTS_PER_RACE: 30, // Flat points awarded per missed race
 } as const;
 
 // Points awarded per position

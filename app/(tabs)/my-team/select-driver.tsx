@@ -13,7 +13,7 @@ import { useDrivers } from '../../../src/hooks';
 import { useTeamStore } from '../../../src/store/team.store';
 import { Loading, DriverCard, Button, SmartRecommendations } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE } from '../../../src/config/constants';
-import type { Driver } from '../../../src/types';
+import type { Driver, FantasyDriver, FantasyTeam } from '../../../src/types';
 
 export default function SelectDriverScreen() {
   const { swapDriverId, swapDriverPrice } = useLocalSearchParams<{
@@ -22,7 +22,7 @@ export default function SelectDriverScreen() {
   }>();
 
   const { data: allDrivers, isLoading } = useDrivers();
-  const { currentTeam, addDriver, removeDriver, isLoading: teamLoading } = useTeamStore();
+  const { currentTeam } = useTeamStore();
 
   const topTenDriverIds = useMemo(() => {
     if (!allDrivers) return new Set<string>();
@@ -40,26 +40,68 @@ export default function SelectDriverScreen() {
     selectedDriversRef.current = selectedDrivers;
   }, [selectedDrivers]);
 
+  // Atomic helper: apply selected drivers to the team in one shot
+  const applyDriversToTeam = (pending: Driver[]) => {
+    const team = useTeamStore.getState().currentTeam;
+    if (!team || pending.length === 0) return;
+
+    if (isSwapMode && swapDriverId && pending.length > 0) {
+      // Swap: remove old driver, add new one
+      const oldDriver = team.drivers.find(d => d.driverId === swapDriverId);
+      const newDriver = pending[0];
+      const saleValue = oldDriver ? Math.floor(oldDriver.currentPrice * 0.95) : 0;
+      const newFantasyDriver: FantasyDriver = {
+        driverId: newDriver.id,
+        name: newDriver.name,
+        shortName: newDriver.shortName,
+        constructorId: newDriver.constructorId,
+        purchasePrice: newDriver.price,
+        currentPrice: newDriver.price,
+        pointsScored: 0,
+        racesHeld: 0,
+      };
+      const updatedTeam: FantasyTeam = {
+        ...team,
+        drivers: team.drivers.map(d =>
+          d.driverId === swapDriverId ? newFantasyDriver : d
+        ),
+        totalSpent: team.totalSpent - (oldDriver?.purchasePrice || 0) + newDriver.price,
+        budget: team.budget + saleValue - newDriver.price,
+        racesSinceTransfer: 0,
+        updatedAt: new Date(),
+      };
+      useTeamStore.getState().setCurrentTeam(updatedTeam);
+    } else {
+      // Add all drivers atomically
+      const newFantasyDrivers: FantasyDriver[] = pending.map(driver => ({
+        driverId: driver.id,
+        name: driver.name,
+        shortName: driver.shortName,
+        constructorId: driver.constructorId,
+        purchasePrice: driver.price,
+        currentPrice: driver.price,
+        pointsScored: 0,
+        racesHeld: 0,
+      }));
+      const totalCost = pending.reduce((sum, d) => sum + d.price, 0);
+      const updatedTeam: FantasyTeam = {
+        ...team,
+        drivers: [...team.drivers, ...newFantasyDrivers],
+        totalSpent: team.totalSpent + totalCost,
+        budget: team.budget - totalCost,
+        racesSinceTransfer: 0,
+        updatedAt: new Date(),
+      };
+      useTeamStore.getState().setCurrentTeam(updatedTeam);
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (confirmedRef.current) return;
       const pending = selectedDriversRef.current;
       if (pending.length === 0) return;
-
-      (async () => {
-        try {
-          if (isSwapMode && swapDriverId && pending.length > 0) {
-            await removeDriver(swapDriverId);
-            await addDriver(pending[0].id);
-          } else {
-            for (const driver of pending) {
-              await addDriver(driver.id);
-            }
-          }
-        } catch {
-          // Best effort
-        }
-      })();
+      applyDriversToTeam(pending);
     };
   }, []);
 
@@ -107,6 +149,15 @@ export default function SelectDriverScreen() {
     } else {
       if (selectedDrivers.length >= maxSelectableDrivers) return;
       if (driver.price > effectiveBudget) return;
+
+      // If only 1 slot left (or swap mode), add immediately and go back
+      if (maxSelectableDrivers === 1 || slotsLeft === 1) {
+        confirmedRef.current = true;
+        applyDriversToTeam([driver]);
+        router.back();
+        return;
+      }
+
       setSelectedDrivers([...selectedDrivers, driver]);
     }
   };
@@ -115,26 +166,12 @@ export default function SelectDriverScreen() {
     setSelectedDrivers(selectedDrivers.filter((d) => d.id !== driverId));
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (selectedDrivers.length === 0) return;
 
     confirmedRef.current = true;
-
-    try {
-      if (isSwapMode && swapDriverId) {
-        const newDriver = selectedDrivers[0];
-        await removeDriver(swapDriverId);
-        await addDriver(newDriver.id);
-      } else {
-        for (const driver of selectedDrivers) {
-          await addDriver(driver.id);
-        }
-      }
-
-      router.back();
-    } catch (error) {
-      confirmedRef.current = false;
-    }
+    applyDriversToTeam(selectedDrivers);
+    router.back();
   };
 
   if (isLoading) {
@@ -249,7 +286,6 @@ export default function SelectDriverScreen() {
           <Button
             title={isSwapMode ? 'Swap' : `Add ${selectedDrivers.length}`}
             onPress={handleConfirm}
-            loading={teamLoading}
           />
         </View>
       )}

@@ -816,6 +816,25 @@ export default function AdminScreen() {
             </View>
           )}
 
+          {/* Quick Actions */}
+          <View style={styles.testingSection}>
+            <Text style={styles.testingSectionTitle}>Quick Actions</Text>
+            <View style={styles.testingButtons}>
+              <TouchableOpacity style={styles.autoPopulateButton} onPress={handleAutoPopulate}>
+                <Ionicons name="shuffle" size={16} color={COLORS.white} />
+                <Text style={styles.autoPopulateButtonText}>Auto-Populate</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.autoCompleteButton, raceResult?.isComplete && styles.buttonDisabled]}
+                onPress={handleAutoPopulateAndComplete}
+                disabled={raceResult?.isComplete}
+              >
+                <Ionicons name="flash" size={16} color={COLORS.white} />
+                <Text style={styles.autoCompleteButtonText}>Auto-Complete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Driver Positions */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -908,25 +927,6 @@ export default function AdminScreen() {
 
           {/* Actions */}
           <View style={styles.actions}>
-            {/* Testing Shortcuts */}
-            <View style={styles.testingSection}>
-              <Text style={styles.testingSectionTitle}>Quick Actions</Text>
-              <View style={styles.testingButtons}>
-                <TouchableOpacity style={styles.autoPopulateButton} onPress={handleAutoPopulate}>
-                  <Ionicons name="shuffle" size={16} color={COLORS.white} />
-                  <Text style={styles.autoPopulateButtonText}>Auto-Populate</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.autoCompleteButton, raceResult?.isComplete && styles.buttonDisabled]}
-                  onPress={handleAutoPopulateAndComplete}
-                  disabled={raceResult?.isComplete}
-                >
-                  <Ionicons name="flash" size={16} color={COLORS.white} />
-                  <Text style={styles.autoCompleteButtonText}>Auto-Complete</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
             <Button
               title="Save Results"
               onPress={handleSaveResults}

@@ -88,6 +88,12 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
     totalPoints -= penalty;
   }
 
+  // V4: Late joiner catch-up points for missed races
+  const missedRaces = team.joinedAtRace || 0;
+  if (missedRaces > 0) {
+    totalPoints += missedRaces * PRICING_CONFIG.LATE_JOINER_POINTS_PER_RACE;
+  }
+
   return { totalPoints, driverPoints, constructorPoints };
 };
 
@@ -1458,28 +1464,34 @@ export const useTeamStore = create<TeamState>()(
   // Recalculate points for all teams
   recalculateAllTeamsPoints: () => {
     const { userTeams, currentTeam } = get();
-    const { driverPrices, constructorPrices } = useAdminStore.getState();
+    const { driverPrices, constructorPrices, raceResults } = useAdminStore.getState();
+
+    // Count total completed races
+    const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
 
     const updatedUserTeams = userTeams.map(team => {
       const { totalPoints, driverPoints, constructorPoints } = calculateTeamPointsFromRaces(team);
 
-      // Update driver points and sync current prices from market
+      // racesHeld = completed races since this team was created
+      const teamRacesHeld = Math.max(0, completedRaceCount - (team.joinedAtRace || 0));
+
+      // Update driver points, sync current prices, and update racesHeld
       const updatedDrivers = team.drivers.map(driver => {
         const priceUpdate = driverPrices[driver.driverId];
         return {
           ...driver,
           pointsScored: driverPoints[driver.driverId] || 0,
-          // Sync current price with market price
           currentPrice: priceUpdate?.currentPrice ?? driver.currentPrice,
+          racesHeld: teamRacesHeld,
         };
       });
 
-      // Update constructor points and sync current price from market
+      // Update constructor points, sync current price, and update racesHeld
       const updatedConstructor = team.constructor ? {
         ...team.constructor,
         pointsScored: constructorPoints,
-        // Sync current price with market price
         currentPrice: constructorPrices[team.constructor.constructorId]?.currentPrice ?? team.constructor.currentPrice,
+        racesHeld: teamRacesHeld,
       } : null;
 
       return {

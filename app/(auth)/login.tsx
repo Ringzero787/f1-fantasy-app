@@ -4,10 +4,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useAuthStore } from '../../src/store/auth.store';
 import { SocialAuthButtons } from '../../src/components';
 import { COLORS, SPACING, FONTS } from '../../src/config/constants';
 
@@ -64,6 +66,17 @@ export default function LoginScreen() {
             onAppleSignIn={handleAppleSignIn}
             disabled={isLoading}
           />
+
+          {/* Demo Mode */}
+          <TouchableOpacity
+            style={styles.demoButton}
+            onPress={() => {
+              useAuthStore.getState().enterDemoMode();
+              router.replace('/(tabs)');
+            }}
+          >
+            <Text style={styles.demoButtonText}>Continue as Guest</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -136,5 +149,17 @@ const styles = StyleSheet.create({
   errorText: {
     color: COLORS.error,
     fontSize: FONTS.sizes.sm,
+  },
+
+  demoButton: {
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+  },
+
+  demoButtonText: {
+    fontSize: FONTS.sizes.md,
+    color: '#6B7280',
+    fontWeight: '500',
   },
 });
