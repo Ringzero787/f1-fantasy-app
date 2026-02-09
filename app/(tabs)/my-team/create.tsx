@@ -122,7 +122,7 @@ type TeamMode = 'solo' | 'league';
 export default function CreateTeamScreen() {
   const { user } = useAuth();
   const { leagues, loadUserLeagues, lookupLeagueByCode, recentlyCreatedLeague, clearRecentlyCreatedLeague } = useLeagueStore();
-  const { createTeam, addDriver, setConstructor, userTeams, isLoading, error, currentTeam, setCurrentTeam } = useTeamStore();
+  const { createTeam, addDriver, setConstructor, userTeams, isLoading, error, currentTeam, setCurrentTeam, clearError } = useTeamStore();
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
 
@@ -145,6 +145,11 @@ export default function CreateTeamScreen() {
   const [foundLeague, setFoundLeague] = useState<League | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+
+  // Clear any stale errors from previous navigation
+  React.useEffect(() => {
+    clearError();
+  }, []);
 
   // Set up pre-selected league from URL params
   React.useEffect(() => {

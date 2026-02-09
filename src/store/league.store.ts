@@ -35,8 +35,8 @@ function generateInviteCode(): string {
   return code;
 }
 
-// Demo leagues for demo mode
-let demoLeagueIdCounter = 1;
+// Demo leagues for demo mode - use timestamp to avoid ID collisions across sessions
+let demoLeagueIdCounter = Date.now();
 
 interface LeagueState {
   leagues: League[];

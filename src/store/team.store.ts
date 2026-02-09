@@ -24,6 +24,7 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
   totalPoints: number;
   driverPoints: Record<string, number>;
   constructorPoints: number;
+  perRacePoints: { round: number; points: number }[];
 } => {
   const { raceResults } = useAdminStore.getState();
   let totalPoints = 0;
@@ -33,16 +34,23 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
   // Only count races after the team was created
   const joinedAtRace = team.joinedAtRace || 0;
 
+  // Collect completed race rounds relevant to this team
+  const completedRaces: { raceId: string; round: number; result: typeof raceResults[string] }[] = [];
+  Object.entries(raceResults).forEach(([raceId, result]) => {
+    if (!result.isComplete) return;
+    const round = raceRoundLookup[raceId] || 0;
+    if (round <= joinedAtRace) return;
+    completedRaces.push({ raceId, round, result });
+  });
+  completedRaces.sort((a, b) => a.round - b.round);
+
+  // Track per-race point totals
+  const perRacePoints: { round: number; points: number }[] = [];
+
   // Calculate points for each driver
   team.drivers.forEach(driver => {
     let driverTotal = 0;
-    Object.entries(raceResults).forEach(([raceId, result]) => {
-      if (!result.isComplete) return;
-      // Skip races before this team existed
-      const round = raceRoundLookup[raceId] || 0;
-      if (round <= joinedAtRace) return;
-
-      // Add race points
+    completedRaces.forEach(({ result }) => {
       const driverResult = result.driverResults.find(dr => dr.driverId === driver.driverId);
       if (driverResult) {
         let points = driverResult.points;
@@ -51,7 +59,6 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
         }
         driverTotal += points;
       }
-      // Add sprint points
       const sprintResult = result.sprintResults?.find(sr => sr.driverId === driver.driverId);
       if (sprintResult) {
         let points = sprintResult.points;
@@ -67,11 +74,7 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
 
   // Calculate points for constructor (no captain bonus for constructors)
   if (team.constructor) {
-    Object.entries(raceResults).forEach(([raceId, result]) => {
-      if (!result.isComplete) return;
-      const round = raceRoundLookup[raceId] || 0;
-      if (round <= joinedAtRace) return;
-
+    completedRaces.forEach(({ result }) => {
       const constructorResult = result.constructorResults.find(
         cr => cr.constructorId === team.constructor!.constructorId
       );
@@ -88,6 +91,32 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
     totalPoints += constructorPoints;
   }
 
+  // Build per-race totals (drivers + constructor for each race)
+  completedRaces.forEach(({ round, result }) => {
+    let raceTotal = 0;
+    team.drivers.forEach(driver => {
+      const driverResult = result.driverResults.find(dr => dr.driverId === driver.driverId);
+      if (driverResult) {
+        let points = driverResult.points;
+        if (team.captainDriverId === driver.driverId) points *= PRICING_CONFIG.CAPTAIN_MULTIPLIER;
+        raceTotal += points;
+      }
+      const sprintResult = result.sprintResults?.find(sr => sr.driverId === driver.driverId);
+      if (sprintResult) {
+        let points = sprintResult.points;
+        if (team.captainDriverId === driver.driverId) points *= PRICING_CONFIG.CAPTAIN_MULTIPLIER;
+        raceTotal += points;
+      }
+    });
+    if (team.constructor) {
+      const cr = result.constructorResults.find(c => c.constructorId === team.constructor!.constructorId);
+      if (cr) raceTotal += cr.points;
+      const scr = result.sprintConstructorResults?.find(c => c.constructorId === team.constructor!.constructorId);
+      if (scr) raceTotal += scr.points;
+    }
+    perRacePoints.push({ round, points: raceTotal });
+  });
+
   // V3: Apply stale roster penalty
   const racesSinceTransfer = team.racesSinceTransfer || 0;
   if (racesSinceTransfer > PRICING_CONFIG.STALE_ROSTER_THRESHOLD) {
@@ -102,11 +131,11 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
     totalPoints += missedRaces * PRICING_CONFIG.LATE_JOINER_POINTS_PER_RACE;
   }
 
-  return { totalPoints, driverPoints, constructorPoints };
+  return { totalPoints, driverPoints, constructorPoints, perRacePoints };
 };
 
-// Demo team counter
-let demoTeamIdCounter = 1;
+// Demo team counter - use timestamp to avoid ID collisions across sessions
+let demoTeamIdCounter = Date.now();
 
 // Periodic sync interval (60 seconds)
 const SYNC_INTERVAL_MS = 60 * 1000;
@@ -737,6 +766,9 @@ export const useTeamStore = create<TeamState>()(
           return;
         }
 
+        const { raceResults } = useAdminStore.getState();
+        const currentCompletedRaces = Object.values(raceResults).filter(r => r.isComplete).length;
+
         const fantasyDriver: FantasyDriver = {
           driverId: driver.id,
           name: driver.name,
@@ -747,7 +779,7 @@ export const useTeamStore = create<TeamState>()(
           pointsScored: 0,
           racesHeld: 0,
           contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
-          // V3: purchasedAtRaceId will be set when we have race context
+          addedAtRace: currentCompletedRaces,
         };
 
         const updatedTeam: FantasyTeam = {
@@ -784,6 +816,9 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
+      const { raceResults: fbRaceResults } = useAdminStore.getState();
+      const fbCompletedRaces = Object.values(fbRaceResults).filter(r => r.isComplete).length;
+
       const fantasyDriver: FantasyDriver = {
         driverId: driver.id,
         name: driver.name,
@@ -794,6 +829,7 @@ export const useTeamStore = create<TeamState>()(
         pointsScored: 0,
         racesHeld: 0,
         contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+        addedAtRace: fbCompletedRaces,
       };
 
       const updatedTeam: FantasyTeam = {
@@ -923,6 +959,9 @@ export const useTeamStore = create<TeamState>()(
         const oldDriverMarketPrice = oldDriverPriceUpdate?.currentPrice ?? oldDriver.currentPrice;
         const newDriverMarketPrice = newDriverPriceUpdate?.currentPrice ?? newDriver.price;
 
+        const { raceResults: swapRaceResults } = useAdminStore.getState();
+        const swapCompletedRaces = Object.values(swapRaceResults).filter(r => r.isComplete).length;
+
         const fantasyDriver: FantasyDriver = {
           driverId: newDriver.id,
           name: newDriver.name,
@@ -933,7 +972,7 @@ export const useTeamStore = create<TeamState>()(
           pointsScored: 0,
           racesHeld: 0,
           contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
-          // V3: purchasedAtRaceId will be set when we have race context
+          addedAtRace: swapCompletedRaces,
         };
 
         // Sell old driver at current market price minus 5% commission, buy new at market price
@@ -983,6 +1022,9 @@ export const useTeamStore = create<TeamState>()(
       const oldDriverMarketPrice = oldDriverPriceUpdate?.currentPrice ?? oldDriver.currentPrice;
       const newDriverMarketPrice = newDriverPriceUpdate?.currentPrice ?? newDriver.price;
 
+      const { raceResults: fbSwapRaceResults } = useAdminStore.getState();
+      const fbSwapCompletedRaces = Object.values(fbSwapRaceResults).filter(r => r.isComplete).length;
+
       const fantasyDriver: FantasyDriver = {
         driverId: newDriver.id,
         name: newDriver.name,
@@ -993,6 +1035,7 @@ export const useTeamStore = create<TeamState>()(
         pointsScored: 0,
         racesHeld: 0,
         contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+        addedAtRace: fbSwapCompletedRaces,
       };
 
       const saleValue = calculateSaleValue(oldDriverMarketPrice);
@@ -1484,19 +1527,20 @@ export const useTeamStore = create<TeamState>()(
     const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
 
     const updatedUserTeams = userTeams.map(team => {
-      const { totalPoints, driverPoints, constructorPoints } = calculateTeamPointsFromRaces(team);
-
-      // racesHeld = completed races since this team was created
-      const teamRacesHeld = Math.max(0, completedRaceCount - (team.joinedAtRace || 0));
+      const { totalPoints, driverPoints, constructorPoints, perRacePoints } = calculateTeamPointsFromRaces(team);
 
       // Update driver points, sync current prices, and update racesHeld
       let updatedDrivers = team.drivers.map(driver => {
         const priceUpdate = driverPrices[driver.driverId];
+        // racesHeld = completed races since this driver was added
+        // Use driver's addedAtRace if available, otherwise fall back to team's joinedAtRace
+        const driverAddedAt = driver.addedAtRace ?? (team.joinedAtRace || 0);
+        const driverRacesHeld = Math.max(0, completedRaceCount - driverAddedAt);
         return {
           ...driver,
           pointsScored: driverPoints[driver.driverId] || 0,
           currentPrice: priceUpdate?.currentPrice ?? driver.currentPrice,
-          racesHeld: teamRacesHeld,
+          racesHeld: driverRacesHeld,
         };
       });
 
@@ -1549,6 +1593,7 @@ export const useTeamStore = create<TeamState>()(
             racesHeld: 0,
             contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
             isReservePick: true,
+            addedAtRace: completedRaceCount,
           };
           updatedDrivers.push(reserveDriver);
           teamDriverIds.add(candidate.id);
@@ -1561,11 +1606,14 @@ export const useTeamStore = create<TeamState>()(
       const newBudget = team.budget + budgetReturn - autoFillCost;
 
       // Update constructor points, sync current price, and update racesHeld
+      const constructorRacesHeld = team.constructor
+        ? Math.max(0, completedRaceCount - (team.joinedAtRace || 0))
+        : 0;
       const updatedConstructor = team.constructor ? {
         ...team.constructor,
         pointsScored: constructorPoints,
         currentPrice: constructorPrices[team.constructor.constructorId]?.currentPrice ?? team.constructor.currentPrice,
-        racesHeld: teamRacesHeld,
+        racesHeld: constructorRacesHeld,
       } : null;
 
       return {
@@ -1575,8 +1623,51 @@ export const useTeamStore = create<TeamState>()(
         totalPoints,
         budget: newBudget,
         captainDriverId: captainId,
+        racesPlayed: perRacePoints.length,
+        pointsHistory: perRacePoints.map(r => r.points),
         updatedAt: new Date(),
       };
+    });
+
+    // Calculate raceWins per league: for each race, the team with the highest
+    // points in its league wins that race
+    const leagueTeams: Record<string, typeof updatedUserTeams> = {};
+    updatedUserTeams.forEach(team => {
+      team.raceWins = 0;
+      const lid = team.leagueId || 'solo';
+      if (!leagueTeams[lid]) leagueTeams[lid] = [];
+      leagueTeams[lid].push(team);
+    });
+
+    Object.values(leagueTeams).forEach(teams => {
+      if (teams.length <= 1) return;
+
+      // Build per-team per-race data
+      const teamRaceData = teams.map(team => {
+        const { perRacePoints: prp } = calculateTeamPointsFromRaces(team);
+        const map = new Map<number, number>();
+        prp.forEach(r => map.set(r.round, r.points));
+        return { team, perRace: map };
+      });
+
+      // Get all rounds across all teams
+      const allRounds = new Set<number>();
+      teamRaceData.forEach(td => td.perRace.forEach((_, round) => allRounds.add(round)));
+
+      allRounds.forEach(round => {
+        let bestPoints = -1;
+        let winnerIdx = -1;
+        teamRaceData.forEach((td, idx) => {
+          const pts = td.perRace.get(round) || 0;
+          if (pts > bestPoints) {
+            bestPoints = pts;
+            winnerIdx = idx;
+          }
+        });
+        if (winnerIdx >= 0 && bestPoints > 0) {
+          teamRaceData[winnerIdx].team.raceWins += 1;
+        }
+      });
     });
 
     // Update currentTeam if it exists

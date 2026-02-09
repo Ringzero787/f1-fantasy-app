@@ -59,13 +59,20 @@ export function useConstructors() {
         const constructors = [...demoConstructors].sort((a, b) => b.price - a.price);
         return addSeasonPointsAndPrices(constructors);
       }
-      // Try Firestore first, fall back to demo data if empty
-      const firestoreData = await constructorService.getAllConstructors();
-      if (firestoreData.length === 0) {
+      try {
+        // Try Firestore first, fall back to demo data if empty
+        const firestoreData = await constructorService.getAllConstructors();
+        if (firestoreData.length === 0) {
+          console.log('Firestore empty, using demo constructors');
+          const constructors = [...demoConstructors].sort((a, b) => b.price - a.price);
+          return addSeasonPointsAndPrices(constructors);
+        }
+        return addSeasonPointsAndPrices(firestoreData);
+      } catch (error) {
+        console.log('Firestore error, using demo constructors:', error);
         const constructors = [...demoConstructors].sort((a, b) => b.price - a.price);
         return addSeasonPointsAndPrices(constructors);
       }
-      return addSeasonPointsAndPrices(firestoreData);
     },
   });
 }
@@ -94,12 +101,18 @@ export function useConstructor(constructorId: string) {
         const constructor = demoConstructors.find(c => c.id === constructorId) || null;
         return addSeasonPointsAndPrice(constructor);
       }
-      const firestoreData = await constructorService.getConstructorById(constructorId);
-      if (!firestoreData) {
+      try {
+        const firestoreData = await constructorService.getConstructorById(constructorId);
+        if (!firestoreData) {
+          const constructor = demoConstructors.find(c => c.id === constructorId) || null;
+          return addSeasonPointsAndPrice(constructor);
+        }
+        return addSeasonPointsAndPrice(firestoreData);
+      } catch (error) {
+        console.log('Firestore error, using demo constructor:', error);
         const constructor = demoConstructors.find(c => c.id === constructorId) || null;
         return addSeasonPointsAndPrice(constructor);
       }
-      return addSeasonPointsAndPrice(firestoreData);
     },
     enabled: !!constructorId,
   });
@@ -129,11 +142,16 @@ export function useAffordableConstructors(maxPrice: number) {
       if (isDemoMode) {
         return getDemoAffordable();
       }
-      const firestoreData = await constructorService.getAffordableConstructors(maxPrice);
-      if (firestoreData.length === 0) {
+      try {
+        const firestoreData = await constructorService.getAffordableConstructors(maxPrice);
+        if (firestoreData.length === 0) {
+          return getDemoAffordable();
+        }
+        return firestoreData;
+      } catch (error) {
+        console.log('Firestore error, using demo constructors:', error);
         return getDemoAffordable();
       }
-      return firestoreData;
     },
     enabled: maxPrice > 0,
   });
@@ -166,11 +184,16 @@ export function useTopConstructors(limit: number = 5) {
       if (isDemoMode) {
         return getDemoTop();
       }
-      const firestoreData = await constructorService.getTopConstructors(limit);
-      if (firestoreData.length === 0) {
+      try {
+        const firestoreData = await constructorService.getTopConstructors(limit);
+        if (firestoreData.length === 0) {
+          return getDemoTop();
+        }
+        return firestoreData;
+      } catch (error) {
+        console.log('Firestore error, using demo constructors:', error);
         return getDemoTop();
       }
-      return firestoreData;
     },
   });
 }

@@ -178,6 +178,7 @@ export interface FantasyDriver {
   // V5: Contract system - drivers auto-sell after contractLength races
   contractLength?: number; // Default 5
   isReservePick?: boolean; // true if system auto-filled at lockout
+  addedAtRace?: number; // Completed race count when driver was added
 }
 
 export interface FantasyConstructor {

@@ -114,7 +114,7 @@ export default function LeagueAdminScreen() {
   };
 
   const handleDeleteLeague = async () => {
-    if (deleteConfirmText !== currentLeague.name) {
+    if (deleteConfirmText.replace(/\s+/g, ' ').trim() !== currentLeague.name.replace(/\s+/g, ' ').trim()) {
       Alert.alert('Error', 'League name does not match. Please type it exactly.');
       return;
     }
@@ -400,7 +400,7 @@ export default function LeagueAdminScreen() {
                 This will permanently delete the league "{currentLeague.name}" and remove all {members.length} members.
               </Text>
               <Text style={styles.deleteConfirmPrompt}>
-                Type <Text style={styles.leagueNameHighlight}>{currentLeague.name}</Text> to confirm:
+                Type <Text style={styles.leagueNameHighlight}>{currentLeague.name.replace(/\s+/g, ' ').trim()}</Text> to confirm:
               </Text>
               <TextInput
                 style={styles.deleteConfirmInput}
@@ -423,7 +423,7 @@ export default function LeagueAdminScreen() {
                   title={isDeleting ? 'Deleting...' : 'Delete Forever'}
                   onPress={handleDeleteLeague}
                   style={styles.confirmDeleteButton}
-                  disabled={isDeleting || deleteConfirmText !== currentLeague.name}
+                  disabled={isDeleting || deleteConfirmText.replace(/\s+/g, ' ').trim() !== currentLeague.name.replace(/\s+/g, ' ').trim()}
                 />
               </View>
             </View>

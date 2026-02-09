@@ -80,6 +80,12 @@ export default function LeagueDetailScreen() {
       totalPoints: team.totalPoints || 0,
       rank: 0,
       joinedAt: team.createdAt,
+      racesPlayed: team.racesPlayed || 0,
+      pprAverage: team.racesPlayed && team.racesPlayed > 0
+        ? Math.round((team.totalPoints / team.racesPlayed) * 10) / 10
+        : 0,
+      recentFormPoints: (team.pointsHistory || []).slice(-5).reduce((a, b) => a + b, 0),
+      raceWins: team.raceWins || 0,
     }));
 
     // Sort based on selected view and assign ranks

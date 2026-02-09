@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useDrivers, useLockoutStatus } from '../../../src/hooks';
 import { useTeamStore } from '../../../src/store/team.store';
+import { useAdminStore } from '../../../src/store/admin.store';
 import { Loading, DriverCard, Button, SmartRecommendations } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE } from '../../../src/config/constants';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
@@ -33,6 +34,9 @@ export default function SelectDriverScreen() {
   }, [allDrivers]);
 
   const [selectedDrivers, setSelectedDrivers] = useState<Driver[]>([]);
+  const [contractLengths, setContractLengths] = useState<Record<string, number>>({});
+  const [pendingDriver, setPendingDriver] = useState<Driver | null>(null);
+  const [pendingContractLength, setPendingContractLength] = useState(PRICING_CONFIG.CONTRACT_LENGTH);
 
   // Refs for auto-save on unmount
   const selectedDriversRef = useRef<Driver[]>([]);
@@ -42,10 +46,18 @@ export default function SelectDriverScreen() {
     selectedDriversRef.current = selectedDrivers;
   }, [selectedDrivers]);
 
+  const contractLengthsRef = useRef<Record<string, number>>({});
+  useEffect(() => {
+    contractLengthsRef.current = contractLengths;
+  }, [contractLengths]);
+
   // Atomic helper: apply selected drivers to the team in one shot
-  const applyDriversToTeam = (pending: Driver[]) => {
+  const applyDriversToTeam = (pending: Driver[], lengths: Record<string, number>) => {
     const team = useTeamStore.getState().currentTeam;
     if (!team || pending.length === 0) return;
+
+    const completedRaceCount = Object.values(useAdminStore.getState().raceResults)
+      .filter(r => r.isComplete).length;
 
     if (isSwapMode && swapDriverId && pending.length > 0) {
       // Swap: remove old driver, add new one
@@ -61,7 +73,8 @@ export default function SelectDriverScreen() {
         currentPrice: newDriver.price,
         pointsScored: 0,
         racesHeld: 0,
-        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+        contractLength: lengths[newDriver.id] || PRICING_CONFIG.CONTRACT_LENGTH,
+        addedAtRace: completedRaceCount,
       };
       const updatedTeam: FantasyTeam = {
         ...team,
@@ -85,7 +98,8 @@ export default function SelectDriverScreen() {
         currentPrice: driver.price,
         pointsScored: 0,
         racesHeld: 0,
-        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+        contractLength: lengths[driver.id] || PRICING_CONFIG.CONTRACT_LENGTH,
+        addedAtRace: completedRaceCount,
       }));
       const totalCost = pending.reduce((sum, d) => sum + d.price, 0);
       const updatedTeam: FantasyTeam = {
@@ -105,7 +119,7 @@ export default function SelectDriverScreen() {
       if (confirmedRef.current) return;
       const pending = selectedDriversRef.current;
       if (pending.length === 0) return;
-      applyDriversToTeam(pending);
+      applyDriversToTeam(pending, contractLengthsRef.current);
     };
   }, []);
 
@@ -150,31 +164,50 @@ export default function SelectDriverScreen() {
 
     if (isSelected) {
       setSelectedDrivers(selectedDrivers.filter((d) => d.id !== driver.id));
+      const { [driver.id]: _, ...rest } = contractLengths;
+      setContractLengths(rest);
     } else {
       if (selectedDrivers.length >= maxSelectableDrivers) return;
       if (driver.price > effectiveBudget) return;
 
-      // If adding/swapping a single driver from My Team, add immediately and go back
-      if (maxSelectableDrivers === 1) {
-        confirmedRef.current = true;
-        applyDriversToTeam([driver]);
-        router.back();
-        return;
-      }
-
-      setSelectedDrivers([...selectedDrivers, driver]);
+      // Show contract length picker
+      setPendingDriver(driver);
+      setPendingContractLength(PRICING_CONFIG.CONTRACT_LENGTH);
     }
+  };
+
+  const handleConfirmContract = () => {
+    if (!pendingDriver) return;
+    const driver = pendingDriver;
+    const length = pendingContractLength;
+
+    const updatedLengths = { ...contractLengths, [driver.id]: length };
+    setContractLengths(updatedLengths);
+
+    // If adding/swapping a single driver from My Team, add immediately and go back
+    if (maxSelectableDrivers === 1) {
+      confirmedRef.current = true;
+      applyDriversToTeam([driver], updatedLengths);
+      router.back();
+      setPendingDriver(null);
+      return;
+    }
+
+    setSelectedDrivers([...selectedDrivers, driver]);
+    setPendingDriver(null);
   };
 
   const handleRemoveSelected = (driverId: string) => {
     setSelectedDrivers(selectedDrivers.filter((d) => d.id !== driverId));
+    const { [driverId]: _, ...rest } = contractLengths;
+    setContractLengths(rest);
   };
 
   const handleConfirm = () => {
     if (selectedDrivers.length === 0) return;
 
     confirmedRef.current = true;
-    applyDriversToTeam(selectedDrivers);
+    applyDriversToTeam(selectedDrivers, contractLengths);
     router.back();
   };
 
@@ -222,7 +255,7 @@ export default function SelectDriverScreen() {
               onPress={() => handleRemoveSelected(driver.id)}
             >
               <Text style={styles.chipText}>{driver.shortName}</Text>
-              <Text style={styles.chipPrice}>${driver.price}</Text>
+              <Text style={styles.chipPrice}>${driver.price} {contractLengths[driver.id] || PRICING_CONFIG.CONTRACT_LENGTH}R</Text>
               <Ionicons name="close" size={14} color={COLORS.white} />
             </TouchableOpacity>
           ))}
@@ -286,8 +319,57 @@ export default function SelectDriverScreen() {
         }
       />
 
+      {/* Contract Length Picker */}
+      {pendingDriver && (
+        <View style={styles.contractOverlay}>
+          <View style={styles.contractModal}>
+            <Text style={styles.contractTitle}>{pendingDriver.name}</Text>
+            <Text style={styles.contractSubtitle}>${pendingDriver.price}</Text>
+            <Text style={styles.contractLabel}>Contract Length</Text>
+            <View style={styles.contractButtons}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <TouchableOpacity
+                  key={n}
+                  style={[
+                    styles.contractButton,
+                    pendingContractLength === n && styles.contractButtonActive,
+                  ]}
+                  onPress={() => setPendingContractLength(n)}
+                >
+                  <Text
+                    style={[
+                      styles.contractButtonText,
+                      pendingContractLength === n && styles.contractButtonTextActive,
+                    ]}
+                  >
+                    {n}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.contractHint}>
+              {pendingContractLength} race{pendingContractLength !== 1 ? 's' : ''}
+            </Text>
+            <View style={styles.contractActions}>
+              <TouchableOpacity
+                style={styles.contractCancelBtn}
+                onPress={() => setPendingDriver(null)}
+              >
+                <Text style={styles.contractCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.contractConfirmBtn}
+                onPress={handleConfirmContract}
+              >
+                <Text style={styles.contractConfirmText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Confirm Button */}
-      {selectedDrivers.length > 0 && (
+      {selectedDrivers.length > 0 && !pendingDriver && (
         <View style={styles.confirmContainer}>
           <View style={styles.selectedInfo}>
             <Text style={styles.selectedName}>
@@ -457,5 +539,107 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.primary,
     marginTop: 2,
+  },
+
+  // Contract length picker
+  contractOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    top: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  contractModal: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: BORDER_RADIUS.lg,
+    borderTopRightRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xl,
+  },
+  contractTitle: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+    textAlign: 'center',
+  },
+  contractSubtitle: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.primary,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 2,
+    marginBottom: SPACING.md,
+  },
+  contractLabel: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
+  },
+  contractButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  contractButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: COLORS.border.default,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contractButtonActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+  },
+  contractButtonText: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '700',
+    color: COLORS.text.secondary,
+  },
+  contractButtonTextActive: {
+    color: COLORS.white,
+  },
+  contractHint: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+  },
+  contractActions: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    marginTop: SPACING.lg,
+  },
+  contractCancelBtn: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    borderRadius: BORDER_RADIUS.button,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+    backgroundColor: COLORS.card,
+  },
+  contractCancelText: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.secondary,
+    fontWeight: '500',
+  },
+  contractConfirmBtn: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    borderRadius: BORDER_RADIUS.button,
+    backgroundColor: COLORS.primary,
+  },
+  contractConfirmText: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.white,
+    fontWeight: '600',
   },
 });

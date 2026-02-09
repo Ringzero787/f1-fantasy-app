@@ -152,11 +152,15 @@ export default function MyTeamScreen() {
     let leagueRank: number | null = null;
     let leagueSize = 0;
     if (currentTeam?.leagueId) {
-      const leagueTeams = userTeams.filter(t => t.leagueId === currentTeam.leagueId);
-      leagueSize = leagueTeams.length;
-      const sorted = [...leagueTeams].sort((a, b) => b.totalPoints - a.totalPoints);
-      const rankIndex = sorted.findIndex(t => t.id === currentTeam.id);
-      if (rankIndex !== -1) leagueRank = rankIndex + 1;
+      // Only show league stats if the league actually exists
+      const leagueExists = leagues.some(l => l.id === currentTeam.leagueId);
+      if (leagueExists) {
+        const leagueTeams = userTeams.filter(t => t.leagueId === currentTeam.leagueId);
+        leagueSize = leagueTeams.length;
+        const sorted = [...leagueTeams].sort((a, b) => b.totalPoints - a.totalPoints);
+        const rankIndex = sorted.findIndex(t => t.id === currentTeam.id);
+        if (rankIndex !== -1) leagueRank = rankIndex + 1;
+      }
     }
 
     return {
@@ -166,7 +170,7 @@ export default function MyTeamScreen() {
       leagueSize,
       hasCompletedRaces: completedRaces.length > 0,
     };
-  }, [raceResults, currentTeam, userTeams]);
+  }, [raceResults, currentTeam, userTeams, leagues]);
 
   // Build a lookup: constructorId -> { shortName, primaryColor }
   const constructorLookup = useMemo(() => {
@@ -477,6 +481,16 @@ export default function MyTeamScreen() {
             <Ionicons name="diamond-outline" size={14} color={COLORS.gold} />
             <Text style={styles.aceNoticeText}>
               Select an Ace driver to earn 2x points! Tap the <Ionicons name="diamond-outline" size={12} color={COLORS.gold} /> icon on an eligible driver (under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE}).
+            </Text>
+          </View>
+        )}
+
+        {/* Constructor reminder */}
+        {currentTeam && !currentTeam.constructor && driversCount > 0 && (
+          <View style={styles.constructorNotice}>
+            <Ionicons name="construct-outline" size={14} color={COLORS.primary} />
+            <Text style={styles.constructorNoticeText}>
+              Make sure you select a constructor!
             </Text>
           </View>
         )}
@@ -1117,6 +1131,24 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gold + '30',
   },
   aceNoticeText: {
+    flex: 1,
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.secondary,
+    lineHeight: 16,
+  },
+  constructorNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+  },
+  constructorNoticeText: {
     flex: 1,
     fontSize: FONTS.sizes.xs,
     color: COLORS.text.secondary,

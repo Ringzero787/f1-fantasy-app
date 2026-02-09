@@ -128,7 +128,8 @@
       "Bash(npm test:*)",
       "Bash(cd:*)",
       "WebFetch(domain:openf1.org)",
-      "Bash(gh auth status:*)"
+      "Bash(gh auth status:*)",
+      "Bash(wc:*)"
     ]
   }
 }
