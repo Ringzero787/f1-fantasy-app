@@ -555,32 +555,32 @@ export default function MyTeamScreen() {
               const effectiveSaleValue = Math.max(0, driver.livePrice - earlyTermFee);
 
               return (
-                <View key={driver.driverId} style={styles.driverRow}>
+                <View key={driver.driverId} style={[styles.driverRow, isReserve && styles.reserveRow]}>
                   {/* Top line: name + constructor badge + ace + sell */}
                   <View style={styles.driverRowTop}>
                     <View style={styles.driverRowLeft}>
                       <View style={styles.driverNameLine}>
                         {driver.driverNumber != null && (
-                          <Text style={[styles.driverNumber, cInfo && { color: cInfo.primaryColor }]}>
+                          <Text style={[styles.driverNumber, cInfo && { color: isReserve ? COLORS.text.muted : cInfo.primaryColor }]}>
                             {driver.driverNumber}
                           </Text>
                         )}
-                        <Text style={styles.driverName}>{driver.name}</Text>
+                        <Text style={[styles.driverName, isReserve && styles.reserveDriverName]}>{driver.name}</Text>
                         {cInfo && (
-                          <View style={[styles.constructorBadge, { backgroundColor: cInfo.primaryColor }]}>
+                          <View style={[styles.constructorBadge, { backgroundColor: isReserve ? COLORS.text.muted : cInfo.primaryColor }]}>
                             <Text style={styles.constructorBadgeText}>{cInfo.shortName}</Text>
                           </View>
                         )}
                         {isReserve && (
                           <View style={styles.reserveBadge}>
-                            <Text style={styles.reserveBadgeText}>RESERVE</Text>
+                            <Text style={styles.reserveBadgeText}>AUTO-FILL</Text>
                           </View>
                         )}
                       </View>
                     </View>
                     <View style={styles.driverRowRight}>
                       <Text style={styles.driverPoints}>{formatPoints(driver.pointsScored)} pts</Text>
-                      {isAce ? (
+                      {!isReserve && (isAce ? (
                         <TouchableOpacity onPress={() => handleClearCaptain()} hitSlop={8}>
                           <View style={styles.aceBadge}>
                             <Ionicons name="diamond" size={14} color={COLORS.white} />
@@ -592,7 +592,7 @@ export default function MyTeamScreen() {
                         </TouchableOpacity>
                       ) : (
                         <View style={{ width: 18 }} />
-                      )}
+                      ))}
                       {canModify && (() => {
                         const saleDiff = effectiveSaleValue - driver.purchasePrice;
                         const saleColor = saleDiff > 0 ? '#16a34a' : saleDiff < 0 ? COLORS.error : COLORS.text.muted;
@@ -609,34 +609,43 @@ export default function MyTeamScreen() {
                     </View>
                   </View>
 
-                  {/* Bottom line: price info + loyalty */}
-                  <View style={styles.driverMeta}>
-                    <Text style={styles.driverPrice}>${driver.livePrice}</Text>
-                    {priceDiff !== 0 && (
-                      <View style={[styles.priceDiffBadge, priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                        <Ionicons name={priceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={9} color={COLORS.white} />
-                        <Text style={styles.priceDiffText}>${Math.abs(priceDiff)}</Text>
-                      </View>
-                    )}
-                    <Text style={styles.metaSeparator}>·</Text>
-                    <Text style={styles.saleText}>
-                      Sell: ${effectiveSaleValue}{earlyTermFee > 0 ? ` (-$${earlyTermFee} fee)` : priceDiff > 0 ? ` (+$${priceDiff})` : priceDiff < 0 ? ` (-$${Math.abs(priceDiff)})` : ''}
-                    </Text>
-                    <Text style={styles.metaSeparator}>·</Text>
-                    <Ionicons name="document-text-outline" size={10} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
-                    {isLastRace ? (
-                      <Text style={styles.contractLastRace}>LAST RACE</Text>
-                    ) : (
-                      <Text style={[styles.contractText, contractRemaining <= 1 && { color: COLORS.warning }]}>
-                        {driver.racesHeld || 0}/{contractLen}
+                  {/* Bottom line: reserve notice or price info + loyalty */}
+                  {isReserve ? (
+                    <View style={styles.driverMeta}>
+                      <Ionicons name="information-circle-outline" size={12} color={COLORS.text.muted} />
+                      <Text style={styles.reserveMetaText}>
+                        Auto-filled · No contract · No loyalty bonus · Swap anytime for free
                       </Text>
-                    )}
-                    <Text style={styles.metaSeparator}>·</Text>
-                    <Ionicons name="flame" size={10} color={loyalty > 0 ? COLORS.gold : COLORS.text.muted} />
-                    <Text style={[styles.loyaltyText, loyalty > 0 && { color: COLORS.gold }]}>
-                      +{nextRate}/race
-                    </Text>
-                  </View>
+                    </View>
+                  ) : (
+                    <View style={styles.driverMeta}>
+                      <Text style={styles.driverPrice}>${driver.livePrice}</Text>
+                      {priceDiff !== 0 && (
+                        <View style={[styles.priceDiffBadge, priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
+                          <Ionicons name={priceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={9} color={COLORS.white} />
+                          <Text style={styles.priceDiffText}>${Math.abs(priceDiff)}</Text>
+                        </View>
+                      )}
+                      <Text style={styles.metaSeparator}>·</Text>
+                      <Text style={styles.saleText}>
+                        Sell: ${effectiveSaleValue}{earlyTermFee > 0 ? ` (-$${earlyTermFee} fee)` : priceDiff > 0 ? ` (+$${priceDiff})` : priceDiff < 0 ? ` (-$${Math.abs(priceDiff)})` : ''}
+                      </Text>
+                      <Text style={styles.metaSeparator}>·</Text>
+                      <Ionicons name="document-text-outline" size={10} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
+                      {isLastRace ? (
+                        <Text style={styles.contractLastRace}>LAST RACE</Text>
+                      ) : (
+                        <Text style={[styles.contractText, contractRemaining <= 1 && { color: COLORS.warning }]}>
+                          {driver.racesHeld || 0}/{contractLen}
+                        </Text>
+                      )}
+                      <Text style={styles.metaSeparator}>·</Text>
+                      <Ionicons name="flame" size={10} color={loyalty > 0 ? COLORS.gold : COLORS.text.muted} />
+                      <Text style={[styles.loyaltyText, loyalty > 0 && { color: COLORS.gold }]}>
+                        +{nextRate}/race
+                      </Text>
+                    </View>
+                  )}
                 </View>
               );
             })
@@ -1136,18 +1145,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.warning,
   },
+  reserveRow: {
+    opacity: 0.6,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.text.muted,
+  },
+  reserveDriverName: {
+    color: COLORS.text.muted,
+  },
+  reserveMetaText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    fontStyle: 'italic',
+    marginLeft: 4,
+  },
   reserveBadge: {
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 4,
-    backgroundColor: COLORS.info + '20',
+    backgroundColor: COLORS.text.muted + '25',
     borderWidth: 1,
-    borderColor: COLORS.info + '40',
+    borderColor: COLORS.text.muted + '40',
   },
   reserveBadgeText: {
     fontSize: 9,
     fontWeight: '700',
-    color: COLORS.info,
+    color: COLORS.text.muted,
   },
   lockoutNotice: {
     flexDirection: 'row',

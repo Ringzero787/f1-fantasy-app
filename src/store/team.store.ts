@@ -1637,7 +1637,8 @@ export const useTeamStore = create<TeamState>()(
       let autoFillBudget = team.budget + budgetReturn;
       const teamDriverIds = new Set(updatedDrivers.map(d => d.driverId));
 
-      if (updatedDrivers.length < TEAM_SIZE && expiredDriverIds.length > 0) {
+      // Only auto-fill after all lockouts have cleared (team runs short during lockout race)
+      if (updatedDrivers.length < TEAM_SIZE && Object.keys(updatedLockouts).length === 0) {
         // Find cheapest available drivers not already on the team and not locked out
         const availableForAutoFill = demoDrivers
           .filter(d => d.isActive && !teamDriverIds.has(d.id) && !isDriverLockedOut(updatedLockouts, d.id, completedRaceCount))
