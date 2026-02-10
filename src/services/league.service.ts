@@ -74,6 +74,17 @@ export const leagueService = {
     data: CreateLeagueForm,
     seasonId: string
   ): Promise<League> {
+    // Check for duplicate league name globally
+    const nameQuery = query(
+      leaguesCollection,
+      where('name', '==', data.name),
+      limit(1)
+    );
+    const nameSnapshot = await getDocs(nameQuery);
+    if (!nameSnapshot.empty) {
+      throw new Error('A league with this name already exists');
+    }
+
     const inviteCode = generateInviteCode();
 
     const leagueData = {

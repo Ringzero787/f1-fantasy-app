@@ -251,6 +251,10 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     try {
       if (isDemoMode) {
         // In demo mode, create league locally with just the owner
+        // Check for duplicate league name
+        if (get().leagues.some(l => l.name === data.name)) {
+          throw new Error('A league with this name already exists');
+        }
         const leagueId = `demo-league-${demoLeagueIdCounter++}`;
         const league: League = {
           id: leagueId,

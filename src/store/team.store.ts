@@ -651,6 +651,10 @@ export const useTeamStore = create<TeamState>()(
     try {
       if (isDemoMode) {
         // In demo mode, create team locally
+        // Check for duplicate team name
+        if (get().userTeams.some(t => t.name === name)) {
+          throw new Error('A team with this name already exists');
+        }
         const teamId = `demo-team-${demoTeamIdCounter++}`;
         // Get current race number from admin store for late joiner tracking
         const completedRaces = Object.values(useAdminStore.getState().raceResults).filter(r => r.isComplete).length;
@@ -1501,6 +1505,11 @@ export const useTeamStore = create<TeamState>()(
     try {
       if (isDemoMode) {
         // In demo mode, update team name locally
+        // Check for duplicate team name (exclude current team)
+        const { userTeams } = get();
+        if (userTeams.some(t => t.name === name.trim() && t.id !== currentTeam.id)) {
+          throw new Error('A team with this name already exists');
+        }
         const updatedTeam: FantasyTeam = {
           ...currentTeam,
           name: name.trim(),

@@ -55,6 +55,17 @@ export const teamService = {
       }
     }
 
+    // Check for duplicate team name globally
+    const nameQuery = query(
+      teamsCollection,
+      where('name', '==', teamName),
+      limit(1)
+    );
+    const nameSnapshot = await getDocs(nameQuery);
+    if (!nameSnapshot.empty) {
+      throw new Error('A team with this name already exists');
+    }
+
     const teamData = {
       userId,
       leagueId,
@@ -548,6 +559,17 @@ export const teamService = {
     const team = await this.getTeamById(teamId);
     if (!team) {
       throw new Error('Team not found');
+    }
+
+    // Check for duplicate team name globally (exclude current team)
+    const nameQuery = query(
+      teamsCollection,
+      where('name', '==', name),
+      limit(1)
+    );
+    const nameSnapshot = await getDocs(nameQuery);
+    if (!nameSnapshot.empty && nameSnapshot.docs[0].id !== teamId) {
+      throw new Error('A team with this name already exists');
     }
 
     const teamRef = doc(db, 'fantasyTeams', teamId);
