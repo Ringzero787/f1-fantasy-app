@@ -7,7 +7,7 @@
 import type { Driver, Constructor, Race, RaceResults } from '../types';
 
 export const demoDrivers: Driver[] = [
-  // A-Tier Drivers (price > 200) - prices from (2025pts / 24 races) * $10
+  // A-Tier Drivers (price > 100) - prices from (2025pts / 24 races) * $10
   {
     id: 'norris',
     name: 'Lando Norris',
@@ -40,7 +40,7 @@ export const demoDrivers: Driver[] = [
     tier: 'A',
     isActive: true,
   },
-  // B-Tier Drivers (price <= 200)
+  // B-Tier Drivers (price > 50 and <= 100) / C-Tier Drivers (price <= 50)
   {
     id: 'piastri',
     name: 'Oscar Piastri',

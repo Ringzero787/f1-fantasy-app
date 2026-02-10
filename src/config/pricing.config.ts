@@ -29,7 +29,8 @@ export const PRICING_CONFIG = {
   MAX_CHANGE_PER_RACE: 25,   // V3: was 15 (more volatility)
 
   // Tier thresholds
-  A_TIER_THRESHOLD: 200, // Price above this = A-tier
+  A_TIER_THRESHOLD: 100, // Price above this = A-tier
+  B_TIER_THRESHOLD: 50,  // Price above this (but <= A) = B-tier, at or below = C-tier
 
   // Team budget
   STARTING_BUDGET: 1000, // $1,000 starting budget
@@ -38,7 +39,7 @@ export const PRICING_CONFIG = {
 
   // V3: Captain System
   CAPTAIN_MULTIPLIER: 2.0, // Captain scores 2x points
-  CAPTAIN_MAX_PRICE: 200,  // Drivers over this price cannot be captain
+  CAPTAIN_MAX_PRICE: 100,  // Drivers over this price cannot be captain (ace)
 
   // V3: Stale Roster Penalty (encourages active management)
   STALE_ROSTER_THRESHOLD: 5,  // Races before penalty kicks in
@@ -149,8 +150,10 @@ export function calculatePriceChange(
 /**
  * Get driver tier based on price
  */
-export function getDriverTier(price: number): 'A' | 'B' {
-  return price > PRICING_CONFIG.A_TIER_THRESHOLD ? 'A' : 'B';
+export function getDriverTier(price: number): 'A' | 'B' | 'C' {
+  if (price > PRICING_CONFIG.A_TIER_THRESHOLD) return 'A';
+  if (price > PRICING_CONFIG.B_TIER_THRESHOLD) return 'B';
+  return 'C';
 }
 
 /**

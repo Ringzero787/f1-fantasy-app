@@ -15,6 +15,7 @@ import {
 import { db } from '../config/firebase';
 import {
   TIER_A_THRESHOLD,
+  TIER_B_THRESHOLD,
   PPM_GREAT,
   PPM_GOOD,
   PPM_POOR,
@@ -25,7 +26,7 @@ import {
 import type { Driver, Constructor, PriceHistory } from '../types';
 
 export type PerformanceTier = 'great' | 'good' | 'poor' | 'terrible';
-export type PriceTier = 'A' | 'B';
+export type PriceTier = 'A' | 'B' | 'C';
 
 const driversCollection = collection(db, 'drivers');
 const constructorsCollection = collection(db, 'constructors');
@@ -93,7 +94,9 @@ export const pricingService = {
    * Determine price tier based on current price
    */
   getPriceTier(price: number): PriceTier {
-    return price >= TIER_A_THRESHOLD ? 'A' : 'B';
+    if (price > TIER_A_THRESHOLD) return 'A';
+    if (price > TIER_B_THRESHOLD) return 'B';
+    return 'C';
   },
 
   /**
@@ -107,7 +110,7 @@ export const pricingService = {
     const performanceTier = this.getPerformanceTier(ppm);
     const priceTier = this.getPriceTier(currentPrice);
 
-    const priceChangeMap = priceTier === 'A' ? PRICE_CHANGES.A_TIER : PRICE_CHANGES.B_TIER;
+    const priceChangeMap = priceTier === 'A' ? PRICE_CHANGES.A_TIER : priceTier === 'B' ? PRICE_CHANGES.B_TIER : PRICE_CHANGES.C_TIER;
     const change = priceChangeMap[performanceTier];
     const newPrice = Math.max(50, currentPrice + change); // Minimum price of 50
 

@@ -166,9 +166,9 @@ export function DriverCard({
 
         <View style={styles.stat}>
           <Text style={styles.statLabel}>TIER</Text>
-          <View style={[styles.tierBadge, driver.tier === 'A' ? styles.tierA : styles.tierB]}>
-            <Text style={[styles.tierText, driver.tier === 'A' && styles.tierAText]}>
-              {driver.tier === 'A' ? 'Premium' : 'Standard'}
+          <View style={[styles.tierBadge, driver.tier === 'A' ? styles.tierA : driver.tier === 'C' ? styles.tierC : styles.tierB]}>
+            <Text style={[styles.tierText, driver.tier === 'A' && styles.tierAText, driver.tier === 'C' && styles.tierCText]}>
+              {driver.tier === 'A' ? 'Premium' : driver.tier === 'C' ? 'Budget' : 'Standard'}
             </Text>
           </View>
         </View>
@@ -355,6 +355,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
 
+  tierC: {
+    backgroundColor: COLORS.success + '20',
+  },
+
   tierText: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
@@ -363,6 +367,10 @@ const styles = StyleSheet.create({
 
   tierAText: {
     color: COLORS.purple[400],
+  },
+
+  tierCText: {
+    color: COLORS.success,
   },
 
   compactTeamColor: {

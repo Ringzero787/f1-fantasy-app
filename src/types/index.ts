@@ -37,7 +37,7 @@ export interface Driver {
   seasonPoints: number; // 2025 F1 championship points (used for initial price calculation)
   currentSeasonPoints: number; // 2026 F1 championship points (displayed to users)
   fantasyPoints: number; // Total fantasy points scored
-  tier: 'A' | 'B'; // A = >200 price, B = <200 price
+  tier: 'A' | 'B' | 'C'; // A = >100, B = >50, C = <=50
   isActive: boolean;
 }
 
@@ -430,7 +430,7 @@ export interface ApiError {
 export interface DriverFilter {
   search?: string;
   constructorId?: string;
-  tier?: 'A' | 'B';
+  tier?: 'A' | 'B' | 'C';
   minPrice?: number;
   maxPrice?: number;
   sortBy?: 'price' | 'points' | 'name' | 'priceChange';

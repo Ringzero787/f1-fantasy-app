@@ -36,8 +36,8 @@ export const DNF_PRICE_PENALTY_MIN = 1;  // Minimum penalty for final lap DNF
 // Price Tier Thresholds
 // ============================================
 
-export const TIER_A_THRESHOLD = 200; // Price >= 200 is A-tier
-export const TIER_B_THRESHOLD = 200; // Price < 200 is B-tier
+export const TIER_A_THRESHOLD = 100; // Price > 100 is A-tier
+export const TIER_B_THRESHOLD = 50;  // Price > 50 is B-tier, <= 50 is C-tier
 
 // ============================================
 // PPM (Points Per Million) Thresholds
@@ -63,6 +63,12 @@ export const PRICE_CHANGES = {
     good: 3,
     poor: -3,
     terrible: -10,
+  },
+  C_TIER: {
+    great: 5,
+    good: 2,
+    poor: -2,
+    terrible: -5,
   },
 } as const;
 

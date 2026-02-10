@@ -1732,6 +1732,27 @@ export const useTeamStore = create<TeamState>()(
             console.log('Failed to start periodic sync:', e);
           }
         }, 2000);
+        // Prune orphan league teams whose leagues no longer exist
+        // Runs after a delay so the league store has time to hydrate
+        setTimeout(() => {
+          try {
+            // Lazy import to avoid circular dependency (league.store imports team.store)
+            const { useLeagueStore } = require('./league.store');
+            const { leagues } = useLeagueStore.getState();
+            const leagueIds = new Set(leagues.map(l => l.id));
+            const { userTeams, currentTeam } = useTeamStore.getState();
+            const pruned = userTeams.filter(t => !t.leagueId || leagueIds.has(t.leagueId));
+            if (pruned.length < userTeams.length) {
+              console.log(`Pruned ${userTeams.length - pruned.length} orphan league team(s)`);
+              const updatedCurrent = currentTeam && currentTeam.leagueId && !leagueIds.has(currentTeam.leagueId)
+                ? null
+                : currentTeam;
+              useTeamStore.setState({ userTeams: pruned, currentTeam: updatedCurrent });
+            }
+          } catch (e) {
+            console.log('Failed to prune orphan teams:', e);
+          }
+        }, 3000);
       },
     }
   )
