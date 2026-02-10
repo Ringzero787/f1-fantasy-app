@@ -82,6 +82,10 @@ export function validateLeagueName(name: string): {
     return { isValid: false, error: 'League name must be at most 50 characters' };
   }
 
+  if (!/^[a-zA-Z0-9\s_-]+$/.test(name.trim())) {
+    return { isValid: false, error: 'League name can only contain letters, numbers, spaces, hyphens, and underscores' };
+  }
+
   return { isValid: true };
 }
 
@@ -120,6 +124,10 @@ export function validateTeamName(name: string): {
 
   if (name.trim().length > 30) {
     return { isValid: false, error: 'Team name must be at most 30 characters' };
+  }
+
+  if (!/^[a-zA-Z0-9\s_-]+$/.test(name.trim())) {
+    return { isValid: false, error: 'Team name can only contain letters, numbers, spaces, hyphens, and underscores' };
   }
 
   return { isValid: true };

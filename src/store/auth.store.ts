@@ -3,13 +3,18 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User } from '../types';
 import { authService } from '../services/auth.service';
+import { firebaseAuth } from '../config/firebase';
 
-// Admin email addresses
-const ADMIN_EMAILS = ['nathan.shanks@gmail.com'];
-
-// Helper to check if user is admin
-const checkIsAdmin = (email: string): boolean => {
-  return ADMIN_EMAILS.includes(email.toLowerCase());
+// Check admin status from Firebase custom claims
+const checkIsAdmin = async (): Promise<boolean> => {
+  const currentUser = firebaseAuth.currentUser;
+  if (!currentUser) return false;
+  try {
+    const tokenResult = await currentUser.getIdTokenResult(true);
+    return tokenResult.claims.admin === true;
+  } catch {
+    return false;
+  }
 };
 
 interface AuthState {
@@ -44,13 +49,17 @@ export const useAuthStore = create<AuthState>()(
       isAdmin: false,
       error: null,
 
-      setUser: (user) =>
+      setUser: (user) => {
         set({
           user,
           isAuthenticated: !!user,
-          isAdmin: user ? checkIsAdmin(user.email) : false,
+          isAdmin: false,
           isLoading: false,
-        }),
+        });
+        if (user) {
+          checkIsAdmin().then((isAdmin) => set({ isAdmin }));
+        }
+      },
 
       setLoading: (isLoading) => set({ isLoading }),
 
@@ -60,7 +69,8 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const user = await authService.signIn({ email, password });
-          set({ user, isAuthenticated: true, isAdmin: checkIsAdmin(user.email), isLoading: false });
+          const isAdmin = await checkIsAdmin();
+          set({ user, isAuthenticated: true, isAdmin, isLoading: false });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Sign in failed';
           set({ error: message, isLoading: false });
@@ -79,7 +89,8 @@ export const useAuthStore = create<AuthState>()(
             authService.signInWithGoogle(idToken),
             timeoutPromise,
           ]);
-          set({ user, isAuthenticated: true, isAdmin: checkIsAdmin(user.email), isLoading: false });
+          const isAdmin = await checkIsAdmin();
+          set({ user, isAuthenticated: true, isAdmin, isLoading: false });
         } catch (error) {
           console.log('Google sign-in Firebase failed, falling back to demo mode:', error);
           // Fall back to demo mode with Google profile info
@@ -91,7 +102,7 @@ export const useAuthStore = create<AuthState>()(
             updatedAt: new Date(),
             settings: { notifications: true, darkMode: false },
           };
-          set({ user: demoUser, isAuthenticated: true, isDemoMode: true, isAdmin: true, isLoading: false });
+          set({ user: demoUser, isAuthenticated: true, isDemoMode: true, isAdmin: false, isLoading: false });
         }
       },
 
@@ -99,7 +110,8 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const user = await authService.signInWithApple(identityToken, nonce);
-          set({ user, isAuthenticated: true, isAdmin: checkIsAdmin(user.email), isLoading: false });
+          const isAdmin = await checkIsAdmin();
+          set({ user, isAuthenticated: true, isAdmin, isLoading: false });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Apple sign in failed';
           set({ error: message, isLoading: false });
@@ -116,7 +128,8 @@ export const useAuthStore = create<AuthState>()(
             confirmPassword: password,
             displayName,
           });
-          set({ user, isAuthenticated: true, isAdmin: checkIsAdmin(user.email), isLoading: false });
+          const isAdmin = await checkIsAdmin();
+          set({ user, isAuthenticated: true, isAdmin, isLoading: false });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Sign up failed';
           set({ error: message, isLoading: false });
@@ -165,7 +178,6 @@ export const useAuthStore = create<AuthState>()(
           id: 'demo-user',
           email: 'demo@f1fantasy.app',
           displayName: 'Demo User',
-          isAdmin: true, // Demo users get admin access
           createdAt: new Date(),
           updatedAt: new Date(),
           settings: {
@@ -177,7 +189,7 @@ export const useAuthStore = create<AuthState>()(
           user: demoUser,
           isAuthenticated: true,
           isDemoMode: true,
-          isAdmin: true, // Demo mode has admin access
+          isAdmin: false,
           isLoading: false,
         });
 

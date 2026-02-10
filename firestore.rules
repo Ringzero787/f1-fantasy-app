@@ -18,23 +18,35 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/leagues/$(leagueId)).data.ownerId == request.auth.uid;
     }
 
-    // Users collection
+    function isAdmin() {
+      return request.auth.token.admin == true;
+    }
+
+    // Users collection — only the owner can read their own profile
+    // Other users can see display names via league member data
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId);
       allow update, delete: if isOwner(userId);
     }
 
     // Leagues collection
+    // Read: members, owners, or if the league is public (for discovery/joining)
     match /leagues/{leagueId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        isLeagueMember(leagueId) ||
+        isLeagueOwner(leagueId) ||
+        resource.data.isPublic == true
+      );
+      // Allow reading by invite code — authenticated users can list to find by code
+      allow list: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update: if isLeagueOwner(leagueId);
       allow delete: if isLeagueOwner(leagueId);
 
-      // League members subcollection
+      // League members subcollection — only members/owner can see members
       match /members/{memberId} {
-        allow read: if isAuthenticated();
+        allow read: if isLeagueMember(leagueId) || isLeagueOwner(leagueId);
         allow create: if isAuthenticated();
         allow update: if isLeagueOwner(leagueId) || isOwner(memberId);
         allow delete: if isLeagueOwner(leagueId) || isOwner(memberId);
@@ -60,9 +72,14 @@ service cloud.firestore {
       allow write: if false; // Only Cloud Functions can write
     }
 
-    // Fantasy teams collection
+    // Fantasy teams collection — only the owner can read/write their team
+    // League members can read teams in their league (for standings)
     match /fantasyTeams/{teamId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isLeagueMember(resource.data.leagueId) ||
+        isLeagueOwner(resource.data.leagueId)
+      );
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update: if isOwner(resource.data.userId);
       allow delete: if isOwner(resource.data.userId);
@@ -98,9 +115,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Collection group query for league members (needed for getUserLeagues)
+    // Collection group query for league members
+    // Restricted: user can only read their own membership records
     match /{path=**}/members/{memberId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && request.auth.uid == memberId;
     }
 
     // Notifications

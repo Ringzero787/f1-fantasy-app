@@ -51,13 +51,15 @@ const DEFAULT_LEAGUE_SETTINGS: LeagueSettings = {
 };
 
 /**
- * Generate a random invite code
+ * Generate a cryptographically secure random invite code
  */
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const randomBytes = new Uint8Array(INVITE_CODE_LENGTH);
+  crypto.getRandomValues(randomBytes);
   let code = '';
   for (let i = 0; i < INVITE_CODE_LENGTH; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomBytes[i] % chars.length);
   }
   return code;
 }
