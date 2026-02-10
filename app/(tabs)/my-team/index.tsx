@@ -679,15 +679,18 @@ export default function MyTeamScreen() {
                 <View style={styles.driverRowRight}>
                   <Text style={styles.driverPoints}>{formatPoints(c.pointsScored)} pts</Text>
                   <View style={{ width: 18 }} />
-                  {canModify && (
-                    <TouchableOpacity
-                      onPress={handleRemoveConstructor}
-                      hitSlop={8}
-                      style={[styles.sellButton, { backgroundColor: (cPriceDiff > 0 ? '#16a34a' : cPriceDiff < 0 ? COLORS.error : COLORS.text.muted) + '15' }]}
-                    >
-                      <Ionicons name="swap-horizontal" size={16} color={cPriceDiff > 0 ? '#16a34a' : cPriceDiff < 0 ? COLORS.error : COLORS.text.muted} />
-                    </TouchableOpacity>
-                  )}
+                  {canModify && (() => {
+                    const cSaleColor = cPriceDiff > 0 ? '#16a34a' : cPriceDiff < 0 ? COLORS.error : COLORS.text.muted;
+                    return (
+                      <TouchableOpacity
+                        onPress={handleRemoveConstructor}
+                        hitSlop={8}
+                        style={[styles.sellButton, { backgroundColor: cSaleColor + '15' }]}
+                      >
+                        <Ionicons name="cash-outline" size={16} color={cSaleColor} />
+                      </TouchableOpacity>
+                    );
+                  })()}
                 </View>
               </View>
               <View style={styles.driverMeta}>
