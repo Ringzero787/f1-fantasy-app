@@ -12,6 +12,38 @@ import { useAdminStore } from './admin.store';
 const calculateSaleValue = (currentPrice: number): number => {
   return Math.floor(currentPrice * (1 - SALE_COMMISSION_RATE));
 };
+
+// V5: Lockout helpers — pure functions for checking driver lockout after contract expiry
+export function isDriverLockedOut(
+  driverLockouts: Record<string, number> | undefined,
+  driverId: string,
+  completedRaceCount: number
+): boolean {
+  if (!driverLockouts) return false;
+  const expiresAt = driverLockouts[driverId];
+  if (expiresAt === undefined) return false;
+  return completedRaceCount < expiresAt;
+}
+
+export function getLockedOutDriverIds(
+  driverLockouts: Record<string, number> | undefined,
+  completedRaceCount: number
+): string[] {
+  if (!driverLockouts) return [];
+  return Object.entries(driverLockouts)
+    .filter(([_, expiresAt]) => completedRaceCount < expiresAt)
+    .map(([driverId]) => driverId);
+}
+// V6: Calculate early termination fee for breaking a driver contract early
+export function calculateEarlyTerminationFee(
+  purchasePrice: number,
+  contractLength: number,
+  racesHeld: number
+): number {
+  const racesRemaining = Math.max(0, contractLength - racesHeld);
+  return Math.floor(purchasePrice * PRICING_CONFIG.EARLY_TERMINATION_RATE * racesRemaining);
+}
+
 import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
 
 // Calculate fantasy points for a team based on race results
@@ -738,6 +770,14 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
+    // V5: Check if driver is locked out after contract expiry
+    const { raceResults: lockoutRaceResults } = useAdminStore.getState();
+    const lockoutCompletedRaces = Object.values(lockoutRaceResults).filter(r => r.isComplete).length;
+    if (isDriverLockedOut(currentTeam.driverLockouts, driverId, lockoutCompletedRaces)) {
+      set({ error: 'Driver is locked out for 1 race after contract expiry' });
+      return;
+    }
+
     set({ isLoading: true, error: null });
     try {
       if (isDemoMode) {
@@ -876,9 +916,11 @@ export const useTeamStore = create<TeamState>()(
         const priceUpdate = driverPrices[driverId];
         const currentMarketPrice = priceUpdate?.currentPrice ?? driverToRemove.currentPrice;
 
-        // Sell at current market price minus 5% commission
-        const saleValue = calculateSaleValue(currentMarketPrice);
-        console.log('Selling driver:', { driverId, storedPrice: driverToRemove.currentPrice, marketPrice: currentMarketPrice, saleValue });
+        // V6: Apply early termination fee for breaking contract early
+        const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+        const earlyTermFee = calculateEarlyTerminationFee(driverToRemove.purchasePrice, contractLen, driverToRemove.racesHeld || 0);
+        const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
+        console.log('Selling driver:', { driverId, storedPrice: driverToRemove.currentPrice, marketPrice: currentMarketPrice, earlyTermFee, saleValue });
 
         // V3: Clear captain if removed driver was captain
         const newCaptainId = currentTeam.captainDriverId === driverId ? undefined : currentTeam.captainDriverId;
@@ -906,7 +948,10 @@ export const useTeamStore = create<TeamState>()(
       const { driverPrices } = useAdminStore.getState();
       const priceUpdate = driverPrices[driverId];
       const currentMarketPrice = priceUpdate?.currentPrice ?? driverToRemove.currentPrice;
-      const saleValue = calculateSaleValue(currentMarketPrice);
+      // V6: Apply early termination fee
+      const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+      const earlyTermFee = calculateEarlyTerminationFee(driverToRemove.purchasePrice, contractLen, driverToRemove.racesHeld || 0);
+      const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
       const newCaptainId = currentTeam.captainDriverId === driverId ? undefined : currentTeam.captainDriverId;
 
       const updatedTeam: FantasyTeam = {
@@ -935,6 +980,14 @@ export const useTeamStore = create<TeamState>()(
 
     if (!currentTeam) {
       set({ error: 'No team loaded' });
+      return;
+    }
+
+    // V5: Check if new driver is locked out after contract expiry
+    const { raceResults: swapLockoutRaceResults } = useAdminStore.getState();
+    const swapLockoutCompletedRaces = Object.values(swapLockoutRaceResults).filter(r => r.isComplete).length;
+    if (isDriverLockedOut(currentTeam.driverLockouts, newDriverId, swapLockoutCompletedRaces)) {
+      set({ error: 'Driver is locked out for 1 race after contract expiry' });
       return;
     }
 
@@ -975,8 +1028,10 @@ export const useTeamStore = create<TeamState>()(
           addedAtRace: swapCompletedRaces,
         };
 
-        // Sell old driver at current market price minus 5% commission, buy new at market price
-        const saleValue = calculateSaleValue(oldDriverMarketPrice);
+        // V6: Apply early termination fee for breaking old driver's contract early
+        const oldContractLen = oldDriver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+        const oldEarlyTermFee = calculateEarlyTerminationFee(oldDriver.purchasePrice, oldContractLen, oldDriver.racesHeld || 0);
+        const saleValue = Math.max(0, oldDriverMarketPrice - oldEarlyTermFee);
         const purchaseCost = newDriverMarketPrice;
         const netCostChange = purchaseCost - saleValue;
 
@@ -1038,7 +1093,10 @@ export const useTeamStore = create<TeamState>()(
         addedAtRace: fbSwapCompletedRaces,
       };
 
-      const saleValue = calculateSaleValue(oldDriverMarketPrice);
+      // V6: Apply early termination fee for breaking old driver's contract early
+      const oldContractLen = oldDriver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+      const oldEarlyTermFee = calculateEarlyTerminationFee(oldDriver.purchasePrice, oldContractLen, oldDriver.racesHeld || 0);
+      const saleValue = Math.max(0, oldDriverMarketPrice - oldEarlyTermFee);
       const purchaseCost = newDriverMarketPrice;
       const netCostChange = purchaseCost - saleValue;
 
@@ -1548,6 +1606,8 @@ export const useTeamStore = create<TeamState>()(
       let budgetReturn = 0;
       let captainId = team.captainDriverId;
       const expiredDriverIds: string[] = [];
+      // Copy existing lockouts (will add new ones for expired drivers)
+      const updatedLockouts: Record<string, number> = { ...(team.driverLockouts || {}) };
 
       updatedDrivers = updatedDrivers.filter(driver => {
         const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
@@ -1555,6 +1615,8 @@ export const useTeamStore = create<TeamState>()(
           // Contract expired - sell at current market value (minus commission)
           budgetReturn += calculateSaleValue(driver.currentPrice);
           expiredDriverIds.push(driver.driverId);
+          // V5: Add lockout for this driver (locked until completedRaceCount + LOCKOUT_RACES)
+          updatedLockouts[driver.driverId] = completedRaceCount + PRICING_CONFIG.CONTRACT_LOCKOUT_RACES;
           // Clear captain if expired driver was captain
           if (captainId === driver.driverId) {
             captainId = undefined;
@@ -1564,14 +1626,21 @@ export const useTeamStore = create<TeamState>()(
         return true;
       });
 
+      // V5: Prune expired lockouts (no longer needed once completedRaceCount >= expiresAt)
+      Object.entries(updatedLockouts).forEach(([dId, expiresAt]) => {
+        if (completedRaceCount >= expiresAt) {
+          delete updatedLockouts[dId];
+        }
+      });
+
       // V5: Auto-fill empty slots with cheapest available drivers
       let autoFillBudget = team.budget + budgetReturn;
       const teamDriverIds = new Set(updatedDrivers.map(d => d.driverId));
 
       if (updatedDrivers.length < TEAM_SIZE && expiredDriverIds.length > 0) {
-        // Find cheapest available drivers not already on the team
+        // Find cheapest available drivers not already on the team and not locked out
         const availableForAutoFill = demoDrivers
-          .filter(d => d.isActive && !teamDriverIds.has(d.id))
+          .filter(d => d.isActive && !teamDriverIds.has(d.id) && !isDriverLockedOut(updatedLockouts, d.id, completedRaceCount))
           .map(d => {
             const priceUpdate = driverPrices[d.id];
             return { ...d, marketPrice: priceUpdate?.currentPrice ?? d.price };
@@ -1623,6 +1692,7 @@ export const useTeamStore = create<TeamState>()(
         totalPoints,
         budget: newBudget,
         captainDriverId: captainId,
+        driverLockouts: Object.keys(updatedLockouts).length > 0 ? updatedLockouts : undefined,
         racesPlayed: perRacePoints.length,
         pointsHistory: perRacePoints.map(r => r.points),
         updatedAt: new Date(),

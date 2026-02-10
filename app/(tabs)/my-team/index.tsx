@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
-import { useTeamStore } from '../../../src/store/team.store';
+import { useTeamStore, getLockedOutDriverIds, calculateEarlyTerminationFee } from '../../../src/store/team.store';
 import { useLeagueStore } from '../../../src/store/league.store';
 import { useAdminStore } from '../../../src/store/admin.store';
 import { useDrivers, useConstructors, useAvatarGeneration, useLockoutStatus } from '../../../src/hooks';
@@ -181,6 +181,17 @@ export default function MyTeamScreen() {
     return map;
   }, [allConstructors]);
 
+  // V5: Locked-out driver names for the lockout banner
+  const lockedOutDriverNames = useMemo(() => {
+    const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
+    const lockedIds = getLockedOutDriverIds(currentTeam?.driverLockouts, completedRaceCount);
+    if (lockedIds.length === 0) return [];
+    return lockedIds.map(id => {
+      const driver = allDrivers?.find(d => d.id === id);
+      return driver?.name || id;
+    });
+  }, [currentTeam?.driverLockouts, raceResults, allDrivers]);
+
   // Team value = sum of live prices of all drivers + constructor
   const teamValue = useMemo(() => {
     if (!currentTeam) return 0;
@@ -224,9 +235,20 @@ export default function MyTeamScreen() {
   };
 
   const handleRemoveDriver = (driverId: string, driverName: string) => {
+    // V6: Calculate and show early termination fee in confirmation
+    const driver = currentTeam?.drivers.find(d => d.driverId === driverId);
+    const contractLen = driver?.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+    const fee = driver ? calculateEarlyTerminationFee(driver.purchasePrice, contractLen, driver.racesHeld || 0) : 0;
+    const marketDriver = allDrivers?.find(d => d.id === driverId);
+    const livePrice = marketDriver?.price ?? driver?.currentPrice ?? 0;
+    const saleProceeds = Math.max(0, livePrice - fee);
+    const feeMessage = fee > 0
+      ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
+      : '';
+
     Alert.alert(
       'Remove Driver',
-      `Are you sure you want to remove ${driverName} from your team?`,
+      `Are you sure you want to remove ${driverName} from your team?${feeMessage}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -495,6 +517,16 @@ export default function MyTeamScreen() {
           </View>
         )}
 
+        {/* V5: Driver lockout notice */}
+        {lockedOutDriverNames.length > 0 && (
+          <View style={styles.lockoutNotice}>
+            <Ionicons name="time-outline" size={14} color={COLORS.warning} />
+            <Text style={styles.lockoutNoticeText}>
+              {lockedOutDriverNames.join(', ')} {lockedOutDriverNames.length === 1 ? 'is' : 'are'} locked out for 1 race after contract expiry
+            </Text>
+          </View>
+        )}
+
         {/* Driver list */}
         {currentTeam?.drivers && currentTeam.drivers.length > 0 ? (
           [...currentTeam.drivers]
@@ -518,6 +550,9 @@ export default function MyTeamScreen() {
               const contractRemaining = contractLen - (driver.racesHeld || 0);
               const isLastRace = contractRemaining === 1;
               const isReserve = driver.isReservePick;
+              // V6: Early termination fee
+              const earlyTermFee = calculateEarlyTerminationFee(driver.purchasePrice, contractLen, driver.racesHeld || 0);
+              const effectiveSaleValue = Math.max(0, driver.livePrice - earlyTermFee);
 
               return (
                 <View key={driver.driverId} style={styles.driverRow}>
@@ -558,15 +593,19 @@ export default function MyTeamScreen() {
                       ) : (
                         <View style={{ width: 18 }} />
                       )}
-                      {canModify && (
-                        <TouchableOpacity
-                          onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
-                          hitSlop={8}
-                          style={[styles.sellButton, { backgroundColor: (priceDiff > 0 ? '#16a34a' : priceDiff < 0 ? COLORS.error : COLORS.text.muted) + '15' }]}
-                        >
-                          <Ionicons name="swap-horizontal" size={16} color={priceDiff > 0 ? '#16a34a' : priceDiff < 0 ? COLORS.error : COLORS.text.muted} />
-                        </TouchableOpacity>
-                      )}
+                      {canModify && (() => {
+                        const saleDiff = effectiveSaleValue - driver.purchasePrice;
+                        const saleColor = saleDiff > 0 ? '#16a34a' : saleDiff < 0 ? COLORS.error : COLORS.text.muted;
+                        return (
+                          <TouchableOpacity
+                            onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
+                            hitSlop={8}
+                            style={[styles.sellButton, { backgroundColor: saleColor + '15' }]}
+                          >
+                            <Ionicons name="cash-outline" size={16} color={saleColor} />
+                          </TouchableOpacity>
+                        );
+                      })()}
                     </View>
                   </View>
 
@@ -581,7 +620,7 @@ export default function MyTeamScreen() {
                     )}
                     <Text style={styles.metaSeparator}>·</Text>
                     <Text style={styles.saleText}>
-                      Sell: ${driver.livePrice}{priceDiff > 0 ? ` (+$${priceDiff})` : priceDiff < 0 ? ` (-$${Math.abs(priceDiff)})` : ''}
+                      Sell: ${effectiveSaleValue}{earlyTermFee > 0 ? ` (-$${earlyTermFee} fee)` : priceDiff > 0 ? ` (+$${priceDiff})` : priceDiff < 0 ? ` (-$${Math.abs(priceDiff)})` : ''}
                     </Text>
                     <Text style={styles.metaSeparator}>·</Text>
                     <Ionicons name="document-text-outline" size={10} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
@@ -1106,6 +1145,24 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     color: COLORS.info,
+  },
+  lockoutNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    backgroundColor: COLORS.warning + '15',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.warning + '30',
+  },
+  lockoutNoticeText: {
+    flex: 1,
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.secondary,
+    lineHeight: 16,
   },
   contractText: {
     fontSize: FONTS.sizes.xs,

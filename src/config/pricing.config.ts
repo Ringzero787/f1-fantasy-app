@@ -55,6 +55,10 @@ export const PRICING_CONFIG = {
 
   // V5: Contract System
   CONTRACT_LENGTH: 5, // Drivers auto-sell after this many races
+  CONTRACT_LOCKOUT_RACES: 1, // Races a driver is locked out after contract expiry (per team)
+
+  // V6: Early Termination Fee
+  EARLY_TERMINATION_RATE: 0.05, // 5% of purchase price per race remaining on contract
 } as const;
 
 // Points awarded per position

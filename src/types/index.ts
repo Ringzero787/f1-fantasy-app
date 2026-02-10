@@ -161,6 +161,8 @@ export interface FantasyTeam {
   pointsHistory: number[]; // Points earned per race (for Recent Form leaderboard)
   joinedAtRace: number; // Season race number when team was created (for catch-up multiplier)
   raceWins: number; // Number of race weekend wins in league
+  // V5: Driver lockout after contract expiry (1-race cooldown per team)
+  driverLockouts?: Record<string, number>; // driverId -> completedRaceCount when lockout expires
 }
 
 export interface FantasyDriver {

@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTeamStore } from '../../../src/store/team.store';
+import { useTeamStore, calculateEarlyTerminationFee } from '../../../src/store/team.store';
 import { useDrivers } from '../../../src/hooks/useDrivers';
 import { Card, Loading, BudgetBar, Button } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE } from '../../../src/config/constants';
+import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import { formatPoints, calculateSaleValue, formatProfitLoss } from '../../../src/utils/formatters';
 import type { Driver } from '../../../src/types';
 
@@ -101,9 +102,18 @@ export default function EditTeamScreen() {
   }, [currentTeam, allDrivers]);
 
   const handleRemoveDriver = async (driverId: string, driverName: string) => {
+    // V6: Show early termination fee in confirmation
+    const driver = currentTeam?.drivers.find(d => d.driverId === driverId);
+    const contractLen = driver?.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+    const fee = driver ? calculateEarlyTerminationFee(driver.purchasePrice, contractLen, driver.racesHeld || 0) : 0;
+    const saleProceeds = driver ? Math.max(0, driver.currentPrice - fee) : 0;
+    const feeMessage = fee > 0
+      ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
+      : '';
+
     Alert.alert(
       'Remove Driver',
-      `Are you sure you want to remove ${driverName} from your team?`,
+      `Are you sure you want to remove ${driverName} from your team?${feeMessage}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -207,7 +217,10 @@ export default function EditTeamScreen() {
         {currentTeam.drivers.map((driver) => {
           const recommendation = getSwapRecommendation(driver.driverId, driver.currentPrice);
           const profitLoss = formatProfitLoss(driver.purchasePrice, driver.currentPrice);
-          const saleValue = calculateSaleValue(driver.currentPrice);
+          // V6: Calculate early termination fee
+          const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+          const earlyTermFee = calculateEarlyTerminationFee(driver.purchasePrice, contractLen, driver.racesHeld || 0);
+          const saleValue = Math.max(0, driver.currentPrice - earlyTermFee);
           const isCaptain = currentTeam.captainDriverId === driver.driverId;
 
           return (
@@ -232,7 +245,11 @@ export default function EditTeamScreen() {
                 <View style={styles.tradingItem}>
                   <Text style={styles.tradingLabel}>Sale Value</Text>
                   <Text style={styles.tradingValue}>{formatPoints(saleValue)}</Text>
-                  <Text style={styles.tradingHint}>(-5% fee)</Text>
+                  {earlyTermFee > 0 ? (
+                    <Text style={[styles.tradingHint, { color: COLORS.error }]}>(-${earlyTermFee} early exit fee)</Text>
+                  ) : (
+                    <Text style={styles.tradingHint}>No early exit fee</Text>
+                  )}
                 </View>
                 <View style={styles.tradingItem}>
                   <Text style={styles.tradingLabel}>Profit/Loss</Text>
@@ -394,7 +411,7 @@ export default function EditTeamScreen() {
                     <View style={styles.tradingItem}>
                       <Text style={styles.tradingLabel}>Sale Value</Text>
                       <Text style={styles.tradingValue}>{formatPoints(constructorSaleValue)}</Text>
-                      <Text style={styles.tradingHint}>(-5% fee)</Text>
+                      <Text style={styles.tradingHint}>No early exit fee</Text>
                     </View>
                     <View style={styles.tradingItem}>
                       <Text style={styles.tradingLabel}>Profit/Loss</Text>

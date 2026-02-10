@@ -10,7 +10,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useDrivers, useLockoutStatus } from '../../../src/hooks';
-import { useTeamStore } from '../../../src/store/team.store';
+import { useTeamStore, getLockedOutDriverIds, calculateEarlyTerminationFee } from '../../../src/store/team.store';
 import { useAdminStore } from '../../../src/store/admin.store';
 import { Loading, DriverCard, Button, SmartRecommendations } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE } from '../../../src/config/constants';
@@ -32,6 +32,13 @@ export default function SelectDriverScreen() {
     const sorted = [...allDrivers].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));
     return new Set(sorted.slice(0, 10).map(d => d.id));
   }, [allDrivers]);
+
+  // V5: Compute locked-out driver IDs for this team
+  const { raceResults } = useAdminStore();
+  const lockedOutIds = useMemo(() => {
+    const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
+    return new Set(getLockedOutDriverIds(currentTeam?.driverLockouts, completedRaceCount));
+  }, [currentTeam?.driverLockouts, raceResults]);
 
   const [selectedDrivers, setSelectedDrivers] = useState<Driver[]>([]);
   const [contractLengths, setContractLengths] = useState<Record<string, number>>({});
@@ -63,7 +70,10 @@ export default function SelectDriverScreen() {
       // Swap: remove old driver, add new one
       const oldDriver = team.drivers.find(d => d.driverId === swapDriverId);
       const newDriver = pending[0];
-      const saleValue = oldDriver ? Math.floor(oldDriver.currentPrice * 0.95) : 0;
+      // V6: Apply early termination fee for breaking old driver's contract early
+      const oldContractLen = oldDriver?.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+      const oldEarlyTermFee = oldDriver ? calculateEarlyTerminationFee(oldDriver.purchasePrice, oldContractLen, oldDriver.racesHeld || 0) : 0;
+      const saleValue = oldDriver ? Math.max(0, oldDriver.currentPrice - oldEarlyTermFee) : 0;
       const newFantasyDriver: FantasyDriver = {
         driverId: newDriver.id,
         name: newDriver.name,
@@ -265,7 +275,7 @@ export default function SelectDriverScreen() {
       {/* Smart Recommendations */}
       {allDrivers && slotsLeft > 0 && (
         <SmartRecommendations
-          availableDrivers={allDrivers}
+          availableDrivers={allDrivers.filter(d => !lockedOutIds.has(d.id))}
           selectedDrivers={selectedDrivers}
           currentTeamDrivers={currentTeam?.drivers.map(d => ({ driverId: d.driverId })) || []}
           budget={effectiveBudget}
@@ -294,10 +304,11 @@ export default function SelectDriverScreen() {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeader}
         renderItem={({ item }) => {
-          const canSelect = selectedDrivers.length < maxSelectableDrivers && item.price <= effectiveBudget;
+          const isLockedOut = lockedOutIds.has(item.id);
+          const canSelect = !isLockedOut && selectedDrivers.length < maxSelectableDrivers && item.price <= effectiveBudget;
 
           return (
-            <View style={styles.driverItem}>
+            <View style={[styles.driverItem, isLockedOut && styles.lockedOutItem]}>
               <DriverCard
                 driver={item}
                 showPrice
@@ -306,6 +317,12 @@ export default function SelectDriverScreen() {
                 isTopTen={topTenDriverIds.has(item.id)}
                 onSelect={() => canSelect && handleToggleDriver(item)}
               />
+              {isLockedOut && (
+                <View style={styles.lockedOutBadge}>
+                  <Ionicons name="lock-closed" size={10} color={COLORS.white} />
+                  <Text style={styles.lockedOutBadgeText}>Locked 1 race</Text>
+                </View>
+              )}
             </View>
           );
         }}
@@ -473,6 +490,26 @@ const styles = StyleSheet.create({
 
   driverItem: {
     marginHorizontal: SPACING.md,
+  },
+  lockedOutItem: {
+    opacity: 0.45,
+  },
+  lockedOutBadge: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.error,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+  },
+  lockedOutBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
   },
 
   listContent: {
