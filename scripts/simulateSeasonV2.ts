@@ -80,7 +80,6 @@ const createDrivers = (): Driver[] => {
     { id: 'bearman', name: 'Oliver Bearman', shortName: 'BEA', prevSeasonPoints: 35, baseStrength: 58, consistency: 0.55 },
     { id: 'lawson', name: 'Liam Lawson', shortName: 'LAW', prevSeasonPoints: 30, baseStrength: 62, consistency: 0.60 },
     { id: 'bortoleto', name: 'Gabriel Bortoleto', shortName: 'BOR', prevSeasonPoints: 25, baseStrength: 55, consistency: 0.50 },
-    { id: 'doohan', name: 'Jack Doohan', shortName: 'DOO', prevSeasonPoints: 20, baseStrength: 52, consistency: 0.50 },
   ];
 
   return driversData.map(d => ({

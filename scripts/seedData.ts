@@ -51,7 +51,6 @@ const SEASON_2025_POINTS = {
   bearman: 35,      // Rookie at Haas
   lawson: 30,       // Alpine rookie
   bortoleto: 25,    // Sauber rookie
-  doohan: 20,       // Alpine
   colapinto: 15,    // Sauber
   bottas: 10,       // Cadillac new team
   perez: 10,        // Cadillac new team
@@ -347,22 +346,6 @@ export const drivers2026 = [
     seasonPoints: 0,
     fantasyPoints: 0,
     tier: getTier(calcPrice(SEASON_2025_POINTS.bortoleto)),
-    isActive: true,
-  },
-  {
-    id: 'doohan',
-    name: 'Jack Doohan',
-    shortName: 'DOO',
-    number: 7,
-    constructorId: 'alpine',
-    constructorName: 'BWT Alpine F1 Team',
-    nationality: 'Australian',
-    previousSeasonPoints: SEASON_2025_POINTS.doohan,
-    price: calcPrice(SEASON_2025_POINTS.doohan),         // $8
-    previousPrice: calcPrice(SEASON_2025_POINTS.doohan),
-    seasonPoints: 0,
-    fantasyPoints: 0,
-    tier: getTier(calcPrice(SEASON_2025_POINTS.doohan)),
     isActive: true,
   },
   {

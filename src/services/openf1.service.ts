@@ -129,7 +129,6 @@ const DRIVER_NUMBER_TO_ID: Record<number, string> = {
   // 2026 rookies - numbers may change
   6: 'bearman', // Haas
   7: 'lawson', // Red Bull/Racing Bulls
-  21: 'doohan', // Alpine
   30: 'bortoleto', // Sauber
   43: 'colapinto', // Alpine (rumored)
   35: 'hadjar', // Racing Bulls
