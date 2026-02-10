@@ -622,7 +622,7 @@ export default function MyTeamScreen() {
                       <Text style={styles.driverPrice}>${driver.livePrice}</Text>
                       {priceDiff !== 0 && (
                         <View style={[styles.priceDiffBadge, priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                          <Ionicons name={priceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={9} color={COLORS.white} />
+                          <Ionicons name={priceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={11} color={COLORS.white} />
                           <Text style={styles.priceDiffText}>${Math.abs(priceDiff)}</Text>
                         </View>
                       )}
@@ -631,7 +631,7 @@ export default function MyTeamScreen() {
                         Sell: ${effectiveSaleValue}{earlyTermFee > 0 ? ` (-$${earlyTermFee} fee)` : priceDiff > 0 ? ` (+$${priceDiff})` : priceDiff < 0 ? ` (-$${Math.abs(priceDiff)})` : ''}
                       </Text>
                       <Text style={styles.metaSeparator}>·</Text>
-                      <Ionicons name="document-text-outline" size={10} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
+                      <Ionicons name="document-text-outline" size={12} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
                       {isLastRace ? (
                         <Text style={styles.contractLastRace}>LAST RACE</Text>
                       ) : (
@@ -640,7 +640,7 @@ export default function MyTeamScreen() {
                         </Text>
                       )}
                       <Text style={styles.metaSeparator}>·</Text>
-                      <Ionicons name="flame" size={10} color={loyalty > 0 ? COLORS.gold : COLORS.text.muted} />
+                      <Ionicons name="flame" size={12} color={loyalty > 0 ? COLORS.gold : COLORS.text.muted} />
                       <Text style={[styles.loyaltyText, loyalty > 0 && { color: COLORS.gold }]}>
                         +{nextRate}/race
                       </Text>
@@ -706,7 +706,7 @@ export default function MyTeamScreen() {
                 <Text style={styles.driverPrice}>${livePrice}</Text>
                 {cPriceDiff !== 0 && (
                   <View style={[styles.priceDiffBadge, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                    <Ionicons name={cPriceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={9} color={COLORS.white} />
+                    <Ionicons name={cPriceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={11} color={COLORS.white} />
                     <Text style={styles.priceDiffText}>${Math.abs(cPriceDiff)}</Text>
                   </View>
                 )}
@@ -715,7 +715,7 @@ export default function MyTeamScreen() {
                   Sell: ${livePrice}{cPriceDiff > 0 ? ` (+$${cPriceDiff})` : cPriceDiff < 0 ? ` (-$${Math.abs(cPriceDiff)})` : ''}
                 </Text>
                 <Text style={styles.metaSeparator}>·</Text>
-                <Ionicons name="flame" size={10} color={cLoyalty > 0 ? COLORS.gold : COLORS.text.muted} />
+                <Ionicons name="flame" size={12} color={cLoyalty > 0 ? COLORS.gold : COLORS.text.muted} />
                 <Text style={[styles.loyaltyText, cLoyalty > 0 && { color: COLORS.gold }]}>
                   +{cNextRate}/race
                 </Text>
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     marginTop: 1,
   },
@@ -1035,7 +1035,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   constructorBadgeText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     color: COLORS.white,
   },
@@ -1060,11 +1060,11 @@ const styles = StyleSheet.create({
   driverMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     marginTop: 4,
   },
   driverPrice: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     color: COLORS.text.muted,
     fontWeight: '500',
   },
@@ -1072,8 +1072,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
     borderRadius: 4,
   },
   priceUp: {
@@ -1083,21 +1083,21 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.error,
   },
   priceDiffText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
     color: COLORS.white,
   },
   metaSeparator: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     marginHorizontal: 2,
   },
   saleText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
   },
   loyaltyText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     fontWeight: '600',
   },
@@ -1168,7 +1168,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.text.muted + '40',
   },
   reserveBadgeText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
     color: COLORS.text.muted,
   },
@@ -1191,12 +1191,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   contractText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     fontWeight: '600',
   },
   contractLastRace: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     fontWeight: '700',
     color: COLORS.warning,
   },

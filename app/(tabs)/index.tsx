@@ -441,13 +441,13 @@ const styles = StyleSheet.create({
   },
 
   statLabel: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     marginTop: SPACING.xs,
   },
 
   statTeamName: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.accent,
     marginTop: 2,
     fontWeight: '500',
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
 
   sortToggleText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     color: COLORS.primary,
   },
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   },
 
   budgetLabel: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
   },
 

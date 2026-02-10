@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
   },
 
   driverPrice: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '600',
     color: COLORS.text.secondary,
   },
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   },
 
   purchasePrice: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     marginTop: 2,
   },
@@ -596,19 +596,19 @@ const styles = StyleSheet.create({
   },
 
   tradingLabel: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     marginBottom: 2,
   },
 
   tradingValue: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     fontWeight: '600',
     color: COLORS.text.primary,
   },
 
   tradingHint: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
   },
 
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   },
 
   lockBonusText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.accent,
   },
 
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
   },
 
   recommendationText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.secondary,
     flex: 1,
   },
@@ -733,7 +733,7 @@ const styles = StyleSheet.create({
   },
 
   constructorPrice: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '600',
     color: COLORS.text.secondary,
   },
