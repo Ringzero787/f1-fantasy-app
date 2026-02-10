@@ -79,10 +79,12 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
   // Track per-race point totals
   const perRacePoints: { round: number; points: number }[] = [];
 
-  // Calculate points for each driver
+  // Calculate points for each driver (only for races during their tenure)
   team.drivers.forEach(driver => {
     let driverTotal = 0;
-    completedRaces.forEach(({ result }) => {
+    const driverAddedAt = driver.addedAtRace ?? (team.joinedAtRace || 0);
+    completedRaces.forEach(({ round, result }) => {
+      if (round <= driverAddedAt) return; // Skip races before driver joined
       const driverResult = result.driverResults.find(dr => dr.driverId === driver.driverId);
       if (driverResult) {
         let points = driverResult.points;
@@ -123,10 +125,12 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
     totalPoints += constructorPoints;
   }
 
-  // Build per-race totals (drivers + constructor for each race)
+  // Build per-race totals (drivers + constructor for each race, filtered by tenure)
   completedRaces.forEach(({ round, result }) => {
     let raceTotal = 0;
     team.drivers.forEach(driver => {
+      const driverAddedAt = driver.addedAtRace ?? (team.joinedAtRace || 0);
+      if (round <= driverAddedAt) return; // Skip races before driver joined
       const driverResult = result.driverResults.find(dr => dr.driverId === driver.driverId);
       if (driverResult) {
         let points = driverResult.points;
@@ -162,6 +166,9 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
   if (missedRaces > 0) {
     totalPoints += missedRaces * PRICING_CONFIG.LATE_JOINER_POINTS_PER_RACE;
   }
+
+  // V7: Add banked points from departed drivers
+  totalPoints += team.lockedPoints || 0;
 
   return { totalPoints, driverPoints, constructorPoints, perRacePoints };
 };
@@ -933,6 +940,8 @@ export const useTeamStore = create<TeamState>()(
           // V3: Update captain and transfer tracking
           captainDriverId: newCaptainId,
           racesSinceTransfer: 0,
+          // V7: Bank departing driver's points
+          lockedPoints: (currentTeam.lockedPoints || 0) + (driverToRemove.pointsScored || 0),
           updatedAt: new Date(),
         };
         updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
@@ -961,6 +970,8 @@ export const useTeamStore = create<TeamState>()(
         budget: currentTeam.budget + saleValue,
         captainDriverId: newCaptainId,
         racesSinceTransfer: 0,
+        // V7: Bank departing driver's points
+        lockedPoints: (currentTeam.lockedPoints || 0) + (driverToRemove.pointsScored || 0),
         updatedAt: new Date(),
       };
       console.log('removeDriver: Local update successful, new driver count:', updatedTeam.drivers.length);
@@ -1054,6 +1065,8 @@ export const useTeamStore = create<TeamState>()(
           // V3: Reset stale roster counter and update captain
           racesSinceTransfer: 0,
           captainDriverId: newCaptainId,
+          // V7: Bank departing driver's points
+          lockedPoints: (currentTeam.lockedPoints || 0) + (oldDriver.pointsScored || 0),
           updatedAt: new Date(),
         };
         updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
@@ -1117,6 +1130,8 @@ export const useTeamStore = create<TeamState>()(
         budget: currentTeam.budget - netCostChange,
         racesSinceTransfer: 0,
         captainDriverId: newCaptainId,
+        // V7: Bank departing driver's points
+        lockedPoints: (currentTeam.lockedPoints || 0) + (oldDriver.pointsScored || 0),
         updatedAt: new Date(),
       };
       console.log('swapDriver: Local update successful');
@@ -1608,6 +1623,8 @@ export const useTeamStore = create<TeamState>()(
       const expiredDriverIds: string[] = [];
       // Copy existing lockouts (will add new ones for expired drivers)
       const updatedLockouts: Record<string, number> = { ...(team.driverLockouts || {}) };
+      // V7: Bank departing driver points
+      let lockedPoints = team.lockedPoints || 0;
 
       updatedDrivers = updatedDrivers.filter(driver => {
         const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
@@ -1615,6 +1632,8 @@ export const useTeamStore = create<TeamState>()(
           // Contract expired - sell at current market value (minus commission)
           budgetReturn += calculateSaleValue(driver.currentPrice);
           expiredDriverIds.push(driver.driverId);
+          // V7: Bank departing driver's points before removal
+          lockedPoints += driverPoints[driver.driverId] || 0;
           // V5: Add lockout for this driver (locked until completedRaceCount + LOCKOUT_RACES)
           updatedLockouts[driver.driverId] = completedRaceCount + PRICING_CONFIG.CONTRACT_LOCKOUT_RACES;
           // Clear captain if expired driver was captain
@@ -1694,6 +1713,7 @@ export const useTeamStore = create<TeamState>()(
         budget: newBudget,
         captainDriverId: captainId,
         driverLockouts: Object.keys(updatedLockouts).length > 0 ? updatedLockouts : undefined,
+        lockedPoints: lockedPoints > 0 ? lockedPoints : undefined,
         racesPlayed: perRacePoints.length,
         pointsHistory: perRacePoints.map(r => r.points),
         updatedAt: new Date(),

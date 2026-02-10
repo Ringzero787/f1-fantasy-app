@@ -94,6 +94,8 @@ export default function SelectDriverScreen() {
         totalSpent: team.totalSpent - (oldDriver?.purchasePrice || 0) + newDriver.price,
         budget: team.budget + saleValue - newDriver.price,
         racesSinceTransfer: 0,
+        // V7: Bank departing driver's points
+        lockedPoints: (team.lockedPoints || 0) + (oldDriver?.pointsScored || 0),
         updatedAt: new Date(),
       };
       useTeamStore.getState().setCurrentTeam(updatedTeam);
