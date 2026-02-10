@@ -98,6 +98,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Collection group query for league members (needed for getUserLeagues)
+    match /{path=**}/members/{memberId} {
+      allow read: if isAuthenticated();
+    }
+
     // Notifications
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;

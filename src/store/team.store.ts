@@ -544,13 +544,28 @@ export const useTeamStore = create<TeamState>()(
           }
         }
       } else {
+        // Local state is empty — try recovering teams from Firebase
+        try {
+          const firebaseTeams = await teamService.getUserTeams(userId);
+          if (firebaseTeams.length > 0) {
+            console.log(`loadUserTeams: Recovered ${firebaseTeams.length} team(s) from Firebase`);
+            set({
+              userTeams: firebaseTeams,
+              currentTeam: firebaseTeams[0],
+              isLoading: false,
+            });
+            return;
+          }
+        } catch (fetchError) {
+          console.log('loadUserTeams: Firebase fetch failed (ignored):', fetchError);
+        }
         set({ isLoading: false });
       }
 
       // Sync local teams TO Firebase in background
       if (uniqueTeams.length > 0) {
-        const isDemoMode = useAuthStore.getState().isDemoMode;
-        if (!isDemoMode) {
+        const isDemoMode2 = useAuthStore.getState().isDemoMode;
+        if (!isDemoMode2) {
           teamService.syncTeams(uniqueTeams).then(() => {
             set({ lastSyncTime: Date.now() });
             console.log('loadUserTeams: Firebase sync successful');
