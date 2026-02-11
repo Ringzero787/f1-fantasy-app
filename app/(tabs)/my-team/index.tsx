@@ -479,6 +479,46 @@ export default function MyTeamScreen() {
           <CountdownBanner race={lockoutInfo.nextRace} />
         )}
 
+        {/* Team Completion Alerts */}
+        {currentTeam && driversCount < TEAM_SIZE && canModify && (
+          <TouchableOpacity
+            style={[styles.teamAlert, { backgroundColor: COLORS.warning + '15', borderColor: COLORS.warning + '30' }]}
+            onPress={() => router.push('/my-team/select-driver')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="alert-circle" size={16} color={COLORS.warning} />
+            <Text style={[styles.teamAlertText, { color: COLORS.warning }]}>
+              {TEAM_SIZE - driversCount} driver slot{TEAM_SIZE - driversCount !== 1 ? 's' : ''} empty — tap to add
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.warning} />
+          </TouchableOpacity>
+        )}
+        {currentTeam && !currentTeam.constructor && canModify && (
+          <TouchableOpacity
+            style={[styles.teamAlert, { backgroundColor: COLORS.primary + '15', borderColor: COLORS.primary + '30' }]}
+            onPress={() => router.push('/my-team/select-constructor')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="construct" size={16} color={COLORS.primary} />
+            <Text style={[styles.teamAlertText, { color: COLORS.primary }]}>
+              No constructor selected — tap to add
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+          </TouchableOpacity>
+        )}
+        {currentTeam && !currentTeam.captainDriverId && driversCount > 0 &&
+          currentTeam.drivers.some(d => {
+            const md = allDrivers?.find(m => m.id === d.driverId);
+            return (md?.price ?? d.currentPrice) <= PRICING_CONFIG.CAPTAIN_MAX_PRICE;
+          }) && (
+          <View style={[styles.teamAlert, { backgroundColor: COLORS.gold + '15', borderColor: COLORS.gold + '30' }]}>
+            <Ionicons name="diamond-outline" size={16} color={COLORS.gold} />
+            <Text style={[styles.teamAlertText, { color: COLORS.gold }]}>
+              No Ace selected — tap the <Ionicons name="diamond-outline" size={12} color={COLORS.gold} /> on an eligible driver (under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE})
+            </Text>
+          </View>
+        )}
+
         {/* Team Name Header with Avatar */}
         <View style={styles.teamNameRow}>
           <Avatar
@@ -520,30 +560,6 @@ export default function MyTeamScreen() {
             <Text style={styles.summaryValue}>${formatPoints(teamValue)}</Text>
           </View>
         </View>
-
-        {/* Ace reminder */}
-        {currentTeam && !currentTeam.captainDriverId && driversCount > 0 &&
-          currentTeam.drivers.some(d => {
-            const md = allDrivers?.find(m => m.id === d.driverId);
-            return (md?.price ?? d.currentPrice) <= PRICING_CONFIG.CAPTAIN_MAX_PRICE;
-          }) && (
-          <View style={styles.aceNotice}>
-            <Ionicons name="diamond-outline" size={14} color={COLORS.gold} />
-            <Text style={styles.aceNoticeText}>
-              Select an Ace driver to earn 2x points! Tap the <Ionicons name="diamond-outline" size={12} color={COLORS.gold} /> icon on an eligible driver (under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE}).
-            </Text>
-          </View>
-        )}
-
-        {/* Constructor reminder */}
-        {currentTeam && !currentTeam.constructor && driversCount > 0 && (
-          <View style={styles.constructorNotice}>
-            <Ionicons name="construct-outline" size={14} color={COLORS.primary} />
-            <Text style={styles.constructorNoticeText}>
-              Make sure you select a constructor!
-            </Text>
-          </View>
-        )}
 
         {/* V5: Driver lockout notice */}
         {lockedOutDriverNames.length > 0 && (
@@ -1229,41 +1245,21 @@ const styles = StyleSheet.create({
     color: COLORS.warning,
   },
 
-  aceNotice: {
+  teamAlert: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    marginTop: SPACING.sm,
-    backgroundColor: COLORS.gold + '15',
+    marginBottom: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.gold + '30',
   },
-  aceNoticeText: {
+  teamAlertText: {
     flex: 1,
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.secondary,
-    lineHeight: 16,
-  },
-  constructorNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    marginTop: SPACING.sm,
-    backgroundColor: COLORS.primary + '15',
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.primary + '30',
-  },
-  constructorNoticeText: {
-    flex: 1,
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.secondary,
-    lineHeight: 16,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    lineHeight: 18,
   },
 
   // Add button
