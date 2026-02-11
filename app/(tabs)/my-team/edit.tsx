@@ -383,7 +383,10 @@ export default function EditTeamScreen() {
                 currentTeam.constructor.purchasePrice,
                 currentTeam.constructor.currentPrice
               );
-              const constructorSaleValue = calculateSaleValue(currentTeam.constructor.currentPrice);
+              // V8: Calculate early termination fee for constructor
+              const cContractLen = currentTeam.constructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+              const cEarlyTermFee = calculateEarlyTerminationFee(currentTeam.constructor.purchasePrice, cContractLen, currentTeam.constructor.racesHeld || 0);
+              const constructorSaleValue = Math.max(0, currentTeam.constructor.currentPrice - cEarlyTermFee);
 
               return (
                 <>
@@ -411,7 +414,11 @@ export default function EditTeamScreen() {
                     <View style={styles.tradingItem}>
                       <Text style={styles.tradingLabel}>Sale Value</Text>
                       <Text style={styles.tradingValue}>{formatPoints(constructorSaleValue)}</Text>
-                      <Text style={styles.tradingHint}>No early exit fee</Text>
+                      {cEarlyTermFee > 0 ? (
+                        <Text style={[styles.tradingHint, { color: COLORS.error }]}>(-${cEarlyTermFee} early exit fee)</Text>
+                      ) : (
+                        <Text style={styles.tradingHint}>No early exit fee</Text>
+                      )}
                     </View>
                     <View style={styles.tradingItem}>
                       <Text style={styles.tradingLabel}>Profit/Loss</Text>
@@ -422,6 +429,19 @@ export default function EditTeamScreen() {
                       ]}>
                         {constructorProfitLoss.text}
                       </Text>
+                    </View>
+                  </View>
+
+                  {/* V8: Contract progress */}
+                  <View style={styles.tradingInfo}>
+                    <View style={styles.tradingItem}>
+                      <Text style={styles.tradingLabel}>Contract</Text>
+                      <Text style={styles.tradingValue}>{currentTeam.constructor.racesHeld || 0}/{cContractLen} races</Text>
+                      {cContractLen - (currentTeam.constructor.racesHeld || 0) === 1 ? (
+                        <Text style={[styles.tradingHint, { color: COLORS.warning, fontWeight: '700' }]}>LAST RACE</Text>
+                      ) : (
+                        <Text style={styles.tradingHint}>{cContractLen - (currentTeam.constructor.racesHeld || 0)} remaining</Text>
+                      )}
                     </View>
                   </View>
                 </>

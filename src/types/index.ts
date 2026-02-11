@@ -193,6 +193,9 @@ export interface FantasyConstructor {
   pointsScored: number;
   racesHeld: number;
   lockedAt?: Date;
+  // V8: Contract system - constructors auto-sell after contractLength races
+  contractLength?: number; // Default 5
+  addedAtRace?: number; // Completed race count when added
 }
 
 export interface LockStatus {

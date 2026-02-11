@@ -264,9 +264,20 @@ export default function MyTeamScreen() {
 
   const handleRemoveConstructor = () => {
     if (!currentTeam?.constructor) return;
+    // V8: Calculate and show early termination fee in confirmation
+    const c = currentTeam.constructor;
+    const contractLen = c.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+    const fee = calculateEarlyTerminationFee(c.purchasePrice, contractLen, c.racesHeld || 0);
+    const marketC = allConstructors?.find(mc => mc.id === c.constructorId);
+    const livePrice = marketC?.price ?? c.currentPrice;
+    const saleProceeds = Math.max(0, livePrice - fee);
+    const feeMessage = fee > 0
+      ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
+      : '';
+
     Alert.alert(
       'Remove Constructor',
-      `Are you sure you want to remove ${currentTeam.constructor.name} from your team?`,
+      `Are you sure you want to remove ${currentTeam.constructor.name} from your team?${feeMessage}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -671,6 +682,12 @@ export default function MyTeamScreen() {
           const cPriceDiff = livePrice - c.purchasePrice;
           const cLoyalty = getLoyaltyBonus(c.racesHeld || 0);
           const cNextRate = getNextLoyaltyRate(c.racesHeld || 0);
+          // V8: Constructor contract info
+          const cContractLen = c.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+          const cContractRemaining = cContractLen - (c.racesHeld || 0);
+          const cIsLastRace = cContractRemaining === 1;
+          const cEarlyTermFee = calculateEarlyTerminationFee(c.purchasePrice, cContractLen, c.racesHeld || 0);
+          const cEffectiveSaleValue = Math.max(0, livePrice - cEarlyTermFee);
 
           return (
             <View style={styles.driverRow}>
@@ -689,7 +706,8 @@ export default function MyTeamScreen() {
                   <Text style={styles.driverPoints}>{formatPoints(c.pointsScored)} pts</Text>
                   <View style={{ width: 18 }} />
                   {canModify && (() => {
-                    const cSaleColor = cPriceDiff > 0 ? '#16a34a' : cPriceDiff < 0 ? COLORS.error : COLORS.text.muted;
+                    const cSaleDiff = cEffectiveSaleValue - c.purchasePrice;
+                    const cSaleColor = cSaleDiff > 0 ? '#16a34a' : cSaleDiff < 0 ? COLORS.error : COLORS.text.muted;
                     return (
                       <TouchableOpacity
                         onPress={handleRemoveConstructor}
@@ -712,8 +730,17 @@ export default function MyTeamScreen() {
                 )}
                 <Text style={styles.metaSeparator}>·</Text>
                 <Text style={styles.saleText}>
-                  Sell: ${livePrice}{cPriceDiff > 0 ? ` (+$${cPriceDiff})` : cPriceDiff < 0 ? ` (-$${Math.abs(cPriceDiff)})` : ''}
+                  Sell: ${cEffectiveSaleValue}{cEarlyTermFee > 0 ? ` (-$${cEarlyTermFee} fee)` : cPriceDiff > 0 ? ` (+$${cPriceDiff})` : cPriceDiff < 0 ? ` (-$${Math.abs(cPriceDiff)})` : ''}
                 </Text>
+                <Text style={styles.metaSeparator}>·</Text>
+                <Ionicons name="document-text-outline" size={12} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
+                {cIsLastRace ? (
+                  <Text style={styles.contractLastRace}>LAST RACE</Text>
+                ) : (
+                  <Text style={[styles.contractText, cContractRemaining <= 1 && { color: COLORS.warning }]}>
+                    {c.racesHeld || 0}/{cContractLen}
+                  </Text>
+                )}
                 <Text style={styles.metaSeparator}>·</Text>
                 <Ionicons name="flame" size={12} color={cLoyalty > 0 ? COLORS.gold : COLORS.text.muted} />
                 <Text style={[styles.loyaltyText, cLoyalty > 0 && { color: COLORS.gold }]}>

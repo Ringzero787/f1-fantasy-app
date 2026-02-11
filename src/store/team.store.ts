@@ -224,7 +224,7 @@ interface TeamState {
   addDriver: (driverId: string) => Promise<void>;
   removeDriver: (driverId: string) => Promise<void>;
   swapDriver: (oldDriverId: string, newDriverId: string) => Promise<void>;
-  setConstructor: (constructorId: string) => Promise<void>;
+  setConstructor: (constructorId: string, contractLength?: number) => Promise<void>;
   // V3: Captain system (replaces star driver)
   setCaptain: (driverId: string) => Promise<void>;
   clearCaptain: () => Promise<void>;
@@ -1164,7 +1164,7 @@ export const useTeamStore = create<TeamState>()(
     }
   },
 
-  setConstructor: async (constructorId) => {
+  setConstructor: async (constructorId, contractLength) => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
     const { currentTeam, selectedConstructor } = get();
 
@@ -1195,6 +1195,12 @@ export const useTeamStore = create<TeamState>()(
           return;
         }
 
+        const { raceResults } = useAdminStore.getState();
+        const currentCompletedRaces = Object.values(raceResults).filter(r => r.isComplete).length;
+
+        // V8: Bank departing constructor's points before replacement
+        const bankedPoints = currentTeam.constructor ? (currentTeam.constructor.pointsScored || 0) : 0;
+
         const fantasyConstructor: FantasyConstructor = {
           constructorId: constructor.id,
           name: constructor.name,
@@ -1202,6 +1208,8 @@ export const useTeamStore = create<TeamState>()(
           currentPrice: constructor.price,
           pointsScored: 0,
           racesHeld: 0,
+          contractLength: contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH,
+          addedAtRace: currentCompletedRaces,
         };
 
         const updatedTeam: FantasyTeam = {
@@ -1209,6 +1217,7 @@ export const useTeamStore = create<TeamState>()(
           constructor: fantasyConstructor,
           totalSpent: currentTeam.totalSpent + priceDiff,
           budget: currentTeam.budget - priceDiff,
+          lockedPoints: (currentTeam.lockedPoints || 0) + bankedPoints,
           updatedAt: new Date(),
         };
         updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
@@ -1233,6 +1242,12 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
+      const { raceResults: fbRaceResults } = useAdminStore.getState();
+      const fbCompletedRaces = Object.values(fbRaceResults).filter(r => r.isComplete).length;
+
+      // V8: Bank departing constructor's points before replacement
+      const bankedPoints = currentTeam.constructor ? (currentTeam.constructor.pointsScored || 0) : 0;
+
       const fantasyConstructor: FantasyConstructor = {
         constructorId: constructor.id,
         name: constructor.name,
@@ -1240,6 +1255,8 @@ export const useTeamStore = create<TeamState>()(
         currentPrice: constructor.price,
         pointsScored: 0,
         racesHeld: 0,
+        contractLength: contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH,
+        addedAtRace: fbCompletedRaces,
       };
 
       const updatedTeam: FantasyTeam = {
@@ -1247,6 +1264,7 @@ export const useTeamStore = create<TeamState>()(
         constructor: fantasyConstructor,
         totalSpent: currentTeam.totalSpent + priceDiff,
         budget: currentTeam.budget - priceDiff,
+        lockedPoints: (currentTeam.lockedPoints || 0) + bankedPoints,
         updatedAt: new Date(),
       };
       console.log('setConstructor: Local update successful');
@@ -1277,14 +1295,19 @@ export const useTeamStore = create<TeamState>()(
     set({ isLoading: true, error: null });
     try {
       if (isDemoMode) {
-        // In demo mode, remove constructor locally
-        // Sell at current price minus 5% commission
-        const saleValue = calculateSaleValue(currentTeam.constructor.currentPrice);
+        // V8: Apply early termination fee for breaking constructor contract early
+        const contractLen = currentTeam.constructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+        const earlyTermFee = calculateEarlyTerminationFee(currentTeam.constructor.purchasePrice, contractLen, currentTeam.constructor.racesHeld || 0);
+        const saleValue = Math.max(0, currentTeam.constructor.currentPrice - earlyTermFee);
+        console.log('Selling constructor:', { constructorId: currentTeam.constructor.constructorId, currentPrice: currentTeam.constructor.currentPrice, earlyTermFee, saleValue });
+
         const updatedTeam: FantasyTeam = {
           ...currentTeam,
           constructor: null,
           totalSpent: currentTeam.totalSpent - currentTeam.constructor.purchasePrice,
           budget: currentTeam.budget + saleValue,
+          // V8: Bank departing constructor's points
+          lockedPoints: (currentTeam.lockedPoints || 0) + (currentTeam.constructor.pointsScored || 0),
           updatedAt: new Date(),
         };
         updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
@@ -1292,12 +1315,18 @@ export const useTeamStore = create<TeamState>()(
       }
 
       // Use local-first update pattern
-      const saleValue = calculateSaleValue(currentTeam.constructor!.currentPrice);
+      // V8: Apply early termination fee for breaking constructor contract early
+      const contractLen = currentTeam.constructor!.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+      const earlyTermFee = calculateEarlyTerminationFee(currentTeam.constructor!.purchasePrice, contractLen, currentTeam.constructor!.racesHeld || 0);
+      const saleValue = Math.max(0, currentTeam.constructor!.currentPrice - earlyTermFee);
+
       const updatedTeam: FantasyTeam = {
         ...currentTeam,
         constructor: null,
         totalSpent: currentTeam.totalSpent - currentTeam.constructor!.purchasePrice,
         budget: currentTeam.budget + saleValue,
+        // V8: Bank departing constructor's points
+        lockedPoints: (currentTeam.lockedPoints || 0) + (currentTeam.constructor!.pointsScored || 0),
         updatedAt: new Date(),
       };
       console.log('removeConstructor: Local update successful');
@@ -1430,6 +1459,8 @@ export const useTeamStore = create<TeamState>()(
           currentPrice: selectedConstructor.price,
           pointsScored: 0,
           racesHeld: 0,
+          contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+          addedAtRace: Object.values(useAdminStore.getState().raceResults).filter(r => r.isComplete).length,
         } : null;
 
         const totalSpent = selectionState.totalCost;
@@ -1473,6 +1504,8 @@ export const useTeamStore = create<TeamState>()(
         currentPrice: selectedConstructor.price,
         pointsScored: 0,
         racesHeld: 0,
+        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+        addedAtRace: Object.values(useAdminStore.getState().raceResults).filter(r => r.isComplete).length,
       } : null;
 
       const totalSpent = selectionState.totalCost;
@@ -1719,15 +1752,28 @@ export const useTeamStore = create<TeamState>()(
       const newBudget = team.budget + budgetReturn - autoFillCost;
 
       // Update constructor points, sync current price, and update racesHeld
-      const constructorRacesHeld = team.constructor
-        ? Math.max(0, completedRaceCount - (team.joinedAtRace || 0))
-        : 0;
-      const updatedConstructor = team.constructor ? {
-        ...team.constructor,
-        pointsScored: constructorPoints,
-        currentPrice: constructorPrices[team.constructor.constructorId]?.currentPrice ?? team.constructor.currentPrice,
-        racesHeld: constructorRacesHeld,
-      } : null;
+      // V8: Use constructor's own addedAtRace for accurate racesHeld calculation
+      let updatedConstructor = team.constructor ? (() => {
+        const cAddedAt = team.constructor!.addedAtRace ?? (team.joinedAtRace || 0);
+        const cRacesHeld = Math.max(0, completedRaceCount - cAddedAt);
+        return {
+          ...team.constructor!,
+          pointsScored: constructorPoints,
+          currentPrice: constructorPrices[team.constructor!.constructorId]?.currentPrice ?? team.constructor!.currentPrice,
+          racesHeld: cRacesHeld,
+        };
+      })() : null;
+
+      // V8: Constructor contract expiry - auto-sell if racesHeld >= contractLength
+      if (updatedConstructor) {
+        const cContractLen = updatedConstructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+        if (updatedConstructor.racesHeld >= cContractLen) {
+          // Contract expired - sell at current market value and bank points
+          budgetReturn += calculateSaleValue(updatedConstructor.currentPrice);
+          lockedPoints += constructorPoints;
+          updatedConstructor = null;
+        }
+      }
 
       return {
         ...team,
