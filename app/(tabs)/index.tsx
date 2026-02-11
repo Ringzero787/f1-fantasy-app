@@ -13,7 +13,8 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { useNextRace, useTopDrivers } from '../../src/hooks';
 import { useTeamStore } from '../../src/store/team.store';
 import { useLeagueStore } from '../../src/store/league.store';
-import { Card, Loading, RaceCard, DriverCard, EmptyState } from '../../src/components';
+import { useAdminStore } from '../../src/store/admin.store';
+import { Card, Loading, RaceCard, DriverCard, EmptyState, CountdownBanner } from '../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
 import { formatPoints } from '../../src/utils/formatters';
 
@@ -23,8 +24,13 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { data: nextRace, isLoading: raceLoading, refetch: refetchRace } = useNextRace(CURRENT_SEASON_ID);
   const { data: topDrivers, isLoading: driversLoading, refetch: refetchDrivers } = useTopDrivers(5);
-  const { currentTeam, userTeams, selectTeam, loadUserTeams } = useTeamStore();
-  const { leagues, loadUserLeagues } = useLeagueStore();
+  const currentTeam = useTeamStore(s => s.currentTeam);
+  const userTeams = useTeamStore(s => s.userTeams);
+  const selectTeam = useTeamStore(s => s.selectTeam);
+  const loadUserTeams = useTeamStore(s => s.loadUserTeams);
+  const leagues = useLeagueStore(s => s.leagues);
+  const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
+  const raceResults = useAdminStore(s => s.raceResults);
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -62,9 +68,39 @@ export default function HomeScreen() {
 
   // Calculate actual stats
   const totalPoints = currentTeam?.totalPoints || 0;
-  const leagueCount = leagues.length;
-  // Find best rank across all leagues (would need member data - for now use placeholder)
-  const bestRank = leagueCount > 0 ? 1 : null; // TODO: Calculate from actual league standings
+
+  // Last race points
+  const lastRacePoints = useMemo(() => {
+    const completedRaces = Object.entries(raceResults)
+      .filter(([_, result]) => result.isComplete)
+      .sort((a, b) => b[0].localeCompare(a[0]));
+    if (completedRaces.length === 0 || !currentTeam) return null;
+    const [_, lastResult] = completedRaces[0];
+    let pts = 0;
+    currentTeam.drivers.forEach(driver => {
+      const dr = lastResult.driverResults.find((r: any) => r.driverId === driver.driverId);
+      if (dr) {
+        const multiplier = currentTeam.captainDriverId === driver.driverId ? 2 : 1;
+        pts += Math.floor(dr.points * multiplier);
+      }
+    });
+    if (currentTeam.constructor) {
+      const cr = lastResult.constructorResults.find(
+        (r: any) => r.constructorId === currentTeam.constructor?.constructorId
+      );
+      if (cr) pts += cr.points;
+    }
+    return pts;
+  }, [raceResults, currentTeam]);
+
+  // League rank for badge
+  const leagueRank = useMemo(() => {
+    if (!currentTeam?.leagueId || !primaryLeague) return null;
+    const leagueTeams = userTeams.filter(t => t.leagueId === currentTeam.leagueId);
+    const sorted = [...leagueTeams].sort((a, b) => b.totalPoints - a.totalPoints);
+    const idx = sorted.findIndex(t => t.id === currentTeam.id);
+    return idx !== -1 ? idx + 1 : null;
+  }, [currentTeam, primaryLeague, userTeams]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -86,15 +122,23 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>Welcome back,</Text>
           <Text style={styles.userName}>{user?.displayName || 'Racer'}</Text>
         </View>
-        {primaryLeague && (
+        {primaryLeague ? (
           <TouchableOpacity
             style={styles.leagueBadge}
             onPress={() => router.push(`/leagues/${primaryLeague.id}`)}
           >
             <Ionicons name="trophy" size={14} color={COLORS.accent} />
             <Text style={styles.leagueBadgeText} numberOfLines={1}>
-              {primaryLeague.name}
+              {leagueRank ? `#${leagueRank} ` : ''}{primaryLeague.name}
             </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.joinLeagueBadge}
+            onPress={() => router.push('/leagues')}
+          >
+            <Ionicons name="trophy-outline" size={14} color={COLORS.primary} />
+            <Text style={styles.joinLeagueBadgeText}>Join League</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -102,7 +146,7 @@ export default function HomeScreen() {
       {/* Quick Stats */}
       <View style={styles.statsRow}>
         <Card style={styles.statCard} variant="elevated">
-          <Text style={styles.statValue}>{totalPoints}</Text>
+          <Text style={styles.statValue}>{formatPoints(totalPoints)}</Text>
           <Text style={styles.statLabel}>Total Points</Text>
           {currentTeam && (
             <Text style={styles.statTeamName} numberOfLines={1}>
@@ -111,14 +155,19 @@ export default function HomeScreen() {
           )}
         </Card>
         <Card style={styles.statCard} variant="elevated">
-          <Text style={styles.statValue}>{leagueCount}</Text>
-          <Text style={styles.statLabel}>Leagues</Text>
+          <Text style={[styles.statValue, lastRacePoints != null && lastRacePoints > 0 && styles.lastRacePositive]}>
+            {lastRacePoints != null ? `+${lastRacePoints}` : '-'}
+          </Text>
+          <Text style={styles.statLabel}>Last Race</Text>
         </Card>
         <Card style={styles.statCard} variant="elevated">
-          <Text style={styles.statValue}>{bestRank || '--'}</Text>
-          <Text style={styles.statLabel}>Best Rank</Text>
+          <Text style={styles.statValue}>${formatPoints(currentTeam?.budget || 0)}</Text>
+          <Text style={styles.statLabel}>Bank</Text>
         </Card>
       </View>
+
+      {/* Race Countdown Banner */}
+      {nextRace && <CountdownBanner race={nextRace} />}
 
       {/* Next Race */}
       <View style={styles.section}>
@@ -139,59 +188,18 @@ export default function HomeScreen() {
       </View>
 
       {/* My Teams Summary */}
-      <View style={styles.section}>
+      <TouchableOpacity
+        style={styles.section}
+        activeOpacity={0.7}
+        onPress={() => router.push('/my-team')}
+      >
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>My Teams</Text>
-          <TouchableOpacity
-            style={styles.manageButton}
-            onPress={() => router.push('/my-team')}
-          >
-            <Ionicons name="settings-outline" size={16} color={COLORS.primary} />
+          <View style={styles.manageButton}>
+            <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
             <Text style={styles.manageButtonText}>Manage</Text>
-          </TouchableOpacity>
+          </View>
         </View>
-
-        {/* Team Selector - show when multiple teams exist */}
-        {userTeams.length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.teamSelector}
-            contentContainerStyle={styles.teamSelectorContent}
-          >
-            {userTeams.map((team) => (
-              <TouchableOpacity
-                key={team.id}
-                style={[
-                  styles.teamSelectorItem,
-                  currentTeam?.id === team.id && styles.teamSelectorItemActive,
-                ]}
-                onPress={() => selectTeam(team.id)}
-              >
-                <Text
-                  style={[
-                    styles.teamSelectorText,
-                    currentTeam?.id === team.id && styles.teamSelectorTextActive,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {team.name}
-                </Text>
-                {team.leagueId ? (
-                  <Ionicons name="trophy" size={12} color={currentTeam?.id === team.id ? COLORS.white : COLORS.accent} />
-                ) : (
-                  <Ionicons name="person" size={12} color={currentTeam?.id === team.id ? COLORS.white : COLORS.text.muted} />
-                )}
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.addTeamButton}
-              onPress={() => router.push('/my-team')}
-            >
-              <Ionicons name="add" size={18} color={COLORS.primary} />
-            </TouchableOpacity>
-          </ScrollView>
-        )}
 
         {currentTeam ? (
           <Card variant="elevated" style={styles.teamSummaryCard}>
@@ -263,13 +271,10 @@ export default function HomeScreen() {
 
             {/* Complete Team Button if incomplete */}
             {!isTeamComplete && (
-              <TouchableOpacity
-                style={styles.completeTeamButton}
-                onPress={() => router.push('/my-team')}
-              >
+              <View style={styles.completeTeamButton}>
                 <Text style={styles.completeTeamButtonText}>Complete Your Team</Text>
                 <Ionicons name="arrow-forward" size={16} color={COLORS.white} />
-              </TouchableOpacity>
+              </View>
             )}
           </Card>
         ) : (
@@ -277,16 +282,13 @@ export default function HomeScreen() {
             <View style={styles.noTeamContainer}>
               <Ionicons name="people-outline" size={32} color={COLORS.text.muted} />
               <Text style={styles.noTeamText}>No team created yet</Text>
-              <TouchableOpacity
-                style={styles.createTeamButton}
-                onPress={() => router.push('/my-team')}
-              >
+              <View style={styles.createTeamButton}>
                 <Text style={styles.createTeamButtonText}>Create Team</Text>
-              </TouchableOpacity>
+              </View>
             </View>
           </Card>
         )}
-      </View>
+      </TouchableOpacity>
 
       {/* Quick Actions */}
       <View style={styles.section}>
@@ -422,6 +424,22 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
   },
 
+  joinLeagueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary + '15',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
+    gap: SPACING.xs,
+  },
+
+  joinLeagueBadgeText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
   statsRow: {
     flexDirection: 'row',
     gap: SPACING.sm,
@@ -452,6 +470,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
     textAlign: 'center',
+  },
+
+  lastRacePositive: {
+    color: COLORS.success,
   },
 
   section: {
@@ -502,15 +524,15 @@ const styles = StyleSheet.create({
   manageButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+    gap: 6,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     backgroundColor: COLORS.primary + '15',
     borderRadius: BORDER_RADIUS.button,
   },
 
   manageButtonText: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     color: COLORS.primary,
     fontWeight: '600',
   },
@@ -628,55 +650,6 @@ const styles = StyleSheet.create({
   pointsValue: {
     color: COLORS.primary,
     fontWeight: '600',
-  },
-
-  teamSelector: {
-    marginBottom: SPACING.md,
-  },
-
-  teamSelectorContent: {
-    gap: SPACING.sm,
-    paddingRight: SPACING.md,
-  },
-
-  teamSelectorItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-  },
-
-  teamSelectorItemActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-
-  teamSelectorText: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '500',
-    color: COLORS.text.secondary,
-    maxWidth: 100,
-  },
-
-  teamSelectorTextActive: {
-    color: COLORS.white,
-  },
-
-  addTeamButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.primary + '30',
-    borderStyle: 'dashed',
   },
 
   noTeamContainer: {

@@ -121,8 +121,20 @@ type TeamMode = 'solo' | 'league';
 
 export default function CreateTeamScreen() {
   const { user } = useAuth();
-  const { leagues, loadUserLeagues, lookupLeagueByCode, recentlyCreatedLeague, clearRecentlyCreatedLeague } = useLeagueStore();
-  const { createTeam, addDriver, setConstructor, userTeams, isLoading, error, currentTeam, setCurrentTeam, clearError } = useTeamStore();
+  const leagues = useLeagueStore(s => s.leagues);
+  const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
+  const lookupLeagueByCode = useLeagueStore(s => s.lookupLeagueByCode);
+  const recentlyCreatedLeague = useLeagueStore(s => s.recentlyCreatedLeague);
+  const clearRecentlyCreatedLeague = useLeagueStore(s => s.clearRecentlyCreatedLeague);
+  const createTeam = useTeamStore(s => s.createTeam);
+  const addDriver = useTeamStore(s => s.addDriver);
+  const setConstructor = useTeamStore(s => s.setConstructor);
+  const userTeams = useTeamStore(s => s.userTeams);
+  const isLoading = useTeamStore(s => s.isLoading);
+  const error = useTeamStore(s => s.error);
+  const currentTeam = useTeamStore(s => s.currentTeam);
+  const setCurrentTeam = useTeamStore(s => s.setCurrentTeam);
+  const clearError = useTeamStore(s => s.clearError);
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
 

@@ -16,7 +16,7 @@ interface LeaderboardItemProps {
   view?: LeaderboardView;
 }
 
-export function LeaderboardItem({ member, isCurrentUser = false, onPress, view = 'total' }: LeaderboardItemProps) {
+export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isCurrentUser = false, onPress, view = 'total' }: LeaderboardItemProps) {
   // Get value and label based on view type
   const getDisplayValue = (): { value: number; label: string } => {
     switch (view) {
@@ -146,7 +146,7 @@ export function LeaderboardItem({ member, isCurrentUser = false, onPress, view =
   }
 
   return content;
-}
+});
 
 const styles = StyleSheet.create({
   container: {

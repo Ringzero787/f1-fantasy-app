@@ -17,7 +17,7 @@ import {
   calculateInitialPrice,
   calculateRollingAverage,
   calculatePriceChange,
-  getDriverTier,
+  getPriceTier,
 } from '../../src/config/pricing.config';
 import {
   PPM_GREAT,
@@ -44,7 +44,7 @@ const getPerformanceTier = (ppm: number): 'great' | 'good' | 'poor' | 'terrible'
   return 'terrible';
 };
 
-const getPriceTier = (price: number): 'A' | 'B' => {
+const getLocalPriceTier = (price: number): 'A' | 'B' => {
   return price > 200 ? 'A' : 'B';
 };
 
@@ -56,7 +56,7 @@ const calculateDriverPriceChange = (points: number, currentPrice: number): {
 } => {
   const ppm = calculatePPM(points, currentPrice);
   const performanceTier = getPerformanceTier(ppm);
-  const tier = getDriverTier(currentPrice);
+  const tier = getLocalPriceTier(currentPrice);
   const priceChanges = tier === 'A' ? PRICE_CHANGES.A_TIER : PRICE_CHANGES.B_TIER;
   const change = priceChanges[performanceTier];
   let newPrice = currentPrice + change;
@@ -415,25 +415,25 @@ describe('Initial Price from Season Points', () => {
 
 describe('Driver Tier', () => {
   it('price $201 → A-tier', () => {
-    expect(getDriverTier(201)).toBe('A');
+    expect(getPriceTier(201)).toBe('A');
     expect(getPriceTier(201)).toBe('A');
   });
 
   it('price $200 → B-tier (threshold > 200, exclusive)', () => {
-    expect(getDriverTier(200)).toBe('B');
+    expect(getPriceTier(200)).toBe('B');
     expect(getPriceTier(200)).toBe('B');
   });
 
   it('price $199 → B-tier', () => {
-    expect(getDriverTier(199)).toBe('B');
+    expect(getPriceTier(199)).toBe('B');
   });
 
   it('price $500 → A-tier', () => {
-    expect(getDriverTier(500)).toBe('A');
+    expect(getPriceTier(500)).toBe('A');
   });
 
   it('price $3 → B-tier', () => {
-    expect(getDriverTier(3)).toBe('B');
+    expect(getPriceTier(3)).toBe('B');
   });
 });
 

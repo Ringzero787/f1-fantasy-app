@@ -15,7 +15,7 @@ interface RaceCardProps {
   compact?: boolean;
 }
 
-export function RaceCard({
+export const RaceCard = React.memo(function RaceCard({
   race,
   onPress,
   showCountdown = true,
@@ -156,7 +156,7 @@ export function RaceCard({
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

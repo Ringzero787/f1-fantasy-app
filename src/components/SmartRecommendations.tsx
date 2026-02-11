@@ -126,7 +126,7 @@ export function SmartRecommendations({
       usedIds.add(balancedPick.id);
       recommendations.push({
         driver: balancedPick,
-        reason: `Balances your ${balancedPick.tier === 'A' ? 'premium' : balancedPick.tier === 'C' ? 'budget' : 'standard'} picks`,
+        reason: `Balances your Tier ${balancedPick.tier} picks`,
         tag: 'balanced-pick',
         score: balancedPick.fantasyPoints / balancedPick.price,
       });

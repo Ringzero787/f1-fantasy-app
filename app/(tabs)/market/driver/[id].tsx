@@ -133,23 +133,27 @@ export default function DriverDetailScreen() {
         </Card>
       </View>
 
-      {/* Price Tier Info */}
+      {/* Value Tier Info */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Price Tier Information</Text>
+        <Text style={styles.sectionTitle}>Value Tier</Text>
         <Card variant="outlined">
           <Text style={styles.tierInfoText}>
             {driver.tier === 'A' ? (
               <>
-                <Text style={styles.bold}>Tier A drivers</Text> (price 200+) have larger
-                price swings based on performance. Great performances can increase
-                price by up to 15 points, while poor performances can decrease it
-                by 15 points.
+                <Text style={styles.bold}>Tier A — Great value.</Text> Strong points
+                production relative to cost. One of the best points-per-dollar picks
+                on the grid.
+              </>
+            ) : driver.tier === 'B' ? (
+              <>
+                <Text style={styles.bold}>Tier B — Fair value.</Text> Reasonable output
+                for the price. A solid pick that performs in line with expectations.
               </>
             ) : (
               <>
-                <Text style={styles.bold}>Tier B drivers</Text> (price under 200) have
-                smaller price movements. Great performances increase price by up
-                to 10 points, while poor performances decrease it by 10 points.
+                <Text style={styles.bold}>Tier C — Below average value.</Text> Consider
+                better points-per-dollar alternatives. This driver is underperforming
+                relative to their cost.
               </>
             )}
           </Text>

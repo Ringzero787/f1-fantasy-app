@@ -152,12 +152,63 @@ export function calculatePriceChange(
 }
 
 /**
- * Get driver tier based on price
+ * Get price-based tier (used for price-change volatility, NOT display)
  */
-export function getDriverTier(price: number): 'A' | 'B' | 'C' {
+export function getPriceTier(price: number): 'A' | 'B' | 'C' {
   if (price > PRICING_CONFIG.A_TIER_THRESHOLD) return 'A';
   if (price > PRICING_CONFIG.B_TIER_THRESHOLD) return 'B';
   return 'C';
+}
+
+/**
+ * Assign value-based tiers using points-per-dollar percentile ranking.
+ * Top 30% = Tier A (best value), middle 40% = Tier B, bottom 30% = Tier C.
+ * Falls back to existing tiers if no points data is available.
+ */
+export function assignValueTiers<T extends {
+  id: string;
+  price: number;
+  seasonPoints: number;
+  currentSeasonPoints?: number;
+  tier: 'A' | 'B' | 'C';
+  isActive: boolean;
+}>(items: T[]): T[] {
+  const active = items.filter(d => d.isActive);
+  if (active.length === 0) return items;
+
+  const withPPD = active.map(d => {
+    const relevantPoints = (d.currentSeasonPoints && d.currentSeasonPoints > 0)
+      ? d.currentSeasonPoints
+      : d.seasonPoints;
+    const ppd = d.price > 0 ? relevantPoints / d.price : 0;
+    return { id: d.id, ppd };
+  });
+
+  // If no one has any points, keep existing tiers
+  if (!withPPD.some(d => d.ppd > 0)) return items;
+
+  // Sort by PPD descending (best value first)
+  withPPD.sort((a, b) => b.ppd - a.ppd);
+
+  const total = withPPD.length;
+  const tierACount = Math.max(1, Math.round(total * 0.3));
+  const tierCCount = Math.max(1, Math.round(total * 0.3));
+
+  const tierMap = new Map<string, 'A' | 'B' | 'C'>();
+  withPPD.forEach((entry, index) => {
+    if (index < tierACount) {
+      tierMap.set(entry.id, 'A');
+    } else if (index >= total - tierCCount) {
+      tierMap.set(entry.id, 'C');
+    } else {
+      tierMap.set(entry.id, 'B');
+    }
+  });
+
+  return items.map(d => {
+    const newTier = tierMap.get(d.id);
+    return newTier !== undefined ? { ...d, tier: newTier } : d;
+  });
 }
 
 /**

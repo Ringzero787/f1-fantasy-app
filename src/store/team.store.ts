@@ -1656,8 +1656,13 @@ export const useTeamStore = create<TeamState>()(
     // Count total completed races
     const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
 
+    const perRaceCache = new Map<string, { round: number; points: number }[]>();
+
     const updatedUserTeams = userTeams.map(team => {
       const { totalPoints, driverPoints, constructorPoints, perRacePoints } = calculateTeamPointsFromRaces(team);
+
+      // Cache per-race points so we don't recompute for league race-wins
+      perRaceCache.set(team.id, perRacePoints);
 
       // Update driver points, sync current prices, and update racesHeld
       let updatedDrivers = team.drivers.map(driver => {
@@ -1805,7 +1810,7 @@ export const useTeamStore = create<TeamState>()(
 
       // Build per-team per-race data
       const teamRaceData = teams.map(team => {
-        const { perRacePoints: prp } = calculateTeamPointsFromRaces(team);
+        const prp = perRaceCache.get(team.id) || [];
         const map = new Map<number, number>();
         prp.forEach(r => map.set(r.round, r.points));
         return { team, perRace: map };

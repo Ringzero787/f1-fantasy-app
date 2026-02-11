@@ -31,12 +31,10 @@ const LEADERBOARD_VIEWS: { key: LeaderboardView; label: string; icon: string }[]
 export default function LeagueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const {
-    currentLeague,
-    isLoading,
-    loadLeague,
-    leaveLeague,
-  } = useLeagueStore();
+  const currentLeague = useLeagueStore(s => s.currentLeague);
+  const isLoading = useLeagueStore(s => s.isLoading);
+  const loadLeague = useLeagueStore(s => s.loadLeague);
+  const leaveLeague = useLeagueStore(s => s.leaveLeague);
 
   const [refreshing, setRefreshing] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -48,7 +46,9 @@ export default function LeagueDetailScreen() {
   });
 
   // Subscribe to team store for real-time updates
-  const { userTeams, currentTeam, loadUserTeams } = useTeamStore();
+  const userTeams = useTeamStore(s => s.userTeams);
+  const currentTeam = useTeamStore(s => s.currentTeam);
+  const loadUserTeams = useTeamStore(s => s.loadUserTeams);
 
   // Compute league members directly from team data (more reliable than async loading)
   const members = useMemo((): LeagueMember[] => {

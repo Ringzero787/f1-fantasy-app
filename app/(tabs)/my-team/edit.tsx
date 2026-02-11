@@ -19,13 +19,11 @@ import { formatPoints, calculateSaleValue, formatProfitLoss } from '../../../src
 import type { Driver } from '../../../src/types';
 
 export default function EditTeamScreen() {
-  const {
-    currentTeam,
-    isLoading,
-    removeDriver,
-    setCaptain,
-    deleteTeam,
-  } = useTeamStore();
+  const currentTeam = useTeamStore(s => s.currentTeam);
+  const isLoading = useTeamStore(s => s.isLoading);
+  const removeDriver = useTeamStore(s => s.removeDriver);
+  const setCaptain = useTeamStore(s => s.setCaptain);
+  const deleteTeam = useTeamStore(s => s.deleteTeam);
 
   const [removingDriverId, setRemovingDriverId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);

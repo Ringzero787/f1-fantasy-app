@@ -11,7 +11,7 @@ import {
   calculatePriceFromRollingAvg,
   calculateRollingAverage,
   calculatePriceChange,
-  getDriverTier,
+  getPriceTier,
   getRacePoints,
 } from '../../src/config/pricing.config';
 import {
@@ -44,7 +44,7 @@ const calculateDriverPriceChange = (points: number, currentPrice: number): {
 } => {
   const ppm = calculatePPM(points, currentPrice);
   const performanceTier = getPerformanceTier(ppm);
-  const tier = getDriverTier(currentPrice);
+  const tier = getPriceTier(currentPrice);
   const priceChanges = tier === 'A' ? PRICE_CHANGES.A_TIER : PRICE_CHANGES.B_TIER;
 
   let change: number;
@@ -275,9 +275,9 @@ describe('Driver Price Changes After Race Results', () => {
 
   describe('Tier Boundary Behavior', () => {
     it('should correctly identify tier at threshold', () => {
-      expect(getDriverTier(200)).toBe('B'); // At threshold = B
-      expect(getDriverTier(201)).toBe('A'); // Just above = A
-      expect(getDriverTier(199)).toBe('B'); // Just below = B
+      expect(getPriceTier(200)).toBe('B'); // At threshold = B
+      expect(getPriceTier(201)).toBe('A'); // Just above = A
+      expect(getPriceTier(199)).toBe('B'); // Just below = B
     });
 
     it('should apply different price changes based on tier', () => {

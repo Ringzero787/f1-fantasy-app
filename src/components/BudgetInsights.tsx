@@ -55,11 +55,11 @@ export function BudgetInsights({
       };
     }
 
-    // High budget remaining - can afford premium
+    // High budget remaining - can afford Tier A
     if (slotsRemaining > 0 && avgPerSlot > 250) {
       return {
         type: 'tip',
-        message: `Room for a premium pick! You have ~${Math.round(avgPerSlot)} pts per slot.`,
+        message: `Room for a Tier A pick! You have ~${Math.round(avgPerSlot)} pts per slot.`,
         icon: 'star',
       };
     }
@@ -68,7 +68,7 @@ export function BudgetInsights({
     if (slotsRemaining >= 3 && avgPerSlot >= 100 && avgPerSlot < 150) {
       return {
         type: 'info',
-        message: `Consider mixing 1-2 premium drivers with budget picks.`,
+        message: `Consider mixing 1-2 Tier A drivers with Tier C picks.`,
         icon: 'bulb',
       };
     }

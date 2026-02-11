@@ -18,7 +18,7 @@ interface ConstructorCardProps {
   compact?: boolean;
 }
 
-export function ConstructorCard({
+export const ConstructorCard = React.memo(function ConstructorCard({
   constructor,
   onPress,
   onSelect,
@@ -149,7 +149,7 @@ export function ConstructorCard({
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

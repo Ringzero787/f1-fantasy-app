@@ -3,6 +3,7 @@ import { driverService } from '../services/driver.service';
 import { useAuthStore } from '../store/auth.store';
 import { useAdminStore } from '../store/admin.store';
 import { demoDrivers } from '../data/demoData';
+import { assignValueTiers } from '../config/pricing.config';
 import type { Driver, DriverFilter } from '../types';
 
 export const driverKeys = {
@@ -98,7 +99,10 @@ export function useDrivers(filter?: DriverFilter) {
   const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: filter ? [...driverKeys.list(filter), raceResults, driverPrices] : [...driverKeys.lists(), raceResults, driverPrices],
+    // Use lightweight version counter instead of full objects to prevent unnecessary cache invalidation
+    queryKey: filter
+      ? [...driverKeys.list(filter), `${Object.keys(raceResults).length}_${Object.keys(driverPrices).length}`]
+      : [...driverKeys.lists(), `${Object.keys(raceResults).length}_${Object.keys(driverPrices).length}`],
     queryFn: async () => {
       // Add 2026 season points and apply price updates to drivers
       const addSeasonPointsAndPrices = (drivers: Driver[], sortFilter?: DriverFilter) => {
@@ -114,6 +118,9 @@ export function useDrivers(filter?: DriverFilter) {
             currentSeasonPoints: priceUpdate?.totalPoints ?? getSeasonPointsFromRaces(d.id, raceResults),
           };
         });
+
+        // Assign value-based tiers (percentile PPD ranking)
+        updated = assignValueTiers(updated);
 
         // Re-sort after price updates are applied (ensures correct order with updated prices)
         if (sortFilter?.sortBy) {
@@ -173,7 +180,7 @@ export function useDriver(driverId: string) {
   const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: [...driverKeys.detail(driverId), raceResults, driverPrices],
+    queryKey: [...driverKeys.detail(driverId), `${Object.keys(raceResults).length}_${Object.keys(driverPrices).length}`],
     queryFn: async () => {
       const addSeasonPointsAndPrice = (driver: Driver | null) => {
         if (!driver) return null;
@@ -237,19 +244,21 @@ export function useAffordableDrivers(maxPrice: number, excludeIds: string[] = []
   const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: [...driverKeys.affordable(maxPrice), excludeIds, driverPrices],
+    queryKey: [...driverKeys.affordable(maxPrice), excludeIds, Object.keys(driverPrices).length],
     queryFn: async () => {
-      const getDemoAffordable = () => demoDrivers
-        .map(d => {
+      const getDemoAffordable = () => {
+        const all = demoDrivers.map(d => {
           const priceUpdate = driverPrices[d.id];
           return {
             ...d,
             price: priceUpdate?.currentPrice ?? d.price,
             previousPrice: priceUpdate?.previousPrice ?? d.previousPrice,
           };
-        })
-        .filter(d => d.price <= maxPrice && !excludeIds.includes(d.id))
-        .sort((a, b) => b.price - a.price);
+        });
+        return assignValueTiers(all)
+          .filter(d => d.price <= maxPrice && !excludeIds.includes(d.id))
+          .sort((a, b) => b.price - a.price);
+      };
 
       if (isDemoMode) {
         return getDemoAffordable();
@@ -275,7 +284,7 @@ export function useTopDrivers(limit: number = 10) {
   const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: [...driverKeys.top(limit), raceResults, driverPrices],
+    queryKey: [...driverKeys.top(limit), `${Object.keys(raceResults).length}_${Object.keys(driverPrices).length}`],
     queryFn: async () => {
       // Calculate 2026 season points from race results
       const getSeasonPoints = (driverId: string): number => {
@@ -303,20 +312,23 @@ export function useTopDrivers(limit: number = 10) {
         return total;
       };
 
-      const getDemoTop = () => [...demoDrivers]
-        .filter(d => d.isActive)
-        .map(d => {
-          const priceUpdate = driverPrices[d.id];
-          const currentSeasonPts = getSeasonPoints(d.id);
-          return {
-            ...d,
-            price: priceUpdate?.currentPrice ?? d.price,
-            previousPrice: priceUpdate?.previousPrice ?? d.previousPrice,
-            currentSeasonPoints: currentSeasonPts,
-          };
-        })
-        .sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0))
-        .slice(0, limit);
+      const getDemoTop = () => {
+        const all = [...demoDrivers]
+          .filter(d => d.isActive)
+          .map(d => {
+            const priceUpdate = driverPrices[d.id];
+            const currentSeasonPts = getSeasonPoints(d.id);
+            return {
+              ...d,
+              price: priceUpdate?.currentPrice ?? d.price,
+              previousPrice: priceUpdate?.previousPrice ?? d.previousPrice,
+              currentSeasonPoints: currentSeasonPts,
+            };
+          });
+        return assignValueTiers(all)
+          .sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0))
+          .slice(0, limit);
+      };
 
       if (isDemoMode) {
         return getDemoTop();
@@ -340,10 +352,10 @@ export function usePriceMovers(direction: 'up' | 'down', limit: number = 5) {
   const driverPrices = useAdminStore((state) => state.driverPrices);
 
   return useQuery({
-    queryKey: [...driverKeys.movers(direction), driverPrices],
+    queryKey: [...driverKeys.movers(direction), Object.keys(driverPrices).length],
     queryFn: async () => {
       const getDemoMovers = () => {
-        return [...demoDrivers]
+        const all = [...demoDrivers]
           .map(d => {
             const priceUpdate = driverPrices[d.id];
             const currentPrice = priceUpdate?.currentPrice ?? d.price;
@@ -354,7 +366,8 @@ export function usePriceMovers(direction: 'up' | 'down', limit: number = 5) {
               previousPrice: previousPrice,
               priceChange: currentPrice - previousPrice,
             };
-          })
+          });
+        return assignValueTiers(all)
           .sort((a, b) => {
             if (direction === 'up') {
               return b.priceChange - a.priceChange;

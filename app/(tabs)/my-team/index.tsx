@@ -21,8 +21,9 @@ import { useLeagueStore } from '../../../src/store/league.store';
 import { useAdminStore } from '../../../src/store/admin.store';
 import { useDrivers, useConstructors, useAvatarGeneration, useLockoutStatus } from '../../../src/hooks';
 import { saveAvatarUrl } from '../../../src/services/avatarGeneration.service';
-import { Loading, Button, Avatar, AvatarPicker } from '../../../src/components';
+import { Loading, Button, Avatar, AvatarPicker, CountdownBanner } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../src/config/constants';
+import { demoConstructors } from '../../../src/data/demoData';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import { formatPoints } from '../../../src/utils/formatters';
 
@@ -43,9 +44,22 @@ function getNextLoyaltyRate(racesHeld: number): number {
 
 export default function MyTeamScreen() {
   const { user } = useAuth();
-  const { currentTeam, userTeams, isLoading, hasHydrated, loadUserTeams, updateTeamName, removeDriver, removeConstructor, setCaptain, clearCaptain, selectTeam, recalculateAllTeamsPoints, setCurrentTeam } = useTeamStore();
-  const { leagues, loadUserLeagues } = useLeagueStore();
-  const { raceResults } = useAdminStore();
+  const currentTeam = useTeamStore(s => s.currentTeam);
+  const userTeams = useTeamStore(s => s.userTeams);
+  const isLoading = useTeamStore(s => s.isLoading);
+  const hasHydrated = useTeamStore(s => s.hasHydrated);
+  const loadUserTeams = useTeamStore(s => s.loadUserTeams);
+  const updateTeamName = useTeamStore(s => s.updateTeamName);
+  const removeDriver = useTeamStore(s => s.removeDriver);
+  const removeConstructor = useTeamStore(s => s.removeConstructor);
+  const setCaptain = useTeamStore(s => s.setCaptain);
+  const clearCaptain = useTeamStore(s => s.clearCaptain);
+  const selectTeam = useTeamStore(s => s.selectTeam);
+  const recalculateAllTeamsPoints = useTeamStore(s => s.recalculateAllTeamsPoints);
+  const setCurrentTeam = useTeamStore(s => s.setCurrentTeam);
+  const leagues = useLeagueStore(s => s.leagues);
+  const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
+  const raceResults = useAdminStore(s => s.raceResults);
   const { data: allDrivers } = useDrivers();
   const { data: allConstructors } = useConstructors();
   const lockoutInfo = useLockoutStatus();
@@ -163,18 +177,28 @@ export default function MyTeamScreen() {
       }
     }
 
+    const leagueName = currentTeam?.leagueId
+      ? leagues.find(l => l.id === currentTeam.leagueId)?.name || null
+      : null;
+
     return {
       lastRacePoints,
       totalPoints: currentTeam?.totalPoints || 0,
       leagueRank,
       leagueSize,
+      leagueName,
+      leagueId: currentTeam?.leagueId || null,
       hasCompletedRaces: completedRaces.length > 0,
     };
   }, [raceResults, currentTeam, userTeams, leagues]);
 
   // Build a lookup: constructorId -> { shortName, primaryColor }
+  // Include demoConstructors as base layer so renamed IDs (e.g. sauber->audi) still resolve
   const constructorLookup = useMemo(() => {
     const map: Record<string, { shortName: string; primaryColor: string }> = {};
+    demoConstructors.forEach(c => {
+      map[c.id] = { shortName: c.shortName, primaryColor: c.primaryColor };
+    });
     allConstructors?.forEach(c => {
       map[c.id] = { shortName: c.shortName, primaryColor: c.primaryColor };
     });
@@ -303,15 +327,6 @@ export default function MyTeamScreen() {
   const canModify = !lockoutInfo.isLocked && (currentTeam?.lockStatus.canModify ?? true);
   const canChangeCaptain = !lockoutInfo.captainLocked && (currentTeam?.lockStatus.canModify ?? true);
 
-  // Countdown text for lockout
-  const lockCountdownText = useMemo(() => {
-    if (!lockoutInfo.lockTime || lockoutInfo.isLocked) return null;
-    const diff = lockoutInfo.lockTime.getTime() - Date.now();
-    if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return null;
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return `Locks in ${hours}h ${minutes}m`;
-  }, [lockoutInfo.lockTime, lockoutInfo.isLocked]);
 
   // --- Early returns ---
 
@@ -421,13 +436,18 @@ export default function MyTeamScreen() {
             <Text style={styles.statLabel}>Total Pts</Text>
           </View>
           <View style={styles.statDivider} />
-          {teamStats.leagueRank !== null ? (
-            <View style={styles.statItem}>
+          {teamStats.leagueId ? (
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => router.push(`/leagues/${teamStats.leagueId}`)}
+            >
               <Text style={styles.statValue}>
-                {teamStats.leagueRank}/{teamStats.leagueSize}
+                {teamStats.leagueRank !== null ? `#${teamStats.leagueRank}` : '—'}
               </Text>
-              <Text style={styles.statLabel}>League</Text>
-            </View>
+              <Text style={styles.statLabel} numberOfLines={1}>
+                {teamStats.leagueName || 'League'}
+              </Text>
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={styles.statItem}
@@ -454,12 +474,9 @@ export default function MyTeamScreen() {
           </View>
         )}
 
-        {/* V5: Lockout Countdown */}
-        {lockCountdownText && !lockoutInfo.isLocked && (
-          <View style={styles.lockCountdown}>
-            <Ionicons name="time-outline" size={14} color={COLORS.warning} />
-            <Text style={styles.lockCountdownText}>{lockCountdownText}</Text>
-          </View>
+        {/* Live Countdown Banner */}
+        {lockoutInfo.nextRace && !lockoutInfo.isLocked && (
+          <CountdownBanner race={lockoutInfo.nextRace} />
         )}
 
         {/* Team Name Header with Avatar */}
@@ -1055,6 +1072,7 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
     color: COLORS.text.primary,
+    flexShrink: 1,
   },
   constructorBadge: {
     paddingHorizontal: 6,
@@ -1154,23 +1172,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     opacity: 0.8,
     marginTop: 2,
-  },
-  lockCountdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-    backgroundColor: COLORS.warning + '15',
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.warning + '30',
-  },
-  lockCountdownText: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.warning,
   },
   reserveRow: {
     opacity: 0.6,

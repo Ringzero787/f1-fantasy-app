@@ -22,19 +22,17 @@ export default function BuildTeamScreen() {
   const { leagueId } = useLocalSearchParams<{ leagueId?: string }>();
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
-  const {
-    selectedDrivers,
-    selectedConstructor,
-    selectionState,
-    addDriverToSelection,
-    removeDriverFromSelection,
-    setSelectedConstructor,
-    clearSelection,
-    confirmSelection,
-    isLoading: teamLoading,
-    error,
-    clearError,
-  } = useTeamStore();
+  const selectedDrivers = useTeamStore(s => s.selectedDrivers);
+  const selectedConstructor = useTeamStore(s => s.selectedConstructor);
+  const selectionState = useTeamStore(s => s.selectionState);
+  const addDriverToSelection = useTeamStore(s => s.addDriverToSelection);
+  const removeDriverFromSelection = useTeamStore(s => s.removeDriverFromSelection);
+  const setSelectedConstructor = useTeamStore(s => s.setSelectedConstructor);
+  const clearSelection = useTeamStore(s => s.clearSelection);
+  const confirmSelection = useTeamStore(s => s.confirmSelection);
+  const teamLoading = useTeamStore(s => s.isLoading);
+  const error = useTeamStore(s => s.error);
+  const clearError = useTeamStore(s => s.clearError);
 
   // Clear selection on mount to start fresh
   useEffect(() => {

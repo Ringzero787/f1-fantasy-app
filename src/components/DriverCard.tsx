@@ -18,7 +18,7 @@ interface DriverCardProps {
   isTopTen?: boolean; // If true, hides star icon (top 10 drivers can't be starred)
 }
 
-export function DriverCard({
+export const DriverCard = React.memo(function DriverCard({
   driver,
   onPress,
   onSelect,
@@ -168,14 +168,14 @@ export function DriverCard({
           <Text style={styles.statLabel}>TIER</Text>
           <View style={[styles.tierBadge, driver.tier === 'A' ? styles.tierA : driver.tier === 'C' ? styles.tierC : styles.tierB]}>
             <Text style={[styles.tierText, driver.tier === 'A' && styles.tierAText, driver.tier === 'C' && styles.tierCText]}>
-              {driver.tier === 'A' ? 'Premium' : driver.tier === 'C' ? 'Budget' : 'Standard'}
+              Tier {driver.tier}
             </Text>
           </View>
         </View>
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

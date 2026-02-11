@@ -8,7 +8,7 @@ import {
   calculatePriceFromRollingAvg,
   calculateRollingAverage,
   calculatePriceChange,
-  getDriverTier,
+  getPriceTier,
   getRacePoints,
   getSprintPoints,
 } from '../../src/config/pricing.config';
@@ -144,17 +144,17 @@ describe('calculatePriceChange', () => {
   });
 });
 
-describe('getDriverTier', () => {
+describe('getPriceTier (price-based, for volatility)', () => {
   it('should return A tier for prices above threshold', () => {
-    expect(getDriverTier(201)).toBe('A');
-    expect(getDriverTier(300)).toBe('A');
-    expect(getDriverTier(500)).toBe('A');
+    expect(getPriceTier(201)).toBe('A');
+    expect(getPriceTier(300)).toBe('A');
+    expect(getPriceTier(500)).toBe('A');
   });
 
   it('should return B tier for prices at or below threshold', () => {
-    expect(getDriverTier(200)).toBe('B');
-    expect(getDriverTier(100)).toBe('B');
-    expect(getDriverTier(50)).toBe('B');
+    expect(getPriceTier(200)).toBe('B');
+    expect(getPriceTier(100)).toBe('B');
+    expect(getPriceTier(50)).toBe('B');
   });
 });
 

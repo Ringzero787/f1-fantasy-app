@@ -24,7 +24,7 @@ export default function SelectDriverScreen() {
   }>();
 
   const { data: allDrivers, isLoading } = useDrivers();
-  const { currentTeam } = useTeamStore();
+  const currentTeam = useTeamStore(s => s.currentTeam);
   const lockoutInfo = useLockoutStatus();
 
   const topTenDriverIds = useMemo(() => {
@@ -34,7 +34,7 @@ export default function SelectDriverScreen() {
   }, [allDrivers]);
 
   // V5: Compute locked-out driver IDs for this team
-  const { raceResults } = useAdminStore();
+  const raceResults = useAdminStore(s => s.raceResults);
   const lockedOutIds = useMemo(() => {
     const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
     return new Set(getLockedOutDriverIds(currentTeam?.driverLockouts, completedRaceCount));

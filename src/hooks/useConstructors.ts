@@ -40,7 +40,8 @@ export function useConstructors() {
   const constructorPrices = useAdminStore((state) => state.constructorPrices);
 
   return useQuery({
-    queryKey: [...constructorKeys.lists(), raceResults, constructorPrices],
+    // Use lightweight version counter instead of full objects to prevent unnecessary cache invalidation
+    queryKey: [...constructorKeys.lists(), `${Object.keys(raceResults).length}_${Object.keys(constructorPrices).length}`],
     queryFn: async () => {
       const addSeasonPointsAndPrices = (constructors: Constructor[]) => {
         return constructors.map(c => {
@@ -83,7 +84,7 @@ export function useConstructor(constructorId: string) {
   const constructorPrices = useAdminStore((state) => state.constructorPrices);
 
   return useQuery({
-    queryKey: [...constructorKeys.detail(constructorId), raceResults, constructorPrices],
+    queryKey: [...constructorKeys.detail(constructorId), `${Object.keys(raceResults).length}_${Object.keys(constructorPrices).length}`],
     queryFn: async () => {
       const addSeasonPointsAndPrice = (constructor: Constructor | null) => {
         if (!constructor) return null;
@@ -123,7 +124,7 @@ export function useAffordableConstructors(maxPrice: number) {
   const constructorPrices = useAdminStore((state) => state.constructorPrices);
 
   return useQuery({
-    queryKey: [...constructorKeys.affordable(maxPrice), constructorPrices],
+    queryKey: [...constructorKeys.affordable(maxPrice), Object.keys(constructorPrices).length],
     queryFn: async () => {
       const getDemoAffordable = () => {
         return demoConstructors
@@ -163,7 +164,7 @@ export function useTopConstructors(limit: number = 5) {
   const raceResults = useAdminStore((state) => state.raceResults);
 
   return useQuery({
-    queryKey: [...constructorKeys.top(limit), constructorPrices, raceResults],
+    queryKey: [...constructorKeys.top(limit), `${Object.keys(raceResults).length}_${Object.keys(constructorPrices).length}`],
     queryFn: async () => {
       const getDemoTop = () => {
         return [...demoConstructors]

@@ -24,16 +24,15 @@ import type { League } from '../../../src/types';
 export default function LeaguesScreen() {
   const { user } = useAuth();
   const { join } = useLocalSearchParams<{ join?: string }>();
-  const {
-    leagues,
-    isLoading,
-    error,
-    loadUserLeagues,
-    joinLeagueByCode,
-    clearError,
-  } = useLeagueStore();
+  const leagues = useLeagueStore(s => s.leagues);
+  const isLoading = useLeagueStore(s => s.isLoading);
+  const error = useLeagueStore(s => s.error);
+  const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
+  const joinLeagueByCode = useLeagueStore(s => s.joinLeagueByCode);
+  const clearError = useLeagueStore(s => s.clearError);
 
-  const { currentTeam, assignTeamToLeague } = useTeamStore();
+  const currentTeam = useTeamStore(s => s.currentTeam);
+  const assignTeamToLeague = useTeamStore(s => s.assignTeamToLeague);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);

@@ -353,8 +353,8 @@ export const drivers2026 = [
     name: 'Franco Colapinto',
     shortName: 'COL',
     number: 43,
-    constructorId: 'sauber',
-    constructorName: 'Stake F1 Team Kick Sauber',
+    constructorId: 'alpine',
+    constructorName: 'BWT Alpine F1 Team',
     nationality: 'Argentinian',
     previousSeasonPoints: SEASON_2025_POINTS.colapinto,
     price: calcPrice(SEASON_2025_POINTS.colapinto),      // $6

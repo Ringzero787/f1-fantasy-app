@@ -19,7 +19,7 @@ import type { Constructor, FantasyConstructor, FantasyTeam } from '../../../src/
 
 export default function SelectConstructorScreen() {
   const { data: allConstructors, isLoading } = useConstructors();
-  const { currentTeam } = useTeamStore();
+  const currentTeam = useTeamStore(s => s.currentTeam);
   const lockoutInfo = useLockoutStatus();
 
   // Contract length picker state

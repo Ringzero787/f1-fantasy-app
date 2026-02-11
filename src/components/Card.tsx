@@ -12,7 +12,7 @@ interface CardProps {
   style?: ViewStyle;
 }
 
-export function Card({
+export const Card = React.memo(function Card({
   children,
   onPress,
   variant = 'default',
@@ -93,7 +93,7 @@ export function Card({
   }
 
   return <View style={cardStyles}>{children}</View>;
-}
+});
 
 const styles = StyleSheet.create({
   base: {
