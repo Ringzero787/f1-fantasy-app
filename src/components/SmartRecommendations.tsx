@@ -184,7 +184,7 @@ export function SmartRecommendations({
           const tagStyle = getTagStyle(rec.tag);
           return (
             <Pressable
-              key={rec.driver.id}
+              key={`rec-${rec.driver.id}`}
               style={({ pressed }) => [
                 styles.card,
                 { transform: [{ scale: pressed ? 0.98 : 1 }] },

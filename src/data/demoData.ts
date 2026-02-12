@@ -7,7 +7,7 @@
 import type { Driver, Constructor, Race, RaceResults } from '../types';
 
 export const demoDrivers: Driver[] = [
-  // A-Tier Drivers (price > 100) - prices from (2025pts / 24 races) * $10
+  // A-Tier Drivers (price > 240) - prices from (2025pts / 24 races) * $24
   {
     id: 'norris',
     name: 'Lando Norris',
@@ -16,8 +16,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'mclaren',
     constructorName: 'McLaren F1 Team',
     nationality: 'British',
-    price: 213,
-    previousPrice: 213,
+    price: 510,
+    previousPrice: 510,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -32,15 +32,15 @@ export const demoDrivers: Driver[] = [
     constructorId: 'red_bull',
     constructorName: 'Oracle Red Bull Racing',
     nationality: 'Dutch',
-    price: 208,
-    previousPrice: 208,
+    price: 500,
+    previousPrice: 500,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
     tier: 'A',
     isActive: true,
   },
-  // B-Tier Drivers (price > 50 and <= 100) / C-Tier Drivers (price <= 50)
+  // B-Tier and C-Tier Drivers
   {
     id: 'piastri',
     name: 'Oscar Piastri',
@@ -49,12 +49,12 @@ export const demoDrivers: Driver[] = [
     constructorId: 'mclaren',
     constructorName: 'McLaren F1 Team',
     nationality: 'Australian',
-    price: 158,
-    previousPrice: 158,
+    price: 380,
+    previousPrice: 380,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
-    tier: 'B',
+    tier: 'A',
     isActive: true,
   },
   {
@@ -65,12 +65,12 @@ export const demoDrivers: Driver[] = [
     constructorId: 'ferrari',
     constructorName: 'Scuderia Ferrari',
     nationality: 'Monegasque',
-    price: 142,
-    previousPrice: 142,
+    price: 340,
+    previousPrice: 340,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
-    tier: 'B',
+    tier: 'A',
     isActive: true,
   },
   {
@@ -81,12 +81,12 @@ export const demoDrivers: Driver[] = [
     constructorId: 'mercedes',
     constructorName: 'Mercedes-AMG Petronas F1 Team',
     nationality: 'British',
-    price: 121,
-    previousPrice: 121,
+    price: 290,
+    previousPrice: 290,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
-    tier: 'B',
+    tier: 'A',
     isActive: true,
   },
   {
@@ -97,12 +97,12 @@ export const demoDrivers: Driver[] = [
     constructorId: 'ferrari',
     constructorName: 'Scuderia Ferrari',
     nationality: 'British',
-    price: 108,
-    previousPrice: 108,
+    price: 260,
+    previousPrice: 260,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
-    tier: 'B',
+    tier: 'A',
     isActive: true,
   },
   {
@@ -113,8 +113,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'williams',
     constructorName: 'Williams Racing',
     nationality: 'Spanish',
-    price: 100,
-    previousPrice: 100,
+    price: 240,
+    previousPrice: 240,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -129,8 +129,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'aston_martin',
     constructorName: 'Aston Martin Aramco F1 Team',
     nationality: 'Spanish',
-    price: 63,
-    previousPrice: 63,
+    price: 150,
+    previousPrice: 150,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -145,8 +145,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'mercedes',
     constructorName: 'Mercedes-AMG Petronas F1 Team',
     nationality: 'Italian',
-    price: 50,
-    previousPrice: 50,
+    price: 120,
+    previousPrice: 120,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -161,8 +161,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'williams',
     constructorName: 'Williams Racing',
     nationality: 'Thai-British',
-    price: 42,
-    previousPrice: 42,
+    price: 100,
+    previousPrice: 100,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -177,8 +177,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'aston_martin',
     constructorName: 'Aston Martin Aramco F1 Team',
     nationality: 'Canadian',
-    price: 33,
-    previousPrice: 33,
+    price: 80,
+    previousPrice: 80,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -193,8 +193,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'sauber',
     constructorName: 'Stake F1 Team Kick Sauber',
     nationality: 'German',
-    price: 29,
-    previousPrice: 29,
+    price: 70,
+    previousPrice: 70,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -209,8 +209,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'alpine',
     constructorName: 'BWT Alpine F1 Team',
     nationality: 'French',
-    price: 27,
-    previousPrice: 27,
+    price: 65,
+    previousPrice: 65,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -225,8 +225,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'haas',
     constructorName: 'MoneyGram Haas F1 Team',
     nationality: 'French',
-    price: 25,
-    previousPrice: 25,
+    price: 60,
+    previousPrice: 60,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -241,8 +241,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'red_bull',
     constructorName: 'Oracle Red Bull Racing',
     nationality: 'French',
-    price: 17,
-    previousPrice: 17,
+    price: 40,
+    previousPrice: 40,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -257,8 +257,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'haas',
     constructorName: 'MoneyGram Haas F1 Team',
     nationality: 'British',
-    price: 15,
-    previousPrice: 15,
+    price: 35,
+    previousPrice: 35,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -273,8 +273,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'racing_bulls',
     constructorName: 'Racing Bulls',
     nationality: 'New Zealander',
-    price: 13,
-    previousPrice: 13,
+    price: 30,
+    previousPrice: 30,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -289,8 +289,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'sauber',
     constructorName: 'Stake F1 Team Kick Sauber',
     nationality: 'Brazilian',
-    price: 10,
-    previousPrice: 10,
+    price: 25,
+    previousPrice: 25,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -305,8 +305,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'alpine',
     constructorName: 'BWT Alpine F1 Team',
     nationality: 'Argentinian',
-    price: 6,
-    previousPrice: 6,
+    price: 15,
+    previousPrice: 15,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -337,8 +337,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'cadillac',
     constructorName: 'Cadillac F1',
     nationality: 'Finnish',
-    price: 5,
-    previousPrice: 5,
+    price: 10,
+    previousPrice: 10,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -353,8 +353,8 @@ export const demoDrivers: Driver[] = [
     constructorId: 'cadillac',
     constructorName: 'Cadillac F1',
     nationality: 'Mexican',
-    price: 5,
-    previousPrice: 5,
+    price: 10,
+    previousPrice: 10,
     seasonPoints: 0,
     currentSeasonPoints: 0,
     fantasyPoints: 0,
@@ -371,8 +371,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'British',
     primaryColor: '#FF8000',
     secondaryColor: '#47C7FC',
-    price: 400,
-    previousPrice: 380,
+    price: 960,
+    previousPrice: 912,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -386,8 +386,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'German',
     primaryColor: '#27F4D2',
     secondaryColor: '#000000',
-    price: 258,
-    previousPrice: 250,
+    price: 619,
+    previousPrice: 600,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -401,8 +401,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'Austrian',
     primaryColor: '#3671C6',
     secondaryColor: '#FFD700',
-    price: 251,
-    previousPrice: 245,
+    price: 602,
+    previousPrice: 588,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -416,8 +416,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'Italian',
     primaryColor: '#E80020',
     secondaryColor: '#FFEB00',
-    price: 230,
-    previousPrice: 225,
+    price: 552,
+    previousPrice: 540,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -431,8 +431,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'British',
     primaryColor: '#64C4FF',
     secondaryColor: '#00A3E0',
-    price: 128,
-    previousPrice: 125,
+    price: 307,
+    previousPrice: 300,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -446,8 +446,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'Italian',
     primaryColor: '#6692FF',
     secondaryColor: '#1E5BC6',
-    price: 111,
-    previousPrice: 108,
+    price: 266,
+    previousPrice: 259,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -461,8 +461,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'British',
     primaryColor: '#229971',
     secondaryColor: '#CEDC00',
-    price: 110,
-    previousPrice: 107,
+    price: 264,
+    previousPrice: 257,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -476,8 +476,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'American',
     primaryColor: '#B6BABD',
     secondaryColor: '#E10600',
-    price: 106,
-    previousPrice: 103,
+    price: 254,
+    previousPrice: 247,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -491,8 +491,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'Swiss',
     primaryColor: '#52E252',
     secondaryColor: '#000000',
-    price: 102,
-    previousPrice: 100,
+    price: 245,
+    previousPrice: 240,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -506,8 +506,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'French',
     primaryColor: '#FF87BC',
     secondaryColor: '#0093CC',
-    price: 84,
-    previousPrice: 82,
+    price: 202,
+    previousPrice: 197,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -521,8 +521,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'American',
     primaryColor: '#524E4E',
     secondaryColor: '#000000',
-    price: 75,
-    previousPrice: 75,
+    price: 180,
+    previousPrice: 180,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -1081,41 +1081,41 @@ export const demoSeason = {
 /**
  * Demo member teams - randomized team compositions for league competitors
  * Each member has a unique team strategy
- * V3: Uses captainDriverId instead of star system
+ * V3: Uses ace system instead of star system
  */
 export const demoMemberTeams: Record<string, {
   drivers: string[];
   constructor: string;
-  captainDriverId: string | null;
+  aceDriverId: string | null;
 }> = {
   // BoxBoxBox_Barry - Aggressive top-heavy strategy
   'demo-member-1': {
     drivers: ['verstappen', 'norris', 'gasly', 'stroll', 'bortoleto'],
     constructor: 'mclaren',
-    captainDriverId: 'gasly', // Ace must be under $200
+    aceDriverId: 'gasly', // Ace must be under $240
   },
   // DRS_Danny - Balanced mid-field approach
   'demo-member-2': {
     drivers: ['leclerc', 'russell', 'sainz', 'alonso', 'lawson'],
     constructor: 'ferrari',
-    captainDriverId: 'leclerc',
+    aceDriverId: 'leclerc',
   },
   // PitLane_Pete - Constructor-focused strategy
   'demo-member-3': {
     drivers: ['hamilton', 'piastri', 'hadjar', 'gasly', 'hulkenberg'],
     constructor: 'red_bull',
-    captainDriverId: 'hamilton',
+    aceDriverId: 'hamilton',
   },
   // Undercut_Uma - Value picks strategy
   'demo-member-4': {
     drivers: ['norris', 'leclerc', 'antonelli', 'stroll', 'bearman'],
     constructor: 'mercedes',
-    captainDriverId: 'leclerc', // Ace must be under $200
+    aceDriverId: 'leclerc', // Ace must be under $240
   },
   // Gravel_Greg - Risky underdog strategy
   'demo-member-5': {
     drivers: ['russell', 'sainz', 'albon', 'ocon', 'bortoleto'],
     constructor: 'williams',
-    captainDriverId: 'russell',
+    aceDriverId: 'russell',
   },
 };

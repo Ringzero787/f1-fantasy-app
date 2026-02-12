@@ -176,10 +176,10 @@ export default function ViewTeamScreen() {
                     </Text>
                   </View>
                 </View>
-                {team.captainDriverId === driver.driverId && (
-                  <View style={styles.captainBadge}>
+                {team.aceDriverId === driver.driverId && (
+                  <View style={styles.aceBadge}>
                     <Ionicons name="shield" size={12} color={COLORS.primary} />
-                    <Text style={styles.captainBadgeText}>Captain (2x)</Text>
+                    <Text style={styles.aceBadgeText}>Ace (2x)</Text>
                   </View>
                 )}
                 {driver.racesHeld > 0 && (
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.gray[500],
   },
-  captainBadge: {
+  aceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.sm,
     alignSelf: 'flex-start',
   },
-  captainBadgeText: {
+  aceBadgeText: {
     fontSize: FONTS.sizes.xs,
     color: COLORS.primary,
     fontWeight: '600',

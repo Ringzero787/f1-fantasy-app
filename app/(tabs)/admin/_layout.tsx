@@ -20,6 +20,18 @@ export default function AdminLayout() {
           title: 'Admin Panel',
         }}
       />
+      <Stack.Screen
+        name="error-logs"
+        options={{
+          title: 'Error Logs',
+        }}
+      />
+      <Stack.Screen
+        name="news"
+        options={{
+          title: 'News Management',
+        }}
+      />
     </Stack>
   );
 }

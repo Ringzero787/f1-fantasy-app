@@ -14,7 +14,8 @@ import { useNextRace, useTopDrivers } from '../../src/hooks';
 import { useTeamStore } from '../../src/store/team.store';
 import { useLeagueStore } from '../../src/store/league.store';
 import { useAdminStore } from '../../src/store/admin.store';
-import { Card, Loading, RaceCard, DriverCard, EmptyState, CountdownBanner } from '../../src/components';
+import { Card, Loading, RaceCard, DriverCard, EmptyState, CountdownBanner, NewsFeed } from '../../src/components';
+import { useNewsStore } from '../../src/store/news.store';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
 import { formatPoints } from '../../src/utils/formatters';
 
@@ -31,6 +32,7 @@ export default function HomeScreen() {
   const leagues = useLeagueStore(s => s.leagues);
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
   const raceResults = useAdminStore(s => s.raceResults);
+  const loadArticles = useNewsStore(s => s.loadArticles);
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -46,11 +48,12 @@ export default function HomeScreen() {
     return sorted.slice(0, 3);
   }, [topDrivers, sortOrder]);
 
-  // Load user's leagues and teams on mount
+  // Load user's leagues, teams, and news on mount
   React.useEffect(() => {
     if (user) {
       loadUserLeagues(user.id);
       loadUserTeams(user.id);
+      loadArticles();
     }
   }, [user]);
 
@@ -60,9 +63,9 @@ export default function HomeScreen() {
   // Calculate team stats
   const teamDriverCount = currentTeam?.drivers.length || 0;
   const hasConstructor = !!currentTeam?.constructor;
-  // V3: Captain system - find the captain driver
-  const captainDriver = currentTeam?.captainDriverId
-    ? currentTeam.drivers.find(d => d.driverId === currentTeam.captainDriverId)
+  // V3: Ace system - find the ace driver
+  const aceDriver = currentTeam?.aceDriverId
+    ? currentTeam.drivers.find(d => d.driverId === currentTeam.aceDriverId)
     : null;
   const isTeamComplete = teamDriverCount === TEAM_SIZE && hasConstructor;
 
@@ -80,7 +83,7 @@ export default function HomeScreen() {
     currentTeam.drivers.forEach(driver => {
       const dr = lastResult.driverResults.find((r: any) => r.driverId === driver.driverId);
       if (dr) {
-        const multiplier = currentTeam.captainDriverId === driver.driverId ? 2 : 1;
+        const multiplier = currentTeam.aceDriverId === driver.driverId ? 2 : 1;
         pts += Math.floor(dr.points * multiplier);
       }
     });
@@ -104,7 +107,7 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchRace(), refetchDrivers()]);
+    await Promise.all([refetchRace(), refetchDrivers(), loadArticles(true)]);
     setRefreshing(false);
   };
 
@@ -143,6 +146,9 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {/* Race Countdown / Lockout Banner */}
+      {nextRace && <CountdownBanner race={nextRace} accentColor="#7c3aed" />}
+
       {/* Quick Stats */}
       <View style={styles.statsRow}>
         <Card style={styles.statCard} variant="elevated">
@@ -165,9 +171,6 @@ export default function HomeScreen() {
           <Text style={styles.statLabel}>Bank</Text>
         </Card>
       </View>
-
-      {/* Race Countdown Banner */}
-      {nextRace && <CountdownBanner race={nextRace} />}
 
       {/* Next Race */}
       <View style={styles.section}>
@@ -253,8 +256,8 @@ export default function HomeScreen() {
                 <Ionicons name="diamond" size={18} color={COLORS.gold} />
                 <Text style={styles.teamRowLabel}>Ace (2x)</Text>
               </View>
-              <Text style={[styles.teamRowValue, captainDriver && styles.captainText]}>
-                {captainDriver?.name || 'Not selected'}
+              <Text style={[styles.teamRowValue, aceDriver && styles.aceText]}>
+                {aceDriver?.name || 'Not selected'}
               </Text>
             </View>
 
@@ -289,6 +292,9 @@ export default function HomeScreen() {
           </Card>
         )}
       </TouchableOpacity>
+
+      {/* F1 News Feed */}
+      <NewsFeed />
 
       {/* Quick Actions */}
       <View style={styles.section}>
@@ -643,7 +649,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
 
-  captainText: {
+  aceText: {
     color: COLORS.primary,
   },
 

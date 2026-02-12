@@ -19,6 +19,16 @@
         "gradleCommand": ":app:assembleRelease"
       }
     },
+    "preview-store": {
+      "distribution": "store",
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      }
+    },
     "production": {
       "environment": "production",
       "android": {

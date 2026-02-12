@@ -240,20 +240,20 @@ describe('scoringService.calculateValueCaptureBonus (V3)', () => {
 });
 
 describe('scoringService.calculateDriverScore (V3)', () => {
-  it('should double points for captain', () => {
+  it('should double points for ace', () => {
     const driver = createFantasyDriver();
     const raceResult = createRaceResult({ position: 1 }); // 25 pts
 
-    const nonCaptainScore = scoringService.calculateDriverScore(
-      'test', 'race1', raceResult, null, driver, undefined, { isCaptain: false }
+    const nonAceScore = scoringService.calculateDriverScore(
+      'test', 'race1', raceResult, null, driver, undefined, { isAce: false }
     );
 
-    const captainScore = scoringService.calculateDriverScore(
-      'test', 'race1', raceResult, null, driver, undefined, { isCaptain: true }
+    const aceScore = scoringService.calculateDriverScore(
+      'test', 'race1', raceResult, null, driver, undefined, { isAce: true }
     );
 
-    // Captain should have 2x the race points
-    expect(captainScore.totalPoints).toBe(nonCaptainScore.totalPoints + 25);
+    // Ace should have 2x the race points
+    expect(aceScore.totalPoints).toBe(nonAceScore.totalPoints + 25);
   });
 
   it('should add hot hand bonus for new transfers', () => {

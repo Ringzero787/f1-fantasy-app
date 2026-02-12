@@ -8,3 +8,4 @@ export * from './scoring/calculatePoints';
 export * from './pricing/updatePrices';
 export * from './locks/teamLocks';
 export * from './admin/setAdminClaim';
+export * from './news/fetchNews';

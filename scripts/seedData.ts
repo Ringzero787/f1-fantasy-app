@@ -5,18 +5,18 @@
  * Usage: npx ts-node scripts/seedData.ts
  *
  * PRICING FORMULA (from docs/pricing-rules.txt):
- * - price = (previousSeasonPoints / 24 races) * $10 per point
- * - A-tier: price > $200
- * - B-tier: price <= $200
+ * - price = (previousSeasonPoints / 24 races) * $24 per point
+ * - A-tier: price > $480
+ * - B-tier: price <= $480
  */
 
 // Pricing configuration (mirrors src/config/pricing.config.ts)
 const PRICING = {
   RACES_PER_SEASON: 24,
-  DOLLARS_PER_POINT: 10,
-  A_TIER_THRESHOLD: 200,
+  DOLLARS_PER_POINT: 24,
+  A_TIER_THRESHOLD: 480,
   MIN_PRICE: 5,
-  MAX_PRICE: 500,
+  MAX_PRICE: 700,
 };
 
 // Calculate price from previous season points
@@ -58,7 +58,7 @@ const SEASON_2025_POINTS = {
 };
 
 export const drivers2026 = [
-  // A-Tier Drivers (price > $200)
+  // A-Tier Drivers (price > $480)
   {
     id: 'norris',
     name: 'Lando Norris',
@@ -68,7 +68,7 @@ export const drivers2026 = [
     constructorName: 'McLaren F1 Team',
     nationality: 'British',
     previousSeasonPoints: SEASON_2025_POINTS.norris,
-    price: calcPrice(SEASON_2025_POINTS.norris),         // $213
+    price: calcPrice(SEASON_2025_POINTS.norris),         // $510
     previousPrice: calcPrice(SEASON_2025_POINTS.norris),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -84,7 +84,7 @@ export const drivers2026 = [
     constructorName: 'Oracle Red Bull Racing',
     nationality: 'Dutch',
     previousSeasonPoints: SEASON_2025_POINTS.verstappen,
-    price: calcPrice(SEASON_2025_POINTS.verstappen),     // $208
+    price: calcPrice(SEASON_2025_POINTS.verstappen),     // $500
     previousPrice: calcPrice(SEASON_2025_POINTS.verstappen),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -100,7 +100,7 @@ export const drivers2026 = [
     constructorName: 'McLaren F1 Team',
     nationality: 'Australian',
     previousSeasonPoints: SEASON_2025_POINTS.piastri,
-    price: calcPrice(SEASON_2025_POINTS.piastri),        // $158
+    price: calcPrice(SEASON_2025_POINTS.piastri),        // $380
     previousPrice: calcPrice(SEASON_2025_POINTS.piastri),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -116,7 +116,7 @@ export const drivers2026 = [
     constructorName: 'Scuderia Ferrari',
     nationality: 'Monegasque',
     previousSeasonPoints: SEASON_2025_POINTS.leclerc,
-    price: calcPrice(SEASON_2025_POINTS.leclerc),        // $142
+    price: calcPrice(SEASON_2025_POINTS.leclerc),        // $340
     previousPrice: calcPrice(SEASON_2025_POINTS.leclerc),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -132,14 +132,14 @@ export const drivers2026 = [
     constructorName: 'Mercedes-AMG Petronas F1 Team',
     nationality: 'British',
     previousSeasonPoints: SEASON_2025_POINTS.russell,
-    price: calcPrice(SEASON_2025_POINTS.russell),        // $121
+    price: calcPrice(SEASON_2025_POINTS.russell),        // $290
     previousPrice: calcPrice(SEASON_2025_POINTS.russell),
     seasonPoints: 0,
     fantasyPoints: 0,
     tier: getTier(calcPrice(SEASON_2025_POINTS.russell)),
     isActive: true,
   },
-  // B-Tier Drivers (price <= $200)
+  // B-Tier Drivers (price <= $480)
   {
     id: 'hamilton',
     name: 'Lewis Hamilton',
@@ -149,7 +149,7 @@ export const drivers2026 = [
     constructorName: 'Scuderia Ferrari',
     nationality: 'British',
     previousSeasonPoints: SEASON_2025_POINTS.hamilton,
-    price: calcPrice(SEASON_2025_POINTS.hamilton),       // $108
+    price: calcPrice(SEASON_2025_POINTS.hamilton),       // $260
     previousPrice: calcPrice(SEASON_2025_POINTS.hamilton),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -165,7 +165,7 @@ export const drivers2026 = [
     constructorName: 'Williams Racing',
     nationality: 'Spanish',
     previousSeasonPoints: SEASON_2025_POINTS.sainz,
-    price: calcPrice(SEASON_2025_POINTS.sainz),          // $100
+    price: calcPrice(SEASON_2025_POINTS.sainz),          // $240
     previousPrice: calcPrice(SEASON_2025_POINTS.sainz),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -181,7 +181,7 @@ export const drivers2026 = [
     constructorName: 'Aston Martin Aramco F1 Team',
     nationality: 'Spanish',
     previousSeasonPoints: SEASON_2025_POINTS.alonso,
-    price: calcPrice(SEASON_2025_POINTS.alonso),         // $63
+    price: calcPrice(SEASON_2025_POINTS.alonso),         // $150
     previousPrice: calcPrice(SEASON_2025_POINTS.alonso),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -197,7 +197,7 @@ export const drivers2026 = [
     constructorName: 'Mercedes-AMG Petronas F1 Team',
     nationality: 'Italian',
     previousSeasonPoints: SEASON_2025_POINTS.antonelli,
-    price: calcPrice(SEASON_2025_POINTS.antonelli),      // $50
+    price: calcPrice(SEASON_2025_POINTS.antonelli),      // $120
     previousPrice: calcPrice(SEASON_2025_POINTS.antonelli),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -213,7 +213,7 @@ export const drivers2026 = [
     constructorName: 'Williams Racing',
     nationality: 'Thai-British',
     previousSeasonPoints: SEASON_2025_POINTS.albon,
-    price: calcPrice(SEASON_2025_POINTS.albon),          // $42
+    price: calcPrice(SEASON_2025_POINTS.albon),          // $100
     previousPrice: calcPrice(SEASON_2025_POINTS.albon),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -229,7 +229,7 @@ export const drivers2026 = [
     constructorName: 'Aston Martin Aramco F1 Team',
     nationality: 'Canadian',
     previousSeasonPoints: SEASON_2025_POINTS.stroll,
-    price: calcPrice(SEASON_2025_POINTS.stroll),         // $33
+    price: calcPrice(SEASON_2025_POINTS.stroll),         // $80
     previousPrice: calcPrice(SEASON_2025_POINTS.stroll),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -245,7 +245,7 @@ export const drivers2026 = [
     constructorName: 'Stake F1 Team Kick Sauber',
     nationality: 'German',
     previousSeasonPoints: SEASON_2025_POINTS.hulkenberg,
-    price: calcPrice(SEASON_2025_POINTS.hulkenberg),     // $29
+    price: calcPrice(SEASON_2025_POINTS.hulkenberg),     // $70
     previousPrice: calcPrice(SEASON_2025_POINTS.hulkenberg),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -261,7 +261,7 @@ export const drivers2026 = [
     constructorName: 'BWT Alpine F1 Team',
     nationality: 'French',
     previousSeasonPoints: SEASON_2025_POINTS.gasly,
-    price: calcPrice(SEASON_2025_POINTS.gasly),          // $27
+    price: calcPrice(SEASON_2025_POINTS.gasly),          // $65
     previousPrice: calcPrice(SEASON_2025_POINTS.gasly),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -277,7 +277,7 @@ export const drivers2026 = [
     constructorName: 'MoneyGram Haas F1 Team',
     nationality: 'French',
     previousSeasonPoints: SEASON_2025_POINTS.ocon,
-    price: calcPrice(SEASON_2025_POINTS.ocon),           // $25
+    price: calcPrice(SEASON_2025_POINTS.ocon),           // $60
     previousPrice: calcPrice(SEASON_2025_POINTS.ocon),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -293,7 +293,7 @@ export const drivers2026 = [
     constructorName: 'Oracle Red Bull Racing',
     nationality: 'French',
     previousSeasonPoints: SEASON_2025_POINTS.hadjar,
-    price: calcPrice(SEASON_2025_POINTS.hadjar),         // $17
+    price: calcPrice(SEASON_2025_POINTS.hadjar),         // $40
     previousPrice: calcPrice(SEASON_2025_POINTS.hadjar),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -309,7 +309,7 @@ export const drivers2026 = [
     constructorName: 'MoneyGram Haas F1 Team',
     nationality: 'British',
     previousSeasonPoints: SEASON_2025_POINTS.bearman,
-    price: calcPrice(SEASON_2025_POINTS.bearman),        // $15
+    price: calcPrice(SEASON_2025_POINTS.bearman),        // $35
     previousPrice: calcPrice(SEASON_2025_POINTS.bearman),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -325,7 +325,7 @@ export const drivers2026 = [
     constructorName: 'Visa Cash App RB F1 Team',
     nationality: 'New Zealander',
     previousSeasonPoints: SEASON_2025_POINTS.lawson,
-    price: calcPrice(SEASON_2025_POINTS.lawson),         // $13
+    price: calcPrice(SEASON_2025_POINTS.lawson),         // $30
     previousPrice: calcPrice(SEASON_2025_POINTS.lawson),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -341,7 +341,7 @@ export const drivers2026 = [
     constructorName: 'Stake F1 Team Kick Sauber',
     nationality: 'Brazilian',
     previousSeasonPoints: SEASON_2025_POINTS.bortoleto,
-    price: calcPrice(SEASON_2025_POINTS.bortoleto),      // $10
+    price: calcPrice(SEASON_2025_POINTS.bortoleto),      // $25
     previousPrice: calcPrice(SEASON_2025_POINTS.bortoleto),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -357,7 +357,7 @@ export const drivers2026 = [
     constructorName: 'BWT Alpine F1 Team',
     nationality: 'Argentinian',
     previousSeasonPoints: SEASON_2025_POINTS.colapinto,
-    price: calcPrice(SEASON_2025_POINTS.colapinto),      // $6
+    price: calcPrice(SEASON_2025_POINTS.colapinto),      // $15
     previousPrice: calcPrice(SEASON_2025_POINTS.colapinto),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -373,7 +373,7 @@ export const drivers2026 = [
     constructorName: 'Cadillac F1',
     nationality: 'Finnish',
     previousSeasonPoints: SEASON_2025_POINTS.bottas,
-    price: calcPrice(SEASON_2025_POINTS.bottas),         // $5 (min)
+    price: calcPrice(SEASON_2025_POINTS.bottas),         // $10
     previousPrice: calcPrice(SEASON_2025_POINTS.bottas),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -389,7 +389,7 @@ export const drivers2026 = [
     constructorName: 'Cadillac F1',
     nationality: 'Mexican',
     previousSeasonPoints: SEASON_2025_POINTS.perez,
-    price: calcPrice(SEASON_2025_POINTS.perez),          // $5 (min)
+    price: calcPrice(SEASON_2025_POINTS.perez),          // $10
     previousPrice: calcPrice(SEASON_2025_POINTS.perez),
     seasonPoints: 0,
     fantasyPoints: 0,
@@ -406,8 +406,8 @@ export const constructors2026 = [
     nationality: 'British',
     primaryColor: '#FF8000',
     secondaryColor: '#47C7FC',
-    price: 400,
-    previousPrice: 380,
+    price: 960,
+    previousPrice: 912,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['norris', 'piastri'],
@@ -420,8 +420,8 @@ export const constructors2026 = [
     nationality: 'German',
     primaryColor: '#27F4D2',
     secondaryColor: '#000000',
-    price: 258,
-    previousPrice: 250,
+    price: 619,
+    previousPrice: 600,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['russell', 'antonelli'],
@@ -434,8 +434,8 @@ export const constructors2026 = [
     nationality: 'Austrian',
     primaryColor: '#3671C6',
     secondaryColor: '#FFD700',
-    price: 251,
-    previousPrice: 245,
+    price: 602,
+    previousPrice: 588,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['verstappen', 'hadjar'],
@@ -448,8 +448,8 @@ export const constructors2026 = [
     nationality: 'Italian',
     primaryColor: '#E80020',
     secondaryColor: '#FFEB00',
-    price: 230,
-    previousPrice: 225,
+    price: 552,
+    previousPrice: 540,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['leclerc', 'hamilton'],
@@ -462,8 +462,8 @@ export const constructors2026 = [
     nationality: 'British',
     primaryColor: '#64C4FF',
     secondaryColor: '#00A3E0',
-    price: 128,
-    previousPrice: 125,
+    price: 307,
+    previousPrice: 300,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['sainz', 'albon'],
@@ -476,8 +476,8 @@ export const constructors2026 = [
     nationality: 'Italian',
     primaryColor: '#6692FF',
     secondaryColor: '#1E5BC6',
-    price: 111,
-    previousPrice: 108,
+    price: 266,
+    previousPrice: 259,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['lawson', 'lindblad'],
@@ -490,8 +490,8 @@ export const constructors2026 = [
     nationality: 'British',
     primaryColor: '#229971',
     secondaryColor: '#CEDC00',
-    price: 110,
-    previousPrice: 107,
+    price: 264,
+    previousPrice: 257,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['alonso', 'stroll'],
@@ -504,8 +504,8 @@ export const constructors2026 = [
     nationality: 'American',
     primaryColor: '#B6BABD',
     secondaryColor: '#E10600',
-    price: 106,
-    previousPrice: 103,
+    price: 254,
+    previousPrice: 247,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['ocon', 'bearman'],
@@ -518,8 +518,8 @@ export const constructors2026 = [
     nationality: 'Swiss',
     primaryColor: '#52E252',
     secondaryColor: '#000000',
-    price: 102,
-    previousPrice: 100,
+    price: 245,
+    previousPrice: 240,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['hulkenberg', 'bortoleto'],
@@ -532,8 +532,8 @@ export const constructors2026 = [
     nationality: 'French',
     primaryColor: '#FF87BC',
     secondaryColor: '#0093CC',
-    price: 84,
-    previousPrice: 82,
+    price: 202,
+    previousPrice: 197,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['gasly', 'colapinto'],
@@ -546,8 +546,8 @@ export const constructors2026 = [
     nationality: 'American',
     primaryColor: '#524E4E',
     secondaryColor: '#000000',
-    price: 75,
-    previousPrice: 75,
+    price: 180,
+    previousPrice: 180,
     seasonPoints: 0,
     fantasyPoints: 0,
     drivers: ['bottas', 'perez'],

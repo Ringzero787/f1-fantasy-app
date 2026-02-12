@@ -22,7 +22,7 @@ export default function EditTeamScreen() {
   const currentTeam = useTeamStore(s => s.currentTeam);
   const isLoading = useTeamStore(s => s.isLoading);
   const removeDriver = useTeamStore(s => s.removeDriver);
-  const setCaptain = useTeamStore(s => s.setCaptain);
+  const setAce = useTeamStore(s => s.setAce);
   const deleteTeam = useTeamStore(s => s.deleteTeam);
 
   const [removingDriverId, setRemovingDriverId] = useState<string | null>(null);
@@ -132,12 +132,12 @@ export default function EditTeamScreen() {
     );
   };
 
-  // V3: Set captain driver (any driver can be captain, gets 2x points)
-  const handleSetCaptain = async (driverId: string) => {
+  // V3: Set ace driver (gets 2x points)
+  const handleSetAce = async (driverId: string) => {
     try {
-      await setCaptain(driverId);
+      await setAce(driverId);
     } catch (error) {
-      Alert.alert('Error', 'Failed to set captain');
+      Alert.alert('Error', 'Failed to set ace');
     }
   };
 
@@ -219,7 +219,7 @@ export default function EditTeamScreen() {
           const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
           const earlyTermFee = calculateEarlyTerminationFee(driver.purchasePrice, contractLen, driver.racesHeld || 0);
           const saleValue = Math.max(0, driver.currentPrice - earlyTermFee);
-          const isCaptain = currentTeam.captainDriverId === driver.driverId;
+          const isAce = currentTeam.aceDriverId === driver.driverId;
 
           return (
             <Card key={driver.driverId} variant="outlined" style={styles.driverCard}>
@@ -262,25 +262,25 @@ export default function EditTeamScreen() {
               </View>
 
               <View style={styles.driverActions}>
-                {/* V3: Captain button - any driver can be captain */}
+                {/* V3: Ace button */}
                 <TouchableOpacity
                   style={[
                     styles.actionButton,
-                    isCaptain && styles.captainActive,
+                    isAce && styles.aceActive,
                   ]}
-                  onPress={() => handleSetCaptain(driver.driverId)}
+                  onPress={() => handleSetAce(driver.driverId)}
                   disabled={!currentTeam.lockStatus.canModify || isLoading}
                 >
                   <Ionicons
-                    name={isCaptain ? 'diamond' : 'diamond-outline'}
+                    name={isAce ? 'diamond' : 'diamond-outline'}
                     size={16}
-                    color={isCaptain ? COLORS.white : COLORS.gold}
+                    color={isAce ? COLORS.white : COLORS.gold}
                   />
                   <Text style={[
                     styles.actionButtonText,
-                    isCaptain ? styles.captainActiveText : styles.aceText,
+                    isAce ? styles.aceActiveText : styles.aceText,
                   ]}>
-                    {isCaptain ? 'Ace (2x)' : 'Set Ace (2x)'}
+                    {isAce ? 'Ace (2x)' : 'Set Ace (2x)'}
                   </Text>
                 </TouchableOpacity>
 
@@ -446,7 +446,7 @@ export default function EditTeamScreen() {
               );
             })()}
 
-            {/* V3: No captain option for constructors */}
+            {/* V3: No ace option for constructors */}
 
             {currentTeam.constructor.racesHeld > 0 && (
               <View style={styles.lockBonusContainer}>
@@ -654,8 +654,8 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
 
-  // V3: Captain styles (replaces star)
-  captainActive: {
+  // V3: Ace styles (replaces star)
+  aceActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
   },
 
-  captainActiveText: {
+  aceActiveText: {
     color: COLORS.white,
   },
 

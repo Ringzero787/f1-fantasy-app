@@ -81,8 +81,8 @@ export const teamService = {
         seasonLockRacesRemaining: 0,
         canModify: true,
       },
-      // V3: Captain and transfer tracking
-      captainDriverId: null,
+      // V3: Ace and transfer tracking
+      aceDriverId: null,
       racesSinceTransfer: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -240,7 +240,7 @@ export const teamService = {
 
   /**
    * Remove a driver from the team
-   * V3: Clears captain if removed driver was captain, updates transfer tracking
+   * V3: Clears ace if removed driver was ace, updates transfer tracking
    */
   async removeDriver(teamId: string, driverId: string): Promise<FantasyTeam> {
     const team = await this.getTeamById(teamId);
@@ -263,16 +263,16 @@ export const teamService = {
     // Sell at current price minus 5% commission
     const saleValue = calculateSaleValue(driver.currentPrice);
 
-    // V3: Clear captain if removed driver was captain
-    const newCaptainId = team.captainDriverId === driverId ? null : team.captainDriverId;
+    // V3: Clear ace if removed driver was ace
+    const newAceId = team.aceDriverId === driverId ? null : team.aceDriverId;
 
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {
       drivers: updatedDrivers,
       budget: team.budget + saleValue,
       totalSpent: team.totalSpent - driver.purchasePrice,
-      // V3: Update captain and transfer tracking
-      captainDriverId: newCaptainId,
+      // V3: Update ace and transfer tracking
+      aceDriverId: newAceId,
       racesSinceTransfer: 0,
       updatedAt: serverTimestamp(),
     });
@@ -359,10 +359,10 @@ export const teamService = {
   },
 
   /**
-   * V3: Set captain driver (gets 2x points for that race weekend)
-   * Any driver on the team can be captain - must be set before qualifying
+   * V3: Set ace driver (gets 2x points for that race weekend)
+   * Any driver on the team can be ace - must be set before qualifying
    */
-  async setCaptain(teamId: string, driverId: string): Promise<FantasyTeam> {
+  async setAce(teamId: string, driverId: string): Promise<FantasyTeam> {
     const team = await this.getTeamById(teamId);
     if (!team) {
       throw new Error('Team not found');
@@ -379,7 +379,7 @@ export const teamService = {
 
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {
-      captainDriverId: driverId,
+      aceDriverId: driverId,
       updatedAt: serverTimestamp(),
     });
 
@@ -387,9 +387,9 @@ export const teamService = {
   },
 
   /**
-   * V3: Clear captain selection
+   * V3: Clear ace selection
    */
-  async clearCaptain(teamId: string): Promise<FantasyTeam> {
+  async clearAce(teamId: string): Promise<FantasyTeam> {
     const team = await this.getTeamById(teamId);
     if (!team) {
       throw new Error('Team not found');
@@ -397,7 +397,7 @@ export const teamService = {
 
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {
-      captainDriverId: null,
+      aceDriverId: null,
       updatedAt: serverTimestamp(),
     });
 
@@ -521,15 +521,15 @@ export const teamService = {
       i === oldDriverIndex ? fantasyDriver : d
     );
 
-    // V3: If swapped driver was captain, clear captain
-    const newCaptainId = team.captainDriverId === oldDriverId ? undefined : team.captainDriverId;
+    // V3: If swapped driver was ace, clear ace
+    const newAceId = team.aceDriverId === oldDriverId ? undefined : team.aceDriverId;
 
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {
       drivers: updatedDrivers,
       budget: team.budget - netCost,
       totalSpent: team.totalSpent - oldDriver.purchasePrice + newDriver.price,
-      captainDriverId: newCaptainId,
+      aceDriverId: newAceId,
       // V3: Update transfer tracking
       racesSinceTransfer: 0,
       updatedAt: serverTimestamp(),

@@ -60,6 +60,8 @@ export const collections = {
   transactions: collection(db, 'transactions'),
   seasons: collection(db, 'seasons'),
   notifications: collection(db, 'notifications'),
+  errorLogs: collection(db, 'errorLogs'),
+  articles: collection(db, 'articles'),
 } as const;
 
 // Helper to get subcollections

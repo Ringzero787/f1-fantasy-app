@@ -8,3 +8,5 @@ export * from './scoring.service';
 export * from './pricing.service';
 export * from './avatarGeneration.service';
 export * from './profileImage.service';
+export * from './errorLog.service';
+export * from './article.service';

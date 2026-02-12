@@ -28,8 +28,6 @@ export const autoLockTeams = functions.pubsub
 
     for (const raceDoc of racesSnapshot.docs) {
       const race = raceDoc.data();
-      const qualifyingTime = race.schedule.qualifying.toDate();
-
       // Lock all teams for leagues using this race's season
       const teamsSnapshot = await db
         .collection('fantasyTeams')

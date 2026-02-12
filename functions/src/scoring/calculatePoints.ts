@@ -62,8 +62,8 @@ interface FantasyTeam {
   constructor: FantasyConstructor | null;
   totalPoints: number;
   budget: number;
-  // V3: Captain system - one driver gets 2x points
-  captainDriverId?: string;
+  // V3: Ace system - one driver gets 2x points
+  aceDriverId?: string;
   // V3: Transfer tracking for stale roster penalty and hot hand bonus
   lastTransferRaceId?: string;
   racesSinceTransfer: number;
@@ -102,13 +102,13 @@ function calculateLockBonus(racesHeld: number): number {
 
 /**
  * Calculate points for a driver based on race result
- * V3: isCaptain gives 2x multiplier on all points
+ * V3: isAce gives 2x multiplier on all points
  */
 function calculateDriverPoints(
   result: RaceResult,
   sprintResult: SprintResult | null,
   racesHeld: number,
-  isCaptain: boolean
+  isAce: boolean
 ): number {
   let points = 0;
 
@@ -141,8 +141,8 @@ function calculateDriverPoints(
   // Lock bonus
   points += calculateLockBonus(racesHeld);
 
-  // V3: Captain gets 2x multiplier on all points (including lock bonus)
-  if (isCaptain) {
+  // V3: Ace gets 2x multiplier on all points (including lock bonus)
+  if (isAce) {
     points *= 2;
   }
 
@@ -193,8 +193,8 @@ export const onRaceResultsUpdated = functions.firestore
       const team = teamDoc.data() as FantasyTeam;
       let teamPoints = 0;
 
-      // V3: Get captain driver ID for 2x multiplier
-      const captainDriverId = team.captainDriverId;
+      // V3: Get ace driver ID for 2x multiplier
+      const aceDriverId = team.aceDriverId;
 
       // Calculate driver points
       const updatedDrivers: FantasyDriver[] = [];
@@ -202,8 +202,8 @@ export const onRaceResultsUpdated = functions.firestore
         const raceResult = raceResultsMap.get(driver.driverId);
         const sprintResult = sprintResultsMap.get(driver.driverId) || null;
 
-        // V3: Check if this driver is the captain
-        const isCaptain = driver.driverId === captainDriverId;
+        // V3: Check if this driver is the ace
+        const isAce = driver.driverId === aceDriverId;
 
         let driverPoints = 0;
         if (raceResult) {
@@ -211,7 +211,7 @@ export const onRaceResultsUpdated = functions.firestore
             raceResult,
             sprintResult,
             driver.racesHeld,
-            isCaptain
+            isAce
           );
         }
 
@@ -224,7 +224,7 @@ export const onRaceResultsUpdated = functions.firestore
         });
       }
 
-      // Calculate constructor points (V3: no star/captain bonus for constructors)
+      // Calculate constructor points (V3: no star/ace bonus for constructors)
       let updatedConstructor: FantasyConstructor | null = null;
       if (team.constructor) {
         const constructor = team.constructor;

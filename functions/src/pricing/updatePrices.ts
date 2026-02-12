@@ -290,7 +290,7 @@ export const onRaceCompleted = functions.firestore
     });
 
     for (const teamDoc of teamsSnapshot.docs) {
-      const team = teamDoc.data();
+      const team = teamDoc.data() as Record<string, any>;
 
       // Update driver current prices
       const updatedDrivers = team.drivers.map((driver: any) => ({
@@ -299,11 +299,12 @@ export const onRaceCompleted = functions.firestore
       }));
 
       // Update constructor current price
-      let updatedConstructor = team.constructor;
-      if (team.constructor) {
+      const teamConstructor = team['constructor'] as any;
+      let updatedConstructor = teamConstructor;
+      if (teamConstructor) {
         updatedConstructor = {
-          ...team.constructor,
-          currentPrice: constructorPrices.get(team.constructor.constructorId) || team.constructor.currentPrice,
+          ...teamConstructor,
+          currentPrice: constructorPrices.get(teamConstructor.constructorId) || teamConstructor.currentPrice,
         };
       }
 
@@ -317,7 +318,7 @@ export const onRaceCompleted = functions.firestore
       const originalValue = team.drivers.reduce(
         (sum: number, d: any) => sum + d.purchasePrice,
         0
-      ) + (team.constructor?.purchasePrice || 0);
+      ) + (teamConstructor?.purchasePrice || 0);
       const valueChange = (totalDriverValue + constructorValue) - originalValue;
       const newBudget = 1000 - totalSpent + valueChange;
 

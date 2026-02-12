@@ -18,24 +18,24 @@ function calculateSaleValue(currentPrice: number, commissionRate = 0): number {
 /** Filter out expired drivers and compute budget return. */
 function expireDrivers(
   drivers: FantasyDriver[],
-  captainId?: string,
-): { remaining: FantasyDriver[]; budgetReturn: number; captainCleared: boolean } {
+  aceId?: string,
+): { remaining: FantasyDriver[]; budgetReturn: number; aceCleared: boolean } {
   let budgetReturn = 0;
-  let captainCleared = false;
+  let aceCleared = false;
 
   const remaining = drivers.filter(driver => {
     const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
     if (driver.racesHeld >= contractLen) {
       budgetReturn += calculateSaleValue(driver.currentPrice);
-      if (captainId === driver.driverId) {
-        captainCleared = true;
+      if (aceId === driver.driverId) {
+        aceCleared = true;
       }
       return false;
     }
     return true;
   });
 
-  return { remaining, budgetReturn, captainCleared };
+  return { remaining, budgetReturn, aceCleared };
 }
 
 interface CandidateDriver {
@@ -125,22 +125,22 @@ describe('Contract Expiry', () => {
     expect(budgetReturn).toBe(0);
   });
 
-  it('clears captain if expired driver was captain', () => {
+  it('clears ace if expired driver was ace', () => {
     const drivers: FantasyDriver[] = [
-      { driverId: 'captain1', name: 'Cap', shortName: 'CAP', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 5, contractLength: 5 },
+      { driverId: 'ace1', name: 'Cap', shortName: 'CAP', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 5, contractLength: 5 },
     ];
 
-    const { captainCleared } = expireDrivers(drivers, 'captain1');
-    expect(captainCleared).toBe(true);
+    const { aceCleared } = expireDrivers(drivers, 'ace1');
+    expect(aceCleared).toBe(true);
   });
 
-  it('does not clear captain if non-captain driver expires', () => {
+  it('does not clear ace if non-ace driver expires', () => {
     const drivers: FantasyDriver[] = [
       { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 5, contractLength: 5 },
     ];
 
-    const { captainCleared } = expireDrivers(drivers, 'other_captain');
-    expect(captainCleared).toBe(false);
+    const { aceCleared } = expireDrivers(drivers, 'other_ace');
+    expect(aceCleared).toBe(false);
   });
 
   it('returns correct budget for multiple expired drivers', () => {

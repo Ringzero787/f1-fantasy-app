@@ -26,6 +26,7 @@ import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../
 import { demoConstructors } from '../../../src/data/demoData';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import { formatPoints } from '../../../src/utils/formatters';
+import type { Driver, Constructor } from '../../../src/types';
 
 function getLoyaltyBonus(racesHeld: number): number {
   if (racesHeld === 0) return 0;
@@ -42,6 +43,74 @@ function getNextLoyaltyRate(racesHeld: number): number {
   return 3;
 }
 
+// Auto-fill empty driver/constructor slots on a partial team
+function autoFillTeam(
+  allDrivers: Driver[],
+  allConstructors: Constructor[],
+  existingDriverIds: string[],
+  hasConstructor: boolean,
+  budget: number,
+  slotsToFill: number,
+): { drivers: Driver[]; constructor: Constructor | null } | null {
+  if (slotsToFill === 0 && hasConstructor) return null; // Already full
+
+  const available = allDrivers
+    .filter(d => d.isActive && !existingDriverIds.includes(d.id))
+    .sort((a, b) => b.price - a.price); // expensive first
+
+  // If we need a constructor, try each one; otherwise just fill drivers
+  const constructorCandidates = !hasConstructor
+    ? [...allConstructors].sort((a, b) => a.price - b.price)
+    : [null];
+
+  let best: { drivers: Driver[]; constructor: Constructor | null; spent: number } | null = null;
+
+  for (const cCandidate of constructorCandidates) {
+    let remaining = budget - (cCandidate?.price ?? 0);
+    if (remaining < 0) continue;
+
+    const picked: Driver[] = [];
+    const pool = [...available];
+
+    // Greedy: pick the most expensive driver that still leaves room to fill remaining slots
+    while (picked.length < slotsToFill && pool.length > 0) {
+      const spotsLeft = slotsToFill - picked.length;
+      let found = false;
+
+      for (let i = 0; i < pool.length; i++) {
+        if (pool[i].price > remaining) continue;
+        const budgetAfter = remaining - pool[i].price;
+        const rest = pool.filter((_, idx) => idx !== i).sort((a, b) => a.price - b.price).slice(0, spotsLeft - 1);
+        const minCost = rest.reduce((s, d) => s + d.price, 0);
+        if (budgetAfter >= minCost) {
+          picked.push(pool[i]);
+          remaining -= pool[i].price;
+          pool.splice(i, 1);
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        const affordable = pool.filter(d => d.price <= remaining).sort((a, b) => a.price - b.price);
+        if (affordable.length === 0) break;
+        picked.push(affordable[0]);
+        remaining -= affordable[0].price;
+        pool.splice(pool.indexOf(affordable[0]), 1);
+      }
+    }
+
+    if (picked.length === slotsToFill) {
+      const spent = budget - remaining;
+      if (!best || spent > best.spent) {
+        best = { drivers: picked, constructor: cCandidate, spent };
+      }
+    }
+  }
+
+  return best;
+}
+
 export default function MyTeamScreen() {
   const { user } = useAuth();
   const currentTeam = useTeamStore(s => s.currentTeam);
@@ -52,11 +121,12 @@ export default function MyTeamScreen() {
   const updateTeamName = useTeamStore(s => s.updateTeamName);
   const removeDriver = useTeamStore(s => s.removeDriver);
   const removeConstructor = useTeamStore(s => s.removeConstructor);
-  const setCaptain = useTeamStore(s => s.setCaptain);
-  const clearCaptain = useTeamStore(s => s.clearCaptain);
+  const setAce = useTeamStore(s => s.setAce);
+  const clearAce = useTeamStore(s => s.clearAce);
   const selectTeam = useTeamStore(s => s.selectTeam);
   const recalculateAllTeamsPoints = useTeamStore(s => s.recalculateAllTeamsPoints);
   const setCurrentTeam = useTeamStore(s => s.setCurrentTeam);
+  const assignTeamToLeague = useTeamStore(s => s.assignTeamToLeague);
   const leagues = useLeagueStore(s => s.leagues);
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
   const raceResults = useAdminStore(s => s.raceResults);
@@ -70,6 +140,7 @@ export default function MyTeamScreen() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [teamAvatarUrl, setTeamAvatarUrl] = useState<string | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
 
   const { generate: generateAvatar, regenerate: regenerateAvatar, isGenerating: isGeneratingAvatar, isAvailable: isAvatarAvailable } = useAvatarGeneration({
     onSuccess: (url) => {
@@ -151,7 +222,7 @@ export default function MyTeamScreen() {
       currentTeam.drivers.forEach(driver => {
         const driverResult = lastResult.driverResults.find((dr: any) => dr.driverId === driver.driverId);
         if (driverResult) {
-          const multiplier = currentTeam.captainDriverId === driver.driverId ? 2 : 1;
+          const multiplier = currentTeam.aceDriverId === driver.driverId ? 2 : 1;
           lastRacePoints += Math.floor(driverResult.points * multiplier);
         }
       });
@@ -315,18 +386,100 @@ export default function MyTeamScreen() {
     );
   };
 
-  const handleSetCaptain = async (driverId: string) => {
-    try { await setCaptain(driverId); } catch { Alert.alert('Error', 'Failed to set Ace'); }
+  const handleSetAce = async (driverId: string) => {
+    try { await setAce(driverId); } catch { Alert.alert('Error', 'Failed to set Ace'); }
   };
 
-  const handleClearCaptain = async () => {
-    try { await clearCaptain(); } catch { Alert.alert('Error', 'Failed to clear Ace'); }
+  const handleClearAce = async () => {
+    try { await clearAce(); } catch { Alert.alert('Error', 'Failed to clear Ace'); }
   };
 
-  // V5: Lockout-aware canModify and canChangeCaptain
+  // V5: Lockout-aware canModify and canChangeAce
   const canModify = !lockoutInfo.isLocked && (currentTeam?.lockStatus.canModify ?? true);
-  const canChangeCaptain = !lockoutInfo.captainLocked && (currentTeam?.lockStatus.canModify ?? true);
+  const canChangeAce = !lockoutInfo.aceLocked && (currentTeam?.lockStatus.canModify ?? true);
 
+  // Find the first league that doesn't already have one of the user's teams
+  const availableLeague = useMemo(() => {
+    const leaguesWithTeams = new Set(
+      userTeams.map(t => t.leagueId).filter(Boolean)
+    );
+    return leagues.find(l => !leaguesWithTeams.has(l.id)) || null;
+  }, [leagues, userTeams]);
+
+  const handleJoinLeague = async () => {
+    if (!currentTeam || !availableLeague) {
+      router.push('/leagues');
+      return;
+    }
+    try {
+      await assignTeamToLeague(currentTeam.id, availableLeague.id);
+    } catch {
+      // Error handled by store
+    }
+  };
+
+  const handleAutoFill = async () => {
+    if (!currentTeam || !allDrivers || !allConstructors) return;
+
+    const driversNeeded = TEAM_SIZE - currentTeam.drivers.length;
+    const needsConstructor = !currentTeam.constructor;
+    if (driversNeeded === 0 && !needsConstructor) return;
+
+    const existingIds = currentTeam.drivers.map(d => d.driverId);
+    const result = autoFillTeam(
+      allDrivers,
+      allConstructors,
+      existingIds,
+      !needsConstructor,
+      currentTeam.budget,
+      driversNeeded,
+    );
+
+    if (!result) {
+      Alert.alert('Cannot Auto-Fill', 'Not enough budget to fill remaining slots.');
+      return;
+    }
+
+    setIsAutoFilling(true);
+    try {
+      const newDrivers = result.drivers.map(d => ({
+        driverId: d.id,
+        name: d.name,
+        shortName: d.shortName,
+        constructorId: d.constructorId,
+        purchasePrice: d.price,
+        currentPrice: d.price,
+        pointsScored: 0,
+        racesHeld: 0,
+        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+      }));
+
+      const addedCost = result.drivers.reduce((s, d) => s + d.price, 0)
+        + (result.constructor?.price ?? 0);
+
+      const newConstructor = result.constructor ? {
+        constructorId: result.constructor.id,
+        name: result.constructor.name,
+        shortName: result.constructor.shortName,
+        purchasePrice: result.constructor.price,
+        currentPrice: result.constructor.price,
+        pointsScored: 0,
+        racesHeld: 0,
+        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+      } : currentTeam.constructor;
+
+      setCurrentTeam({
+        ...currentTeam,
+        drivers: [...currentTeam.drivers, ...newDrivers],
+        constructor: newConstructor,
+        totalSpent: currentTeam.totalSpent + addedCost,
+        budget: currentTeam.budget - addedCost,
+        updatedAt: new Date(),
+      });
+    } finally {
+      setIsAutoFilling(false);
+    }
+  };
 
   // --- Early returns ---
 
@@ -422,103 +575,6 @@ export default function MyTeamScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Team Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {teamStats.hasCompletedRaces ? teamStats.lastRacePoints : '-'}
-            </Text>
-            <Text style={styles.statLabel}>Last Race</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{formatPoints(teamStats.totalPoints)}</Text>
-            <Text style={styles.statLabel}>Total Pts</Text>
-          </View>
-          <View style={styles.statDivider} />
-          {teamStats.leagueId ? (
-            <TouchableOpacity
-              style={styles.statItem}
-              onPress={() => router.push(`/leagues/${teamStats.leagueId}`)}
-            >
-              <Text style={styles.statValue}>
-                {teamStats.leagueRank !== null ? `#${teamStats.leagueRank}` : '—'}
-              </Text>
-              <Text style={styles.statLabel} numberOfLines={1}>
-                {teamStats.leagueName || 'League'}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.statItem}
-              onPress={() => router.push('/leagues')}
-            >
-              <Ionicons name="trophy-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.joinLeagueText}>Join League</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* V5: Lockout Banner */}
-        {lockoutInfo.isLocked && (
-          <View style={styles.lockoutBanner}>
-            <Ionicons name="lock-closed" size={16} color={COLORS.white} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.lockoutBannerText}>
-                {lockoutInfo.lockReason || 'Teams locked'}
-              </Text>
-              {!lockoutInfo.captainLocked && (
-                <Text style={styles.lockoutBannerHint}>Ace selection still open until race start</Text>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Live Countdown Banner */}
-        {lockoutInfo.nextRace && !lockoutInfo.isLocked && (
-          <CountdownBanner race={lockoutInfo.nextRace} />
-        )}
-
-        {/* Team Completion Alerts */}
-        {currentTeam && driversCount < TEAM_SIZE && canModify && (
-          <TouchableOpacity
-            style={[styles.teamAlert, { backgroundColor: COLORS.warning + '15', borderColor: COLORS.warning + '30' }]}
-            onPress={() => router.push('/my-team/select-driver')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="alert-circle" size={16} color={COLORS.warning} />
-            <Text style={[styles.teamAlertText, { color: COLORS.warning }]}>
-              {TEAM_SIZE - driversCount} driver slot{TEAM_SIZE - driversCount !== 1 ? 's' : ''} empty — tap to add
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.warning} />
-          </TouchableOpacity>
-        )}
-        {currentTeam && !currentTeam.constructor && canModify && (
-          <TouchableOpacity
-            style={[styles.teamAlert, { backgroundColor: COLORS.primary + '15', borderColor: COLORS.primary + '30' }]}
-            onPress={() => router.push('/my-team/select-constructor')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="construct" size={16} color={COLORS.primary} />
-            <Text style={[styles.teamAlertText, { color: COLORS.primary }]}>
-              No constructor selected — tap to add
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
-          </TouchableOpacity>
-        )}
-        {currentTeam && !currentTeam.captainDriverId && driversCount > 0 &&
-          currentTeam.drivers.some(d => {
-            const md = allDrivers?.find(m => m.id === d.driverId);
-            return (md?.price ?? d.currentPrice) <= PRICING_CONFIG.CAPTAIN_MAX_PRICE;
-          }) && (
-          <View style={[styles.teamAlert, { backgroundColor: COLORS.gold + '15', borderColor: COLORS.gold + '30' }]}>
-            <Ionicons name="diamond-outline" size={16} color={COLORS.gold} />
-            <Text style={[styles.teamAlertText, { color: COLORS.gold }]}>
-              No Ace selected — tap the <Ionicons name="diamond-outline" size={12} color={COLORS.gold} /> on an eligible driver (under ${PRICING_CONFIG.CAPTAIN_MAX_PRICE})
-            </Text>
-          </View>
-        )}
-
         {/* Team Name Header with Avatar */}
         <View style={styles.teamNameRow}>
           <Avatar
@@ -548,6 +604,105 @@ export default function MyTeamScreen() {
             </View>
           </TouchableOpacity>
         </View>
+
+        {/* V5: Lockout Banner */}
+        {lockoutInfo.isLocked && (
+          <View style={styles.lockoutBanner}>
+            <Ionicons name="lock-closed" size={16} color="#7c3aed" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.lockoutBannerText}>
+                {lockoutInfo.lockReason || 'Teams locked'}
+              </Text>
+              {!lockoutInfo.aceLocked && (
+                <Text style={styles.lockoutBannerHint}>Ace selection still open until race start</Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Live Countdown Banner */}
+        {lockoutInfo.nextRace && !lockoutInfo.isLocked && (
+          <CountdownBanner race={lockoutInfo.nextRace} accentColor="#7c3aed" />
+        )}
+
+        {/* Team Stats */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>
+              {teamStats.hasCompletedRaces ? teamStats.lastRacePoints : '-'}
+            </Text>
+            <Text style={styles.statLabel}>Last Race</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{formatPoints(teamStats.totalPoints)}</Text>
+            <Text style={styles.statLabel}>Total Pts</Text>
+          </View>
+          <View style={styles.statDivider} />
+          {teamStats.leagueId ? (
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => router.push(`/leagues/${teamStats.leagueId}`)}
+            >
+              <Text style={styles.statValue}>
+                {teamStats.leagueRank !== null ? `#${teamStats.leagueRank}` : '—'}
+              </Text>
+              <Text style={styles.statLabel} numberOfLines={1}>
+                {teamStats.leagueName || 'League'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={handleJoinLeague}
+            >
+              <Ionicons name="trophy-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.joinLeagueText}>
+                {availableLeague ? 'Join League' : 'Solo'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Team Completion Alerts */}
+        {currentTeam && driversCount < TEAM_SIZE && canModify && (
+          <TouchableOpacity
+            style={[styles.teamAlert, { backgroundColor: COLORS.warning + '15', borderColor: COLORS.warning + '30' }]}
+            onPress={() => router.push('/my-team/select-driver')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="alert-circle" size={16} color={COLORS.warning} />
+            <Text style={[styles.teamAlertText, { color: COLORS.warning }]}>
+              {TEAM_SIZE - driversCount} driver slot{TEAM_SIZE - driversCount !== 1 ? 's' : ''} empty — tap to add
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.warning} />
+          </TouchableOpacity>
+        )}
+        {currentTeam && !currentTeam.constructor && canModify && (
+          <TouchableOpacity
+            style={[styles.teamAlert, { backgroundColor: COLORS.primary + '15', borderColor: COLORS.primary + '30' }]}
+            onPress={() => router.push('/my-team/select-constructor')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="construct" size={16} color={COLORS.primary} />
+            <Text style={[styles.teamAlertText, { color: COLORS.primary }]}>
+              No constructor selected — tap to add
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+          </TouchableOpacity>
+        )}
+        {currentTeam && !currentTeam.aceDriverId && driversCount > 0 &&
+          currentTeam.drivers.some(d => {
+            const md = allDrivers?.find(m => m.id === d.driverId);
+            return (md?.price ?? d.currentPrice) <= PRICING_CONFIG.ACE_MAX_PRICE;
+          }) && (
+          <View style={[styles.teamAlert, { backgroundColor: COLORS.gold + '15', borderColor: COLORS.gold + '30' }]}>
+            <Ionicons name="diamond-outline" size={16} color={COLORS.gold} />
+            <Text style={[styles.teamAlertText, { color: COLORS.gold }]}>
+              No Ace selected — tap the <Ionicons name="diamond-outline" size={12} color={COLORS.gold} /> on an eligible driver (under ${PRICING_CONFIG.ACE_MAX_PRICE})
+            </Text>
+          </View>
+        )}
 
         {/* Bank + Team Value row */}
         <View style={styles.summaryRow}>
@@ -584,8 +739,8 @@ export default function MyTeamScreen() {
             .sort((a, b) => b.livePrice - a.livePrice)
             .map((driver) => {
               const cInfo = constructorLookup[driver.resolvedConstructorId];
-              const isAce = currentTeam?.captainDriverId === driver.driverId;
-              const canBeAce = driver.livePrice <= PRICING_CONFIG.CAPTAIN_MAX_PRICE;
+              const isAce = currentTeam?.aceDriverId === driver.driverId;
+              const canBeAce = driver.livePrice <= PRICING_CONFIG.ACE_MAX_PRICE;
 
               const priceDiff = driver.livePrice - driver.purchasePrice;
               const loyalty = getLoyaltyBonus(driver.racesHeld || 0);
@@ -625,13 +780,13 @@ export default function MyTeamScreen() {
                     <View style={styles.driverRowRight}>
                       <Text style={styles.driverPoints}>{formatPoints(driver.pointsScored)} pts</Text>
                       {!isReserve && (isAce ? (
-                        <TouchableOpacity onPress={() => handleClearCaptain()} hitSlop={8}>
+                        <TouchableOpacity onPress={() => handleClearAce()} hitSlop={8}>
                           <View style={styles.aceBadge}>
                             <Ionicons name="diamond" size={14} color={COLORS.white} />
                           </View>
                         </TouchableOpacity>
-                      ) : canBeAce && canChangeCaptain ? (
-                        <TouchableOpacity onPress={() => handleSetCaptain(driver.driverId)} hitSlop={8}>
+                      ) : canBeAce && canChangeAce ? (
+                        <TouchableOpacity onPress={() => handleSetAce(driver.driverId)} hitSlop={8}>
                           <Ionicons name="diamond-outline" size={18} color={COLORS.gold} />
                         </TouchableOpacity>
                       ) : (
@@ -792,6 +947,21 @@ export default function MyTeamScreen() {
           >
             <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
             <Text style={styles.addButtonText}>Add Constructor (0/1)</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Auto-fill button — shown when team has empty slots */}
+        {canModify && (driversCount < TEAM_SIZE || !hasConstructor) && (
+          <TouchableOpacity
+            style={styles.autoFillButton}
+            onPress={handleAutoFill}
+            disabled={isAutoFilling}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.autoFillIcon}>⚡</Text>
+            <Text style={styles.autoFillText}>
+              {isAutoFilling ? 'Filling...' : 'Auto-Fill Remaining Slots'}
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -1175,18 +1345,19 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     marginBottom: SPACING.md,
-    backgroundColor: COLORS.error,
+    backgroundColor: '#7c3aed' + '15',
     borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: '#7c3aed' + '30',
   },
   lockoutBannerText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.white,
+    color: '#7c3aed',
   },
   lockoutBannerHint: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.white,
-    opacity: 0.8,
+    color: '#7c3aed' + 'AA',
     marginTop: 2,
   },
   reserveRow: {
@@ -1279,12 +1450,30 @@ const styles = StyleSheet.create({
   },
 
   // Manage button
+  autoFillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.button,
+    backgroundColor: COLORS.success,
+  },
+  autoFillIcon: {
+    fontSize: FONTS.sizes.lg,
+  },
+  autoFillText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
   manageButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    marginTop: SPACING.xl,
+    marginTop: SPACING.md,
     paddingVertical: SPACING.lg,
     borderRadius: BORDER_RADIUS.button,
     borderWidth: 1,

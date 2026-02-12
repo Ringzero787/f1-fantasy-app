@@ -151,8 +151,8 @@ export interface FantasyTeam {
   updatedAt: Date;
   avatarUrl?: string;
   avatarGeneratedAt?: string;
-  // V3: Captain System - choose one driver each race weekend for 2x points
-  captainDriverId?: string;
+  // V3: Ace System - choose one driver each race weekend for 2x points
+  aceDriverId?: string;
   // V3: Transfer tracking for stale roster penalty and hot hand bonus
   lastTransferRaceId?: string; // Race ID when last transfer was made
   racesSinceTransfer: number; // Count of races since last transfer
@@ -429,6 +429,30 @@ export interface ApiError {
   message: string;
   details?: Record<string, unknown>;
 }
+
+// ============================================
+// Article Types
+// ============================================
+
+export interface Article {
+  id: string;
+  title: string;
+  summary: string;
+  sourceUrl: string;
+  source: 'F1' | 'FIA';
+  category: ArticleCategory;
+  guid: string;
+  publishedAt: Date;
+  status: ArticleStatus;
+  createdAt: Date;
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  imageUrl?: string;
+  isRead?: boolean;
+}
+
+export type ArticleStatus = 'draft' | 'approved' | 'rejected';
+export type ArticleCategory = 'practice' | 'qualifying' | 'race' | 'transfer' | 'regulation' | 'general';
 
 // ============================================
 // Filter & Sort Types

@@ -142,7 +142,7 @@ describe('computeLockoutStatus', () => {
     const now = new Date('2026-03-06T12:00:00Z'); // After FP1 but before FP3
     const result = computeLockoutStatus(races, new Set(), now, null);
     expect(result.isLocked).toBe(false);
-    expect(result.captainLocked).toBe(false);
+    expect(result.aceLocked).toBe(false);
     expect(result.nextRace?.id).toBe('r1');
   });
 
@@ -151,14 +151,14 @@ describe('computeLockoutStatus', () => {
     const result = computeLockoutStatus(races, new Set(), now, null);
     expect(result.isLocked).toBe(true);
     expect(result.lockReason).toContain('Australian Grand Prix');
-    expect(result.captainLocked).toBe(false); // Before race start
+    expect(result.aceLocked).toBe(false); // Before race start
   });
 
-  it('captain is locked after race start', () => {
+  it('ace is locked after race start', () => {
     const now = new Date('2026-03-08T05:00:00Z'); // After race start
     const result = computeLockoutStatus(races, new Set(), now, null);
     expect(result.isLocked).toBe(true);
-    expect(result.captainLocked).toBe(true);
+    expect(result.aceLocked).toBe(true);
   });
 
   it('returns season complete when all races done', () => {
@@ -180,7 +180,7 @@ describe('computeLockoutStatus', () => {
     const now = new Date('2026-03-07T02:00:00Z'); // After FP3
     const result = computeLockoutStatus(races, new Set(), now, 'unlocked');
     expect(result.isLocked).toBe(false);
-    expect(result.captainLocked).toBe(false);
+    expect(result.aceLocked).toBe(false);
   });
 
   it('admin override "unlocked" even works with season complete', () => {

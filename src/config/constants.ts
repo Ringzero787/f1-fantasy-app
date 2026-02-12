@@ -8,9 +8,9 @@ export const TEAM_SIZE = 5; // Number of drivers
 export const CONSTRUCTORS_PER_TEAM = 1;
 export const SALE_COMMISSION_RATE = 0; // No commission - sell at current market value
 
-// V3: Captain System (replaces star driver)
-// Captain gets 2x points, must be selected before qualifying each race weekend
-// See pricing.config.ts for CAPTAIN_MULTIPLIER and other V3 rules
+// V3: Ace System (replaces star driver)
+// Ace gets 2x points, must be selected before qualifying each race weekend
+// See pricing.config.ts for ACE_MULTIPLIER and other V3 rules
 
 // ============================================
 // Scoring Points
@@ -29,15 +29,15 @@ export const DSQ_PENALTY = -5; // Fantasy points penalty
 // DNF on lap 1 = -10 price points
 // DNF on final lap = -1 price point
 // Linear scale between based on how early the DNF occurs
-export const DNF_PRICE_PENALTY_MAX = 10; // Maximum penalty for lap 1 DNF
-export const DNF_PRICE_PENALTY_MIN = 1;  // Minimum penalty for final lap DNF
+export const DNF_PRICE_PENALTY_MAX = 24; // Maximum penalty for lap 1 DNF
+export const DNF_PRICE_PENALTY_MIN = 2;  // Minimum penalty for final lap DNF
 
 // ============================================
 // Price Tier Thresholds
 // ============================================
 
-export const TIER_A_THRESHOLD = 100; // Price > 100 is A-tier
-export const TIER_B_THRESHOLD = 50;  // Price > 50 is B-tier, <= 50 is C-tier
+export const TIER_A_THRESHOLD = 240; // Price > 240 is A-tier
+export const TIER_B_THRESHOLD = 120;  // Price > 120 is B-tier, <= 120 is C-tier
 
 // ============================================
 // PPM (Points Per Million) Thresholds
@@ -53,22 +53,22 @@ export const PPM_POOR = 0.4;
 
 export const PRICE_CHANGES = {
   A_TIER: {
-    great: 15,
-    good: 5,
-    poor: -5,
-    terrible: -15,
+    great: 36,
+    good: 12,
+    poor: -12,
+    terrible: -36,
   },
   B_TIER: {
-    great: 10,
-    good: 3,
-    poor: -3,
-    terrible: -10,
+    great: 24,
+    good: 7,
+    poor: -7,
+    terrible: -24,
   },
   C_TIER: {
-    great: 5,
-    good: 2,
-    poor: -2,
-    terrible: -5,
+    great: 12,
+    good: 5,
+    poor: -5,
+    terrible: -12,
   },
 } as const;
 
@@ -89,7 +89,7 @@ export const LOCK_BONUS = {
 // ============================================
 
 export const SEASON_LOCK_RACES = 24;
-export const EARLY_UNLOCK_FEE = 50; // $50 penalty
+export const EARLY_UNLOCK_FEE = 120; // $120 penalty
 
 // ============================================
 // League Settings
@@ -621,30 +621,33 @@ export const COMPONENT_STYLES = {
 // ============================================
 
 export const INITIAL_DRIVER_PRICES = {
-  // Top tier (300+)
-  VER: 310, // Verstappen
-  HAM: 290, // Hamilton
-  NOR: 280, // Norris
-  LEC: 275, // Leclerc
-  RUS: 250, // Russell
+  // A-tier (>240) — price = 2025 season points at $24/pt
+  NOR: 510, // Norris
+  VER: 500, // Verstappen
+  PIA: 380, // Piastri
+  LEC: 340, // Leclerc
+  RUS: 290, // Russell
+  HAM: 260, // Hamilton
 
-  // Mid tier (150-250)
-  SAI: 220, // Sainz
-  PIA: 200, // Piastri
-  ALO: 180, // Alonso
-  PER: 170, // Perez
-  STR: 160, // Stroll
+  // B-tier (121-240)
+  SAI: 240, // Sainz
+  ALO: 150, // Alonso
+  ANT: 120, // Antonelli
 
-  // Lower tier (<150)
-  GAS: 140, // Gasly
-  OCO: 130, // Ocon
-  ALB: 125, // Albon
-  BOT: 115, // Bottas
-  ZHO: 100, // Zhou
-  MAG: 95,  // Magnussen
-  HUL: 90,  // Hulkenberg
-  SAR: 85,  // Sargeant
-  RIC: 80,  // Ricciardo
+  // C-tier (<=120)
+  ALB: 100, // Albon
+  STR: 80,  // Stroll
+  HUL: 70,  // Hulkenberg
+  GAS: 65,  // Gasly
+  OCO: 60,  // Ocon
+  HAD: 40,  // Hadjar
+  BEA: 35,  // Bearman
+  LAW: 30,  // Lawson
+  BOR: 25,  // Bortoleto
+  COL: 15,  // Colapinto
+  BOT: 10,  // Bottas
+  PER: 10,  // Perez
+  LIN: 5,   // Lindblad
 } as const;
 
 // ============================================
@@ -652,14 +655,15 @@ export const INITIAL_DRIVER_PRICES = {
 // ============================================
 
 export const INITIAL_CONSTRUCTOR_PRICES = {
-  red_bull: 180,
-  ferrari: 170,
-  mclaren: 165,
-  mercedes: 160,
-  aston_martin: 130,
-  alpine: 100,
-  williams: 85,
-  rb: 80,
-  haas: 70,
-  sauber: 65,
+  mclaren: 960,
+  mercedes: 619,
+  red_bull: 602,
+  ferrari: 552,
+  williams: 307,
+  racing_bulls: 266,
+  aston_martin: 264,
+  haas: 254,
+  sauber: 245,
+  alpine: 202,
+  cadillac: 180,
 } as const;

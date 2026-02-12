@@ -7,6 +7,7 @@ import { useAuthStore } from './auth.store';
 import { BUDGET, TEAM_SIZE, SALE_COMMISSION_RATE } from '../config/constants';
 import { PRICING_CONFIG } from '../config/pricing.config';
 import { useAdminStore } from './admin.store';
+import { errorLogService } from '../services/errorLog.service';
 
 // Calculate sale value after commission
 const calculateSaleValue = (currentPrice: number): number => {
@@ -47,7 +48,7 @@ export function calculateEarlyTerminationFee(
 import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
 
 // Calculate fantasy points for a team based on race results
-// V3: Uses captain system (2x points) and stale roster penalty
+// V3: Uses ace system (2x points) and stale roster penalty
 // Build raceId -> round lookup from demoRaces
 const raceRoundLookup: Record<string, number> = {};
 demoRaces.forEach(r => { raceRoundLookup[r.id] = r.round; });
@@ -88,16 +89,16 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
       const driverResult = result.driverResults.find(dr => dr.driverId === driver.driverId);
       if (driverResult) {
         let points = driverResult.points;
-        if (team.captainDriverId === driver.driverId) {
-          points = points * PRICING_CONFIG.CAPTAIN_MULTIPLIER;
+        if (team.aceDriverId === driver.driverId) {
+          points = points * PRICING_CONFIG.ACE_MULTIPLIER;
         }
         driverTotal += points;
       }
       const sprintResult = result.sprintResults?.find(sr => sr.driverId === driver.driverId);
       if (sprintResult) {
         let points = sprintResult.points;
-        if (team.captainDriverId === driver.driverId) {
-          points = points * PRICING_CONFIG.CAPTAIN_MULTIPLIER;
+        if (team.aceDriverId === driver.driverId) {
+          points = points * PRICING_CONFIG.ACE_MULTIPLIER;
         }
         driverTotal += points;
       }
@@ -106,7 +107,7 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
     totalPoints += driverTotal;
   });
 
-  // Calculate points for constructor (no captain bonus for constructors)
+  // Calculate points for constructor (no ace bonus for constructors)
   if (team.constructor) {
     completedRaces.forEach(({ result }) => {
       const constructorResult = result.constructorResults.find(
@@ -134,13 +135,13 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
       const driverResult = result.driverResults.find(dr => dr.driverId === driver.driverId);
       if (driverResult) {
         let points = driverResult.points;
-        if (team.captainDriverId === driver.driverId) points *= PRICING_CONFIG.CAPTAIN_MULTIPLIER;
+        if (team.aceDriverId === driver.driverId) points *= PRICING_CONFIG.ACE_MULTIPLIER;
         raceTotal += points;
       }
       const sprintResult = result.sprintResults?.find(sr => sr.driverId === driver.driverId);
       if (sprintResult) {
         let points = sprintResult.points;
-        if (team.captainDriverId === driver.driverId) points *= PRICING_CONFIG.CAPTAIN_MULTIPLIER;
+        if (team.aceDriverId === driver.driverId) points *= PRICING_CONFIG.ACE_MULTIPLIER;
         raceTotal += points;
       }
     });
@@ -225,9 +226,9 @@ interface TeamState {
   removeDriver: (driverId: string) => Promise<void>;
   swapDriver: (oldDriverId: string, newDriverId: string) => Promise<void>;
   setConstructor: (constructorId: string, contractLength?: number) => Promise<void>;
-  // V3: Captain system (replaces star driver)
-  setCaptain: (driverId: string) => Promise<void>;
-  clearCaptain: () => Promise<void>;
+  // V3: Ace system (replaces star driver)
+  setAce: (driverId: string) => Promise<void>;
+  clearAce: () => Promise<void>;
   confirmSelection: () => Promise<void>;
   updateTeamName: (name: string) => Promise<void>;
   removeConstructor: () => Promise<void>;
@@ -301,7 +302,7 @@ const syncTeamToFirebase = (team: FantasyTeam, context: string) => {
     useTeamStore.setState({ lastSyncTime: Date.now() });
     console.log(`${context}: Firebase sync successful`);
   }).catch((firebaseError) => {
-    console.log(`${context}: Firebase sync failed (ignored):`, firebaseError);
+    errorLogService.logError(context, firebaseError);
   });
 };
 
@@ -348,7 +349,7 @@ export const useTeamStore = create<TeamState>()(
       console.log('syncToFirebase: Sync successful at', new Date().toISOString());
     } catch (error) {
       set({ isSyncing: false });
-      console.log('syncToFirebase: Sync failed (ignored):', error);
+      errorLogService.logError('syncToFirebase', error);
     }
   },
 
@@ -373,7 +374,7 @@ export const useTeamStore = create<TeamState>()(
             state.syncToFirebase();
           }
         } catch (e) {
-          console.log('Periodic sync error:', e);
+          errorLogService.logError('periodicSync', e);
         }
       }, SYNC_INTERVAL_MS);
 
@@ -557,7 +558,7 @@ export const useTeamStore = create<TeamState>()(
             return;
           }
         } catch (fetchError) {
-          console.log('loadUserTeams: Firebase fetch failed (ignored):', fetchError);
+          errorLogService.logError('loadUserTeams', fetchError);
         }
         set({ isLoading: false });
       }
@@ -570,7 +571,7 @@ export const useTeamStore = create<TeamState>()(
             set({ lastSyncTime: Date.now() });
             console.log('loadUserTeams: Firebase sync successful');
           }).catch((firebaseError) => {
-            console.log('loadUserTeams: Firebase sync failed (ignored):', firebaseError);
+            errorLogService.logError('loadUserTeams.sync', firebaseError);
           });
         }
       }
@@ -615,7 +616,7 @@ export const useTeamStore = create<TeamState>()(
       const isDemoMode = useAuthStore.getState().isDemoMode;
       if (!isDemoMode) {
         teamService.getTeamById(teamId).catch((firebaseError) => {
-          console.log('loadTeam: Firebase sync failed (ignored):', firebaseError);
+          errorLogService.logError('loadTeam', firebaseError, { teamId });
         });
       }
     } catch (error) {
@@ -650,7 +651,7 @@ export const useTeamStore = create<TeamState>()(
       const isDemoMode = useAuthStore.getState().isDemoMode;
       if (!isDemoMode) {
         teamService.getUserTeamInLeague(userId, leagueId).catch((firebaseError) => {
-          console.log('loadUserTeamInLeague: Firebase sync failed (ignored):', firebaseError);
+          errorLogService.logError('loadUserTeamInLeague', firebaseError, { leagueId });
         });
       }
     } catch (error) {
@@ -912,7 +913,7 @@ export const useTeamStore = create<TeamState>()(
       // Sync updated team to Firebase in background
       syncTeamToFirebase(updatedTeam, 'addDriver');
     } catch (error) {
-      console.log('addDriver error:', error);
+      errorLogService.logError('addDriver', error);
       const message = error instanceof Error ? error.message : 'Failed to add driver';
       set({ error: message, isLoading: false });
     }
@@ -948,16 +949,16 @@ export const useTeamStore = create<TeamState>()(
         const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
         console.log('Selling driver:', { driverId, storedPrice: driverToRemove.currentPrice, marketPrice: currentMarketPrice, earlyTermFee, saleValue });
 
-        // V3: Clear captain if removed driver was captain
-        const newCaptainId = currentTeam.captainDriverId === driverId ? undefined : currentTeam.captainDriverId;
+        // V3: Clear ace if removed driver was ace
+        const newAceId = currentTeam.aceDriverId === driverId ? undefined : currentTeam.aceDriverId;
 
         const updatedTeam: FantasyTeam = {
           ...currentTeam,
           drivers: currentTeam.drivers.filter(d => d.driverId !== driverId),
           totalSpent: currentTeam.totalSpent - driverToRemove.purchasePrice,
           budget: currentTeam.budget + saleValue,
-          // V3: Update captain and transfer tracking
-          captainDriverId: newCaptainId,
+          // V3: Update ace and transfer tracking
+          aceDriverId: newAceId,
           racesSinceTransfer: 0,
           // V7: Bank departing driver's points
           lockedPoints: (currentTeam.lockedPoints || 0) + (driverToRemove.pointsScored || 0),
@@ -980,14 +981,14 @@ export const useTeamStore = create<TeamState>()(
       const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
       const earlyTermFee = calculateEarlyTerminationFee(driverToRemove.purchasePrice, contractLen, driverToRemove.racesHeld || 0);
       const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
-      const newCaptainId = currentTeam.captainDriverId === driverId ? undefined : currentTeam.captainDriverId;
+      const newAceId = currentTeam.aceDriverId === driverId ? undefined : currentTeam.aceDriverId;
 
       const updatedTeam: FantasyTeam = {
         ...currentTeam,
         drivers: currentTeam.drivers.filter(d => d.driverId !== driverId),
         totalSpent: currentTeam.totalSpent - driverToRemove.purchasePrice,
         budget: currentTeam.budget + saleValue,
-        captainDriverId: newCaptainId,
+        aceDriverId: newAceId,
         racesSinceTransfer: 0,
         // V7: Bank departing driver's points
         lockedPoints: (currentTeam.lockedPoints || 0) + (driverToRemove.pointsScored || 0),
@@ -1071,8 +1072,8 @@ export const useTeamStore = create<TeamState>()(
           return;
         }
 
-        // V3: If swapped driver was captain, clear captain
-        const newCaptainId = currentTeam.captainDriverId === oldDriverId ? undefined : currentTeam.captainDriverId;
+        // V3: If swapped driver was ace, clear ace
+        const newAceId = currentTeam.aceDriverId === oldDriverId ? undefined : currentTeam.aceDriverId;
 
         const updatedTeam: FantasyTeam = {
           ...currentTeam,
@@ -1081,9 +1082,9 @@ export const useTeamStore = create<TeamState>()(
           ),
           totalSpent: currentTeam.totalSpent - oldDriver.purchasePrice + purchaseCost,
           budget: currentTeam.budget - netCostChange,
-          // V3: Reset stale roster counter and update captain
+          // V3: Reset stale roster counter and update ace
           racesSinceTransfer: 0,
-          captainDriverId: newCaptainId,
+          aceDriverId: newAceId,
           // V7: Bank departing driver's points
           lockedPoints: (currentTeam.lockedPoints || 0) + (oldDriver.pointsScored || 0),
           updatedAt: new Date(),
@@ -1138,7 +1139,7 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
-      const newCaptainId = currentTeam.captainDriverId === oldDriverId ? undefined : currentTeam.captainDriverId;
+      const newAceId = currentTeam.aceDriverId === oldDriverId ? undefined : currentTeam.aceDriverId;
 
       const updatedTeam: FantasyTeam = {
         ...currentTeam,
@@ -1148,7 +1149,7 @@ export const useTeamStore = create<TeamState>()(
         totalSpent: currentTeam.totalSpent - oldDriver.purchasePrice + purchaseCost,
         budget: currentTeam.budget - netCostChange,
         racesSinceTransfer: 0,
-        captainDriverId: newCaptainId,
+        aceDriverId: newAceId,
         // V7: Bank departing driver's points
         lockedPoints: (currentTeam.lockedPoints || 0) + (oldDriver.pointsScored || 0),
         updatedAt: new Date(),
@@ -1340,8 +1341,8 @@ export const useTeamStore = create<TeamState>()(
     }
   },
 
-  // V3: Set captain driver (any driver on the team with price <= 200, gets 2x points)
-  setCaptain: async (driverId) => {
+  // V3: Set ace driver (any driver on the team with price <= ACE_MAX_PRICE, gets 2x points)
+  setAce: async (driverId) => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
     const { currentTeam } = get();
 
@@ -1357,9 +1358,9 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
-    // V3 Rule: Drivers with price over CAPTAIN_MAX_PRICE cannot be ace
-    if (driver.currentPrice > PRICING_CONFIG.CAPTAIN_MAX_PRICE) {
-      set({ error: `Drivers over $${PRICING_CONFIG.CAPTAIN_MAX_PRICE} cannot be your Ace` });
+    // V3 Rule: Drivers with price over ACE_MAX_PRICE cannot be ace
+    if (driver.currentPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
+      set({ error: `Drivers over $${PRICING_CONFIG.ACE_MAX_PRICE} cannot be your Ace` });
       return;
     }
 
@@ -1368,14 +1369,14 @@ export const useTeamStore = create<TeamState>()(
       // Always update locally first to preserve current team state
       const updatedTeam: FantasyTeam = {
         ...currentTeam,
-        captainDriverId: driverId,
+        aceDriverId: driverId,
         updatedAt: new Date(),
       };
-      console.log('setCaptain: Setting captain locally to:', driverId, 'Driver count:', updatedTeam.drivers.length);
+      console.log('setAce: Setting ace locally to:', driverId, 'Driver count:', updatedTeam.drivers.length);
       updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
 
       // Sync updated team to Firebase in background
-      syncTeamToFirebase(updatedTeam, 'setCaptain');
+      syncTeamToFirebase(updatedTeam, 'setAce');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to set Ace';
       set({ error: message, isLoading: false });
@@ -1383,7 +1384,7 @@ export const useTeamStore = create<TeamState>()(
   },
 
   // V3: Clear ace selection
-  clearCaptain: async () => {
+  clearAce: async () => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
     const { currentTeam } = get();
 
@@ -1395,10 +1396,10 @@ export const useTeamStore = create<TeamState>()(
     set({ isLoading: true, error: null });
     try {
       if (isDemoMode) {
-        // In demo mode, clear captain locally
+        // In demo mode, clear ace locally
         const updatedTeam: FantasyTeam = {
           ...currentTeam,
-          captainDriverId: undefined,
+          aceDriverId: undefined,
           updatedAt: new Date(),
         };
         updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
@@ -1408,14 +1409,14 @@ export const useTeamStore = create<TeamState>()(
       // Use local-first update pattern
       const updatedTeam: FantasyTeam = {
         ...currentTeam,
-        captainDriverId: undefined,
+        aceDriverId: undefined,
         updatedAt: new Date(),
       };
-      console.log('clearCaptain: Local update successful');
+      console.log('clearAce: Local update successful');
       updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
 
       // Sync updated team to Firebase in background
-      syncTeamToFirebase(updatedTeam, 'clearCaptain');
+      syncTeamToFirebase(updatedTeam, 'clearAce');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to clear Ace';
       set({ error: message, isLoading: false });
@@ -1439,7 +1440,7 @@ export const useTeamStore = create<TeamState>()(
     set({ isLoading: true, error: null });
     try {
       if (isDemoMode) {
-        // V3: Build team without star driver - user will select captain each race
+        // V3: Build team without star driver - user will select ace each race
         const fantasyDrivers: FantasyDriver[] = selectedDrivers.map((driver) => ({
           driverId: driver.id,
           name: driver.name,
@@ -1681,7 +1682,7 @@ export const useTeamStore = create<TeamState>()(
 
       // V5: Contract expiry - remove drivers whose racesHeld >= contractLength
       let budgetReturn = 0;
-      let captainId = team.captainDriverId;
+      let aceId = team.aceDriverId;
       const expiredDriverIds: string[] = [];
       // Copy existing lockouts (will add new ones for expired drivers)
       const updatedLockouts: Record<string, number> = { ...(team.driverLockouts || {}) };
@@ -1698,9 +1699,9 @@ export const useTeamStore = create<TeamState>()(
           lockedPoints += driverPoints[driver.driverId] || 0;
           // V5: Add lockout for this driver (locked until completedRaceCount + LOCKOUT_RACES)
           updatedLockouts[driver.driverId] = completedRaceCount + PRICING_CONFIG.CONTRACT_LOCKOUT_RACES;
-          // Clear captain if expired driver was captain
-          if (captainId === driver.driverId) {
-            captainId = undefined;
+          // Clear ace if expired driver was ace
+          if (aceId === driver.driverId) {
+            aceId = undefined;
           }
           return false; // Remove from team
         }
@@ -1718,8 +1719,10 @@ export const useTeamStore = create<TeamState>()(
       let autoFillBudget = team.budget + budgetReturn;
       const teamDriverIds = new Set(updatedDrivers.map(d => d.driverId));
 
+      // Only auto-fill teams that previously had drivers (skip brand-new empty teams being built)
+      const hadDriversBefore = team.drivers.length > 0 || (team.lockedPoints || 0) > 0 || team.totalSpent > 0;
       // Only auto-fill after all lockouts have cleared (team runs short during lockout race)
-      if (updatedDrivers.length < TEAM_SIZE && Object.keys(updatedLockouts).length === 0) {
+      if (updatedDrivers.length < TEAM_SIZE && Object.keys(updatedLockouts).length === 0 && hadDriversBefore) {
         // Find cheapest available drivers not already on the team and not locked out
         const availableForAutoFill = demoDrivers
           .filter(d => d.isActive && !teamDriverIds.has(d.id) && !isDriverLockedOut(updatedLockouts, d.id, completedRaceCount))
@@ -1786,7 +1789,7 @@ export const useTeamStore = create<TeamState>()(
         constructor: updatedConstructor,
         totalPoints,
         budget: newBudget,
-        captainDriverId: captainId,
+        aceDriverId: aceId,
         driverLockouts: Object.keys(updatedLockouts).length > 0 ? updatedLockouts : undefined,
         lockedPoints: lockedPoints > 0 ? lockedPoints : undefined,
         racesPlayed: perRacePoints.length,
@@ -1898,25 +1901,35 @@ export const useTeamStore = create<TeamState>()(
             console.log('Failed to start periodic sync:', e);
           }
         }, 2000);
-        // Prune orphan league teams whose leagues no longer exist
+        // Prune orphan league references (clear leagueId) for teams whose leagues no longer exist
         // Runs after a delay so the league store has time to hydrate
+        // Only clears the leagueId — never deletes the team itself
         setTimeout(() => {
           try {
             // Lazy import to avoid circular dependency (league.store imports team.store)
             const { useLeagueStore } = require('./league.store');
             const { leagues } = useLeagueStore.getState();
+            // Skip pruning if leagues haven't loaded yet (empty array could mean still loading)
+            if (leagues.length === 0) return;
             const leagueIds = new Set(leagues.map(l => l.id));
             const { userTeams, currentTeam } = useTeamStore.getState();
-            const pruned = userTeams.filter(t => !t.leagueId || leagueIds.has(t.leagueId));
-            if (pruned.length < userTeams.length) {
-              console.log(`Pruned ${userTeams.length - pruned.length} orphan league team(s)`);
+            let changed = false;
+            const cleaned = userTeams.map(t => {
+              if (t.leagueId && !leagueIds.has(t.leagueId)) {
+                changed = true;
+                console.log(`Cleared orphan leagueId on team "${t.name}"`);
+                return { ...t, leagueId: null, updatedAt: new Date() };
+              }
+              return t;
+            });
+            if (changed) {
               const updatedCurrent = currentTeam && currentTeam.leagueId && !leagueIds.has(currentTeam.leagueId)
-                ? null
+                ? { ...currentTeam, leagueId: null, updatedAt: new Date() }
                 : currentTeam;
-              useTeamStore.setState({ userTeams: pruned, currentTeam: updatedCurrent });
+              useTeamStore.setState({ userTeams: cleaned, currentTeam: updatedCurrent });
             }
           } catch (e) {
-            console.log('Failed to prune orphan teams:', e);
+            console.log('Failed to prune orphan league refs:', e);
           }
         }, 3000);
       },

@@ -15,7 +15,7 @@ export const PRICING_CONFIG = {
   SPRINTS_PER_SEASON: 4,
 
   // Price calculation
-  DOLLARS_PER_POINT: 10, // Dollars per average point per race
+  DOLLARS_PER_POINT: 24, // Dollars per average point per race
 
   // Rolling average
   ROLLING_WINDOW: 5, // Number of races for rolling average
@@ -24,22 +24,22 @@ export const PRICING_CONFIG = {
   SPRINT_WEIGHT: 0.75, // Weight multiplier for sprint weekend points
 
   // Price bounds
-  MIN_PRICE: 3,              // V3: was 5
-  MAX_PRICE: 500,
-  MAX_CHANGE_PER_RACE: 25,   // V3: was 15 (more volatility)
+  MIN_PRICE: 5,
+  MAX_PRICE: 700,
+  MAX_CHANGE_PER_RACE: 60,   // Scaled for $24/pt ratio
 
   // Tier thresholds
-  A_TIER_THRESHOLD: 100, // Price above this = A-tier
-  B_TIER_THRESHOLD: 50,  // Price above this (but <= A) = B-tier, at or below = C-tier
+  A_TIER_THRESHOLD: 240, // Price above this = A-tier
+  B_TIER_THRESHOLD: 120,  // Price above this (but <= A) = B-tier, at or below = C-tier
 
   // Team budget
   STARTING_BUDGET: 1000, // $1,000 starting budget
   TEAM_SIZE: 5, // 5 drivers
   CONSTRUCTORS: 1, // 1 constructor
 
-  // V3: Captain System
-  CAPTAIN_MULTIPLIER: 2.0, // Captain scores 2x points
-  CAPTAIN_MAX_PRICE: 100,  // Drivers over this price cannot be captain (ace)
+  // V3: Ace System
+  ACE_MULTIPLIER: 2.0, // Ace scores 2x points
+  ACE_MAX_PRICE: 240,  // Drivers over this price cannot be ace
 
   // V3: Stale Roster Penalty (encourages active management)
   STALE_ROSTER_THRESHOLD: 5,  // Races before penalty kicks in

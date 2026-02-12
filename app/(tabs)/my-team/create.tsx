@@ -7,9 +7,8 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
-  TextInput,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
@@ -19,7 +18,7 @@ import { useDrivers, useConstructors } from '../../../src/hooks';
 import { Input, Button } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../src/config/constants';
 import { validateTeamName } from '../../../src/utils/validation';
-import type { Driver, Constructor, League } from '../../../src/types';
+import type { Driver, Constructor } from '../../../src/types';
 
 // Generate a recommended team that maximizes budget usage
 function generateRecommendedTeam(
@@ -123,95 +122,26 @@ export default function CreateTeamScreen() {
   const { user } = useAuth();
   const leagues = useLeagueStore(s => s.leagues);
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
-  const lookupLeagueByCode = useLeagueStore(s => s.lookupLeagueByCode);
   const recentlyCreatedLeague = useLeagueStore(s => s.recentlyCreatedLeague);
   const clearRecentlyCreatedLeague = useLeagueStore(s => s.clearRecentlyCreatedLeague);
   const createTeam = useTeamStore(s => s.createTeam);
-  const addDriver = useTeamStore(s => s.addDriver);
-  const setConstructor = useTeamStore(s => s.setConstructor);
   const userTeams = useTeamStore(s => s.userTeams);
   const isLoading = useTeamStore(s => s.isLoading);
   const error = useTeamStore(s => s.error);
-  const currentTeam = useTeamStore(s => s.currentTeam);
   const setCurrentTeam = useTeamStore(s => s.setCurrentTeam);
   const clearError = useTeamStore(s => s.clearError);
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
 
-  // Get URL params for pre-selected league (from league creation flow - legacy support)
-  const { leagueId, leagueName } = useLocalSearchParams<{ leagueId?: string; leagueName?: string }>();
-  const hasPreselectedLeague = !!leagueId;
-
-  // Check if there's a recently created league to suggest
-  const hasRecentLeague = !!recentlyCreatedLeague;
-
   const [teamName, setTeamName] = useState('');
-  // Default to league mode if there's a recently created league or preselected league
-  const [teamMode, setTeamMode] = useState<TeamMode>(hasPreselectedLeague || hasRecentLeague ? 'league' : 'solo');
-  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
+  const [teamMode, setTeamMode] = useState<TeamMode>('league');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isCreatingRecommended, setIsCreatingRecommended] = useState(false);
-
-  // League code lookup
-  const [leagueCode, setLeagueCode] = useState('');
-  const [foundLeague, setFoundLeague] = useState<League | null>(null);
-  const [isLookingUp, setIsLookingUp] = useState(false);
-  const [lookupError, setLookupError] = useState<string | null>(null);
 
   // Clear any stale errors from previous navigation
   React.useEffect(() => {
     clearError();
   }, []);
-
-  // Set up pre-selected league from URL params
-  React.useEffect(() => {
-    if (leagueId) {
-      // First try to find the league in the store
-      const existingLeague = leagues.find(l => l.id === leagueId);
-      if (existingLeague) {
-        setSelectedLeague(existingLeague);
-        setTeamMode('league');
-      } else if (leagueName) {
-        // Create a minimal league object for the pre-selected league
-        const preselectedLeague: League = {
-          id: leagueId,
-          name: decodeURIComponent(leagueName),
-          ownerId: user?.id || '',
-          ownerName: user?.displayName || '',
-          inviteCode: '',
-          isPublic: false,
-          maxMembers: 20,
-          memberCount: 1,
-          seasonId: '2026',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          settings: {
-            allowLateJoin: true,
-            lockDeadline: 'qualifying',
-            scoringRules: {
-              racePoints: [],
-              sprintPoints: [],
-              fastestLapBonus: 0,
-              positionGainedBonus: 0,
-              qualifyingPoints: [],
-              dnfPenalty: 0,
-              dsqPenalty: 0,
-            },
-          },
-        };
-        setSelectedLeague(preselectedLeague);
-        setTeamMode('league');
-      }
-    }
-  }, [leagueId, leagueName, user, leagues]);
-
-  // Auto-select recently created league if available (and no URL param league)
-  React.useEffect(() => {
-    if (!hasPreselectedLeague && recentlyCreatedLeague && !selectedLeague) {
-      setSelectedLeague(recentlyCreatedLeague);
-      setTeamMode('league');
-    }
-  }, [recentlyCreatedLeague, hasPreselectedLeague, selectedLeague]);
 
   // Load user leagues when component mounts
   React.useEffect(() => {
@@ -222,38 +152,20 @@ export default function CreateTeamScreen() {
 
   const dataLoading = driversLoading || constructorsLoading;
 
-  // Handle league code lookup
-  const handleLookupCode = async () => {
-    if (!leagueCode.trim()) return;
-
-    setIsLookingUp(true);
-    setLookupError(null);
-
-    try {
-      const league = await lookupLeagueByCode(leagueCode.trim());
-      if (league) {
-        setFoundLeague(league);
-        setSelectedLeague(league);
-        setLookupError(null);
-      } else {
-        setFoundLeague(null);
-        setLookupError('No league found with that code');
-      }
-    } catch (err) {
-      setLookupError('Failed to lookup league');
-      setFoundLeague(null);
-    } finally {
-      setIsLookingUp(false);
+  // Auto-assign: first league that doesn't already have one of the user's teams
+  const autoLeague = React.useMemo(() => {
+    const leaguesWithTeams = new Set(
+      userTeams.map(t => t.leagueId).filter(Boolean)
+    );
+    // Check recentlyCreatedLeague first (freshest)
+    if (recentlyCreatedLeague && !leaguesWithTeams.has(recentlyCreatedLeague.id)) {
+      return recentlyCreatedLeague;
     }
-  };
+    return leagues.find(l => !leaguesWithTeams.has(l.id)) || null;
+  }, [leagues, userTeams, recentlyCreatedLeague]);
 
-  // Get the current league based on mode
-  const currentLeague = teamMode === 'league' ? selectedLeague : null;
-
-  // Check if user already has a team in the selected league
-  const existingTeamInLeague = currentLeague
-    ? userTeams.find(t => t.leagueId === currentLeague.id)
-    : null;
+  // The league to join (auto-assigned) or null for solo
+  const currentLeague = teamMode === 'league' ? autoLeague : null;
 
   const handleCreate = async () => {
     setValidationError(null);
@@ -266,27 +178,13 @@ export default function CreateTeamScreen() {
 
     if (!user) return;
 
-    if (teamMode === 'league' && !selectedLeague) {
-      setValidationError('Please select a league to join');
-      return;
-    }
-
-    // Check if user already has a team in this league
-    if (existingTeamInLeague) {
-      setValidationError(`You already have a team "${existingTeamInLeague.name}" in this league. Only one team per league is allowed.`);
-      return;
-    }
-
     try {
-      // Support solo teams (null leagueId) or league teams
       await createTeam(user.id, currentLeague?.id || null, teamName.trim());
 
-      // Clear the recently created league since we've used it
       if (recentlyCreatedLeague) {
         clearRecentlyCreatedLeague();
       }
 
-      // Navigate to My Team tab where they can add drivers and constructors
       router.replace('/my-team');
     } catch (err) {
       // Error handled by store
@@ -304,17 +202,6 @@ export default function CreateTeamScreen() {
 
     if (!user) {
       setValidationError('You must be logged in');
-      return;
-    }
-
-    if (teamMode === 'league' && !selectedLeague) {
-      setValidationError('Please select a league to join');
-      return;
-    }
-
-    // Check if user already has a team in this league
-    if (existingTeamInLeague) {
-      setValidationError(`You already have a team "${existingTeamInLeague.name}" in this league. Only one team per league is allowed.`);
       return;
     }
 
@@ -404,9 +291,7 @@ export default function CreateTeamScreen() {
         >
           <Text style={styles.title}>Create Your Team</Text>
           <Text style={styles.description}>
-            {hasPreselectedLeague
-              ? 'Set up your team to compete in your new league'
-              : 'Build your fantasy F1 team and compete for glory'}
+            Build your fantasy F1 team and compete for glory
           </Text>
 
           {(error || validationError) && (
@@ -429,7 +314,7 @@ export default function CreateTeamScreen() {
             title={dataLoading ? "Loading data..." : "⚡ Auto Create Optimized Team"}
             onPress={handleCreateRecommended}
             loading={isCreatingRecommended}
-            disabled={(isLoading && !isCreatingRecommended) || dataLoading || !teamName.trim()}
+            disabled={(isLoading && !isCreatingRecommended) || dataLoading || !teamName.trim() || (teamMode === 'league' && !autoLeague)}
             fullWidth
             style={styles.quickActionButton}
           />
@@ -437,321 +322,91 @@ export default function CreateTeamScreen() {
             One tap to create a balanced team within budget
           </Text>
 
-          {/* Pre-selected League Banner (from league creation flow) */}
-          {hasPreselectedLeague && selectedLeague && (
+          {/* Team Mode Selector */}
+          <Text style={styles.sectionLabel}>Team Type</Text>
+          <View style={styles.modeSelector}>
+            <TouchableOpacity
+              style={[
+                styles.modeOption,
+                teamMode === 'solo' && styles.modeOptionSelected,
+              ]}
+              onPress={() => setTeamMode('solo')}
+            >
+              <Ionicons
+                name="person"
+                size={24}
+                color={teamMode === 'solo' ? COLORS.white : COLORS.gray[600]}
+              />
+              <Text
+                style={[
+                  styles.modeOptionText,
+                  teamMode === 'solo' && styles.modeOptionTextSelected,
+                ]}
+              >
+                Solo
+              </Text>
+              <Text
+                style={[
+                  styles.modeOptionHint,
+                  teamMode === 'solo' && styles.modeOptionHintSelected,
+                ]}
+              >
+                Track your picks
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.modeOption,
+                teamMode === 'league' && styles.modeOptionSelected,
+              ]}
+              onPress={() => setTeamMode('league')}
+            >
+              <Ionicons
+                name="people"
+                size={24}
+                color={teamMode === 'league' ? COLORS.white : COLORS.gray[600]}
+              />
+              <Text
+                style={[
+                  styles.modeOptionText,
+                  teamMode === 'league' && styles.modeOptionTextSelected,
+                ]}
+              >
+                Join League
+              </Text>
+              <Text
+                style={[
+                  styles.modeOptionHint,
+                  teamMode === 'league' && styles.modeOptionHintSelected,
+                ]}
+              >
+                Compete with friends
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* League info */}
+          {teamMode === 'league' && autoLeague ? (
             <View style={styles.preselectedLeagueBanner}>
               <Ionicons name="trophy" size={24} color={COLORS.primary} />
               <View style={styles.preselectedLeagueInfo}>
-                <Text style={styles.preselectedLeagueLabel}>Creating team for</Text>
-                <Text style={styles.preselectedLeagueName}>{selectedLeague.name}</Text>
+                <Text style={styles.preselectedLeagueLabel}>Will join</Text>
+                <Text style={styles.preselectedLeagueName}>{autoLeague.name}</Text>
               </View>
             </View>
-          )}
-
-          {/* Team Mode Selector - only show if no pre-selected league */}
-          {!hasPreselectedLeague && (
-            <>
-              <Text style={styles.sectionLabel}>Team Type</Text>
-              <View style={styles.modeSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.modeOption,
-                    teamMode === 'solo' && styles.modeOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setTeamMode('solo');
-                    setSelectedLeague(null);
-                  }}
-                >
-                  <Ionicons
-                    name="person"
-                    size={24}
-                    color={teamMode === 'solo' ? COLORS.white : COLORS.gray[600]}
-                  />
-                  <Text
-                    style={[
-                      styles.modeOptionText,
-                      teamMode === 'solo' && styles.modeOptionTextSelected,
-                    ]}
-                  >
-                    Solo
-                  </Text>
-                  <Text
-                    style={[
-                      styles.modeOptionHint,
-                      teamMode === 'solo' && styles.modeOptionHintSelected,
-                    ]}
-                  >
-                    Track your picks
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.modeOption,
-                    teamMode === 'league' && styles.modeOptionSelected,
-                  ]}
-                  onPress={() => setTeamMode('league')}
-                >
-                  <Ionicons
-                    name="people"
-                    size={24}
-                    color={teamMode === 'league' ? COLORS.white : COLORS.gray[600]}
-                  />
-                  <Text
-                    style={[
-                      styles.modeOptionText,
-                      teamMode === 'league' && styles.modeOptionTextSelected,
-                    ]}
-                  >
-                    Join League
-                  </Text>
-                  <Text
-                    style={[
-                      styles.modeOptionHint,
-                      teamMode === 'league' && styles.modeOptionHintSelected,
-                    ]}
-                  >
-                    Compete with friends
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-
-          {/* League Selection (only show when league mode is selected and no pre-selected league) */}
-          {teamMode === 'league' && !hasPreselectedLeague && (
-            <View style={styles.leagueSection}>
-              {/* Recently Created League Banner */}
-              {recentlyCreatedLeague && (
-                <View style={styles.recentLeagueBanner}>
-                  <View style={styles.recentLeagueHeader}>
-                    <Ionicons name="sparkles" size={20} color={COLORS.primary} />
-                    <Text style={styles.recentLeagueTitle}>Your New League</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.recentLeagueCard,
-                      selectedLeague?.id === recentlyCreatedLeague.id && styles.recentLeagueCardSelected,
-                    ]}
-                    onPress={() => setSelectedLeague(recentlyCreatedLeague)}
-                  >
-                    <View style={styles.recentLeagueContent}>
-                      <View style={styles.recentLeagueIcon}>
-                        <Ionicons name="trophy" size={24} color={COLORS.primary} />
-                      </View>
-                      <View style={styles.recentLeagueInfo}>
-                        <Text style={[
-                          styles.recentLeagueName,
-                          selectedLeague?.id === recentlyCreatedLeague.id && styles.recentLeagueNameSelected,
-                        ]}>
-                          {recentlyCreatedLeague.name}
-                        </Text>
-                        <Text style={[
-                          styles.recentLeagueCode,
-                          selectedLeague?.id === recentlyCreatedLeague.id && styles.recentLeagueCodeSelected,
-                        ]}>
-                          Code: {recentlyCreatedLeague.inviteCode}
-                        </Text>
-                      </View>
-                    </View>
-                    {selectedLeague?.id === recentlyCreatedLeague.id && (
-                      <Ionicons name="checkmark-circle" size={24} color={COLORS.white} />
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Divider if there's a recent league */}
-              {recentlyCreatedLeague && (
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                  <Text style={styles.dividerText}>or join another league</Text>
-                  <View style={styles.divider} />
-                </View>
-              )}
-
-              {/* League Code Input */}
-              <Text style={styles.sectionLabel}>Enter League Code</Text>
-              <View style={styles.codeInputRow}>
-                <View style={styles.codeInputWrapper}>
-                  <TextInput
-                    style={styles.codeInput}
-                    placeholder="e.g. ABC123"
-                    placeholderTextColor={COLORS.gray[400]}
-                    value={leagueCode}
-                    onChangeText={(text) => {
-                      setLeagueCode(text.toUpperCase());
-                      setLookupError(null);
-                    }}
-                    autoCapitalize="characters"
-                    maxLength={10}
-                  />
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.lookupButton,
-                    (!leagueCode.trim() || isLookingUp) && styles.lookupButtonDisabled,
-                  ]}
-                  onPress={handleLookupCode}
-                  disabled={!leagueCode.trim() || isLookingUp}
-                >
-                  {isLookingUp ? (
-                    <Text style={styles.lookupButtonText}>...</Text>
-                  ) : (
-                    <Ionicons name="search" size={20} color={COLORS.white} />
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {lookupError && (
-                <Text style={styles.lookupError}>{lookupError}</Text>
-              )}
-
-              {/* Found League from Code */}
-              {foundLeague && (
-                <View style={styles.foundLeagueContainer}>
-                  <TouchableOpacity
-                    style={[
-                      styles.foundLeagueCard,
-                      selectedLeague?.id === foundLeague.id && styles.leagueCardSelected,
-                    ]}
-                    onPress={() => setSelectedLeague(foundLeague)}
-                  >
-                    <View style={styles.foundLeagueContent}>
-                      <View style={[styles.leagueCardIcon, { backgroundColor: COLORS.success + '20' }]}>
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={20}
-                          color={selectedLeague?.id === foundLeague.id ? COLORS.white : COLORS.success}
-                        />
-                      </View>
-                      <View style={styles.foundLeagueInfo}>
-                        <Text
-                          style={[
-                            styles.foundLeagueName,
-                            selectedLeague?.id === foundLeague.id && styles.leagueCardNameSelected,
-                          ]}
-                        >
-                          {foundLeague.name}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.foundLeagueDetails,
-                            selectedLeague?.id === foundLeague.id && styles.leagueCardMembersSelected,
-                          ]}
-                        >
-                          {foundLeague.memberCount || 0} members • Code: {foundLeague.inviteCode}
-                        </Text>
-                      </View>
-                    </View>
-                    {selectedLeague?.id === foundLeague.id && (
-                      <Ionicons name="checkmark-circle" size={24} color={COLORS.white} />
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Divider if user has leagues */}
-              {leagues.length > 0 && (
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                  <Text style={styles.dividerText}>or select from your leagues</Text>
-                  <View style={styles.divider} />
-                </View>
-              )}
-
-              {/* User's Existing Leagues */}
-              {leagues.length > 0 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.leagueList}
-                >
-                  {leagues.map((league) => (
-                    <TouchableOpacity
-                      key={league.id}
-                      style={[
-                        styles.leagueCard,
-                        selectedLeague?.id === league.id && styles.leagueCardSelected,
-                      ]}
-                      onPress={() => setSelectedLeague(league)}
-                    >
-                      <View style={styles.leagueCardIcon}>
-                        <Ionicons
-                          name="trophy"
-                          size={20}
-                          color={selectedLeague?.id === league.id ? COLORS.white : COLORS.primary}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.leagueCardName,
-                          selectedLeague?.id === league.id && styles.leagueCardNameSelected,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {league.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.leagueCardMembers,
-                          selectedLeague?.id === league.id && styles.leagueCardMembersSelected,
-                        ]}
-                      >
-                        {league.memberCount || 0} members
-                      </Text>
-                      {selectedLeague?.id === league.id && (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={20}
-                          color={COLORS.white}
-                          style={styles.leagueCardCheck}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-
-              {/* Browse Leagues Button */}
-              <TouchableOpacity
-                style={styles.browseLeaguesButton}
-                onPress={() => router.push('/leagues')}
-              >
-                <Ionicons name="globe-outline" size={18} color={COLORS.primary} />
-                <Text style={styles.browseLeaguesText}>Browse Public Leagues</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Warning if user already has a team in the selected league */}
-          {existingTeamInLeague && (
-            <View style={styles.warningBox}>
-              <Ionicons name="warning" size={20} color={COLORS.warning} />
-              <View style={styles.warningContent}>
-                <Text style={styles.warningTitle}>Already in this league</Text>
-                <Text style={styles.warningText}>
-                  You already have a team "{existingTeamInLeague.name}" in this league. Only one team per league is allowed.
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Mode description */}
-          {!existingTeamInLeague && (
+          ) : teamMode === 'league' && !autoLeague ? (
             <View style={styles.modeDescription}>
-              <Ionicons
-                name={teamMode === 'solo' ? 'information-circle' : 'trophy'}
-                size={20}
-                color={COLORS.primary}
-              />
+              <Ionicons name="information-circle" size={20} color={COLORS.warning} />
               <Text style={styles.modeDescriptionText}>
-                {teamMode === 'solo'
-                  ? 'Solo teams let you track your fantasy picks without competing. You can join a league later.'
-                  : selectedLeague
-                  ? `You'll be competing in ${selectedLeague.name}`
-                  : 'Select a league above to compete with other players'}
+                No league found. Create or join a league first from the Leagues tab, then create your team.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.modeDescription}>
+              <Ionicons name="information-circle" size={20} color={COLORS.primary} />
+              <Text style={styles.modeDescriptionText}>
+                Solo teams let you track your fantasy picks without competing. You can join a league later.
               </Text>
             </View>
           )}
@@ -776,7 +431,7 @@ export default function CreateTeamScreen() {
             title="Create Empty Team"
             onPress={handleCreate}
             loading={isLoading && !isCreatingRecommended}
-            disabled={isCreatingRecommended}
+            disabled={isCreatingRecommended || (teamMode === 'league' && !autoLeague)}
             variant="outline"
             fullWidth
             style={styles.button}
@@ -786,15 +441,8 @@ export default function CreateTeamScreen() {
           </Text>
 
           <Button
-            title={hasPreselectedLeague ? "Skip Team Creation" : "Cancel"}
-            onPress={() => {
-              if (hasPreselectedLeague && leagueId) {
-                // Go to the league page they just created
-                router.replace(`/leagues/${leagueId}`);
-              } else {
-                router.back();
-              }
-            }}
+            title="Cancel"
+            onPress={() => router.back()}
             variant="ghost"
             fullWidth
           />
@@ -920,261 +568,6 @@ const styles = StyleSheet.create({
     color: COLORS.text.inverse + 'CC',
   },
 
-  leagueSection: {
-    marginBottom: SPACING.md,
-  },
-
-  recentLeagueBanner: {
-    marginBottom: SPACING.md,
-  },
-
-  recentLeagueHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-
-  recentLeagueTitle: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-
-  recentLeagueCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.primary + '15',
-    borderWidth: 1,
-    borderColor: COLORS.primary + '40',
-  },
-
-  recentLeagueCardSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-
-  recentLeagueContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-
-  recentLeagueIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-
-  recentLeagueInfo: {
-    flex: 1,
-  },
-
-  recentLeagueName: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-
-  recentLeagueNameSelected: {
-    color: COLORS.text.inverse,
-  },
-
-  recentLeagueCode: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.secondary,
-    marginTop: 2,
-  },
-
-  recentLeagueCodeSelected: {
-    color: COLORS.text.inverse + 'CC',
-  },
-
-  codeInputRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-
-  codeInputWrapper: {
-    flex: 1,
-  },
-
-  codeInput: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-    borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    backgroundColor: COLORS.card,
-    letterSpacing: 2,
-  },
-
-  lookupButton: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  lookupButtonDisabled: {
-    backgroundColor: COLORS.gray[700],
-  },
-
-  lookupButtonText: {
-    color: COLORS.text.inverse,
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-  },
-
-  lookupError: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.error,
-    marginTop: -SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-
-  foundLeagueContainer: {
-    marginBottom: SPACING.md,
-  },
-
-  foundLeagueCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.successLight,
-    borderWidth: 1,
-    borderColor: COLORS.success,
-  },
-
-  foundLeagueContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-
-  foundLeagueInfo: {
-    marginLeft: SPACING.md,
-    flex: 1,
-  },
-
-  foundLeagueName: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-
-  foundLeagueDetails: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.secondary,
-    marginTop: 2,
-  },
-
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: SPACING.md,
-  },
-
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border.default,
-  },
-
-  dividerText: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
-    paddingHorizontal: SPACING.md,
-  },
-
-  browseLeaguesButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    gap: SPACING.xs,
-    marginTop: SPACING.sm,
-  },
-
-  browseLeaguesText: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
-
-  leagueList: {
-    marginHorizontal: -SPACING.xl,
-    paddingHorizontal: SPACING.xl,
-  },
-
-  leagueCard: {
-    width: 140,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-    marginRight: SPACING.sm,
-    alignItems: 'center',
-  },
-
-  leagueCardSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-
-  leagueCardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.xs,
-  },
-
-  leagueCardName: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    textAlign: 'center',
-  },
-
-  leagueCardNameSelected: {
-    color: COLORS.text.inverse,
-  },
-
-  leagueCardMembers: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
-    marginTop: SPACING.xs,
-  },
-
-  leagueCardMembersSelected: {
-    color: COLORS.text.inverse + 'CC',
-  },
-
-  leagueCardCheck: {
-    position: 'absolute',
-    top: SPACING.xs,
-    right: SPACING.xs,
-  },
-
   modeDescription: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1225,13 +618,6 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
 
-  hintText: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.muted,
-    marginBottom: SPACING.xl,
-    lineHeight: 20,
-  },
-
   button: {
     marginBottom: SPACING.md,
   },
@@ -1257,32 +643,4 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
-  warningBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: COLORS.warningLight,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.lg,
-    gap: SPACING.sm,
-    borderWidth: 1,
-    borderColor: COLORS.warning + '40',
-  },
-
-  warningContent: {
-    flex: 1,
-  },
-
-  warningTitle: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.warning,
-    marginBottom: SPACING.xs,
-  },
-
-  warningText: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.secondary,
-    lineHeight: 20,
-  },
 });

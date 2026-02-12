@@ -16,3 +16,4 @@ export * from './TrackIcon';
 export * from './Avatar';
 export * from './AvatarPicker';
 export * from './CountdownBanner';
+export * from './NewsFeed';

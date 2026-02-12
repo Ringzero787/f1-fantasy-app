@@ -2,8 +2,8 @@
  * Tests for scoring balance - V3/V4 features working together correctly
  *
  * Verifies:
- * - Captain system (2x) interacts correctly with other bonuses
- * - Hot hand + captain don't double-dip
+ * - Ace system (2x) interacts correctly with other bonuses
+ * - Hot hand + ace don't double-dip
  * - Catch-up multiplier (V4) applies at the right time
  * - Stale roster penalty balances active management incentive
  * - Full race weekend simulations produce reasonable point ranges
@@ -111,19 +111,19 @@ const createDriverScore = (overrides: Partial<DriverScore> = {}): DriverScore =>
 });
 
 // ============================================
-// Captain + Hot Hand Interaction
+// Ace + Hot Hand Interaction
 // ============================================
 
-describe('Captain + Hot Hand Balance', () => {
-  it('captain doubles race+sprint only, not lock bonus', () => {
+describe('Ace + Hot Hand Balance', () => {
+  it('ace doubles race+sprint only, not lock bonus', () => {
     const driver = createFantasyDriver({ racesHeld: 5 });
     const raceResult = createRaceResult({ position: 1 }); // 25 pts
 
     const score = scoringService.calculateDriverScore(
-      'driver_1', 'race_1', raceResult, null, driver, undefined, { isCaptain: true }
+      'driver_1', 'race_1', raceResult, null, driver, undefined, { isAce: true }
     );
 
-    // Race: 25, Captain bonus: 25 (doubles race only)
+    // Race: 25, Ace bonus: 25 (doubles race only)
     // Lock: 3×1 + 2×2 = 7 (NOT doubled)
     // Total: 25 + 25 + 7 = 57
     expect(score.racePoints).toBe(25);
@@ -131,32 +131,32 @@ describe('Captain + Hot Hand Balance', () => {
     expect(score.totalPoints).toBe(57);
   });
 
-  it('captain + sprint weekend doubles both race and sprint', () => {
+  it('ace + sprint weekend doubles both race and sprint', () => {
     const driver = createFantasyDriver({ racesHeld: 0 });
     const raceResult = createRaceResult({ position: 1 }); // 25 pts
     const sprintResult = createSprintResult({ position: 1 }); // 8 pts
 
     const score = scoringService.calculateDriverScore(
-      'driver_1', 'race_1', raceResult, sprintResult, driver, undefined, { isCaptain: true }
+      'driver_1', 'race_1', raceResult, sprintResult, driver, undefined, { isAce: true }
     );
 
     // Base: 25 + 8 = 33
-    // Captain: +33
+    // Ace: +33
     // Total: 66
     expect(score.totalPoints).toBe(66);
   });
 
-  it('hot hand podium bonus is NOT doubled by captain', () => {
+  it('hot hand podium bonus is NOT doubled by ace', () => {
     const driver = createFantasyDriver({ racesHeld: 0 });
     const raceResult = createRaceResult({ position: 1 }); // 25 pts
 
-    // Both captain + new transfer
+    // Both ace + new transfer
     const score = scoringService.calculateDriverScore(
       'driver_1', 'race_1', raceResult, null, driver, undefined,
-      { isCaptain: true, isNewTransfer: true }
+      { isAce: true, isNewTransfer: true }
     );
 
-    // Race: 25, Captain bonus: 25, Hot hand podium: 15
+    // Race: 25, Ace bonus: 25, Hot hand podium: 15
     // Total: 25 + 25 + 15 = 65
     expect(score.totalPoints).toBe(65);
   });
@@ -311,7 +311,7 @@ describe('Full Race Weekend Scoring Balance', () => {
 
       return scoringService.calculateDriverScore(
         `d${i}`, 'race_1', raceResult, null, fantasyDriver, undefined,
-        { isCaptain: i === 0 } // First driver is captain
+        { isAce: i === 0 } // First driver is ace
       );
     });
 

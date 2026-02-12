@@ -5,6 +5,7 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Dimensions,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,9 +14,14 @@ import { useDrivers, useLockoutStatus } from '../../../src/hooks';
 import { useTeamStore, getLockedOutDriverIds, calculateEarlyTerminationFee } from '../../../src/store/team.store';
 import { useAdminStore } from '../../../src/store/admin.store';
 import { Loading, DriverCard, Button, SmartRecommendations } from '../../../src/components';
-import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE } from '../../../src/config/constants';
+import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE, TEAM_COLORS } from '../../../src/config/constants';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import type { Driver, FantasyDriver, FantasyTeam } from '../../../src/types';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CART_HORIZONTAL_PADDING = SPACING.md * 2;
+const SLOT_GAP = 6;
+const SLOT_WIDTH = (SCREEN_WIDTH - CART_HORIZONTAL_PADDING - SLOT_GAP * 4) / 5;
 
 export default function SelectDriverScreen() {
   const { swapDriverId, swapDriverPrice } = useLocalSearchParams<{
@@ -245,6 +251,12 @@ export default function SelectDriverScreen() {
     ? currentTeam?.drivers.find(d => d.driverId === swapDriverId)?.name
     : null;
 
+  // Build array of 5 slots for the cart (only used in non-swap mode)
+  const cartSlots: (Driver | null)[] = [];
+  for (let i = 0; i < maxSelectableDrivers; i++) {
+    cartSlots.push(selectedDrivers[i] || null);
+  }
+
   const listHeader = (
     <>
       {/* Swap Mode Banner */}
@@ -254,23 +266,6 @@ export default function SelectDriverScreen() {
           <Text style={styles.swapBannerText}>
             Swapping <Text style={styles.swapDriverName}>{swappingDriverName}</Text> (+${swapPrice})
           </Text>
-        </View>
-      )}
-
-      {/* Selected Drivers Chips */}
-      {selectedDrivers.length > 0 && (
-        <View style={styles.selectedSection}>
-          {selectedDrivers.map((driver) => (
-            <TouchableOpacity
-              key={driver.id}
-              style={styles.chip}
-              onPress={() => handleRemoveSelected(driver.id)}
-            >
-              <Text style={styles.chipText}>{driver.shortName}</Text>
-              <Text style={styles.chipPrice}>${driver.price} {contractLengths[driver.id] || PRICING_CONFIG.CONTRACT_LENGTH}R</Text>
-              <Ionicons name="close" size={14} color={COLORS.white} />
-            </TouchableOpacity>
-          ))}
         </View>
       )}
 
@@ -290,16 +285,6 @@ export default function SelectDriverScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      {/* Sticky budget counter */}
-      <View style={styles.budgetBar}>
-        <Text style={styles.budgetLabel}>
-          ${effectiveBudget}
-        </Text>
-        <Text style={styles.budgetMeta}>
-          {slotsLeft} slot{slotsLeft !== 1 ? 's' : ''} left
-        </Text>
-      </View>
-
       {/* Driver list with header */}
       <FlatList
         data={affordableDrivers}
@@ -313,6 +298,7 @@ export default function SelectDriverScreen() {
             <View style={[styles.driverItem, isLockedOut && styles.lockedOutItem]}>
               <DriverCard
                 driver={item}
+                compact
                 showPrice
                 showPoints
                 isSelected={false}
@@ -387,23 +373,75 @@ export default function SelectDriverScreen() {
         </View>
       )}
 
-      {/* Confirm Button */}
-      {selectedDrivers.length > 0 && !pendingDriver && (
+      {/* Bottom Cart Panel (non-swap mode) */}
+      {!isSwapMode && !pendingDriver && (
+        <View style={styles.cartPanel}>
+          {/* Budget row */}
+          <View style={styles.cartBudgetRow}>
+            <Text style={styles.cartBudgetLabel}>
+              <Text style={styles.cartBudgetValue}>${effectiveBudget}</Text> remaining
+            </Text>
+            <Text style={styles.cartSlotsLeftText}>
+              {slotsLeft} slot{slotsLeft !== 1 ? 's' : ''} left
+            </Text>
+          </View>
+
+          {/* 5 mini slots */}
+          <View style={styles.cartSlotsRow}>
+            {cartSlots.map((driver, index) => {
+              if (driver) {
+                const teamColor = TEAM_COLORS[driver.constructorId]?.primary || '#4B5563';
+                const contractLen = contractLengths[driver.id] || PRICING_CONFIG.CONTRACT_LENGTH;
+                return (
+                  <TouchableOpacity
+                    key={driver.id}
+                    style={styles.cartSlotFilled}
+                    onPress={() => handleRemoveSelected(driver.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.cartSlotTeamStripe, { backgroundColor: teamColor }]} />
+                    <Text style={styles.cartSlotName} numberOfLines={1}>{driver.shortName}</Text>
+                    <Text style={styles.cartSlotPrice}>${driver.price}</Text>
+                    <Text style={styles.cartSlotContract}>{contractLen}R</Text>
+                    <View style={styles.cartSlotRemoveHint}>
+                      <Ionicons name="close" size={10} color={COLORS.text.muted} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              }
+              return (
+                <View key={`empty-${index}`} style={styles.cartSlotEmpty}>
+                  <Ionicons name="add" size={18} color={COLORS.text.muted} />
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Confirm button */}
+          {selectedDrivers.length > 0 && (
+            <View style={styles.cartConfirmRow}>
+              <Button
+                title={`Add ${selectedDrivers.length} Driver${selectedDrivers.length > 1 ? 's' : ''}`}
+                onPress={handleConfirm}
+              />
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Swap mode confirm (original behavior) */}
+      {isSwapMode && selectedDrivers.length > 0 && !pendingDriver && (
         <View style={styles.confirmContainer}>
           <View style={styles.selectedInfo}>
             <Text style={styles.selectedName}>
-              {isSwapMode
-                ? `Swap with ${selectedDrivers[0].name}`
-                : `${selectedDrivers.length} driver${selectedDrivers.length > 1 ? 's' : ''} selected`}
+              Swap with {selectedDrivers[0].name}
             </Text>
             <Text style={styles.selectedPrice}>
-              {isSwapMode
-                ? `$${selectedTotal} (saves $${swapPrice - selectedTotal})`
-                : `$${selectedTotal}`}
+              ${selectedTotal} (saves ${swapPrice - selectedTotal})
             </Text>
           </View>
           <Button
-            title={isSwapMode ? 'Swap' : `Add ${selectedDrivers.length}`}
+            title="Swap"
             onPress={handleConfirm}
           />
         </View>
@@ -416,28 +454,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-
-  budgetBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.card,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border.default,
-  },
-
-  budgetLabel: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: 'bold',
-    color: COLORS.success,
-  },
-
-  budgetMeta: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.muted,
   },
 
   swapBanner: {
@@ -458,36 +474,6 @@ const styles = StyleSheet.create({
   swapDriverName: {
     fontWeight: '600',
     color: COLORS.primary,
-  },
-
-  selectedSection: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: BORDER_RADIUS.full,
-    gap: SPACING.xs,
-  },
-
-  chipText: {
-    color: COLORS.white,
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '500',
-  },
-
-  chipPrice: {
-    color: COLORS.white,
-    fontSize: FONTS.sizes.xs,
-    opacity: 0.8,
   },
 
   driverItem: {
@@ -515,7 +501,7 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingBottom: 120,
+    paddingBottom: 200,
   },
 
   lockedContainer: {
@@ -549,6 +535,120 @@ const styles = StyleSheet.create({
     color: COLORS.text.muted,
   },
 
+  // ==============================
+  // Bottom Cart Panel
+  // ==============================
+  cartPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.card,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border.default,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.md,
+  },
+
+  cartBudgetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+
+  cartBudgetLabel: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+  },
+
+  cartBudgetValue: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: COLORS.success,
+  },
+
+  cartSlotsLeftText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+  },
+
+  cartSlotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: SLOT_GAP,
+  },
+
+  cartSlotFilled: {
+    width: SLOT_WIDTH,
+    height: 58,
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 5,
+    paddingHorizontal: 2,
+    overflow: 'hidden',
+  },
+
+  cartSlotTeamStripe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    borderTopLeftRadius: BORDER_RADIUS.sm,
+    borderTopRightRadius: BORDER_RADIUS.sm,
+  },
+
+  cartSlotName: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+    textAlign: 'center',
+  },
+
+  cartSlotPrice: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    marginTop: 1,
+  },
+
+  cartSlotContract: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.primary,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+
+  cartSlotRemoveHint: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+  },
+
+  cartSlotEmpty: {
+    width: SLOT_WIDTH,
+    height: 58,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cartConfirmRow: {
+    marginTop: SPACING.sm,
+  },
+
+  // ==============================
+  // Swap mode confirm (kept for swap)
+  // ==============================
   confirmContainer: {
     position: 'absolute',
     bottom: 0,

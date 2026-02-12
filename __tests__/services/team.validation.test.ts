@@ -134,21 +134,21 @@ describe('Team Size Validation', () => {
   });
 });
 
-describe('Captain Validation', () => {
-  it('should allow captain for drivers at or below price threshold', () => {
+describe('Ace Validation', () => {
+  it('should allow ace for drivers at or below price threshold', () => {
     const driver = createMockDriver('1', 200, 'B');
-    const canBeCaptain = driver.price <= PRICING_CONFIG.CAPTAIN_MAX_PRICE;
-    expect(canBeCaptain).toBe(true);
+    const canBeAce = driver.price <= PRICING_CONFIG.ACE_MAX_PRICE;
+    expect(canBeAce).toBe(true);
   });
 
-  it('should not allow captain for drivers above price threshold', () => {
+  it('should not allow ace for drivers above price threshold', () => {
     const driver = createMockDriver('1', 250, 'A');
-    const canBeCaptain = driver.price <= PRICING_CONFIG.CAPTAIN_MAX_PRICE;
-    expect(canBeCaptain).toBe(false);
+    const canBeAce = driver.price <= PRICING_CONFIG.ACE_MAX_PRICE;
+    expect(canBeAce).toBe(false);
   });
 
-  it('should have captain threshold at 200', () => {
-    expect(PRICING_CONFIG.CAPTAIN_MAX_PRICE).toBe(200);
+  it('should have ace threshold at 240', () => {
+    expect(PRICING_CONFIG.ACE_MAX_PRICE).toBe(240);
   });
 });
 

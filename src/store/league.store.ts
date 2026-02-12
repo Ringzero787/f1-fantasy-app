@@ -3,6 +3,7 @@ import type { League, LeagueMember, CreateLeagueForm, LeagueSettings } from '../
 import { leagueService } from '../services/league.service';
 import { useAuthStore } from './auth.store';
 import { useTeamStore } from './team.store';
+import { errorLogService } from '../services/errorLog.service';
 import {
   RACE_POINTS,
   SPRINT_POINTS,
@@ -108,6 +109,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ leagues, isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load leagues';
+      errorLogService.logError('loadUserLeagues', error);
       set({ error: message, isLoading: false });
     }
   },
@@ -129,6 +131,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ currentLeague: league, isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load league';
+      errorLogService.logError('loadLeague', error);
       set({ error: message, isLoading: false });
     }
   },
@@ -218,6 +221,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ members, isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load members';
+      errorLogService.logError('loadLeagueMembers', error);
       set({ error: message, isLoading: false });
     }
   },
@@ -283,6 +287,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       return league;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create league';
+      errorLogService.logError('createLeague', error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -309,6 +314,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to join league';
+      errorLogService.logError('joinLeague', error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -369,6 +375,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to join league';
+      errorLogService.logError('joinLeagueByCode', error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -403,6 +410,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to leave league';
+      errorLogService.logError('leaveLeague', error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -440,6 +448,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete league';
+      errorLogService.logError('deleteLeague', error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -485,6 +494,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove member';
+      errorLogService.logError('removeMember', error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -507,6 +517,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to send invitation';
+      errorLogService.logError('inviteMemberByEmail', error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -551,6 +562,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to promote member';
+      errorLogService.logError('promoteToCoAdmin', error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -595,6 +607,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to demote co-admin';
+      errorLogService.logError('demoteFromCoAdmin', error);
       set({ error: message, isLoading: false });
       throw error;
     }

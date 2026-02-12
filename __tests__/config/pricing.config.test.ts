@@ -34,9 +34,9 @@ describe('PRICING_CONFIG', () => {
     expect(PRICING_CONFIG.A_TIER_THRESHOLD).toBe(200);
   });
 
-  it('should have correct captain system values', () => {
-    expect(PRICING_CONFIG.CAPTAIN_MULTIPLIER).toBe(2.0);
-    expect(PRICING_CONFIG.CAPTAIN_MAX_PRICE).toBe(200);
+  it('should have correct ace system values', () => {
+    expect(PRICING_CONFIG.ACE_MULTIPLIER).toBe(2.0);
+    expect(PRICING_CONFIG.ACE_MAX_PRICE).toBe(240);
   });
 
   it('should have correct budget values', () => {

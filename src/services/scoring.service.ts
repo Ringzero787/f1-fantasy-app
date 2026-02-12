@@ -211,7 +211,7 @@ export const scoringService = {
 
   /**
    * Calculate total driver score for a race weekend
-   * V3: Supports captain system (2x points) and hot hand bonus
+   * V3: Supports ace system (2x points) and hot hand bonus
    */
   calculateDriverScore(
     driverId: string,
@@ -221,7 +221,7 @@ export const scoringService = {
     fantasyDriver: FantasyDriver,
     rules: ScoringRules = DEFAULT_SCORING_RULES,
     options: {
-      isCaptain?: boolean;
+      isAce?: boolean;
       isNewTransfer?: boolean; // True if driver was purchased this race
     } = {}
   ): DriverScore {
@@ -249,18 +249,18 @@ export const scoringService = {
     const lockBonus = lockCalc.bonus;
     items.push(...lockCalc.breakdown);
 
-    // Base points before captain multiplier
+    // Base points before ace multiplier
     const basePoints = racePoints + sprintPoints;
     totalPoints = basePoints + lockBonus;
 
-    // V3: Captain bonus (2x points on race + sprint, not lock bonus)
-    if (options.isCaptain) {
-      const captainBonus = basePoints; // Double the base points (2x total = basePoints + basePoints)
-      totalPoints += captainBonus;
+    // V3: Ace bonus (2x points on race + sprint, not lock bonus)
+    if (options.isAce) {
+      const aceBonus = basePoints; // Double the base points (2x total = basePoints + basePoints)
+      totalPoints += aceBonus;
       items.push({
-        label: 'Captain Bonus',
-        points: captainBonus,
-        description: '2x points for captain',
+        label: 'Ace Bonus',
+        points: aceBonus,
+        description: '2x points for ace',
       });
     }
 
@@ -370,7 +370,7 @@ export const scoringService = {
 
   /**
    * Calculate constructor score (sum of both drivers)
-   * V3: Removed star constructor bonus (captain system is driver-only)
+   * V3: Removed star constructor bonus (ace system is driver-only)
    */
   calculateConstructorScore(
     constructorId: string,

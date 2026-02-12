@@ -25,7 +25,7 @@ const PRICING = {
   TEAM_SIZE: 5,
 
   // V3 AGGRESSIVE RULES
-  CAPTAIN_MULTIPLIER: 2.0,
+  ACE_MULTIPLIER: 2.0,
   STALE_ROSTER_THRESHOLD: 5,      // CHANGED: was 8
   STALE_ROSTER_PENALTY: 5,        // CHANGED: was 2
   HOT_HAND_BONUS: 10,             // NEW: bonus if transfer scores 15+
@@ -182,9 +182,9 @@ interface TeamV3 {
   totalPoints: number;
   transfers: number;
   racesSinceTransfer: number;
-  captain: string;
+  ace: string;
   // Bonus tracking
-  captainBonus: number;
+  aceBonus: number;
   hotHandBonus: number;
   valueCaptureBonus: number;
   stalePenalty: number;
@@ -199,7 +199,7 @@ type StrategyV3 = (
   lastResults: RaceResult[]
 ) => TeamV3;
 
-function pickCaptain(teamDriverIds: string[], drivers: Driver[], lastResults: RaceResult[]): string {
+function pickAce(teamDriverIds: string[], drivers: Driver[], lastResults: RaceResult[]): string {
   let bestId = teamDriverIds[0];
   let bestForm = 0;
 
@@ -225,8 +225,8 @@ function createInitialTeam(): TeamV3 {
     totalPoints: 0,
     transfers: 0,
     racesSinceTransfer: 0,
-    captain: '',
-    captainBonus: 0,
+    ace: '',
+    aceBonus: 0,
     hotHandBonus: 0,
     valueCaptureBonus: 0,
     stalePenalty: 0,
@@ -256,7 +256,7 @@ const premiumStrategyV3: StrategyV3 = (team, drivers, race, lastResults) => {
       drivers: selected,
       driverPurchasePrices: purchasePrices,
       budget,
-      captain: selected[0],
+      ace: selected[0],
     };
   }
 
@@ -267,7 +267,7 @@ const premiumStrategyV3: StrategyV3 = (team, drivers, race, lastResults) => {
   };
 
   newTeam.racesSinceTransfer++;
-  newTeam.captain = pickCaptain(team.drivers, drivers, lastResults);
+  newTeam.ace = pickAce(team.drivers, drivers, lastResults);
 
   // Apply stale penalty after threshold (V3: 5 races, -5 pts)
   if (newTeam.racesSinceTransfer > PRICING.STALE_ROSTER_THRESHOLD) {
@@ -299,7 +299,7 @@ const formChaserV3: StrategyV3 = (team, drivers, race, lastResults) => {
       drivers: selected,
       driverPurchasePrices: purchasePrices,
       budget,
-      captain: selected[0],
+      ace: selected[0],
     };
   }
 
@@ -359,7 +359,7 @@ const formChaserV3: StrategyV3 = (team, drivers, race, lastResults) => {
   }
 
   newTeam.racesSinceTransfer++;
-  newTeam.captain = pickCaptain(newTeam.drivers, drivers, lastResults);
+  newTeam.ace = pickAce(newTeam.drivers, drivers, lastResults);
 
   return newTeam;
 };
@@ -399,7 +399,7 @@ const activeManagerV3: StrategyV3 = (team, drivers, race, lastResults) => {
       drivers: selected,
       driverPurchasePrices: purchasePrices,
       budget,
-      captain: selected[0],
+      ace: selected[0],
     };
   }
 
@@ -451,7 +451,7 @@ const activeManagerV3: StrategyV3 = (team, drivers, race, lastResults) => {
   }
 
   newTeam.racesSinceTransfer++;
-  newTeam.captain = pickCaptain(newTeam.drivers, drivers, lastResults);
+  newTeam.ace = pickAce(newTeam.drivers, drivers, lastResults);
 
   return newTeam;
 };
@@ -491,7 +491,7 @@ const balancedV3: StrategyV3 = (team, drivers, race, lastResults) => {
       drivers: selected,
       driverPurchasePrices: purchasePrices,
       budget,
-      captain: selected[0],
+      ace: selected[0],
     };
   }
 
@@ -543,7 +543,7 @@ const balancedV3: StrategyV3 = (team, drivers, race, lastResults) => {
   }
 
   newTeam.racesSinceTransfer++;
-  newTeam.captain = pickCaptain(newTeam.drivers, drivers, lastResults);
+  newTeam.ace = pickAce(newTeam.drivers, drivers, lastResults);
 
   return newTeam;
 };
@@ -570,7 +570,7 @@ const minimalTransferV3: StrategyV3 = (team, drivers, race, lastResults) => {
       drivers: selected,
       driverPurchasePrices: purchasePrices,
       budget,
-      captain: selected[0],
+      ace: selected[0],
     };
   }
 
@@ -618,7 +618,7 @@ const minimalTransferV3: StrategyV3 = (team, drivers, race, lastResults) => {
   }
 
   newTeam.racesSinceTransfer++;
-  newTeam.captain = pickCaptain(newTeam.drivers, drivers, lastResults);
+  newTeam.ace = pickAce(newTeam.drivers, drivers, lastResults);
 
   return newTeam;
 };
@@ -630,7 +630,7 @@ interface StrategyResultV3 {
   name: string;
   totalPoints: number;
   basePoints: number;
-  captainBonus: number;
+  aceBonus: number;
   hotHandBonus: number;
   valueCaptureBonus: number;
   stalePenalty: number;
@@ -699,9 +699,9 @@ function runSimulationV3(numSimulations: number = 10): void {
           if (result) {
             racePoints += result.totalPoints;
 
-            // Captain bonus (extra 1x)
-            if (driverId === team.captain) {
-              team.captainBonus += result.totalPoints;
+            // Ace bonus (extra 1x)
+            if (driverId === team.ace) {
+              team.aceBonus += result.totalPoints;
             }
 
             // Hot Hand Bonus - if this is a new transfer
@@ -727,7 +727,7 @@ function runSimulationV3(numSimulations: number = 10): void {
 
       const totalWithBonuses =
         team.totalPoints +
-        team.captainBonus +
+        team.aceBonus +
         team.hotHandBonus +
         team.valueCaptureBonus -
         team.stalePenalty;
@@ -736,7 +736,7 @@ function runSimulationV3(numSimulations: number = 10): void {
         name,
         totalPoints: totalWithBonuses,
         basePoints: team.totalPoints,
-        captainBonus: team.captainBonus,
+        aceBonus: team.aceBonus,
         hotHandBonus: team.hotHandBonus,
         valueCaptureBonus: team.valueCaptureBonus,
         stalePenalty: team.stalePenalty,
@@ -757,7 +757,7 @@ function runSimulationV3(numSimulations: number = 10): void {
     name: string;
     avgTotal: number;
     avgBase: number;
-    avgCaptain: number;
+    avgAce: number;
     avgHotHand: number;
     avgValueBonus: number;
     avgStalePenalty: number;
@@ -773,7 +773,7 @@ function runSimulationV3(numSimulations: number = 10): void {
       name,
       avgTotal: Math.round(results.reduce((a, b) => a + b.totalPoints, 0) / results.length),
       avgBase: Math.round(results.reduce((a, b) => a + b.basePoints, 0) / results.length),
-      avgCaptain: Math.round(results.reduce((a, b) => a + b.captainBonus, 0) / results.length),
+      avgAce: Math.round(results.reduce((a, b) => a + b.aceBonus, 0) / results.length),
       avgHotHand: Math.round(results.reduce((a, b) => a + b.hotHandBonus, 0) / results.length),
       avgValueBonus: Math.round(results.reduce((a, b) => a + b.valueCaptureBonus, 0) / results.length),
       avgStalePenalty: Math.round(results.reduce((a, b) => a + b.stalePenalty, 0) / results.length),
@@ -785,13 +785,13 @@ function runSimulationV3(numSimulations: number = 10): void {
 
   console.log('\n🏆 V3 STRATEGY RANKINGS:\n');
   console.log('┌─────┬────────────────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐');
-  console.log('│ Rank│ Strategy           │ TOTAL    │ Base     │ Captain+ │ HotHand+ │ Value+   │ Stale-   │ Transfers│');
+  console.log('│ Rank│ Strategy           │ TOTAL    │ Base     │ Ace+     │ HotHand+ │ Value+   │ Stale-   │ Transfers│');
   console.log('├─────┼────────────────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤');
 
   summaries.forEach((s, i) => {
     const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1} `;
     console.log(
-      `│ ${rank} │ ${s.name.padEnd(18)} │ ${String(s.avgTotal).padStart(8)} │ ${String(s.avgBase).padStart(8)} │ ${String('+' + s.avgCaptain).padStart(8)} │ ${String('+' + s.avgHotHand).padStart(8)} │ ${String('+' + s.avgValueBonus).padStart(8)} │ ${String('-' + s.avgStalePenalty).padStart(8)} │ ${String(s.avgTransfers).padStart(8)} │`
+      `│ ${rank} │ ${s.name.padEnd(18)} │ ${String(s.avgTotal).padStart(8)} │ ${String(s.avgBase).padStart(8)} │ ${String('+' + s.avgAce).padStart(8)} │ ${String('+' + s.avgHotHand).padStart(8)} │ ${String('+' + s.avgValueBonus).padStart(8)} │ ${String('-' + s.avgStalePenalty).padStart(8)} │ ${String(s.avgTransfers).padStart(8)} │`
     );
   });
 
@@ -826,7 +826,7 @@ function runSimulationV3(numSimulations: number = 10): void {
   console.log(`
   💎 PREMIUM STACK (No Transfers):
      Base Points:      ${premiumData.avgBase}
-     Captain Bonus:   +${premiumData.avgCaptain}
+     Ace Bonus:       +${premiumData.avgAce}
      Hot Hand Bonus:  +${premiumData.avgHotHand}
      Value Capture:   +${premiumData.avgValueBonus}
      Stale Penalty:   -${premiumData.avgStalePenalty}  ← MAJOR HIT!
@@ -835,7 +835,7 @@ function runSimulationV3(numSimulations: number = 10): void {
 
   🔥 FORM CHASER (Smart Transfers):
      Base Points:      ${formData.avgBase}
-     Captain Bonus:   +${formData.avgCaptain}
+     Ace Bonus:       +${formData.avgAce}
      Hot Hand Bonus:  +${formData.avgHotHand}
      Value Capture:   +${formData.avgValueBonus}
      Stale Penalty:   -${formData.avgStalePenalty}
@@ -844,7 +844,7 @@ function runSimulationV3(numSimulations: number = 10): void {
 
   📊 ACTIVE MANAGER (Aggressive Transfers):
      Base Points:      ${activeData.avgBase}
-     Captain Bonus:   +${activeData.avgCaptain}
+     Ace Bonus:       +${activeData.avgAce}
      Hot Hand Bonus:  +${activeData.avgHotHand}  ← HOT HAND PAYS OFF!
      Value Capture:   +${activeData.avgValueBonus}  ← VALUE CAPTURE PAYS OFF!
      Stale Penalty:   -${activeData.avgStalePenalty}

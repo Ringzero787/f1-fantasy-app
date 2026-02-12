@@ -3,7 +3,7 @@
  *
  * Teams lock at FP3 (normal weekend) or Sprint Qualifying (sprint weekend)
  * and unlock when the race is marked complete.
- * Captain/ace selection locks at race start time.
+ * Ace selection locks at race start time.
  */
 
 import type { Race, RaceSchedule } from '../types';
@@ -14,7 +14,7 @@ export interface LockoutInfo {
   nextRace: Race | null;
   lockTime: Date | null;
   raceStartTime: Date | null;
-  captainLocked: boolean;
+  aceLocked: boolean;
 }
 
 /**
@@ -65,14 +65,14 @@ export function computeLockoutStatus(
     nextRace: null,
     lockTime: null,
     raceStartTime: null,
-    captainLocked: true,
+    aceLocked: true,
   };
 
   const nextRace = getNextIncompleteRace(races, completedRaceIds);
   if (!nextRace) {
     // Admin override can unlock even when season is "complete" (for testing)
     if (adminOverride === 'unlocked') {
-      return { ...seasonComplete, isLocked: false, lockReason: null, captainLocked: false };
+      return { ...seasonComplete, isLocked: false, lockReason: null, aceLocked: false };
     }
     return seasonComplete;
   }
@@ -83,7 +83,7 @@ export function computeLockoutStatus(
 
   // Compute natural lockout state
   const isNaturallyLocked = lockTime ? nowMs >= lockTime.getTime() : false;
-  const isCaptainNaturallyLocked = nowMs >= raceStartTime.getTime();
+  const isAceNaturallyLocked = nowMs >= raceStartTime.getTime();
 
   // Apply admin override
   if (adminOverride === 'locked') {
@@ -93,7 +93,7 @@ export function computeLockoutStatus(
       nextRace,
       lockTime,
       raceStartTime,
-      captainLocked: isCaptainNaturallyLocked,
+      aceLocked: isAceNaturallyLocked,
     };
   }
 
@@ -104,7 +104,7 @@ export function computeLockoutStatus(
       nextRace,
       lockTime,
       raceStartTime,
-      captainLocked: false,
+      aceLocked: false,
     };
   }
 
@@ -115,6 +115,6 @@ export function computeLockoutStatus(
     nextRace,
     lockTime,
     raceStartTime,
-    captainLocked: isCaptainNaturallyLocked,
+    aceLocked: isAceNaturallyLocked,
   };
 }

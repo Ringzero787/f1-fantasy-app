@@ -19,7 +19,11 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.f1fantasy.app",
-      googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist"
+      usesAppleSignIn: true,
+      googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
       adaptiveIcon: {
@@ -43,7 +47,8 @@ export default {
           photosPermission: "Allow $(PRODUCT_NAME) to access your photos to set your profile picture."
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-apple-authentication"
     ],
     experiments: {
       typedRoutes: true

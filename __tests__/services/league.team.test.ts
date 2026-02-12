@@ -267,7 +267,7 @@ describe('Constructor Scoring', () => {
 });
 
 // ============================================
-// Captain + Constructor Full Team Scoring
+// Ace + Constructor Full Team Scoring
 // ============================================
 
 describe('Full Team Scoring Integration', () => {
@@ -322,18 +322,18 @@ describe('Full Team Scoring Integration', () => {
     expect(result.staleRosterPenalty).toBe(10);
   });
 
-  it('should captain bonus NOT stack with constructor averaging', () => {
-    // Captain doubles driver race+sprint points, but constructor averages driver totals
-    // Verify captain bonus is already in the driver score that feeds into constructor
-    const captainResult = createRaceResult({ position: 1, driverId: 'd1' });
-    const captainDriver = createFantasyDriver({ driverId: 'd1', racesHeld: 0 });
+  it('should ace bonus NOT stack with constructor averaging', () => {
+    // Ace doubles driver race+sprint points, but constructor averages driver totals
+    // Verify ace bonus is already in the driver score that feeds into constructor
+    const aceResult = createRaceResult({ position: 1, driverId: 'd1' });
+    const aceDriver = createFantasyDriver({ driverId: 'd1', racesHeld: 0 });
 
-    const captainScore = scoringService.calculateDriverScore(
-      'd1', 'race_1', captainResult, null, captainDriver, undefined, { isCaptain: true }
+    const aceScore = scoringService.calculateDriverScore(
+      'd1', 'race_1', aceResult, null, aceDriver, undefined, { isAce: true }
     );
 
-    // P1 = 25, captain bonus = 25, total = 50
-    expect(captainScore.totalPoints).toBe(50);
+    // P1 = 25, ace bonus = 25, total = 50
+    expect(aceScore.totalPoints).toBe(50);
 
     const teammateResult = createRaceResult({ position: 5, driverId: 'd2' });
     const teammateDriver = createFantasyDriver({ driverId: 'd2', racesHeld: 0 });
@@ -344,10 +344,10 @@ describe('Full Team Scoring Integration', () => {
     // P5 = 10
     expect(teammateScore.totalPoints).toBe(10);
 
-    // Constructor averages the captain's doubled score
+    // Constructor averages the ace's doubled score
     const constructor = createFantasyConstructor({ racesHeld: 0 });
     const conScore = scoringService.calculateConstructorScore(
-      'c1', 'race_1', captainScore, teammateScore, constructor
+      'c1', 'race_1', aceScore, teammateScore, constructor
     );
 
     // floor((50 + 10) / 2) = 30

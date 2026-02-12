@@ -133,6 +133,19 @@ service cloud.firestore {
       );
     }
 
+    // Articles — authenticated users can read, only admins can write
+    match /articles/{articleId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Error logs — users can create, only admins can read, immutable
+    match /errorLogs/{logId} {
+      allow create: if isAuthenticated();
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
     // Notifications
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;

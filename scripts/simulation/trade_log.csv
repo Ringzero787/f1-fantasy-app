@@ -1,0 +1,1351 @@
+Round,User,Action,Driver/Constructor,Price,Fee,Reason
+0,user_1,buy,verstappen,208,0,Initial pick
+0,user_1,buy,norris,213,0,Initial pick
+0,user_1,buy,bottas,5,0,Initial pick
+0,user_1,buy,perez,5,0,Initial pick
+0,user_1,buy,colapinto,6,0,Initial pick
+0,user_2,buy,piastri,158,0,Initial pick
+0,user_2,buy,leclerc,142,0,Initial pick
+0,user_2,buy,russell,121,0,Initial pick
+0,user_2,buy,bottas,5,0,Initial pick
+0,user_2,buy,perez,5,0,Initial pick
+0,user_3,buy,norris,213,0,Initial pick
+0,user_3,buy,piastri,158,0,Initial pick
+0,user_3,buy,bottas,5,0,Initial pick
+0,user_3,buy,perez,5,0,Initial pick
+0,user_3,buy,colapinto,6,0,Initial pick
+0,user_3,buy_constructor,mclaren,400,0,Initial pick
+0,user_4,buy,hamilton,108,0,Initial pick
+0,user_4,buy,sainz,100,0,Initial pick
+0,user_4,buy,alonso,63,0,Initial pick
+0,user_4,buy,antonelli,50,0,Initial pick
+0,user_4,buy,albon,42,0,Initial pick
+0,user_5,buy,leclerc,142,0,Initial pick
+0,user_5,buy,sainz,100,0,Initial pick
+0,user_5,buy,gasly,27,0,Initial pick
+0,user_5,buy,ocon,25,0,Initial pick
+0,user_5,buy,bearman,15,0,Initial pick
+0,user_6,buy,russell,121,0,Initial pick
+0,user_6,buy,hamilton,108,0,Initial pick
+0,user_6,buy,albon,42,0,Initial pick
+0,user_6,buy,stroll,33,0,Initial pick
+0,user_6,buy,hulkenberg,29,0,Initial pick
+0,user_7,buy,lindblad,5,0,Initial pick
+0,user_7,buy,bottas,5,0,Initial pick
+0,user_7,buy,perez,5,0,Initial pick
+0,user_7,buy,colapinto,6,0,Initial pick
+0,user_7,buy,bortoleto,10,0,Initial pick
+0,user_7,buy_constructor,mercedes,258,0,Initial pick
+0,user_8,buy,lindblad,5,0,Initial pick
+0,user_8,buy,bottas,5,0,Initial pick
+0,user_8,buy,perez,5,0,Initial pick
+0,user_8,buy,colapinto,6,0,Initial pick
+0,user_8,buy,bortoleto,10,0,Initial pick
+0,user_8,buy_constructor,cadillac,75,0,Initial pick
+0,user_9,buy,sainz,100,0,Initial pick
+0,user_9,buy,lindblad,5,0,Initial pick
+0,user_9,buy,bottas,5,0,Initial pick
+0,user_9,buy,perez,5,0,Initial pick
+0,user_9,buy,colapinto,6,0,Initial pick
+0,user_10,buy,lindblad,5,0,Initial pick
+0,user_10,buy,bottas,5,0,Initial pick
+0,user_10,buy,perez,5,0,Initial pick
+0,user_10,buy,colapinto,6,0,Initial pick
+0,user_10,buy,bortoleto,10,0,Initial pick
+0,user_11,buy,antonelli,50,0,Initial pick
+0,user_11,buy,hadjar,17,0,Initial pick
+0,user_11,buy,bearman,15,0,Initial pick
+0,user_11,buy,lawson,13,0,Initial pick
+0,user_11,buy,bortoleto,10,0,Initial pick
+0,user_12,buy,leclerc,142,0,Initial pick
+0,user_12,buy,hamilton,108,0,Initial pick
+0,user_12,buy,bottas,5,0,Initial pick
+0,user_12,buy,perez,5,0,Initial pick
+0,user_12,buy,colapinto,6,0,Initial pick
+0,user_12,buy_constructor,ferrari,230,0,Initial pick
+0,user_13,buy,verstappen,208,0,Initial pick
+0,user_13,buy,hadjar,17,0,Initial pick
+0,user_13,buy,bottas,5,0,Initial pick
+0,user_13,buy,perez,5,0,Initial pick
+0,user_13,buy,colapinto,6,0,Initial pick
+0,user_13,buy_constructor,red_bull,251,0,Initial pick
+0,user_14,buy,russell,121,0,Initial pick
+0,user_14,buy,antonelli,50,0,Initial pick
+0,user_14,buy,bottas,5,0,Initial pick
+0,user_14,buy,perez,5,0,Initial pick
+0,user_14,buy,colapinto,6,0,Initial pick
+0,user_14,buy_constructor,mercedes,258,0,Initial pick
+0,user_15,buy,hamilton,108,0,Initial pick
+0,user_15,buy,sainz,100,0,Initial pick
+0,user_15,buy,albon,42,0,Initial pick
+0,user_15,buy,gasly,27,0,Initial pick
+0,user_15,buy,ocon,25,0,Initial pick
+0,user_16,buy,lindblad,5,0,Initial pick
+0,user_16,buy,bottas,5,0,Initial pick
+0,user_16,buy,perez,5,0,Initial pick
+0,user_16,buy,colapinto,6,0,Initial pick
+0,user_16,buy,bortoleto,10,0,Initial pick
+0,user_17,buy,russell,121,0,Initial pick
+0,user_17,buy,sainz,100,0,Initial pick
+0,user_17,buy,albon,42,0,Initial pick
+0,user_17,buy,gasly,27,0,Initial pick
+0,user_17,buy,hulkenberg,29,0,Initial pick
+0,user_18,buy,verstappen,208,0,Initial pick
+0,user_18,buy,norris,213,0,Initial pick
+0,user_18,buy,leclerc,142,0,Initial pick
+0,user_18,buy,piastri,158,0,Initial pick
+0,user_18,buy,lawson,13,0,Initial pick
+0,user_18,buy_constructor,mercedes,258,0,Initial pick
+0,user_19,buy,hamilton,108,0,Initial pick
+0,user_19,buy,lawson,13,0,Initial pick
+0,user_19,buy,stroll,33,0,Initial pick
+0,user_19,buy,norris,213,0,Initial pick
+0,user_19,buy,perez,5,0,Initial pick
+0,user_20,buy,hamilton,108,0,Initial pick
+0,user_20,buy,sainz,100,0,Initial pick
+0,user_20,buy,alonso,63,0,Initial pick
+0,user_20,buy,gasly,27,0,Initial pick
+0,user_20,buy,bearman,15,0,Initial pick
+0,user_21,buy,alonso,63,0,Initial pick
+0,user_21,buy,stroll,33,0,Initial pick
+0,user_21,buy,gasly,27,0,Initial pick
+0,user_21,buy,ocon,25,0,Initial pick
+0,user_21,buy,hulkenberg,29,0,Initial pick
+0,user_22,buy,sainz,100,0,Initial pick
+0,user_22,buy,alonso,63,0,Initial pick
+0,user_22,buy,antonelli,50,0,Initial pick
+0,user_22,buy,albon,42,0,Initial pick
+0,user_22,buy,gasly,27,0,Initial pick
+0,user_23,buy,norris,213,0,Initial pick
+0,user_23,buy,piastri,158,0,Initial pick
+0,user_23,buy,albon,42,0,Initial pick
+0,user_23,buy,gasly,27,0,Initial pick
+0,user_23,buy,bottas,5,0,Initial pick
+0,user_23,buy_constructor,mclaren,400,0,Initial pick
+0,user_24,buy,leclerc,142,0,Initial pick
+0,user_24,buy,sainz,100,0,Initial pick
+0,user_24,buy,albon,42,0,Initial pick
+0,user_24,buy,gasly,27,0,Initial pick
+0,user_24,buy,hulkenberg,29,0,Initial pick
+0,user_25,buy,hadjar,17,0,Initial pick
+0,user_25,buy,bortoleto,10,0,Initial pick
+0,user_25,buy,hulkenberg,29,0,Initial pick
+0,user_25,buy,russell,121,0,Initial pick
+0,user_25,buy,albon,42,0,Initial pick
+0,user_25,buy_constructor,cadillac,75,0,Initial pick
+2,user_15,sell,albon,17,8,Strategy trade
+2,user_15,buy,piastri,183,0,Strategy trade
+2,user_17,sell,albon,17,8,Strategy trade
+2,user_17,buy,piastri,183,0,Strategy trade
+3,user_1,sell,bottas,3,0,Strategy trade
+3,user_1,buy,piastri,204,0,Strategy trade
+3,user_15,sell,ocon,3,3,Strategy trade
+3,user_15,buy,verstappen,208,0,Strategy trade
+3,user_17,sell,hulkenberg,3,4,Strategy trade
+3,user_17,buy,verstappen,208,0,Strategy trade
+4,user_6,sell,stroll,3,3,Strategy trade
+4,user_6,buy,verstappen,221,0,Strategy trade
+4,user_15,sell,gasly,11,2,Strategy trade
+4,user_15,buy,russell,146,0,Strategy trade
+4,user_17,sell,gasly,11,2,Strategy trade
+4,user_17,buy,leclerc,124,0,Strategy trade
+5,user_12,sell,bottas,3,0,Strategy trade
+5,user_12,buy,verstappen,229,0,Strategy trade
+5,user_13,sell,bottas,3,0,Strategy trade
+5,user_13,buy,russell,145,0,Strategy trade
+5,user_14,sell,bottas,3,0,Strategy trade
+5,user_14,buy,verstappen,229,0,Strategy trade
+5,user_15,sell,sainz,81,5,Strategy trade
+5,user_15,buy,norris,140,0,Strategy trade
+5,user_25,sell,albon,12,2,Strategy trade
+5,user_25,buy,stroll,3,0,Strategy trade
+5,user_1,sell_expiry,verstappen,233,0,Contract expired after 5 races
+5,user_1,sell_expiry,norris,148,0,Contract expired after 5 races
+5,user_1,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_1,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_1,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_1,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_1,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_1,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_2,sell_expiry,piastri,159,0,Contract expired after 5 races
+5,user_2,sell_expiry,leclerc,135,0,Contract expired after 5 races
+5,user_2,sell_expiry,russell,120,0,Contract expired after 5 races
+5,user_2,sell_expiry,bottas,3,0,Contract expired after 5 races
+5,user_2,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_2,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_2,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_2,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_2,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_2,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_3,sell_expiry,norris,148,0,Contract expired after 5 races
+5,user_3,sell_expiry,piastri,159,0,Contract expired after 5 races
+5,user_3,sell_expiry,bottas,3,0,Contract expired after 5 races
+5,user_3,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_3,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_3,sell_constructor_expiry,mclaren,310,0,Constructor contract expired after 5 races
+5,user_3,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_3,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_3,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_3,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_3,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_4,sell_expiry,hamilton,102,0,Contract expired after 5 races
+5,user_4,sell_expiry,sainz,87,0,Contract expired after 5 races
+5,user_4,sell_expiry,alonso,51,0,Contract expired after 5 races
+5,user_4,sell_expiry,antonelli,19,0,Contract expired after 5 races
+5,user_4,sell_expiry,albon,9,0,Contract expired after 5 races
+5,user_4,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_4,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_4,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_4,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_4,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_5,sell_expiry,leclerc,135,0,Contract expired after 5 races
+5,user_5,sell_expiry,sainz,87,0,Contract expired after 5 races
+5,user_5,sell_expiry,gasly,6,0,Contract expired after 5 races
+5,user_5,sell_expiry,ocon,8,0,Contract expired after 5 races
+5,user_5,sell_expiry,bearman,3,0,Contract expired after 5 races
+5,user_5,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_5,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_5,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_5,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_5,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+5,user_6,sell_expiry,russell,120,0,Contract expired after 5 races
+5,user_6,sell_expiry,hamilton,102,0,Contract expired after 5 races
+5,user_6,sell_expiry,albon,9,0,Contract expired after 5 races
+5,user_6,sell_expiry,hulkenberg,3,0,Contract expired after 5 races
+5,user_6,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_6,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_6,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_6,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_7,sell_expiry,lindblad,3,0,Contract expired after 5 races
+5,user_7,sell_expiry,bottas,3,0,Contract expired after 5 races
+5,user_7,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_7,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_7,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+5,user_7,sell_constructor_expiry,mercedes,139,0,Constructor contract expired after 5 races
+5,user_7,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_7,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_7,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_7,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_7,reserve_fill,hadjar,4,0,Auto-filled reserve after contract expiry
+5,user_8,sell_expiry,lindblad,3,0,Contract expired after 5 races
+5,user_8,sell_expiry,bottas,3,0,Contract expired after 5 races
+5,user_8,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_8,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_8,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+5,user_8,sell_constructor_expiry,cadillac,3,0,Constructor contract expired after 5 races
+5,user_8,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_8,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_8,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_8,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_8,reserve_fill,hadjar,4,0,Auto-filled reserve after contract expiry
+5,user_9,sell_expiry,sainz,87,0,Contract expired after 5 races
+5,user_9,sell_expiry,lindblad,3,0,Contract expired after 5 races
+5,user_9,sell_expiry,bottas,3,0,Contract expired after 5 races
+5,user_9,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_9,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_9,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_9,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_9,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_9,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_9,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_10,sell_expiry,lindblad,3,0,Contract expired after 5 races
+5,user_10,sell_expiry,bottas,3,0,Contract expired after 5 races
+5,user_10,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_10,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_10,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+5,user_10,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_10,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_10,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_10,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_10,reserve_fill,hadjar,4,0,Auto-filled reserve after contract expiry
+5,user_11,sell_expiry,antonelli,19,0,Contract expired after 5 races
+5,user_11,sell_expiry,hadjar,4,0,Contract expired after 5 races
+5,user_11,sell_expiry,bearman,3,0,Contract expired after 5 races
+5,user_11,sell_expiry,lawson,3,0,Contract expired after 5 races
+5,user_11,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+5,user_11,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_11,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_11,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+5,user_11,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+5,user_11,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+5,user_12,sell_expiry,leclerc,135,0,Contract expired after 5 races
+5,user_12,sell_expiry,hamilton,102,0,Contract expired after 5 races
+5,user_12,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_12,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_12,sell_constructor_expiry,ferrari,237,0,Constructor contract expired after 5 races
+5,user_12,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_12,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_12,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_12,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_13,sell_expiry,verstappen,233,0,Contract expired after 5 races
+5,user_13,sell_expiry,hadjar,4,0,Contract expired after 5 races
+5,user_13,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_13,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_13,sell_constructor_expiry,red_bull,237,0,Constructor contract expired after 5 races
+5,user_13,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_13,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_13,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_13,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_14,sell_expiry,russell,120,0,Contract expired after 5 races
+5,user_14,sell_expiry,antonelli,19,0,Contract expired after 5 races
+5,user_14,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_14,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_14,sell_constructor_expiry,mercedes,139,0,Constructor contract expired after 5 races
+5,user_14,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_14,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_14,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_14,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_15,sell_expiry,hamilton,102,0,Contract expired after 5 races
+5,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_16,sell_expiry,lindblad,3,0,Contract expired after 5 races
+5,user_16,sell_expiry,bottas,3,0,Contract expired after 5 races
+5,user_16,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_16,sell_expiry,colapinto,3,0,Contract expired after 5 races
+5,user_16,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+5,user_16,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_16,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_16,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_16,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_16,reserve_fill,hadjar,4,0,Auto-filled reserve after contract expiry
+5,user_17,sell_expiry,russell,120,0,Contract expired after 5 races
+5,user_17,sell_expiry,sainz,87,0,Contract expired after 5 races
+5,user_17,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_17,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_18,sell_expiry,verstappen,233,0,Contract expired after 5 races
+5,user_18,sell_expiry,norris,148,0,Contract expired after 5 races
+5,user_18,sell_expiry,leclerc,135,0,Contract expired after 5 races
+5,user_18,sell_expiry,piastri,159,0,Contract expired after 5 races
+5,user_18,sell_expiry,lawson,3,0,Contract expired after 5 races
+5,user_18,sell_constructor_expiry,mercedes,139,0,Constructor contract expired after 5 races
+5,user_18,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_18,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_18,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_18,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_18,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+5,user_19,sell_expiry,hamilton,102,0,Contract expired after 5 races
+5,user_19,sell_expiry,lawson,3,0,Contract expired after 5 races
+5,user_19,sell_expiry,stroll,3,0,Contract expired after 5 races
+5,user_19,sell_expiry,norris,148,0,Contract expired after 5 races
+5,user_19,sell_expiry,perez,3,0,Contract expired after 5 races
+5,user_19,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_19,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_19,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_19,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+5,user_19,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+5,user_20,sell_expiry,hamilton,102,0,Contract expired after 5 races
+5,user_20,sell_expiry,sainz,87,0,Contract expired after 5 races
+5,user_20,sell_expiry,alonso,51,0,Contract expired after 5 races
+5,user_20,sell_expiry,gasly,6,0,Contract expired after 5 races
+5,user_20,sell_expiry,bearman,3,0,Contract expired after 5 races
+5,user_20,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_20,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_20,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_20,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_20,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+5,user_21,sell_expiry,alonso,51,0,Contract expired after 5 races
+5,user_21,sell_expiry,stroll,3,0,Contract expired after 5 races
+5,user_21,sell_expiry,gasly,6,0,Contract expired after 5 races
+5,user_21,sell_expiry,ocon,8,0,Contract expired after 5 races
+5,user_21,sell_expiry,hulkenberg,3,0,Contract expired after 5 races
+5,user_21,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_21,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_21,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_21,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+5,user_21,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+5,user_22,sell_expiry,sainz,87,0,Contract expired after 5 races
+5,user_22,sell_expiry,alonso,51,0,Contract expired after 5 races
+5,user_22,sell_expiry,antonelli,19,0,Contract expired after 5 races
+5,user_22,sell_expiry,albon,9,0,Contract expired after 5 races
+5,user_22,sell_expiry,gasly,6,0,Contract expired after 5 races
+5,user_22,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_22,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_22,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_22,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_22,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_23,sell_expiry,norris,148,0,Contract expired after 5 races
+5,user_23,sell_expiry,piastri,159,0,Contract expired after 5 races
+5,user_23,sell_expiry,albon,9,0,Contract expired after 5 races
+5,user_23,sell_expiry,gasly,6,0,Contract expired after 5 races
+5,user_23,sell_expiry,bottas,3,0,Contract expired after 5 races
+5,user_23,sell_constructor_expiry,mclaren,310,0,Constructor contract expired after 5 races
+5,user_23,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_23,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+5,user_23,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_23,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_23,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_24,sell_expiry,leclerc,135,0,Contract expired after 5 races
+5,user_24,sell_expiry,sainz,87,0,Contract expired after 5 races
+5,user_24,sell_expiry,albon,9,0,Contract expired after 5 races
+5,user_24,sell_expiry,gasly,6,0,Contract expired after 5 races
+5,user_24,sell_expiry,hulkenberg,3,0,Contract expired after 5 races
+5,user_24,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+5,user_24,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_24,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_24,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+5,user_24,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+5,user_25,sell_expiry,hadjar,4,0,Contract expired after 5 races
+5,user_25,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+5,user_25,sell_expiry,hulkenberg,3,0,Contract expired after 5 races
+5,user_25,sell_expiry,russell,120,0,Contract expired after 5 races
+5,user_25,sell_constructor_expiry,cadillac,3,0,Constructor contract expired after 5 races
+5,user_25,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+5,user_25,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+5,user_25,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+5,user_25,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+6,user_1,sell,stroll,3,0,Strategy trade
+6,user_1,buy,leclerc,135,0,Strategy trade
+6,user_6,sell,stroll,3,0,Strategy trade
+6,user_6,buy,leclerc,135,0,Strategy trade
+6,user_15,sell,stroll,3,0,Strategy trade
+6,user_15,buy,leclerc,135,0,Strategy trade
+6,user_17,sell,stroll,3,0,Strategy trade
+6,user_17,buy,norris,148,0,Strategy trade
+6,user_23,buy_constructor,red_bull,237,0,Strategy trade
+6,user_15,sell_expiry,piastri,139,0,Contract expired after 5 races
+6,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+6,user_17,sell_expiry,piastri,139,0,Contract expired after 5 races
+6,user_17,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+7,user_15,sell,stroll,3,0,Strategy trade
+7,user_15,buy,hamilton,118,0,Strategy trade
+7,user_17,sell,hulkenberg,3,0,Strategy trade
+7,user_17,buy,hamilton,118,0,Strategy trade
+7,user_1,sell_expiry,piastri,164,0,Contract expired after 5 races
+7,user_1,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+7,user_15,sell_expiry,verstappen,233,0,Contract expired after 5 races
+7,user_15,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+7,user_17,sell_expiry,verstappen,233,0,Contract expired after 5 races
+7,user_17,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+8,user_4,sell,hulkenberg,3,0,Strategy trade
+8,user_4,buy,verstappen,233,0,Strategy trade
+8,user_6,sell,bearman,3,0,Strategy trade
+8,user_6,buy,norris,172,0,Strategy trade
+8,user_7,sell,stroll,10,0,Strategy trade
+8,user_7,buy,verstappen,233,0,Strategy trade
+8,user_9,sell,stroll,10,0,Strategy trade
+8,user_9,buy,verstappen,233,0,Strategy trade
+8,user_15,sell,hulkenberg,3,0,Strategy trade
+8,user_15,buy,piastri,164,0,Strategy trade
+8,user_16,sell,stroll,10,0,Strategy trade
+8,user_16,buy,gasly,3,0,Strategy trade
+8,user_17,sell,hulkenberg,3,0,Strategy trade
+8,user_17,buy,piastri,164,0,Strategy trade
+8,user_6,sell_expiry,verstappen,235,0,Contract expired after 5 races
+8,user_6,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+8,user_15,sell_expiry,russell,87,0,Contract expired after 5 races
+8,user_15,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+8,user_17,sell_expiry,leclerc,141,0,Contract expired after 5 races
+8,user_17,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+9,user_1,sell,bearman,3,0,Strategy trade
+9,user_1,buy,verstappen,235,0,Strategy trade
+9,user_15,sell,hulkenberg,3,0,Strategy trade
+9,user_15,buy,verstappen,235,0,Strategy trade
+9,user_17,sell,hulkenberg,3,0,Strategy trade
+9,user_17,buy,verstappen,235,0,Strategy trade
+9,user_25,sell,lindblad,3,0,Strategy trade
+9,user_25,buy,perez,3,0,Strategy trade
+9,user_12,sell_expiry,verstappen,237,0,Contract expired after 5 races
+9,user_12,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+9,user_13,sell_expiry,russell,69,0,Contract expired after 5 races
+9,user_13,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+9,user_14,sell_expiry,verstappen,237,0,Contract expired after 5 races
+9,user_14,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+9,user_15,sell_expiry,norris,198,0,Contract expired after 5 races
+9,user_15,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+9,user_25,sell_expiry,stroll,10,0,Contract expired after 5 races
+9,user_25,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_6,sell,lawson,3,0,Strategy trade
+10,user_6,buy,verstappen,237,0,Strategy trade
+10,user_7,sell,hulkenberg,7,0,Strategy trade
+10,user_7,buy,norris,198,0,Strategy trade
+10,user_9,sell,hulkenberg,7,0,Strategy trade
+10,user_9,buy,norris,198,0,Strategy trade
+10,user_11,sell,colapinto,3,0,Strategy trade
+10,user_11,buy,norris,198,0,Strategy trade
+10,user_12,sell,bearman,3,0,Strategy trade
+10,user_12,buy,norris,198,0,Strategy trade
+10,user_13,sell,bearman,3,0,Strategy trade
+10,user_13,buy,norris,198,0,Strategy trade
+10,user_14,sell,bearman,3,0,Strategy trade
+10,user_14,buy,norris,198,0,Strategy trade
+10,user_15,sell,hadjar,3,0,Strategy trade
+10,user_15,buy,russell,69,0,Strategy trade
+10,user_16,sell,gasly,18,0,Strategy trade
+10,user_16,buy,bortoleto,3,0,Strategy trade
+10,user_17,sell,stroll,10,0,Strategy trade
+10,user_17,buy,alonso,62,0,Strategy trade
+10,user_25,sell,hadjar,3,0,Strategy trade
+10,user_25,buy,leclerc,134,0,Strategy trade
+10,user_1,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_1,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_1,sell_expiry,leclerc,141,0,Contract expired after 5 races
+10,user_1,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_1,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+10,user_1,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+10,user_2,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_2,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_2,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_2,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_2,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_2,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_2,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_2,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_2,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_2,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_3,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_3,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_3,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_3,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_3,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_3,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_3,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_3,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_3,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_3,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_4,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_4,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_4,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_4,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_4,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_4,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_4,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_4,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_5,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_5,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_5,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_5,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_5,sell_expiry,colapinto,3,0,Contract expired after 5 races
+10,user_5,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_5,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+10,user_5,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_5,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_5,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_6,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_6,sell_expiry,leclerc,141,0,Contract expired after 5 races
+10,user_6,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_6,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+10,user_7,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_7,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_7,sell_expiry,hadjar,3,0,Contract expired after 5 races
+10,user_7,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+10,user_7,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_7,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_8,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_8,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_8,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_8,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_8,sell_expiry,hadjar,3,0,Contract expired after 5 races
+10,user_8,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+10,user_8,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_8,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_8,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_8,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_9,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_9,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_9,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_9,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_9,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_9,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_10,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_10,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_10,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_10,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_10,sell_expiry,hadjar,3,0,Contract expired after 5 races
+10,user_10,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+10,user_10,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_10,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_10,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_10,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_11,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_11,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_11,sell_expiry,lindblad,3,0,Contract expired after 5 races
+10,user_11,sell_expiry,bottas,3,0,Contract expired after 5 races
+10,user_11,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_11,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+10,user_11,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+10,user_11,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+10,user_12,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_12,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_12,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_12,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+10,user_12,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+10,user_12,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_13,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_13,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_13,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_13,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+10,user_13,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+10,user_13,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_14,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_14,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_14,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_14,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+10,user_14,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+10,user_14,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_15,sell_expiry,leclerc,141,0,Contract expired after 5 races
+10,user_15,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_16,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_16,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_16,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_16,sell_expiry,hadjar,3,0,Contract expired after 5 races
+10,user_16,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_16,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_16,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_16,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_17,sell_expiry,norris,214,0,Contract expired after 5 races
+10,user_17,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_18,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_18,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_18,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_18,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_18,sell_expiry,colapinto,3,0,Contract expired after 5 races
+10,user_18,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_18,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+10,user_18,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_18,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_18,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_19,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_19,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_19,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_19,sell_expiry,colapinto,3,0,Contract expired after 5 races
+10,user_19,sell_expiry,lindblad,3,0,Contract expired after 5 races
+10,user_19,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_19,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+10,user_19,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_19,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_19,reserve_fill,ocon,4,0,Auto-filled reserve after contract expiry
+10,user_20,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_20,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_20,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_20,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_20,sell_expiry,colapinto,3,0,Contract expired after 5 races
+10,user_20,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_20,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+10,user_20,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_20,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_20,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_21,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_21,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_21,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_21,sell_expiry,colapinto,3,0,Contract expired after 5 races
+10,user_21,sell_expiry,lindblad,3,0,Contract expired after 5 races
+10,user_21,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_21,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_21,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_21,reserve_fill,ocon,4,0,Auto-filled reserve after contract expiry
+10,user_21,reserve_fill,hulkenberg,7,0,Auto-filled reserve after contract expiry
+10,user_22,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_22,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_22,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_22,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_22,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_22,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_22,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_22,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_22,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_22,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_23,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_23,sell_expiry,hulkenberg,7,0,Contract expired after 5 races
+10,user_23,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_23,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_23,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_23,sell_constructor_expiry,red_bull,214,0,Constructor contract expired after 5 races
+10,user_23,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_23,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+10,user_23,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_23,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_23,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_24,sell_expiry,stroll,10,0,Contract expired after 5 races
+10,user_24,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_24,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_24,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+10,user_24,sell_expiry,colapinto,3,0,Contract expired after 5 races
+10,user_24,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_24,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+10,user_24,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+10,user_24,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+10,user_24,reserve_fill,ocon,4,0,Auto-filled reserve after contract expiry
+10,user_25,sell_expiry,bearman,3,0,Contract expired after 5 races
+10,user_25,sell_expiry,lawson,3,0,Contract expired after 5 races
+10,user_25,sell_expiry,colapinto,3,0,Contract expired after 5 races
+10,user_25,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+10,user_25,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+10,user_25,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+11,user_15,sell,hadjar,3,0,Strategy trade
+11,user_15,buy,norris,214,0,Strategy trade
+11,user_17,sell,hadjar,3,0,Strategy trade
+11,user_23,buy_constructor,mclaren,371,0,Strategy trade
+11,user_25,sell,leclerc,141,26,Strategy trade
+11,user_25,buy,bottas,3,0,Strategy trade
+11,user_15,sell_expiry,hamilton,133,0,Contract expired after 5 races
+11,user_15,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+11,user_17,sell_expiry,hamilton,133,0,Contract expired after 5 races
+11,user_17,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+11,user_17,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+12,user_1,sell,hadjar,3,0,Strategy trade
+12,user_1,buy,norris,209,0,Strategy trade
+12,user_4,sell,hadjar,3,0,Strategy trade
+12,user_4,buy,norris,209,0,Strategy trade
+12,user_6,sell,hadjar,3,0,Strategy trade
+12,user_6,buy,leclerc,166,0,Strategy trade
+12,user_15,sell,ocon,3,0,Strategy trade
+12,user_15,buy,leclerc,166,0,Strategy trade
+12,user_17,sell,hadjar,3,0,Strategy trade
+12,user_17,buy,leclerc,166,0,Strategy trade
+12,user_20,sell,hadjar,3,0,Strategy trade
+12,user_20,buy,norris,209,0,Strategy trade
+12,user_1,sell_expiry,gasly,33,0,Contract expired after 5 races
+12,user_1,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+12,user_4,sell_expiry,verstappen,188,0,Contract expired after 5 races
+12,user_4,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+12,user_6,sell_expiry,norris,196,0,Contract expired after 5 races
+12,user_6,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+12,user_7,sell_expiry,verstappen,188,0,Contract expired after 5 races
+12,user_7,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+12,user_9,sell_expiry,verstappen,188,0,Contract expired after 5 races
+12,user_9,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+12,user_15,sell_expiry,piastri,112,0,Contract expired after 5 races
+12,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+12,user_17,sell_expiry,piastri,112,0,Contract expired after 5 races
+12,user_17,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+13,user_15,sell,stroll,3,0,Strategy trade
+13,user_15,buy,hamilton,138,0,Strategy trade
+13,user_17,sell,stroll,3,0,Strategy trade
+13,user_17,buy,norris,196,0,Strategy trade
+13,user_25,sell,hadjar,3,0,Strategy trade
+13,user_25,buy,antonelli,36,0,Strategy trade
+13,user_1,sell_expiry,verstappen,191,0,Contract expired after 5 races
+13,user_1,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+13,user_6,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+13,user_6,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+13,user_15,sell_expiry,verstappen,191,0,Contract expired after 5 races
+13,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+13,user_17,sell_expiry,verstappen,191,0,Contract expired after 5 races
+13,user_17,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+13,user_25,sell_expiry,perez,3,0,Contract expired after 5 races
+13,user_25,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+14,user_6,sell,stroll,3,0,Strategy trade
+14,user_6,buy,norris,196,0,Strategy trade
+14,user_15,sell,stroll,3,0,Strategy trade
+14,user_15,buy,sainz,59,0,Strategy trade
+14,user_17,sell,stroll,3,0,Strategy trade
+14,user_24,sell,hadjar,3,0,Strategy trade
+14,user_24,buy,verstappen,191,0,Strategy trade
+14,user_25,sell,stroll,3,0,Strategy trade
+14,user_25,buy,hadjar,3,0,Strategy trade
+14,user_6,sell_expiry,verstappen,198,0,Contract expired after 5 races
+14,user_6,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+14,user_7,sell_expiry,norris,204,0,Contract expired after 5 races
+14,user_7,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+14,user_9,sell_expiry,norris,204,0,Contract expired after 5 races
+14,user_9,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+14,user_11,sell_expiry,norris,204,0,Contract expired after 5 races
+14,user_11,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+14,user_12,sell_expiry,hadjar,3,0,Contract expired after 5 races
+14,user_12,sell_expiry,norris,204,0,Contract expired after 5 races
+14,user_12,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+14,user_12,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+14,user_13,sell_expiry,hadjar,3,0,Contract expired after 5 races
+14,user_13,sell_expiry,norris,204,0,Contract expired after 5 races
+14,user_13,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+14,user_13,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+14,user_14,sell_expiry,hadjar,3,0,Contract expired after 5 races
+14,user_14,sell_expiry,norris,204,0,Contract expired after 5 races
+14,user_14,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+14,user_14,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+14,user_15,sell_expiry,russell,94,0,Contract expired after 5 races
+14,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+14,user_16,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+14,user_16,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+14,user_17,sell_expiry,alonso,69,0,Contract expired after 5 races
+14,user_17,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+14,user_17,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_1,sell,bortoleto,3,0,Strategy trade
+15,user_1,buy,verstappen,198,0,Strategy trade
+15,user_11,sell,hadjar,3,0,Strategy trade
+15,user_11,buy,verstappen,198,0,Strategy trade
+15,user_12,sell,bortoleto,3,0,Strategy trade
+15,user_12,buy,verstappen,198,0,Strategy trade
+15,user_13,sell,bortoleto,3,0,Strategy trade
+15,user_13,buy,verstappen,198,0,Strategy trade
+15,user_14,sell,bortoleto,3,0,Strategy trade
+15,user_14,buy,verstappen,198,0,Strategy trade
+15,user_15,sell,stroll,3,0,Strategy trade
+15,user_15,buy,verstappen,198,0,Strategy trade
+15,user_17,sell,stroll,3,0,Strategy trade
+15,user_17,buy,verstappen,198,0,Strategy trade
+15,user_1,sell_expiry,bearman,5,0,Contract expired after 5 races
+15,user_1,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_2,sell_expiry,hadjar,3,0,Contract expired after 5 races
+15,user_2,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_2,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_2,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_2,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_2,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_2,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_2,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_2,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_2,reserve_fill,bearman,5,0,Auto-filled reserve after contract expiry
+15,user_3,sell_expiry,hadjar,3,0,Contract expired after 5 races
+15,user_3,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_3,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_3,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_3,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_3,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_3,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_3,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_3,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_3,reserve_fill,bearman,5,0,Auto-filled reserve after contract expiry
+15,user_4,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_4,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_4,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_4,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_4,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_4,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_5,sell_expiry,hadjar,3,0,Contract expired after 5 races
+15,user_5,sell_expiry,bearman,5,0,Contract expired after 5 races
+15,user_5,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_5,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_5,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_5,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_5,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_5,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_5,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+15,user_5,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_6,sell_expiry,bearman,5,0,Contract expired after 5 races
+15,user_6,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_7,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+15,user_7,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_7,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_7,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_7,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_7,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+15,user_8,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+15,user_8,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_8,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_8,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_8,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_8,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_8,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_8,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_8,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_8,reserve_fill,bearman,5,0,Auto-filled reserve after contract expiry
+15,user_9,sell_expiry,hadjar,3,0,Contract expired after 5 races
+15,user_9,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_9,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_9,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_9,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_9,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+15,user_10,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+15,user_10,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_10,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_10,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_10,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_10,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_10,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_10,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_10,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_10,reserve_fill,bearman,5,0,Auto-filled reserve after contract expiry
+15,user_11,sell_expiry,bearman,5,0,Contract expired after 5 races
+15,user_11,sell_expiry,lawson,3,0,Contract expired after 5 races
+15,user_11,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+15,user_11,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_11,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_11,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+15,user_12,sell_expiry,bearman,5,0,Contract expired after 5 races
+15,user_12,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_12,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_12,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_13,sell_expiry,bearman,5,0,Contract expired after 5 races
+15,user_13,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_13,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_13,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_14,sell_expiry,bearman,5,0,Contract expired after 5 races
+15,user_14,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_14,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_14,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_15,sell_expiry,norris,179,0,Contract expired after 5 races
+15,user_15,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_16,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_16,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_16,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_16,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_16,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_16,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_16,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_16,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_18,sell_expiry,hadjar,3,0,Contract expired after 5 races
+15,user_18,sell_expiry,lawson,3,0,Contract expired after 5 races
+15,user_18,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_18,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_18,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_18,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_18,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_18,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+15,user_18,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_18,reserve_fill,bearman,5,0,Auto-filled reserve after contract expiry
+15,user_19,sell_expiry,hadjar,3,0,Contract expired after 5 races
+15,user_19,sell_expiry,lawson,3,0,Contract expired after 5 races
+15,user_19,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_19,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_19,sell_expiry,ocon,11,0,Contract expired after 5 races
+15,user_19,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_19,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_19,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+15,user_19,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+15,user_19,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_20,sell_expiry,bearman,5,0,Contract expired after 5 races
+15,user_20,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_20,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_20,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_20,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_20,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_20,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_20,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_21,sell_expiry,hadjar,3,0,Contract expired after 5 races
+15,user_21,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_21,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_21,sell_expiry,ocon,11,0,Contract expired after 5 races
+15,user_21,sell_expiry,hulkenberg,3,0,Contract expired after 5 races
+15,user_21,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_21,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_21,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+15,user_21,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+15,user_21,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_22,sell_expiry,hadjar,3,0,Contract expired after 5 races
+15,user_22,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_22,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_22,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_22,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_22,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_22,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_22,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_22,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_22,reserve_fill,bearman,5,0,Auto-filled reserve after contract expiry
+15,user_23,sell_expiry,hadjar,3,0,Contract expired after 5 races
+15,user_23,sell_expiry,colapinto,3,0,Contract expired after 5 races
+15,user_23,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_23,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_23,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_23,sell_constructor_expiry,mclaren,256,0,Constructor contract expired after 5 races
+15,user_23,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_23,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_23,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_23,reserve_fill,stroll,4,0,Auto-filled reserve after contract expiry
+15,user_23,reserve_fill,bearman,5,0,Auto-filled reserve after contract expiry
+15,user_24,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_24,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_24,sell_expiry,perez,3,0,Contract expired after 5 races
+15,user_24,sell_expiry,ocon,11,0,Contract expired after 5 races
+15,user_24,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_24,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+15,user_24,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_24,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+15,user_25,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+15,user_25,sell_expiry,lindblad,3,0,Contract expired after 5 races
+15,user_25,sell_expiry,bottas,3,0,Contract expired after 5 races
+15,user_25,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+15,user_25,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+15,user_25,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+16,user_4,sell,hadjar,3,0,Strategy trade
+16,user_4,buy,verstappen,223,0,Strategy trade
+16,user_6,sell,hadjar,3,0,Strategy trade
+16,user_6,buy,verstappen,223,0,Strategy trade
+16,user_7,sell,stroll,4,0,Strategy trade
+16,user_7,buy,verstappen,223,0,Strategy trade
+16,user_9,sell,stroll,4,0,Strategy trade
+16,user_9,buy,verstappen,223,0,Strategy trade
+16,user_15,sell,hulkenberg,3,0,Strategy trade
+16,user_15,buy,piastri,88,0,Strategy trade
+16,user_17,sell,hulkenberg,3,0,Strategy trade
+16,user_17,buy,piastri,88,0,Strategy trade
+16,user_23,buy_constructor,ferrari,310,0,Strategy trade
+16,user_24,sell,hadjar,3,0,Strategy trade
+16,user_24,buy,leclerc,186,0,Strategy trade
+16,user_25,sell,hadjar,3,0,Strategy trade
+16,user_25,buy,perez,3,0,Strategy trade
+16,user_1,sell_expiry,norris,154,0,Contract expired after 5 races
+16,user_1,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+16,user_4,sell_expiry,norris,154,0,Contract expired after 5 races
+16,user_4,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+16,user_6,sell_expiry,leclerc,161,0,Contract expired after 5 races
+16,user_6,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+16,user_15,sell_expiry,leclerc,161,0,Contract expired after 5 races
+16,user_15,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+16,user_17,sell_expiry,ocon,11,0,Contract expired after 5 races
+16,user_17,sell_expiry,leclerc,161,0,Contract expired after 5 races
+16,user_17,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+16,user_17,reserve_fill,hadjar,3,0,Auto-filled reserve after contract expiry
+16,user_20,sell_expiry,norris,154,0,Contract expired after 5 races
+16,user_20,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+17,user_15,sell,hulkenberg,3,0,Strategy trade
+17,user_15,buy,norris,154,0,Strategy trade
+17,user_17,sell,hadjar,3,0,Strategy trade
+17,user_17,buy,sainz,96,0,Strategy trade
+17,user_1,sell_expiry,stroll,4,0,Contract expired after 5 races
+17,user_1,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+17,user_4,sell_expiry,stroll,4,0,Contract expired after 5 races
+17,user_4,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+17,user_15,sell_expiry,hamilton,80,0,Contract expired after 5 races
+17,user_15,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+17,user_17,sell_expiry,norris,136,0,Contract expired after 5 races
+17,user_17,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+17,user_25,sell_expiry,antonelli,23,0,Contract expired after 5 races
+17,user_25,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+18,user_1,sell,bearman,3,0,Strategy trade
+18,user_1,buy,piastri,138,0,Strategy trade
+18,user_6,sell,stroll,4,0,Strategy trade
+18,user_6,buy,piastri,138,0,Strategy trade
+18,user_7,sell,hulkenberg,6,0,Strategy trade
+18,user_7,buy,piastri,138,0,Strategy trade
+18,user_9,sell,hulkenberg,6,0,Strategy trade
+18,user_9,buy,piastri,138,0,Strategy trade
+18,user_15,sell,gasly,3,0,Strategy trade
+18,user_15,buy,leclerc,138,0,Strategy trade
+18,user_17,sell,gasly,3,0,Strategy trade
+18,user_24,sell,bortoleto,3,0,Strategy trade
+18,user_24,buy,piastri,138,0,Strategy trade
+18,user_25,sell,hulkenberg,6,0,Strategy trade
+18,user_25,buy,piastri,138,0,Strategy trade
+18,user_1,sell_expiry,hadjar,9,0,Contract expired after 5 races
+18,user_1,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+18,user_6,sell_expiry,norris,143,0,Contract expired after 5 races
+18,user_6,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+18,user_15,sell_expiry,sainz,117,0,Contract expired after 5 races
+18,user_15,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+18,user_17,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+18,user_24,sell_expiry,verstappen,277,0,Contract expired after 5 races
+18,user_24,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+19,user_7,sell,hadjar,9,0,Strategy trade
+19,user_7,buy,norris,143,0,Strategy trade
+19,user_15,sell,bearman,3,0,Strategy trade
+19,user_15,buy,hamilton,79,0,Strategy trade
+19,user_17,sell,bearman,3,0,Strategy trade
+19,user_17,buy,norris,143,0,Strategy trade
+19,user_1,sell_expiry,verstappen,263,0,Contract expired after 5 races
+19,user_1,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+19,user_11,sell_expiry,stroll,4,0,Contract expired after 5 races
+19,user_11,sell_expiry,verstappen,263,0,Contract expired after 5 races
+19,user_11,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+19,user_11,reserve_fill,lawson,3,0,Auto-filled reserve after contract expiry
+19,user_12,sell_expiry,stroll,4,0,Contract expired after 5 races
+19,user_12,sell_expiry,hulkenberg,6,0,Contract expired after 5 races
+19,user_12,sell_expiry,verstappen,263,0,Contract expired after 5 races
+19,user_12,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+19,user_12,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+19,user_12,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+19,user_13,sell_expiry,stroll,4,0,Contract expired after 5 races
+19,user_13,sell_expiry,hulkenberg,6,0,Contract expired after 5 races
+19,user_13,sell_expiry,verstappen,263,0,Contract expired after 5 races
+19,user_13,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+19,user_13,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+19,user_13,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+19,user_14,sell_expiry,stroll,4,0,Contract expired after 5 races
+19,user_14,sell_expiry,hulkenberg,6,0,Contract expired after 5 races
+19,user_14,sell_expiry,verstappen,263,0,Contract expired after 5 races
+19,user_14,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+19,user_14,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+19,user_14,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+19,user_15,sell_expiry,verstappen,263,0,Contract expired after 5 races
+19,user_15,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+19,user_16,sell_expiry,stroll,4,0,Contract expired after 5 races
+19,user_16,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+19,user_17,sell_expiry,verstappen,263,0,Contract expired after 5 races
+19,user_17,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+20,user_4,sell,lawson,3,0,Strategy trade
+20,user_4,buy,norris,122,0,Strategy trade
+20,user_6,sell,bearman,3,0,Strategy trade
+20,user_6,buy,norris,122,0,Strategy trade
+20,user_9,sell,verstappen,263,11,Strategy trade
+20,user_9,buy,norris,122,0,Strategy trade
+20,user_11,sell,colapinto,3,0,Strategy trade
+20,user_11,buy,norris,122,0,Strategy trade
+20,user_12,sell,lawson,3,0,Strategy trade
+20,user_12,buy,norris,122,0,Strategy trade
+20,user_13,sell,lawson,3,0,Strategy trade
+20,user_13,buy,norris,122,0,Strategy trade
+20,user_14,sell,lawson,3,0,Strategy trade
+20,user_14,buy,norris,122,0,Strategy trade
+20,user_15,sell,bearman,3,0,Strategy trade
+20,user_15,buy,sainz,126,0,Strategy trade
+20,user_17,sell,bearman,3,0,Strategy trade
+20,user_24,sell,lawson,3,0,Strategy trade
+20,user_24,buy,verstappen,263,0,Strategy trade
+20,user_1,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_1,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_2,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_2,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_2,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_2,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_2,sell_expiry,bearman,3,0,Contract expired after 5 races
+20,user_2,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_2,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+20,user_2,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_2,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_2,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+20,user_3,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_3,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_3,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_3,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_3,sell_expiry,bearman,3,0,Contract expired after 5 races
+20,user_3,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_3,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+20,user_3,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_3,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_3,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+20,user_4,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_4,sell_expiry,verstappen,265,0,Contract expired after 5 races
+20,user_4,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_4,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_5,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_5,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_5,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_5,sell_expiry,colapinto,3,0,Contract expired after 5 races
+20,user_5,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_5,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_5,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+20,user_5,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_5,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_5,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+20,user_6,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_6,sell_expiry,verstappen,265,0,Contract expired after 5 races
+20,user_6,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_6,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_7,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_7,sell_expiry,bottas,3,0,Contract expired after 5 races
+20,user_7,sell_expiry,verstappen,265,0,Contract expired after 5 races
+20,user_7,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_7,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_7,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+20,user_8,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_8,sell_expiry,hadjar,8,0,Contract expired after 5 races
+20,user_8,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_8,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_8,sell_expiry,bearman,3,0,Contract expired after 5 races
+20,user_8,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_8,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+20,user_8,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+20,user_8,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_8,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_9,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_9,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_9,sell_expiry,bottas,3,0,Contract expired after 5 races
+20,user_9,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_9,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_9,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+20,user_10,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_10,sell_expiry,hadjar,8,0,Contract expired after 5 races
+20,user_10,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_10,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_10,sell_expiry,bearman,3,0,Contract expired after 5 races
+20,user_10,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_10,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+20,user_10,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+20,user_10,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_10,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_11,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_11,sell_expiry,hadjar,8,0,Contract expired after 5 races
+20,user_11,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_11,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_12,sell_expiry,hadjar,8,0,Contract expired after 5 races
+20,user_12,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_13,sell_expiry,hadjar,8,0,Contract expired after 5 races
+20,user_13,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_14,sell_expiry,hadjar,8,0,Contract expired after 5 races
+20,user_14,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_15,sell_expiry,piastri,103,0,Contract expired after 5 races
+20,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_16,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_16,sell_expiry,hadjar,8,0,Contract expired after 5 races
+20,user_16,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_16,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_16,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_16,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_16,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+20,user_16,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_17,sell_expiry,piastri,103,0,Contract expired after 5 races
+20,user_17,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_17,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_18,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_18,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_18,sell_expiry,colapinto,3,0,Contract expired after 5 races
+20,user_18,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_18,sell_expiry,bearman,3,0,Contract expired after 5 races
+20,user_18,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_18,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_18,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_18,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+20,user_18,reserve_fill,lawson,4,0,Auto-filled reserve after contract expiry
+20,user_19,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_19,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_19,sell_expiry,colapinto,3,0,Contract expired after 5 races
+20,user_19,sell_expiry,lindblad,3,0,Contract expired after 5 races
+20,user_19,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_19,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_19,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+20,user_19,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_19,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+20,user_19,reserve_fill,lawson,4,0,Auto-filled reserve after contract expiry
+20,user_20,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_20,sell_expiry,hadjar,8,0,Contract expired after 5 races
+20,user_20,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_20,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_20,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_20,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_20,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+20,user_20,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_21,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_21,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_21,sell_expiry,colapinto,3,0,Contract expired after 5 races
+20,user_21,sell_expiry,lindblad,3,0,Contract expired after 5 races
+20,user_21,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_21,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_21,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+20,user_21,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_21,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+20,user_21,reserve_fill,hulkenberg,4,0,Auto-filled reserve after contract expiry
+20,user_22,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_22,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_22,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_22,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_22,sell_expiry,bearman,3,0,Contract expired after 5 races
+20,user_22,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_22,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+20,user_22,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_22,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_22,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+20,user_23,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_23,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_23,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+20,user_23,sell_expiry,stroll,3,0,Contract expired after 5 races
+20,user_23,sell_expiry,bearman,3,0,Contract expired after 5 races
+20,user_23,sell_constructor_expiry,ferrari,235,0,Constructor contract expired after 5 races
+20,user_23,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_23,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+20,user_23,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+20,user_23,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+20,user_23,reserve_fill,perez,3,0,Auto-filled reserve after contract expiry
+20,user_24,sell_expiry,hulkenberg,4,0,Contract expired after 5 races
+20,user_24,sell_expiry,leclerc,127,0,Contract expired after 5 races
+20,user_24,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_24,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_25,sell_expiry,lawson,4,0,Contract expired after 5 races
+20,user_25,sell_expiry,colapinto,3,0,Contract expired after 5 races
+20,user_25,sell_expiry,perez,3,0,Contract expired after 5 races
+20,user_25,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+20,user_25,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+20,user_25,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+21,user_1,sell,bearman,3,0,Strategy trade
+21,user_1,buy,verstappen,265,0,Strategy trade
+21,user_15,sell,stroll,3,0,Strategy trade
+21,user_15,buy,verstappen,265,0,Strategy trade
+21,user_17,sell,hulkenberg,4,0,Strategy trade
+21,user_17,buy,verstappen,265,0,Strategy trade
+21,user_23,buy_constructor,mclaren,251,0,Strategy trade
+21,user_4,sell_expiry,hadjar,8,0,Contract expired after 5 races
+21,user_4,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+21,user_6,sell_expiry,hadjar,8,0,Contract expired after 5 races
+21,user_6,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+21,user_15,sell_expiry,norris,172,0,Contract expired after 5 races
+21,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+21,user_17,sell_expiry,sainz,109,0,Contract expired after 5 races
+21,user_17,reserve_fill,bearman,3,0,Auto-filled reserve after contract expiry
+21,user_20,sell_expiry,bearman,3,0,Contract expired after 5 races
+21,user_20,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+22,user_6,sell,stroll,3,0,Strategy trade
+22,user_6,buy,verstappen,250,0,Strategy trade
+22,user_7,sell,norris,172,14,Strategy trade
+22,user_7,buy,verstappen,250,0,Strategy trade
+22,user_9,sell,norris,172,18,Strategy trade
+22,user_9,buy,verstappen,250,0,Strategy trade
+22,user_15,sell,stroll,3,0,Strategy trade
+22,user_15,buy,piastri,91,0,Strategy trade
+22,user_17,sell,stroll,3,0,Strategy trade
+22,user_17,buy,leclerc,142,0,Strategy trade
+22,user_24,sell,bearman,3,0,Strategy trade
+22,user_24,buy,norris,172,0,Strategy trade
+22,user_25,sell,stroll,3,0,Strategy trade
+22,user_25,buy,hamilton,104,0,Strategy trade
+22,user_1,sell_expiry,gasly,7,0,Contract expired after 5 races
+22,user_1,sell_expiry,piastri,91,0,Contract expired after 5 races
+22,user_1,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+22,user_1,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+22,user_4,sell_expiry,gasly,7,0,Contract expired after 5 races
+22,user_4,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+22,user_6,sell_expiry,piastri,91,0,Contract expired after 5 races
+22,user_6,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+22,user_7,sell_expiry,piastri,91,0,Contract expired after 5 races
+22,user_7,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+22,user_9,sell_expiry,piastri,91,0,Contract expired after 5 races
+22,user_9,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+22,user_15,sell_expiry,leclerc,158,0,Contract expired after 5 races
+22,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+22,user_24,sell_expiry,piastri,91,0,Contract expired after 5 races
+22,user_24,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+22,user_25,sell_expiry,gasly,7,0,Contract expired after 5 races
+22,user_25,sell_expiry,piastri,91,0,Contract expired after 5 races
+22,user_25,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+22,user_25,reserve_fill,hulkenberg,3,0,Auto-filled reserve after contract expiry
+23,user_15,sell,stroll,3,0,Strategy trade
+23,user_15,buy,norris,160,0,Strategy trade
+23,user_17,sell,ocon,3,0,Strategy trade
+23,user_17,buy,sainz,109,0,Strategy trade
+23,user_15,sell_expiry,hamilton,94,0,Contract expired after 5 races
+23,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+23,user_17,sell_expiry,norris,152,0,Contract expired after 5 races
+23,user_17,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+24,user_1,sell,hulkenberg,3,0,Strategy trade
+24,user_1,buy,norris,152,0,Strategy trade
+24,user_4,sell,ocon,3,0,Strategy trade
+24,user_4,buy,verstappen,238,0,Strategy trade
+24,user_6,sell,ocon,3,0,Strategy trade
+24,user_6,buy,leclerc,154,0,Strategy trade
+24,user_15,sell,stroll,3,0,Strategy trade
+24,user_15,buy,leclerc,154,0,Strategy trade
+24,user_17,sell,bearman,3,0,Strategy trade
+24,user_24,sell,ocon,3,0,Strategy trade
+24,user_24,buy,leclerc,154,0,Strategy trade
+24,user_25,sell,hulkenberg,3,0,Strategy trade
+24,user_25,buy,bottas,3,0,Strategy trade
+24,user_1,sell_expiry,lawson,4,0,Contract expired after 5 races
+24,user_1,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+24,user_4,sell_expiry,norris,164,0,Contract expired after 5 races
+24,user_4,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+24,user_6,sell_expiry,norris,164,0,Contract expired after 5 races
+24,user_6,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+24,user_11,sell_expiry,bearman,3,0,Contract expired after 5 races
+24,user_11,sell_expiry,lawson,4,0,Contract expired after 5 races
+24,user_11,sell_expiry,norris,164,0,Contract expired after 5 races
+24,user_11,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+24,user_11,reserve_fill,bortoleto,3,0,Auto-filled reserve after contract expiry
+24,user_11,reserve_fill,colapinto,3,0,Auto-filled reserve after contract expiry
+24,user_12,sell_expiry,bearman,3,0,Contract expired after 5 races
+24,user_12,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+24,user_12,sell_expiry,colapinto,3,0,Contract expired after 5 races
+24,user_12,sell_expiry,norris,164,0,Contract expired after 5 races
+24,user_12,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+24,user_12,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+24,user_12,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+24,user_12,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+24,user_13,sell_expiry,bearman,3,0,Contract expired after 5 races
+24,user_13,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+24,user_13,sell_expiry,colapinto,3,0,Contract expired after 5 races
+24,user_13,sell_expiry,norris,164,0,Contract expired after 5 races
+24,user_13,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+24,user_13,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+24,user_13,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+24,user_13,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+24,user_14,sell_expiry,bearman,3,0,Contract expired after 5 races
+24,user_14,sell_expiry,bortoleto,3,0,Contract expired after 5 races
+24,user_14,sell_expiry,colapinto,3,0,Contract expired after 5 races
+24,user_14,sell_expiry,norris,164,0,Contract expired after 5 races
+24,user_14,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+24,user_14,reserve_fill,ocon,3,0,Auto-filled reserve after contract expiry
+24,user_14,reserve_fill,lindblad,3,0,Auto-filled reserve after contract expiry
+24,user_14,reserve_fill,bottas,3,0,Auto-filled reserve after contract expiry
+24,user_15,sell_expiry,sainz,96,0,Contract expired after 5 races
+24,user_15,reserve_fill,stroll,3,0,Auto-filled reserve after contract expiry
+24,user_16,sell_expiry,bearman,3,0,Contract expired after 5 races
+24,user_16,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+24,user_17,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
+24,user_24,sell_expiry,verstappen,224,0,Contract expired after 5 races
+24,user_24,reserve_fill,gasly,3,0,Auto-filled reserve after contract expiry
