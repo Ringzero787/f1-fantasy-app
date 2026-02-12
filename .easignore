@@ -1,0 +1,7 @@
+# EAS Build - exclude unnecessary files to reduce archive size
+pics/
+android-bundle/
+scripts/
+__tests__/
+*.md
+.expo/
