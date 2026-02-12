@@ -42,8 +42,7 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.tagline}>Leave it to me.</Text>
-          <Text style={styles.logo}>The</Text>
-          <Text style={styles.subtitle}>Undercut</Text>
+          <Text style={styles.logo}>Undercut</Text>
         </View>
 
         <View style={styles.form}>
@@ -97,16 +96,9 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    fontSize: 72,
-    fontWeight: '300',
-    color: '#374151',
-  },
-
-  subtitle: {
-    fontSize: 64,
+    fontSize: 56,
     fontWeight: 'bold',
     color: COLORS.primary,
-    marginTop: -SPACING.xs,
   },
 
   form: {

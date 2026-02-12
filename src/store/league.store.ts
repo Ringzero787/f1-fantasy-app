@@ -182,6 +182,12 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
             totalPoints: team.totalPoints || 0,
             rank: index + 1,
             joinedAt: team.createdAt,
+            racesPlayed: team.racesPlayed || 0,
+            pprAverage: team.racesPlayed && team.racesPlayed > 0
+              ? Math.round((team.totalPoints / team.racesPlayed) * 10) / 10
+              : 0,
+            recentFormPoints: (team.pointsHistory || []).slice(-5).reduce((a, b) => a + b, 0),
+            raceWins: team.raceWins || 0,
           }));
 
           // Sort by points and assign ranks
@@ -207,6 +213,12 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
               totalPoints: userTeam?.totalPoints || 0,
               rank: 1,
               joinedAt: new Date(),
+              racesPlayed: userTeam?.racesPlayed || 0,
+              pprAverage: userTeam && userTeam.racesPlayed > 0
+                ? Math.round((userTeam.totalPoints / userTeam.racesPlayed) * 10) / 10
+                : 0,
+              recentFormPoints: userTeam ? (userTeam.pointsHistory || []).slice(-5).reduce((a, b) => a + b, 0) : 0,
+              raceWins: userTeam?.raceWins || 0,
             });
           }
 

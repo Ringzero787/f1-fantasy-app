@@ -129,7 +129,8 @@
       "Bash(cd:*)",
       "WebFetch(domain:openf1.org)",
       "Bash(gh auth status:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(firebase:*)"
     ]
   }
 }

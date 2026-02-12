@@ -49,6 +49,7 @@ pics/screen*.png
 pics/emulator*.png
 pics/app graphics/
 android-bundle/
+public/
 scripts/
 __tests__/
 *.md

@@ -85,6 +85,40 @@ export function useRace(raceId: string) {
   });
 }
 
+function getDemoUpcomingRaces(seasonId: string, count: number): Race[] {
+  return demoRaces
+    .filter(r => r.seasonId === seasonId && r.status === 'upcoming')
+    .sort((a, b) => a.round - b.round)
+    .slice(0, count);
+}
+
+export function useUpcomingRaces(seasonId: string, count = 5) {
+  const isDemoMode = useAuthStore((state) => state.isDemoMode);
+
+  return useQuery({
+    queryKey: [...raceKeys.all, 'upcoming', seasonId, count] as const,
+    queryFn: async () => {
+      if (isDemoMode) {
+        return getDemoUpcomingRaces(seasonId, count);
+      }
+      try {
+        const races = await raceService.getSeasonRaces(seasonId);
+        if (races && races.length > 0) {
+          return races
+            .filter(r => r.status === 'upcoming')
+            .sort((a, b) => a.round - b.round)
+            .slice(0, count);
+        }
+      } catch (error) {
+        console.log('Firebase unavailable, using demo data');
+      }
+      return getDemoUpcomingRaces(seasonId, count);
+    },
+    enabled: !!seasonId,
+    refetchInterval: 60000,
+  });
+}
+
 export function useNextRace(seasonId: string) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
 

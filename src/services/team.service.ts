@@ -629,7 +629,11 @@ export const teamService = {
 
     await setDoc(teamRef, {
       ...sanitizedData,
-      createdAt: createdAt instanceof Date ? createdAt : new Date(createdAt),
+      createdAt: createdAt instanceof Date && !isNaN(createdAt.getTime())
+        ? createdAt
+        : (typeof createdAt === 'string' && !isNaN(new Date(createdAt).getTime())
+          ? new Date(createdAt)
+          : new Date()),
       updatedAt: serverTimestamp(),
     }, { merge: true });
   },

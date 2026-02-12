@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join League - Undercut</title>
+  <style>
+    :root {
+      --bg: #0D1117;
+      --surface: #161B22;
+      --border: #30363D;
+      --text: #E6EDF3;
+      --text-muted: #8B949E;
+      --accent: #E10600;
+      --accent-dim: #FF2D2D;
+      --link: #58A6FF;
+      --success: #3FB950;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.5px;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+    .invite-code {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: var(--text);
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      display: inline-block;
+      margin: 1rem 0;
+      font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    }
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-top: 0.5rem;
+    }
+    .copy-btn:hover { opacity: 0.9; }
+    .copy-btn.copied {
+      background: var(--success);
+    }
+    .open-app-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: transparent;
+      color: var(--link);
+      border: 1px solid var(--link);
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-top: 1rem;
+      text-decoration: none;
+    }
+    .open-app-btn:hover { opacity: 0.8; }
+    .instructions {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-top: 1.5rem;
+      line-height: 1.8;
+    }
+    .instructions ol {
+      text-align: left;
+      padding-left: 1.25rem;
+    }
+    .instructions li {
+      margin-bottom: 0.4rem;
+    }
+    .error-state {
+      color: var(--accent-dim);
+      font-size: 1.1rem;
+    }
+    .nav-links {
+      margin-top: 2rem;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin: 0 0.75rem;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">Undercut</div>
+    <p class="subtitle">Leave Me To It</p>
+
+    <!-- Error state: no code -->
+    <div id="error-state" class="card hidden">
+      <p class="error-state">No invite code found in this link.</p>
+      <p style="color: var(--text-muted); margin-top: 1rem;">
+        Ask the league admin to send you a new invite link.
+      </p>
+    </div>
+
+    <!-- Normal state: code present -->
+    <div id="invite-state" class="card hidden">
+      <h2>You've been invited to a league!</h2>
+      <div class="invite-code" id="code-display"></div>
+      <br>
+      <button class="copy-btn" id="copy-btn" onclick="copyCode()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>
+        Copy Code
+      </button>
+      <br>
+      <a class="open-app-btn" id="open-app-btn" href="#">
+        Open in App
+      </a>
+      <div class="instructions">
+        <ol>
+          <li>Open the <strong>Undercut</strong> app</li>
+          <li>Go to the <strong>Leagues</strong> tab</li>
+          <li>Tap <strong>Join with Code</strong></li>
+          <li>Paste the code above</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="nav-links">
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/terms.html">Terms of Service</a>
+    </div>
+  </div>
+
+  <script>
+    var inviteCode = '';
+
+    function init() {
+      var params = new URLSearchParams(window.location.search);
+      inviteCode = (params.get('code') || '').trim().toUpperCase();
+
+      if (!inviteCode) {
+        document.getElementById('error-state').classList.remove('hidden');
+        return;
+      }
+
+      document.getElementById('invite-state').classList.remove('hidden');
+      document.getElementById('code-display').textContent = inviteCode;
+
+      // Set deep link URL
+      var deepLink = 'theundercut://join/' + encodeURIComponent(inviteCode);
+      document.getElementById('open-app-btn').href = deepLink;
+
+      // Attempt to open app automatically on mobile
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        window.location.href = deepLink;
+      }
+    }
+
+    function copyCode() {
+      if (!inviteCode) return;
+
+      navigator.clipboard.writeText(inviteCode).then(function() {
+        var btn = document.getElementById('copy-btn');
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg> Copied!';
+        setTimeout(function() {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg> Copy Code';
+        }, 2000);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
 import { getAvatarGradient, getInitials } from '../utils/avatarColors';
+import { useAvatarStore } from '../store/avatar.store';
 import type { AvatarType } from '../services/avatarGeneration.service';
 
 // DiceBear styles available for each type
@@ -60,6 +61,7 @@ interface AvatarPickerProps {
   onGenerateAI?: () => void;
   isGeneratingAI?: boolean;
   canGenerateAI?: boolean;
+  userId?: string;
 }
 
 export function AvatarPicker({
@@ -72,6 +74,7 @@ export function AvatarPicker({
   onGenerateAI,
   isGeneratingAI = false,
   canGenerateAI = true,
+  userId,
 }: AvatarPickerProps) {
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -79,13 +82,23 @@ export function AvatarPicker({
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [wasGenerating, setWasGenerating] = useState(false);
 
-  // When AI generation finishes, update previewUrl so "Use This Avatar" button activates
+  // Avatar history & generation limits
+  const avatarHistory = useAvatarStore(s => userId ? s.getHistory(userId) : []);
+  const avatarRemaining = useAvatarStore(s => userId ? s.getRemaining(userId) : 10);
+  const canGenerateMore = useAvatarStore(s => userId ? s.canGenerate(userId) : true);
+  const addAvatar = useAvatarStore(s => s.addAvatar);
+
+  // When AI generation finishes, update previewUrl and save to history
   useEffect(() => {
     if (isGeneratingAI) {
       setWasGenerating(true);
     } else if (wasGenerating && currentAvatarUrl) {
       setPreviewUrl(currentAvatarUrl);
       setWasGenerating(false);
+      // Save to avatar history
+      if (userId) {
+        addAvatar(userId, currentAvatarUrl);
+      }
     }
   }, [isGeneratingAI, currentAvatarUrl, wasGenerating]);
 
@@ -109,6 +122,10 @@ export function AvatarPicker({
   };
 
   const handleGenerateAI = () => {
+    if (userId && !canGenerateMore) {
+      Alert.alert('Limit Reached', 'You\'ve used all 10 avatar generations. Pick from your previous avatars below.');
+      return;
+    }
     if (onGenerateAI) {
       onGenerateAI();
     }
@@ -246,9 +263,9 @@ export function AvatarPicker({
           {/* AI Generation Option */}
           {canGenerateAI && (
             <TouchableOpacity
-              style={styles.aiGenerateButton}
+              style={[styles.aiGenerateButton, userId && !canGenerateMore && styles.aiGenerateButtonDisabled]}
               onPress={handleGenerateAI}
-              disabled={isGeneratingAI}
+              disabled={isGeneratingAI || (userId ? !canGenerateMore : false)}
             >
               <View style={styles.aiGenerateContent}>
                 <View style={styles.aiIconContainer}>
@@ -263,16 +280,57 @@ export function AvatarPicker({
                     {isGeneratingAI ? 'Generating...' : 'Generate with AI'}
                   </Text>
                   <Text style={styles.aiGenerateSubtitle}>
-                    Create a unique avatar using AI
+                    {userId
+                      ? (canGenerateMore
+                          ? `${avatarRemaining} of 10 remaining`
+                          : 'Limit reached — pick from below')
+                      : 'Create a unique avatar using AI'}
                   </Text>
                 </View>
               </View>
               {isGeneratingAI ? (
                 <ActivityIndicator size="small" color={COLORS.primary} />
+              ) : userId && canGenerateMore ? (
+                <View style={styles.remainingBadge}>
+                  <Text style={styles.remainingBadgeText}>{avatarRemaining}</Text>
+                </View>
               ) : (
                 <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
               )}
             </TouchableOpacity>
+          )}
+
+          {/* Previous Avatars Gallery */}
+          {avatarHistory.length > 0 && (
+            <View style={styles.historySection}>
+              <Text style={styles.historySectionTitle}>Previous Avatars</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.historyScroll}
+              >
+                {avatarHistory.map((url, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[
+                      styles.historyItem,
+                      url === (previewUrl || currentAvatarUrl) && styles.historyItemActive,
+                    ]}
+                    onPress={() => {
+                      setPreviewUrl(url);
+                      setSelectedStyle(null);
+                    }}
+                  >
+                    <Image source={{ uri: url }} style={styles.historyImage} />
+                    {url === (previewUrl || currentAvatarUrl) && (
+                      <View style={styles.historyCheck}>
+                        <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
           )}
 
           {/* Upload Custom Image Option */}
@@ -629,5 +687,64 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     color: COLORS.white,
     fontWeight: '600',
+  },
+
+  aiGenerateButtonDisabled: {
+    opacity: 0.45,
+  },
+
+  remainingBadge: {
+    backgroundColor: COLORS.primary + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BORDER_RADIUS.full,
+  },
+
+  remainingBadgeText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+
+  historySection: {
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+  },
+
+  historySectionTitle: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.gray[600],
+    marginBottom: SPACING.sm,
+  },
+
+  historyScroll: {
+    gap: SPACING.sm,
+  },
+
+  historyItem: {
+    width: 56,
+    height: 56,
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: COLORS.gray[200],
+  },
+
+  historyItemActive: {
+    borderColor: COLORS.success,
+  },
+
+  historyImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  historyCheck: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: COLORS.white,
+    borderRadius: 10,
   },
 });

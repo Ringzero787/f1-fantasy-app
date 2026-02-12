@@ -1864,15 +1864,25 @@ export const useTeamStore = create<TeamState>()(
       // Convert Date objects when deserializing
       onRehydrateStorage: () => (state, error) => {
         if (state) {
+          // Safe date converter - falls back to current time if invalid
+          const toValidDate = (val: unknown): Date => {
+            if (val instanceof Date && !isNaN(val.getTime())) return val;
+            if (typeof val === 'string' || typeof val === 'number') {
+              const d = new Date(val);
+              if (!isNaN(d.getTime())) return d;
+            }
+            return new Date();
+          };
+
           // Convert date strings back to Date objects
           if (state.currentTeam) {
-            state.currentTeam.createdAt = new Date(state.currentTeam.createdAt);
-            state.currentTeam.updatedAt = new Date(state.currentTeam.updatedAt);
+            state.currentTeam.createdAt = toValidDate(state.currentTeam.createdAt);
+            state.currentTeam.updatedAt = toValidDate(state.currentTeam.updatedAt);
           }
           state.userTeams = state.userTeams.map(team => ({
             ...team,
-            createdAt: new Date(team.createdAt),
-            updatedAt: new Date(team.updatedAt),
+            createdAt: toValidDate(team.createdAt),
+            updatedAt: toValidDate(team.updatedAt),
           }));
 
           // Deduplicate teams by ID (keep the latest by updatedAt)

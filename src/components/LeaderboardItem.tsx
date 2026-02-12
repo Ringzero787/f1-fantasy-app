@@ -110,7 +110,7 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
         </View>
         <View style={styles.subtitleRow}>
           <Text style={styles.ownerName}>{member.displayName}</Text>
-          {member.raceWins && member.raceWins > 0 && (
+          {(member.raceWins ?? 0) > 0 && (
             <View style={styles.winsBadge}>
               <Ionicons name="trophy" size={10} color="#FBBF24" />
               <Text style={styles.winsText}>{member.raceWins}</Text>

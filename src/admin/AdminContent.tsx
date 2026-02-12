@@ -17,7 +17,7 @@ import { useTeamStore } from '../store/team.store';
 import { demoRaces, demoDrivers, demoConstructors } from '../data/demoData';
 import { Card, Button, EmptyState } from '../components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
-import { errorLogService, ErrorLogEntry } from '../services/errorLog.service';
+import { errorLogService } from '../services/errorLog.service';
 import { articleService } from '../services/article.service';
 
 // Filter to only active drivers (should be 22 for full grid)
@@ -129,15 +129,10 @@ export default function AdminContent() {
   const [sprintDnf, setSprintDnf] = useState<Record<string, boolean>>({});
   const [entryMode, setEntryMode] = useState<'race' | 'sprint'>('race');
   const [unreviewedCount, setUnreviewedCount] = useState(0);
-  const [recentErrors, setRecentErrors] = useState<ErrorLogEntry[]>([]);
   const [draftArticleCount, setDraftArticleCount] = useState(0);
 
   useEffect(() => {
     errorLogService.getUnreviewedCount().then(setUnreviewedCount);
-    // Fetch a few recent unreviewed errors for inline preview
-    errorLogService.fetchLogs(10).then(logs => {
-      setRecentErrors(logs.filter(l => !l.reviewed).slice(0, 3));
-    });
     articleService.getDraftCount().then(setDraftArticleCount);
   }, []);
 
@@ -726,14 +721,14 @@ export default function AdminContent() {
         <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
       </TouchableOpacity>
 
-      {/* Error Logs */}
+      {/* Error Log */}
       <TouchableOpacity
         style={styles.errorLogsButton}
         onPress={() => router.push('/(tabs)/admin/error-logs')}
       >
         <View style={styles.errorLogsHeader}>
           <Ionicons name="alert-circle-outline" size={18} color={COLORS.error} />
-          <Text style={styles.errorLogsButtonText}>Error Logs</Text>
+          <Text style={styles.errorLogsButtonText}>Error Log</Text>
           {unreviewedCount > 0 && (
             <View style={styles.unreviewedBadge}>
               <Text style={styles.unreviewedBadgeText}>{unreviewedCount}</Text>
@@ -741,21 +736,6 @@ export default function AdminContent() {
           )}
           <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
         </View>
-        {recentErrors.length > 0 && (
-          <View style={styles.errorPreviewList}>
-            {recentErrors.map(err => (
-              <View key={err.id} style={styles.errorPreviewItem}>
-                <Ionicons
-                  name={err.severity === 'error' ? 'close-circle' : err.severity === 'warn' ? 'warning' : 'information-circle'}
-                  size={12}
-                  color={err.severity === 'error' ? COLORS.error : err.severity === 'warn' ? COLORS.warning : COLORS.info}
-                />
-                <Text style={styles.errorPreviewContext}>{err.context}</Text>
-                <Text style={styles.errorPreviewMessage} numberOfLines={1}>{err.message}</Text>
-              </View>
-            ))}
-          </View>
-        )}
       </TouchableOpacity>
 
       {/* V5: Lock Override Toggle */}
@@ -1132,28 +1112,6 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     color: COLORS.error,
-  },
-  errorPreviewList: {
-    marginTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.error + '20',
-    paddingTop: SPACING.sm,
-    gap: 6,
-  },
-  errorPreviewItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  errorPreviewContext: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.text.secondary,
-  },
-  errorPreviewMessage: {
-    flex: 1,
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
   },
   unreviewedBadge: {
     backgroundColor: COLORS.error,

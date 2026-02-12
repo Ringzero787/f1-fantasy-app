@@ -4,19 +4,21 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   RefreshControl,
   TouchableOpacity,
   PanResponder,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/hooks/useAuth';
-import { useNextRace, useTopDrivers } from '../../src/hooks';
+import { useNextRace, useUpcomingRaces } from '../../src/hooks';
 import { useTeamStore } from '../../src/store/team.store';
 import { useLeagueStore } from '../../src/store/league.store';
 import { useAdminStore } from '../../src/store/admin.store';
-import { Card, Loading, RaceCard, DriverCard, EmptyState, CountdownBanner, NewsFeed, Avatar } from '../../src/components';
+import { Card, Loading, RaceCard, EmptyState, CountdownBanner, NewsFeed, Avatar } from '../../src/components';
 import { useNewsStore } from '../../src/store/news.store';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
 import { formatPoints } from '../../src/utils/formatters';
@@ -26,7 +28,8 @@ const CURRENT_SEASON_ID = '2026'; // This would come from app config
 export default function HomeScreen() {
   const { user } = useAuth();
   const { data: nextRace, isLoading: raceLoading, refetch: refetchRace } = useNextRace(CURRENT_SEASON_ID);
-  const { data: topDrivers, isLoading: driversLoading, refetch: refetchDrivers } = useTopDrivers(5);
+  const { data: upcomingRaces } = useUpcomingRaces(CURRENT_SEASON_ID, 5);
+  const [activeRaceIndex, setActiveRaceIndex] = useState(0);
   const currentTeam = useTeamStore(s => s.currentTeam);
   const userTeams = useTeamStore(s => s.userTeams);
   const selectTeam = useTeamStore(s => s.selectTeam);
@@ -37,7 +40,6 @@ export default function HomeScreen() {
   const loadArticles = useNewsStore(s => s.loadArticles);
 
   const [refreshing, setRefreshing] = React.useState(false);
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   // Swipe to switch teams
   const swipeX = useRef(new Animated.Value(0)).current;
@@ -79,17 +81,6 @@ export default function HomeScreen() {
       },
     })
   ).current;
-
-  // Sort drivers based on current sort order (using 2026 points)
-  const sortedTopDrivers = useMemo(() => {
-    if (!topDrivers) return [];
-    const sorted = [...topDrivers].sort((a, b) => {
-      const pointsA = a.currentSeasonPoints || 0;
-      const pointsB = b.currentSeasonPoints || 0;
-      return sortOrder === 'desc' ? pointsB - pointsA : pointsA - pointsB;
-    });
-    return sorted.slice(0, 3);
-  }, [topDrivers, sortOrder]);
 
   // Load user's leagues, teams, and news on mount
   React.useEffect(() => {
@@ -172,7 +163,7 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchRace(), refetchDrivers(), loadArticles(true)]);
+    await Promise.all([refetchRace(), loadArticles(true)]);
     setRefreshing(false);
   };
 
@@ -259,16 +250,43 @@ export default function HomeScreen() {
         </Card>
       </View>
 
-      {/* Next Race */}
+      {/* Upcoming Races Carousel */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Next Race</Text>
+        <View style={styles.raceSectionHeader}>
+          <Text style={styles.sectionTitle}>Upcoming Races</Text>
+          {upcomingRaces && upcomingRaces.length > 1 && (
+            <View style={styles.raceDots}>
+              {upcomingRaces.map((_, i) => (
+                <View
+                  key={i}
+                  style={[styles.raceDot, i === activeRaceIndex && styles.raceDotActive]}
+                />
+              ))}
+            </View>
+          )}
+        </View>
         {raceLoading ? (
           <Loading />
-        ) : nextRace ? (
-          <RaceCard
-            race={nextRace}
-            onPress={() => router.push(`/calendar/${nextRace.id}`)}
-            showCountdown
+        ) : upcomingRaces && upcomingRaces.length > 0 ? (
+          <FlatList
+            data={upcomingRaces}
+            keyExtractor={item => item.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / (Dimensions.get('window').width - SPACING.md * 2));
+              setActiveRaceIndex(index);
+            }}
+            renderItem={({ item, index }) => (
+              <View style={{ width: Dimensions.get('window').width - SPACING.md * 2 }}>
+                <RaceCard
+                  race={item}
+                  onPress={() => router.push(`/calendar/${item.id}`)}
+                  showCountdown={index === 0}
+                />
+              </View>
+            )}
           />
         ) : (
           <Card variant="outlined" padding="large">
@@ -328,7 +346,7 @@ export default function HomeScreen() {
               <Text style={styles.teamName}>{currentTeam.name}</Text>
               <View style={styles.teamBudget}>
                 <Text style={styles.budgetLabel}>Budget</Text>
-                <Text style={styles.budgetValue}>{formatPoints(currentTeam.budget)}</Text>
+                <Text style={styles.budgetValue}>${formatPoints(currentTeam.budget)}</Text>
               </View>
             </View>
 
@@ -414,87 +432,6 @@ export default function HomeScreen() {
 
       {/* F1 News Feed */}
       <NewsFeed />
-
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/my-team')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: COLORS.success + '20' }]}>
-              <Ionicons name="people" size={24} color={COLORS.success} />
-            </View>
-            <Text style={styles.actionText}>Manage Teams</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/leagues')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: COLORS.accent + '20' }]}>
-              <Ionicons name="trophy" size={24} color={COLORS.accent} />
-            </View>
-            <Text style={styles.actionText}>Join League</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/market')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: COLORS.warning + '20' }]}>
-              <Ionicons name="trending-up" size={24} color={COLORS.warning} />
-            </View>
-            <Text style={styles.actionText}>View Market</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Top Performers */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>2026 Top Performers</Text>
-            <TouchableOpacity
-              style={styles.sortToggle}
-              onPress={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-            >
-              <Ionicons
-                name={sortOrder === 'desc' ? 'arrow-down' : 'arrow-up'}
-                size={16}
-                color={COLORS.primary}
-              />
-              <Text style={styles.sortToggleText}>
-                {sortOrder === 'desc' ? 'High' : 'Low'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity onPress={() => router.push('/market')}>
-            <Text style={styles.seeAllText}>See All</Text>
-          </TouchableOpacity>
-        </View>
-
-        {driversLoading ? (
-          <Loading />
-        ) : sortedTopDrivers && sortedTopDrivers.length > 0 ? (
-          sortedTopDrivers.map((driver) => (
-            <DriverCard
-              key={driver.id}
-              driver={driver}
-              compact
-              showPrice
-              showPoints
-              isTopTen={true}
-              onPress={() => router.push(`/market/${driver.id}`)}
-            />
-          ))
-        ) : (
-          <Card variant="outlined" padding="large">
-            <Text style={styles.emptyText}>No driver data available</Text>
-          </Card>
-        )}
-      </View>
     </ScrollView>
   );
 }
@@ -648,38 +585,30 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
 
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
     color: COLORS.text.primary,
   },
-
-  sortToggle: {
+  raceSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.primary + '15',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDER_RADIUS.full,
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xs,
   },
-
-  sortToggleText: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.primary,
+  raceDots: {
+    flexDirection: 'row',
+    gap: 5,
   },
-
-  seeAllText: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.primary,
-    fontWeight: '500',
+  raceDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.text.muted + '40',
+  },
+  raceDotActive: {
+    backgroundColor: COLORS.primary,
+    width: 16,
   },
 
   sectionTitleWithDots: {
@@ -722,38 +651,6 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     color: COLORS.primary,
     fontWeight: '600',
-  },
-
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: SPACING.sm,
-  },
-
-  actionButton: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    padding: SPACING.md,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-  },
-
-  actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.sm,
-  },
-
-  actionText: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '500',
-    color: COLORS.text.secondary,
-    textAlign: 'center',
   },
 
   emptyText: {

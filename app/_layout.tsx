@@ -1,8 +1,9 @@
-import React from 'react';
-import { Stack } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,7 +14,45 @@ const queryClient = new QueryClient({
   },
 });
 
+function extractInviteCode(url: string): string | null {
+  // Handle deep link: theundercut://join/CODE
+  const deepLinkMatch = url.match(/theundercut:\/\/join\/([A-Za-z0-9]+)/);
+  if (deepLinkMatch) return deepLinkMatch[1].toUpperCase();
+
+  // Handle web URL: https://.../join?code=CODE
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname === '/join' || parsed.pathname === '/join.html') {
+      const code = parsed.searchParams.get('code');
+      if (code) return code.toUpperCase();
+    }
+  } catch {}
+
+  return null;
+}
+
 export default function RootLayout() {
+  useEffect(() => {
+    function handleUrl(url: string) {
+      const code = extractInviteCode(url);
+      if (code) {
+        router.replace({ pathname: '/leagues', params: { join: 'true', code } });
+      }
+    }
+
+    // Handle cold start
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+
+    // Handle warm open
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleUrl(event.url);
+    });
+
+    return () => subscription.remove();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>

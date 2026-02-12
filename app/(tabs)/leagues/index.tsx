@@ -23,7 +23,7 @@ import type { League } from '../../../src/types';
 
 export default function LeaguesScreen() {
   const { user } = useAuth();
-  const { join } = useLocalSearchParams<{ join?: string }>();
+  const { join, code } = useLocalSearchParams<{ join?: string; code?: string }>();
   const leagues = useLeagueStore(s => s.leagues);
   const isLoading = useLeagueStore(s => s.isLoading);
   const error = useLeagueStore(s => s.error);
@@ -60,12 +60,15 @@ export default function LeaguesScreen() {
     }, [user])
   );
 
-  // Auto-open join modal if navigated with ?join=true
+  // Auto-open join modal if navigated with ?join=true, auto-fill code if provided
   useEffect(() => {
     if (join === 'true') {
+      if (code) {
+        setInviteCode(code.toUpperCase());
+      }
       setShowJoinModal(true);
     }
-  }, [join]);
+  }, [join, code]);
 
   const onRefresh = async () => {
     setRefreshing(true);

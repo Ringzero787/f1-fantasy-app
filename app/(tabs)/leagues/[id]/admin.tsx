@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../../src/hooks/useAuth';
 import { useLeagueStore } from '../../../../src/store/league.store';
+import { useTeamStore } from '../../../../src/store/team.store';
 import { Card, Button, Loading } from '../../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
 
@@ -22,6 +23,8 @@ export default function LeagueAdminScreen() {
     currentLeague,
     members,
     isLoading,
+    loadLeague,
+    loadLeagueMembers,
     deleteLeague,
     removeMember,
     inviteMemberByEmail,
@@ -29,12 +32,23 @@ export default function LeagueAdminScreen() {
     demoteFromCoAdmin,
     isUserAdmin,
   } = useLeagueStore();
+  const { loadUserTeams } = useTeamStore();
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // Load league data and members on mount
+  useEffect(() => {
+    if (id && user) {
+      loadLeague(id);
+      loadUserTeams(user.id).then(() => {
+        loadLeagueMembers(id);
+      });
+    }
+  }, [id, user]);
 
   // Check if user is owner or admin
   const isOwner = currentLeague?.ownerId === user?.id;
@@ -77,7 +91,10 @@ export default function LeagueAdminScreen() {
     setIsInviting(true);
     try {
       await inviteMemberByEmail(currentLeague.id, inviteEmail.trim());
-      Alert.alert('Success', `Invitation sent to ${inviteEmail}`);
+      Alert.alert(
+        'Invitation Sent',
+        `An email invite has been sent to ${inviteEmail}.\n\nThey can also join with code: ${currentLeague.inviteCode}`
+      );
       setInviteEmail('');
     } catch (error) {
       Alert.alert('Error', 'Failed to send invitation');
@@ -261,8 +278,12 @@ export default function LeagueAdminScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.inviteHint}>
-            An invitation will be sent to join your league
+            An invitation email will be sent with a link to join your league
           </Text>
+          <View style={styles.inviteCodeRow}>
+            <Text style={styles.inviteCodeLabel}>Invite Code:</Text>
+            <Text style={styles.inviteCodeValue}>{currentLeague.inviteCode}</Text>
+          </View>
         </Card>
       </View>
 
@@ -336,35 +357,53 @@ export default function LeagueAdminScreen() {
 
       {/* Manage Members Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Manage Members</Text>
-        {removableMembers.length > 0 ? (
-          removableMembers.map((member) => {
-            const isMemberCoAdmin = coAdminIds.includes(member.userId);
-            return (
-              <View key={member.userId} style={styles.memberRow}>
-                <View style={styles.memberInfo}>
-                  <View style={styles.memberNameRow}>
-                    <Text style={styles.memberName}>{member.displayName}</Text>
-                    {isMemberCoAdmin && (
-                      <View style={styles.adminBadge}>
-                        <Text style={styles.adminBadgeText}>Admin</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.memberPoints}>{member.totalPoints} pts • Rank #{member.rank}</Text>
+        <Text style={styles.sectionTitle}>Members ({members.length})</Text>
+
+        {/* Owner row (always shown, not removable) */}
+        {members.filter(m => m.userId === currentLeague.ownerId).map((member) => (
+          <View key={member.userId} style={[styles.memberRow, styles.ownerRow]}>
+            <View style={styles.memberInfo}>
+              <View style={styles.memberNameRow}>
+                <Text style={styles.memberName}>{member.displayName}</Text>
+                <View style={styles.ownerBadge}>
+                  <Text style={styles.ownerBadgeText}>Owner</Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => handleRemoveMember(member.userId, member.displayName)}
-                >
-                  <Ionicons name="person-remove" size={18} color={COLORS.error} />
-                </TouchableOpacity>
               </View>
-            );
-          })
-        ) : (
-          <Card variant="outlined" padding="large">
-            <Text style={styles.emptyText}>No other members to manage</Text>
+              <Text style={styles.memberPoints}>{member.totalPoints} pts</Text>
+            </View>
+          </View>
+        ))}
+
+        {/* Other members (removable) */}
+        {removableMembers.map((member) => {
+          const isMemberCoAdmin = coAdminIds.includes(member.userId);
+          return (
+            <View key={member.userId} style={styles.memberRow}>
+              <View style={styles.memberInfo}>
+                <View style={styles.memberNameRow}>
+                  <Text style={styles.memberName}>{member.displayName}</Text>
+                  {isMemberCoAdmin && (
+                    <View style={styles.adminBadge}>
+                      <Text style={styles.adminBadgeText}>Admin</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.memberPoints}>{member.totalPoints} pts • Rank #{member.rank}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => handleRemoveMember(member.userId, member.displayName)}
+              >
+                <Ionicons name="person-remove" size={18} color={COLORS.error} />
+              </TouchableOpacity>
+            </View>
+          );
+        })}
+
+        {removableMembers.length === 0 && (
+          <Card variant="outlined" padding="large" style={styles.inviteHintCard}>
+            <Ionicons name="people-outline" size={24} color={COLORS.text.muted} />
+            <Text style={styles.emptyText}>Share your invite code to grow the league</Text>
           </Card>
         )}
       </View>
@@ -556,6 +595,29 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     color: COLORS.text.muted,
     marginTop: SPACING.sm,
+  },
+
+  inviteCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border.default,
+    gap: SPACING.sm,
+  },
+
+  inviteCodeLabel: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+  },
+
+  inviteCodeValue: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+    letterSpacing: 2,
   },
 
   memberRow: {
@@ -769,6 +831,29 @@ const styles = StyleSheet.create({
   confirmDeleteButton: {
     flex: 1,
     backgroundColor: COLORS.error,
+  },
+
+  ownerRow: {
+    borderColor: COLORS.primary + '40',
+    backgroundColor: COLORS.primary + '08',
+  },
+
+  ownerBadge: {
+    backgroundColor: COLORS.primary + '20',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+
+  ownerBadgeText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  inviteHintCard: {
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
 
   emptyText: {

@@ -124,6 +124,12 @@ export default function LeagueDetailScreen() {
         totalPoints: userTeam?.totalPoints || 0,
         rank: 1,
         joinedAt: new Date(),
+        racesPlayed: userTeam?.racesPlayed || 0,
+        pprAverage: userTeam && userTeam.racesPlayed > 0
+          ? Math.round((userTeam.totalPoints / userTeam.racesPlayed) * 10) / 10
+          : 0,
+        recentFormPoints: userTeam ? (userTeam.pointsHistory || []).slice(-5).reduce((a, b) => a + b, 0) : 0,
+        raceWins: userTeam?.raceWins || 0,
       });
     }
 
@@ -181,7 +187,7 @@ export default function LeagueDetailScreen() {
 
     try {
       await Share.share({
-        message: `Join my league "${currentLeague.name}" on The Undercut! Use code: ${currentLeague.inviteCode}`,
+        message: `Join my league "${currentLeague.name}" on Undercut!\n\nhttps://f1-app-18077.web.app/join?code=${currentLeague.inviteCode}\n\nOr enter code: ${currentLeague.inviteCode}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -389,6 +395,7 @@ export default function LeagueDetailScreen() {
           onGenerateAI={handleGenerateAvatar}
           isGeneratingAI={isGenerating}
           canGenerateAI={isAvailable}
+          userId={user?.id}
         />
       )}
     </ScrollView>

@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Share,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, EmptyState } from '../components';
@@ -129,6 +131,73 @@ export default function ErrorLogsContent() {
 
   const [bulkClosing, setBulkClosing] = useState<string | null>(null);
 
+  // Format a single log entry as text
+  const formatLogEntry = useCallback((entry: ErrorLogEntry): string => {
+    const lines = [
+      `[${entry.severity.toUpperCase()}] ${entry.context}`,
+      `Message: ${entry.message}`,
+      `Time: ${entry.createdAt.toLocaleString()}`,
+      `User: ${entry.userId}`,
+      `Device: ${entry.deviceInfo}`,
+      `Version: ${entry.appVersion}`,
+    ];
+    if (entry.stack) lines.push(`Stack:\n${entry.stack}`);
+    if (entry.metadata && Object.keys(entry.metadata).length > 0) {
+      lines.push(`Metadata: ${JSON.stringify(entry.metadata, null, 2)}`);
+    }
+    return lines.join('\n');
+  }, []);
+
+  // Share a single log entry
+  const handleCopyLog = useCallback(async (entry: ErrorLogEntry) => {
+    try {
+      await Share.share({
+        message: formatLogEntry(entry),
+        title: `Error: ${entry.context}`,
+      });
+    } catch (_) {
+      // User cancelled
+    }
+  }, [formatLogEntry]);
+
+  // Export all visible logs
+  const handleExportLogs = useCallback(async () => {
+    if (filtered.length === 0) {
+      Alert.alert('No Logs', 'There are no logs to export with the current filters.');
+      return;
+    }
+
+    const header = [
+      `Undercut Error Report`,
+      `Generated: ${new Date().toLocaleString()}`,
+      `Filters: severity=${severityFilter}, time=${timeFilter}, hideReviewed=${hideReviewed}`,
+      `Total: ${filtered.length} log(s)`,
+      '',
+      '---',
+      '',
+    ].join('\n');
+
+    const body = filtered
+      .slice(0, 50) // Cap at 50 for share limits
+      .map((entry, i) => `#${i + 1}\n${formatLogEntry(entry)}`)
+      .join('\n\n---\n\n');
+
+    const footer = filtered.length > 50
+      ? `\n\n--- (showing 50 of ${filtered.length} logs) ---`
+      : '';
+
+    const report = header + body + footer;
+
+    try {
+      await Share.share({
+        message: report,
+        title: 'Undercut Error Report',
+      });
+    } catch (_) {
+      // User cancelled
+    }
+  }, [filtered, severityFilter, timeFilter, hideReviewed, formatLogEntry]);
+
   const handleMarkReviewed = useCallback(async (logId: string) => {
     await errorLogService.markLogReviewed(logId);
     setLogs(prev => prev.map(l => l.id === logId ? { ...l, reviewed: true } : l));
@@ -197,21 +266,30 @@ export default function ErrorLogsContent() {
               <Text style={styles.detailTimestamp}>
                 {item.createdAt.toLocaleString()}
               </Text>
-              {!item.reviewed && (
+              <View style={styles.detailActions}>
                 <TouchableOpacity
-                  style={styles.markReviewedButton}
-                  onPress={() => handleMarkReviewed(item.id)}
+                  style={styles.copyLogButton}
+                  onPress={() => handleCopyLog(item)}
                 >
-                  <Ionicons name="checkmark-circle-outline" size={16} color={COLORS.success} />
-                  <Text style={styles.markReviewedText}>Mark Reviewed</Text>
+                  <Ionicons name="copy-outline" size={14} color={COLORS.primary} />
+                  <Text style={styles.copyLogText}>Copy</Text>
                 </TouchableOpacity>
-              )}
-              {item.reviewed && (
-                <View style={styles.reviewedBadge}>
-                  <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
-                  <Text style={styles.reviewedBadgeText}>Reviewed</Text>
-                </View>
-              )}
+                {!item.reviewed && (
+                  <TouchableOpacity
+                    style={styles.markReviewedButton}
+                    onPress={() => handleMarkReviewed(item.id)}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={16} color={COLORS.success} />
+                    <Text style={styles.markReviewedText}>Mark Reviewed</Text>
+                  </TouchableOpacity>
+                )}
+                {item.reviewed && (
+                  <View style={styles.reviewedBadge}>
+                    <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
+                    <Text style={styles.reviewedBadgeText}>Reviewed</Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
         )}
@@ -247,6 +325,9 @@ export default function ErrorLogsContent() {
                   <Text style={[styles.hideReviewedText, hideReviewed && styles.hideReviewedTextActive]}>
                     {hideReviewed ? 'Closed Hidden' : 'Show All'}
                   </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleExportLogs} style={styles.exportButton}>
+                  <Ionicons name="share-outline" size={18} color={COLORS.white} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={loadLogs} style={styles.refreshButton}>
                   {loading ? (
@@ -478,6 +559,11 @@ const styles = StyleSheet.create({
   hideReviewedTextActive: {
     color: COLORS.success,
     fontWeight: '600',
+  },
+  exportButton: {
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.primary,
   },
   refreshButton: {
     padding: SPACING.sm,
@@ -751,6 +837,27 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontWeight: '500',
     color: COLORS.success,
+  },
+  detailActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  copyLogButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+  },
+  copyLogText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
   logItemReviewed: {
     opacity: 0.6,

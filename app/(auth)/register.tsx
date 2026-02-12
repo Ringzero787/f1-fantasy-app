@@ -103,7 +103,7 @@ export default function RegisterScreen() {
           <View style={styles.form}>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.description}>
-              Join The Undercut community and start competing
+              Join the Undercut community and start competing
             </Text>
 
             {allErrors.length > 0 && (

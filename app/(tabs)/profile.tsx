@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -450,9 +451,35 @@ export default function ProfileScreen() {
       {/* Legal / Attribution */}
       <Text style={styles.sectionTitle}>Legal</Text>
       <Card style={styles.menuCard}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => Linking.openURL('https://f1-app-18077.web.app/privacy.html')}
+        >
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="shield-checkmark-outline" color="#6366F1" bg="#6366F115" />
+            <Text style={styles.menuItemText}>Privacy Policy</Text>
+          </View>
+          <Ionicons name="open-outline" size={16} color={COLORS.text.muted} />
+        </TouchableOpacity>
+
+        <View style={styles.menuDivider} />
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => Linking.openURL('https://f1-app-18077.web.app/terms.html')}
+        >
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="document-text-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <Text style={styles.menuItemText}>Terms of Service</Text>
+          </View>
+          <Ionicons name="open-outline" size={16} color={COLORS.text.muted} />
+        </TouchableOpacity>
+
+        <View style={styles.menuDivider} />
+
         <View style={styles.legalItem}>
           <Text style={styles.legalText}>
-            This app is unofficial and is not associated in any way with the Formula 1 companies. F1, Formula 1, FIA, and related marks are trademarks of Formula One Licensing B.V. and the Federation Internationale de l'Automobile.
+            Undercut is unofficial and is not associated in any way with the Formula 1 companies. F1, Formula 1, FIA, and related marks are trademarks of Formula One Licensing B.V. and the Federation Internationale de l'Automobile.
           </Text>
         </View>
         <View style={styles.menuDivider} />

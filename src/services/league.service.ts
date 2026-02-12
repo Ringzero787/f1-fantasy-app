@@ -27,6 +27,7 @@ import {
   FASTEST_LAP_BONUS,
   POSITION_GAINED_BONUS,
 } from '../config/constants';
+import * as Crypto from 'expo-crypto';
 import type {
   League,
   LeagueMember,
@@ -56,7 +57,7 @@ const DEFAULT_LEAGUE_SETTINGS: LeagueSettings = {
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const randomBytes = new Uint8Array(INVITE_CODE_LENGTH);
-  crypto.getRandomValues(randomBytes);
+  Crypto.getRandomValues(randomBytes);
   let code = '';
   for (let i = 0; i < INVITE_CODE_LENGTH; i++) {
     code += chars.charAt(randomBytes[i] % chars.length);

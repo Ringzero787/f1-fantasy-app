@@ -500,7 +500,7 @@ export default function MyTeamScreen() {
           </View>
           <Text style={styles.welcomeTitle}>Create Your Team</Text>
           <Text style={styles.welcomeMessage}>
-            Build your fantasy F1 team with 5 drivers and 1 constructor.
+            Build your team with 5 drivers and 1 constructor.
             Play solo or compete in leagues with friends!
           </Text>
           <Button
@@ -741,125 +741,107 @@ export default function MyTeamScreen() {
               const cInfo = constructorLookup[driver.resolvedConstructorId];
               const isAce = currentTeam?.aceDriverId === driver.driverId;
               const canBeAce = driver.livePrice <= PRICING_CONFIG.ACE_MAX_PRICE;
-
               const priceDiff = driver.livePrice - driver.purchasePrice;
-              const loyalty = getLoyaltyBonus(driver.racesHeld || 0);
               const nextRate = getNextLoyaltyRate(driver.racesHeld || 0);
               const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
               const contractRemaining = contractLen - (driver.racesHeld || 0);
               const isLastRace = contractRemaining === 1;
               const isReserve = driver.isReservePick;
-              // V6: Early termination fee
               const earlyTermFee = calculateEarlyTerminationFee(driver.purchasePrice, contractLen, driver.racesHeld || 0);
               const effectiveSaleValue = Math.max(0, driver.livePrice - earlyTermFee);
+              const accentColor = isReserve ? COLORS.text.muted : cInfo?.primaryColor || COLORS.text.muted;
 
               return (
-                <View key={driver.driverId} style={[styles.driverRow, isReserve && styles.reserveRow]}>
-                  {/* Top line: name + constructor badge + ace + sell */}
-                  <View style={styles.driverRowTop}>
-                    <View style={styles.driverRowLeft}>
-                      <View style={styles.driverNameLine}>
-                        {driver.driverNumber != null && (() => {
-                          const badgeColor = isReserve ? COLORS.text.muted : cInfo?.primaryColor || COLORS.text.muted;
-                          // Perceived brightness: dark constructor colors get white text
-                          let textColor = badgeColor;
-                          if (cInfo && !isReserve) {
-                            const hex = cInfo.primaryColor.replace('#', '');
-                            const r = parseInt(hex.substring(0, 2), 16);
-                            const g = parseInt(hex.substring(2, 4), 16);
-                            const b = parseInt(hex.substring(4, 6), 16);
-                            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-                            if (luminance < 100) textColor = COLORS.white;
-                          }
-                          return (
-                            <View style={[styles.driverNumberBadge, { backgroundColor: badgeColor + '18', borderColor: badgeColor + '30' }]}>
-                              <Text style={[styles.driverNumber, { color: textColor }]}>
-                                {driver.driverNumber}
-                              </Text>
-                            </View>
-                          );
-                        })()}
-                        <Text style={[styles.driverName, isReserve && styles.reserveDriverName]}>{driver.name}</Text>
-                        {cInfo && (
-                          <View style={[styles.constructorBadge, { backgroundColor: isReserve ? COLORS.text.muted : cInfo.primaryColor }]}>
-                            <Text style={styles.constructorBadgeText}>{cInfo.shortName}</Text>
+                <View key={driver.driverId} style={[styles.card, isReserve && styles.cardReserve]}>
+                  <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
+                  <View style={styles.cardBody}>
+                    {/* Row 1: Identity + Price */}
+                    <View style={styles.cardTopRow}>
+                      <View style={styles.cardIdentity}>
+                        {driver.driverNumber != null && (
+                          <View style={[styles.cardNumberBadge, { backgroundColor: accentColor }]}>
+                            <Text style={styles.cardNumberText}>
+                              {driver.driverNumber}
+                            </Text>
                           </View>
                         )}
-                        {isReserve && (
-                          <View style={styles.reserveBadge}>
-                            <Text style={styles.reserveBadgeText}>AUTO-FILL</Text>
-                          </View>
+                        <Text style={[styles.cardName, isReserve && { color: COLORS.text.muted }]} numberOfLines={1}>
+                          {driver.name}
+                        </Text>
+                        {isAce && (
+                          <TouchableOpacity onPress={() => handleClearAce()} hitSlop={8}>
+                            <View style={styles.aceActive}>
+                              <Ionicons name="diamond" size={12} color={COLORS.white} />
+                            </View>
+                          </TouchableOpacity>
+                        )}
+                        {!isAce && !isReserve && canBeAce && canChangeAce && (
+                          <TouchableOpacity onPress={() => handleSetAce(driver.driverId)} hitSlop={8}>
+                            <Ionicons name="diamond-outline" size={15} color={COLORS.gold} />
+                          </TouchableOpacity>
                         )}
                       </View>
-                    </View>
-                    <View style={styles.driverRowRight}>
-                      <Text style={styles.driverPoints}>{formatPoints(driver.pointsScored)} pts</Text>
-                      {!isReserve && (isAce ? (
-                        <TouchableOpacity onPress={() => handleClearAce()} hitSlop={8}>
-                          <View style={styles.aceBadge}>
-                            <Ionicons name="diamond" size={14} color={COLORS.white} />
-                          </View>
-                        </TouchableOpacity>
-                      ) : canBeAce && canChangeAce ? (
-                        <TouchableOpacity onPress={() => handleSetAce(driver.driverId)} hitSlop={8}>
-                          <Ionicons name="diamond-outline" size={18} color={COLORS.gold} />
-                        </TouchableOpacity>
+                      {!isReserve ? (
+                        <View style={styles.cardPriceBlock}>
+                          <Text style={styles.cardPrice}>${driver.livePrice}</Text>
+                          {priceDiff !== 0 && (
+                            <View style={[styles.cardPriceDiff, priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
+                              <Ionicons name={priceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
+                              <Text style={styles.cardPriceDiffText}>${Math.abs(priceDiff)}</Text>
+                            </View>
+                          )}
+                        </View>
                       ) : (
-                        <View style={{ width: 18 }} />
-                      ))}
-                      {canModify && (() => {
-                        const saleDiff = effectiveSaleValue - driver.purchasePrice;
-                        const saleColor = saleDiff > 0 ? '#16a34a' : saleDiff < 0 ? COLORS.error : COLORS.text.muted;
-                        return (
-                          <TouchableOpacity
-                            onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
-                            hitSlop={8}
-                            style={[styles.sellButton, { backgroundColor: saleColor + '15' }]}
-                          >
-                            <Ionicons name="cash-outline" size={16} color={saleColor} />
-                          </TouchableOpacity>
-                        );
-                      })()}
-                    </View>
-                  </View>
-
-                  {/* Bottom line: reserve notice or price info + loyalty */}
-                  {isReserve ? (
-                    <View style={styles.driverMeta}>
-                      <Ionicons name="information-circle-outline" size={12} color={COLORS.text.muted} />
-                      <Text style={styles.reserveMetaText}>
-                        Auto-filled · No contract · No loyalty bonus · Swap anytime for free
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.driverMeta}>
-                      <Text style={styles.driverPrice}>${driver.livePrice}</Text>
-                      {priceDiff !== 0 && (
-                        <View style={[styles.priceDiffBadge, priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                          <Ionicons name={priceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={11} color={COLORS.white} />
-                          <Text style={styles.priceDiffText}>${Math.abs(priceDiff)}</Text>
+                        <View style={styles.reserveTag}>
+                          <Text style={styles.reserveTagText}>AUTO-FILL</Text>
                         </View>
                       )}
-                      <Text style={styles.metaSeparator}>·</Text>
-                      <Text style={styles.saleText}>
-                        Sell: ${effectiveSaleValue}{earlyTermFee > 0 ? ` (-$${earlyTermFee} fee)` : priceDiff > 0 ? ` (+$${priceDiff})` : priceDiff < 0 ? ` (-$${Math.abs(priceDiff)})` : ''}
-                      </Text>
-                      <Text style={styles.metaSeparator}>·</Text>
-                      <Ionicons name="document-text-outline" size={12} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
-                      {isLastRace ? (
-                        <Text style={styles.contractLastRace}>LAST RACE</Text>
-                      ) : (
-                        <Text style={[styles.contractText, contractRemaining <= 1 && { color: COLORS.warning }]}>
-                          {driver.racesHeld || 0}/{contractLen}
-                        </Text>
-                      )}
-                      <Text style={styles.metaSeparator}>·</Text>
-                      <Ionicons name="flame" size={12} color={loyalty > 0 ? COLORS.gold : COLORS.text.muted} />
-                      <Text style={[styles.loyaltyText, loyalty > 0 && { color: COLORS.gold }]}>
-                        +{nextRate}/race
-                      </Text>
                     </View>
-                  )}
+                    {/* Row 2: Meta badges */}
+                    <View style={styles.cardMetaRow}>
+                      {cInfo && (
+                        <View style={[styles.metaChip, { backgroundColor: accentColor + '18' }]}>
+                          <Text style={[styles.metaChipText, { color: accentColor }]}>{cInfo.shortName}</Text>
+                        </View>
+                      )}
+                      <View style={styles.metaChip}>
+                        <Text style={styles.metaChipText}>{formatPoints(driver.pointsScored)} pts</Text>
+                      </View>
+                      {!isReserve && (
+                        <>
+                          <View style={[styles.metaChip, isLastRace && { backgroundColor: COLORS.warning + '18' }]}>
+                            <Ionicons name="document-text-outline" size={10} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
+                            <Text style={[styles.metaChipText, isLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
+                              {isLastRace ? 'LAST' : `${driver.racesHeld || 0}/${contractLen}`}
+                            </Text>
+                          </View>
+                          <View style={styles.metaChip}>
+                            <Ionicons name="flame" size={10} color={nextRate > 1 ? COLORS.gold : COLORS.text.muted} />
+                            <Text style={[styles.metaChipText, nextRate > 1 && { color: COLORS.gold }]}>+{nextRate}/r</Text>
+                          </View>
+                        </>
+                      )}
+                      <View style={{ flex: 1 }} />
+                      {canModify && !isReserve && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
+                          hitSlop={6}
+                          style={styles.sellChip}
+                        >
+                          <Text style={styles.sellChipText}>Sell ${effectiveSaleValue}</Text>
+                        </TouchableOpacity>
+                      )}
+                      {canModify && isReserve && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
+                          hitSlop={6}
+                          style={styles.swapChip}
+                        >
+                          <Text style={styles.swapChipText}>Swap</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
                 </View>
               );
             })
@@ -868,11 +850,11 @@ export default function MyTeamScreen() {
         {/* Add Driver button */}
         {driversCount < TEAM_SIZE && canModify && (
           <TouchableOpacity
-            style={styles.addButton}
+            style={styles.addSlotButton}
             onPress={() => router.push('/my-team/select-driver')}
           >
-            <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.addButtonText}>Add Driver ({driversCount}/{TEAM_SIZE})</Text>
+            <Ionicons name="add" size={18} color={COLORS.primary} />
+            <Text style={styles.addSlotText}>Add Driver ({driversCount}/{TEAM_SIZE})</Text>
           </TouchableOpacity>
         )}
 
@@ -883,72 +865,63 @@ export default function MyTeamScreen() {
           const livePrice = marketC?.price ?? c.currentPrice;
           const cInfo = constructorLookup[c.constructorId];
           const cPriceDiff = livePrice - c.purchasePrice;
-          const cLoyalty = getLoyaltyBonus(c.racesHeld || 0);
           const cNextRate = getNextLoyaltyRate(c.racesHeld || 0);
-          // V8: Constructor contract info
           const cContractLen = c.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
           const cContractRemaining = cContractLen - (c.racesHeld || 0);
           const cIsLastRace = cContractRemaining === 1;
           const cEarlyTermFee = calculateEarlyTerminationFee(c.purchasePrice, cContractLen, c.racesHeld || 0);
           const cEffectiveSaleValue = Math.max(0, livePrice - cEarlyTermFee);
+          const cAccent = cInfo?.primaryColor || COLORS.primary;
 
           return (
-            <View style={styles.driverRow}>
-              <View style={styles.driverRowTop}>
-                <View style={styles.driverRowLeft}>
-                  <View style={styles.driverNameLine}>
-                    <Text style={styles.driverName}>{c.name}</Text>
-                    {cInfo && (
-                      <View style={[styles.constructorBadge, { backgroundColor: cInfo.primaryColor }]}>
-                        <Text style={styles.constructorBadgeText}>{cInfo.shortName}</Text>
+            <View style={styles.card}>
+              <View style={[styles.cardAccent, { backgroundColor: cAccent }]} />
+              <View style={styles.cardBody}>
+                <View style={styles.cardTopRow}>
+                  <View style={styles.cardIdentity}>
+                    <Ionicons name="construct" size={14} color={cAccent} />
+                    <Text style={styles.cardName} numberOfLines={1}>{c.name}</Text>
+                  </View>
+                  <View style={styles.cardPriceBlock}>
+                    <Text style={styles.cardPrice}>${livePrice}</Text>
+                    {cPriceDiff !== 0 && (
+                      <View style={[styles.cardPriceDiff, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
+                        <Ionicons name={cPriceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
+                        <Text style={styles.cardPriceDiffText}>${Math.abs(cPriceDiff)}</Text>
                       </View>
                     )}
                   </View>
                 </View>
-                <View style={styles.driverRowRight}>
-                  <Text style={styles.driverPoints}>{formatPoints(c.pointsScored)} pts</Text>
-                  <View style={{ width: 18 }} />
-                  {canModify && (() => {
-                    const cSaleDiff = cEffectiveSaleValue - c.purchasePrice;
-                    const cSaleColor = cSaleDiff > 0 ? '#16a34a' : cSaleDiff < 0 ? COLORS.error : COLORS.text.muted;
-                    return (
-                      <TouchableOpacity
-                        onPress={handleRemoveConstructor}
-                        hitSlop={8}
-                        style={[styles.sellButton, { backgroundColor: cSaleColor + '15' }]}
-                      >
-                        <Ionicons name="cash-outline" size={16} color={cSaleColor} />
-                      </TouchableOpacity>
-                    );
-                  })()}
-                </View>
-              </View>
-              <View style={styles.driverMeta}>
-                <Text style={styles.driverPrice}>${livePrice}</Text>
-                {cPriceDiff !== 0 && (
-                  <View style={[styles.priceDiffBadge, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                    <Ionicons name={cPriceDiff > 0 ? 'arrow-up' : 'arrow-down'} size={11} color={COLORS.white} />
-                    <Text style={styles.priceDiffText}>${Math.abs(cPriceDiff)}</Text>
+                <View style={styles.cardMetaRow}>
+                  {cInfo && (
+                    <View style={[styles.metaChip, { backgroundColor: cAccent + '18' }]}>
+                      <Text style={[styles.metaChipText, { color: cAccent }]}>{cInfo.shortName}</Text>
+                    </View>
+                  )}
+                  <View style={styles.metaChip}>
+                    <Text style={styles.metaChipText}>{formatPoints(c.pointsScored)} pts</Text>
                   </View>
-                )}
-                <Text style={styles.metaSeparator}>·</Text>
-                <Text style={styles.saleText}>
-                  Sell: ${cEffectiveSaleValue}{cEarlyTermFee > 0 ? ` (-$${cEarlyTermFee} fee)` : cPriceDiff > 0 ? ` (+$${cPriceDiff})` : cPriceDiff < 0 ? ` (-$${Math.abs(cPriceDiff)})` : ''}
-                </Text>
-                <Text style={styles.metaSeparator}>·</Text>
-                <Ionicons name="document-text-outline" size={12} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
-                {cIsLastRace ? (
-                  <Text style={styles.contractLastRace}>LAST RACE</Text>
-                ) : (
-                  <Text style={[styles.contractText, cContractRemaining <= 1 && { color: COLORS.warning }]}>
-                    {c.racesHeld || 0}/{cContractLen}
-                  </Text>
-                )}
-                <Text style={styles.metaSeparator}>·</Text>
-                <Ionicons name="flame" size={12} color={cLoyalty > 0 ? COLORS.gold : COLORS.text.muted} />
-                <Text style={[styles.loyaltyText, cLoyalty > 0 && { color: COLORS.gold }]}>
-                  +{cNextRate}/race
-                </Text>
+                  <View style={[styles.metaChip, cIsLastRace && { backgroundColor: COLORS.warning + '18' }]}>
+                    <Ionicons name="document-text-outline" size={10} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
+                    <Text style={[styles.metaChipText, cIsLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
+                      {cIsLastRace ? 'LAST' : `${c.racesHeld || 0}/${cContractLen}`}
+                    </Text>
+                  </View>
+                  <View style={styles.metaChip}>
+                    <Ionicons name="flame" size={10} color={cNextRate > 1 ? COLORS.gold : COLORS.text.muted} />
+                    <Text style={[styles.metaChipText, cNextRate > 1 && { color: COLORS.gold }]}>+{cNextRate}/r</Text>
+                  </View>
+                  <View style={{ flex: 1 }} />
+                  {canModify && (
+                    <TouchableOpacity
+                      onPress={handleRemoveConstructor}
+                      hitSlop={6}
+                      style={styles.sellChip}
+                    >
+                      <Text style={styles.sellChipText}>Sell ${cEffectiveSaleValue}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </View>
           );
@@ -957,11 +930,11 @@ export default function MyTeamScreen() {
         {/* Add Constructor button */}
         {!hasConstructor && canModify && (
           <TouchableOpacity
-            style={styles.addButton}
+            style={styles.addSlotButton}
             onPress={() => router.push('/my-team/select-constructor')}
           >
-            <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.addButtonText}>Add Constructor (0/1)</Text>
+            <Ionicons name="add" size={18} color={COLORS.primary} />
+            <Text style={styles.addSlotText}>Add Constructor (0/1)</Text>
           </TouchableOpacity>
         )}
 
@@ -1004,6 +977,7 @@ export default function MyTeamScreen() {
           onGenerateAI={handleGenerateTeamAvatar}
           isGeneratingAI={isGeneratingAvatar}
           canGenerateAI={isAvatarAvailable}
+          userId={user?.id}
         />
       )}
 
@@ -1244,91 +1218,81 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
 
-  // Driver row
-  driverRow: {
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border.default,
-  },
-  driverRowTop: {
+  // Driver/Constructor card
+  card: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+    overflow: 'hidden',
   },
-  driverRowLeft: {
+  cardReserve: {
+    opacity: 0.6,
+  },
+  cardAccent: {
+    width: 4,
+  },
+  cardBody: {
+    flex: 1,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.md,
+    gap: 6,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     flex: 1,
   },
-  driverNameLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  driverNumberBadge: {
-    borderRadius: BORDER_RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.text.muted + '30',
-    backgroundColor: COLORS.text.muted + '18',
+  cardNumberBadge: {
+    minWidth: 28,
     paddingHorizontal: 4,
     paddingVertical: 1,
-    minWidth: 28,
+    borderRadius: BORDER_RADIUS.sm,
     alignItems: 'center',
   },
-  driverNumber: {
-    fontSize: FONTS.sizes.lg,
+  cardNumberText: {
+    fontSize: FONTS.sizes.sm,
     fontWeight: '800',
-    color: COLORS.text.muted,
+    color: COLORS.white,
   },
-  driverName: {
-    fontSize: FONTS.sizes.lg,
+  cardName: {
+    fontSize: FONTS.sizes.md,
     fontWeight: '700',
     color: COLORS.text.primary,
     flexShrink: 1,
   },
-  constructorBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  constructorBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  driverRowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  driverPoints: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text.secondary,
-  },
-  aceBadge: {
+  aceActive: {
     backgroundColor: COLORS.gold,
-    borderRadius: 10,
-    width: 24,
-    height: 24,
+    borderRadius: 8,
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  driverMeta: {
+  cardPriceBlock: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
+    gap: 4,
   },
-  driverPrice: {
+  cardPrice: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.text.muted,
-    fontWeight: '500',
+    fontWeight: '700',
+    color: COLORS.text.primary,
   },
-  priceDiffBadge: {
+  cardPriceDiff: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    gap: 1,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
     borderRadius: 4,
   },
   priceUp: {
@@ -1337,29 +1301,67 @@ const styles = StyleSheet.create({
   priceDown: {
     backgroundColor: COLORS.error,
   },
-  priceDiffText: {
-    fontSize: 11,
+  cardPriceDiffText: {
+    fontSize: 10,
     fontWeight: '700',
     color: COLORS.white,
   },
-  metaSeparator: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.muted,
-    marginHorizontal: 2,
+  reserveTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: COLORS.text.muted + '20',
   },
-  saleText: {
-    fontSize: FONTS.sizes.sm,
+  reserveTagText: {
+    fontSize: 10,
+    fontWeight: '700',
     color: COLORS.text.muted,
+    letterSpacing: 0.5,
   },
-  loyaltyText: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.muted,
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+  metaChipText: {
+    fontSize: 11,
     fontWeight: '600',
+    color: COLORS.text.muted,
   },
-  sellButton: {
-    padding: 4,
-    borderRadius: 6,
-    backgroundColor: COLORS.error + '15',
+  sellChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: COLORS.error + '12',
+    borderWidth: 1,
+    borderColor: COLORS.error + '25',
+  },
+  sellChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.error,
+  },
+  swapChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: COLORS.primary + '12',
+    borderWidth: 1,
+    borderColor: COLORS.primary + '25',
+  },
+  swapChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
   // V5: Lockout styles
   lockoutBanner: {
@@ -1384,33 +1386,6 @@ const styles = StyleSheet.create({
     color: '#7c3aed' + 'AA',
     marginTop: 2,
   },
-  reserveRow: {
-    opacity: 0.6,
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.text.muted,
-  },
-  reserveDriverName: {
-    color: COLORS.text.muted,
-  },
-  reserveMetaText: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
-    fontStyle: 'italic',
-    marginLeft: 4,
-  },
-  reserveBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-    backgroundColor: COLORS.text.muted + '25',
-    borderWidth: 1,
-    borderColor: COLORS.text.muted + '40',
-  },
-  reserveBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.text.muted,
-  },
   lockoutNotice: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1428,16 +1403,6 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     color: COLORS.text.secondary,
     lineHeight: 16,
-  },
-  contractText: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.muted,
-    fontWeight: '600',
-  },
-  contractLastRace: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '700',
-    color: COLORS.warning,
   },
 
   teamAlert: {
@@ -1457,18 +1422,22 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Add button
-  addButton: {
+  // Add slot button
+  addSlotButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border.default,
+    gap: 6,
+    paddingVertical: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+    borderStyle: 'dashed',
+    backgroundColor: COLORS.primary + '06',
   },
-  addButtonText: {
-    fontSize: FONTS.sizes.md,
+  addSlotText: {
+    fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     color: COLORS.primary,
   },
