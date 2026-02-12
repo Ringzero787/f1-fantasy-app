@@ -8,6 +8,12 @@ export default {
     scheme: "f1fantasy",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+    updates: {
+      url: "https://u.expo.dev/e79dd8e5-5f63-40f9-a153-87c5225a2516"
+    },
+    runtimeVersion: {
+      policy: "appVersion"
+    },
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
