@@ -759,13 +759,26 @@ export default function MyTeamScreen() {
                   <View style={styles.driverRowTop}>
                     <View style={styles.driverRowLeft}>
                       <View style={styles.driverNameLine}>
-                        {driver.driverNumber != null && (
-                          <View style={[styles.driverNumberBadge, cInfo && { backgroundColor: (isReserve ? COLORS.text.muted : cInfo.primaryColor) + '18', borderColor: (isReserve ? COLORS.text.muted : cInfo.primaryColor) + '30' }]}>
-                            <Text style={[styles.driverNumber, cInfo && { color: isReserve ? COLORS.text.muted : cInfo.primaryColor }]}>
-                              {driver.driverNumber}
-                            </Text>
-                          </View>
-                        )}
+                        {driver.driverNumber != null && (() => {
+                          const badgeColor = isReserve ? COLORS.text.muted : cInfo?.primaryColor || COLORS.text.muted;
+                          // Perceived brightness: dark constructor colors get white text
+                          let textColor = badgeColor;
+                          if (cInfo && !isReserve) {
+                            const hex = cInfo.primaryColor.replace('#', '');
+                            const r = parseInt(hex.substring(0, 2), 16);
+                            const g = parseInt(hex.substring(2, 4), 16);
+                            const b = parseInt(hex.substring(4, 6), 16);
+                            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+                            if (luminance < 100) textColor = COLORS.white;
+                          }
+                          return (
+                            <View style={[styles.driverNumberBadge, { backgroundColor: badgeColor + '18', borderColor: badgeColor + '30' }]}>
+                              <Text style={[styles.driverNumber, { color: textColor }]}>
+                                {driver.driverNumber}
+                              </Text>
+                            </View>
+                          );
+                        })()}
                         <Text style={[styles.driverName, isReserve && styles.reserveDriverName]}>{driver.name}</Text>
                         {cInfo && (
                           <View style={[styles.constructorBadge, { backgroundColor: isReserve ? COLORS.text.muted : cInfo.primaryColor }]}>
