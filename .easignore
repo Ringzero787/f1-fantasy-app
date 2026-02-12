@@ -1,10 +1,52 @@
-# EAS Build - exclude unnecessary files to reduce archive size
-# CRITICAL: exclude android/ so EAS uses managed workflow (runs prebuild)
-android/
+# Start from .gitignore entries
+node_modules/
+.pnp
+.pnp.js
+.expo/
+dist/
+web-build/
 ios/
+android/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+functions/lib/
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+google-services.json
+GoogleService-Info.plist
+**/client_secret*.json
+*.keystore
+*.jks
+credentials.json
+scripts/serviceAccountKey.json
+serviceAccountKey.json
+functions/serviceAccountKey.json
+firebase/*.json
+**/firebase-adminsdk*.json
+nul
+*.apk
+*.aab
+*.ipa
+expo-env.d.ts
+
+# Additional EAS exclusions
 pics/
 android-bundle/
 scripts/
 __tests__/
 *.md
-.expo/

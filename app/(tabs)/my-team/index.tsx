@@ -699,7 +699,7 @@ export default function MyTeamScreen() {
           <View style={[styles.teamAlert, { backgroundColor: COLORS.gold + '15', borderColor: COLORS.gold + '30' }]}>
             <Ionicons name="diamond-outline" size={16} color={COLORS.gold} />
             <Text style={[styles.teamAlertText, { color: COLORS.gold }]}>
-              No Ace selected — tap the <Ionicons name="diamond-outline" size={12} color={COLORS.gold} /> on an eligible driver (under ${PRICING_CONFIG.ACE_MAX_PRICE})
+              No Ace selected — tap the diamond icon on an eligible driver (under ${PRICING_CONFIG.ACE_MAX_PRICE})
             </Text>
           </View>
         )}
@@ -760,9 +760,11 @@ export default function MyTeamScreen() {
                     <View style={styles.driverRowLeft}>
                       <View style={styles.driverNameLine}>
                         {driver.driverNumber != null && (
-                          <Text style={[styles.driverNumber, cInfo && { color: isReserve ? COLORS.text.muted : cInfo.primaryColor }]}>
-                            {driver.driverNumber}
-                          </Text>
+                          <View style={[styles.driverNumberBadge, cInfo && { backgroundColor: (isReserve ? COLORS.text.muted : cInfo.primaryColor) + '18', borderColor: (isReserve ? COLORS.text.muted : cInfo.primaryColor) + '30' }]}>
+                            <Text style={[styles.driverNumber, cInfo && { color: isReserve ? COLORS.text.muted : cInfo.primaryColor }]}>
+                              {driver.driverNumber}
+                            </Text>
+                          </View>
                         )}
                         <Text style={[styles.driverName, isReserve && styles.reserveDriverName]}>{driver.name}</Text>
                         {cInfo && (
@@ -1248,11 +1250,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
   },
+  driverNumberBadge: {
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.text.muted + '30',
+    backgroundColor: COLORS.text.muted + '18',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 28,
+    alignItems: 'center',
+  },
   driverNumber: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '800',
     color: COLORS.text.muted,
-    minWidth: 24,
   },
   driverName: {
     fontSize: FONTS.sizes.lg,
