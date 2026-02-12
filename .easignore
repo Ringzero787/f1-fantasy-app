@@ -44,8 +44,10 @@ nul
 *.ipa
 expo-env.d.ts
 
-# Additional EAS exclusions
-pics/
+# Additional EAS exclusions - keep pics/tracks/ for track images used in app
+pics/screen*.png
+pics/emulator*.png
+pics/app graphics/
 android-bundle/
 scripts/
 __tests__/
