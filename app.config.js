@@ -1,7 +1,7 @@
 export default {
   expo: {
     name: "The Undercut",
-    slug: "the-undercut-app",
+    slug: "f1-fantasy-app",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
