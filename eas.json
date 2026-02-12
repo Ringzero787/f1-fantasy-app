@@ -16,7 +16,8 @@
       "environment": "preview",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
+        "gradleCommand": ":app:assembleRelease",
+        "image": "latest"
       }
     },
     "preview-store": {
