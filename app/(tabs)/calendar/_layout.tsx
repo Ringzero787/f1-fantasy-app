@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity } from 'react-native';
+import { Image, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/config/constants';
@@ -21,6 +21,12 @@ export default function CalendarLayout() {
         name="index"
         options={{
           title: 'Race Calendar',
+          headerTitle: () => (
+            <Image
+              source={require('../../../pics/app graphics/racecalendar.png')}
+              style={{ width: 150, height: 36, resizeMode: 'contain' }}
+            />
+          ),
         }}
       />
       <Stack.Screen

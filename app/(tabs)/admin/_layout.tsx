@@ -18,6 +18,12 @@ export default function AdminLayout() {
         name="index"
         options={{
           title: 'Admin Panel',
+          headerTitle: '',
+          headerStyle: {
+            backgroundColor: COLORS.surface,
+            height: 50,
+          },
+          headerShadowVisible: false,
         }}
       />
       <Stack.Screen
