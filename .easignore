@@ -1,4 +1,7 @@
 # EAS Build - exclude unnecessary files to reduce archive size
+# CRITICAL: exclude android/ so EAS uses managed workflow (runs prebuild)
+android/
+ios/
 pics/
 android-bundle/
 scripts/
