@@ -84,7 +84,6 @@ export default function NewsManageContent() {
       if (!article.isRead) {
         setDraftCount(prev => Math.max(0, prev - 1));
       }
-      Alert.alert('Approved', `"${article.title}" has been approved.`);
     } catch {
       Alert.alert('Error', 'Failed to approve article.');
     }

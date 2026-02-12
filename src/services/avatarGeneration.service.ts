@@ -30,18 +30,24 @@ const IMAGE_GENERATION_MODELS = [
 const AVATAR_PROMPTS = {
   league: (name: string) =>
     `Create a simple, minimal logo for an F1 racing league called "${name}". ` +
+    `The image MUST be a square that fills the entire canvas edge-to-edge. ` +
+    `Do NOT use a circular frame or circular crop — fill the full square. ` +
     `Use only 2-3 bold colors on a solid background. One clean shape or icon — ` +
     `no clutter, no small details. Think app icon simplicity. ` +
     `Flat design, no gradients, no text, no shadows. Works at 64x64 pixels.`,
 
   team: (name: string) =>
     `Create a simple, minimal badge for an F1 team called "${name}". ` +
+    `The image MUST be a square that fills the entire canvas edge-to-edge. ` +
+    `Do NOT use a circular frame or circular crop — fill the full square. ` +
     `One bold shape or silhouette on a solid color background. ` +
     `Maximum 2-3 colors, flat design, no fine details or textures. ` +
     `Think of a simple app icon. No text, no gradients, no shadows.`,
 
   user: (name: string) =>
     `Create a simple, minimal avatar icon for a person named "${name}". ` +
+    `The image MUST be a square that fills the entire canvas edge-to-edge. ` +
+    `Do NOT use a circular frame or circular crop — fill the full square. ` +
     `One bold geometric shape or abstract face on a solid color background. ` +
     `Maximum 2-3 flat colors. Extremely simple — no details, no texture. ` +
     `Think emoji-level simplicity. No text, no gradients.`,

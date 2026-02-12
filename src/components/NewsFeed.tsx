@@ -47,7 +47,7 @@ function getTimeAgo(date: Date): string {
   return `${Math.floor(days / 7)}w ago`;
 }
 
-const MAX_ARTICLES = 3;
+const MAX_ARTICLES = 5;
 
 export function NewsFeed() {
   const allArticles = useNewsStore(s => s.articles);

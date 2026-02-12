@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  PanResponder,
+  Animated,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +38,47 @@ export default function HomeScreen() {
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  // Swipe to switch teams
+  const swipeX = useRef(new Animated.Value(0)).current;
+  const swipeTeamRef = useRef<(dir: 'left' | 'right') => void>(() => {});
+  swipeTeamRef.current = (direction: 'left' | 'right') => {
+    if (userTeams.length < 2 || !currentTeam) return;
+    const idx = userTeams.findIndex(t => t.id === currentTeam.id);
+    const nextIdx = direction === 'left'
+      ? (idx + 1) % userTeams.length
+      : (idx - 1 + userTeams.length) % userTeams.length;
+    selectTeam(userTeams[nextIdx].id);
+  };
+
+  const teamPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) =>
+        Math.abs(gs.dx) > 15 && Math.abs(gs.dy) < Math.abs(gs.dx),
+      onPanResponderMove: (_, gs) => {
+        swipeX.setValue(gs.dx);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dx < -50) {
+          swipeTeamRef.current('left');
+        } else if (gs.dx > 50) {
+          swipeTeamRef.current('right');
+        }
+        Animated.spring(swipeX, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 120,
+          friction: 8,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(swipeX, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
 
   // Sort drivers based on current sort order (using 2026 points)
   const sortedTopDrivers = useMemo(() => {
@@ -105,6 +148,28 @@ export default function HomeScreen() {
     return idx !== -1 ? idx + 1 : null;
   }, [currentTeam, primaryLeague, userTeams]);
 
+  // Check all teams for warnings
+  const teamWarnings = useMemo(() => {
+    const warnings: { teamName: string; issues: string[] }[] = [];
+    for (const team of userTeams) {
+      const issues: string[] = [];
+      const driverCount = team.drivers.length;
+      if (driverCount < TEAM_SIZE) {
+        issues.push(`needs ${TEAM_SIZE - driverCount} more driver${TEAM_SIZE - driverCount > 1 ? 's' : ''}`);
+      }
+      if (!team.constructor) {
+        issues.push('no constructor selected');
+      }
+      if (driverCount === TEAM_SIZE && team.constructor && !team.aceDriverId) {
+        issues.push('no ace driver set');
+      }
+      if (issues.length > 0) {
+        warnings.push({ teamName: team.name, issues });
+      }
+    }
+    return warnings;
+  }, [userTeams]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refetchRace(), refetchDrivers(), loadArticles(true)]);
@@ -148,6 +213,28 @@ export default function HomeScreen() {
 
       {/* Race Countdown / Lockout Banner */}
       {nextRace && <CountdownBanner race={nextRace} accentColor="#7c3aed" />}
+
+      {/* Team Warnings */}
+      {teamWarnings.length > 0 && (
+        <TouchableOpacity
+          style={styles.warningBanner}
+          onPress={() => router.push('/my-team')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.warningIconContainer}>
+            <Ionicons name="warning" size={20} color={COLORS.warning} />
+          </View>
+          <View style={styles.warningContent}>
+            {teamWarnings.map((w, i) => (
+              <Text key={i} style={styles.warningText} numberOfLines={1}>
+                <Text style={styles.warningTeamName}>{w.teamName}</Text>
+                {' — '}{w.issues.join(', ')}
+              </Text>
+            ))}
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.warning} />
+        </TouchableOpacity>
+      )}
 
       {/* Quick Stats */}
       <View style={styles.statsRow}>
@@ -226,6 +313,10 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {currentTeam ? (
+          <Animated.View
+            {...teamPanResponder.panHandlers}
+            style={{ transform: [{ translateX: swipeX }] }}
+          >
           <Card variant="elevated" style={styles.teamSummaryCard}>
             <View style={styles.teamHeader}>
               <Avatar
@@ -307,6 +398,7 @@ export default function HomeScreen() {
               </View>
             )}
           </Card>
+          </Animated.View>
         ) : (
           <Card variant="outlined" padding="large">
             <View style={styles.noTeamContainer}>
@@ -471,6 +563,42 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     color: COLORS.primary,
+  },
+
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.warning + '12',
+    borderWidth: 1,
+    borderColor: COLORS.warning + '30',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+
+  warningIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.warning + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  warningContent: {
+    flex: 1,
+    gap: 2,
+  },
+
+  warningText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+  },
+
+  warningTeamName: {
+    fontWeight: '700',
+    color: COLORS.warning,
   },
 
   statsRow: {

@@ -711,6 +711,21 @@ export default function AdminContent() {
         </View>
       </Card>
 
+      {/* Manage News Feed Button */}
+      <TouchableOpacity
+        style={styles.newsButton}
+        onPress={() => router.push('/(tabs)/admin/news')}
+      >
+        <Ionicons name="newspaper-outline" size={18} color={COLORS.primary} />
+        <Text style={styles.newsButtonText}>Manage News Feed</Text>
+        {draftArticleCount > 0 && (
+          <View style={styles.draftBadge}>
+            <Text style={styles.draftBadgeText}>{draftArticleCount}</Text>
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
+      </TouchableOpacity>
+
       {/* Error Logs */}
       <TouchableOpacity
         style={styles.errorLogsButton}
@@ -741,21 +756,6 @@ export default function AdminContent() {
             ))}
           </View>
         )}
-      </TouchableOpacity>
-
-      {/* Manage News Feed Button */}
-      <TouchableOpacity
-        style={styles.newsButton}
-        onPress={() => router.push('/(tabs)/admin/news')}
-      >
-        <Ionicons name="newspaper-outline" size={18} color={COLORS.primary} />
-        <Text style={styles.newsButtonText}>Manage News Feed</Text>
-        {draftArticleCount > 0 && (
-          <View style={styles.draftBadge}>
-            <Text style={styles.draftBadgeText}>{draftArticleCount}</Text>
-          </View>
-        )}
-        <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
       </TouchableOpacity>
 
       {/* V5: Lock Override Toggle */}

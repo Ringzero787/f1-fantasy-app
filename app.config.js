@@ -1,11 +1,11 @@
 export default {
   expo: {
-    name: "F1 Fantasy",
-    slug: "f1-fantasy-app",
+    name: "The Undercut",
+    slug: "the-undercut-app",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
-    scheme: "f1fantasy",
+    scheme: "theundercut",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     updates: {
@@ -32,7 +32,7 @@ export default {
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#0D1117"
+        backgroundColor: "#FFFFFF"
       },
       package: "com.f1fantasy.app",
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json"

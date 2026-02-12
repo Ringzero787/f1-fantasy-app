@@ -103,7 +103,7 @@ export default function RegisterScreen() {
           <View style={styles.form}>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.description}>
-              Join the F1 Fantasy community and start competing
+              Join The Undercut community and start competing
             </Text>
 
             {allErrors.length > 0 && (

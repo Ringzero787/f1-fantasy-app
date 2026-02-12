@@ -41,9 +41,9 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.tagline}>Leave it to Me</Text>
-          <Text style={styles.logo}>F1</Text>
-          <Text style={styles.subtitle}>Fantasy</Text>
+          <Text style={styles.tagline}>Leave it to me.</Text>
+          <Text style={styles.logo}>The</Text>
+          <Text style={styles.subtitle}>Undercut</Text>
         </View>
 
         <View style={styles.form}>
@@ -88,25 +88,25 @@ const styles = StyleSheet.create({
   },
 
   tagline: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.xl,
     fontWeight: '400',
     color: '#6B7280',
     letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
 
   logo: {
     fontSize: 72,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+    fontWeight: '300',
+    color: '#374151',
   },
 
   subtitle: {
-    fontSize: FONTS.sizes.xxl,
-    fontWeight: '300',
-    color: '#374151',
-    marginTop: -SPACING.sm,
+    fontSize: 64,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginTop: -SPACING.xs,
   },
 
   form: {
@@ -114,14 +114,14 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: FONTS.sizes.xxl,
+    fontSize: FONTS.sizes.xxxl,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: SPACING.xs,
   },
 
   description: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.xl,
     color: '#6B7280',
     marginBottom: SPACING.xl,
   },

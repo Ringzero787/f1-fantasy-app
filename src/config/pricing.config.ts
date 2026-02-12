@@ -37,6 +37,9 @@ export const PRICING_CONFIG = {
   TEAM_SIZE: 5, // 5 drivers
   CONSTRUCTORS: 1, // 1 constructor
 
+  // Constructor pricing: halved because constructors accumulate both drivers' points
+  CONSTRUCTOR_PRICE_MULTIPLIER: 0.5,
+
   // V3: Ace System
   ACE_MULTIPLIER: 2.0, // Ace scores 2x points
   ACE_MAX_PRICE: 240,  // Drivers over this price cannot be ace
@@ -93,11 +96,21 @@ export const BONUS_POINTS = {
 
 /**
  * Calculate initial price from previous season points
- * Formula: (totalPoints / 24 races) * $10 per point
+ * Formula: (totalPoints / 24 races) * $24 per point
  */
 export function calculateInitialPrice(previousSeasonPoints: number): number {
   const avgPointsPerRace = previousSeasonPoints / PRICING_CONFIG.RACES_PER_SEASON;
   const price = Math.round(avgPointsPerRace * PRICING_CONFIG.DOLLARS_PER_POINT);
+  return Math.max(PRICING_CONFIG.MIN_PRICE, Math.min(PRICING_CONFIG.MAX_PRICE, price));
+}
+
+/**
+ * Calculate initial constructor price (half of driver formula)
+ * Constructors accumulate both drivers' points, so prices are halved
+ */
+export function calculateInitialConstructorPrice(previousSeasonPoints: number): number {
+  const avgPointsPerRace = previousSeasonPoints / PRICING_CONFIG.RACES_PER_SEASON;
+  const price = Math.round(avgPointsPerRace * PRICING_CONFIG.DOLLARS_PER_POINT * PRICING_CONFIG.CONSTRUCTOR_PRICE_MULTIPLIER);
   return Math.max(PRICING_CONFIG.MIN_PRICE, Math.min(PRICING_CONFIG.MAX_PRICE, price));
 }
 

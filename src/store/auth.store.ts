@@ -96,7 +96,7 @@ export const useAuthStore = create<AuthState>()(
           // Fall back to demo mode with Google profile info
           const demoUser: User = {
             id: 'google-demo-user',
-            email: 'demo@f1fantasy.app',
+            email: 'demo@theundercut.app',
             displayName: 'Demo User',
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -176,7 +176,7 @@ export const useAuthStore = create<AuthState>()(
       enterDemoMode: () => {
         const demoUser: User = {
           id: 'demo-user',
-          email: 'demo@f1fantasy.app',
+          email: 'demo@theundercut.app',
           displayName: 'Demo User',
           createdAt: new Date(),
           updatedAt: new Date(),

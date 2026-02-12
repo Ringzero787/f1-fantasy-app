@@ -72,17 +72,45 @@ export const ConstructorCard = React.memo(function ConstructorCard({
       <View style={[styles.teamColorBar, { backgroundColor: constructor.primaryColor }]} />
 
       <View style={styles.content}>
-        {/* Header with team info */}
-        <View style={styles.header}>
-          <View style={styles.constructorInfo}>
-            <View style={[styles.teamBadge, { backgroundColor: constructor.primaryColor + '15' }]}>
-              <View style={[styles.teamColorDot, { backgroundColor: constructor.primaryColor }]} />
-            </View>
-            <View style={styles.nameContainer}>
-              <Text style={styles.name}>{constructor.name}</Text>
-              <Text style={styles.nationality}>{constructor.nationality}</Text>
-            </View>
+        {/* Main row: badge + name left, stats right */}
+        <View style={styles.mainRow}>
+          {/* Team color badge */}
+          <View style={[styles.teamBadge, { backgroundColor: constructor.primaryColor + '20' }]}>
+            <View style={[styles.teamColorDot, { backgroundColor: constructor.primaryColor }]} />
           </View>
+
+          {/* Name + nationality */}
+          <View style={styles.nameBlock}>
+            <Text style={styles.name} numberOfLines={1}>{constructor.name}</Text>
+            <Text style={styles.nationality}>{constructor.nationality}</Text>
+          </View>
+
+          {/* Right: price + points stacked */}
+          <View style={styles.statsBlock}>
+            {showPrice && (
+              <View style={styles.priceRow}>
+                <Text style={styles.priceValue}>{formatDollars(constructor.price)}</Text>
+                {showPriceChange && priceDirection !== 'neutral' && (
+                  <View style={[styles.priceBadge, priceDirection === 'up' ? styles.priceUp : styles.priceDown]}>
+                    <Ionicons
+                      name={priceDirection === 'up' ? 'caret-up' : 'caret-down'}
+                      size={9}
+                      color={COLORS.white}
+                    />
+                    <Text style={styles.priceChangeText}>{Math.abs(priceChange)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            {showPoints && (
+              <View style={styles.pointsRow}>
+                <Text style={styles.pointsValue}>{formatPoints(constructor.currentSeasonPoints || 0)}</Text>
+                <Text style={styles.pointsLabel}>pts</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Select button if in selection mode */}
           {onSelect && (
             <Pressable
               onPress={onSelect}
@@ -90,59 +118,36 @@ export const ConstructorCard = React.memo(function ConstructorCard({
             >
               <View style={[styles.selectCircle, isSelected && styles.selectCircleActive]}>
                 {isSelected ? (
-                  <Ionicons name="checkmark" size={18} color={COLORS.white} />
+                  <Ionicons name="checkmark" size={16} color={COLORS.white} />
                 ) : (
-                  <Ionicons name="add" size={18} color={COLORS.text.muted} />
+                  <Ionicons name="add" size={16} color={COLORS.text.muted} />
                 )}
               </View>
             </Pressable>
           )}
         </View>
 
-        {/* Stats row */}
-        <View style={styles.stats}>
-          {showPrice && (
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>PRICE</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.statValue}>{formatDollars(constructor.price)}</Text>
-                {showPriceChange && priceDirection !== 'neutral' && (
-                  <View style={[styles.priceBadge, priceDirection === 'up' ? styles.priceUp : styles.priceDown]}>
-                    <Ionicons
-                      name={priceDirection === 'up' ? 'trending-up' : 'trending-down'}
-                      size={12}
-                      color={COLORS.white}
-                    />
-                    <Text style={styles.priceChangeText}>{Math.abs(priceChange)}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
-          {showPoints && (
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>2026 PTS</Text>
-              <Text style={styles.statValue}>{formatPoints(constructor.currentSeasonPoints || 0)}</Text>
-            </View>
-          )}
-
+        {/* Bottom badges row */}
+        <View style={styles.badgesRow}>
+          <View style={styles.constructorBadge}>
+            <Text style={styles.constructorBadgeText}>Constructor</Text>
+          </View>
           {showPosition && position && (
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>POSITION</Text>
-              <View style={styles.positionContainer}>
-                {position <= 3 && (
-                  <Ionicons
-                    name={position === 1 ? 'trophy' : 'medal'}
-                    size={16}
-                    color={position === 1 ? COLORS.gold : position === 2 ? COLORS.silver : COLORS.bronze}
-                    style={styles.positionIcon}
-                  />
-                )}
-                <Text style={[styles.statValue, position <= 3 && styles.topPosition]}>
-                  #{position}
-                </Text>
-              </View>
+            <View style={styles.positionBadge}>
+              {position <= 3 && (
+                <Ionicons
+                  name={position === 1 ? 'trophy' : 'medal'}
+                  size={10}
+                  color={position === 1 ? COLORS.gold : position === 2 ? COLORS.silver : COLORS.bronze}
+                />
+              )}
+              <Text style={[styles.positionText, position <= 3 && styles.topPositionText]}>#{position}</Text>
+            </View>
+          )}
+          {constructor.currentSeasonPoints > 0 && !showPoints && (
+            <View style={styles.fantasyBadge}>
+              <Ionicons name="trophy-outline" size={10} color={COLORS.primary} />
+              <Text style={styles.fantasyText}>{formatPoints(constructor.currentSeasonPoints)} pts</Text>
             </View>
           )}
         </View>
@@ -154,110 +159,181 @@ export const ConstructorCard = React.memo(function ConstructorCard({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: COLORS.card,
-    borderRadius: BORDER_RADIUS.xl,
-    marginBottom: SPACING.md,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: COLORS.border.default,
-  },
-
-  compactContainer: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     flexDirection: 'row',
-    alignItems: 'center',
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
 
-  selected: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    ...SHADOWS.glow,
-  },
-
   teamColorBar: {
-    width: 5,
-  },
-
-  teamColorAccent: {
     width: 4,
-    alignSelf: 'stretch',
   },
 
   content: {
     flex: 1,
-    padding: SPACING.lg,
-  },
-
-  compactContent: {
-    flex: 1,
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
     paddingHorizontal: SPACING.md,
   },
 
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-
-  constructorInfo: {
-    flex: 1,
+  mainRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   teamBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDER_RADIUS.md,
+    width: 38,
+    height: 38,
+    borderRadius: BORDER_RADIUS.sm + 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.md,
+    marginRight: SPACING.sm,
   },
 
   teamColorDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
 
-  nameContainer: {
+  nameBlock: {
     flex: 1,
+    marginRight: SPACING.sm,
   },
 
   name: {
-    fontSize: FONTS.sizes.lg,
+    fontSize: FONTS.sizes.md,
     fontWeight: '700',
     color: COLORS.text.primary,
     letterSpacing: -0.3,
   },
 
   nationality: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.xs,
     color: COLORS.text.muted,
-    marginTop: 2,
+    marginTop: 1,
   },
 
-  compactName: {
+  statsBlock: {
+    alignItems: 'flex-end',
+    minWidth: 80,
+  },
+
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  priceValue: {
     fontSize: FONTS.sizes.md,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.text.primary,
   },
 
+  priceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+    gap: 1,
+  },
+
+  priceUp: {
+    backgroundColor: COLORS.priceUp,
+  },
+
+  priceDown: {
+    backgroundColor: COLORS.priceDown,
+  },
+
+  priceChangeText: {
+    fontSize: 9,
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+
+  pointsRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+    marginTop: 1,
+  },
+
+  pointsValue: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  pointsLabel: {
+    fontSize: 9,
+    color: COLORS.text.muted,
+    fontWeight: '500',
+  },
+
+  badgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs + 2,
+    paddingTop: SPACING.xs + 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border.default,
+  },
+
+  constructorBadge: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+  },
+
+  constructorBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.text.muted,
+  },
+
+  positionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+
+  positionText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.text.muted,
+  },
+
+  topPositionText: {
+    color: COLORS.gold,
+  },
+
+  fantasyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+
+  fantasyText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  // Select mode
   selectButton: {
-    padding: SPACING.xs,
+    paddingLeft: SPACING.sm,
   },
 
   selectCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
@@ -270,72 +346,39 @@ const styles = StyleSheet.create({
     borderColor: COLORS.success,
   },
 
-  stats: {
+  selected: {
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    ...SHADOWS.glow,
+  },
+
+  // Compact (unchanged)
+  compactContainer: {
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.sm,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.default,
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
   },
 
-  stat: {
-    alignItems: 'flex-start',
+  teamColorAccent: {
+    width: 4,
+    alignSelf: 'stretch',
   },
 
-  statLabel: {
-    fontSize: FONTS.sizes.xs,
+  compactContent: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+  },
+
+  compactName: {
+    fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.text.muted,
-    letterSpacing: 0.5,
-    marginBottom: SPACING.xs,
-  },
-
-  statValue: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '700',
     color: COLORS.text.primary,
-  },
-
-  topPosition: {
-    color: COLORS.gold,
-  },
-
-  positionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  positionIcon: {
-    marginRight: SPACING.xs,
-  },
-
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-
-  priceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.full,
-    gap: 3,
-  },
-
-  priceUp: {
-    backgroundColor: COLORS.priceUp,
-  },
-
-  priceDown: {
-    backgroundColor: COLORS.priceDown,
-  },
-
-  priceChangeText: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.white,
-    fontWeight: '700',
   },
 
   compactPrice: {

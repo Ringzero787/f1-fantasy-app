@@ -1,4 +1,4 @@
-import { addDoc, updateDoc, doc, serverTimestamp, getDocs, query, orderBy, limit, where, Timestamp, getCountFromServer } from 'firebase/firestore';
+import { addDoc, updateDoc, doc, serverTimestamp, getDocs, query, orderBy, limit, where, Timestamp, getCountFromServer, writeBatch } from 'firebase/firestore';
 import { Platform } from 'react-native';
 import { collections, db } from '../config/firebase';
 import { useAuthStore } from '../store/auth.store';
@@ -128,6 +128,27 @@ export const errorLogService = {
       await updateDoc(logRef, { reviewed: true });
     } catch (e) {
       console.log('errorLogService: failed to mark log reviewed:', e);
+    }
+  },
+
+  async bulkMarkReviewed(logIds: string[]): Promise<number> {
+    if (logIds.length === 0) return 0;
+    try {
+      // Firestore batches max 500 writes
+      let updated = 0;
+      for (let i = 0; i < logIds.length; i += 500) {
+        const chunk = logIds.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(id => {
+          batch.update(doc(db, 'errorLogs', id), { reviewed: true });
+        });
+        await batch.commit();
+        updated += chunk.length;
+      }
+      return updated;
+    } catch (e) {
+      console.log('errorLogService: failed to bulk mark reviewed:', e);
+      return 0;
     }
   },
 

@@ -371,8 +371,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'British',
     primaryColor: '#FF8000',
     secondaryColor: '#47C7FC',
-    price: 960,
-    previousPrice: 912,
+    price: 480,
+    previousPrice: 456,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -386,8 +386,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'German',
     primaryColor: '#27F4D2',
     secondaryColor: '#000000',
-    price: 619,
-    previousPrice: 600,
+    price: 310,
+    previousPrice: 300,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -401,8 +401,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'Austrian',
     primaryColor: '#3671C6',
     secondaryColor: '#FFD700',
-    price: 602,
-    previousPrice: 588,
+    price: 301,
+    previousPrice: 294,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -416,8 +416,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'Italian',
     primaryColor: '#E80020',
     secondaryColor: '#FFEB00',
-    price: 552,
-    previousPrice: 540,
+    price: 276,
+    previousPrice: 270,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -431,8 +431,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'British',
     primaryColor: '#64C4FF',
     secondaryColor: '#00A3E0',
-    price: 307,
-    previousPrice: 300,
+    price: 154,
+    previousPrice: 150,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -446,8 +446,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'Italian',
     primaryColor: '#6692FF',
     secondaryColor: '#1E5BC6',
-    price: 266,
-    previousPrice: 259,
+    price: 133,
+    previousPrice: 130,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -461,8 +461,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'British',
     primaryColor: '#229971',
     secondaryColor: '#CEDC00',
-    price: 264,
-    previousPrice: 257,
+    price: 132,
+    previousPrice: 129,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -476,8 +476,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'American',
     primaryColor: '#B6BABD',
     secondaryColor: '#E10600',
-    price: 254,
-    previousPrice: 247,
+    price: 127,
+    previousPrice: 124,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -491,8 +491,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'Swiss',
     primaryColor: '#52E252',
     secondaryColor: '#000000',
-    price: 245,
-    previousPrice: 240,
+    price: 123,
+    previousPrice: 120,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -506,8 +506,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'French',
     primaryColor: '#FF87BC',
     secondaryColor: '#0093CC',
-    price: 202,
-    previousPrice: 197,
+    price: 101,
+    previousPrice: 99,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -521,8 +521,8 @@ export const demoConstructors: Constructor[] = [
     nationality: 'American',
     primaryColor: '#524E4E',
     secondaryColor: '#000000',
-    price: 180,
-    previousPrice: 180,
+    price: 90,
+    previousPrice: 90,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,

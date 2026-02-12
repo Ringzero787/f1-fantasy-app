@@ -655,15 +655,15 @@ export const INITIAL_DRIVER_PRICES = {
 // ============================================
 
 export const INITIAL_CONSTRUCTOR_PRICES = {
-  mclaren: 960,
-  mercedes: 619,
-  red_bull: 602,
-  ferrari: 552,
-  williams: 307,
-  racing_bulls: 266,
-  aston_martin: 264,
-  haas: 254,
-  sauber: 245,
-  alpine: 202,
-  cadillac: 180,
+  mclaren: 480,
+  mercedes: 310,
+  red_bull: 301,
+  ferrari: 276,
+  williams: 154,
+  racing_bulls: 133,
+  aston_martin: 132,
+  haas: 127,
+  sauber: 123,
+  alpine: 101,
+  cadillac: 90,
 } as const;

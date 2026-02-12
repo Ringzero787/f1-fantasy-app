@@ -59,6 +59,7 @@ export default function ErrorLogsContent() {
   const [loading, setLoading] = useState(true);
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [hideReviewed, setHideReviewed] = useState(true);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
@@ -73,12 +74,18 @@ export default function ErrorLogsContent() {
     loadLogs();
   }, [loadLogs]);
 
-  // Apply time filter
+  // Apply time filter + hide reviewed
   const timeFiltered = useMemo(() => {
+    let result = logs;
     const threshold = getTimeThreshold(timeFilter);
-    if (threshold === 0) return logs;
-    return logs.filter(l => l.createdAt.getTime() >= threshold);
-  }, [logs, timeFilter]);
+    if (threshold > 0) {
+      result = result.filter(l => l.createdAt.getTime() >= threshold);
+    }
+    if (hideReviewed) {
+      result = result.filter(l => !l.reviewed);
+    }
+    return result;
+  }, [logs, timeFilter, hideReviewed]);
 
   // Apply severity filter
   const filtered = useMemo(() => {
@@ -120,9 +127,23 @@ export default function ErrorLogsContent() {
       .slice(0, 10);
   }, [timeFiltered]);
 
+  const [bulkClosing, setBulkClosing] = useState<string | null>(null);
+
   const handleMarkReviewed = useCallback(async (logId: string) => {
     await errorLogService.markLogReviewed(logId);
     setLogs(prev => prev.map(l => l.id === logId ? { ...l, reviewed: true } : l));
+  }, []);
+
+  const handleBulkClose = useCallback(async (group: IssueGroup) => {
+    const unreviewedIds = group.entries.filter(e => !e.reviewed).map(e => e.id);
+    if (unreviewedIds.length === 0) return;
+    setBulkClosing(group.key);
+    const count = await errorLogService.bulkMarkReviewed(unreviewedIds);
+    if (count > 0) {
+      const idSet = new Set(unreviewedIds);
+      setLogs(prev => prev.map(l => idSet.has(l.id) ? { ...l, reviewed: true } : l));
+    }
+    setBulkClosing(null);
   }, []);
 
   const renderLogItem = ({ item }: { item: ErrorLogEntry }) => {
@@ -213,13 +234,28 @@ export default function ErrorLogsContent() {
                 <Ionicons name="alert-circle" size={24} color={COLORS.error} />
                 <Text style={styles.headerTitle}>Error Logs</Text>
               </View>
-              <TouchableOpacity onPress={loadLogs} style={styles.refreshButton}>
-                {loading ? (
-                  <ActivityIndicator size="small" color={COLORS.primary} />
-                ) : (
-                  <Ionicons name="refresh" size={20} color={COLORS.primary} />
-                )}
-              </TouchableOpacity>
+              <View style={styles.headerRight}>
+                <TouchableOpacity
+                  onPress={() => setHideReviewed(!hideReviewed)}
+                  style={[styles.hideReviewedToggle, hideReviewed && styles.hideReviewedToggleActive]}
+                >
+                  <Ionicons
+                    name={hideReviewed ? 'eye-off' : 'eye'}
+                    size={16}
+                    color={hideReviewed ? COLORS.success : COLORS.text.muted}
+                  />
+                  <Text style={[styles.hideReviewedText, hideReviewed && styles.hideReviewedTextActive]}>
+                    {hideReviewed ? 'Closed Hidden' : 'Show All'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={loadLogs} style={styles.refreshButton}>
+                  {loading ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                  ) : (
+                    <Ionicons name="refresh" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Summary Row */}
@@ -244,10 +280,13 @@ export default function ErrorLogsContent() {
                 <Text style={styles.sectionTitle}>Top Issues</Text>
                 {topIssues.map(group => {
                   const isGroupExpanded = expandedGroup === group.key;
+                  const unreviewedCount = group.entries.filter(e => !e.reviewed).length;
+                  const isBulkClosing = bulkClosing === group.key;
+                  const allReviewed = unreviewedCount === 0;
                   return (
                     <TouchableOpacity
                       key={group.key}
-                      style={styles.issueRow}
+                      style={[styles.issueRow, allReviewed && styles.issueRowReviewed]}
                       onPress={() => setExpandedGroup(isGroupExpanded ? null : group.key)}
                       activeOpacity={0.7}
                     >
@@ -263,18 +302,25 @@ export default function ErrorLogsContent() {
                             {group.message}
                           </Text>
                         </View>
-                        <Ionicons
-                          name={isGroupExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={16}
-                          color={COLORS.text.muted}
-                        />
+                        {allReviewed ? (
+                          <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
+                        ) : (
+                          <Ionicons
+                            name={isGroupExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={16}
+                            color={COLORS.text.muted}
+                          />
+                        )}
                       </View>
                       {isGroupExpanded && (
                         <View style={styles.issueEntries}>
                           {group.entries.slice(0, 5).map(entry => (
-                            <View key={entry.id} style={styles.issueEntry}>
+                            <View key={entry.id} style={[styles.issueEntry, entry.reviewed && { opacity: 0.5 }]}>
                               <Text style={styles.issueEntryTime}>{getRelativeTime(entry.createdAt)}</Text>
                               <Text style={styles.issueEntryUser}>{entry.userId}</Text>
+                              {entry.reviewed && (
+                                <Ionicons name="checkmark-circle" size={12} color={COLORS.success} />
+                              )}
                               <Text style={styles.issueEntryDevice}>{entry.deviceInfo}</Text>
                             </View>
                           ))}
@@ -282,6 +328,24 @@ export default function ErrorLogsContent() {
                             <Text style={styles.moreEntriesText}>
                               +{group.entries.length - 5} more
                             </Text>
+                          )}
+                          {unreviewedCount > 0 && (
+                            <TouchableOpacity
+                              style={styles.bulkCloseButton}
+                              onPress={() => handleBulkClose(group)}
+                              disabled={isBulkClosing}
+                            >
+                              {isBulkClosing ? (
+                                <ActivityIndicator size="small" color={COLORS.success} />
+                              ) : (
+                                <Ionicons name="checkmark-done" size={16} color={COLORS.success} />
+                              )}
+                              <Text style={styles.bulkCloseText}>
+                                {isBulkClosing
+                                  ? 'Closing...'
+                                  : `Close All ${unreviewedCount} Similar`}
+                              </Text>
+                            </TouchableOpacity>
                           )}
                         </View>
                       )}
@@ -385,6 +449,35 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
     color: COLORS.text.primary,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  hideReviewedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+  },
+  hideReviewedToggleActive: {
+    backgroundColor: COLORS.success + '12',
+    borderColor: COLORS.success + '30',
+  },
+  hideReviewedText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '500',
+    color: COLORS.text.muted,
+  },
+  hideReviewedTextActive: {
+    color: COLORS.success,
+    fontWeight: '600',
   },
   refreshButton: {
     padding: SPACING.sm,
@@ -491,6 +584,27 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     color: COLORS.primary,
     fontWeight: '500',
+  },
+  issueRowReviewed: {
+    opacity: 0.5,
+  },
+  bulkCloseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginTop: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.success + '12',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.success + '30',
+    alignSelf: 'flex-start',
+  },
+  bulkCloseText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.success,
   },
 
   // Filters

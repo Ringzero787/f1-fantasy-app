@@ -181,7 +181,7 @@ export default function LeagueDetailScreen() {
 
     try {
       await Share.share({
-        message: `Join my F1 Fantasy league "${currentLeague.name}"! Use code: ${currentLeague.inviteCode}`,
+        message: `Join my league "${currentLeague.name}" on The Undercut! Use code: ${currentLeague.inviteCode}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);

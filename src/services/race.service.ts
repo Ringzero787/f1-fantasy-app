@@ -218,21 +218,30 @@ export const raceService = {
   },
 
   /**
-   * Parse schedule dates from Firestore timestamps
+   * Parse schedule dates from Firestore timestamps.
+   * Handles: Firestore Timestamp objects, serialized {seconds, nanoseconds}, ISO strings, and epoch ms.
    */
   parseScheduleDates(schedule: any): RaceSchedule {
     if (!schedule) {
       return {} as RaceSchedule;
     }
 
+    const toSafeDate = (val: any): Date | undefined => {
+      if (!val) return undefined;
+      if (val.toDate) return val.toDate(); // Firestore Timestamp
+      if (typeof val.seconds === 'number') return new Date(val.seconds * 1000); // Serialized Timestamp
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+
     return {
-      fp1: schedule.fp1?.toDate?.() || new Date(schedule.fp1),
-      fp2: schedule.fp2?.toDate?.() || (schedule.fp2 ? new Date(schedule.fp2) : undefined),
-      fp3: schedule.fp3?.toDate?.() || (schedule.fp3 ? new Date(schedule.fp3) : undefined),
-      sprintQualifying: schedule.sprintQualifying?.toDate?.() || (schedule.sprintQualifying ? new Date(schedule.sprintQualifying) : undefined),
-      sprint: schedule.sprint?.toDate?.() || (schedule.sprint ? new Date(schedule.sprint) : undefined),
-      qualifying: schedule.qualifying?.toDate?.() || new Date(schedule.qualifying),
-      race: schedule.race?.toDate?.() || new Date(schedule.race),
+      fp1: toSafeDate(schedule.fp1) || new Date(),
+      fp2: toSafeDate(schedule.fp2),
+      fp3: toSafeDate(schedule.fp3),
+      sprintQualifying: toSafeDate(schedule.sprintQualifying),
+      sprint: toSafeDate(schedule.sprint),
+      qualifying: toSafeDate(schedule.qualifying) || new Date(),
+      race: toSafeDate(schedule.race) || new Date(),
     };
   },
 
