@@ -29,25 +29,22 @@ const IMAGE_GENERATION_MODELS = [
 // Avatar generation prompts based on type
 const AVATAR_PROMPTS = {
   league: (name: string) =>
-    `Create a modern, stylized logo/emblem for a fantasy F1 racing league called "${name}". ` +
-    `The design should be sporty and professional, featuring racing elements like checkered flags, ` +
-    `speed lines, or racing helmets. Use bold colors and clean geometric shapes. ` +
-    `The image should work well as a small circular or rounded square avatar. ` +
-    `Style: flat design, vector-like, modern sports branding. No text in the image.`,
+    `Create a simple, minimal logo for an F1 racing league called "${name}". ` +
+    `Use only 2-3 bold colors on a solid background. One clean shape or icon — ` +
+    `no clutter, no small details. Think app icon simplicity. ` +
+    `Flat design, no gradients, no text, no shadows. Works at 64x64 pixels.`,
 
   team: (name: string) =>
-    `Create a modern team badge/crest for a fantasy F1 team called "${name}". ` +
-    `The design should be dynamic and sporty, incorporating racing themes like ` +
-    `tires, wings, speed effects, or abstract car silhouettes. ` +
-    `Use vibrant colors that pop. The image should work as a small avatar. ` +
-    `Style: modern esports team logo, clean and bold. No text in the image.`,
+    `Create a simple, minimal badge for an F1 team called "${name}". ` +
+    `One bold shape or silhouette on a solid color background. ` +
+    `Maximum 2-3 colors, flat design, no fine details or textures. ` +
+    `Think of a simple app icon. No text, no gradients, no shadows.`,
 
   user: (name: string) =>
-    `Create a stylized avatar portrait for a racing fan named "${name}". ` +
-    `The design should be a cool, abstract representation - not a realistic face. ` +
-    `Use racing helmet visor reflections, speed lines, or geometric patterns. ` +
-    `Modern and sleek. Works well as a small circular profile picture. ` +
-    `Style: abstract digital art, racing aesthetic. No text.`,
+    `Create a simple, minimal avatar icon for a person named "${name}". ` +
+    `One bold geometric shape or abstract face on a solid color background. ` +
+    `Maximum 2-3 flat colors. Extremely simple — no details, no texture. ` +
+    `Think emoji-level simplicity. No text, no gradients.`,
 };
 
 export type AvatarType = 'league' | 'team' | 'user';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -77,25 +77,17 @@ export function AvatarPicker({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
+  const [wasGenerating, setWasGenerating] = useState(false);
 
-  // Track if we were generating AI to detect completion
-  const wasGeneratingAI = useRef(false);
-  const previousAvatarUrl = useRef(currentAvatarUrl);
-
-  // Auto-close modal when AI generation completes successfully
+  // When AI generation finishes, update previewUrl so "Use This Avatar" button activates
   useEffect(() => {
-    // Detect when AI generation completes (was generating, now not generating)
-    if (wasGeneratingAI.current && !isGeneratingAI) {
-      // Check if avatar URL changed (generation succeeded)
-      if (currentAvatarUrl && currentAvatarUrl !== previousAvatarUrl.current) {
-        // AI generation completed successfully - close modal
-        handleClose();
-      }
+    if (isGeneratingAI) {
+      setWasGenerating(true);
+    } else if (wasGenerating && currentAvatarUrl) {
+      setPreviewUrl(currentAvatarUrl);
+      setWasGenerating(false);
     }
-
-    wasGeneratingAI.current = isGeneratingAI;
-    previousAvatarUrl.current = currentAvatarUrl;
-  }, [isGeneratingAI, currentAvatarUrl]);
+  }, [isGeneratingAI, currentAvatarUrl, wasGenerating]);
 
   const styles_list = AVATAR_STYLES[type];
   const gradient = getAvatarGradient(name);

@@ -14,7 +14,7 @@ import { useNextRace, useTopDrivers } from '../../src/hooks';
 import { useTeamStore } from '../../src/store/team.store';
 import { useLeagueStore } from '../../src/store/league.store';
 import { useAdminStore } from '../../src/store/admin.store';
-import { Card, Loading, RaceCard, DriverCard, EmptyState, CountdownBanner, NewsFeed } from '../../src/components';
+import { Card, Loading, RaceCard, DriverCard, EmptyState, CountdownBanner, NewsFeed, Avatar } from '../../src/components';
 import { useNewsStore } from '../../src/store/news.store';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
 import { formatPoints } from '../../src/utils/formatters';
@@ -191,22 +191,49 @@ export default function HomeScreen() {
       </View>
 
       {/* My Teams Summary */}
-      <TouchableOpacity
-        style={styles.section}
-        activeOpacity={0.7}
-        onPress={() => router.push('/my-team')}
-      >
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>My Teams</Text>
-          <View style={styles.manageButton}>
-            <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.manageButtonText}>Manage</Text>
+      <View style={styles.section}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => router.push('/my-team')}
+        >
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleWithDots}>
+              <Text style={styles.sectionTitle}>My Teams</Text>
+              {userTeams.length > 1 && (
+                <View style={styles.teamDots}>
+                  {userTeams.map(team => (
+                    <TouchableOpacity
+                      key={team.id}
+                      style={[
+                        styles.teamDot,
+                        team.id === currentTeam?.id && styles.teamDotActive,
+                      ]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        selectTeam(team.id);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+            <View style={styles.manageButton}>
+              <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.manageButtonText}>Manage</Text>
+            </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {currentTeam ? (
           <Card variant="elevated" style={styles.teamSummaryCard}>
             <View style={styles.teamHeader}>
+              <Avatar
+                name={currentTeam.name}
+                size="small"
+                variant="team"
+                imageUrl={currentTeam.avatarUrl || null}
+              />
               <Text style={styles.teamName}>{currentTeam.name}</Text>
               <View style={styles.teamBudget}>
                 <Text style={styles.budgetLabel}>Budget</Text>
@@ -291,7 +318,7 @@ export default function HomeScreen() {
             </View>
           </Card>
         )}
-      </TouchableOpacity>
+      </View>
 
       {/* F1 News Feed */}
       <NewsFeed />
@@ -527,6 +554,32 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  sectionTitleWithDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+
+  teamDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  teamDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.text.muted + '40',
+  },
+
+  teamDotActive: {
+    backgroundColor: COLORS.primary,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+
   manageButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -594,6 +647,7 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border.default,
+    gap: SPACING.sm,
   },
 
   teamName: {

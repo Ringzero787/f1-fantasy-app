@@ -17,7 +17,7 @@ import { useTeamStore } from '../store/team.store';
 import { demoRaces, demoDrivers, demoConstructors } from '../data/demoData';
 import { Card, Button, EmptyState } from '../components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
-import { errorLogService } from '../services/errorLog.service';
+import { errorLogService, ErrorLogEntry } from '../services/errorLog.service';
 import { articleService } from '../services/article.service';
 
 // Filter to only active drivers (should be 22 for full grid)
@@ -129,10 +129,15 @@ export default function AdminContent() {
   const [sprintDnf, setSprintDnf] = useState<Record<string, boolean>>({});
   const [entryMode, setEntryMode] = useState<'race' | 'sprint'>('race');
   const [unreviewedCount, setUnreviewedCount] = useState(0);
+  const [recentErrors, setRecentErrors] = useState<ErrorLogEntry[]>([]);
   const [draftArticleCount, setDraftArticleCount] = useState(0);
 
   useEffect(() => {
     errorLogService.getUnreviewedCount().then(setUnreviewedCount);
+    // Fetch a few recent unreviewed errors for inline preview
+    errorLogService.fetchLogs(10).then(logs => {
+      setRecentErrors(logs.filter(l => !l.reviewed).slice(0, 3));
+    });
     articleService.getDraftCount().then(setDraftArticleCount);
   }, []);
 
@@ -478,8 +483,10 @@ export default function AdminContent() {
 
   const raceResult = selectedRaceId ? getRaceResult(selectedRaceId) : null;
 
-  // Count completed races
+  // Count completed races and sprints
   const completedRacesCount = Object.values(raceResults).filter(r => r.isComplete).length;
+  const totalSprints = demoRaces.filter(r => r.hasSprint).length;
+  const completedSprints = demoRaces.filter(r => r.hasSprint && raceResults[r.id]?.isComplete).length;
 
   // Handle manual recalculation
   const handleRecalculatePoints = () => {
@@ -673,8 +680,13 @@ export default function AdminContent() {
       <Card variant="elevated" style={styles.summaryCard}>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{completedRacesCount}</Text>
-            <Text style={styles.summaryLabel}>Races Complete</Text>
+            <Text style={styles.summaryValue}>{completedRacesCount}<Text style={styles.summaryTotal}>/{demoRaces.length}</Text></Text>
+            <Text style={styles.summaryLabel}>Races</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: COLORS.warning }]}>{completedSprints}<Text style={[styles.summaryTotal, { color: COLORS.warning }]}>/{totalSprints}</Text></Text>
+            <Text style={styles.summaryLabel}>Sprints</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
@@ -683,7 +695,7 @@ export default function AdminContent() {
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{24 - completedRacesCount}</Text>
+            <Text style={styles.summaryValue}>{demoRaces.length - completedRacesCount}</Text>
             <Text style={styles.summaryLabel}>Remaining</Text>
           </View>
         </View>
@@ -699,19 +711,36 @@ export default function AdminContent() {
         </View>
       </Card>
 
-      {/* Error Logs Button */}
+      {/* Error Logs */}
       <TouchableOpacity
         style={styles.errorLogsButton}
         onPress={() => router.push('/(tabs)/admin/error-logs')}
       >
-        <Ionicons name="alert-circle-outline" size={18} color={COLORS.error} />
-        <Text style={styles.errorLogsButtonText}>View Error Logs</Text>
-        {unreviewedCount > 0 && (
-          <View style={styles.unreviewedBadge}>
-            <Text style={styles.unreviewedBadgeText}>{unreviewedCount}</Text>
+        <View style={styles.errorLogsHeader}>
+          <Ionicons name="alert-circle-outline" size={18} color={COLORS.error} />
+          <Text style={styles.errorLogsButtonText}>Error Logs</Text>
+          {unreviewedCount > 0 && (
+            <View style={styles.unreviewedBadge}>
+              <Text style={styles.unreviewedBadgeText}>{unreviewedCount}</Text>
+            </View>
+          )}
+          <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
+        </View>
+        {recentErrors.length > 0 && (
+          <View style={styles.errorPreviewList}>
+            {recentErrors.map(err => (
+              <View key={err.id} style={styles.errorPreviewItem}>
+                <Ionicons
+                  name={err.severity === 'error' ? 'close-circle' : err.severity === 'warn' ? 'warning' : 'information-circle'}
+                  size={12}
+                  color={err.severity === 'error' ? COLORS.error : err.severity === 'warn' ? COLORS.warning : COLORS.info}
+                />
+                <Text style={styles.errorPreviewContext}>{err.context}</Text>
+                <Text style={styles.errorPreviewMessage} numberOfLines={1}>{err.message}</Text>
+              </View>
+            ))}
           </View>
         )}
-        <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
       </TouchableOpacity>
 
       {/* Manage News Feed Button */}
@@ -1085,9 +1114,6 @@ const styles = StyleSheet.create({
   },
 
   errorLogsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
     backgroundColor: COLORS.error + '10',
@@ -1096,11 +1122,38 @@ const styles = StyleSheet.create({
     borderColor: COLORS.error + '30',
     marginBottom: SPACING.md,
   },
+  errorLogsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
   errorLogsButtonText: {
     flex: 1,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     color: COLORS.error,
+  },
+  errorPreviewList: {
+    marginTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.error + '20',
+    paddingTop: SPACING.sm,
+    gap: 6,
+  },
+  errorPreviewItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  errorPreviewContext: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+  },
+  errorPreviewMessage: {
+    flex: 1,
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
   },
   unreviewedBadge: {
     backgroundColor: COLORS.error,
@@ -1171,6 +1224,12 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
     color: COLORS.text.primary,
+  },
+
+  summaryTotal: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '500',
+    color: COLORS.text.muted,
   },
 
   summaryLabel: {
