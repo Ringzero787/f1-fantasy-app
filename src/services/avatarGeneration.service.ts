@@ -87,7 +87,7 @@ async function tryGenerateWithModel(
             },
           ],
           generationConfig: {
-            responseModalities: ['image', 'text'],
+            responseModalities: ['TEXT', 'IMAGE'],
           },
         }),
       }
@@ -259,27 +259,20 @@ export async function generateAvatar(
       await updateEntityAvatar(type, entityId, imageUrl);
 
       return { success: true, imageUrl };
-    } catch (uploadError) {
-      // If storage upload fails, fall back to DiceBear placeholder
-      console.log('Storage upload failed, using DiceBear fallback:', uploadError);
-      const fallbackUrl = generateDemoAvatarUrl(name, type);
-      try {
-        await updateEntityAvatar(type, entityId, fallbackUrl);
-      } catch (err) {
-        console.log('Could not save fallback avatar URL:', err);
-      }
-      return { success: true, imageUrl: fallbackUrl };
+    } catch (uploadError: any) {
+      // If storage upload fails, report the error so user knows what happened
+      console.error('Storage upload failed:', uploadError);
+      return {
+        success: false,
+        error: `Upload failed: ${uploadError.message || uploadError}`,
+      };
     }
-  } catch (error) {
-    // If Gemini fails, fall back to DiceBear
-    console.error('Avatar generation error, using fallback:', error);
-    const fallbackUrl = generateDemoAvatarUrl(name, type);
-    try {
-      await updateEntityAvatar(type, entityId, fallbackUrl);
-    } catch (err) {
-      console.log('Could not save fallback avatar URL:', err);
-    }
-    return { success: true, imageUrl: fallbackUrl };
+  } catch (error: any) {
+    console.error('Avatar generation error:', error);
+    return {
+      success: false,
+      error: `Generation failed: ${error.message || error}`,
+    };
   }
 }
 

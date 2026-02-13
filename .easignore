@@ -47,7 +47,21 @@ expo-env.d.ts
 # Additional EAS exclusions - keep pics/tracks/ for track images used in app
 pics/screen*.png
 pics/emulator*.png
-pics/app graphics/
+# Exclude unused app graphics (keep ones required in code: banner-undercut-white, banner04, banner06, myteam, market, leagues, racecalendar)
+pics/app graphics/icon*.png
+pics/app graphics/banner01.png
+pics/app graphics/banner02.png
+pics/app graphics/banner03.png
+pics/app graphics/banner05.png
+pics/app graphics/banner-undercut-black.png
+pics/app graphics/banner both upper_lower.png
+pics/app graphics/banner_upper.png
+pics/app graphics/banner_lower.png
+pics/app graphics/navigation bar picture.png
+pics/app graphics/Gemini_Generated_Image*.png
+pics/app graphics/raceprofile.png
+pics/app graphics/profile.png
+pics/app graphics/adminpanel.png
 android-bundle/
 public/
 scripts/
