@@ -181,7 +181,15 @@ export const useAnnouncementStore = create<AnnouncementState>()(
             return;
           }
           await announcementService.submitReply(leagueId, announcementId, userId, displayName, message);
-          set({ isSubmittingReply: false });
+          // Update local replyCount so admin page reflects the new count
+          const { activeAnnouncements, replies: existingReplies } = get();
+          const existedBefore = existingReplies.some(r => r.announcementId === announcementId && r.userId === userId);
+          set({
+            activeAnnouncements: existedBefore ? activeAnnouncements : activeAnnouncements.map(a =>
+              a.id === announcementId ? { ...a, replyCount: a.replyCount + 1 } : a
+            ),
+            isSubmittingReply: false,
+          });
         } catch (e) {
           const msg = e instanceof Error ? e.message : 'Failed to submit reply';
           set({ error: msg, isSubmittingReply: false });

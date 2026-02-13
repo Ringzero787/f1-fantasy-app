@@ -102,11 +102,8 @@ export function NewsFeed() {
           <Text style={styles.headerTitle}>F1 News</Text>
           {articles.length > 0 && (
             <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{articles.length}</Text>
+              <Text style={styles.countBadgeText}>{activeIndex + 1} / {articles.length}</Text>
             </View>
-          )}
-          {allArticles.length > MAX_ARTICLES && (
-            <Text style={styles.moreCount}>of {allArticles.length}</Text>
           )}
         </View>
       </View>
@@ -278,12 +275,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingRight: SPACING.md,
     gap: CARD_GAP,
-  },
-
-  moreCount: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
-    marginLeft: 2,
   },
 
   card: {

@@ -130,7 +130,17 @@
       "WebFetch(domain:openf1.org)",
       "Bash(gh auth status:*)",
       "Bash(wc:*)",
-      "Bash(firebase:*)"
+      "Bash(firebase:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(wsl --list:*)",
+      "Bash(wsl --install:*)",
+      "Bash(wsl -d Ubuntu -- bash -c:*)",
+      "Bash(C:UsersnathaAppDataLocalAndroidSdkplatform-toolsadb.exe install -r \"C:\\\\Users\\\\natha\\\\f1-app\\\\build-output.apk\")",
+      "Bash(\"/mnt/c/Users/natha/AppData/Local/Android/Sdk/platform-tools/adb.exe\" install -r \"C:\\\\Users\\\\natha\\\\f1-app\\\\build-output.apk\")",
+      "Bash(cmd.exe /c \"where adb\")",
+      "Bash(cmd.exe /c \"dir /s /b C:\\\\Users\\\\natha\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\")",
+      "Bash(cmd.exe:*)"
     ]
   }
 }

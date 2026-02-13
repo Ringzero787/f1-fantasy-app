@@ -36,7 +36,14 @@ export default function CreateLeagueScreen() {
   const hasExpansionCredit = usePurchaseStore(s => s.hasExpansionCredit);
   const consumeExpansionCredit = usePurchaseStore(s => s.consumeExpansionCredit);
   const purchaseLeagueExpansion = usePurchaseStore(s => s.purchaseLeagueExpansion);
+  const purchaseLeagueSlot = usePurchaseStore(s => s.purchaseLeagueSlot);
+  const hasLeagueSlotCredit = usePurchaseStore(s => s.hasLeagueSlotCredit);
+  const consumeLeagueSlotCredit = usePurchaseStore(s => s.consumeLeagueSlotCredit);
   const isPurchasing = usePurchaseStore(s => s.isPurchasing);
+
+  // Count leagues owned by this user
+  const leagues = useLeagueStore(s => s.leagues);
+  const ownedLeagueCount = user ? leagues.filter(l => l.ownerId === user.id).length : 0;
 
   // Find solo teams (teams not assigned to any league)
   const soloTeams = userTeams.filter(team => !team.leagueId);
@@ -52,10 +59,13 @@ export default function CreateLeagueScreen() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(false);
-  const [maxMembers, setMaxMembers] = useState('20');
+  const [maxMembers, setMaxMembers] = useState(String(FREE_LEAGUE_MEMBER_LIMIT));
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showExpansionPurchase, setShowExpansionPurchase] = useState(false);
+  const [showLeagueSlotPurchase, setShowLeagueSlotPurchase] = useState(false);
+  const hasCredit = hasExpansionCredit();
+  const isDemoMode = useAuthStore.getState().isDemoMode;
 
   // Team selection modal state
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
@@ -83,9 +93,20 @@ export default function CreateLeagueScreen() {
       return;
     }
 
+    // Gate second+ league behind league slot purchase
+    const needsSlot = ownedLeagueCount >= 1;
+    if (needsSlot && !isDemoMode && !hasLeagueSlotCredit()) {
+      setShowLeagueSlotPurchase(true);
+      return;
+    }
+
+    // Consume league slot credit if needed
+    if (needsSlot && !isDemoMode) {
+      consumeLeagueSlotCredit();
+    }
+
     // Gate leagues >22 members behind expansion purchase
     const needsExpansion = members > FREE_LEAGUE_MEMBER_LIMIT;
-    const isDemoMode = useAuthStore.getState().isDemoMode;
 
     if (needsExpansion && !isDemoMode && !hasExpansionCredit()) {
       setShowExpansionPurchase(true);
@@ -236,20 +257,42 @@ export default function CreateLeagueScreen() {
             maxLength={200}
           />
 
-          <Input
-            label="Max Members"
-            placeholder="20"
-            value={maxMembers}
-            onChangeText={setMaxMembers}
-            keyboardType="number-pad"
-            maxLength={3}
-          />
-
-          {parseInt(maxMembers, 10) > FREE_LEAGUE_MEMBER_LIMIT && (
-            <Text style={styles.expansionHint}>
-              Leagues with more than {FREE_LEAGUE_MEMBER_LIMIT} members require a one-time $9.99 expansion
-            </Text>
-          )}
+          <Text style={styles.inputLabel}>Max Members</Text>
+          <View style={styles.memberRow}>
+            <View style={styles.lockedField}>
+              <Text style={styles.lockedFieldText}>
+                {hasCredit || isDemoMode ? maxMembers : String(FREE_LEAGUE_MEMBER_LIMIT)}
+              </Text>
+              {!(hasCredit || isDemoMode) && (
+                <Ionicons name="lock-closed" size={14} color={COLORS.text.muted} />
+              )}
+            </View>
+            {hasCredit || isDemoMode ? (
+              <View style={styles.expandedInputWrap}>
+                <Input
+                  placeholder="22-100"
+                  value={maxMembers}
+                  onChangeText={(val) => {
+                    const num = parseInt(val, 10);
+                    if (val === '' || (!isNaN(num) && num <= 100)) {
+                      setMaxMembers(val);
+                    }
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                />
+                <Text style={styles.expandedHint}>Expansion unlocked (up to 100)</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.buyMoreButton}
+                onPress={() => setShowExpansionPurchase(true)}
+              >
+                <Ionicons name="cart-outline" size={18} color={COLORS.primary} />
+                <Text style={styles.buyMoreText}>Buy More Slots</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={styles.switchRow}>
             <View style={styles.switchInfo}>
@@ -274,6 +317,15 @@ export default function CreateLeagueScreen() {
                 : 'A team will be created for you automatically. You can then build your team from the My Team tab. Share your invite code with friends so they can join your league!'}
             </Text>
           </View>
+
+          {ownedLeagueCount >= 1 && !isDemoMode && !hasLeagueSlotCredit() && (
+            <View style={styles.slotNotice}>
+              <Ionicons name="information-circle-outline" size={18} color={COLORS.warning} />
+              <Text style={styles.slotNoticeText}>
+                Additional leagues require a one-time $2.99 purchase
+              </Text>
+            </View>
+          )}
 
           <Button
             title="Create League"
@@ -371,6 +423,22 @@ export default function CreateLeagueScreen() {
         price={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].price}
         icon={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].icon}
         benefits={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].benefits}
+      />
+
+      {/* League Slot Purchase Modal */}
+      <PurchaseModal
+        visible={showLeagueSlotPurchase}
+        onClose={() => setShowLeagueSlotPurchase(false)}
+        onPurchase={() => {
+          purchaseLeagueSlot();
+          setShowLeagueSlotPurchase(false);
+        }}
+        isLoading={isPurchasing}
+        title={PRODUCTS[PRODUCT_IDS.LEAGUE_SLOT].title}
+        description={PRODUCTS[PRODUCT_IDS.LEAGUE_SLOT].description}
+        price={PRODUCTS[PRODUCT_IDS.LEAGUE_SLOT].price}
+        icon={PRODUCTS[PRODUCT_IDS.LEAGUE_SLOT].icon}
+        benefits={PRODUCTS[PRODUCT_IDS.LEAGUE_SLOT].benefits}
       />
     </SafeAreaView>
   );
@@ -580,10 +648,86 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
-  expansionHint: {
+  inputLabel: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.xs,
+  },
+
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+
+  lockedField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+    minWidth: 60,
+    justifyContent: 'center',
+  },
+
+  lockedFieldText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+
+  buyMoreButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+  },
+
+  buyMoreText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  expandedInputWrap: {
+    flex: 1,
+  },
+
+  expandedHint: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.success,
+    marginTop: 2,
+  },
+
+  slotNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.warning + '15',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.warning + '30',
+  },
+
+  slotNoticeText: {
+    flex: 1,
     fontSize: FONTS.sizes.sm,
     color: COLORS.warning,
-    marginTop: SPACING.xs,
-    marginBottom: SPACING.sm,
+    lineHeight: 18,
   },
 });

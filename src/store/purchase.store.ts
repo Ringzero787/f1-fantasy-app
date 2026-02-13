@@ -19,6 +19,7 @@ interface PurchaseState {
   bonusAvatarCredits: Record<string, number>; // userId -> bonus credits remaining
   expandedLeagueIds: string[];
   pendingExpansionCredits: number;
+  leagueSlotCredits: number; // extra league slots purchased
   purchaseHistory: PurchaseHistoryEntry[];
 
   // Transient
@@ -30,11 +31,14 @@ interface PurchaseState {
   cleanupIAP: () => void;
   purchaseLeagueExpansion: (leagueId?: string) => Promise<void>;
   purchaseAvatarPack: (userId: string) => Promise<void>;
+  purchaseLeagueSlot: () => Promise<void>;
   isLeagueExpanded: (leagueId: string) => boolean;
   getBonusCredits: (userId: string) => number;
   consumeBonusCredit: (userId: string) => void;
   hasExpansionCredit: () => boolean;
   consumeExpansionCredit: () => boolean;
+  hasLeagueSlotCredit: () => boolean;
+  consumeLeagueSlotCredit: () => boolean;
   handlePurchaseComplete: (purchase: { productId: string }) => Promise<void>;
   handlePurchaseError: (error: { code: string; message: string }) => void;
 }
@@ -46,6 +50,7 @@ export const usePurchaseStore = create<PurchaseState>()(
       bonusAvatarCredits: {},
       expandedLeagueIds: [],
       pendingExpansionCredits: 0,
+      leagueSlotCredits: 0,
       purchaseHistory: [],
 
       // Transient state
@@ -67,7 +72,7 @@ export const usePurchaseStore = create<PurchaseState>()(
 
           // Fetch products
           await RNIap.getProducts({
-            skus: [PRODUCT_IDS.LEAGUE_EXPANSION, PRODUCT_IDS.AVATAR_PACK],
+            skus: [PRODUCT_IDS.LEAGUE_EXPANSION, PRODUCT_IDS.AVATAR_PACK, PRODUCT_IDS.LEAGUE_SLOT],
           });
 
           // Register purchase listener
@@ -153,6 +158,31 @@ export const usePurchaseStore = create<PurchaseState>()(
         }
       },
 
+      purchaseLeagueSlot: async () => {
+        const { useAuthStore } = require('./auth.store');
+        const isDemoMode = useAuthStore.getState().isDemoMode;
+
+        if (isDemoMode) {
+          set((state) => ({
+            leagueSlotCredits: state.leagueSlotCredits + 1,
+            purchaseHistory: [
+              ...state.purchaseHistory,
+              { sku: PRODUCT_IDS.LEAGUE_SLOT, date: new Date().toISOString() },
+            ],
+          }));
+          Alert.alert('Purchase Complete', 'Extra league slot unlocked! (Demo mode)');
+          return;
+        }
+
+        set({ isPurchasing: true });
+        try {
+          const RNIap = require('react-native-iap');
+          await RNIap.requestPurchase({ sku: PRODUCT_IDS.LEAGUE_SLOT });
+        } catch (err) {
+          set({ isPurchasing: false });
+        }
+      },
+
       handlePurchaseComplete: async (purchase: { productId: string }) => {
         try {
           const RNIap = require('react-native-iap');
@@ -171,6 +201,15 @@ export const usePurchaseStore = create<PurchaseState>()(
             }));
             Alert.alert('Purchase Complete', 'League expansion unlocked!');
             pendingLeagueId = null;
+          } else if (productId === PRODUCT_IDS.LEAGUE_SLOT) {
+            set((state) => ({
+              leagueSlotCredits: state.leagueSlotCredits + 1,
+              purchaseHistory: [
+                ...state.purchaseHistory,
+                { sku: productId, date: new Date().toISOString() },
+              ],
+            }));
+            Alert.alert('Purchase Complete', 'Extra league slot unlocked!');
           } else if (productId === PRODUCT_IDS.AVATAR_PACK) {
             const userId = pendingUserId;
             if (userId) {
@@ -238,6 +277,17 @@ export const usePurchaseStore = create<PurchaseState>()(
         set({ pendingExpansionCredits: credits - 1 });
         return true;
       },
+
+      hasLeagueSlotCredit: () => {
+        return get().leagueSlotCredits > 0;
+      },
+
+      consumeLeagueSlotCredit: () => {
+        const credits = get().leagueSlotCredits;
+        if (credits <= 0) return false;
+        set({ leagueSlotCredits: credits - 1 });
+        return true;
+      },
     }),
     {
       name: 'purchase-storage',
@@ -246,6 +296,7 @@ export const usePurchaseStore = create<PurchaseState>()(
         bonusAvatarCredits: state.bonusAvatarCredits,
         expandedLeagueIds: state.expandedLeagueIds,
         pendingExpansionCredits: state.pendingExpansionCredits,
+        leagueSlotCredits: state.leagueSlotCredits,
         purchaseHistory: state.purchaseHistory,
       }),
     }

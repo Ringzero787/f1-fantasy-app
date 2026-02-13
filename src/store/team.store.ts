@@ -477,6 +477,8 @@ export const useTeamStore = create<TeamState>()(
   // Load all teams for a user
   loadUserTeams: async (userId) => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
+    const { isLoading: alreadyLoading } = get();
+    if (alreadyLoading) return; // Prevent concurrent calls from disrupting state
 
     set({ isLoading: true, error: null });
     try {
@@ -1510,6 +1512,7 @@ export const useTeamStore = create<TeamState>()(
     try {
       if (isDemoMode) {
         // V3: Build team without star driver - user will select ace each race
+        const confirmCompletedRaces = Object.values(useAdminStore.getState().raceResults).filter(r => r.isComplete).length;
         const fantasyDrivers: FantasyDriver[] = selectedDrivers.map((driver) => ({
           driverId: driver.id,
           name: driver.name,
@@ -1520,6 +1523,7 @@ export const useTeamStore = create<TeamState>()(
           pointsScored: 0,
           racesHeld: 0,
           contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+          addedAtRace: confirmCompletedRaces,
         }));
 
         const fantasyConstructor: FantasyConstructor | null = selectedConstructor ? {
@@ -1555,6 +1559,7 @@ export const useTeamStore = create<TeamState>()(
       }
 
       // Use local-first pattern - same as demo mode
+      const confirmCompletedRaces2 = Object.values(useAdminStore.getState().raceResults).filter(r => r.isComplete).length;
       const fantasyDrivers: FantasyDriver[] = selectedDrivers.map((driver) => ({
         driverId: driver.id,
         name: driver.name,
@@ -1565,6 +1570,7 @@ export const useTeamStore = create<TeamState>()(
         pointsScored: 0,
         racesHeld: 0,
         contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+        addedAtRace: confirmCompletedRaces2,
       }));
 
       const fantasyConstructor: FantasyConstructor | null = selectedConstructor ? {
@@ -1786,14 +1792,16 @@ export const useTeamStore = create<TeamState>()(
       let updatedDrivers = team.drivers.map(driver => {
         const priceUpdate = driverPrices[driver.driverId];
         // racesHeld = completed races since this driver was added
-        // Use driver's addedAtRace if available, otherwise fall back to team's joinedAtRace
-        const driverAddedAt = driver.addedAtRace ?? (team.joinedAtRace || 0);
+        // If addedAtRace is missing (legacy data), treat as added now to prevent premature expiry
+        const driverAddedAt = driver.addedAtRace ?? completedRaceCount;
         const driverRacesHeld = Math.max(0, completedRaceCount - driverAddedAt);
         return {
           ...driver,
           pointsScored: driverPoints[driver.driverId] || 0,
           currentPrice: priceUpdate?.currentPrice ?? driver.currentPrice,
           racesHeld: driverRacesHeld,
+          // Backfill addedAtRace for legacy drivers so it persists
+          addedAtRace: driver.addedAtRace ?? completedRaceCount,
         };
       });
 
@@ -1875,14 +1883,16 @@ export const useTeamStore = create<TeamState>()(
 
       // Update constructor points, sync current price, and update racesHeld
       // V8: Use constructor's own addedAtRace for accurate racesHeld calculation
+      // If addedAtRace is missing (legacy data), treat as added now to prevent premature expiry
       let updatedConstructor = team.constructor ? (() => {
-        const cAddedAt = team.constructor!.addedAtRace ?? (team.joinedAtRace || 0);
+        const cAddedAt = team.constructor!.addedAtRace ?? completedRaceCount;
         const cRacesHeld = Math.max(0, completedRaceCount - cAddedAt);
         return {
           ...team.constructor!,
           pointsScored: constructorPoints,
           currentPrice: constructorPrices[team.constructor!.constructorId]?.currentPrice ?? team.constructor!.currentPrice,
           racesHeld: cRacesHeld,
+          addedAtRace: team.constructor!.addedAtRace ?? completedRaceCount,
         };
       })() : null;
 

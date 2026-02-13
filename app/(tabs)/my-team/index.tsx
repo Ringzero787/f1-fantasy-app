@@ -155,23 +155,30 @@ export default function MyTeamScreen() {
     },
   });
 
-  // Load user teams on mount
+  // Load user teams on mount (only if not already loaded — prevents overwriting fresh data)
   useEffect(() => {
     if (user) {
-      loadUserTeams(user.id);
+      const teams = useTeamStore.getState().userTeams;
+      if (teams.length === 0) {
+        loadUserTeams(user.id);
+      }
       loadUserLeagues(user.id);
       recalculateAllTeamsPoints();
     }
   }, [user]);
 
-  // Reload data when screen comes into focus
+  // Reload leagues on focus; skip team reload if team is already loaded
+  // (prevents overwriting fresh auto-fill data with stale snapshot)
   useFocusEffect(
     useCallback(() => {
       if (user) {
-        loadUserTeams(user.id);
         loadUserLeagues(user.id);
+        // Only reload teams if none are loaded yet
+        if (userTeams.length === 0) {
+          loadUserTeams(user.id);
+        }
       }
-    }, [user])
+    }, [user, userTeams.length])
   );
 
   // Auto-select team when userTeams changes and no team is selected
@@ -503,6 +510,7 @@ export default function MyTeamScreen() {
 
     setIsAutoFilling(true);
     try {
+      const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
       const newDrivers = result.drivers.map(d => ({
         driverId: d.id,
         name: d.name,
@@ -513,6 +521,7 @@ export default function MyTeamScreen() {
         pointsScored: 0,
         racesHeld: 0,
         contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+        addedAtRace: completedRaceCount,
       }));
 
       const addedCost = result.drivers.reduce((s, d) => s + d.price, 0)
@@ -527,6 +536,7 @@ export default function MyTeamScreen() {
         pointsScored: 0,
         racesHeld: 0,
         contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+        addedAtRace: completedRaceCount,
       } : currentTeam.constructor;
 
       setCurrentTeam({

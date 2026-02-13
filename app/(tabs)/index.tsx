@@ -88,7 +88,10 @@ export default function HomeScreen() {
   React.useEffect(() => {
     if (user) {
       loadUserLeagues(user.id);
-      loadUserTeams(user.id);
+      // Only load teams if not already hydrated from persistence
+      if (userTeams.length === 0) {
+        loadUserTeams(user.id);
+      }
       loadArticles();
     }
   }, [user]);
@@ -205,9 +208,14 @@ export default function HomeScreen() {
             onPress={() => router.push(`/leagues/${primaryLeague.id}`)}
           >
             <Ionicons name="trophy" size={14} color={COLORS.accent} />
-            <Text style={styles.leagueBadgeText} numberOfLines={1}>
-              {leagueRank ? `#${leagueRank} ` : ''}{primaryLeague.name}
-            </Text>
+            <View style={styles.leagueBadgeContent}>
+              <Text style={styles.leagueBadgeText} numberOfLines={1}>
+                {leagueRank ? `#${leagueRank} ` : ''}{primaryLeague.name}
+              </Text>
+              <Text style={styles.leagueOwnerText} numberOfLines={1}>
+                {primaryLeague.ownerName}
+              </Text>
+            </View>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -506,13 +514,23 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs,
     borderRadius: BORDER_RADIUS.full,
     gap: SPACING.xs,
-    maxWidth: 140,
+    maxWidth: 160,
+  },
+
+  leagueBadgeContent: {
+    flexShrink: 1,
   },
 
   leagueBadgeText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     color: COLORS.accent,
+  },
+
+  leagueOwnerText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.accent,
+    opacity: 0.7,
   },
 
   joinLeagueBadge: {

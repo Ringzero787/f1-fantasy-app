@@ -44,7 +44,11 @@ export function AnnouncementBanner() {
     );
     setReplyText('');
     setReplySent(true);
-    setTimeout(() => setReplySent(false), 2000);
+    // Auto-dismiss the banner after showing confirmation
+    setTimeout(() => {
+      setReplySent(false);
+      dismissAnnouncement(announcement.id);
+    }, 1500);
   };
 
   return (

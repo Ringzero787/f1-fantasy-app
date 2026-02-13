@@ -234,7 +234,6 @@ export default function LeagueAdminScreen() {
       );
       setAnnouncementMessage('');
       await loadAnnouncementHistory(currentLeague.id);
-      Alert.alert('Posted', 'Announcement sent to all league members');
     } catch (error) {
       Alert.alert('Error', 'Failed to post announcement. Please try again.');
     }
@@ -264,6 +263,8 @@ export default function LeagueAdminScreen() {
     setShowReplies(!showReplies);
     if (!showReplies) {
       loadReplies(currentLeague.id, activeAnnouncement.id);
+      // Refresh announcement data to get latest replyCount
+      loadActiveAnnouncements([currentLeague.id]);
     }
   };
 

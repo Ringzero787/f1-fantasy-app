@@ -207,11 +207,11 @@ export default function ErrorLogsContent() {
     const unreviewedIds = group.entries.filter(e => !e.reviewed).map(e => e.id);
     if (unreviewedIds.length === 0) return;
     setBulkClosing(group.key);
-    const count = await errorLogService.bulkMarkReviewed(unreviewedIds);
-    if (count > 0) {
-      const idSet = new Set(unreviewedIds);
-      setLogs(prev => prev.map(l => idSet.has(l.id) ? { ...l, reviewed: true } : l));
-    }
+    // Update local state optimistically (Firebase may fail in demo mode)
+    const idSet = new Set(unreviewedIds);
+    setLogs(prev => prev.map(l => idSet.has(l.id) ? { ...l, reviewed: true } : l));
+    // Best-effort persist to Firebase
+    await errorLogService.bulkMarkReviewed(unreviewedIds);
     setBulkClosing(null);
   }, []);
 
