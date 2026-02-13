@@ -28,6 +28,10 @@ export const PRICING_CONFIG = {
   MAX_PRICE: 700,
   MAX_CHANGE_PER_RACE: 60,   // Scaled for $24/pt ratio
 
+  // Diminishing returns for price increases
+  DIMINISH_FLOOR: 400,  // Below this, full price increases apply
+  DIMINISH_MIN_FACTOR: 0.25, // At MAX_PRICE, increases are scaled to 25%
+
   // Tier thresholds
   A_TIER_THRESHOLD: 240, // Price above this = A-tier
   B_TIER_THRESHOLD: 120,  // Price above this (but <= A) = B-tier, at or below = C-tier

@@ -3,37 +3,47 @@ import * as admin from 'firebase-admin';
 
 const db = admin.firestore();
 
-// Price tier thresholds
-const TIER_A_THRESHOLD = 200;
+// Price tier thresholds (dollars)
+const TIER_A_THRESHOLD = 240;
+const TIER_B_THRESHOLD = 120;
 
-// PPM (Points Per Million) thresholds
-const PPM_GREAT = 0.8;
-const PPM_GOOD = 0.6;
-const PPM_POOR = 0.4;
+// PPM (Points Per Price) thresholds
+const PPM_GREAT = 0.06;
+const PPM_GOOD = 0.04;
+const PPM_POOR = 0.02;
 
 // Price changes based on tier and performance
 const PRICE_CHANGES = {
   A_TIER: {
-    great: 15,
-    good: 5,
-    poor: -5,
-    terrible: -15,
+    great: 36,
+    good: 12,
+    poor: -12,
+    terrible: -36,
   },
   B_TIER: {
-    great: 10,
-    good: 3,
-    poor: -3,
-    terrible: -10,
+    great: 24,
+    good: 7,
+    poor: -7,
+    terrible: -24,
+  },
+  C_TIER: {
+    great: 12,
+    good: 5,
+    poor: -5,
+    terrible: -12,
   },
 };
 
-const MIN_PRICE = 50;
+const MIN_PRICE = 5;
+const MAX_PRICE = 700;
+
+// Diminishing returns for price increases
+const DIMINISH_FLOOR = 400;
+const DIMINISH_MIN_FACTOR = 0.25;
 
 // DNF Price Penalty Configuration
-// DNF on lap 1 = -10 price points
-// DNF on final lap = -1 price point
-const DNF_PRICE_PENALTY_MAX = 10;
-const DNF_PRICE_PENALTY_MIN = 1;
+const DNF_PRICE_PENALTY_MAX = 24;
+const DNF_PRICE_PENALTY_MIN = 2;
 
 type PerformanceTier = 'great' | 'good' | 'poor' | 'terrible';
 
@@ -56,15 +66,32 @@ function getPerformanceTier(ppm: number): PerformanceTier {
 }
 
 /**
+ * Apply diminishing returns to price increases above DIMINISH_FLOOR.
+ * Decreases are never dampened.
+ */
+function applyDiminishingReturns(change: number, currentPrice: number): number {
+  if (change <= 0) return change;
+  if (currentPrice <= DIMINISH_FLOOR) return change;
+
+  const progress = Math.min(1, (currentPrice - DIMINISH_FLOOR) / (MAX_PRICE - DIMINISH_FLOOR));
+  const factor = 1 - progress * (1 - DIMINISH_MIN_FACTOR);
+  return Math.round(change * factor);
+}
+
+/**
  * Calculate price change based on performance
  */
 function calculatePriceChange(points: number, currentPrice: number): number {
   const ppm = calculatePPM(points, currentPrice);
   const performanceTier = getPerformanceTier(ppm);
-  const isATier = currentPrice >= TIER_A_THRESHOLD;
-  const priceChangeMap = isATier ? PRICE_CHANGES.A_TIER : PRICE_CHANGES.B_TIER;
+  const priceChangeMap = currentPrice > TIER_A_THRESHOLD
+    ? PRICE_CHANGES.A_TIER
+    : currentPrice > TIER_B_THRESHOLD
+      ? PRICE_CHANGES.B_TIER
+      : PRICE_CHANGES.C_TIER;
 
-  return priceChangeMap[performanceTier];
+  const rawChange = priceChangeMap[performanceTier];
+  return applyDiminishingReturns(rawChange, currentPrice);
 }
 
 /**

@@ -29,28 +29,34 @@ const IMAGE_GENERATION_MODELS = [
 // Avatar generation prompts based on type
 const AVATAR_PROMPTS = {
   league: (name: string) =>
-    `Create a simple, minimal logo for an F1 racing league called "${name}". ` +
-    `The image MUST be a square that fills the entire canvas edge-to-edge. ` +
-    `Do NOT use a circular frame or circular crop — fill the full square. ` +
-    `Use only 2-3 bold colors on a solid background. One clean shape or icon — ` +
-    `no clutter, no small details. Think app icon simplicity. ` +
-    `Flat design, no gradients, no text, no shadows. Works at 64x64 pixels.`,
+    `Design a premium emblem for an F1 racing league called "${name}". ` +
+    `Square image filling the entire canvas edge-to-edge — no circular crop. ` +
+    `Style: sleek motorsport aesthetic with a bold central icon (e.g. stylized helmet, ` +
+    `checkered flag, racing stripes, or abstract speed lines). ` +
+    `Use a dark or rich background (deep navy, black, racing red) with metallic or ` +
+    `vibrant accent colors. Subtle gradients and lighting are fine for depth. ` +
+    `Clean and polished — should look great as a 128px avatar. ` +
+    `No text, no words, no letters. No photograph — illustrated/graphic style only.`,
 
   team: (name: string) =>
-    `Create a simple, minimal badge for an F1 team called "${name}". ` +
-    `The image MUST be a square that fills the entire canvas edge-to-edge. ` +
-    `Do NOT use a circular frame or circular crop — fill the full square. ` +
-    `One bold shape or silhouette on a solid color background. ` +
-    `Maximum 2-3 colors, flat design, no fine details or textures. ` +
-    `Think of a simple app icon. No text, no gradients, no shadows.`,
+    `Design a striking team crest for an F1 fantasy team called "${name}". ` +
+    `Square image filling the entire canvas edge-to-edge — no circular crop. ` +
+    `Style: modern racing badge with a bold central motif — could be an animal, ` +
+    `abstract shape, wing, bolt, or racing-inspired symbol. ` +
+    `Use 3-4 strong colors with a cohesive palette. Dark or vivid background ` +
+    `with sharp contrasting accents. Subtle shading and depth are encouraged. ` +
+    `Think esports team logo meets F1 livery design — bold, confident, iconic. ` +
+    `No text, no words, no letters. Illustrated/graphic style, not a photograph.`,
 
   user: (name: string) =>
-    `Create a simple, minimal avatar icon for a person named "${name}". ` +
-    `The image MUST be a square that fills the entire canvas edge-to-edge. ` +
-    `Do NOT use a circular frame or circular crop — fill the full square. ` +
-    `One bold geometric shape or abstract face on a solid color background. ` +
-    `Maximum 2-3 flat colors. Extremely simple — no details, no texture. ` +
-    `Think emoji-level simplicity. No text, no gradients.`,
+    `Create a stylish profile avatar for a racing fan named "${name}". ` +
+    `Square image filling the entire canvas edge-to-edge — no circular crop. ` +
+    `Style: a bold, graphic character portrait or abstract avatar — ` +
+    `think stylized helmet visor, geometric face, or cool abstract figure. ` +
+    `Use rich colors with a moody or vibrant background. ` +
+    `Modern digital art style with clean lines and some depth/shading. ` +
+    `Should feel personal and unique, like a gaming avatar or profile pic. ` +
+    `No text, no words, no letters. Illustrated/graphic style, not a photograph.`,
 };
 
 export type AvatarType = 'league' | 'team' | 'user';

@@ -101,6 +101,25 @@ export const pricingService = {
   },
 
   /**
+   * Apply diminishing returns to price increases above DIMINISH_FLOOR.
+   * Below the floor, full change applies. Above it, increases scale down
+   * linearly to DIMINISH_MIN_FACTOR at MAX_PRICE.
+   * Price decreases are never dampened.
+   */
+  applyDiminishingReturns(change: number, currentPrice: number): number {
+    // Only dampen increases, not decreases
+    if (change <= 0) return change;
+
+    const { DIMINISH_FLOOR, MAX_PRICE, DIMINISH_MIN_FACTOR } = PRICING_CONFIG;
+    if (currentPrice <= DIMINISH_FLOOR) return change;
+
+    // Linear interpolation: at DIMINISH_FLOOR factor=1.0, at MAX_PRICE factor=DIMINISH_MIN_FACTOR
+    const progress = Math.min(1, (currentPrice - DIMINISH_FLOOR) / (MAX_PRICE - DIMINISH_FLOOR));
+    const factor = 1 - progress * (1 - DIMINISH_MIN_FACTOR);
+    return Math.round(change * factor);
+  },
+
+  /**
    * Calculate price change based on performance
    */
   calculatePriceChange(
@@ -112,7 +131,8 @@ export const pricingService = {
     const priceTier = this.getPriceTier(currentPrice);
 
     const priceChangeMap = priceTier === 'A' ? PRICE_CHANGES.A_TIER : priceTier === 'B' ? PRICE_CHANGES.B_TIER : PRICE_CHANGES.C_TIER;
-    const change = priceChangeMap[performanceTier];
+    const rawChange = priceChangeMap[performanceTier];
+    const change = this.applyDiminishingReturns(rawChange, currentPrice);
     const newPrice = Math.max(PRICING_CONFIG.MIN_PRICE, Math.min(PRICING_CONFIG.MAX_PRICE, currentPrice + change));
 
     return { newPrice, change, ppm, performanceTier };
