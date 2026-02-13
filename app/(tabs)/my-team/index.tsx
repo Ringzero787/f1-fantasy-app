@@ -377,11 +377,12 @@ export default function MyTeamScreen() {
     const contractLen = driver?.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
     const marketDriver = allDrivers?.find(d => d.id === driverId);
     const livePrice = marketDriver?.price ?? driver?.currentPrice ?? 0;
-    const fee = driver ? calculateEarlyTerminationFee(livePrice, contractLen, driver.racesHeld || 0) : 0;
+    const inGracePeriod = (driver?.racesHeld || 0) === 0;
+    const fee = (driver && !driver.isReservePick && !inGracePeriod) ? calculateEarlyTerminationFee(livePrice, contractLen, driver.racesHeld || 0) : 0;
     const saleProceeds = Math.max(0, livePrice - fee);
     const feeMessage = fee > 0
       ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
-      : '';
+      : `\n\nYou'll receive: $${saleProceeds}`;
 
     Alert.alert(
       'Remove Driver',
@@ -406,11 +407,12 @@ export default function MyTeamScreen() {
     const contractLen = c.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
     const marketC = allConstructors?.find(mc => mc.id === c.constructorId);
     const livePrice = marketC?.price ?? c.currentPrice;
-    const fee = calculateEarlyTerminationFee(livePrice, contractLen, c.racesHeld || 0);
+    const cInGracePeriod = (c.racesHeld || 0) === 0;
+    const fee = cInGracePeriod ? 0 : calculateEarlyTerminationFee(livePrice, contractLen, c.racesHeld || 0);
     const saleProceeds = Math.max(0, livePrice - fee);
     const feeMessage = fee > 0
       ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
-      : '';
+      : `\n\nYou'll receive: $${saleProceeds}`;
 
     Alert.alert(
       'Remove Constructor',
