@@ -857,7 +857,7 @@ export default function MyTeamScreen() {
               const contractRemaining = contractLen - (driver.racesHeld || 0);
               const isLastRace = contractRemaining === 1;
               const isReserve = driver.isReservePick;
-              const earlyTermFee = calculateEarlyTerminationFee(driver.livePrice, contractLen, driver.racesHeld || 0);
+              const earlyTermFee = isReserve ? 0 : calculateEarlyTerminationFee(driver.livePrice, contractLen, driver.racesHeld || 0);
               const effectiveSaleValue = Math.max(0, driver.livePrice - earlyTermFee);
               const saleProfit = effectiveSaleValue - driver.purchasePrice;
               const accentColor = isReserve ? COLORS.text.muted : cInfo?.primaryColor || COLORS.text.muted;

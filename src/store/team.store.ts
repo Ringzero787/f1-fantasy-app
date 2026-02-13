@@ -951,11 +951,11 @@ export const useTeamStore = create<TeamState>()(
         const priceUpdate = driverPrices[driverId];
         const currentMarketPrice = priceUpdate?.currentPrice ?? driverToRemove.currentPrice;
 
-        // V6: Apply early termination fee for breaking contract early
+        // V6: Apply early termination fee for breaking contract early (skip for auto-filled reserve picks)
         const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-        const earlyTermFee = calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
+        const earlyTermFee = driverToRemove.isReservePick ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
         const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
-        console.log('Selling driver:', { driverId, storedPrice: driverToRemove.currentPrice, marketPrice: currentMarketPrice, earlyTermFee, saleValue });
+        console.log('Selling driver:', { driverId, storedPrice: driverToRemove.currentPrice, marketPrice: currentMarketPrice, earlyTermFee, saleValue, isReserve: !!driverToRemove.isReservePick });
 
         // V3: Clear ace if removed driver was ace
         const newAceId = currentTeam.aceDriverId === driverId ? undefined : currentTeam.aceDriverId;
@@ -985,9 +985,9 @@ export const useTeamStore = create<TeamState>()(
       const { driverPrices } = useAdminStore.getState();
       const priceUpdate = driverPrices[driverId];
       const currentMarketPrice = priceUpdate?.currentPrice ?? driverToRemove.currentPrice;
-      // V6: Apply early termination fee
+      // V6: Apply early termination fee (skip for auto-filled reserve picks)
       const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const earlyTermFee = calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
+      const earlyTermFee = driverToRemove.isReservePick ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
       const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
       const newAceId = currentTeam.aceDriverId === driverId ? undefined : currentTeam.aceDriverId;
 
