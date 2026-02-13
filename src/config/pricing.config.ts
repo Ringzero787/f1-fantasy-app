@@ -61,7 +61,7 @@ export const PRICING_CONFIG = {
   CONTRACT_LOCKOUT_RACES: 1, // Races a driver is locked out after contract expiry (per team)
 
   // V6: Early Termination Fee
-  EARLY_TERMINATION_RATE: 0.05, // 5% of purchase price per race remaining on contract
+  EARLY_TERMINATION_RATE: 0.03, // 3% of current price per race remaining on contract
 } as const;
 
 // Points awarded per position

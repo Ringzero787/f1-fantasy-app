@@ -495,7 +495,47 @@ export default function AdminContent() {
     return getPointsForPosition(position);
   };
 
-  // Auto-populate race results with random but realistic positions
+  // Simulate realistic race positions weighted by driver skill (price)
+  const simulateRacePositions = () => {
+    const drivers = [...activeDrivers];
+    const newPositions: Record<string, string> = {};
+    const newDnf: Record<string, boolean> = {};
+
+    // DNF chance scales inversely with price: cheap drivers DNF more often
+    const maxPrice = Math.max(...drivers.map(d => d.price));
+    drivers.forEach(driver => {
+      // Top drivers: ~3% DNF, backmarkers: ~12% DNF
+      const skillFactor = driver.price / maxPrice;
+      const dnfChance = 0.12 - skillFactor * 0.09;
+      newDnf[driver.id] = Math.random() < dnfChance;
+    });
+
+    // Weighted sort: use price as base skill, add random variance
+    // Higher-priced drivers finish higher on average, but upsets happen
+    const nonDnfDrivers = drivers.filter(d => !newDnf[d.id]);
+    const scored = nonDnfDrivers.map(driver => {
+      // Variance: ±30% of their price — enough for occasional upsets
+      const variance = (Math.random() - 0.5) * 0.6 * driver.price;
+      return { driver, score: driver.price + variance };
+    });
+
+    // Sort by score descending (highest score = best position)
+    scored.sort((a, b) => b.score - a.score);
+    scored.forEach(({ driver }, index) => {
+      newPositions[driver.id] = String(index + 1);
+    });
+
+    // DNF drivers get empty position
+    drivers.forEach(driver => {
+      if (newDnf[driver.id]) {
+        newPositions[driver.id] = '';
+      }
+    });
+
+    return { newPositions, newDnf };
+  };
+
+  // Auto-populate race results with skill-weighted positions
   const handleAutoPopulate = () => {
     if (!selectedRaceId) {
       Alert.alert('Error', 'Please select a race first');
@@ -504,31 +544,13 @@ export default function AdminContent() {
 
     Alert.alert(
       'Auto-Populate Results',
-      'This will randomly assign finishing positions to all drivers. Continue?',
+      'This will assign finishing positions weighted by driver skill. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Populate',
           onPress: () => {
-            // Shuffle drivers to get random order
-            const shuffledDrivers = [...activeDrivers].sort(() => Math.random() - 0.5);
-
-            // Assign positions with some DNFs
-            const newPositions: Record<string, string> = {};
-            const newDnf: Record<string, boolean> = {};
-
-            shuffledDrivers.forEach((driver, index) => {
-              // 10% chance of DNF for realism
-              const isDnf = Math.random() < 0.1;
-              newDnf[driver.id] = isDnf;
-              newPositions[driver.id] = isDnf ? '' : String(index + 1);
-            });
-
-            // Re-assign positions to non-DNF drivers to fill gaps
-            const nonDnfDrivers = shuffledDrivers.filter(d => !newDnf[d.id]);
-            nonDnfDrivers.forEach((driver, index) => {
-              newPositions[driver.id] = String(index + 1);
-            });
+            const { newPositions, newDnf } = simulateRacePositions();
 
             if (entryMode === 'sprint') {
               setSprintPositions(newPositions);
@@ -545,50 +567,29 @@ export default function AdminContent() {
     );
   };
 
-  // Auto-populate and complete the race in one action
+  // Auto-populate and complete the full weekend (race + sprint if applicable)
   const handleAutoPopulateAndComplete = () => {
     if (!selectedRaceId) {
       Alert.alert('Error', 'Please select a race first');
       return;
     }
 
+    const isSprint = selectedRace?.hasSprint;
+    const label = isSprint ? 'Race + Sprint' : 'Race';
+
     Alert.alert(
-      'Auto-Complete Race',
-      'This will randomly assign positions and mark the race as complete. Continue?',
+      `Auto-Complete ${label}`,
+      `This will assign skill-weighted positions${isSprint ? ' for both race and sprint' : ''} and mark the weekend as complete. Continue?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Auto-Complete',
           onPress: () => {
-            // Shuffle drivers to get random order
-            const shuffledDrivers = [...activeDrivers].sort(() => Math.random() - 0.5);
-
-            // Assign positions with some DNFs
-            const newPositions: Record<string, string> = {};
-            const newDnf: Record<string, boolean> = {};
-
-            shuffledDrivers.forEach((driver) => {
-              newDnf[driver.id] = Math.random() < 0.1; // 10% DNF chance
-            });
-
-            // Assign sequential positions to non-DNF drivers
-            const nonDnfDrivers = shuffledDrivers.filter(d => !newDnf[d.id]);
-            nonDnfDrivers.forEach((driver, index) => {
-              newPositions[driver.id] = String(index + 1);
-            });
-
-            // Set empty positions for DNF drivers
-            shuffledDrivers.forEach(driver => {
-              if (newDnf[driver.id]) {
-                newPositions[driver.id] = '';
-              }
-            });
-
-            // Update local state
+            // --- Main race ---
+            const { newPositions, newDnf } = simulateRacePositions();
             setDriverPositions(newPositions);
             setDriverDnf(newDnf);
 
-            // Save driver points
             Object.entries(newPositions).forEach(([driverId, positionStr]) => {
               const isDnf = newDnf[driverId] || false;
               if (isDnf) {
@@ -602,7 +603,6 @@ export default function AdminContent() {
               }
             });
 
-            // Calculate and save constructor points
             const constructorPts: Record<string, number> = {};
             demoConstructors.forEach(constructor => {
               let total = 0;
@@ -618,11 +618,72 @@ export default function AdminContent() {
               updateConstructorPoints(selectedRaceId, constructorId, points);
             });
 
+            const raceDnfCount = Object.values(newDnf).filter(Boolean).length;
+
+            // --- Sprint (if applicable) ---
+            let sprintDnfCount = 0;
+            if (isSprint) {
+              const { newPositions: sprintPos, newDnf: sprintDnfResult } = simulateRacePositions();
+              setSprintPositions(sprintPos);
+              setSprintDnf(sprintDnfResult);
+
+              Object.entries(sprintPos).forEach(([driverId, positionStr]) => {
+                const isDnf = sprintDnfResult[driverId] || false;
+                if (isDnf) {
+                  updateSprintDriverPoints(selectedRaceId, driverId, 0);
+                  updateSprintDriverDnf(selectedRaceId, driverId, true);
+                } else {
+                  const position = parseInt(positionStr, 10);
+                  const points = getSprintPointsForPosition(position);
+                  updateSprintDriverPoints(selectedRaceId, driverId, points);
+                  updateSprintDriverDnf(selectedRaceId, driverId, false);
+                }
+              });
+
+              const sprintConstructorPts: Record<string, number> = {};
+              demoConstructors.forEach(constructor => {
+                let total = 0;
+                constructor.drivers.forEach(driverId => {
+                  if (!sprintDnfResult[driverId]) {
+                    const position = parseInt(sprintPos[driverId] || '0', 10);
+                    total += getSprintF1PointsForPosition(position);
+                  }
+                });
+                sprintConstructorPts[constructor.id] = Math.floor(total / 2);
+              });
+              Object.entries(sprintConstructorPts).forEach(([constructorId, points]) => {
+                updateSprintConstructorPoints(selectedRaceId, constructorId, points);
+              });
+
+              sprintDnfCount = Object.values(sprintDnfResult).filter(Boolean).length;
+            }
+
             // Mark race complete
             markRaceComplete(selectedRaceId);
 
-            const dnfCount = Object.values(newDnf).filter(Boolean).length;
-            Alert.alert('Success', `Race auto-completed! (${activeDrivers.length - dnfCount} finishers, ${dnfCount} DNFs)`);
+            const msg = isSprint
+              ? `Weekend auto-completed!\nRace: ${activeDrivers.length - raceDnfCount} finishers, ${raceDnfCount} DNFs\nSprint: ${activeDrivers.length - sprintDnfCount} finishers, ${sprintDnfCount} DNFs`
+              : `Race auto-completed! (${activeDrivers.length - raceDnfCount} finishers, ${raceDnfCount} DNFs)`;
+            Alert.alert('Success', msg);
+          },
+        },
+      ]
+    );
+  };
+
+  // Reset prices to initial demoData values (keeps race results)
+  const handleResetPrices = () => {
+    Alert.alert(
+      'Reset Driver Prices',
+      'This will reset all driver and constructor prices to their initial values. Race results will be kept.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset Prices',
+          style: 'destructive',
+          onPress: () => {
+            useAdminStore.getState().resetPrices();
+            Alert.alert('Done', 'All prices reset to initial values.');
           },
         },
       ]
@@ -632,18 +693,19 @@ export default function AdminContent() {
   // Reset all race results (clear everything)
   const handleResetAllRaces = () => {
     Alert.alert(
-      'Reset All Race Results',
-      'This will clear ALL race results and reset the season. This cannot be undone!',
+      'Reset Everything',
+      'This will clear ALL race results, prices, teams, and lockouts. Fresh start! This cannot be undone!',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Reset All',
+          text: 'Reset Everything',
           style: 'destructive',
           onPress: () => {
-            // Reset all races
-            demoRaces.forEach(race => {
-              resetRaceResults(race.id);
-            });
+            // Reset all admin data (races, prices)
+            useAdminStore.getState().resetAllData();
+
+            // Reset team state (clears teams, lockouts, etc.)
+            useTeamStore.getState().resetTeamState();
 
             // Clear local state
             setSelectedRaceId(null);
@@ -652,10 +714,7 @@ export default function AdminContent() {
             setDriverDnf({});
             setSprintDnf({});
 
-            // Recalculate team points (will be 0 now)
-            recalculateAllTeamsPoints();
-
-            Alert.alert('Success', 'All race results have been reset!');
+            Alert.alert('Success', 'Everything has been reset! Create a new team to start fresh.');
           },
         },
       ]
@@ -699,9 +758,13 @@ export default function AdminContent() {
             <Ionicons name="refresh" size={16} color={COLORS.primary} />
             <Text style={styles.recalcButtonText}>Recalculate Points</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.resetPricesButton} onPress={handleResetPrices}>
+            <Ionicons name="cash-outline" size={16} color={COLORS.warning} />
+            <Text style={styles.resetPricesButtonText}>Reset Prices</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.resetAllButton} onPress={handleResetAllRaces}>
             <Ionicons name="trash-outline" size={16} color={COLORS.error} />
-            <Text style={styles.resetAllButtonText}>Reset All Races</Text>
+            <Text style={styles.resetAllButtonText}>Reset Everything</Text>
           </TouchableOpacity>
         </View>
       </Card>
@@ -1226,6 +1289,23 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontWeight: '500',
     color: COLORS.primary,
+  },
+
+  resetPricesButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.warning + '10',
+    borderRadius: BORDER_RADIUS.md,
+  },
+
+  resetPricesButtonText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '500',
+    color: COLORS.warning,
   },
 
   resetAllButton: {

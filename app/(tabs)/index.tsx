@@ -125,7 +125,10 @@ export default function HomeScreen() {
       const cr = lastResult.constructorResults.find(
         (r: any) => r.constructorId === currentTeam.constructor?.constructorId
       );
-      if (cr) pts += cr.points;
+      if (cr) {
+        const cMultiplier = currentTeam.aceConstructorId === currentTeam.constructor.constructorId ? 2 : 1;
+        pts += Math.floor(cr.points * cMultiplier);
+      }
     }
     return pts;
   }, [raceResults, currentTeam]);

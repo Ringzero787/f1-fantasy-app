@@ -62,8 +62,9 @@ interface FantasyTeam {
   constructor: FantasyConstructor | null;
   totalPoints: number;
   budget: number;
-  // V3: Ace system - one driver gets 2x points
+  // V3: Ace system - one driver OR constructor gets 2x points
   aceDriverId?: string;
+  aceConstructorId?: string;
   // V3: Transfer tracking for stale roster penalty and hot hand bonus
   lastTransferRaceId?: string;
   racesSinceTransfer: number;
@@ -224,10 +225,11 @@ export const onRaceResultsUpdated = functions.firestore
         });
       }
 
-      // Calculate constructor points (V3: no star/ace bonus for constructors)
+      // Calculate constructor points (V9: ace bonus if aceConstructorId matches)
       let updatedConstructor: FantasyConstructor | null = null;
       if (team.constructor) {
         const constructor = team.constructor;
+        const isAceConstructor = team.aceConstructorId === constructor.constructorId;
         let constructorPoints = 0;
 
         // Constructor points = sum of both drivers' race points
@@ -243,6 +245,11 @@ export const onRaceResultsUpdated = functions.firestore
 
         // Add lock bonus for constructor
         constructorPoints += calculateLockBonus(constructor.racesHeld);
+
+        // V9: Ace constructor gets 2x multiplier
+        if (isAceConstructor) {
+          constructorPoints *= 2;
+        }
 
         teamPoints += constructorPoints;
 

@@ -122,10 +122,12 @@ export default function MyTeamScreen() {
   const removeDriver = useTeamStore(s => s.removeDriver);
   const removeConstructor = useTeamStore(s => s.removeConstructor);
   const setAce = useTeamStore(s => s.setAce);
+  const setAceConstructor = useTeamStore(s => s.setAceConstructor);
   const clearAce = useTeamStore(s => s.clearAce);
   const selectTeam = useTeamStore(s => s.selectTeam);
   const recalculateAllTeamsPoints = useTeamStore(s => s.recalculateAllTeamsPoints);
   const setCurrentTeam = useTeamStore(s => s.setCurrentTeam);
+  const deleteTeam = useTeamStore(s => s.deleteTeam);
   const assignTeamToLeague = useTeamStore(s => s.assignTeamToLeague);
   const leagues = useLeagueStore(s => s.leagues);
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
@@ -141,6 +143,7 @@ export default function MyTeamScreen() {
   const [teamAvatarUrl, setTeamAvatarUrl] = useState<string | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { generate: generateAvatar, regenerate: regenerateAvatar, isGenerating: isGeneratingAvatar, isAvailable: isAvatarAvailable } = useAvatarGeneration({
     onSuccess: (url) => {
@@ -230,7 +233,10 @@ export default function MyTeamScreen() {
         const constructorResult = lastResult.constructorResults.find(
           (cr: any) => cr.constructorId === currentTeam.constructor?.constructorId
         );
-        if (constructorResult) lastRacePoints += constructorResult.points;
+        if (constructorResult) {
+          const cMultiplier = currentTeam.aceConstructorId === currentTeam.constructor.constructorId ? 2 : 1;
+          lastRacePoints += Math.floor(constructorResult.points * cMultiplier);
+        }
       }
     }
 
@@ -262,6 +268,42 @@ export default function MyTeamScreen() {
       hasCompletedRaces: completedRaces.length > 0,
     };
   }, [raceResults, currentTeam, userTeams, leagues]);
+
+  // Per-card last-race breakdown: id -> { base, aceBonus }
+  const lastRaceBreakdown = useMemo(() => {
+    const map: Record<string, { base: number; aceBonus: number }> = {};
+    const completedRaces = Object.entries(raceResults)
+      .filter(([_, result]) => result.isComplete)
+      .sort((a, b) => b[0].localeCompare(a[0]));
+    if (completedRaces.length === 0 || !currentTeam) return map;
+    const [_, lastResult] = completedRaces[0];
+
+    currentTeam.drivers.forEach(driver => {
+      let base = 0;
+      const dr = lastResult.driverResults.find((r: any) => r.driverId === driver.driverId);
+      if (dr) base += dr.points;
+      const sr = lastResult.sprintResults?.find((r: any) => r.driverId === driver.driverId);
+      if (sr) base += sr.points;
+      const isAce = currentTeam.aceDriverId === driver.driverId;
+      map[driver.driverId] = { base, aceBonus: isAce ? base : 0 };
+    });
+
+    if (currentTeam.constructor) {
+      let base = 0;
+      const cr = lastResult.constructorResults.find(
+        (r: any) => r.constructorId === currentTeam.constructor?.constructorId
+      );
+      if (cr) base += cr.points;
+      const scr = lastResult.sprintConstructorResults?.find(
+        (r: any) => r.constructorId === currentTeam.constructor?.constructorId
+      );
+      if (scr) base += scr.points;
+      const isAce = currentTeam.aceConstructorId === currentTeam.constructor.constructorId;
+      map[currentTeam.constructor.constructorId] = { base, aceBonus: isAce ? base : 0 };
+    }
+
+    return map;
+  }, [raceResults, currentTeam]);
 
   // Build a lookup: constructorId -> { shortName, primaryColor }
   // Include demoConstructors as base layer so renamed IDs (e.g. sauber->audi) still resolve
@@ -333,9 +375,9 @@ export default function MyTeamScreen() {
     // V6: Calculate and show early termination fee in confirmation
     const driver = currentTeam?.drivers.find(d => d.driverId === driverId);
     const contractLen = driver?.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-    const fee = driver ? calculateEarlyTerminationFee(driver.purchasePrice, contractLen, driver.racesHeld || 0) : 0;
     const marketDriver = allDrivers?.find(d => d.id === driverId);
     const livePrice = marketDriver?.price ?? driver?.currentPrice ?? 0;
+    const fee = driver ? calculateEarlyTerminationFee(livePrice, contractLen, driver.racesHeld || 0) : 0;
     const saleProceeds = Math.max(0, livePrice - fee);
     const feeMessage = fee > 0
       ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
@@ -362,9 +404,9 @@ export default function MyTeamScreen() {
     // V8: Calculate and show early termination fee in confirmation
     const c = currentTeam.constructor;
     const contractLen = c.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-    const fee = calculateEarlyTerminationFee(c.purchasePrice, contractLen, c.racesHeld || 0);
     const marketC = allConstructors?.find(mc => mc.id === c.constructorId);
     const livePrice = marketC?.price ?? c.currentPrice;
+    const fee = calculateEarlyTerminationFee(livePrice, contractLen, c.racesHeld || 0);
     const saleProceeds = Math.max(0, livePrice - fee);
     const feeMessage = fee > 0
       ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
@@ -392,6 +434,10 @@ export default function MyTeamScreen() {
 
   const handleClearAce = async () => {
     try { await clearAce(); } catch { Alert.alert('Error', 'Failed to clear Ace'); }
+  };
+
+  const handleSetAceConstructor = async (constructorId: string) => {
+    try { await setAceConstructor(constructorId); } catch { Alert.alert('Error', 'Failed to set Ace Constructor'); }
   };
 
   // V5: Lockout-aware canModify and canChangeAce
@@ -479,6 +525,70 @@ export default function MyTeamScreen() {
     } finally {
       setIsAutoFilling(false);
     }
+  };
+
+  const handleDeleteTeam = () => {
+    const teamName = currentTeam?.name || 'this team';
+    const points = currentTeam?.totalPoints || 0;
+    const inLeague = !!currentTeam?.leagueId;
+    const leagueName = teamStats.leagueName;
+
+    // Step 1: Initial warning
+    Alert.alert(
+      'Delete Team?',
+      `You're about to delete "${teamName}" with ${formatPoints(points)} total points and ${driversCount} driver${driversCount !== 1 ? 's' : ''}.`,
+      [
+        { text: 'Keep Team', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            if (inLeague) {
+              // Step 2: League warning
+              Alert.alert(
+                'League Score Preserved',
+                `"${teamName}" has ${formatPoints(points)} points in ${leagueName || 'your league'}. The team's score will remain on the league leaderboard as "Withdrawn" after deletion.`,
+                [
+                  { text: 'Go Back', style: 'cancel' },
+                  {
+                    text: 'Continue',
+                    style: 'destructive',
+                    onPress: () => confirmFinalDelete(teamName),
+                  },
+                ]
+              );
+            } else {
+              confirmFinalDelete(teamName);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const confirmFinalDelete = (teamName: string) => {
+    // Final confirmation
+    Alert.alert(
+      'Permanently Delete?',
+      `This will permanently delete "${teamName}". All drivers, constructor, and team data will be lost. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await deleteTeam();
+            } catch {
+              Alert.alert('Error', 'Failed to delete team');
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // --- Early returns ---
@@ -639,6 +749,16 @@ export default function MyTeamScreen() {
             <Text style={styles.statLabel}>Total Pts</Text>
           </View>
           <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>${formatPoints(currentTeam?.budget || 0)}</Text>
+            <Text style={styles.statLabel}>Bank</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>${formatPoints(teamValue)}</Text>
+            <Text style={styles.statLabel}>Value</Text>
+          </View>
+          <View style={styles.statDivider} />
           {teamStats.leagueId ? (
             <TouchableOpacity
               style={styles.statItem}
@@ -691,30 +811,20 @@ export default function MyTeamScreen() {
             <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
           </TouchableOpacity>
         )}
-        {currentTeam && !currentTeam.aceDriverId && driversCount > 0 &&
-          currentTeam.drivers.some(d => {
+        {currentTeam && !currentTeam.aceDriverId && !currentTeam.aceConstructorId && driversCount > 0 &&
+          (currentTeam.drivers.some(d => {
             const md = allDrivers?.find(m => m.id === d.driverId);
             return (md?.price ?? d.currentPrice) <= PRICING_CONFIG.ACE_MAX_PRICE;
-          }) && (
+          }) || (currentTeam.constructor && (
+            allConstructors?.find(c => c.id === currentTeam.constructor?.constructorId)?.price ?? currentTeam.constructor.currentPrice
+          ) <= PRICING_CONFIG.ACE_MAX_PRICE)) && (
           <View style={[styles.teamAlert, { backgroundColor: COLORS.gold + '15', borderColor: COLORS.gold + '30' }]}>
             <Ionicons name="diamond-outline" size={16} color={COLORS.gold} />
             <Text style={[styles.teamAlertText, { color: COLORS.gold }]}>
-              No Ace selected — tap the diamond icon on an eligible driver (under ${PRICING_CONFIG.ACE_MAX_PRICE})
+              No Ace selected — tap the diamond icon on an eligible driver or constructor (under ${PRICING_CONFIG.ACE_MAX_PRICE})
             </Text>
           </View>
         )}
-
-        {/* Bank + Team Value row */}
-        <View style={styles.summaryRow}>
-          <View>
-            <Text style={styles.summaryLabel}>BANK</Text>
-            <Text style={styles.summaryValue}>${formatPoints(currentTeam?.budget || 0)}</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.summaryLabel}>TEAM VALUE</Text>
-            <Text style={styles.summaryValue}>${formatPoints(teamValue)}</Text>
-          </View>
-        </View>
 
         {/* V5: Driver lockout notice */}
         {lockedOutDriverNames.length > 0 && (
@@ -747,7 +857,7 @@ export default function MyTeamScreen() {
               const contractRemaining = contractLen - (driver.racesHeld || 0);
               const isLastRace = contractRemaining === 1;
               const isReserve = driver.isReservePick;
-              const earlyTermFee = calculateEarlyTerminationFee(driver.purchasePrice, contractLen, driver.racesHeld || 0);
+              const earlyTermFee = calculateEarlyTerminationFee(driver.livePrice, contractLen, driver.racesHeld || 0);
               const effectiveSaleValue = Math.max(0, driver.livePrice - earlyTermFee);
               const accentColor = isReserve ? COLORS.text.muted : cInfo?.primaryColor || COLORS.text.muted;
 
@@ -807,6 +917,15 @@ export default function MyTeamScreen() {
                       <View style={styles.metaChip}>
                         <Text style={styles.metaChipText}>{formatPoints(driver.pointsScored)} pts</Text>
                       </View>
+                      {lastRaceBreakdown[driver.driverId] != null && (
+                        <View style={[styles.metaChip, { backgroundColor: lastRaceBreakdown[driver.driverId].base > 0 ? '#16a34a18' : undefined }]}>
+                          <Text style={[styles.metaChipText, lastRaceBreakdown[driver.driverId].base > 0 && { color: '#16a34a' }]}>
+                            +{lastRaceBreakdown[driver.driverId].base}
+                            {lastRaceBreakdown[driver.driverId].aceBonus > 0 ? ` (+${lastRaceBreakdown[driver.driverId].aceBonus})` : ''}
+                            {' last'}
+                          </Text>
+                        </View>
+                      )}
                       {!isReserve && (
                         <>
                           <View style={[styles.metaChip, isLastRace && { backgroundColor: COLORS.warning + '18' }]}>
@@ -869,9 +988,13 @@ export default function MyTeamScreen() {
           const cContractLen = c.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
           const cContractRemaining = cContractLen - (c.racesHeld || 0);
           const cIsLastRace = cContractRemaining === 1;
-          const cEarlyTermFee = calculateEarlyTerminationFee(c.purchasePrice, cContractLen, c.racesHeld || 0);
+          const cEarlyTermFee = calculateEarlyTerminationFee(livePrice, cContractLen, c.racesHeld || 0);
           const cEffectiveSaleValue = Math.max(0, livePrice - cEarlyTermFee);
           const cAccent = cInfo?.primaryColor || COLORS.primary;
+
+          const isAceConstructor = currentTeam?.aceConstructorId === c.constructorId;
+          const canBeAceConstructor = livePrice <= PRICING_CONFIG.ACE_MAX_PRICE;
+          const hasNoAce = !currentTeam?.aceDriverId && !currentTeam?.aceConstructorId;
 
           return (
             <View style={styles.card}>
@@ -881,6 +1004,18 @@ export default function MyTeamScreen() {
                   <View style={styles.cardIdentity}>
                     <Ionicons name="construct" size={14} color={cAccent} />
                     <Text style={styles.cardName} numberOfLines={1}>{c.name}</Text>
+                    {isAceConstructor && (
+                      <TouchableOpacity onPress={() => handleClearAce()} hitSlop={8}>
+                        <View style={styles.aceActive}>
+                          <Ionicons name="diamond" size={12} color={COLORS.white} />
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                    {!isAceConstructor && canBeAceConstructor && canChangeAce && hasNoAce && (
+                      <TouchableOpacity onPress={() => handleSetAceConstructor(c.constructorId)} hitSlop={8}>
+                        <Ionicons name="diamond-outline" size={15} color={COLORS.gold} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                   <View style={styles.cardPriceBlock}>
                     <Text style={styles.cardPrice}>${livePrice}</Text>
@@ -901,6 +1036,15 @@ export default function MyTeamScreen() {
                   <View style={styles.metaChip}>
                     <Text style={styles.metaChipText}>{formatPoints(c.pointsScored)} pts</Text>
                   </View>
+                  {lastRaceBreakdown[c.constructorId] != null && (
+                    <View style={[styles.metaChip, { backgroundColor: lastRaceBreakdown[c.constructorId].base > 0 ? '#16a34a18' : undefined }]}>
+                      <Text style={[styles.metaChipText, lastRaceBreakdown[c.constructorId].base > 0 && { color: '#16a34a' }]}>
+                        +{lastRaceBreakdown[c.constructorId].base}
+                        {lastRaceBreakdown[c.constructorId].aceBonus > 0 ? ` (+${lastRaceBreakdown[c.constructorId].aceBonus})` : ''}
+                        {' last'}
+                      </Text>
+                    </View>
+                  )}
                   <View style={[styles.metaChip, cIsLastRace && { backgroundColor: COLORS.warning + '18' }]}>
                     <Ionicons name="document-text-outline" size={10} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
                     <Text style={[styles.metaChipText, cIsLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
@@ -953,16 +1097,17 @@ export default function MyTeamScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Manage button */}
-        {canModify && (
-          <TouchableOpacity
-            style={styles.manageButton}
-            onPress={() => router.push('/my-team/edit')}
-          >
-            <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.manageButtonText}>Manage</Text>
-          </TouchableOpacity>
-        )}
+        {/* Delete Team button */}
+        <TouchableOpacity
+          style={styles.deleteTeamButton}
+          onPress={handleDeleteTeam}
+          disabled={isDeleting}
+        >
+          <Ionicons name="trash-outline" size={16} color={COLORS.error} />
+          <Text style={styles.deleteTeamText}>
+            {isDeleting ? 'Deleting...' : 'Delete Team'}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Avatar Picker Modal */}
@@ -1148,12 +1293,12 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs,
   },
   statValue: {
-    fontSize: FONTS.sizes.lg,
+    fontSize: FONTS.sizes.md,
     fontWeight: '700',
     color: COLORS.text.primary,
   },
   statLabel: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.xs,
     color: COLORS.text.muted,
     marginTop: 1,
   },
@@ -1193,29 +1338,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.error,
     borderRadius: SPACING.xs,
     padding: 4,
-  },
-
-  // Bank + Team Value
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingBottom: SPACING.lg,
-    marginBottom: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border.default,
-  },
-  summaryLabel: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.text.muted,
-    letterSpacing: 1,
-    marginBottom: 2,
-  },
-  summaryValue: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '700',
-    color: COLORS.text.primary,
   },
 
   // Driver/Constructor card
@@ -1461,22 +1583,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
   },
-  manageButton: {
+  deleteTeamButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    marginTop: SPACING.md,
-    paddingVertical: SPACING.lg,
-    borderRadius: BORDER_RADIUS.button,
-    borderWidth: 1,
-    borderColor: COLORS.border.accent,
-    backgroundColor: COLORS.glass.cyan,
+    marginTop: SPACING.xl,
+    paddingVertical: SPACING.md,
   },
-  manageButtonText: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '600',
-    color: COLORS.primary,
+  deleteTeamText: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.error,
+    fontWeight: '500',
   },
 
   // Modal

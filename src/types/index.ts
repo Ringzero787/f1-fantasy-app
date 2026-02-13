@@ -118,6 +118,7 @@ export interface LeagueMember {
   recentFormPoints?: number; // Last 5 races total
   raceWins?: number; // Race weekend wins count
   isInCatchUp?: boolean; // Currently in catch-up multiplier period
+  isWithdrawn?: boolean; // Team was deleted but score preserved
 }
 
 export interface LeagueInvite {
@@ -151,8 +152,9 @@ export interface FantasyTeam {
   updatedAt: Date;
   avatarUrl?: string;
   avatarGeneratedAt?: string;
-  // V3: Ace System - choose one driver each race weekend for 2x points
+  // V3: Ace System - choose one driver OR constructor each race weekend for 2x points
   aceDriverId?: string;
+  aceConstructorId?: string;
   // V3: Transfer tracking for stale roster penalty and hot hand bonus
   lastTransferRaceId?: string; // Race ID when last transfer was made
   racesSinceTransfer: number; // Count of races since last transfer

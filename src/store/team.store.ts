@@ -36,13 +36,14 @@ export function getLockedOutDriverIds(
     .map(([driverId]) => driverId);
 }
 // V6: Calculate early termination fee for breaking a driver contract early
+// Fee is based on current market price so it scales with the driver's actual value
 export function calculateEarlyTerminationFee(
-  purchasePrice: number,
+  currentPrice: number,
   contractLength: number,
   racesHeld: number
 ): number {
   const racesRemaining = Math.max(0, contractLength - racesHeld);
-  return Math.floor(purchasePrice * PRICING_CONFIG.EARLY_TERMINATION_RATE * racesRemaining);
+  return Math.floor(currentPrice * PRICING_CONFIG.EARLY_TERMINATION_RATE * racesRemaining);
 }
 
 import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
@@ -107,20 +108,25 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
     totalPoints += driverTotal;
   });
 
-  // Calculate points for constructor (no ace bonus for constructors)
+  // Calculate points for constructor (ace bonus if aceConstructorId matches)
   if (team.constructor) {
+    const isAceConstructor = team.aceConstructorId === team.constructor.constructorId;
     completedRaces.forEach(({ result }) => {
       const constructorResult = result.constructorResults.find(
         cr => cr.constructorId === team.constructor!.constructorId
       );
       if (constructorResult) {
-        constructorPoints += constructorResult.points;
+        let points = constructorResult.points;
+        if (isAceConstructor) points *= PRICING_CONFIG.ACE_MULTIPLIER;
+        constructorPoints += points;
       }
       const sprintConstructorResult = result.sprintConstructorResults?.find(
         scr => scr.constructorId === team.constructor!.constructorId
       );
       if (sprintConstructorResult) {
-        constructorPoints += sprintConstructorResult.points;
+        let points = sprintConstructorResult.points;
+        if (isAceConstructor) points *= PRICING_CONFIG.ACE_MULTIPLIER;
+        constructorPoints += points;
       }
     });
     totalPoints += constructorPoints;
@@ -146,10 +152,11 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
       }
     });
     if (team.constructor) {
+      const isAceCon = team.aceConstructorId === team.constructor.constructorId;
       const cr = result.constructorResults.find(c => c.constructorId === team.constructor!.constructorId);
-      if (cr) raceTotal += cr.points;
+      if (cr) raceTotal += isAceCon ? cr.points * PRICING_CONFIG.ACE_MULTIPLIER : cr.points;
       const scr = result.sprintConstructorResults?.find(c => c.constructorId === team.constructor!.constructorId);
-      if (scr) raceTotal += scr.points;
+      if (scr) raceTotal += isAceCon ? scr.points * PRICING_CONFIG.ACE_MULTIPLIER : scr.points;
     }
     perRacePoints.push({ round, points: raceTotal });
   });
@@ -226,8 +233,9 @@ interface TeamState {
   removeDriver: (driverId: string) => Promise<void>;
   swapDriver: (oldDriverId: string, newDriverId: string) => Promise<void>;
   setConstructor: (constructorId: string, contractLength?: number) => Promise<void>;
-  // V3: Ace system (replaces star driver)
+  // V3: Ace system (replaces star driver) — one of driver or constructor
   setAce: (driverId: string) => Promise<void>;
+  setAceConstructor: (constructorId: string) => Promise<void>;
   clearAce: () => Promise<void>;
   confirmSelection: () => Promise<void>;
   updateTeamName: (name: string) => Promise<void>;
@@ -797,7 +805,7 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
-    // V5: Check if driver is locked out after contract expiry
+    // V5: Check if driver is locked out after contract expiry (1 race lockout)
     const { raceResults: lockoutRaceResults } = useAdminStore.getState();
     const lockoutCompletedRaces = Object.values(lockoutRaceResults).filter(r => r.isComplete).length;
     if (isDriverLockedOut(currentTeam.driverLockouts, driverId, lockoutCompletedRaces)) {
@@ -945,7 +953,7 @@ export const useTeamStore = create<TeamState>()(
 
         // V6: Apply early termination fee for breaking contract early
         const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-        const earlyTermFee = calculateEarlyTerminationFee(driverToRemove.purchasePrice, contractLen, driverToRemove.racesHeld || 0);
+        const earlyTermFee = calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
         const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
         console.log('Selling driver:', { driverId, storedPrice: driverToRemove.currentPrice, marketPrice: currentMarketPrice, earlyTermFee, saleValue });
 
@@ -979,7 +987,7 @@ export const useTeamStore = create<TeamState>()(
       const currentMarketPrice = priceUpdate?.currentPrice ?? driverToRemove.currentPrice;
       // V6: Apply early termination fee
       const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const earlyTermFee = calculateEarlyTerminationFee(driverToRemove.purchasePrice, contractLen, driverToRemove.racesHeld || 0);
+      const earlyTermFee = calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
       const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
       const newAceId = currentTeam.aceDriverId === driverId ? undefined : currentTeam.aceDriverId;
 
@@ -1014,7 +1022,7 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
-    // V5: Check if new driver is locked out after contract expiry
+    // V5: Check if new driver is locked out after contract expiry (1 race lockout)
     const { raceResults: swapLockoutRaceResults } = useAdminStore.getState();
     const swapLockoutCompletedRaces = Object.values(swapLockoutRaceResults).filter(r => r.isComplete).length;
     if (isDriverLockedOut(currentTeam.driverLockouts, newDriverId, swapLockoutCompletedRaces)) {
@@ -1061,7 +1069,7 @@ export const useTeamStore = create<TeamState>()(
 
         // V6: Apply early termination fee for breaking old driver's contract early
         const oldContractLen = oldDriver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-        const oldEarlyTermFee = calculateEarlyTerminationFee(oldDriver.purchasePrice, oldContractLen, oldDriver.racesHeld || 0);
+        const oldEarlyTermFee = calculateEarlyTerminationFee(oldDriverMarketPrice, oldContractLen, oldDriver.racesHeld || 0);
         const saleValue = Math.max(0, oldDriverMarketPrice - oldEarlyTermFee);
         const purchaseCost = newDriverMarketPrice;
         const netCostChange = purchaseCost - saleValue;
@@ -1128,7 +1136,7 @@ export const useTeamStore = create<TeamState>()(
 
       // V6: Apply early termination fee for breaking old driver's contract early
       const oldContractLen = oldDriver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const oldEarlyTermFee = calculateEarlyTerminationFee(oldDriver.purchasePrice, oldContractLen, oldDriver.racesHeld || 0);
+      const oldEarlyTermFee = calculateEarlyTerminationFee(oldDriverMarketPrice, oldContractLen, oldDriver.racesHeld || 0);
       const saleValue = Math.max(0, oldDriverMarketPrice - oldEarlyTermFee);
       const purchaseCost = newDriverMarketPrice;
       const netCostChange = purchaseCost - saleValue;
@@ -1295,16 +1303,22 @@ export const useTeamStore = create<TeamState>()(
 
     set({ isLoading: true, error: null });
     try {
+      // Get live market price from admin store
+      const { constructorPrices } = useAdminStore.getState();
+      const cPriceUpdate = constructorPrices[currentTeam.constructor!.constructorId];
+      const currentMarketPrice = cPriceUpdate?.currentPrice ?? currentTeam.constructor!.currentPrice;
+
       if (isDemoMode) {
-        // V8: Apply early termination fee for breaking constructor contract early
+        // V8: Apply early termination fee based on current market price
         const contractLen = currentTeam.constructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-        const earlyTermFee = calculateEarlyTerminationFee(currentTeam.constructor.purchasePrice, contractLen, currentTeam.constructor.racesHeld || 0);
-        const saleValue = Math.max(0, currentTeam.constructor.currentPrice - earlyTermFee);
-        console.log('Selling constructor:', { constructorId: currentTeam.constructor.constructorId, currentPrice: currentTeam.constructor.currentPrice, earlyTermFee, saleValue });
+        const earlyTermFee = calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor.racesHeld || 0);
+        const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
+        console.log('Selling constructor:', { constructorId: currentTeam.constructor.constructorId, marketPrice: currentMarketPrice, earlyTermFee, saleValue });
 
         const updatedTeam: FantasyTeam = {
           ...currentTeam,
           constructor: null,
+          aceConstructorId: undefined, // Clear ace if removed constructor was ace
           totalSpent: currentTeam.totalSpent - currentTeam.constructor.purchasePrice,
           budget: currentTeam.budget + saleValue,
           // V8: Bank departing constructor's points
@@ -1316,14 +1330,15 @@ export const useTeamStore = create<TeamState>()(
       }
 
       // Use local-first update pattern
-      // V8: Apply early termination fee for breaking constructor contract early
+      // V8: Apply early termination fee based on current market price
       const contractLen = currentTeam.constructor!.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const earlyTermFee = calculateEarlyTerminationFee(currentTeam.constructor!.purchasePrice, contractLen, currentTeam.constructor!.racesHeld || 0);
-      const saleValue = Math.max(0, currentTeam.constructor!.currentPrice - earlyTermFee);
+      const earlyTermFee = calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor!.racesHeld || 0);
+      const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
 
       const updatedTeam: FantasyTeam = {
         ...currentTeam,
         constructor: null,
+        aceConstructorId: undefined, // Clear ace if removed constructor was ace
         totalSpent: currentTeam.totalSpent - currentTeam.constructor!.purchasePrice,
         budget: currentTeam.budget + saleValue,
         // V8: Bank departing constructor's points
@@ -1370,6 +1385,7 @@ export const useTeamStore = create<TeamState>()(
       const updatedTeam: FantasyTeam = {
         ...currentTeam,
         aceDriverId: driverId,
+        aceConstructorId: undefined, // Mutual exclusion: clear constructor ace
         updatedAt: new Date(),
       };
       console.log('setAce: Setting ace locally to:', driverId, 'Driver count:', updatedTeam.drivers.length);
@@ -1379,6 +1395,46 @@ export const useTeamStore = create<TeamState>()(
       syncTeamToFirebase(updatedTeam, 'setAce');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to set Ace';
+      set({ error: message, isLoading: false });
+    }
+  },
+
+  // V9: Set ace constructor (constructor on the team with price <= ACE_MAX_PRICE, gets 2x points)
+  setAceConstructor: async (constructorId) => {
+    const { currentTeam } = get();
+
+    if (!currentTeam) {
+      set({ error: 'No team loaded' });
+      return;
+    }
+
+    // Validate constructor is on the team
+    if (!currentTeam.constructor || currentTeam.constructor.constructorId !== constructorId) {
+      set({ error: 'Constructor not in team' });
+      return;
+    }
+
+    // Price check
+    if (currentTeam.constructor.currentPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
+      set({ error: `Constructors over $${PRICING_CONFIG.ACE_MAX_PRICE} cannot be your Ace` });
+      return;
+    }
+
+    set({ isLoading: true, error: null });
+    try {
+      const updatedTeam: FantasyTeam = {
+        ...currentTeam,
+        aceConstructorId: constructorId,
+        aceDriverId: undefined, // Mutual exclusion: clear driver ace
+        updatedAt: new Date(),
+      };
+      console.log('setAceConstructor: Setting ace constructor to:', constructorId);
+      updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
+
+      // Sync updated team to Firebase in background
+      syncTeamToFirebase(updatedTeam, 'setAceConstructor');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to set Ace Constructor';
       set({ error: message, isLoading: false });
     }
   },
@@ -1400,6 +1456,7 @@ export const useTeamStore = create<TeamState>()(
         const updatedTeam: FantasyTeam = {
           ...currentTeam,
           aceDriverId: undefined,
+          aceConstructorId: undefined,
           updatedAt: new Date(),
         };
         updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
@@ -1410,6 +1467,7 @@ export const useTeamStore = create<TeamState>()(
       const updatedTeam: FantasyTeam = {
         ...currentTeam,
         aceDriverId: undefined,
+        aceConstructorId: undefined,
         updatedAt: new Date(),
       };
       console.log('clearAce: Local update successful');
@@ -1586,6 +1644,35 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
+    // Preserve league scores before deletion
+    if (currentTeam.leagueId) {
+      try {
+        const { useLeagueStore } = require('./league.store');
+        const user = useAuthStore.getState().user;
+        useLeagueStore.getState().addRetiredMember({
+          id: currentTeam.id,
+          leagueId: currentTeam.leagueId,
+          userId: currentTeam.userId,
+          displayName: user?.displayName || 'Former Member',
+          teamName: currentTeam.name,
+          teamAvatarUrl: currentTeam.avatarUrl,
+          role: 'member' as const,
+          totalPoints: currentTeam.totalPoints || 0,
+          rank: 0,
+          joinedAt: currentTeam.createdAt,
+          racesPlayed: currentTeam.racesPlayed || 0,
+          pprAverage: currentTeam.racesPlayed && currentTeam.racesPlayed > 0
+            ? Math.round((currentTeam.totalPoints / currentTeam.racesPlayed) * 10) / 10
+            : 0,
+          recentFormPoints: (currentTeam.pointsHistory || []).slice(-5).reduce((a: number, b: number) => a + b, 0),
+          raceWins: currentTeam.raceWins || 0,
+          isWithdrawn: true,
+        });
+      } catch {
+        // Non-critical: proceed with deletion even if score preservation fails
+      }
+    }
+
     set({ isLoading: true, error: null });
     try {
       if (isDemoMode) {
@@ -1721,11 +1808,12 @@ export const useTeamStore = create<TeamState>()(
 
       // Only auto-fill teams that previously had drivers (skip brand-new empty teams being built)
       const hadDriversBefore = team.drivers.length > 0 || (team.lockedPoints || 0) > 0 || team.totalSpent > 0;
-      // Only auto-fill after all lockouts have cleared (team runs short during lockout race)
+      // Only auto-fill after all lockouts have cleared AND exclude drivers that just expired this pass
+      const expiredSet = new Set(expiredDriverIds);
       if (updatedDrivers.length < TEAM_SIZE && Object.keys(updatedLockouts).length === 0 && hadDriversBefore) {
-        // Find cheapest available drivers not already on the team and not locked out
+        // Find cheapest available drivers not on the team, not locked out, and not just expired
         const availableForAutoFill = demoDrivers
-          .filter(d => d.isActive && !teamDriverIds.has(d.id) && !isDriverLockedOut(updatedLockouts, d.id, completedRaceCount))
+          .filter(d => d.isActive && !teamDriverIds.has(d.id) && !expiredSet.has(d.id) && !isDriverLockedOut(updatedLockouts, d.id, completedRaceCount))
           .map(d => {
             const priceUpdate = driverPrices[d.id];
             return { ...d, marketPrice: priceUpdate?.currentPrice ?? d.price };
@@ -1773,12 +1861,17 @@ export const useTeamStore = create<TeamState>()(
       })() : null;
 
       // V8: Constructor contract expiry - auto-sell if racesHeld >= contractLength
+      let aceConstructorId = team.aceConstructorId;
       if (updatedConstructor) {
         const cContractLen = updatedConstructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
         if (updatedConstructor.racesHeld >= cContractLen) {
           // Contract expired - sell at current market value and bank points
           budgetReturn += calculateSaleValue(updatedConstructor.currentPrice);
           lockedPoints += constructorPoints;
+          // Clear ace if expired constructor was ace
+          if (aceConstructorId === updatedConstructor.constructorId) {
+            aceConstructorId = undefined;
+          }
           updatedConstructor = null;
         }
       }
@@ -1790,6 +1883,7 @@ export const useTeamStore = create<TeamState>()(
         totalPoints,
         budget: newBudget,
         aceDriverId: aceId,
+        aceConstructorId,
         driverLockouts: Object.keys(updatedLockouts).length > 0 ? updatedLockouts : undefined,
         lockedPoints: lockedPoints > 0 ? lockedPoints : undefined,
         racesPlayed: perRacePoints.length,
