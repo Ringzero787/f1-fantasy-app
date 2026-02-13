@@ -48,6 +48,7 @@ export const DriverCard = React.memo(function DriverCard({
         <View style={styles.compactLeft}>
           <View style={styles.compactNameRow}>
             <Text style={styles.shortName}>{driver.shortName}</Text>
+            <Text style={styles.compactFullName} numberOfLines={1}>{driver.name}</Text>
             {driver.tier === 'A' && !isTopTen && (
               <View style={styles.compactTierBadge}>
                 <Text style={styles.compactTierText}>A</Text>
@@ -497,6 +498,12 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
     color: COLORS.text.primary,
+  },
+
+  compactFullName: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+    flexShrink: 1,
   },
 
   compactTierBadge: {
