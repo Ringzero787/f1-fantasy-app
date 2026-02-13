@@ -11,7 +11,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useDrivers, useLockoutStatus } from '../../../src/hooks';
-import { useTeamStore, getLockedOutDriverIds, calculateEarlyTerminationFee } from '../../../src/store/team.store';
+import { useTeamStore, getLockedOutDriverIds, isDriverLockedOut, calculateEarlyTerminationFee } from '../../../src/store/team.store';
 import { useAdminStore } from '../../../src/store/admin.store';
 import { Loading, DriverCard, Button, SmartRecommendations } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE, TEAM_COLORS } from '../../../src/config/constants';
@@ -39,7 +39,7 @@ export default function SelectDriverScreen() {
     return new Set(sorted.slice(0, 10).map(d => d.id));
   }, [allDrivers]);
 
-  // V5: Compute locked-out driver IDs for this team
+  // V5: Compute locked-out driver IDs for this team (active lockouts only)
   const raceResults = useAdminStore(s => s.raceResults);
   const lockedOutIds = useMemo(() => {
     const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
@@ -69,8 +69,11 @@ export default function SelectDriverScreen() {
     const team = useTeamStore.getState().currentTeam;
     if (!team || pending.length === 0) return;
 
+    // Filter out any actively locked-out drivers
     const completedRaceCount = Object.values(useAdminStore.getState().raceResults)
       .filter(r => r.isComplete).length;
+    pending = pending.filter(d => !isDriverLockedOut(team.driverLockouts, d.id, completedRaceCount));
+    if (pending.length === 0) return;
 
     if (isSwapMode && swapDriverId && pending.length > 0) {
       // Swap: remove old driver, add new one
@@ -78,7 +81,7 @@ export default function SelectDriverScreen() {
       const newDriver = pending[0];
       // V6: Apply early termination fee for breaking old driver's contract early
       const oldContractLen = oldDriver?.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const oldEarlyTermFee = oldDriver ? calculateEarlyTerminationFee(oldDriver.purchasePrice, oldContractLen, oldDriver.racesHeld || 0) : 0;
+      const oldEarlyTermFee = oldDriver ? calculateEarlyTerminationFee(oldDriver.currentPrice, oldContractLen, oldDriver.racesHeld || 0) : 0;
       const saleValue = oldDriver ? Math.max(0, oldDriver.currentPrice - oldEarlyTermFee) : 0;
       const newFantasyDriver: FantasyDriver = {
         driverId: newDriver.id,

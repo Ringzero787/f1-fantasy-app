@@ -44,12 +44,6 @@ export default function MyTeamLayout() {
         }}
       />
       <Stack.Screen
-        name="edit"
-        options={{
-          title: 'Edit Team',
-        }}
-      />
-      <Stack.Screen
         name="build"
         options={{
           title: 'Build Team',

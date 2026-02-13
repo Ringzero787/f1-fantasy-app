@@ -859,6 +859,7 @@ export default function MyTeamScreen() {
               const isReserve = driver.isReservePick;
               const earlyTermFee = calculateEarlyTerminationFee(driver.livePrice, contractLen, driver.racesHeld || 0);
               const effectiveSaleValue = Math.max(0, driver.livePrice - earlyTermFee);
+              const saleProfit = effectiveSaleValue - driver.purchasePrice;
               const accentColor = isReserve ? COLORS.text.muted : cInfo?.primaryColor || COLORS.text.muted;
 
               return (
@@ -945,9 +946,11 @@ export default function MyTeamScreen() {
                         <TouchableOpacity
                           onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
                           hitSlop={6}
-                          style={styles.sellChip}
+                          style={[styles.sellChip, saleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
                         >
-                          <Text style={styles.sellChipText}>Sell ${effectiveSaleValue}</Text>
+                          <Text style={[styles.sellChipText, saleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
+                            Sell {saleProfit >= 0 ? '+' : '-'}${Math.abs(saleProfit)}
+                          </Text>
                         </TouchableOpacity>
                       )}
                       {canModify && isReserve && (
@@ -990,6 +993,7 @@ export default function MyTeamScreen() {
           const cIsLastRace = cContractRemaining === 1;
           const cEarlyTermFee = calculateEarlyTerminationFee(livePrice, cContractLen, c.racesHeld || 0);
           const cEffectiveSaleValue = Math.max(0, livePrice - cEarlyTermFee);
+          const cSaleProfit = cEffectiveSaleValue - c.purchasePrice;
           const cAccent = cInfo?.primaryColor || COLORS.primary;
 
           const isAceConstructor = currentTeam?.aceConstructorId === c.constructorId;
@@ -1060,9 +1064,11 @@ export default function MyTeamScreen() {
                     <TouchableOpacity
                       onPress={handleRemoveConstructor}
                       hitSlop={6}
-                      style={styles.sellChip}
+                      style={[styles.sellChip, cSaleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
                     >
-                      <Text style={styles.sellChipText}>Sell ${cEffectiveSaleValue}</Text>
+                      <Text style={[styles.sellChipText, cSaleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
+                        Sell {cSaleProfit >= 0 ? '+' : '-'}${Math.abs(cSaleProfit)}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1463,13 +1469,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: COLORS.error + '12',
     borderWidth: 1,
+  },
+  sellChipProfit: {
+    backgroundColor: '#16a34a12',
+    borderColor: '#16a34a25',
+  },
+  sellChipLoss: {
+    backgroundColor: COLORS.error + '12',
     borderColor: COLORS.error + '25',
   },
   sellChipText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  sellChipTextProfit: {
+    color: '#16a34a',
+  },
+  sellChipTextLoss: {
     color: COLORS.error,
   },
   swapChip: {

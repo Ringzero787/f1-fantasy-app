@@ -3,6 +3,7 @@ import {
   SPRINT_POINTS,
   FASTEST_LAP_BONUS,
   POSITION_GAINED_BONUS,
+  POSITION_LOST_PENALTY,
   DNF_PENALTY,
   DSQ_PENALTY,
   LOCK_BONUS,
@@ -84,6 +85,18 @@ export const scoringService = {
       });
     }
 
+    // Position lost penalty
+    if (result.positionsGained < 0) {
+      const positionsLost = Math.abs(result.positionsGained);
+      const lostPenalty = positionsLost * POSITION_LOST_PENALTY;
+      points -= lostPenalty;
+      breakdown.push({
+        label: 'Positions Lost',
+        points: -lostPenalty,
+        description: `-${positionsLost} positions from P${result.gridPosition}`,
+      });
+    }
+
     // Fastest lap bonus (only if in points)
     if (result.fastestLap && result.position <= 10) {
       points += rules.fastestLapBonus;
@@ -111,10 +124,10 @@ export const scoringService = {
     if (result.status === 'dnf') {
       breakdown.push({
         label: 'Sprint DNF',
-        points: 0,
+        points: rules.dnfPenalty,
         description: 'Did not finish sprint',
       });
-      return { points: 0, breakdown };
+      return { points: rules.dnfPenalty, breakdown };
     }
 
     if (result.status === 'dsq') {

@@ -92,6 +92,8 @@ export const SPRINT_POINTS = {
 export const BONUS_POINTS = {
   FASTEST_LAP: 1, // Must finish in top 10
   POSITION_GAINED: 1, // Per position gained (grid vs finish)
+  POSITION_LOST: 1, // Per position lost (grid vs finish)
+  DNF_PENALTY: -5, // Flat penalty for Did Not Finish
 } as const;
 
 /**

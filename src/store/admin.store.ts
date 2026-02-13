@@ -86,6 +86,9 @@ interface AdminState {
   // V5: Lockout override
   setAdminLockOverride: (override: 'locked' | 'unlocked' | null) => void;
 
+  // Reset prices only (keeps race results)
+  resetPrices: () => void;
+
   // Reset all cached data
   resetAllData: () => void;
 }
@@ -452,6 +455,15 @@ export const useAdminStore = create<AdminState>()(
 
       setAdminLockOverride: (override) => {
         set({ adminLockOverride: override });
+      },
+
+      // Reset prices only, keeping race results intact
+      resetPrices: () => {
+        console.log('Resetting all driver/constructor prices to initial values...');
+        set({
+          driverPrices: {},
+          constructorPrices: {},
+        });
       },
 
       // Reset all cached data to fresh state

@@ -111,33 +111,49 @@ function calculateDriverPoints(
   racesHeld: number,
   isAce: boolean
 ): number {
-  let points = 0;
+  let racePoints = 0;
+  let sprintPoints = 0;
 
-  // Race points
-  if (result.status === 'finished' && result.position <= RACE_POINTS.length) {
-    points += RACE_POINTS[result.position - 1];
+  // --- Race scoring ---
+  if (result.status === 'finished') {
+    // Race position points
+    if (result.position <= RACE_POINTS.length) {
+      racePoints += RACE_POINTS[result.position - 1];
+    }
+
+    // Position gained bonus
+    const positionsGained = result.gridPosition - result.position;
+    if (positionsGained > 0) {
+      racePoints += positionsGained * POSITION_GAINED_BONUS;
+    }
+
+    // Position lost penalty (-1 per position lost)
+    if (positionsGained < 0) {
+      racePoints += positionsGained; // negative, so this subtracts
+    }
+
+    // Fastest lap bonus (only if in points)
+    if (result.fastestLap && result.position <= 10) {
+      racePoints += FASTEST_LAP_BONUS;
+    }
+  } else if (result.status === 'dnf') {
+    racePoints = -5;
+  } else if (result.status === 'dsq') {
+    racePoints = -5;
   }
 
-  // Sprint points
-  if (sprintResult && sprintResult.status === 'finished' && sprintResult.position <= SPRINT_POINTS.length) {
-    points += SPRINT_POINTS[sprintResult.position - 1];
+  // --- Sprint scoring ---
+  if (sprintResult) {
+    if (sprintResult.status === 'finished' && sprintResult.position <= SPRINT_POINTS.length) {
+      sprintPoints += SPRINT_POINTS[sprintResult.position - 1];
+    } else if (sprintResult.status === 'dnf') {
+      sprintPoints = -5;
+    } else if (sprintResult.status === 'dsq') {
+      sprintPoints = -5;
+    }
   }
 
-  // Position gained bonus
-  const positionsGained = result.gridPosition - result.position;
-  if (positionsGained > 0) {
-    points += positionsGained * POSITION_GAINED_BONUS;
-  }
-
-  // Fastest lap bonus (only if in points)
-  if (result.fastestLap && result.position <= 10) {
-    points += FASTEST_LAP_BONUS;
-  }
-
-  // DSQ penalty
-  if (result.status === 'dsq') {
-    points = -5;
-  }
+  let points = racePoints + sprintPoints;
 
   // Lock bonus
   points += calculateLockBonus(racesHeld);

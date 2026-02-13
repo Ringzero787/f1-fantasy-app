@@ -66,12 +66,14 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
     return null;
   };
 
+  const isWithdrawn = member.isWithdrawn === true;
+
   const content = (
-    <View style={[styles.container, isCurrentUser && styles.currentUser]}>
+    <View style={[styles.container, isCurrentUser && styles.currentUser, isWithdrawn && styles.withdrawnContainer]}>
       {/* Rank Badge */}
       <LinearGradient
         colors={getRankColors()}
-        style={styles.rankBadge}
+        style={[styles.rankBadge, isWithdrawn && { opacity: 0.5 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
@@ -93,7 +95,7 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
       {/* Member Info */}
       <View style={styles.info}>
         <View style={styles.nameRow}>
-          <Text style={[styles.teamName, isCurrentUser && styles.currentUserText]} numberOfLines={1}>
+          <Text style={[styles.teamName, isCurrentUser && styles.currentUserText, isWithdrawn && styles.withdrawnText]} numberOfLines={1}>
             {member.teamName || 'No Team'}
           </Text>
           {isCurrentUser && (
@@ -101,7 +103,12 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
               <Text style={styles.youText}>You</Text>
             </View>
           )}
-          {member.isInCatchUp && (
+          {isWithdrawn && (
+            <View style={styles.withdrawnBadge}>
+              <Text style={styles.withdrawnBadgeText}>Withdrawn</Text>
+            </View>
+          )}
+          {member.isInCatchUp && !isWithdrawn && (
             <View style={styles.catchUpBadge}>
               <Ionicons name="rocket" size={10} color={COLORS.white} />
               <Text style={styles.catchUpText}>1.5x</Text>
@@ -121,20 +128,20 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
 
       {/* Points/Value */}
       <View style={styles.points}>
-        <Text style={[styles.pointsValue, member.rank <= 3 && styles.topPointsValue]}>
+        <Text style={[styles.pointsValue, member.rank <= 3 && styles.topPointsValue, isWithdrawn && styles.withdrawnText]}>
           {view === 'ppr' ? displayValue.toFixed(1) : formatPoints(displayValue)}
         </Text>
         <Text style={styles.pointsLabel}>{displayLabel}</Text>
       </View>
 
       {/* Chevron for navigation */}
-      {onPress && (
+      {onPress && !isWithdrawn && (
         <Ionicons name="chevron-forward" size={18} color={COLORS.gray[300]} style={styles.chevron} />
       )}
     </View>
   );
 
-  if (onPress) {
+  if (onPress && !isWithdrawn) {
     return (
       <Pressable
         onPress={onPress}
@@ -283,5 +290,26 @@ const styles = StyleSheet.create({
 
   chevron: {
     marginLeft: SPACING.sm,
+  },
+
+  withdrawnContainer: {
+    opacity: 0.6,
+  },
+
+  withdrawnText: {
+    color: COLORS.text.muted,
+  },
+
+  withdrawnBadge: {
+    backgroundColor: COLORS.text.muted + '20',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+  },
+
+  withdrawnBadgeText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.text.muted,
   },
 });

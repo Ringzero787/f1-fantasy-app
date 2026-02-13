@@ -20,8 +20,9 @@ export const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 export const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1];
 export const FASTEST_LAP_BONUS = 1;
 export const POSITION_GAINED_BONUS = 1;
-export const DNF_PENALTY = 0; // Fantasy points penalty (0 for DNF)
-export const DSQ_PENALTY = -5; // Fantasy points penalty
+export const POSITION_LOST_PENALTY = 1; // Per position lost (grid vs finish)
+export const DNF_PENALTY = -5; // Fantasy points penalty for DNF
+export const DSQ_PENALTY = -5; // Fantasy points penalty for DSQ
 
 // ============================================
 // DNF Price Penalty Configuration
@@ -40,12 +41,14 @@ export const TIER_A_THRESHOLD = 240; // Price > 240 is A-tier
 export const TIER_B_THRESHOLD = 120;  // Price > 120 is B-tier, <= 120 is C-tier
 
 // ============================================
-// PPM (Points Per Million) Thresholds
+// PPM (Points Per Price) Thresholds
+// Scaled for dollar-based prices (not millions)
+// e.g. $500 driver scoring 25pts = PPM 0.05 = "good"
 // ============================================
 
-export const PPM_GREAT = 0.8;
-export const PPM_GOOD = 0.6;
-export const PPM_POOR = 0.4;
+export const PPM_GREAT = 0.06;
+export const PPM_GOOD = 0.04;
+export const PPM_POOR = 0.02;
 
 // ============================================
 // Price Changes per Performance

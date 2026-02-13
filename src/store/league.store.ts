@@ -44,6 +44,7 @@ interface LeagueState {
   currentLeague: League | null;
   recentlyCreatedLeague: League | null; // Track league just created for team creation flow
   members: LeagueMember[];
+  retiredMembers: LeagueMember[]; // Preserved scores from deleted teams
   isLoading: boolean;
   error: string | null;
 
@@ -66,6 +67,10 @@ interface LeagueState {
   leaveLeague: (leagueId: string, userId: string) => Promise<void>;
   deleteLeague: (leagueId: string, userId: string) => Promise<void>;
 
+  // Retired members
+  addRetiredMember: (member: LeagueMember) => void;
+  getRetiredMembers: (leagueId: string) => LeagueMember[];
+
   // Admin actions
   removeMember: (leagueId: string, memberId: string) => Promise<void>;
   inviteMemberByEmail: (leagueId: string, email: string) => Promise<void>;
@@ -82,6 +87,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
   currentLeague: null,
   recentlyCreatedLeague: null,
   members: [],
+  retiredMembers: [],
   isLoading: false,
   error: null,
 
@@ -93,6 +99,17 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
   setError: (error) => set({ error, isLoading: false }),
   clearError: () => set({ error: null }),
   clearRecentlyCreatedLeague: () => set({ recentlyCreatedLeague: null }),
+
+  addRetiredMember: (member) => {
+    const { retiredMembers } = get();
+    // Avoid duplicates
+    if (retiredMembers.some(m => m.id === member.id && m.leagueId === member.leagueId)) return;
+    set({ retiredMembers: [...retiredMembers, { ...member, isWithdrawn: true }] });
+  },
+
+  getRetiredMembers: (leagueId) => {
+    return get().retiredMembers.filter(m => m.leagueId === leagueId);
+  },
 
   loadUserLeagues: async (userId) => {
     const isDemoMode = useAuthStore.getState().isDemoMode;

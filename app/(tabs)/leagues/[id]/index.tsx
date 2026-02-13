@@ -49,6 +49,7 @@ export default function LeagueDetailScreen() {
   const userTeams = useTeamStore(s => s.userTeams);
   const currentTeam = useTeamStore(s => s.currentTeam);
   const loadUserTeams = useTeamStore(s => s.loadUserTeams);
+  const retiredMembers = useLeagueStore(s => s.retiredMembers);
 
   // Compute league members directly from team data (more reliable than async loading)
   const members = useMemo((): LeagueMember[] => {
@@ -87,6 +88,11 @@ export default function LeagueDetailScreen() {
       recentFormPoints: (team.pointsHistory || []).slice(-5).reduce((a, b) => a + b, 0),
       raceWins: team.raceWins || 0,
     }));
+
+    // Merge retired members (withdrawn teams whose scores are preserved)
+    const retired = retiredMembers
+      .filter(m => m.leagueId === id && !memberList.some(active => active.id === m.id));
+    retired.forEach(m => memberList.push({ ...m, isWithdrawn: true }));
 
     // Sort based on selected view and assign ranks
     const getSortValue = (m: LeagueMember): number => {
@@ -134,7 +140,7 @@ export default function LeagueDetailScreen() {
     }
 
     return memberList;
-  }, [id, currentLeague, user, userTeams, currentTeam, leaderboardView]);
+  }, [id, currentLeague, user, userTeams, currentTeam, leaderboardView, retiredMembers]);
 
   useEffect(() => {
     if (id && user) {
