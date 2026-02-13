@@ -52,7 +52,8 @@ export default {
         }
       ],
       "@react-native-google-signin/google-signin",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "react-native-iap"
     ],
     experiments: {
       typedRoutes: true

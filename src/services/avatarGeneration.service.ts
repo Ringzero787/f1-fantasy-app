@@ -26,42 +26,25 @@ const IMAGE_GENERATION_MODELS = [
   'gemini-2.5-flash-image',        // Nano Banana - fast image generation
 ];
 
-// Avatar generation prompts based on type
+// Avatar generation prompts based on type — kept simple for clean output
 const AVATAR_PROMPTS = {
   league: (name: string) =>
-    `Design a premium emblem for an F1 racing league called "${name}". ` +
-    `Square image filling the entire canvas edge-to-edge — no circular crop. ` +
-    `Style: sleek motorsport aesthetic with a bold central icon (e.g. stylized helmet, ` +
-    `checkered flag, racing stripes, or abstract speed lines). ` +
-    `Use a dark or rich background (deep navy, black, racing red) with metallic or ` +
-    `vibrant accent colors. Subtle gradients and lighting are fine for depth. ` +
-    `Clean and polished — should look great as a 128px avatar. ` +
-    `No text, no words, no letters. No photograph — illustrated/graphic style only.`,
+    `A simple, clean racing emblem on a solid dark background. ` +
+    `One bold icon in the center (helmet, flag, or wing shape). ` +
+    `Flat graphic style, 2-3 colors max. Square image, edge-to-edge. ` +
+    `No text, no words, no letters.`,
 
   team: (name: string) =>
-    `Design a striking team crest for an F1 fantasy team called "${name}". ` +
-    `Square image filling the entire canvas edge-to-edge — no circular crop. ` +
-    `Style: modern racing badge with a bold central motif — could be an animal, ` +
-    `abstract shape, wing, bolt, or racing-inspired symbol. ` +
-    `Use 3-4 strong colors with a cohesive palette. Dark or vivid background ` +
-    `with sharp contrasting accents. Subtle shading and depth are encouraged. ` +
-    `Think esports team logo meets F1 livery design — bold, confident, iconic. ` +
-    `No text, no words, no letters. Illustrated/graphic style, not a photograph.`,
+    `A simple, bold team badge for a racing team. ` +
+    `One strong central symbol (animal, shield, or abstract shape). ` +
+    `Flat graphic style, solid dark background, 2-3 accent colors. ` +
+    `Square image, edge-to-edge. No text, no words, no letters.`,
 
   user: (name: string) =>
-    `Create a high-quality, detailed profile avatar for a motorsport enthusiast named "${name}". ` +
-    `Square image filling the entire canvas edge-to-edge — no circular crop, no border. ` +
-    `Style: a cinematic, richly detailed character portrait — ` +
-    `could be a dramatic close-up of a racing driver's helmet with reflective visor showing a track, ` +
-    `a stylized cyberpunk racer with neon accents and circuit-board patterns, ` +
-    `or an abstract futuristic face composed of speed lines, exhaust flames, and carbon fiber textures. ` +
-    `Use a deep, atmospheric background — dark moody tones with vivid accent lighting ` +
-    `(electric blue, hot red, neon purple, or gold sparks). ` +
-    `Include fine details: lens flares, particle effects, subtle smoke or heat shimmer, ` +
-    `metallic reflections, and layered depth. ` +
-    `The result should look like premium concept art or a AAA game character portrait — ` +
-    `bold, cinematic, and visually striking at any size from 64px to full screen. ` +
-    `No text, no words, no letters, no logos. Illustrated/digital art style, not a photograph.`,
+    `A clean racing driver helmet portrait on a solid dark background. ` +
+    `Simple, minimal detail — just the helmet with one or two color accents. ` +
+    `Flat illustrated style, not photorealistic. Square image, edge-to-edge. ` +
+    `No text, no words, no letters.`,
 };
 
 export type AvatarType = 'league' | 'team' | 'user';

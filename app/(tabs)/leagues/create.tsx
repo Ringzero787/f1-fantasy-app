@@ -17,8 +17,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useLeagueStore } from '../../../src/store/league.store';
 import { useTeamStore } from '../../../src/store/team.store';
-import { Input, Button, Avatar } from '../../../src/components';
-import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
+import { usePurchaseStore } from '../../../src/store/purchase.store';
+import { useAuthStore } from '../../../src/store/auth.store';
+import { Input, Button, Avatar, PurchaseModal } from '../../../src/components';
+import { COLORS, SPACING, FONTS, BORDER_RADIUS, FREE_LEAGUE_MEMBER_LIMIT } from '../../../src/config/constants';
+import { PRODUCTS, PRODUCT_IDS } from '../../../src/config/products';
 import { validateLeagueName } from '../../../src/utils/validation';
 import type { FantasyTeam, League } from '../../../src/types';
 
@@ -28,6 +31,12 @@ export default function CreateLeagueScreen() {
   const { user } = useAuth();
   const { createLeague, isLoading, error, clearRecentlyCreatedLeague, clearError } = useLeagueStore();
   const { createTeam, userTeams, loadUserTeams, assignTeamToLeague } = useTeamStore();
+
+  // Purchase store
+  const hasExpansionCredit = usePurchaseStore(s => s.hasExpansionCredit);
+  const consumeExpansionCredit = usePurchaseStore(s => s.consumeExpansionCredit);
+  const purchaseLeagueExpansion = usePurchaseStore(s => s.purchaseLeagueExpansion);
+  const isPurchasing = usePurchaseStore(s => s.isPurchasing);
 
   // Find solo teams (teams not assigned to any league)
   const soloTeams = userTeams.filter(team => !team.leagueId);
@@ -46,6 +55,7 @@ export default function CreateLeagueScreen() {
   const [maxMembers, setMaxMembers] = useState('20');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showExpansionPurchase, setShowExpansionPurchase] = useState(false);
 
   // Team selection modal state
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
@@ -71,6 +81,20 @@ export default function CreateLeagueScreen() {
     if (!user) {
       setValidationError('You must be logged in to create a league');
       return;
+    }
+
+    // Gate leagues >22 members behind expansion purchase
+    const needsExpansion = members > FREE_LEAGUE_MEMBER_LIMIT;
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    if (needsExpansion && !isDemoMode && !hasExpansionCredit()) {
+      setShowExpansionPurchase(true);
+      return;
+    }
+
+    // Consume expansion credit if needed
+    if (needsExpansion && !isDemoMode) {
+      consumeExpansionCredit();
     }
 
     setIsCreating(true);
@@ -221,6 +245,12 @@ export default function CreateLeagueScreen() {
             maxLength={3}
           />
 
+          {parseInt(maxMembers, 10) > FREE_LEAGUE_MEMBER_LIMIT && (
+            <Text style={styles.expansionHint}>
+              Leagues with more than {FREE_LEAGUE_MEMBER_LIMIT} members require a one-time $9.99 expansion
+            </Text>
+          )}
+
           <View style={styles.switchRow}>
             <View style={styles.switchInfo}>
               <Text style={styles.switchLabel}>Public League</Text>
@@ -326,6 +356,22 @@ export default function CreateLeagueScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* League Expansion Purchase Modal */}
+      <PurchaseModal
+        visible={showExpansionPurchase}
+        onClose={() => setShowExpansionPurchase(false)}
+        onPurchase={() => {
+          purchaseLeagueExpansion();
+          setShowExpansionPurchase(false);
+        }}
+        isLoading={isPurchasing}
+        title={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].title}
+        description={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].description}
+        price={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].price}
+        icon={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].icon}
+        benefits={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].benefits}
+      />
     </SafeAreaView>
   );
 }
@@ -532,5 +578,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: SPACING.md,
     fontStyle: 'italic',
+  },
+
+  expansionHint: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.warning,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
 });

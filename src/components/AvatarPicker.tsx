@@ -16,6 +16,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
 import { getAvatarGradient, getInitials } from '../utils/avatarColors';
 import { useAvatarStore } from '../store/avatar.store';
+import { usePurchaseStore } from '../store/purchase.store';
+import { PurchaseModal } from './PurchaseModal';
+import { PRODUCTS, PRODUCT_IDS } from '../config/products';
 import type { AvatarType } from '../services/avatarGeneration.service';
 
 // DiceBear styles available for each type
@@ -81,6 +84,11 @@ export function AvatarPicker({
   const [isLoading, setIsLoading] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [wasGenerating, setWasGenerating] = useState(false);
+  const [showAvatarPurchase, setShowAvatarPurchase] = useState(false);
+
+  // Purchase store
+  const isPurchasing = usePurchaseStore(s => s.isPurchasing);
+  const purchaseAvatarPack = usePurchaseStore(s => s.purchaseAvatarPack);
 
   // Avatar history & generation limits
   const avatarHistory = useAvatarStore(s => userId ? s.getHistory(userId) : []);
@@ -123,7 +131,7 @@ export function AvatarPicker({
 
   const handleGenerateAI = () => {
     if (userId && !canGenerateMore) {
-      Alert.alert('Limit Reached', 'You\'ve used all 10 avatar generations. Pick from your previous avatars below.');
+      setShowAvatarPurchase(true);
       return;
     }
     if (onGenerateAI) {
@@ -261,11 +269,11 @@ export function AvatarPicker({
           </View>
 
           {/* AI Generation Option */}
-          {canGenerateAI && (
+          {canGenerateAI && canGenerateMore && (
             <TouchableOpacity
-              style={[styles.aiGenerateButton, userId && !canGenerateMore && styles.aiGenerateButtonDisabled]}
+              style={styles.aiGenerateButton}
               onPress={handleGenerateAI}
-              disabled={isGeneratingAI || (userId ? !canGenerateMore : false)}
+              disabled={isGeneratingAI}
             >
               <View style={styles.aiGenerateContent}>
                 <View style={styles.aiIconContainer}>
@@ -281,22 +289,47 @@ export function AvatarPicker({
                   </Text>
                   <Text style={styles.aiGenerateSubtitle}>
                     {userId
-                      ? (canGenerateMore
-                          ? `${avatarRemaining} of 10 remaining`
-                          : 'Limit reached — pick from below')
+                      ? (avatarRemaining <= (usePurchaseStore.getState().getBonusCredits(userId || '') || 0)
+                          ? `${avatarRemaining} purchased credits remaining`
+                          : `${avatarRemaining} of 10 remaining`)
                       : 'Create a unique avatar using AI'}
                   </Text>
                 </View>
               </View>
               {isGeneratingAI ? (
                 <ActivityIndicator size="small" color={COLORS.primary} />
-              ) : userId && canGenerateMore ? (
+              ) : userId ? (
                 <View style={styles.remainingBadge}>
                   <Text style={styles.remainingBadgeText}>{avatarRemaining}</Text>
                 </View>
               ) : (
                 <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
               )}
+            </TouchableOpacity>
+          )}
+
+          {/* Buy More Credits Option — shown when free credits exhausted */}
+          {canGenerateAI && !canGenerateMore && userId && (
+            <TouchableOpacity
+              style={styles.aiGenerateButton}
+              onPress={() => setShowAvatarPurchase(true)}
+            >
+              <View style={styles.aiGenerateContent}>
+                <View style={[styles.aiIconContainer, { backgroundColor: COLORS.success }]}>
+                  <Ionicons
+                    name="bag-add"
+                    size={20}
+                    color={COLORS.white}
+                  />
+                </View>
+                <View style={styles.aiGenerateText}>
+                  <Text style={styles.aiGenerateTitle}>Buy 40 More</Text>
+                  <Text style={styles.aiGenerateSubtitle}>
+                    All free credits used — get 40 more for $4.99
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
             </TouchableOpacity>
           )}
 
@@ -433,6 +466,24 @@ export function AvatarPicker({
           </View>
         </View>
       </View>
+
+      {/* Avatar Pack Purchase Modal */}
+      <PurchaseModal
+        visible={showAvatarPurchase}
+        onClose={() => setShowAvatarPurchase(false)}
+        onPurchase={() => {
+          if (userId) {
+            purchaseAvatarPack(userId);
+            setShowAvatarPurchase(false);
+          }
+        }}
+        isLoading={isPurchasing}
+        title={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].title}
+        description={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].description}
+        price={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].price}
+        icon={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].icon}
+        benefits={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].benefits}
+      />
     </Modal>
   );
 }

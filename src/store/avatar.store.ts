@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const MAX_AVATARS = 10;
+const MAX_FREE_AVATARS = 10;
 
 interface AvatarState {
   // Per-user avatar history keyed by userId
@@ -12,6 +12,7 @@ interface AvatarState {
   getHistory: (userId: string) => string[];
   getRemaining: (userId: string) => number;
   canGenerate: (userId: string) => boolean;
+  consumeCredit: (userId: string) => void;
 }
 
 export const useAvatarStore = create<AvatarState>()(
@@ -24,8 +25,8 @@ export const useAvatarStore = create<AvatarState>()(
         const current = histories[userId] || [];
         // Don't add duplicates
         if (current.includes(url)) return;
-        // Prepend new avatar (most recent first), cap at MAX
-        const updated = [url, ...current].slice(0, MAX_AVATARS);
+        // Prepend new avatar (most recent first) — no cap, bonus credits allow more
+        const updated = [url, ...current];
         set({ histories: { ...histories, [userId]: updated } });
       },
 
@@ -35,11 +36,22 @@ export const useAvatarStore = create<AvatarState>()(
 
       getRemaining: (userId) => {
         const count = (get().histories[userId] || []).length;
-        return Math.max(0, MAX_AVATARS - count);
+        const { usePurchaseStore } = require('./purchase.store');
+        const bonus = usePurchaseStore.getState().getBonusCredits(userId);
+        return Math.max(0, MAX_FREE_AVATARS - count) + bonus;
       },
 
       canGenerate: (userId) => {
-        return (get().histories[userId] || []).length < MAX_AVATARS;
+        return get().getRemaining(userId) > 0;
+      },
+
+      consumeCredit: (userId) => {
+        const count = (get().histories[userId] || []).length;
+        // If user has used all free credits, consume a bonus credit
+        if (count >= MAX_FREE_AVATARS) {
+          const { usePurchaseStore } = require('./purchase.store');
+          usePurchaseStore.getState().consumeBonusCredit(userId);
+        }
       },
     }),
     {
