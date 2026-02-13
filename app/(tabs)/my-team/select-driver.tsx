@@ -173,13 +173,15 @@ export default function SelectDriverScreen() {
         if (selectedDrivers.some((d) => d.id === driver.id)) return false;
         return true;
       })
-      .sort((a, b) => b.price - a.price);
-  }, [allDrivers, currentDriverIds, selectedDrivers]);
-
-  const affordableDrivers = useMemo(
-    () => availableDrivers.filter((d) => d.price <= effectiveBudget),
-    [availableDrivers, effectiveBudget]
-  );
+      // Sort affordable first (by price desc), then unaffordable (by price desc)
+      .sort((a, b) => {
+        const aAffordable = a.price <= effectiveBudget;
+        const bAffordable = b.price <= effectiveBudget;
+        if (aAffordable && !bAffordable) return -1;
+        if (!aAffordable && bAffordable) return 1;
+        return b.price - a.price;
+      });
+  }, [allDrivers, currentDriverIds, selectedDrivers, effectiveBudget]);
 
   const handleToggleDriver = (driver: Driver) => {
     const isSelected = selectedDrivers.some((d) => d.id === driver.id);
@@ -261,6 +263,8 @@ export default function SelectDriverScreen() {
     cartSlots.push(selectedDrivers[i] || null);
   }
 
+  const affordableCount = availableDrivers.filter(d => d.price <= effectiveBudget).length;
+
   const listHeader = (
     <>
       {/* Swap Mode Banner */}
@@ -273,8 +277,18 @@ export default function SelectDriverScreen() {
         </View>
       )}
 
+      {/* No budget warning */}
+      {affordableCount === 0 && availableDrivers.length > 0 && (
+        <View style={styles.noBudgetBanner}>
+          <Ionicons name="wallet-outline" size={16} color={COLORS.warning} />
+          <Text style={styles.noBudgetText}>
+            You can't afford any drivers with ${effectiveBudget} remaining
+          </Text>
+        </View>
+      )}
+
       {/* Smart Recommendations */}
-      {allDrivers && slotsLeft > 0 && (
+      {allDrivers && slotsLeft > 0 && affordableCount > 0 && (
         <SmartRecommendations
           availableDrivers={allDrivers.filter(d => !lockedOutIds.has(d.id))}
           selectedDrivers={selectedDrivers}
@@ -291,15 +305,16 @@ export default function SelectDriverScreen() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Driver list with header */}
       <FlatList
-        data={affordableDrivers}
+        data={availableDrivers}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeader}
         renderItem={({ item }) => {
           const isLockedOut = lockedOutIds.has(item.id);
-          const canSelect = !isLockedOut && selectedDrivers.length < maxSelectableDrivers && item.price <= effectiveBudget;
+          const isAffordable = item.price <= effectiveBudget;
+          const canSelect = !isLockedOut && isAffordable && selectedDrivers.length < maxSelectableDrivers;
 
           return (
-            <View style={[styles.driverItem, isLockedOut && styles.lockedOutItem]}>
+            <View style={[styles.driverItem, (isLockedOut || !isAffordable) && styles.lockedOutItem]}>
               <DriverCard
                 driver={item}
                 compact
@@ -323,7 +338,7 @@ export default function SelectDriverScreen() {
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No affordable drivers</Text>
+            <Text style={styles.emptyText}>No drivers available</Text>
           </View>
         }
       />
@@ -478,6 +493,23 @@ const styles = StyleSheet.create({
   swapDriverName: {
     fontWeight: '600',
     color: COLORS.primary,
+  },
+
+  noBudgetBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.warning + '15',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+
+  noBudgetText: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.warning,
+    fontWeight: '500',
   },
 
   driverItem: {
