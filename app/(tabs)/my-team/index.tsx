@@ -977,7 +977,7 @@ export default function MyTeamScreen() {
             onPress={() => router.push('/my-team/select-driver')}
           >
             <Ionicons name="add" size={18} color={COLORS.primary} />
-            <Text style={styles.addSlotText}>Add Driver ({driversCount}/{TEAM_SIZE})</Text>
+            <Text style={styles.addSlotText}>Add Driver ({TEAM_SIZE - driversCount} remaining)</Text>
           </TouchableOpacity>
         )}
 
