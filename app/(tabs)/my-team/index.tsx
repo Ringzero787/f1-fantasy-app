@@ -408,7 +408,7 @@ export default function MyTeamScreen() {
     const marketC = allConstructors?.find(mc => mc.id === c.constructorId);
     const livePrice = marketC?.price ?? c.currentPrice;
     const cInGracePeriod = (c.racesHeld || 0) === 0;
-    const fee = cInGracePeriod ? 0 : calculateEarlyTerminationFee(livePrice, contractLen, c.racesHeld || 0);
+    const fee = (c.isReservePick || cInGracePeriod) ? 0 : calculateEarlyTerminationFee(livePrice, contractLen, c.racesHeld || 0);
     const saleProceeds = Math.max(0, livePrice - fee);
     const feeMessage = fee > 0
       ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
@@ -994,8 +994,9 @@ export default function MyTeamScreen() {
           const cContractLen = c.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
           const cContractRemaining = cContractLen - (c.racesHeld || 0);
           const cIsLastRace = cContractRemaining === 1;
+          const cIsReserve = !!c.isReservePick;
           const cInGracePeriod = (c.racesHeld || 0) === 0;
-          const cEarlyTermFee = cInGracePeriod ? 0 : calculateEarlyTerminationFee(livePrice, cContractLen, c.racesHeld || 0);
+          const cEarlyTermFee = (cIsReserve || cInGracePeriod) ? 0 : calculateEarlyTerminationFee(livePrice, cContractLen, c.racesHeld || 0);
           const cEffectiveSaleValue = Math.max(0, livePrice - cEarlyTermFee);
           const cSaleProfit = cEffectiveSaleValue - c.purchasePrice;
           const cAccent = cInfo?.primaryColor || COLORS.primary;
@@ -1025,15 +1026,21 @@ export default function MyTeamScreen() {
                       </TouchableOpacity>
                     )}
                   </View>
-                  <View style={styles.cardPriceBlock}>
-                    <Text style={styles.cardPrice}>${livePrice}</Text>
-                    {cPriceDiff !== 0 && (
-                      <View style={[styles.cardPriceDiff, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                        <Ionicons name={cPriceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
-                        <Text style={styles.cardPriceDiffText}>${Math.abs(cPriceDiff)}</Text>
-                      </View>
-                    )}
-                  </View>
+                  {!cIsReserve ? (
+                    <View style={styles.cardPriceBlock}>
+                      <Text style={styles.cardPrice}>${livePrice}</Text>
+                      {cPriceDiff !== 0 && (
+                        <View style={[styles.cardPriceDiff, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
+                          <Ionicons name={cPriceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
+                          <Text style={styles.cardPriceDiffText}>${Math.abs(cPriceDiff)}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.reserveTag}>
+                      <Text style={styles.reserveTagText}>AUTO-FILL</Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.cardMetaRow}>
                   {cInfo && (
@@ -1053,18 +1060,22 @@ export default function MyTeamScreen() {
                       </Text>
                     </View>
                   )}
-                  <View style={[styles.metaChip, cIsLastRace && { backgroundColor: COLORS.warning + '18' }]}>
-                    <Ionicons name="document-text-outline" size={10} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
-                    <Text style={[styles.metaChipText, cIsLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
-                      {cIsLastRace ? 'LAST' : `${c.racesHeld || 0}/${cContractLen}`}
-                    </Text>
-                  </View>
-                  <View style={styles.metaChip}>
-                    <Ionicons name="flame" size={10} color={cNextRate > 1 ? COLORS.gold : COLORS.text.muted} />
-                    <Text style={[styles.metaChipText, cNextRate > 1 && { color: COLORS.gold }]}>+{cNextRate}/r</Text>
-                  </View>
+                  {!cIsReserve && (
+                    <>
+                      <View style={[styles.metaChip, cIsLastRace && { backgroundColor: COLORS.warning + '18' }]}>
+                        <Ionicons name="document-text-outline" size={10} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
+                        <Text style={[styles.metaChipText, cIsLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
+                          {cIsLastRace ? 'LAST' : `${c.racesHeld || 0}/${cContractLen}`}
+                        </Text>
+                      </View>
+                      <View style={styles.metaChip}>
+                        <Ionicons name="flame" size={10} color={cNextRate > 1 ? COLORS.gold : COLORS.text.muted} />
+                        <Text style={[styles.metaChipText, cNextRate > 1 && { color: COLORS.gold }]}>+{cNextRate}/r</Text>
+                      </View>
+                    </>
+                  )}
                   <View style={{ flex: 1 }} />
-                  {canModify && (
+                  {canModify && !cIsReserve && (
                     <TouchableOpacity
                       onPress={handleRemoveConstructor}
                       hitSlop={6}
@@ -1073,6 +1084,15 @@ export default function MyTeamScreen() {
                       <Text style={[styles.sellChipText, cInGracePeriod ? styles.sellChipTextNeutral : cSaleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
                         {cInGracePeriod ? `Sell $${livePrice}` : `Sell ${cSaleProfit >= 0 ? '+' : '-'}$${Math.abs(cSaleProfit)}`}
                       </Text>
+                    </TouchableOpacity>
+                  )}
+                  {canModify && cIsReserve && (
+                    <TouchableOpacity
+                      onPress={handleRemoveConstructor}
+                      hitSlop={6}
+                      style={styles.swapChip}
+                    >
+                      <Text style={styles.swapChipText}>Swap</Text>
                     </TouchableOpacity>
                   )}
                 </View>

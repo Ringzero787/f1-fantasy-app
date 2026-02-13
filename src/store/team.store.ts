@@ -1313,10 +1313,10 @@ export const useTeamStore = create<TeamState>()(
       const currentMarketPrice = cPriceUpdate?.currentPrice ?? currentTeam.constructor!.currentPrice;
 
       if (isDemoMode) {
-        // V8: Early termination fee — waived during grace period (no races completed since addition)
+        // V8: Early termination fee — waived for reserve picks and grace period (no races completed since addition)
         const contractLen = currentTeam.constructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
         const cInGracePeriod = (currentTeam.constructor.racesHeld || 0) === 0;
-        const earlyTermFee = cInGracePeriod ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor.racesHeld || 0);
+        const earlyTermFee = (currentTeam.constructor.isReservePick || cInGracePeriod) ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor.racesHeld || 0);
         const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
         console.log('Selling constructor:', { constructorId: currentTeam.constructor.constructorId, marketPrice: currentMarketPrice, earlyTermFee, saleValue, inGracePeriod: cInGracePeriod });
 
@@ -1335,10 +1335,10 @@ export const useTeamStore = create<TeamState>()(
       }
 
       // Use local-first update pattern
-      // V8: Early termination fee — waived during grace period
+      // V8: Early termination fee — waived for reserve picks and grace period
       const contractLen = currentTeam.constructor!.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
       const cInGracePeriod = (currentTeam.constructor!.racesHeld || 0) === 0;
-      const earlyTermFee = cInGracePeriod ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor!.racesHeld || 0);
+      const earlyTermFee = (currentTeam.constructor!.isReservePick || cInGracePeriod) ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor!.racesHeld || 0);
       const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
 
       const updatedTeam: FantasyTeam = {
@@ -1849,10 +1849,6 @@ export const useTeamStore = create<TeamState>()(
         }
       }
 
-      // Recalculate budget: original budget + sale returns - auto-fill cost
-      const autoFillCost = team.budget + budgetReturn - autoFillBudget;
-      const newBudget = team.budget + budgetReturn - autoFillCost;
-
       // Update constructor points, sync current price, and update racesHeld
       // V8: Use constructor's own addedAtRace for accurate racesHeld calculation
       let updatedConstructor = team.constructor ? (() => {
@@ -1868,11 +1864,14 @@ export const useTeamStore = create<TeamState>()(
 
       // V8: Constructor contract expiry - auto-sell if racesHeld >= contractLength
       let aceConstructorId = team.aceConstructorId;
+      const expiredConstructorId = updatedConstructor?.constructorId;
       if (updatedConstructor) {
         const cContractLen = updatedConstructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
         if (updatedConstructor.racesHeld >= cContractLen) {
           // Contract expired - sell at current market value and bank points
-          budgetReturn += calculateSaleValue(updatedConstructor.currentPrice);
+          const constructorSaleValue = calculateSaleValue(updatedConstructor.currentPrice);
+          budgetReturn += constructorSaleValue;
+          autoFillBudget += constructorSaleValue;
           lockedPoints += constructorPoints;
           // Clear ace if expired constructor was ace
           if (aceConstructorId === updatedConstructor.constructorId) {
@@ -1881,6 +1880,39 @@ export const useTeamStore = create<TeamState>()(
           updatedConstructor = null;
         }
       }
+
+      // V9: Auto-fill empty constructor slot with cheapest available constructor
+      if (!updatedConstructor && hadDriversBefore) {
+        const availableConstructors = demoConstructors
+          .filter(c => c.isActive && c.id !== expiredConstructorId)
+          .map(c => {
+            const cPriceUpdate = constructorPrices[c.id];
+            return { ...c, marketPrice: cPriceUpdate?.currentPrice ?? c.price };
+          })
+          .sort((a, b) => a.marketPrice - b.marketPrice);
+
+        for (const candidate of availableConstructors) {
+          if (candidate.marketPrice > autoFillBudget) break;
+
+          updatedConstructor = {
+            constructorId: candidate.id,
+            name: candidate.name,
+            purchasePrice: candidate.marketPrice,
+            currentPrice: candidate.marketPrice,
+            pointsScored: 0,
+            racesHeld: 0,
+            contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+            isReservePick: true,
+            addedAtRace: completedRaceCount,
+          };
+          autoFillBudget -= candidate.marketPrice;
+          break; // Only need one constructor
+        }
+      }
+
+      // Recalculate budget: original budget + all sale returns - all auto-fill costs
+      const totalAutoFillCost = team.budget + budgetReturn - autoFillBudget;
+      const newBudget = team.budget + budgetReturn - totalAutoFillCost;
 
       return {
         ...team,

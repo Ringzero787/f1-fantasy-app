@@ -197,6 +197,7 @@ export interface FantasyConstructor {
   lockedAt?: Date;
   // V8: Contract system - constructors auto-sell after contractLength races
   contractLength?: number; // Default 5
+  isReservePick?: boolean; // true if system auto-filled at contract expiry
   addedAtRace?: number; // Completed race count when added
 }
 

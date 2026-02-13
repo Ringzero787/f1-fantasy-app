@@ -23,6 +23,7 @@ import {
   DNF_PRICE_PENALTY_MAX,
   DNF_PRICE_PENALTY_MIN,
 } from '../config/constants';
+import { PRICING_CONFIG } from '../config/pricing.config';
 import type { Driver, Constructor, PriceHistory } from '../types';
 
 export type PerformanceTier = 'great' | 'good' | 'poor' | 'terrible';
@@ -68,7 +69,7 @@ export const pricingService = {
     penalty: number;
   } {
     const penalty = this.calculateDnfPricePenalty(dnfLap, totalLaps);
-    const newPrice = Math.max(50, currentPrice - penalty); // Minimum price of 50
+    const newPrice = Math.max(PRICING_CONFIG.MIN_PRICE, currentPrice - penalty);
     return { newPrice, penalty };
   },
 
@@ -112,7 +113,7 @@ export const pricingService = {
 
     const priceChangeMap = priceTier === 'A' ? PRICE_CHANGES.A_TIER : priceTier === 'B' ? PRICE_CHANGES.B_TIER : PRICE_CHANGES.C_TIER;
     const change = priceChangeMap[performanceTier];
-    const newPrice = Math.max(50, currentPrice + change); // Minimum price of 50
+    const newPrice = Math.max(PRICING_CONFIG.MIN_PRICE, Math.min(PRICING_CONFIG.MAX_PRICE, currentPrice + change));
 
     return { newPrice, change, ppm, performanceTier };
   },
