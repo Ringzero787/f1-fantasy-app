@@ -49,14 +49,19 @@ const AVATAR_PROMPTS = {
     `No text, no words, no letters. Illustrated/graphic style, not a photograph.`,
 
   user: (name: string) =>
-    `Create a stylish profile avatar for a racing fan named "${name}". ` +
-    `Square image filling the entire canvas edge-to-edge — no circular crop. ` +
-    `Style: a bold, graphic character portrait or abstract avatar — ` +
-    `think stylized helmet visor, geometric face, or cool abstract figure. ` +
-    `Use rich colors with a moody or vibrant background. ` +
-    `Modern digital art style with clean lines and some depth/shading. ` +
-    `Should feel personal and unique, like a gaming avatar or profile pic. ` +
-    `No text, no words, no letters. Illustrated/graphic style, not a photograph.`,
+    `Create a high-quality, detailed profile avatar for a motorsport enthusiast named "${name}". ` +
+    `Square image filling the entire canvas edge-to-edge — no circular crop, no border. ` +
+    `Style: a cinematic, richly detailed character portrait — ` +
+    `could be a dramatic close-up of a racing driver's helmet with reflective visor showing a track, ` +
+    `a stylized cyberpunk racer with neon accents and circuit-board patterns, ` +
+    `or an abstract futuristic face composed of speed lines, exhaust flames, and carbon fiber textures. ` +
+    `Use a deep, atmospheric background — dark moody tones with vivid accent lighting ` +
+    `(electric blue, hot red, neon purple, or gold sparks). ` +
+    `Include fine details: lens flares, particle effects, subtle smoke or heat shimmer, ` +
+    `metallic reflections, and layered depth. ` +
+    `The result should look like premium concept art or a AAA game character portrait — ` +
+    `bold, cinematic, and visually striking at any size from 64px to full screen. ` +
+    `No text, no words, no letters, no logos. Illustrated/digital art style, not a photograph.`,
 };
 
 export type AvatarType = 'league' | 'team' | 'user';

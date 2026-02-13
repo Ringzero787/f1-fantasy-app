@@ -127,7 +127,6 @@ export const DriverCard = React.memo(function DriverCard({
               )}
             </View>
             <View style={styles.subtitleRow}>
-              <Text style={styles.team} numberOfLines={1}>{driver.constructorName}</Text>
               <Text style={styles.nationality}>{driver.nationality}</Text>
             </View>
           </View>
@@ -181,6 +180,12 @@ export const DriverCard = React.memo(function DriverCard({
               Tier {driver.tier}
             </Text>
           </View>
+          <View style={[styles.constructorBadge, { backgroundColor: teamColor + '20' }]}>
+            <View style={[styles.constructorDot, { backgroundColor: teamColor }]} />
+            <Text style={[styles.constructorBadgeText, { color: teamColor }]} numberOfLines={1}>
+              {driver.constructorName}
+            </Text>
+          </View>
           {driver.fantasyPoints > 0 && (
             <View style={styles.fantasyBadge}>
               <Ionicons name="trophy-outline" size={10} color={COLORS.primary} />
@@ -230,7 +235,7 @@ const styles = StyleSheet.create({
   },
 
   number: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '800',
     color: COLORS.white,
   },
@@ -247,7 +252,7 @@ const styles = StyleSheet.create({
   },
 
   name: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '700',
     color: COLORS.text.primary,
     letterSpacing: -0.3,
@@ -299,7 +304,7 @@ const styles = StyleSheet.create({
   },
 
   priceValue: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '700',
     color: COLORS.text.primary,
   },
@@ -335,7 +340,7 @@ const styles = StyleSheet.create({
   },
 
   pointsValue: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     fontWeight: '600',
     color: COLORS.primary,
   },
@@ -386,6 +391,28 @@ const styles = StyleSheet.create({
 
   tierCText: {
     color: COLORS.success,
+  },
+
+  constructorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+    gap: 4,
+    flexShrink: 1,
+  },
+
+  constructorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+
+  constructorBadgeText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    flexShrink: 1,
   },
 
   fantasyBadge: {

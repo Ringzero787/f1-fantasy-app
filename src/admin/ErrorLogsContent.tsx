@@ -365,13 +365,15 @@ export default function ErrorLogsContent() {
                   const isBulkClosing = bulkClosing === group.key;
                   const allReviewed = unreviewedCount === 0;
                   return (
-                    <TouchableOpacity
+                    <View
                       key={group.key}
                       style={[styles.issueRow, allReviewed && styles.issueRowReviewed]}
-                      onPress={() => setExpandedGroup(isGroupExpanded ? null : group.key)}
-                      activeOpacity={0.7}
                     >
-                      <View style={styles.issueHeader}>
+                      <TouchableOpacity
+                        style={styles.issueHeader}
+                        onPress={() => setExpandedGroup(isGroupExpanded ? null : group.key)}
+                        activeOpacity={0.7}
+                      >
                         <View style={[styles.countBadge, { backgroundColor: SEVERITY_COLORS[group.severity] + '25' }]}>
                           <Text style={[styles.countText, { color: SEVERITY_COLORS[group.severity] }]}>
                             {group.count}
@@ -386,13 +388,20 @@ export default function ErrorLogsContent() {
                         {allReviewed ? (
                           <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
                         ) : (
-                          <Ionicons
-                            name={isGroupExpanded ? 'chevron-up' : 'chevron-down'}
-                            size={16}
-                            color={COLORS.text.muted}
-                          />
+                          <TouchableOpacity
+                            style={styles.issueCloseButton}
+                            onPress={() => handleBulkClose(group)}
+                            disabled={isBulkClosing}
+                            hitSlop={8}
+                          >
+                            {isBulkClosing ? (
+                              <ActivityIndicator size="small" color={COLORS.success} />
+                            ) : (
+                              <Ionicons name="checkmark-circle-outline" size={22} color={COLORS.success} />
+                            )}
+                          </TouchableOpacity>
                         )}
-                      </View>
+                      </TouchableOpacity>
                       {isGroupExpanded && (
                         <View style={styles.issueEntries}>
                           {group.entries.slice(0, 5).map(entry => (
@@ -430,7 +439,7 @@ export default function ErrorLogsContent() {
                           )}
                         </View>
                       )}
-                    </TouchableOpacity>
+                    </View>
                   );
                 })}
               </Card>
@@ -670,6 +679,9 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     color: COLORS.primary,
     fontWeight: '500',
+  },
+  issueCloseButton: {
+    padding: SPACING.xs,
   },
   issueRowReviewed: {
     opacity: 0.5,

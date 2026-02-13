@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   Linking,
+  Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -257,6 +258,7 @@ export default function ProfileScreen() {
   );
 
   return (
+    <View style={styles.root}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Hero Profile Card */}
       <Card style={styles.userCard} variant="elevated">
@@ -315,92 +317,6 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Card>
-
-      {/* Avatar Options Modal */}
-      {showAvatarOptions && (
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowAvatarOptions(false)}
-        >
-          <ScrollView
-            style={styles.modalScroll}
-            contentContainerStyle={styles.modalScrollContent}
-            bounces={false}
-          >
-            <TouchableOpacity activeOpacity={1}>
-              <View style={styles.optionsCard}>
-                <Text style={styles.optionsTitle}>Change Profile Picture</Text>
-
-                <TouchableOpacity style={styles.optionItem} onPress={handlePickImage}>
-                  <IconBox icon="image-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
-                  <View style={styles.optionTextContainer}>
-                    <Text style={styles.optionText}>Choose from Library</Text>
-                    <Text style={styles.optionSubtext}>Upload a photo from your device</Text>
-                  </View>
-                </TouchableOpacity>
-
-                {isAvatarGenerationAvailable && (
-                  <TouchableOpacity
-                    style={[styles.optionItem, !canGenerateAvatar && styles.optionItemDisabled]}
-                    onPress={handleGenerateAvatar}
-                  >
-                    <IconBox icon="sparkles" color={COLORS.purple[500]} bg={COLORS.purple[500] + '15'} />
-                    <View style={styles.optionTextContainer}>
-                      <Text style={styles.optionText}>
-                        Auto Generate
-                      </Text>
-                      <Text style={styles.optionSubtext}>
-                        {canGenerateAvatar
-                          ? `${avatarRemaining} of 10 remaining`
-                          : 'Limit reached — pick from below'}
-                      </Text>
-                    </View>
-                    {canGenerateAvatar && (
-                      <View style={styles.remainingBadge}>
-                        <Text style={styles.remainingBadgeText}>{avatarRemaining}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                )}
-
-                {/* Previous Avatars */}
-                {avatarHistory.length > 0 && (
-                  <View style={styles.historySection}>
-                    <Text style={styles.historySectionTitle}>Previous Avatars</Text>
-                    <View style={styles.historyGrid}>
-                      {avatarHistory.map((url, idx) => (
-                        <TouchableOpacity
-                          key={idx}
-                          style={[
-                            styles.historyItem,
-                            url === avatarUrl && styles.historyItemActive,
-                          ]}
-                          onPress={() => handleSelectHistoryAvatar(url)}
-                        >
-                          <Image source={{ uri: url }} style={styles.historyImage} />
-                          {url === avatarUrl && (
-                            <View style={styles.historyCheck}>
-                              <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-
-                <TouchableOpacity
-                  style={[styles.optionItem, styles.cancelOption]}
-                  onPress={() => setShowAvatarOptions(false)}
-                >
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </ScrollView>
-        </TouchableOpacity>
-      )}
 
       {/* Account Section */}
       <Text style={styles.sectionTitle}>Account</Text>
@@ -552,12 +468,103 @@ export default function ProfileScreen() {
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
     </ScrollView>
+
+    {/* Avatar Options Modal — rendered outside ScrollView */}
+    <Modal
+      visible={showAvatarOptions}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowAvatarOptions(false)}
+    >
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={() => setShowAvatarOptions(false)}
+      >
+        <View style={styles.modalSpacer} />
+        <TouchableOpacity activeOpacity={1} style={styles.optionsCard}>
+          <View style={styles.modalHandle} />
+          <Text style={styles.optionsTitle}>Change Profile Picture</Text>
+
+          <TouchableOpacity style={styles.optionItem} onPress={handlePickImage}>
+            <IconBox icon="image-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <View style={styles.optionTextContainer}>
+              <Text style={styles.optionText}>Choose from Library</Text>
+              <Text style={styles.optionSubtext}>Upload a photo from your device</Text>
+            </View>
+          </TouchableOpacity>
+
+          {isAvatarGenerationAvailable && (
+            <TouchableOpacity
+              style={[styles.optionItem, !canGenerateAvatar && styles.optionItemDisabled]}
+              onPress={handleGenerateAvatar}
+            >
+              <IconBox icon="sparkles" color={COLORS.purple[500]} bg={COLORS.purple[500] + '15'} />
+              <View style={styles.optionTextContainer}>
+                <Text style={styles.optionText}>Generate AI Avatar</Text>
+                <Text style={styles.optionSubtext}>
+                  {canGenerateAvatar
+                    ? `${avatarRemaining} of 10 remaining`
+                    : 'Limit reached — pick from below'}
+                </Text>
+              </View>
+              {canGenerateAvatar && (
+                <View style={styles.remainingBadge}>
+                  <Text style={styles.remainingBadgeText}>{avatarRemaining}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Previous AI Avatars */}
+          {avatarHistory.length > 0 && (
+            <View style={styles.historySection}>
+              <Text style={styles.historySectionTitle}>Previous Avatars</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
+                <View style={styles.historyGrid}>
+                  {avatarHistory.map((url, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[
+                        styles.historyItem,
+                        url === avatarUrl && styles.historyItemActive,
+                      ]}
+                      onPress={() => handleSelectHistoryAvatar(url)}
+                    >
+                      <Image source={{ uri: url }} style={styles.historyImage} />
+                      {url === avatarUrl && (
+                        <View style={styles.historyCheck}>
+                          <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.optionItem, styles.cancelOption]}
+            onPress={() => setShowAvatarOptions(false)}
+          >
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+    </View>
   );
 }
 
 const AVATAR_SIZE = 110;
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -827,22 +834,22 @@ const styles = StyleSheet.create({
 
   // Modal styles
   modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 1000,
+    justifyContent: 'flex-end',
   },
 
-  modalScroll: {
+  modalSpacer: {
     flex: 1,
   },
 
-  modalScrollContent: {
-    flexGrow: 1,
-    justifyContent: 'flex-end',
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.text.muted + '40',
+    alignSelf: 'center',
+    marginBottom: SPACING.md,
   },
 
   optionsCard: {
@@ -850,8 +857,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BORDER_RADIUS.xl,
     borderTopRightRadius: BORDER_RADIUS.xl,
     padding: SPACING.lg,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.xxl,
-    maxHeight: '85%',
   },
 
   optionsTitle: {
@@ -936,15 +943,19 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
 
+  historyScroll: {
+    marginHorizontal: -SPACING.xs,
+  },
+
   historyGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
   },
 
   historyItem: {
-    width: 60,
-    height: 60,
+    width: 64,
+    height: 64,
     borderRadius: BORDER_RADIUS.md,
     overflow: 'hidden',
     borderWidth: 2,

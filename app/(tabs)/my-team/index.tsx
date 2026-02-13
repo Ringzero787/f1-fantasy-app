@@ -943,7 +943,7 @@ export default function MyTeamScreen() {
                           </Text>
                         </View>
                       )}
-                      {!isReserve && (
+                      {!isReserve ? (
                         <>
                           <View style={[styles.metaChip, isLastRace && { backgroundColor: COLORS.warning + '18' }]}>
                             <Ionicons name="document-text-outline" size={10} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
@@ -956,6 +956,13 @@ export default function MyTeamScreen() {
                             <Text style={[styles.metaChipText, nextRate > 1 && { color: COLORS.gold }]}>+{nextRate}/r</Text>
                           </View>
                         </>
+                      ) : (
+                        <View style={[styles.metaChip, { backgroundColor: COLORS.warning + '18' }]}>
+                          <Ionicons name="timer-outline" size={10} color={COLORS.warning} />
+                          <Text style={[styles.metaChipText, { color: COLORS.warning }]}>
+                            Expires in {contractRemaining} race{contractRemaining !== 1 ? 's' : ''}
+                          </Text>
+                        </View>
                       )}
                       <View style={{ flex: 1 }} />
                       {canModify && !isReserve && (
@@ -1073,7 +1080,7 @@ export default function MyTeamScreen() {
                       </Text>
                     </View>
                   )}
-                  {!cIsReserve && (
+                  {!cIsReserve ? (
                     <>
                       <View style={[styles.metaChip, cIsLastRace && { backgroundColor: COLORS.warning + '18' }]}>
                         <Ionicons name="document-text-outline" size={10} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
@@ -1086,6 +1093,13 @@ export default function MyTeamScreen() {
                         <Text style={[styles.metaChipText, cNextRate > 1 && { color: COLORS.gold }]}>+{cNextRate}/r</Text>
                       </View>
                     </>
+                  ) : (
+                    <View style={[styles.metaChip, { backgroundColor: COLORS.warning + '18' }]}>
+                      <Ionicons name="timer-outline" size={10} color={COLORS.warning} />
+                      <Text style={[styles.metaChipText, { color: COLORS.warning }]}>
+                        Expires in {cContractRemaining} race{cContractRemaining !== 1 ? 's' : ''}
+                      </Text>
+                    </View>
                   )}
                   <View style={{ flex: 1 }} />
                   {canModify && !cIsReserve && (

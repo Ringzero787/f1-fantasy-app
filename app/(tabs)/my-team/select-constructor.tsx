@@ -37,13 +37,25 @@ export default function SelectConstructorScreen() {
 
   const remainingBudget = (currentTeam?.budget || BUDGET) + currentConstructorSaleValue;
 
-  const affordableConstructors = useMemo(() => {
+  const availableConstructors = useMemo(() => {
     if (!allConstructors) return [];
     const currentId = currentTeam?.constructor?.constructorId;
     return allConstructors
-      .filter((c) => c.price <= remainingBudget && c.id !== currentId)
-      .sort((a, b) => b.price - a.price);
+      .filter((c) => c.id !== currentId)
+      // Sort affordable first (by price desc), then unaffordable (by price desc)
+      .sort((a, b) => {
+        const aAffordable = a.price <= remainingBudget;
+        const bAffordable = b.price <= remainingBudget;
+        if (aAffordable && !bAffordable) return -1;
+        if (!aAffordable && bAffordable) return 1;
+        return b.price - a.price;
+      });
   }, [allConstructors, remainingBudget, currentTeam?.constructor?.constructorId]);
+
+  const affordableCount = useMemo(() =>
+    availableConstructors.filter(c => c.price <= remainingBudget).length,
+    [availableConstructors, remainingBudget]
+  );
 
   const handleSelectConstructor = (item: Constructor) => {
     if (item.price > remainingBudget) return;
@@ -126,25 +138,38 @@ export default function SelectConstructorScreen() {
         </Text>
       </View>
 
+      {/* No budget warning */}
+      {affordableCount === 0 && availableConstructors.length > 0 && (
+        <View style={styles.noBudgetBanner}>
+          <Ionicons name="wallet-outline" size={16} color={COLORS.warning} />
+          <Text style={styles.noBudgetText}>
+            You can't afford any constructors with ${remainingBudget} remaining
+          </Text>
+        </View>
+      )}
+
       {/* Constructor List */}
       <FlatList
-        data={affordableConstructors}
+        data={availableConstructors}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.constructorItem}>
-            <ConstructorCard
-              constructor={item}
-              showPrice
-              showPoints
-              onSelect={() => handleSelectConstructor(item)}
-            />
-          </View>
-        )}
+        renderItem={({ item }) => {
+          const isAffordable = item.price <= remainingBudget;
+          return (
+            <View style={[styles.constructorItem, !isAffordable && styles.unaffordableItem]}>
+              <ConstructorCard
+                constructor={item}
+                showPrice
+                showPoints
+                onSelect={isAffordable ? () => handleSelectConstructor(item) : undefined}
+              />
+            </View>
+          );
+        }}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No affordable constructors</Text>
+            <Text style={styles.emptyText}>No constructors available</Text>
           </View>
         }
       />
@@ -231,6 +256,27 @@ const styles = StyleSheet.create({
 
   constructorItem: {
     marginHorizontal: SPACING.md,
+  },
+
+  unaffordableItem: {
+    opacity: 0.45,
+  },
+
+  noBudgetBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.warning + '15',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+
+  noBudgetText: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.warning,
+    fontWeight: '500',
   },
 
   listContent: {
