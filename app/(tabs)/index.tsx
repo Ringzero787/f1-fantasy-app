@@ -18,8 +18,9 @@ import { useNextRace, useUpcomingRaces } from '../../src/hooks';
 import { useTeamStore } from '../../src/store/team.store';
 import { useLeagueStore } from '../../src/store/league.store';
 import { useAdminStore } from '../../src/store/admin.store';
-import { Card, Loading, RaceCard, EmptyState, CountdownBanner, NewsFeed, Avatar } from '../../src/components';
+import { Card, Loading, RaceCard, EmptyState, CountdownBanner, NewsFeed, Avatar, AnnouncementBanner } from '../../src/components';
 import { useNewsStore } from '../../src/store/news.store';
+import { useAnnouncementStore } from '../../src/store/announcement.store';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
 import { formatPoints } from '../../src/utils/formatters';
 
@@ -38,6 +39,7 @@ export default function HomeScreen() {
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
   const raceResults = useAdminStore(s => s.raceResults);
   const loadArticles = useNewsStore(s => s.loadArticles);
+  const loadActiveAnnouncements = useAnnouncementStore(s => s.loadActiveAnnouncements);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -90,6 +92,14 @@ export default function HomeScreen() {
       loadArticles();
     }
   }, [user]);
+
+  // Load announcements when leagues are available
+  React.useEffect(() => {
+    const ids = leagues.map(l => l.id);
+    if (ids.length > 0) {
+      loadActiveAnnouncements(ids);
+    }
+  }, [leagues]);
 
   // Get the first league the user is in
   const primaryLeague = leagues.length > 0 ? leagues[0] : null;
@@ -166,7 +176,12 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchRace(), loadArticles(true)]);
+    const leagueIds = leagues.map(l => l.id);
+    await Promise.all([
+      refetchRace(),
+      loadArticles(true),
+      leagueIds.length > 0 ? loadActiveAnnouncements(leagueIds) : Promise.resolve(),
+    ]);
     setRefreshing(false);
   };
 
@@ -207,6 +222,9 @@ export default function HomeScreen() {
 
       {/* Race Countdown / Lockout Banner */}
       {nextRace && <CountdownBanner race={nextRace} accentColor="#7c3aed" />}
+
+      {/* League Announcements */}
+      <AnnouncementBanner />
 
       {/* Team Warnings */}
       {teamWarnings.length > 0 && (

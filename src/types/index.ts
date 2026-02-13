@@ -132,6 +132,27 @@ export interface LeagueInvite {
   usedBy?: string;
 }
 
+export interface LeagueAnnouncement {
+  id: string;
+  leagueId: string;
+  leagueName: string;
+  authorId: string;
+  authorName: string;
+  message: string;
+  isActive: boolean;
+  replyCount: number;
+  createdAt: Date;
+}
+
+export interface AnnouncementReply {
+  id: string;
+  announcementId: string;
+  userId: string;
+  displayName: string;
+  message: string;
+  createdAt: Date;
+}
+
 // ============================================
 // Fantasy Team Types
 // ============================================

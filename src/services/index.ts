@@ -10,3 +10,4 @@ export * from './avatarGeneration.service';
 export * from './profileImage.service';
 export * from './errorLog.service';
 export * from './article.service';
+export * from './announcement.service';

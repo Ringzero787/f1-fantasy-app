@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
@@ -137,6 +138,16 @@ export default function CreateTeamScreen() {
   const [teamMode, setTeamMode] = useState<TeamMode>('league');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isCreatingRecommended, setIsCreatingRecommended] = useState(false);
+  const hasCreated = useRef(false);
+
+  // Auto-dismiss stale create modal when returning to this screen after team was already created
+  useFocusEffect(
+    useCallback(() => {
+      if (hasCreated.current) {
+        router.back();
+      }
+    }, [])
+  );
 
   // Clear any stale errors from previous navigation
   React.useEffect(() => {
@@ -180,6 +191,7 @@ export default function CreateTeamScreen() {
 
     try {
       await createTeam(user.id, currentLeague?.id || null, teamName.trim());
+      hasCreated.current = true;
 
       if (recentlyCreatedLeague) {
         clearRecentlyCreatedLeague();
@@ -260,6 +272,8 @@ export default function CreateTeamScreen() {
         };
         setCurrentTeam(updatedTeam);
       }
+
+      hasCreated.current = true;
 
       // Clear the recently created league since we've used it
       if (recentlyCreatedLeague) {

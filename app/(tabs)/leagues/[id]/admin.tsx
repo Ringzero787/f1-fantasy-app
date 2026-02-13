@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../../src/hooks/useAuth';
 import { useLeagueStore } from '../../../../src/store/league.store';
 import { useTeamStore } from '../../../../src/store/team.store';
+import { useAnnouncementStore } from '../../../../src/store/announcement.store';
 import { Card, Button, Loading } from '../../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
 
@@ -34,11 +35,27 @@ export default function LeagueAdminScreen() {
   } = useLeagueStore();
   const { loadUserTeams } = useTeamStore();
 
+  const {
+    activeAnnouncements,
+    replies,
+    announcementHistory,
+    isPosting,
+    isLoadingReplies,
+    postAnnouncement,
+    deactivateAnnouncement,
+    loadReplies,
+    loadAnnouncementHistory,
+    loadActiveAnnouncements,
+  } = useAnnouncementStore();
+
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [showReplies, setShowReplies] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Load league data and members on mount
   useEffect(() => {
@@ -49,6 +66,14 @@ export default function LeagueAdminScreen() {
       });
     }
   }, [id, user]);
+
+  // Load announcements for this league
+  useEffect(() => {
+    if (id) {
+      loadActiveAnnouncements([id]);
+      loadAnnouncementHistory(id);
+    }
+  }, [id]);
 
   // Check if user is owner or admin
   const isOwner = currentLeague?.ownerId === user?.id;
@@ -194,6 +219,67 @@ export default function LeagueAdminScreen() {
     );
   };
 
+  // Current active announcement for this league
+  const activeAnnouncement = activeAnnouncements.find(a => a.leagueId === id) || null;
+
+  const handlePostAnnouncement = async () => {
+    if (!announcementMessage.trim() || !user || !currentLeague) return;
+    try {
+      await postAnnouncement(
+        currentLeague.id,
+        currentLeague.name,
+        user.id,
+        user.displayName || 'Admin',
+        announcementMessage.trim()
+      );
+      setAnnouncementMessage('');
+      await loadAnnouncementHistory(currentLeague.id);
+      Alert.alert('Posted', 'Announcement sent to all league members');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to post announcement. Please try again.');
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!activeAnnouncement || !currentLeague) return;
+    Alert.alert(
+      'Deactivate Announcement',
+      'This will remove the announcement from all members\' home screens.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: async () => {
+            await deactivateAnnouncement(currentLeague.id, activeAnnouncement.id);
+            loadAnnouncementHistory(currentLeague.id);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleShowReplies = () => {
+    if (!activeAnnouncement || !currentLeague) return;
+    setShowReplies(!showReplies);
+    if (!showReplies) {
+      loadReplies(currentLeague.id, activeAnnouncement.id);
+    }
+  };
+
+  const formatTimeAgo = (date: Date) => {
+    const now = new Date();
+    const d = new Date(date);
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHrs = Math.floor(diffMins / 60);
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    const diffDays = Math.floor(diffHrs / 24);
+    return `${diffDays}d ago`;
+  };
+
   // Filter out the owner from removable members
   const removableMembers = members.filter((m) => m.userId !== currentLeague.ownerId);
 
@@ -285,6 +371,114 @@ export default function LeagueAdminScreen() {
             <Text style={styles.inviteCodeLabel}>Invite Code:</Text>
             <Text style={styles.inviteCodeValue}>{currentLeague.inviteCode}</Text>
           </View>
+        </Card>
+      </View>
+
+      {/* Announcements Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Announcements</Text>
+        <Card variant="outlined" style={styles.announcementCard}>
+          {activeAnnouncement ? (
+            <View>
+              <View style={styles.activeAnnBadge}>
+                <Text style={styles.activeAnnBadgeText}>Active</Text>
+              </View>
+              <Text style={styles.annMessage}>{activeAnnouncement.message}</Text>
+              <Text style={styles.annMeta}>
+                Posted by {activeAnnouncement.authorName} {'\u2022'} {formatTimeAgo(activeAnnouncement.createdAt)}
+              </Text>
+              <View style={styles.annActions}>
+                <TouchableOpacity style={styles.deactivateButton} onPress={handleDeactivate}>
+                  <Ionicons name="close-circle-outline" size={16} color={COLORS.error} />
+                  <Text style={styles.deactivateText}>Deactivate</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.repliesToggle} onPress={handleShowReplies}>
+                  <Ionicons name="chatbubble-outline" size={16} color={COLORS.primary} />
+                  <Text style={styles.repliesToggleText}>
+                    {activeAnnouncement.replyCount} {activeAnnouncement.replyCount === 1 ? 'Reply' : 'Replies'}
+                  </Text>
+                  <Ionicons
+                    name={showReplies ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color={COLORS.primary}
+                  />
+                </TouchableOpacity>
+              </View>
+              {showReplies && (
+                <View style={styles.repliesList}>
+                  {isLoadingReplies ? (
+                    <Text style={styles.annMeta}>Loading replies...</Text>
+                  ) : replies.length === 0 ? (
+                    <Text style={styles.annMeta}>No replies yet</Text>
+                  ) : (
+                    replies.map((r) => (
+                      <View key={r.id} style={styles.replyItem}>
+                        <Text style={styles.replyAuthor}>{r.displayName}</Text>
+                        <Text style={styles.replyMessage}>{r.message}</Text>
+                        <Text style={styles.replyTime}>{formatTimeAgo(r.createdAt)}</Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+              )}
+            </View>
+          ) : (
+            <Text style={styles.annMeta}>No active announcement</Text>
+          )}
+
+          <View style={styles.postSection}>
+            <Text style={styles.postLabel}>Post New Announcement</Text>
+            <TextInput
+              style={styles.annInput}
+              placeholder="Write an announcement for league members..."
+              placeholderTextColor={COLORS.text.muted}
+              value={announcementMessage}
+              onChangeText={setAnnouncementMessage}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity
+              style={[
+                styles.postButton,
+                (!announcementMessage.trim() || isPosting) && styles.postButtonDisabled,
+              ]}
+              onPress={handlePostAnnouncement}
+              disabled={!announcementMessage.trim() || isPosting}
+            >
+              <Text style={styles.postButtonText}>
+                {isPosting ? 'Posting...' : 'Post'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Past Announcements */}
+          <TouchableOpacity
+            style={styles.historyToggle}
+            onPress={() => setShowHistory(!showHistory)}
+          >
+            <Text style={styles.historyToggleText}>Past Announcements</Text>
+            <Ionicons
+              name={showHistory ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={COLORS.text.secondary}
+            />
+          </TouchableOpacity>
+          {showHistory && (
+            <View style={styles.historyList}>
+              {announcementHistory.filter(a => a.id !== activeAnnouncement?.id).length === 0 ? (
+                <Text style={styles.annMeta}>No past announcements</Text>
+              ) : (
+                announcementHistory
+                  .filter(a => a.id !== activeAnnouncement?.id)
+                  .map((a) => (
+                    <View key={a.id} style={styles.historyItem}>
+                      <Text style={styles.historyMessage} numberOfLines={2}>{a.message}</Text>
+                      <Text style={styles.annMeta}>{formatTimeAgo(a.createdAt)}</Text>
+                    </View>
+                  ))
+              )}
+            </View>
+          )}
         </Card>
       </View>
 
@@ -861,6 +1055,177 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     color: COLORS.text.muted,
     textAlign: 'center',
+  },
+
+  // Announcement styles
+  announcementCard: {
+    padding: SPACING.md,
+  },
+
+  activeAnnBadge: {
+    backgroundColor: COLORS.success + '20',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.sm,
+    alignSelf: 'flex-start',
+    marginBottom: SPACING.xs,
+  },
+
+  activeAnnBadgeText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.success,
+  },
+
+  annMessage: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.primary,
+    lineHeight: 22,
+    marginBottom: SPACING.xs,
+  },
+
+  annMeta: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+  },
+
+  annActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+
+  deactivateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: SPACING.xs,
+  },
+
+  deactivateText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.error,
+    fontWeight: '500',
+  },
+
+  repliesToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: SPACING.xs,
+  },
+
+  repliesToggleText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+
+  repliesList: {
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border.default,
+  },
+
+  replyItem: {
+    paddingVertical: SPACING.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
+  },
+
+  replyAuthor: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+
+  replyMessage: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+    marginTop: 2,
+  },
+
+  replyTime: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    marginTop: 2,
+  },
+
+  postSection: {
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border.default,
+  },
+
+  postLabel: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.xs,
+  },
+
+  annInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.primary,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+
+  postButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+  },
+
+  postButtonDisabled: {
+    opacity: 0.5,
+  },
+
+  postButtonText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+
+  historyToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border.default,
+  },
+
+  historyToggleText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '500',
+    color: COLORS.text.secondary,
+  },
+
+  historyList: {
+    marginTop: SPACING.sm,
+  },
+
+  historyItem: {
+    paddingVertical: SPACING.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
+  },
+
+  historyMessage: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.primary,
   },
 
   accessDenied: {
