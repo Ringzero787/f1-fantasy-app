@@ -64,10 +64,16 @@ export default function LeagueDetailScreen() {
       teamMap.set(currentTeam.id, currentTeam);
     }
 
-    // Filter teams in this league
-    const teamsInLeague = Array.from(teamMap.values()).filter(
+    // Filter teams in this league, deduplicate by userId (keep latest)
+    const teamsInLeagueAll = Array.from(teamMap.values()).filter(
       team => team && team.leagueId === id
     );
+    const seenUserIds = new Set<string>();
+    const teamsInLeague = teamsInLeagueAll.filter(team => {
+      if (seenUserIds.has(team.userId)) return false;
+      seenUserIds.add(team.userId);
+      return true;
+    });
 
     // Create member entries
     const memberList: LeagueMember[] = teamsInLeague.map((team) => ({
@@ -332,7 +338,7 @@ export default function LeagueDetailScreen() {
         {members.length > 0 ? (
           members.map((member) => (
             <LeaderboardItem
-              key={member.userId}
+              key={member.id}
               member={member}
               isCurrentUser={member.userId === user?.id}
               view={leaderboardView}
