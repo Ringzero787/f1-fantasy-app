@@ -951,11 +951,12 @@ export const useTeamStore = create<TeamState>()(
         const priceUpdate = driverPrices[driverId];
         const currentMarketPrice = priceUpdate?.currentPrice ?? driverToRemove.currentPrice;
 
-        // V6: Apply early termination fee for breaking contract early (skip for auto-filled reserve picks)
+        // V6: Early termination fee — waived for reserve picks and grace period (no races completed since addition)
         const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-        const earlyTermFee = driverToRemove.isReservePick ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
+        const inGracePeriod = (driverToRemove.racesHeld || 0) === 0;
+        const earlyTermFee = (driverToRemove.isReservePick || inGracePeriod) ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
         const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
-        console.log('Selling driver:', { driverId, storedPrice: driverToRemove.currentPrice, marketPrice: currentMarketPrice, earlyTermFee, saleValue, isReserve: !!driverToRemove.isReservePick });
+        console.log('Selling driver:', { driverId, marketPrice: currentMarketPrice, earlyTermFee, saleValue, isReserve: !!driverToRemove.isReservePick, inGracePeriod });
 
         // V3: Clear ace if removed driver was ace
         const newAceId = currentTeam.aceDriverId === driverId ? undefined : currentTeam.aceDriverId;
@@ -985,9 +986,10 @@ export const useTeamStore = create<TeamState>()(
       const { driverPrices } = useAdminStore.getState();
       const priceUpdate = driverPrices[driverId];
       const currentMarketPrice = priceUpdate?.currentPrice ?? driverToRemove.currentPrice;
-      // V6: Apply early termination fee (skip for auto-filled reserve picks)
+      // V6: Early termination fee — waived for reserve picks and grace period (no races completed since addition)
       const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const earlyTermFee = driverToRemove.isReservePick ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
+      const inGracePeriod = (driverToRemove.racesHeld || 0) === 0;
+      const earlyTermFee = (driverToRemove.isReservePick || inGracePeriod) ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
       const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
       const newAceId = currentTeam.aceDriverId === driverId ? undefined : currentTeam.aceDriverId;
 
@@ -1067,9 +1069,10 @@ export const useTeamStore = create<TeamState>()(
           addedAtRace: swapCompletedRaces,
         };
 
-        // V6: Apply early termination fee for breaking old driver's contract early
+        // V6: Early termination fee — waived for reserve picks and grace period
         const oldContractLen = oldDriver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-        const oldEarlyTermFee = calculateEarlyTerminationFee(oldDriverMarketPrice, oldContractLen, oldDriver.racesHeld || 0);
+        const oldInGracePeriod = (oldDriver.racesHeld || 0) === 0;
+        const oldEarlyTermFee = (oldDriver.isReservePick || oldInGracePeriod) ? 0 : calculateEarlyTerminationFee(oldDriverMarketPrice, oldContractLen, oldDriver.racesHeld || 0);
         const saleValue = Math.max(0, oldDriverMarketPrice - oldEarlyTermFee);
         const purchaseCost = newDriverMarketPrice;
         const netCostChange = purchaseCost - saleValue;
@@ -1134,9 +1137,10 @@ export const useTeamStore = create<TeamState>()(
         addedAtRace: fbSwapCompletedRaces,
       };
 
-      // V6: Apply early termination fee for breaking old driver's contract early
+      // V6: Early termination fee — waived for reserve picks and grace period
       const oldContractLen = oldDriver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const oldEarlyTermFee = calculateEarlyTerminationFee(oldDriverMarketPrice, oldContractLen, oldDriver.racesHeld || 0);
+      const oldInGracePeriod = (oldDriver.racesHeld || 0) === 0;
+      const oldEarlyTermFee = (oldDriver.isReservePick || oldInGracePeriod) ? 0 : calculateEarlyTerminationFee(oldDriverMarketPrice, oldContractLen, oldDriver.racesHeld || 0);
       const saleValue = Math.max(0, oldDriverMarketPrice - oldEarlyTermFee);
       const purchaseCost = newDriverMarketPrice;
       const netCostChange = purchaseCost - saleValue;
@@ -1309,11 +1313,12 @@ export const useTeamStore = create<TeamState>()(
       const currentMarketPrice = cPriceUpdate?.currentPrice ?? currentTeam.constructor!.currentPrice;
 
       if (isDemoMode) {
-        // V8: Apply early termination fee based on current market price
+        // V8: Early termination fee — waived during grace period (no races completed since addition)
         const contractLen = currentTeam.constructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-        const earlyTermFee = calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor.racesHeld || 0);
+        const cInGracePeriod = (currentTeam.constructor.racesHeld || 0) === 0;
+        const earlyTermFee = cInGracePeriod ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor.racesHeld || 0);
         const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
-        console.log('Selling constructor:', { constructorId: currentTeam.constructor.constructorId, marketPrice: currentMarketPrice, earlyTermFee, saleValue });
+        console.log('Selling constructor:', { constructorId: currentTeam.constructor.constructorId, marketPrice: currentMarketPrice, earlyTermFee, saleValue, inGracePeriod: cInGracePeriod });
 
         const updatedTeam: FantasyTeam = {
           ...currentTeam,
@@ -1330,9 +1335,10 @@ export const useTeamStore = create<TeamState>()(
       }
 
       // Use local-first update pattern
-      // V8: Apply early termination fee based on current market price
+      // V8: Early termination fee — waived during grace period
       const contractLen = currentTeam.constructor!.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const earlyTermFee = calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor!.racesHeld || 0);
+      const cInGracePeriod = (currentTeam.constructor!.racesHeld || 0) === 0;
+      const earlyTermFee = cInGracePeriod ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor!.racesHeld || 0);
       const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
 
       const updatedTeam: FantasyTeam = {

@@ -857,7 +857,8 @@ export default function MyTeamScreen() {
               const contractRemaining = contractLen - (driver.racesHeld || 0);
               const isLastRace = contractRemaining === 1;
               const isReserve = driver.isReservePick;
-              const earlyTermFee = isReserve ? 0 : calculateEarlyTerminationFee(driver.livePrice, contractLen, driver.racesHeld || 0);
+              const inGracePeriod = (driver.racesHeld || 0) === 0;
+              const earlyTermFee = (isReserve || inGracePeriod) ? 0 : calculateEarlyTerminationFee(driver.livePrice, contractLen, driver.racesHeld || 0);
               const effectiveSaleValue = Math.max(0, driver.livePrice - earlyTermFee);
               const saleProfit = effectiveSaleValue - driver.purchasePrice;
               const accentColor = isReserve ? COLORS.text.muted : cInfo?.primaryColor || COLORS.text.muted;
@@ -946,10 +947,10 @@ export default function MyTeamScreen() {
                         <TouchableOpacity
                           onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
                           hitSlop={6}
-                          style={[styles.sellChip, saleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
+                          style={[styles.sellChip, inGracePeriod ? styles.sellChipNeutral : saleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
                         >
-                          <Text style={[styles.sellChipText, saleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
-                            Sell {saleProfit >= 0 ? '+' : '-'}${Math.abs(saleProfit)}
+                          <Text style={[styles.sellChipText, inGracePeriod ? styles.sellChipTextNeutral : saleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
+                            {inGracePeriod ? `Sell $${driver.livePrice}` : `Sell ${saleProfit >= 0 ? '+' : '-'}$${Math.abs(saleProfit)}`}
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -991,7 +992,8 @@ export default function MyTeamScreen() {
           const cContractLen = c.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
           const cContractRemaining = cContractLen - (c.racesHeld || 0);
           const cIsLastRace = cContractRemaining === 1;
-          const cEarlyTermFee = calculateEarlyTerminationFee(livePrice, cContractLen, c.racesHeld || 0);
+          const cInGracePeriod = (c.racesHeld || 0) === 0;
+          const cEarlyTermFee = cInGracePeriod ? 0 : calculateEarlyTerminationFee(livePrice, cContractLen, c.racesHeld || 0);
           const cEffectiveSaleValue = Math.max(0, livePrice - cEarlyTermFee);
           const cSaleProfit = cEffectiveSaleValue - c.purchasePrice;
           const cAccent = cInfo?.primaryColor || COLORS.primary;
@@ -1064,10 +1066,10 @@ export default function MyTeamScreen() {
                     <TouchableOpacity
                       onPress={handleRemoveConstructor}
                       hitSlop={6}
-                      style={[styles.sellChip, cSaleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
+                      style={[styles.sellChip, cInGracePeriod ? styles.sellChipNeutral : cSaleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
                     >
-                      <Text style={[styles.sellChipText, cSaleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
-                        Sell {cSaleProfit >= 0 ? '+' : '-'}${Math.abs(cSaleProfit)}
+                      <Text style={[styles.sellChipText, cInGracePeriod ? styles.sellChipTextNeutral : cSaleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
+                        {cInGracePeriod ? `Sell $${livePrice}` : `Sell ${cSaleProfit >= 0 ? '+' : '-'}$${Math.abs(cSaleProfit)}`}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -1479,6 +1481,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.error + '12',
     borderColor: COLORS.error + '25',
   },
+  sellChipNeutral: {
+    backgroundColor: COLORS.text.muted + '12',
+    borderColor: COLORS.text.muted + '25',
+  },
   sellChipText: {
     fontSize: 11,
     fontWeight: '600',
@@ -1488,6 +1494,9 @@ const styles = StyleSheet.create({
   },
   sellChipTextLoss: {
     color: COLORS.error,
+  },
+  sellChipTextNeutral: {
+    color: COLORS.text.muted,
   },
   swapChip: {
     paddingHorizontal: 8,

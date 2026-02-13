@@ -79,9 +79,10 @@ export default function SelectDriverScreen() {
       // Swap: remove old driver, add new one
       const oldDriver = team.drivers.find(d => d.driverId === swapDriverId);
       const newDriver = pending[0];
-      // V6: Apply early termination fee for breaking old driver's contract early
+      // V6: Early termination fee — waived for reserve picks and grace period
       const oldContractLen = oldDriver?.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const oldEarlyTermFee = oldDriver ? calculateEarlyTerminationFee(oldDriver.currentPrice, oldContractLen, oldDriver.racesHeld || 0) : 0;
+      const oldInGracePeriod = (oldDriver?.racesHeld || 0) === 0;
+      const oldEarlyTermFee = (oldDriver && !oldDriver.isReservePick && !oldInGracePeriod) ? calculateEarlyTerminationFee(oldDriver.currentPrice, oldContractLen, oldDriver.racesHeld || 0) : 0;
       const saleValue = oldDriver ? Math.max(0, oldDriver.currentPrice - oldEarlyTermFee) : 0;
       const newFantasyDriver: FantasyDriver = {
         driverId: newDriver.id,
