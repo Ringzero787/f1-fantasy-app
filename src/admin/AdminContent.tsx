@@ -577,112 +577,89 @@ export default function AdminContent() {
     }
 
     const isSprint = selectedRace?.hasSprint;
-    const label = isSprint ? 'Race + Sprint' : 'Race';
 
-    Alert.alert(
-      `Auto-Complete ${label}`,
-      `This will assign skill-weighted positions${isSprint ? ' for both race and sprint' : ''} and mark the weekend as complete. Continue?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Auto-Complete',
-          onPress: () => {
-            // --- Main race ---
-            const { newPositions, newDnf } = simulateRacePositions();
-            setDriverPositions(newPositions);
-            setDriverDnf(newDnf);
+    // --- Main race ---
+    const { newPositions, newDnf } = simulateRacePositions();
+    setDriverPositions(newPositions);
+    setDriverDnf(newDnf);
 
-            // Build grid from price ranking (highest price = P1 qualifying)
-            const gridOrder = [...activeDrivers].sort((a, b) => b.price - a.price);
-            const gridPositions: Record<string, number> = {};
-            gridOrder.forEach((d, i) => { gridPositions[d.id] = i + 1; });
+    // Build grid from price ranking (highest price = P1 qualifying)
+    const gridOrder = [...activeDrivers].sort((a, b) => b.price - a.price);
+    const gridPositions: Record<string, number> = {};
+    gridOrder.forEach((d, i) => { gridPositions[d.id] = i + 1; });
 
-            Object.entries(newPositions).forEach(([driverId, positionStr]) => {
-              const isDnf = newDnf[driverId] || false;
-              if (isDnf) {
-                updateDriverPoints(selectedRaceId, driverId, -5);
-                updateDriverDnf(selectedRaceId, driverId, true);
-              } else {
-                const position = parseInt(positionStr, 10);
-                let points = getPointsForPosition(position);
-                // Position lost penalty: -1 per position lost from grid
-                const grid = gridPositions[driverId] || position;
-                const positionsLost = position - grid; // positive = lost positions
-                if (positionsLost > 0) {
-                  points -= positionsLost;
-                }
-                updateDriverPoints(selectedRaceId, driverId, points);
-                updateDriverDnf(selectedRaceId, driverId, false);
-              }
-            });
+    Object.entries(newPositions).forEach(([driverId, positionStr]) => {
+      const isDnf = newDnf[driverId] || false;
+      if (isDnf) {
+        updateDriverPoints(selectedRaceId, driverId, -5);
+        updateDriverDnf(selectedRaceId, driverId, true);
+      } else {
+        const position = parseInt(positionStr, 10);
+        let points = getPointsForPosition(position);
+        // Position lost penalty: -1 per position lost from grid
+        const grid = gridPositions[driverId] || position;
+        const positionsLost = position - grid; // positive = lost positions
+        if (positionsLost > 0) {
+          points -= positionsLost;
+        }
+        updateDriverPoints(selectedRaceId, driverId, points);
+        updateDriverDnf(selectedRaceId, driverId, false);
+      }
+    });
 
-            const constructorPts: Record<string, number> = {};
-            demoConstructors.forEach(constructor => {
-              let total = 0;
-              constructor.drivers.forEach(driverId => {
-                if (!newDnf[driverId]) {
-                  const position = parseInt(newPositions[driverId] || '0', 10);
-                  total += getF1PointsForPosition(position);
-                }
-              });
-              constructorPts[constructor.id] = Math.floor(total / 2);
-            });
-            Object.entries(constructorPts).forEach(([constructorId, points]) => {
-              updateConstructorPoints(selectedRaceId, constructorId, points);
-            });
+    const constructorPts: Record<string, number> = {};
+    demoConstructors.forEach(constructor => {
+      let total = 0;
+      constructor.drivers.forEach(driverId => {
+        if (!newDnf[driverId]) {
+          const position = parseInt(newPositions[driverId] || '0', 10);
+          total += getF1PointsForPosition(position);
+        }
+      });
+      constructorPts[constructor.id] = Math.floor(total / 2);
+    });
+    Object.entries(constructorPts).forEach(([constructorId, points]) => {
+      updateConstructorPoints(selectedRaceId, constructorId, points);
+    });
 
-            const raceDnfCount = Object.values(newDnf).filter(Boolean).length;
+    // --- Sprint (if applicable) ---
+    if (isSprint) {
+      const { newPositions: sprintPos, newDnf: sprintDnfResult } = simulateRacePositions();
+      setSprintPositions(sprintPos);
+      setSprintDnf(sprintDnfResult);
 
-            // --- Sprint (if applicable) ---
-            let sprintDnfCount = 0;
-            if (isSprint) {
-              const { newPositions: sprintPos, newDnf: sprintDnfResult } = simulateRacePositions();
-              setSprintPositions(sprintPos);
-              setSprintDnf(sprintDnfResult);
+      Object.entries(sprintPos).forEach(([driverId, positionStr]) => {
+        const isDnf = sprintDnfResult[driverId] || false;
+        if (isDnf) {
+          updateSprintDriverPoints(selectedRaceId, driverId, -5);
+          updateSprintDriverDnf(selectedRaceId, driverId, true);
+        } else {
+          const position = parseInt(positionStr, 10);
+          const points = getSprintPointsForPosition(position);
+          updateSprintDriverPoints(selectedRaceId, driverId, points);
+          updateSprintDriverDnf(selectedRaceId, driverId, false);
+        }
+      });
 
-              Object.entries(sprintPos).forEach(([driverId, positionStr]) => {
-                const isDnf = sprintDnfResult[driverId] || false;
-                if (isDnf) {
-                  updateSprintDriverPoints(selectedRaceId, driverId, -5);
-                  updateSprintDriverDnf(selectedRaceId, driverId, true);
-                } else {
-                  const position = parseInt(positionStr, 10);
-                  const points = getSprintPointsForPosition(position);
-                  updateSprintDriverPoints(selectedRaceId, driverId, points);
-                  updateSprintDriverDnf(selectedRaceId, driverId, false);
-                }
-              });
+      const sprintConstructorPts: Record<string, number> = {};
+      demoConstructors.forEach(constructor => {
+        let total = 0;
+        constructor.drivers.forEach(driverId => {
+          if (!sprintDnfResult[driverId]) {
+            const position = parseInt(sprintPos[driverId] || '0', 10);
+            total += getSprintF1PointsForPosition(position);
+          }
+        });
+        sprintConstructorPts[constructor.id] = Math.floor(total / 2);
+      });
+      Object.entries(sprintConstructorPts).forEach(([constructorId, points]) => {
+        updateSprintConstructorPoints(selectedRaceId, constructorId, points);
+      });
+    }
 
-              const sprintConstructorPts: Record<string, number> = {};
-              demoConstructors.forEach(constructor => {
-                let total = 0;
-                constructor.drivers.forEach(driverId => {
-                  if (!sprintDnfResult[driverId]) {
-                    const position = parseInt(sprintPos[driverId] || '0', 10);
-                    total += getSprintF1PointsForPosition(position);
-                  }
-                });
-                sprintConstructorPts[constructor.id] = Math.floor(total / 2);
-              });
-              Object.entries(sprintConstructorPts).forEach(([constructorId, points]) => {
-                updateSprintConstructorPoints(selectedRaceId, constructorId, points);
-              });
-
-              sprintDnfCount = Object.values(sprintDnfResult).filter(Boolean).length;
-            }
-
-            // Mark race complete and commit points to all teams
-            markRaceComplete(selectedRaceId);
-            recalculateAllTeamsPoints();
-
-            const msg = isSprint
-              ? `Weekend auto-completed! Points committed.\nRace: ${activeDrivers.length - raceDnfCount} finishers, ${raceDnfCount} DNFs\nSprint: ${activeDrivers.length - sprintDnfCount} finishers, ${sprintDnfCount} DNFs`
-              : `Race auto-completed! Points committed. (${activeDrivers.length - raceDnfCount} finishers, ${raceDnfCount} DNFs)`;
-            Alert.alert('Success', msg);
-          },
-        },
-      ]
-    );
+    // Mark race complete and commit points to all teams
+    markRaceComplete(selectedRaceId);
+    recalculateAllTeamsPoints();
   };
 
   // Reset prices to initial demoData values (keeps race results)
