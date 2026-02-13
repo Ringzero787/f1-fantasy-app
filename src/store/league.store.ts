@@ -78,6 +78,7 @@ interface LeagueState {
   demoteFromCoAdmin: (leagueId: string, userId: string) => Promise<void>;
   isUserAdmin: (userId: string) => boolean;
 
+  demoInviteCounts: Record<string, number>;
   clearError: () => void;
   clearRecentlyCreatedLeague: () => void;
 }
@@ -90,6 +91,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
   retiredMembers: [],
   isLoading: false,
   error: null,
+  demoInviteCounts: {},
 
   setLeagues: (leagues) => set({ leagues }),
   setCurrentLeague: (league) => set({ currentLeague: league }),
@@ -535,10 +537,19 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       if (isDemoMode) {
-        // In demo mode, simulate sending an invite
-        // Just show success - in real app this would send an email
-        await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
-        set({ isLoading: false });
+        const { currentLeague, demoInviteCounts } = get();
+        const maxMembers = currentLeague?.maxMembers || 20;
+        const maxInvites = 3 * maxMembers;
+        const currentCount = demoInviteCounts[leagueId] || 0;
+        if (currentCount >= maxInvites) {
+          throw new Error(`Invite limit reached (${maxInvites}). You cannot send more than 3x your league's max members in invitations.`);
+        }
+        // Simulate sending an invite
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        set({
+          isLoading: false,
+          demoInviteCounts: { ...demoInviteCounts, [leagueId]: currentCount + 1 },
+        });
         return;
       }
 

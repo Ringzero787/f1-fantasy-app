@@ -413,22 +413,30 @@ export default function HomeScreen() {
 
             {/* Complete Team Button if incomplete */}
             {!isTeamComplete && (
-              <View style={styles.completeTeamButton}>
+              <TouchableOpacity
+                style={styles.completeTeamButton}
+                onPress={() => router.push('/my-team')}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.completeTeamButtonText}>Complete Your Team</Text>
                 <Ionicons name="arrow-forward" size={16} color={COLORS.white} />
-              </View>
+              </TouchableOpacity>
             )}
           </Card>
           </Animated.View>
         ) : (
           <Card variant="outlined" padding="large">
-            <View style={styles.noTeamContainer}>
+            <TouchableOpacity
+              style={styles.noTeamContainer}
+              onPress={() => router.push('/my-team')}
+              activeOpacity={0.8}
+            >
               <Ionicons name="people-outline" size={32} color={COLORS.text.muted} />
               <Text style={styles.noTeamText}>No team created yet</Text>
               <View style={styles.createTeamButton}>
                 <Text style={styles.createTeamButtonText}>Create Team</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </Card>
         )}
       </View>

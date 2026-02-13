@@ -443,11 +443,18 @@ export const leagueService = {
    * Invite a member by email (sends an invitation)
    */
   async inviteMemberByEmail(leagueId: string, email: string): Promise<void> {
-    // In a real app, this would:
-    // 1. Create an invitation record in Firestore
-    // 2. Trigger a Cloud Function to send an email
-    // For now, we'll just create an invitation record
+    // Check invite limit: max 3x maxMembers
+    const league = await this.getLeagueById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
     const invitesCollection = collection(db, 'leagues', leagueId, 'invites');
+    const inviteSnap = await getDocs(invitesCollection);
+    const maxInvites = 3 * league.maxMembers;
+    if (inviteSnap.size >= maxInvites) {
+      throw new Error(`Invite limit reached (${maxInvites}). You cannot send more than 3x your league's max members in invitations.`);
+    }
+
     await addDoc(invitesCollection, {
       email: email.toLowerCase(),
       status: 'pending',

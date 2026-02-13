@@ -97,7 +97,8 @@ export default function LeagueAdminScreen() {
       );
       setInviteEmail('');
     } catch (error) {
-      Alert.alert('Error', 'Failed to send invitation');
+      const message = error instanceof Error ? error.message : 'Failed to send invitation';
+      Alert.alert('Error', message);
     } finally {
       setIsInviting(false);
     }
