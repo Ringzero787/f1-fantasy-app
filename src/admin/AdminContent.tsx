@@ -681,6 +681,34 @@ export default function AdminContent() {
     );
   };
 
+  // Reset all race results only (keeps teams and prices)
+  const handleResetAllRaceResults = () => {
+    Alert.alert(
+      'Reset All Races',
+      `This will clear ALL ${completedRacesCount} completed race results and recalculate team points to 0. Teams and prices will be kept.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset Races',
+          style: 'destructive',
+          onPress: () => {
+            useAdminStore.getState().resetAllRaceResults();
+            recalculateAllTeamsPoints();
+
+            // Clear local state
+            setSelectedRaceId(null);
+            setDriverPositions({});
+            setSprintPositions({});
+            setDriverDnf({});
+            setSprintDnf({});
+
+            Alert.alert('Success', 'All race results have been cleared. Team points recalculated.');
+          },
+        },
+      ]
+    );
+  };
+
   // Reset all race results (clear everything)
   const handleResetAllRaces = () => {
     Alert.alert(
@@ -753,9 +781,13 @@ export default function AdminContent() {
             <Ionicons name="cash-outline" size={16} color={COLORS.warning} />
             <Text style={styles.resetPricesButtonText}>Reset Prices</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.resetRacesButton} onPress={handleResetAllRaceResults}>
+            <Ionicons name="flag-outline" size={16} color={COLORS.warning} />
+            <Text style={styles.resetRacesButtonText}>Reset Races</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.resetAllButton} onPress={handleResetAllRaces}>
             <Ionicons name="trash-outline" size={16} color={COLORS.error} />
-            <Text style={styles.resetAllButtonText}>Reset Everything</Text>
+            <Text style={styles.resetAllButtonText}>Reset All</Text>
           </TouchableOpacity>
         </View>
       </Card>
@@ -1258,6 +1290,7 @@ const styles = StyleSheet.create({
 
   summaryActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: SPACING.sm,
     borderTopWidth: 1,
     borderTopColor: COLORS.border.default,
@@ -1294,6 +1327,23 @@ const styles = StyleSheet.create({
   },
 
   resetPricesButtonText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '500',
+    color: COLORS.warning,
+  },
+
+  resetRacesButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.warning + '10',
+    borderRadius: BORDER_RADIUS.md,
+  },
+
+  resetRacesButtonText: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '500',
     color: COLORS.warning,

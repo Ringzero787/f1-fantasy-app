@@ -89,6 +89,9 @@ interface AdminState {
   // Reset prices only (keeps race results)
   resetPrices: () => void;
 
+  // Reset all race results only (keeps prices and teams)
+  resetAllRaceResults: () => void;
+
   // Reset all cached data
   resetAllData: () => void;
 }
@@ -464,6 +467,13 @@ export const useAdminStore = create<AdminState>()(
           driverPrices: {},
           constructorPrices: {},
         });
+      },
+
+      // Reset all race results only (keeps prices and teams)
+      resetAllRaceResults: () => {
+        console.log('Resetting all race results...');
+        set({ raceResults: {} });
+        console.log('All race results reset');
       },
 
       // Reset all cached data to fresh state

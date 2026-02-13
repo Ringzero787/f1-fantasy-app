@@ -98,11 +98,15 @@ export function useDrivers(filter?: DriverFilter) {
   const raceResults = useAdminStore((state) => state.raceResults);
   const driverPrices = useAdminStore((state) => state.driverPrices);
 
+  // Build a version key that changes when prices or race completions change
+  const completedCount = Object.values(raceResults).filter((r: any) => r.isComplete).length;
+  const priceSum = Object.values(driverPrices).reduce((sum, p) => sum + (p?.currentPrice ?? 0), 0);
+  const versionKey = `${completedCount}_${Object.keys(driverPrices).length}_${priceSum}`;
+
   return useQuery({
-    // Use lightweight version counter instead of full objects to prevent unnecessary cache invalidation
     queryKey: filter
-      ? [...driverKeys.list(filter), `${Object.keys(raceResults).length}_${Object.keys(driverPrices).length}`]
-      : [...driverKeys.lists(), `${Object.keys(raceResults).length}_${Object.keys(driverPrices).length}`],
+      ? [...driverKeys.list(filter), versionKey]
+      : [...driverKeys.lists(), versionKey],
     queryFn: async () => {
       // Add 2026 season points and apply price updates to drivers
       const addSeasonPointsAndPrices = (drivers: Driver[], sortFilter?: DriverFilter) => {

@@ -431,7 +431,14 @@ export default function MyTeamScreen() {
   };
 
   const handleSetAce = async (driverId: string) => {
-    try { await setAce(driverId); } catch { Alert.alert('Error', 'Failed to set Ace'); }
+    try {
+      await setAce(driverId);
+      // Check if the store set an error (setAce doesn't throw, it sets error state)
+      const storeError = useTeamStore.getState().error;
+      if (storeError) {
+        Alert.alert('Cannot Set Ace', storeError);
+      }
+    } catch { Alert.alert('Error', 'Failed to set Ace'); }
   };
 
   const handleClearAce = async () => {
@@ -439,7 +446,13 @@ export default function MyTeamScreen() {
   };
 
   const handleSetAceConstructor = async (constructorId: string) => {
-    try { await setAceConstructor(constructorId); } catch { Alert.alert('Error', 'Failed to set Ace Constructor'); }
+    try {
+      await setAceConstructor(constructorId);
+      const storeError = useTeamStore.getState().error;
+      if (storeError) {
+        Alert.alert('Cannot Set Ace', storeError);
+      }
+    } catch { Alert.alert('Error', 'Failed to set Ace Constructor'); }
   };
 
   // V5: Lockout-aware canModify and canChangeAce

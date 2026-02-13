@@ -57,7 +57,7 @@ export const PRICING_CONFIG = {
   LATE_JOINER_POINTS_PER_RACE: 30, // Flat points awarded per missed race
 
   // V5: Contract System
-  CONTRACT_LENGTH: 5, // Drivers auto-sell after this many races
+  CONTRACT_LENGTH: 3, // Drivers auto-sell after this many races
   CONTRACT_LOCKOUT_RACES: 1, // Races a driver is locked out after contract expiry (per team)
 
   // V6: Early Termination Fee

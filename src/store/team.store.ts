@@ -1380,7 +1380,10 @@ export const useTeamStore = create<TeamState>()(
     }
 
     // V3 Rule: Drivers with price over ACE_MAX_PRICE cannot be ace
-    if (driver.currentPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
+    // Use live market price from admin store (not stale team price)
+    const { driverPrices } = useAdminStore.getState();
+    const livePrice = driverPrices[driverId]?.currentPrice ?? driver.currentPrice;
+    if (livePrice > PRICING_CONFIG.ACE_MAX_PRICE) {
       set({ error: `Drivers over $${PRICING_CONFIG.ACE_MAX_PRICE} cannot be your Ace` });
       return;
     }
@@ -1420,8 +1423,10 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
-    // Price check
-    if (currentTeam.constructor.currentPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
+    // Price check - use live market price from admin store
+    const { constructorPrices } = useAdminStore.getState();
+    const liveCPrice = constructorPrices[constructorId]?.currentPrice ?? currentTeam.constructor.currentPrice;
+    if (liveCPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
       set({ error: `Constructors over $${PRICING_CONFIG.ACE_MAX_PRICE} cannot be your Ace` });
       return;
     }
@@ -1726,10 +1731,29 @@ export const useTeamStore = create<TeamState>()(
       currentPrice: constructorPrices[currentTeam.constructor.constructorId]?.currentPrice ?? currentTeam.constructor.currentPrice,
     } : null;
 
+    // Auto-clear ace if driver/constructor price exceeded threshold
+    let aceDriverId = currentTeam.aceDriverId;
+    let aceConstructorId = currentTeam.aceConstructorId;
+    if (aceDriverId) {
+      const aceDriver = updatedDrivers.find(d => d.driverId === aceDriverId);
+      if (aceDriver && aceDriver.currentPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
+        console.log(`Auto-clearing ace: ${aceDriverId} price $${aceDriver.currentPrice} exceeds $${PRICING_CONFIG.ACE_MAX_PRICE}`);
+        aceDriverId = undefined;
+      }
+    }
+    if (aceConstructorId && updatedConstructor) {
+      if (updatedConstructor.currentPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
+        console.log(`Auto-clearing ace constructor: ${aceConstructorId} price $${updatedConstructor.currentPrice} exceeds $${PRICING_CONFIG.ACE_MAX_PRICE}`);
+        aceConstructorId = undefined;
+      }
+    }
+
     const updatedTeam: FantasyTeam = {
       ...currentTeam,
       drivers: updatedDrivers,
       constructor: updatedConstructor,
+      aceDriverId,
+      aceConstructorId,
       totalPoints,
       updatedAt: new Date(),
     };
@@ -1913,6 +1937,21 @@ export const useTeamStore = create<TeamState>()(
       // Recalculate budget: original budget + all sale returns - all auto-fill costs
       const totalAutoFillCost = team.budget + budgetReturn - autoFillBudget;
       const newBudget = team.budget + budgetReturn - totalAutoFillCost;
+
+      // Auto-clear ace if price exceeded threshold
+      if (aceId) {
+        const aceDriver = updatedDrivers.find(d => d.driverId === aceId);
+        if (aceDriver && aceDriver.currentPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
+          console.log(`Auto-clearing ace: ${aceId} price $${aceDriver.currentPrice} exceeds $${PRICING_CONFIG.ACE_MAX_PRICE}`);
+          aceId = undefined;
+        }
+      }
+      if (aceConstructorId && updatedConstructor) {
+        if (updatedConstructor.currentPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
+          console.log(`Auto-clearing ace constructor: ${aceConstructorId} price $${updatedConstructor.currentPrice} exceeds $${PRICING_CONFIG.ACE_MAX_PRICE}`);
+          aceConstructorId = undefined;
+        }
+      }
 
       return {
         ...team,
