@@ -100,6 +100,7 @@ export const EARLY_UNLOCK_FEE = 120; // $120 penalty
 
 export const DEFAULT_MAX_MEMBERS = 22;
 export const FREE_LEAGUE_MEMBER_LIMIT = 22;
+export const SLOTS_PER_EXPANSION = 20;
 export const MIN_LEAGUE_NAME_LENGTH = 3;
 export const MAX_LEAGUE_NAME_LENGTH = 50;
 export const INVITE_CODE_LENGTH = 8;

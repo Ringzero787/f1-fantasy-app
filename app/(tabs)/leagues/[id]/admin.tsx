@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
+  Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,8 +16,12 @@ import { useAuth } from '../../../../src/hooks/useAuth';
 import { useLeagueStore } from '../../../../src/store/league.store';
 import { useTeamStore } from '../../../../src/store/team.store';
 import { useAnnouncementStore } from '../../../../src/store/announcement.store';
-import { Card, Button, Loading } from '../../../../src/components';
-import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
+import { usePurchaseStore } from '../../../../src/store/purchase.store';
+import { useAuthStore } from '../../../../src/store/auth.store';
+import { Card, Button, Loading, PurchaseModal } from '../../../../src/components';
+import { COLORS, SPACING, FONTS, BORDER_RADIUS, SLOTS_PER_EXPANSION } from '../../../../src/config/constants';
+import { PRODUCTS, PRODUCT_IDS } from '../../../../src/config/products';
+import { validateLeagueName } from '../../../../src/utils/validation';
 
 export default function LeagueAdminScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,17 +29,31 @@ export default function LeagueAdminScreen() {
   const {
     currentLeague,
     members,
+    pendingMembers,
     isLoading,
     loadLeague,
     loadLeagueMembers,
+    loadPendingMembers,
     deleteLeague,
+    updateLeagueDetails,
     removeMember,
     inviteMemberByEmail,
     promoteToCoAdmin,
     demoteFromCoAdmin,
     isUserAdmin,
+    approveMember,
+    rejectMember,
+    updateLeagueSettings,
+    expandLeagueCapacity,
   } = useLeagueStore();
   const { loadUserTeams } = useTeamStore();
+
+  // Purchase store
+  const purchaseLeagueExpansion = usePurchaseStore(s => s.purchaseLeagueExpansion);
+  const hasExpansionCredit = usePurchaseStore(s => s.hasExpansionCredit);
+  const consumeExpansionCredit = usePurchaseStore(s => s.consumeExpansionCredit);
+  const isPurchasing = usePurchaseStore(s => s.isPurchasing);
+  const isDemoMode = useAuthStore.getState().isDemoMode;
 
   const {
     activeAnnouncements,
@@ -56,11 +76,24 @@ export default function LeagueAdminScreen() {
   const [announcementMessage, setAnnouncementMessage] = useState('');
   const [showReplies, setShowReplies] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [isApprovingOrRejecting, setIsApprovingOrRejecting] = useState<string | null>(null);
+
+  // Expansion purchase state
+  const [showExpansionPurchase, setShowExpansionPurchase] = useState(false);
+  const [isExpanding, setIsExpanding] = useState(false);
+
+  // Inline edit state for name & description
+  const [editingName, setEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
 
   // Load league data and members on mount
   useEffect(() => {
     if (id && user) {
       loadLeague(id);
+      loadPendingMembers(id);
       loadUserTeams(user.id).then(() => {
         loadLeagueMembers(id);
       });
@@ -219,6 +252,164 @@ export default function LeagueAdminScreen() {
     );
   };
 
+  const handleApproveMember = async (memberId: string, memberName: string) => {
+    setIsApprovingOrRejecting(memberId);
+    try {
+      await approveMember(currentLeague.id, memberId);
+      Alert.alert('Approved', `${memberName} has been approved and added to the league.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to approve member';
+      Alert.alert('Error', message);
+    } finally {
+      setIsApprovingOrRejecting(null);
+    }
+  };
+
+  const handleRejectMember = (memberId: string, memberName: string) => {
+    Alert.alert(
+      'Reject Request',
+      `Are you sure you want to reject ${memberName}'s request? They can request again later.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            setIsApprovingOrRejecting(memberId);
+            try {
+              await rejectMember(currentLeague.id, memberId);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to reject member');
+            } finally {
+              setIsApprovingOrRejecting(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleToggleRequireApproval = async (value: boolean) => {
+    try {
+      await updateLeagueSettings(currentLeague.id, { requireApproval: value });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update setting');
+    }
+  };
+
+  const handleExpandSlots = async () => {
+    if (!currentLeague) return;
+
+    // In demo mode, just expand directly
+    if (isDemoMode) {
+      setIsExpanding(true);
+      try {
+        await expandLeagueCapacity(currentLeague.id, SLOTS_PER_EXPANSION);
+        Alert.alert('Slots Added', `${SLOTS_PER_EXPANSION} member slots have been added to your league! (Demo mode)`);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to expand league capacity');
+      } finally {
+        setIsExpanding(false);
+      }
+      return;
+    }
+
+    // Check if user already has an expansion credit
+    if (hasExpansionCredit()) {
+      setIsExpanding(true);
+      try {
+        consumeExpansionCredit();
+        await expandLeagueCapacity(currentLeague.id, SLOTS_PER_EXPANSION);
+        Alert.alert('Slots Added', `${SLOTS_PER_EXPANSION} member slots have been added to your league!`);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to expand league capacity');
+      } finally {
+        setIsExpanding(false);
+      }
+    } else {
+      // Show purchase modal
+      setShowExpansionPurchase(true);
+    }
+  };
+
+  const handleExpansionPurchaseComplete = async () => {
+    setShowExpansionPurchase(false);
+    await purchaseLeagueExpansion(currentLeague?.id);
+
+    // After purchase, consume the credit and expand
+    // Small delay to let the purchase state update
+    setTimeout(async () => {
+      if (currentLeague && hasExpansionCredit()) {
+        setIsExpanding(true);
+        try {
+          consumeExpansionCredit();
+          await expandLeagueCapacity(currentLeague.id, SLOTS_PER_EXPANSION);
+          Alert.alert('Slots Added', `${SLOTS_PER_EXPANSION} member slots have been added to your league!`);
+        } catch (error) {
+          Alert.alert('Error', 'Failed to expand league capacity');
+        } finally {
+          setIsExpanding(false);
+        }
+      }
+    }, 500);
+  };
+
+  const handleStartEditName = () => {
+    setEditName(currentLeague.name);
+    setEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = editName.trim();
+    if (trimmed === currentLeague.name) {
+      setEditingName(false);
+      return;
+    }
+    const validation = validateLeagueName(trimmed);
+    if (!validation.isValid) {
+      Alert.alert('Invalid Name', validation.error || 'Please enter a valid league name');
+      return;
+    }
+    setIsSavingDetails(true);
+    try {
+      await updateLeagueDetails(currentLeague.id, user!.id, { name: trimmed });
+      setEditingName(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update name';
+      Alert.alert('Error', message);
+    } finally {
+      setIsSavingDetails(false);
+    }
+  };
+
+  const handleStartEditDescription = () => {
+    setEditDescription(currentLeague.description || '');
+    setEditingDescription(true);
+  };
+
+  const handleSaveDescription = async () => {
+    const trimmed = editDescription.trim();
+    const currentDesc = currentLeague.description || '';
+    if (trimmed === currentDesc) {
+      setEditingDescription(false);
+      return;
+    }
+    if (trimmed.length > 200) {
+      Alert.alert('Too Long', 'Description must be 200 characters or fewer');
+      return;
+    }
+    setIsSavingDetails(true);
+    try {
+      await updateLeagueDetails(currentLeague.id, user!.id, { description: trimmed });
+      setEditingDescription(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update description';
+      Alert.alert('Error', message);
+    } finally {
+      setIsSavingDetails(false);
+    }
+  };
+
   // Current active announcement for this league
   const activeAnnouncement = activeAnnouncements.find(a => a.leagueId === id) || null;
 
@@ -304,11 +495,217 @@ export default function LeagueAdminScreen() {
         <Ionicons name="settings" size={24} color={COLORS.primary} />
         <Text style={styles.headerTitle}>League Admin</Text>
       </View>
-      <Text style={styles.leagueName}>{currentLeague.name}</Text>
+      {/* Editable League Name */}
+      {editingName ? (
+        <View style={styles.editRow}>
+          <TextInput
+            style={styles.editNameInput}
+            value={editName}
+            onChangeText={setEditName}
+            maxLength={50}
+            autoFocus
+            selectTextOnFocus
+          />
+          <TouchableOpacity
+            style={styles.editSaveButton}
+            onPress={handleSaveName}
+            disabled={isSavingDetails}
+          >
+            <Ionicons name="checkmark" size={20} color={COLORS.success} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.editCancelButton}
+            onPress={() => setEditingName(false)}
+          >
+            <Ionicons name="close" size={20} color={COLORS.text.muted} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.editableRow} onPress={isOwner ? handleStartEditName : undefined} activeOpacity={isOwner ? 0.6 : 1}>
+          <Text style={styles.leagueName}>{currentLeague.name}</Text>
+          {isOwner && <Ionicons name="pencil" size={16} color={COLORS.text.muted} />}
+        </TouchableOpacity>
+      )}
+
+      {/* Editable Description */}
+      {editingDescription ? (
+        <View style={styles.editDescriptionContainer}>
+          <TextInput
+            style={styles.editDescriptionInput}
+            value={editDescription}
+            onChangeText={setEditDescription}
+            maxLength={200}
+            multiline
+            autoFocus
+            placeholder="Add a description..."
+            placeholderTextColor={COLORS.text.muted}
+          />
+          <View style={styles.editDescriptionActions}>
+            <Text style={styles.charCount}>{editDescription.length}/200</Text>
+            <View style={styles.editButtonGroup}>
+              <TouchableOpacity
+                style={styles.editSaveButton}
+                onPress={handleSaveDescription}
+                disabled={isSavingDetails}
+              >
+                <Ionicons name="checkmark" size={20} color={COLORS.success} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.editCancelButton}
+                onPress={() => setEditingDescription(false)}
+              >
+                <Ionicons name="close" size={20} color={COLORS.text.muted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.editableDescriptionRow}
+          onPress={isOwner ? handleStartEditDescription : undefined}
+          activeOpacity={isOwner ? 0.6 : 1}
+        >
+          <Text style={currentLeague.description ? styles.descriptionText : styles.descriptionPlaceholder}>
+            {currentLeague.description || (isOwner ? 'Add a description...' : 'No description')}
+          </Text>
+          {isOwner && <Ionicons name="pencil" size={14} color={COLORS.text.muted} />}
+        </TouchableOpacity>
+      )}
+
+      {/* Require Approval Toggle */}
+      {isOwner && (
+        <View style={styles.section}>
+          <View style={styles.switchRow}>
+            <View style={styles.switchInfo}>
+              <Text style={styles.switchLabel}>Require Approval</Text>
+              <Text style={styles.switchDescription}>
+                New members must be approved before joining
+              </Text>
+            </View>
+            <Switch
+              value={currentLeague.settings?.requireApproval === true}
+              onValueChange={handleToggleRequireApproval}
+              trackColor={{ false: COLORS.border.default, true: COLORS.primary + '60' }}
+              thumbColor={currentLeague.settings?.requireApproval ? COLORS.primary : COLORS.surface}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Pending Requests Section */}
+      {pendingMembers.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+              Pending Requests
+            </Text>
+            <View style={styles.pendingCountBadge}>
+              <Text style={styles.pendingCountText}>{pendingMembers.length}</Text>
+            </View>
+          </View>
+          {currentLeague.memberCount >= currentLeague.maxMembers && (
+            <View style={styles.fullWarning}>
+              <Ionicons name="warning" size={16} color={COLORS.warning} />
+              <Text style={styles.fullWarningText}>
+                League is full ({currentLeague.memberCount}/{currentLeague.maxMembers}). Remove a member to approve new requests.
+              </Text>
+            </View>
+          )}
+          <Card variant="outlined" style={styles.pendingCard}>
+            {pendingMembers.map((member) => (
+              <View key={member.userId} style={styles.pendingRow}>
+                <View style={styles.memberInfo}>
+                  <Text style={styles.memberName}>{member.displayName}</Text>
+                  <Text style={styles.memberPoints}>
+                    Requested {formatTimeAgo(member.joinedAt)}
+                  </Text>
+                </View>
+                {isApprovingOrRejecting === member.userId ? (
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                ) : (
+                  <View style={styles.pendingActions}>
+                    <TouchableOpacity
+                      style={styles.approveButton}
+                      onPress={() => handleApproveMember(member.userId, member.displayName)}
+                      disabled={currentLeague.memberCount >= currentLeague.maxMembers}
+                    >
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={24}
+                        color={currentLeague.memberCount >= currentLeague.maxMembers ? COLORS.text.muted : COLORS.success}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.rejectButton}
+                      onPress={() => handleRejectMember(member.userId, member.displayName)}
+                    >
+                      <Ionicons name="close-circle" size={24} color={COLORS.error} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            ))}
+          </Card>
+        </View>
+      )}
+
+      {/* Slot Capacity Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Member Capacity</Text>
+        <Card variant="outlined" style={styles.capacityCard}>
+          {(() => {
+            const used = currentLeague.memberCount;
+            const max = currentLeague.maxMembers;
+            const pct = max > 0 ? used / max : 0;
+            const remaining = max - used;
+            const barColor = pct > 0.9 ? COLORS.error : pct >= 0.75 ? COLORS.warning : COLORS.success;
+            return (
+              <>
+                <View style={styles.capacityHeader}>
+                  <Text style={styles.capacityTitle}>
+                    Members: {used} / {max}
+                  </Text>
+                  <Text style={[styles.capacityPct, { color: barColor }]}>
+                    {Math.round(pct * 100)}%
+                  </Text>
+                </View>
+                <View style={styles.progressBarBg}>
+                  <View style={[styles.progressBarFill, { width: `${Math.min(pct * 100, 100)}%`, backgroundColor: barColor }]} />
+                </View>
+                {pct >= 0.75 && (
+                  <View style={[styles.capacityWarning, { borderColor: barColor + '30', backgroundColor: barColor + '10' }]}>
+                    <Ionicons name="warning" size={14} color={barColor} />
+                    <Text style={[styles.capacityWarningText, { color: barColor }]}>
+                      {remaining <= 0
+                        ? 'League is full! Add more slots to accept new members.'
+                        : `Only ${remaining} slot${remaining === 1 ? '' : 's'} remaining`}
+                    </Text>
+                  </View>
+                )}
+                {isOwner && (
+                  <TouchableOpacity
+                    style={[styles.expandButton, isExpanding && { opacity: 0.6 }]}
+                    onPress={handleExpandSlots}
+                    disabled={isExpanding}
+                  >
+                    <Ionicons name="add-circle-outline" size={18} color={COLORS.primary} />
+                    <Text style={styles.expandButtonText}>
+                      {isExpanding ? 'Adding...' : `Add ${SLOTS_PER_EXPANSION} Slots \u2014 $4.99`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            );
+          })()}
+        </Card>
+      </View>
 
       {/* Stats Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>League Stats</Text>
+        <View style={styles.sectionTitleRow}>
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>League Stats</Text>
+          <Text style={styles.foundedText}>Founded {new Date(currentLeague.createdAt).getFullYear()}</Text>
+        </View>
         <Card variant="outlined" style={styles.statsCard}>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
@@ -666,6 +1063,18 @@ export default function LeagueAdminScreen() {
         </Card>
       </View>
       )}
+      {/* League Expansion Purchase Modal */}
+      <PurchaseModal
+        visible={showExpansionPurchase}
+        onClose={() => setShowExpansionPurchase(false)}
+        onPurchase={handleExpansionPurchaseComplete}
+        isLoading={isPurchasing}
+        title={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].title}
+        description={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].description}
+        price={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].price}
+        icon={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].icon}
+        benefits={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].benefits}
+      />
     </ScrollView>
   );
 }
@@ -698,7 +1107,100 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
     color: COLORS.text.primary,
+    flex: 1,
+  },
+
+  editableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+
+  editNameInput: {
+    flex: 1,
+    fontSize: FONTS.sizes.xl,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+
+  editSaveButton: {
+    padding: SPACING.xs,
+    backgroundColor: COLORS.success + '15',
+    borderRadius: BORDER_RADIUS.sm,
+  },
+
+  editCancelButton: {
+    padding: SPACING.xs,
+    backgroundColor: COLORS.text.muted + '15',
+    borderRadius: BORDER_RADIUS.sm,
+  },
+
+  editableDescriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
     marginBottom: SPACING.lg,
+  },
+
+  descriptionText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+    flex: 1,
+  },
+
+  descriptionPlaceholder: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+    fontStyle: 'italic',
+    flex: 1,
+  },
+
+  editDescriptionContainer: {
+    marginBottom: SPACING.lg,
+  },
+
+  editDescriptionInput: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.primary,
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+
+  editDescriptionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.xs,
+  },
+
+  charCount: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+  },
+
+  editButtonGroup: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
   },
 
   section: {
@@ -710,6 +1212,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text.secondary,
     marginBottom: SPACING.sm,
+  },
+
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+
+  foundedText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+    fontStyle: 'italic',
   },
 
   statsCard: {
@@ -1253,5 +1768,168 @@ const styles = StyleSheet.create({
 
   backButton: {
     marginTop: SPACING.lg,
+  },
+
+  // Require Approval Toggle
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.card,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+  },
+
+  switchInfo: {
+    flex: 1,
+    marginRight: SPACING.md,
+  },
+
+  switchLabel: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+
+  switchDescription: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+    marginTop: 2,
+  },
+
+  // Pending Requests
+  pendingCountBadge: {
+    backgroundColor: COLORS.warning,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xs,
+  },
+
+  pendingCountText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+
+  pendingCard: {
+    padding: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+
+  pendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
+  },
+
+  pendingActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+
+  approveButton: {
+    padding: SPACING.xs,
+  },
+
+  rejectButton: {
+    padding: SPACING.xs,
+  },
+
+  fullWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.warning + '15',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+    marginTop: SPACING.xs,
+    borderWidth: 1,
+    borderColor: COLORS.warning + '30',
+  },
+
+  fullWarningText: {
+    flex: 1,
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.warning,
+    lineHeight: 16,
+  },
+
+  // Capacity section
+  capacityCard: {
+    padding: SPACING.md,
+  },
+
+  capacityHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+
+  capacityTitle: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: 'bold',
+    color: COLORS.text.primary,
+  },
+
+  capacityPct: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+  },
+
+  progressBarBg: {
+    height: 8,
+    backgroundColor: COLORS.border.default,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+
+  capacityWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.sm,
+    marginTop: SPACING.sm,
+    borderWidth: 1,
+  },
+
+  capacityWarningText: {
+    flex: 1,
+    fontSize: FONTS.sizes.xs,
+    lineHeight: 16,
+  },
+
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+  },
+
+  expandButtonText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
 });

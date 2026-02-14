@@ -45,6 +45,8 @@ interface LeagueState {
   recentlyCreatedLeague: League | null; // Track league just created for team creation flow
   members: LeagueMember[];
   retiredMembers: LeagueMember[]; // Preserved scores from deleted teams
+  pendingLeagueIds: string[]; // League IDs where user is pending approval
+  pendingMembers: LeagueMember[]; // Pending members for admin view
   isLoading: boolean;
   error: string | null;
 
@@ -71,14 +73,24 @@ interface LeagueState {
   addRetiredMember: (member: LeagueMember) => void;
   getRetiredMembers: (leagueId: string) => LeagueMember[];
 
+  // Approval actions
+  loadPendingMembers: (leagueId: string) => Promise<void>;
+  approveMember: (leagueId: string, userId: string) => Promise<void>;
+  rejectMember: (leagueId: string, userId: string) => Promise<void>;
+  updateLeagueSettings: (leagueId: string, settings: Partial<LeagueSettings>) => Promise<void>;
+
   // Admin actions
+  updateLeagueDetails: (leagueId: string, userId: string, updates: { name?: string; description?: string }) => Promise<void>;
   removeMember: (leagueId: string, memberId: string) => Promise<void>;
   inviteMemberByEmail: (leagueId: string, email: string) => Promise<void>;
   promoteToCoAdmin: (leagueId: string, userId: string) => Promise<void>;
   demoteFromCoAdmin: (leagueId: string, userId: string) => Promise<void>;
   isUserAdmin: (userId: string) => boolean;
 
+  expandLeagueCapacity: (leagueId: string, additionalSlots: number) => Promise<void>;
+
   demoInviteCounts: Record<string, number>;
+  demoPendingMembers: LeagueMember[]; // Demo mode pending members
   clearError: () => void;
   clearRecentlyCreatedLeague: () => void;
 }
@@ -89,9 +101,12 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
   recentlyCreatedLeague: null,
   members: [],
   retiredMembers: [],
+  pendingLeagueIds: [],
+  pendingMembers: [],
   isLoading: false,
   error: null,
   demoInviteCounts: {},
+  demoPendingMembers: [],
 
   setLeagues: (leagues) => set({ leagues }),
   setCurrentLeague: (league) => set({ currentLeague: league }),
@@ -125,7 +140,21 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       }
 
       const leagues = await leagueService.getUserLeagues(userId);
-      set({ leagues, isLoading: false });
+
+      // Detect which leagues the user is pending in
+      const pendingIds: string[] = [];
+      for (const league of leagues) {
+        try {
+          const pending = await leagueService.getPendingMembers(league.id);
+          if (pending.some(m => m.userId === userId)) {
+            pendingIds.push(league.id);
+          }
+        } catch {
+          // Ignore errors checking pending status
+        }
+      }
+
+      set({ leagues, pendingLeagueIds: pendingIds, isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load leagues';
       errorLogService.logError('loadUserLeagues', error);
@@ -304,7 +333,10 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
           seasonId,
           createdAt: new Date(),
           updatedAt: new Date(),
-          settings: DEFAULT_LEAGUE_SETTINGS,
+          settings: {
+            ...DEFAULT_LEAGUE_SETTINGS,
+            requireApproval: data.requireApproval ?? true,
+          },
         };
 
         const { leagues } = get();
@@ -340,9 +372,19 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
         return;
       }
 
-      await leagueService.joinLeague(leagueId, userId, userName);
-      await get().loadUserLeagues(userId);
-      set({ isLoading: false });
+      const member = await leagueService.joinLeague(leagueId, userId, userName);
+      if (member.status === 'pending') {
+        // Add to pending league IDs, don't load full leagues
+        const { pendingLeagueIds } = get();
+        if (!pendingLeagueIds.includes(leagueId)) {
+          set({ pendingLeagueIds: [...pendingLeagueIds, leagueId], isLoading: false });
+        } else {
+          set({ isLoading: false });
+        }
+      } else {
+        await get().loadUserLeagues(userId);
+        set({ isLoading: false });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to join league';
       errorLogService.logError('joinLeague', error);
@@ -357,7 +399,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       if (isDemoMode) {
-        const { leagues } = get();
+        const { leagues, pendingLeagueIds } = get();
         const upperCode = code.toUpperCase();
 
         // Check if already a member of a league with this code
@@ -386,8 +428,21 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
           seasonId: '2026',
           createdAt: new Date(),
           updatedAt: new Date(),
-          settings: DEFAULT_LEAGUE_SETTINGS,
+          settings: { ...DEFAULT_LEAGUE_SETTINGS, requireApproval: true },
         };
+
+        // Simulated league always requires approval in demo (external league)
+        if (newLeague.settings.requireApproval) {
+          // Add as pending
+          set({
+            leagues: [...leagues, newLeague],
+            currentLeague: newLeague,
+            pendingLeagueIds: [...pendingLeagueIds, newLeague.id],
+            isLoading: false
+          });
+          // Signal pending to caller by setting a flag on currentLeague
+          return;
+        }
 
         set({
           leagues: [...leagues, newLeague],
@@ -401,9 +456,23 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       if (!league) {
         throw new Error('Invalid invite code');
       }
-      await leagueService.joinLeague(league.id, userId, userName);
-      await get().loadUserLeagues(userId);
-      set({ isLoading: false });
+      const member = await leagueService.joinLeague(league.id, userId, userName);
+
+      if (member.status === 'pending') {
+        const { pendingLeagueIds, leagues } = get();
+        // Add league to store so it shows in the list
+        const updatedLeagues = leagues.some(l => l.id === league.id)
+          ? leagues : [...leagues, league];
+        set({
+          pendingLeagueIds: [...pendingLeagueIds, league.id],
+          leagues: updatedLeagues,
+          currentLeague: league,
+          isLoading: false,
+        });
+      } else {
+        await get().loadUserLeagues(userId);
+        set({ currentLeague: league, isLoading: false });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to join league';
       errorLogService.logError('joinLeagueByCode', error);
@@ -419,21 +488,23 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     try {
       if (isDemoMode) {
         // In demo mode, remove from local leagues
-        const { leagues } = get();
+        const { leagues, pendingLeagueIds } = get();
         const league = leagues.find(l => l.id === leagueId);
         if (league && league.ownerId === userId) {
           throw new Error('Owner cannot leave the league. Delete it instead.');
         }
         set({
           leagues: leagues.filter((l) => l.id !== leagueId),
+          pendingLeagueIds: pendingLeagueIds.filter(id => id !== leagueId),
           currentLeague: null,
           isLoading: false,
         });
       } else {
         await leagueService.leaveLeague(leagueId, userId);
-        const { leagues } = get();
+        const { leagues, pendingLeagueIds } = get();
         set({
           leagues: leagues.filter((l) => l.id !== leagueId),
+          pendingLeagueIds: pendingLeagueIds.filter(id => id !== leagueId),
           currentLeague: null,
           isLoading: false,
         });
@@ -488,6 +559,47 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete league';
       errorLogService.logError('deleteLeague', error);
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
+
+  updateLeagueDetails: async (leagueId, userId, updates) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    set({ isLoading: true, error: null });
+    try {
+      if (isDemoMode) {
+        const { currentLeague, leagues } = get();
+        if (!currentLeague || currentLeague.id !== leagueId) {
+          throw new Error('League not found');
+        }
+        if (currentLeague.ownerId !== userId) {
+          throw new Error('Only the owner can edit league details');
+        }
+        // Check for duplicate name in demo mode
+        if (updates.name && updates.name !== currentLeague.name) {
+          if (leagues.some(l => l.name === updates.name && l.id !== leagueId)) {
+            throw new Error('A league with this name already exists');
+          }
+        }
+        const updatedLeague = {
+          ...currentLeague,
+          ...(updates.name !== undefined && { name: updates.name }),
+          ...(updates.description !== undefined && { description: updates.description || undefined }),
+          updatedAt: new Date(),
+        };
+        const updatedLeagues = leagues.map(l => l.id === leagueId ? updatedLeague : l);
+        set({ currentLeague: updatedLeague, leagues: updatedLeagues, isLoading: false });
+        return;
+      }
+
+      await leagueService.updateLeagueDetails(leagueId, userId, updates);
+      await get().loadLeague(leagueId);
+      set({ isLoading: false });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update league details';
+      errorLogService.logError('updateLeagueDetails', error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -656,6 +768,148 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to demote co-admin';
       errorLogService.logError('demoteFromCoAdmin', error);
+      set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
+
+  loadPendingMembers: async (leagueId) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    try {
+      if (isDemoMode) {
+        const { demoPendingMembers } = get();
+        set({ pendingMembers: demoPendingMembers.filter(m => m.leagueId === leagueId) });
+        return;
+      }
+
+      const pending = await leagueService.getPendingMembers(leagueId);
+      set({ pendingMembers: pending });
+    } catch (error) {
+      errorLogService.logError('loadPendingMembers', error);
+    }
+  },
+
+  approveMember: async (leagueId, userId) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    try {
+      if (isDemoMode) {
+        const { demoPendingMembers, currentLeague, leagues } = get();
+        const member = demoPendingMembers.find(m => m.leagueId === leagueId && m.userId === userId);
+        if (!member) throw new Error('Pending member not found');
+
+        if (currentLeague && currentLeague.memberCount >= currentLeague.maxMembers) {
+          throw new Error('League is full. Remove a member before approving.');
+        }
+
+        // Remove from demo pending, update member count
+        const updatedPending = demoPendingMembers.filter(m => !(m.leagueId === leagueId && m.userId === userId));
+        const updatedLeague = currentLeague && currentLeague.id === leagueId
+          ? { ...currentLeague, memberCount: currentLeague.memberCount + 1 }
+          : currentLeague;
+        const updatedLeagues = leagues.map(l => l.id === leagueId && updatedLeague ? updatedLeague : l);
+
+        set({
+          demoPendingMembers: updatedPending,
+          pendingMembers: updatedPending.filter(m => m.leagueId === leagueId),
+          currentLeague: updatedLeague,
+          leagues: updatedLeagues,
+        });
+        return;
+      }
+
+      await leagueService.approveMember(leagueId, userId);
+      // Reload pending members and league data
+      await get().loadPendingMembers(leagueId);
+      await get().loadLeague(leagueId);
+      await get().loadLeagueMembers(leagueId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to approve member';
+      errorLogService.logError('approveMember', error);
+      throw new Error(message);
+    }
+  },
+
+  rejectMember: async (leagueId, userId) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    try {
+      if (isDemoMode) {
+        const { demoPendingMembers } = get();
+        const updatedPending = demoPendingMembers.filter(m => !(m.leagueId === leagueId && m.userId === userId));
+        set({
+          demoPendingMembers: updatedPending,
+          pendingMembers: updatedPending.filter(m => m.leagueId === leagueId),
+        });
+        return;
+      }
+
+      await leagueService.rejectMember(leagueId, userId);
+      await get().loadPendingMembers(leagueId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to reject member';
+      errorLogService.logError('rejectMember', error);
+      throw new Error(message);
+    }
+  },
+
+  updateLeagueSettings: async (leagueId, settings) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    try {
+      if (isDemoMode) {
+        const { currentLeague, leagues } = get();
+        if (currentLeague && currentLeague.id === leagueId) {
+          const updatedLeague = {
+            ...currentLeague,
+            settings: { ...currentLeague.settings, ...settings },
+            updatedAt: new Date(),
+          };
+          const updatedLeagues = leagues.map(l => l.id === leagueId ? updatedLeague : l);
+          set({ currentLeague: updatedLeague, leagues: updatedLeagues });
+        }
+        return;
+      }
+
+      await leagueService.updateLeagueSettings(leagueId, settings);
+      await get().loadLeague(leagueId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update settings';
+      errorLogService.logError('updateLeagueSettings', error);
+      throw new Error(message);
+    }
+  },
+
+  expandLeagueCapacity: async (leagueId, additionalSlots) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    set({ isLoading: true, error: null });
+    try {
+      if (isDemoMode) {
+        const { currentLeague, leagues } = get();
+        if (currentLeague && currentLeague.id === leagueId) {
+          const updatedLeague = {
+            ...currentLeague,
+            maxMembers: currentLeague.maxMembers + additionalSlots,
+            updatedAt: new Date(),
+          };
+          const updatedLeagues = leagues.map(l => l.id === leagueId ? updatedLeague : l);
+          set({ currentLeague: updatedLeague, leagues: updatedLeagues, isLoading: false });
+        } else {
+          set({ isLoading: false });
+        }
+        return;
+      }
+
+      const user = useAuthStore.getState().user;
+      if (!user) throw new Error('Not logged in');
+      await leagueService.expandLeagueCapacity(leagueId, user.id, additionalSlots);
+      await get().loadLeague(leagueId);
+      set({ isLoading: false });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to expand league capacity';
+      errorLogService.logError('expandLeagueCapacity', error);
       set({ error: message, isLoading: false });
       throw error;
     }

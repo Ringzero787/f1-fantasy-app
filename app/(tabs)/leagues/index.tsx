@@ -25,6 +25,7 @@ export default function LeaguesScreen() {
   const { user } = useAuth();
   const { join, code } = useLocalSearchParams<{ join?: string; code?: string }>();
   const leagues = useLeagueStore(s => s.leagues);
+  const pendingLeagueIds = useLeagueStore(s => s.pendingLeagueIds);
   const isLoading = useLeagueStore(s => s.isLoading);
   const error = useLeagueStore(s => s.error);
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
@@ -124,7 +125,18 @@ export default function LeaguesScreen() {
       setInviteCode('');
 
       // Get the newly joined league
-      const { currentLeague } = useLeagueStore.getState();
+      const { currentLeague, pendingLeagueIds: updatedPendingIds } = useLeagueStore.getState();
+
+      // Check if the user is pending approval
+      if (currentLeague && updatedPendingIds.includes(currentLeague.id)) {
+        Alert.alert(
+          'Request Sent',
+          `Your request to join "${currentLeague.name}" has been sent. The league admin will review your request.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
       const { userTeams, currentTeam, assignTeamToLeague } = useTeamStore.getState();
 
       // Check if user already has a team in this league
@@ -205,42 +217,53 @@ export default function LeaguesScreen() {
     }
   };
 
-  const renderLeagueItem = ({ item }: { item: League }) => (
-    <Card
-      variant="elevated"
-      style={styles.leagueCard}
-      onPress={() => router.push(`/leagues/${item.id}`)}
-    >
-      <View style={styles.leagueHeader}>
-        <Avatar name={item.name} size="large" variant="league" imageUrl={item.avatarUrl} />
-        <View style={styles.leagueInfo}>
-          <Text style={styles.leagueName}>{item.name}</Text>
-          <Text style={styles.leagueMembers}>
-            {item.memberCount} / {item.maxMembers} members
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
-      </View>
+  const renderLeagueItem = ({ item }: { item: League }) => {
+    const isPending = pendingLeagueIds.includes(item.id);
 
-      {item.description && (
-        <Text style={styles.leagueDescription} numberOfLines={2}>
-          {item.description}
-        </Text>
-      )}
-
-      <View style={styles.leagueMeta}>
-        <View style={styles.metaItem}>
-          <Ionicons name="person-outline" size={14} color={COLORS.text.muted} />
-          <Text style={styles.metaText}>{item.ownerName}</Text>
+    return (
+      <Card
+        variant="elevated"
+        style={styles.leagueCard}
+        onPress={() => router.push(`/leagues/${item.id}`)}
+      >
+        <View style={styles.leagueHeader}>
+          <Avatar name={item.name} size="large" variant="league" imageUrl={item.avatarUrl} />
+          <View style={styles.leagueInfo}>
+            <Text style={styles.leagueName}>{item.name}</Text>
+            <Text style={styles.leagueMembers}>
+              {item.memberCount} / {item.maxMembers} members
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
         </View>
-        {item.isPublic && (
-          <View style={styles.publicBadge}>
-            <Text style={styles.publicText}>Public</Text>
+
+        {isPending && (
+          <View style={styles.pendingBadge}>
+            <Ionicons name="hourglass-outline" size={14} color={COLORS.warning} />
+            <Text style={styles.pendingBadgeText}>Pending Approval</Text>
           </View>
         )}
-      </View>
-    </Card>
-  );
+
+        {item.description && (
+          <Text style={styles.leagueDescription} numberOfLines={2}>
+            {item.description}
+          </Text>
+        )}
+
+        <View style={styles.leagueMeta}>
+          <View style={styles.metaItem}>
+            <Ionicons name="person-outline" size={14} color={COLORS.text.muted} />
+            <Text style={styles.metaText}>{item.ownerName}</Text>
+          </View>
+          {item.isPublic && (
+            <View style={styles.publicBadge}>
+              <Text style={styles.publicText}>Public</Text>
+            </View>
+          )}
+        </View>
+      </Card>
+    );
+  };
 
   if (isLoading && !refreshing) {
     return <Loading fullScreen message="Loading leagues..." />;
@@ -710,5 +733,25 @@ const styles = StyleSheet.create({
   modalDividerText: {
     fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
+  },
+
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.warning + '15',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.sm,
+    alignSelf: 'flex-start',
+    marginTop: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.warning + '30',
+  },
+
+  pendingBadgeText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.warning,
   },
 });

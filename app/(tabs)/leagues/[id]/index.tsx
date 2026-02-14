@@ -32,6 +32,7 @@ export default function LeagueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const currentLeague = useLeagueStore(s => s.currentLeague);
+  const pendingLeagueIds = useLeagueStore(s => s.pendingLeagueIds);
   const isLoading = useLeagueStore(s => s.isLoading);
   const loadLeague = useLeagueStore(s => s.loadLeague);
   const leaveLeague = useLeagueStore(s => s.leaveLeague);
@@ -249,6 +250,7 @@ export default function LeagueDetailScreen() {
   }
 
   const isOwner = currentLeague.ownerId === user?.id;
+  const isPendingApproval = id ? pendingLeagueIds.includes(id) : false;
   const currentUserMember = members.find((m) => m.userId === user?.id);
 
   const listHeader = (
@@ -295,7 +297,21 @@ export default function LeagueDetailScreen() {
         </View>
       </Card>
 
+      {/* Pending Approval Banner */}
+      {isPendingApproval && (
+        <View style={styles.pendingBanner}>
+          <Ionicons name="hourglass-outline" size={20} color={COLORS.warning} />
+          <View style={styles.pendingBannerInfo}>
+            <Text style={styles.pendingBannerTitle}>Awaiting Admin Approval</Text>
+            <Text style={styles.pendingBannerText}>
+              Your request to join this league is being reviewed by the admin.
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Leaderboard Title + View Toggle */}
+      {!isPendingApproval && (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Leaderboard</Text>
 
@@ -326,6 +342,7 @@ export default function LeagueDetailScreen() {
           ))}
         </View>
       </View>
+      )}
     </>
   );
 
@@ -371,7 +388,7 @@ export default function LeagueDetailScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={members}
+        data={isPendingApproval ? [] : members}
         keyExtractor={(item) => item.id}
         renderItem={({ item: member }) => (
           <LeaderboardItem
@@ -629,5 +646,33 @@ const styles = StyleSheet.create({
 
   leaveButton: {
     borderColor: COLORS.error,
+  },
+
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    backgroundColor: COLORS.warning + '15',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.warning + '30',
+  },
+
+  pendingBannerInfo: {
+    flex: 1,
+  },
+
+  pendingBannerTitle: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.warning,
+  },
+
+  pendingBannerText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+    marginTop: 2,
   },
 });

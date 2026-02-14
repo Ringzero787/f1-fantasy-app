@@ -92,6 +92,11 @@ export const leagueService = {
 
     const inviteCode = generateInviteCode();
 
+    const leagueSettings: LeagueSettings = {
+      ...DEFAULT_LEAGUE_SETTINGS,
+      ...(data.requireApproval !== undefined && { requireApproval: data.requireApproval }),
+    };
+
     const leagueData = {
       name: data.name,
       description: data.description || null,
@@ -104,7 +109,7 @@ export const leagueService = {
       seasonId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-      settings: DEFAULT_LEAGUE_SETTINGS,
+      settings: leagueSettings,
     };
 
     // Create league document
@@ -133,7 +138,7 @@ export const leagueService = {
       seasonId,
       createdAt: new Date(),
       updatedAt: new Date(),
-      settings: DEFAULT_LEAGUE_SETTINGS,
+      settings: leagueSettings,
     };
   },
 
@@ -263,14 +268,17 @@ export const leagueService = {
       throw new Error('Already a member of this league');
     }
 
+    const isPending = league.settings?.requireApproval === true;
+
     // Add member
     const memberData: Omit<LeagueMember, 'id'> = {
       leagueId,
       userId,
       displayName: userName,
       role: 'member',
+      status: isPending ? 'pending' : 'approved',
       totalPoints: 0,
-      rank: league.memberCount + 1,
+      rank: isPending ? 0 : league.memberCount + 1,
       joinedAt: new Date(),
     };
 
@@ -279,12 +287,14 @@ export const leagueService = {
       joinedAt: serverTimestamp(),
     });
 
-    // Update member count
-    const leagueRef = doc(db, 'leagues', leagueId);
-    await updateDoc(leagueRef, {
-      memberCount: increment(1),
-      updatedAt: serverTimestamp(),
-    });
+    // Only increment member count for approved members
+    if (!isPending) {
+      const leagueRef = doc(db, 'leagues', leagueId);
+      await updateDoc(leagueRef, {
+        memberCount: increment(1),
+        updatedAt: serverTimestamp(),
+      });
+    }
 
     return { id: userId, ...memberData };
   },
@@ -303,31 +313,44 @@ export const leagueService = {
       throw new Error('Owner cannot leave the league. Transfer ownership first.');
     }
 
-    // Remove member
+    // Check if member is pending (no memberCount change needed)
     const memberRef = doc(db, 'leagues', leagueId, 'members', userId);
+    const memberSnap = await getDoc(memberRef);
+    const isPending = memberSnap.exists() && memberSnap.data()?.status === 'pending';
+
     await deleteDoc(memberRef);
 
-    // Update member count
-    const leagueRef = doc(db, 'leagues', leagueId);
-    await updateDoc(leagueRef, {
-      memberCount: increment(-1),
-      updatedAt: serverTimestamp(),
-    });
+    // Only decrement member count for approved members
+    if (!isPending) {
+      const leagueRef = doc(db, 'leagues', leagueId);
+      await updateDoc(leagueRef, {
+        memberCount: increment(-1),
+        updatedAt: serverTimestamp(),
+      });
+    }
   },
 
   /**
-   * Get league members
+   * Get league members (excludes pending members)
    */
   async getLeagueMembers(leagueId: string): Promise<LeagueMember[]> {
     const membersCollection = collection(db, 'leagues', leagueId, 'members');
     const q = query(membersCollection, orderBy('totalPoints', 'desc'), limit(100));
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc, index) => ({
-      id: doc.id,
-      ...doc.data(),
-      rank: index + 1,
-    })) as LeagueMember[];
+    // Filter out pending members (undefined status = approved for backward compat)
+    const approved = snapshot.docs
+      .filter((doc) => {
+        const status = doc.data().status;
+        return status !== 'pending';
+      })
+      .map((doc, index) => ({
+        id: doc.id,
+        ...doc.data(),
+        rank: index + 1,
+      })) as LeagueMember[];
+
+    return approved;
   },
 
   /**
@@ -516,6 +539,145 @@ export const leagueService = {
     await updateDoc(memberRef, {
       role: 'member',
     });
+  },
+
+  /**
+   * Update league name and/or description
+   */
+  async updateLeagueDetails(
+    leagueId: string,
+    userId: string,
+    updates: { name?: string; description?: string }
+  ): Promise<void> {
+    const league = await this.getLeagueById(leagueId);
+
+    if (!league) {
+      throw new Error('League not found');
+    }
+
+    if (league.ownerId !== userId) {
+      throw new Error('Only the owner can edit league details');
+    }
+
+    // If name is changing, check for duplicates
+    if (updates.name && updates.name !== league.name) {
+      const nameQuery = query(
+        leaguesCollection,
+        where('name', '==', updates.name),
+        limit(1)
+      );
+      const nameSnapshot = await getDocs(nameQuery);
+      if (!nameSnapshot.empty) {
+        throw new Error('A league with this name already exists');
+      }
+    }
+
+    const leagueRef = doc(db, 'leagues', leagueId);
+    const updateData: { updatedAt: ReturnType<typeof serverTimestamp>; name?: string; description?: string | null } = {
+      updatedAt: serverTimestamp(),
+    };
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.description !== undefined) updateData.description = updates.description || null;
+    await updateDoc(leagueRef, updateData);
+  },
+
+  /**
+   * Get pending members for a league
+   */
+  async getPendingMembers(leagueId: string): Promise<LeagueMember[]> {
+    const membersCollection = collection(db, 'leagues', leagueId, 'members');
+    const q = query(membersCollection, where('status', '==', 'pending'));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as LeagueMember[];
+  },
+
+  /**
+   * Approve a pending member
+   */
+  async approveMember(leagueId: string, userId: string): Promise<void> {
+    const league = await this.getLeagueById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
+
+    if (league.memberCount >= league.maxMembers) {
+      throw new Error('League is full. Remove a member before approving.');
+    }
+
+    const memberRef = doc(db, 'leagues', leagueId, 'members', userId);
+    const memberSnap = await getDoc(memberRef);
+    if (!memberSnap.exists() || memberSnap.data()?.status !== 'pending') {
+      throw new Error('No pending request found for this user');
+    }
+
+    await updateDoc(memberRef, {
+      status: 'approved',
+      rank: league.memberCount + 1,
+    });
+
+    const leagueRef = doc(db, 'leagues', leagueId);
+    await updateDoc(leagueRef, {
+      memberCount: increment(1),
+      updatedAt: serverTimestamp(),
+    });
+  },
+
+  /**
+   * Reject a pending member (deletes the doc so they can re-request)
+   */
+  async rejectMember(leagueId: string, userId: string): Promise<void> {
+    const memberRef = doc(db, 'leagues', leagueId, 'members', userId);
+    await deleteDoc(memberRef);
+  },
+
+  /**
+   * Update league settings (e.g. requireApproval)
+   */
+  async updateLeagueSettings(
+    leagueId: string,
+    settings: Partial<LeagueSettings>
+  ): Promise<void> {
+    const league = await this.getLeagueById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
+
+    const leagueRef = doc(db, 'leagues', leagueId);
+    const updatedSettings = { ...league.settings, ...settings };
+    await updateDoc(leagueRef, {
+      settings: updatedSettings,
+      updatedAt: serverTimestamp(),
+    });
+  },
+
+  /**
+   * Expand league capacity by adding additional member slots
+   */
+  async expandLeagueCapacity(
+    leagueId: string,
+    userId: string,
+    additionalSlots: number
+  ): Promise<number> {
+    const league = await this.getLeagueById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
+    if (!this.isUserAdmin(league, userId)) {
+      throw new Error('Only league owners or admins can expand capacity');
+    }
+
+    const newMaxMembers = league.maxMembers + additionalSlots;
+    const leagueRef = doc(db, 'leagues', leagueId);
+    await updateDoc(leagueRef, {
+      maxMembers: newMaxMembers,
+      updatedAt: serverTimestamp(),
+    });
+
+    return newMaxMembers;
   },
 
   /**

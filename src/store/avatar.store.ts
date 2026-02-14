@@ -3,6 +3,17 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MAX_FREE_AVATARS = 10;
+const UNLIMITED_AVATAR_EMAIL = 'nathan.shanks@gmail.com';
+
+function isUnlimitedUser(): boolean {
+  try {
+    const { useAuthStore } = require('./auth.store');
+    const email = useAuthStore.getState().user?.email;
+    return email === UNLIMITED_AVATAR_EMAIL;
+  } catch {
+    return false;
+  }
+}
 
 interface AvatarState {
   // Per-user avatar history keyed by userId
@@ -35,6 +46,7 @@ export const useAvatarStore = create<AvatarState>()(
       },
 
       getRemaining: (userId) => {
+        if (isUnlimitedUser()) return 9999;
         const count = (get().histories[userId] || []).length;
         const { usePurchaseStore } = require('./purchase.store');
         const bonus = usePurchaseStore.getState().getBonusCredits(userId);
@@ -42,10 +54,12 @@ export const useAvatarStore = create<AvatarState>()(
       },
 
       canGenerate: (userId) => {
+        if (isUnlimitedUser()) return true;
         return get().getRemaining(userId) > 0;
       },
 
       consumeCredit: (userId) => {
+        if (isUnlimitedUser()) return;
         const count = (get().histories[userId] || []).length;
         // If user has used all free credits, consume a bonus credit
         if (count >= MAX_FREE_AVATARS) {

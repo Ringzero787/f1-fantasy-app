@@ -373,7 +373,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#FF8000',
     secondaryColor: '#47C7FC',
     price: 480,
-    previousPrice: 456,
+    previousPrice: 480,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -389,7 +389,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#27F4D2',
     secondaryColor: '#000000',
     price: 310,
-    previousPrice: 300,
+    previousPrice: 310,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -405,7 +405,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#3671C6',
     secondaryColor: '#FFD700',
     price: 301,
-    previousPrice: 294,
+    previousPrice: 301,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -421,7 +421,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#E80020',
     secondaryColor: '#FFEB00',
     price: 276,
-    previousPrice: 270,
+    previousPrice: 276,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -437,7 +437,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#64C4FF',
     secondaryColor: '#00A3E0',
     price: 154,
-    previousPrice: 150,
+    previousPrice: 154,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -453,7 +453,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#6692FF',
     secondaryColor: '#1E5BC6',
     price: 133,
-    previousPrice: 130,
+    previousPrice: 133,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -469,7 +469,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#229971',
     secondaryColor: '#CEDC00',
     price: 132,
-    previousPrice: 129,
+    previousPrice: 132,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -485,7 +485,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#B6BABD',
     secondaryColor: '#E10600',
     price: 127,
-    previousPrice: 124,
+    previousPrice: 127,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -501,7 +501,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#52E252',
     secondaryColor: '#000000',
     price: 123,
-    previousPrice: 120,
+    previousPrice: 123,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,
@@ -517,7 +517,7 @@ export const demoConstructors: Constructor[] = [
     primaryColor: '#FF87BC',
     secondaryColor: '#0093CC',
     price: 101,
-    previousPrice: 99,
+    previousPrice: 101,
     seasonPoints: 0, // 2025 points (used for initial pricing)
     currentSeasonPoints: 0, // 2026 points (displayed to users)
     fantasyPoints: 0,

@@ -4,26 +4,27 @@ export const PRODUCT_IDS = {
   LEAGUE_SLOT: 'com.f1fantasy.app.league_slot',
 } as const;
 
-export const AVATAR_PACK_CREDITS = 40;
+export const AVATAR_PACK_CREDITS = 20;
 
 export const PRODUCTS = {
   [PRODUCT_IDS.LEAGUE_EXPANSION]: {
-    title: 'League Expansion',
-    description: 'Unlock more than 22 members for this league',
-    price: '$9.99',
+    title: 'League Slot Pack',
+    description: 'Add 20 more member slots to your league',
+    price: '$4.99',
     icon: 'people' as const,
     benefits: [
-      'Allow up to 100 members in this league',
-      'One-time purchase per league',
+      '+20 member slots',
+      'Stackable \u2014 buy multiple times',
+      'Applied instantly to your league',
     ],
   },
   [PRODUCT_IDS.AVATAR_PACK]: {
     title: 'AI Avatar Pack',
-    description: '40 additional AI-generated avatar credits',
-    price: '$4.99',
+    description: '20 additional AI-generated avatar credits',
+    price: '$1.99',
     icon: 'sparkles' as const,
     benefits: [
-      '40 extra AI avatar generations',
+      '20 extra AI avatar generations',
       'Use for team, league, or profile avatars',
       'Credits never expire',
     ],

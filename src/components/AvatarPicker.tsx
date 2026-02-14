@@ -340,9 +340,9 @@ export function AvatarPicker({
                   />
                 </View>
                 <View style={styles.aiGenerateText}>
-                  <Text style={styles.aiGenerateTitle}>Buy 40 More</Text>
+                  <Text style={styles.aiGenerateTitle}>Buy 20 More</Text>
                   <Text style={styles.aiGenerateSubtitle}>
-                    All free credits used — get 40 more for $4.99
+                    All free credits used — get 20 more for $1.99
                   </Text>
                 </View>
               </View>

@@ -59,6 +59,7 @@ export default function CreateLeagueScreen() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [requireApproval, setRequireApproval] = useState(true);
   const [maxMembers, setMaxMembers] = useState(String(FREE_LEAGUE_MEMBER_LIMIT));
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -129,6 +130,7 @@ export default function CreateLeagueScreen() {
           description: description.trim() || undefined,
           isPublic,
           maxMembers: members,
+          requireApproval,
         },
         CURRENT_SEASON_ID
       );
@@ -289,7 +291,7 @@ export default function CreateLeagueScreen() {
                 onPress={() => setShowExpansionPurchase(true)}
               >
                 <Ionicons name="cart-outline" size={18} color={COLORS.primary} />
-                <Text style={styles.buyMoreText}>Buy More Slots</Text>
+                <Text style={styles.buyMoreText}>Add 20 Slots — $4.99</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -306,6 +308,21 @@ export default function CreateLeagueScreen() {
               onValueChange={setIsPublic}
               trackColor={{ false: COLORS.border.default, true: COLORS.primary + '60' }}
               thumbColor={isPublic ? COLORS.primary : COLORS.surface}
+            />
+          </View>
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchInfo}>
+              <Text style={styles.switchLabel}>Require Approval</Text>
+              <Text style={styles.switchDescription}>
+                New members must be approved by an admin before joining
+              </Text>
+            </View>
+            <Switch
+              value={requireApproval}
+              onValueChange={setRequireApproval}
+              trackColor={{ false: COLORS.border.default, true: COLORS.primary + '60' }}
+              thumbColor={requireApproval ? COLORS.primary : COLORS.surface}
             />
           </View>
 

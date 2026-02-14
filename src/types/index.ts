@@ -99,6 +99,7 @@ export interface League {
 export interface LeagueSettings {
   allowLateJoin: boolean;
   lockDeadline: 'qualifying' | 'race'; // When teams lock
+  requireApproval?: boolean; // Require admin approval to join (default false for backward compat)
   scoringRules: ScoringRules;
 }
 
@@ -110,6 +111,7 @@ export interface LeagueMember {
   teamName?: string; // The name of the user's team in this league
   teamAvatarUrl?: string; // Avatar URL for the team
   role: 'owner' | 'admin' | 'member';
+  status?: 'pending' | 'approved'; // undefined = approved (backward compat)
   totalPoints: number;
   rank: number;
   joinedAt: Date;
@@ -522,6 +524,7 @@ export interface CreateLeagueForm {
   description?: string;
   isPublic: boolean;
   maxMembers: number;
+  requireApproval?: boolean;
 }
 
 export interface TeamSelectionState {
