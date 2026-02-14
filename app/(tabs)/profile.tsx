@@ -410,53 +410,6 @@ export default function ProfileScreen() {
         </>
       )}
 
-      {/* App Info */}
-      <Text style={styles.sectionTitle}>App Info</Text>
-      <Card style={styles.menuCard}>
-        <View style={styles.menuItem}>
-          <View style={styles.menuItemLeft}>
-            <IconBox icon="information-circle-outline" color="#6366F1" bg="#6366F115" />
-            <Text style={styles.menuItemText}>Version</Text>
-          </View>
-          <Text style={styles.menuItemValue}>1.0.0</Text>
-        </View>
-
-        <View style={styles.menuDivider} />
-
-        <View style={styles.menuItem}>
-          <View style={styles.menuItemLeft}>
-            <IconBox icon="calendar-outline" color={COLORS.warning} bg={COLORS.warning + '15'} />
-            <Text style={styles.menuItemText}>Season</Text>
-          </View>
-          <Text style={styles.menuItemValue}>2026</Text>
-        </View>
-
-        <View style={styles.menuDivider} />
-
-        <View style={styles.menuItem}>
-          <View style={styles.menuItemLeft}>
-            <IconBox icon="cloud-outline" color={COLORS.success} bg={COLORS.success + '15'} />
-            <Text style={styles.menuItemText}>Mode</Text>
-          </View>
-          <Text style={styles.menuItemValue}>
-            {isDemoMode ? 'Demo (Offline)' : 'Online'}
-          </Text>
-        </View>
-
-        <View style={styles.menuDivider} />
-
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => useOnboardingStore.getState().resetOnboarding()}
-        >
-          <View style={styles.menuItemLeft}>
-            <IconBox icon="play-circle-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
-            <Text style={styles.menuItemText}>Replay Tutorial</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
-        </TouchableOpacity>
-      </Card>
-
       {/* Legal / Attribution */}
       <Text style={styles.sectionTitle}>Legal</Text>
       <Card style={styles.menuCard}>
@@ -554,6 +507,53 @@ export default function ProfileScreen() {
           </Card>
         </>
       )}
+
+      {/* App Info */}
+      <Text style={styles.sectionTitle}>App Info</Text>
+      <Card style={styles.menuCard}>
+        <View style={styles.menuItem}>
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="information-circle-outline" color="#6366F1" bg="#6366F115" />
+            <Text style={styles.menuItemText}>Version</Text>
+          </View>
+          <Text style={styles.menuItemValue}>1.0.0</Text>
+        </View>
+
+        <View style={styles.menuDivider} />
+
+        <View style={styles.menuItem}>
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="calendar-outline" color={COLORS.warning} bg={COLORS.warning + '15'} />
+            <Text style={styles.menuItemText}>Season</Text>
+          </View>
+          <Text style={styles.menuItemValue}>2026</Text>
+        </View>
+
+        <View style={styles.menuDivider} />
+
+        <View style={styles.menuItem}>
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="cloud-outline" color={COLORS.success} bg={COLORS.success + '15'} />
+            <Text style={styles.menuItemText}>Mode</Text>
+          </View>
+          <Text style={styles.menuItemValue}>
+            {isDemoMode ? 'Demo (Offline)' : 'Online'}
+          </Text>
+        </View>
+
+        <View style={styles.menuDivider} />
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => useOnboardingStore.getState().resetOnboarding()}
+        >
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="play-circle-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <Text style={styles.menuItemText}>Replay Tutorial</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
+        </TouchableOpacity>
+      </Card>
 
       {/* Sign Out Button */}
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
