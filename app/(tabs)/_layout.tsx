@@ -6,6 +6,7 @@ import { COLORS } from '../../src/config/constants';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useOnboardingStore } from '../../src/store/onboarding.store';
 import { OnboardingTutorial } from '../../src/components/OnboardingTutorial';
+import { NotificationBell } from '../../src/components/NotificationBell';
 
 export default function TabLayout() {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
@@ -49,6 +50,7 @@ export default function TabLayout() {
               style={{ width: 120, height: 36, resizeMode: 'contain' }}
             />
           ),
+          headerRight: () => <NotificationBell />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -151,6 +153,20 @@ export default function TabLayout() {
           headerShadowVisible: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: 'Notifications',
+          href: null,
+          headerStyle: {
+            backgroundColor: COLORS.surface,
+          },
+          headerTintColor: COLORS.text.primary,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="notifications" size={size} color={color} />
           ),
         }}
       />

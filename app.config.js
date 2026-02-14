@@ -43,6 +43,11 @@ export default {
       favicon: "./assets/favicon.png"
     },
     plugins: [
+      ["expo-build-properties", {
+        ios: {
+          useFrameworks: "static",
+        },
+      }],
       "expo-router",
       "expo-asset",
       [
@@ -53,7 +58,8 @@ export default {
       ],
       "@react-native-google-signin/google-signin",
       "expo-apple-authentication",
-      "react-native-iap"
+      "react-native-iap",
+      "expo-notifications"
     ],
     experiments: {
       typedRoutes: true

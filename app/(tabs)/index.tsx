@@ -21,6 +21,8 @@ import { useAdminStore } from '../../src/store/admin.store';
 import { Card, Loading, RaceCard, EmptyState, CountdownBanner, NewsFeed, Avatar, AnnouncementBanner } from '../../src/components';
 import { useNewsStore } from '../../src/store/news.store';
 import { useAnnouncementStore } from '../../src/store/announcement.store';
+import { useNotificationStore } from '../../src/store/notification.store';
+import { scheduleIncompleteTeamReminder } from '../../src/services/notification.service';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
 import { formatPoints } from '../../src/utils/formatters';
 
@@ -40,6 +42,8 @@ export default function HomeScreen() {
   const raceResults = useAdminStore(s => s.raceResults);
   const loadArticles = useNewsStore(s => s.loadArticles);
   const loadActiveAnnouncements = useAnnouncementStore(s => s.loadActiveAnnouncements);
+  const registerToken = useNotificationStore(s => s.registerToken);
+  const loadNotifications = useNotificationStore(s => s.loadNotifications);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -93,8 +97,17 @@ export default function HomeScreen() {
         loadUserTeams(user.id);
       }
       loadArticles();
+      registerToken(user.id);
+      loadNotifications(user.id);
     }
   }, [user]);
+
+  // Schedule incomplete team reminder when team or next race changes
+  React.useEffect(() => {
+    if (currentTeam && nextRace) {
+      scheduleIncompleteTeamReminder(nextRace, currentTeam);
+    }
+  }, [currentTeam?.id, currentTeam?.drivers.length, currentTeam?.constructor, nextRace?.id]);
 
   // Load announcements when leagues are available
   React.useEffect(() => {

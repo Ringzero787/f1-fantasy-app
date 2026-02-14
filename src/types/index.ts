@@ -8,6 +8,7 @@ export interface User {
   displayName: string;
   photoURL?: string;
   isAdmin?: boolean;
+  pushToken?: string;
   createdAt: Date;
   updatedAt: Date;
   settings: UserSettings;
@@ -439,7 +440,10 @@ export type NotificationType =
   | 'results_available'
   | 'price_change'
   | 'league_invite'
-  | 'league_update';
+  | 'league_update'
+  | 'announcement'
+  | 'new_story'
+  | 'incomplete_team';
 
 // ============================================
 // API Response Types

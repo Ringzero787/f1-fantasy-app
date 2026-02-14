@@ -138,9 +138,19 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signOut: async () => {
-        const { isDemoMode } = get();
+        const { isDemoMode, user } = get();
         set({ isLoading: true });
         try {
+          // Clean up push token and notifications before signing out
+          if (user && !isDemoMode) {
+            import('./notification.store').then(({ useNotificationStore }) => {
+              useNotificationStore.getState().removeToken(user.id);
+            });
+          }
+          import('./notification.store').then(({ useNotificationStore }) => {
+            useNotificationStore.getState().reset();
+          });
+
           if (!isDemoMode) {
             await authService.signOut();
           }
