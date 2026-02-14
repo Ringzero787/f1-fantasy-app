@@ -429,15 +429,23 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
           currentLeague: null,
           isLoading: false,
         });
-        return;
+      } else {
+        await leagueService.leaveLeague(leagueId, userId);
+        const { leagues } = get();
+        set({
+          leagues: leagues.filter((l) => l.id !== leagueId),
+          currentLeague: null,
+          isLoading: false,
+        });
       }
 
-      await leagueService.leaveLeague(leagueId, userId);
-      const { leagues } = get();
-      set({
-        leagues: leagues.filter((l) => l.id !== leagueId),
-        currentLeague: null,
-        isLoading: false,
+      // Clear announcements from the left league
+      import('./announcement.store').then(({ useAnnouncementStore }) => {
+        const annStore = useAnnouncementStore.getState();
+        const filtered = annStore.activeAnnouncements.filter(a => a.leagueId !== leagueId);
+        if (filtered.length !== annStore.activeAnnouncements.length) {
+          useAnnouncementStore.setState({ activeAnnouncements: filtered });
+        }
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to leave league';

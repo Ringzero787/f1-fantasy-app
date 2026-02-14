@@ -19,12 +19,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useAvatarGeneration, useAutoSyncOpenF1 } from '../../src/hooks';
 import { authService } from '../../src/services/auth.service';
-import { Card } from '../../src/components';
+import { Card, RulesGuide } from '../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useAdminStore } from '../../src/store/admin.store';
 import { useOnboardingStore } from '../../src/store/onboarding.store';
 import { useTeamStore } from '../../src/store/team.store';
+import { useLeagueStore } from '../../src/store/league.store';
 import { useAvatarStore } from '../../src/store/avatar.store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -36,12 +37,17 @@ export default function ProfileScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.photoURL || null);
   const [isUploading, setIsUploading] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   // Avatar history
   const addAvatar = useAvatarStore(s => s.addAvatar);
   const avatarHistory = useAvatarStore(s => s.getHistory(user?.id || ''));
   const avatarRemaining = useAvatarStore(s => s.getRemaining(user?.id || ''));
   const canGenerateAvatar = useAvatarStore(s => s.canGenerate(user?.id || ''));
+
+  // League state
+  const leagues = useLeagueStore(s => s.leagues);
+  const leaveLeague = useLeagueStore(s => s.leaveLeague);
 
   // OpenF1 import functionality
   const autoSyncOpenF1 = useAutoSyncOpenF1();
@@ -193,6 +199,28 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleLeaveLeague = (leagueId: string, leagueName: string) => {
+    Alert.alert(
+      'Leave League',
+      `Are you sure you want to leave "${leagueName}"? Your team and points will be removed from this league.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await leaveLeague(leagueId, user!.id);
+              Alert.alert('Done', `You have left "${leagueName}".`);
+            } catch (error) {
+              Alert.alert('Error', error instanceof Error ? error.message : 'Failed to leave league');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleResetData = () => {
     Alert.alert(
       'Reset All Data',
@@ -319,6 +347,20 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
+      {/* Rules & Scoring Guide */}
+      <Card style={styles.menuCard}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => setShowRules(true)}>
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="book-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <View>
+              <Text style={styles.menuItemText}>Game Rules & Scoring Guide</Text>
+              <Text style={styles.menuItemSubtext}>Points, contracts, lockout & more</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
+        </TouchableOpacity>
+      </Card>
+
       {/* Account Section */}
       <Text style={styles.sectionTitle}>Account</Text>
       <Card style={styles.menuCard}>
@@ -330,6 +372,43 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
         </TouchableOpacity>
       </Card>
+
+      {/* League */}
+      {leagues.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>League</Text>
+          <Card style={styles.menuCard}>
+            {leagues.map((league, index) => {
+              const isOwner = league.ownerId === user?.id;
+              return (
+                <React.Fragment key={league.id}>
+                  {index > 0 && <View style={styles.menuDivider} />}
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => isOwner
+                      ? Alert.alert('Cannot Leave', 'You are the owner of this league. Transfer ownership or delete it from the Leagues tab.')
+                      : handleLeaveLeague(league.id, league.name)
+                    }
+                  >
+                    <View style={styles.menuItemLeft}>
+                      <IconBox icon="trophy-outline" color={COLORS.warning} bg={COLORS.warning + '15'} />
+                      <View>
+                        <Text style={styles.menuItemText}>{league.name}</Text>
+                        <Text style={styles.menuItemSubtext}>
+                          {isOwner ? 'Owner' : 'Tap to leave league'}
+                        </Text>
+                      </View>
+                    </View>
+                    {!isOwner && (
+                      <Ionicons name="exit-outline" size={18} color={COLORS.error} />
+                    )}
+                  </TouchableOpacity>
+                </React.Fragment>
+              );
+            })}
+          </Card>
+        </>
+      )}
 
       {/* App Info */}
       <Text style={styles.sectionTitle}>App Info</Text>
@@ -567,6 +646,9 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
+
+    {/* Rules Guide Modal */}
+    <RulesGuide visible={showRules} onClose={() => setShowRules(false)} />
     </View>
   );
 }

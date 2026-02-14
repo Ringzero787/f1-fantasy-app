@@ -104,13 +104,6 @@ export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialPr
   return (
     <Modal visible={visible} animationType="fade" statusBarTranslucent>
       <View style={styles.container}>
-        {/* Skip button */}
-        {!isLastSlide && (
-          <TouchableOpacity style={styles.skipButton} onPress={onComplete}>
-            <Text style={styles.skipText}>Skip</Text>
-          </TouchableOpacity>
-        )}
-
         {/* Slides */}
         <FlatList
           ref={flatListRef}
@@ -158,13 +151,18 @@ export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialPr
               </LinearGradient>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              onPress={handleNext}
-              activeOpacity={0.85}
-              style={[styles.actionButton, styles.nextButton]}
-            >
-              <Text style={styles.nextButtonText}>Next</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                onPress={handleNext}
+                activeOpacity={0.85}
+                style={[styles.actionButton, styles.nextButton]}
+              >
+                <Text style={styles.nextButtonText}>Next</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onComplete} style={styles.bottomSkip}>
+                <Text style={styles.bottomSkipText}>Skip Tutorial</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </View>
@@ -271,5 +269,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text.inverse,
     letterSpacing: 0.3,
+  },
+  bottomSkip: {
+    paddingVertical: SPACING.md,
+  },
+  bottomSkipText: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.text.muted,
+    fontWeight: '500',
   },
 });
