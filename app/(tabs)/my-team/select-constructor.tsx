@@ -157,7 +157,7 @@ export default function SelectConstructorScreen() {
           return (
             <View style={[styles.constructorItem, !isAffordable && styles.unaffordableItem]}>
               <ConstructorCard
-                constructor={item}
+                constructorData={item}
                 showPrice
                 showPoints
                 onSelect={isAffordable ? () => handleSelectConstructor(item) : undefined}

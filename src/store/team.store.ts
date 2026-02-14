@@ -8,6 +8,7 @@ import { BUDGET, TEAM_SIZE, SALE_COMMISSION_RATE } from '../config/constants';
 import { PRICING_CONFIG } from '../config/pricing.config';
 import { useAdminStore } from './admin.store';
 import { errorLogService } from '../services/errorLog.service';
+import { computeLockoutStatus } from '../utils/lockout';
 
 // Calculate sale value after commission
 const calculateSaleValue = (currentPrice: number): number => {
@@ -1214,6 +1215,11 @@ export const useTeamStore = create<TeamState>()(
         // V8: Bank departing constructor's points before replacement
         const bankedPoints = currentTeam.constructor ? (currentTeam.constructor.pointsScored || 0) : 0;
 
+        const clampedContractLength = Math.min(
+          PRICING_CONFIG.MAX_CONTRACT_LENGTH,
+          Math.max(PRICING_CONFIG.MIN_CONTRACT_LENGTH, contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH)
+        );
+
         const fantasyConstructor: FantasyConstructor = {
           constructorId: constructor.id,
           name: constructor.name,
@@ -1221,7 +1227,7 @@ export const useTeamStore = create<TeamState>()(
           currentPrice: constructor.price,
           pointsScored: 0,
           racesHeld: 0,
-          contractLength: contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH,
+          contractLength: clampedContractLength,
           addedAtRace: currentCompletedRaces,
         };
 
@@ -1261,6 +1267,11 @@ export const useTeamStore = create<TeamState>()(
       // V8: Bank departing constructor's points before replacement
       const bankedPoints = currentTeam.constructor ? (currentTeam.constructor.pointsScored || 0) : 0;
 
+      const fbClampedContractLength = Math.min(
+        PRICING_CONFIG.MAX_CONTRACT_LENGTH,
+        Math.max(PRICING_CONFIG.MIN_CONTRACT_LENGTH, contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH)
+      );
+
       const fantasyConstructor: FantasyConstructor = {
         constructorId: constructor.id,
         name: constructor.name,
@@ -1268,7 +1279,7 @@ export const useTeamStore = create<TeamState>()(
         currentPrice: constructor.price,
         pointsScored: 0,
         racesHeld: 0,
-        contractLength: contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH,
+        contractLength: fbClampedContractLength,
         addedAtRace: fbCompletedRaces,
       };
 
@@ -1379,6 +1390,18 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
+    // Block ace changes after race start
+    const { raceResults: aceRaceResults, adminLockOverride } = useAdminStore.getState();
+    const aceCompletedRaceIds = new Set<string>();
+    Object.entries(aceRaceResults).forEach(([raceId, result]) => {
+      if (result.isComplete) aceCompletedRaceIds.add(raceId);
+    });
+    const lockoutStatus = computeLockoutStatus(demoRaces, aceCompletedRaceIds, new Date(), adminLockOverride);
+    if (lockoutStatus.aceLocked) {
+      set({ error: 'Ace selection is locked during race weekends' });
+      return;
+    }
+
     // V3 Rule: Drivers with price over ACE_MAX_PRICE cannot be ace
     // Use live market price from admin store (not stale team price)
     const { driverPrices } = useAdminStore.getState();
@@ -1420,6 +1443,18 @@ export const useTeamStore = create<TeamState>()(
     // Validate constructor is on the team
     if (!currentTeam.constructor || currentTeam.constructor.constructorId !== constructorId) {
       set({ error: 'Constructor not in team' });
+      return;
+    }
+
+    // Block ace changes after race start
+    const { raceResults: aceCRaceResults, adminLockOverride: aceCLockOverride } = useAdminStore.getState();
+    const aceCCompletedRaceIds = new Set<string>();
+    Object.entries(aceCRaceResults).forEach(([raceId, result]) => {
+      if (result.isComplete) aceCCompletedRaceIds.add(raceId);
+    });
+    const aceCLockoutStatus = computeLockoutStatus(demoRaces, aceCCompletedRaceIds, new Date(), aceCLockOverride);
+    if (aceCLockoutStatus.aceLocked) {
+      set({ error: 'Ace selection is locked during race weekends' });
       return;
     }
 
@@ -1787,7 +1822,7 @@ export const useTeamStore = create<TeamState>()(
       perRaceCache.set(team.id, perRacePoints);
 
       // Update driver points, sync current prices, and update racesHeld
-      let updatedDrivers = team.drivers.map(driver => {
+      let updatedDrivers: FantasyDriver[] = team.drivers.map(driver => {
         const priceUpdate = driverPrices[driver.driverId];
         // racesHeld = completed races since this driver was added
         // If addedAtRace is missing (legacy data), treat as added now to prevent premature expiry
@@ -2100,7 +2135,7 @@ export const useTeamStore = create<TeamState>()(
             const { leagues } = useLeagueStore.getState();
             // Skip pruning if leagues haven't loaded yet (empty array could mean still loading)
             if (leagues.length === 0) return;
-            const leagueIds = new Set(leagues.map(l => l.id));
+            const leagueIds = new Set(leagues.map((l: { id: string }) => l.id));
             const { userTeams, currentTeam } = useTeamStore.getState();
             let changed = false;
             const cleaned = userTeams.map(t => {

@@ -66,7 +66,7 @@ export default function LeagueDetailScreen() {
 
     // Filter teams in this league, deduplicate by userId (keep latest)
     const teamsInLeagueAll = Array.from(teamMap.values()).filter(
-      team => team && team.leagueId === id
+      (team): team is NonNullable<typeof team> => team != null && team.leagueId === id
     );
     const seenUserIds = new Set<string>();
     const teamsInLeague = teamsInLeagueAll.filter(team => {
@@ -361,7 +361,7 @@ export default function LeagueDetailScreen() {
             onPress={handleLeaveLeague}
             variant="outline"
             fullWidth
-            style={[styles.actionButton, styles.leaveButton]}
+            style={StyleSheet.flatten([styles.actionButton, styles.leaveButton])}
           />
         )}
       </View>

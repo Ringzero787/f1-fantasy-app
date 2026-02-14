@@ -6,7 +6,7 @@ import { formatPoints, formatDollars } from '../utils/formatters';
 import type { Constructor } from '../types';
 
 interface ConstructorCardProps {
-  constructor: Constructor;
+  constructorData: Constructor;
   onPress?: () => void;
   onSelect?: () => void;
   isSelected?: boolean;
@@ -19,7 +19,7 @@ interface ConstructorCardProps {
 }
 
 export const ConstructorCard = React.memo(function ConstructorCard({
-  constructor,
+  constructorData: constructor,
   onPress,
   onSelect,
   isSelected = false,

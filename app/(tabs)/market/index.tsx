@@ -167,7 +167,7 @@ export default function MarketScreen() {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <ConstructorCard
-              constructor={item}
+              constructorData={item}
               showPrice
               showPoints
               showPriceChange

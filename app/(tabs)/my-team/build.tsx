@@ -292,7 +292,7 @@ export default function BuildTeamScreen() {
             return (
               <View style={[!isAffordable && !isSelected && styles.unaffordable]}>
                 <ConstructorCard
-                  constructor={item}
+                  constructorData={item}
                   showPrice
                   showPoints
                   isSelected={isSelected}

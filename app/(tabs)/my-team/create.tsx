@@ -244,9 +244,11 @@ export default function CreateTeamScreen() {
         driverId: driver.id,
         name: driver.name,
         shortName: driver.shortName || driver.name.substring(0, 3).toUpperCase(),
+        constructorId: driver.constructorId,
         purchasePrice: driver.price,
         currentPrice: driver.price,
         pointsScored: 0,
+        racesHeld: 0,
       }));
 
       const fantasyConstructor = {
@@ -256,6 +258,7 @@ export default function CreateTeamScreen() {
         purchasePrice: recommended.constructor.price,
         currentPrice: recommended.constructor.price,
         pointsScored: 0,
+        racesHeld: 0,
       };
 
       // Get the newly created team and update it atomically

@@ -358,7 +358,7 @@ export interface ConstructorScore {
 export interface Transaction {
   id: string;
   userId: string;
-  leagueId: string;
+  leagueId: string | null;
   teamId: string;
   type: 'buy' | 'sell' | 'swap';
   entityType: 'driver' | 'constructor';

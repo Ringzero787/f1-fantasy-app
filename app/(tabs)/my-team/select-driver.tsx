@@ -49,7 +49,7 @@ export default function SelectDriverScreen() {
   const [selectedDrivers, setSelectedDrivers] = useState<Driver[]>([]);
   const [contractLengths, setContractLengths] = useState<Record<string, number>>({});
   const [pendingDriver, setPendingDriver] = useState<Driver | null>(null);
-  const [pendingContractLength, setPendingContractLength] = useState(PRICING_CONFIG.CONTRACT_LENGTH);
+  const [pendingContractLength, setPendingContractLength] = useState<number>(PRICING_CONFIG.CONTRACT_LENGTH);
 
   // Refs for auto-save on unmount
   const selectedDriversRef = useRef<Driver[]>([]);

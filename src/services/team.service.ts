@@ -81,8 +81,13 @@ export const teamService = {
         canModify: true,
       },
       // V3: Ace and transfer tracking
-      aceDriverId: null,
+      aceDriverId: undefined,
       racesSinceTransfer: 0,
+      // V4: Late joiner support
+      racesPlayed: 0,
+      pointsHistory: [],
+      joinedAtRace: 0,
+      raceWins: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };

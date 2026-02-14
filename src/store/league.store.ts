@@ -186,7 +186,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
 
           // Filter teams that belong to this league
           const teamsInLeague = Array.from(teamMap.values()).filter(
-            team => team && team.leagueId === leagueId
+            (team): team is NonNullable<typeof team> => team != null && team.leagueId === leagueId
           );
 
           // Create member entries for each team in the league
