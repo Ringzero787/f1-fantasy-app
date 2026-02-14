@@ -270,6 +270,7 @@ export default function LeagueDetailScreen() {
           <View style={styles.headerInfo}>
             <Text style={styles.leagueName}>{currentLeague.name}</Text>
             <Text style={styles.ownerText}>by {currentLeague.ownerName}</Text>
+            <Text style={styles.foundedText}>Founded {new Date(currentLeague.createdAt).getFullYear()}</Text>
           </View>
         </View>
 
@@ -479,6 +480,13 @@ const styles = StyleSheet.create({
   ownerText: {
     fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
+    marginTop: 2,
+  },
+
+  foundedText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    fontStyle: 'italic',
     marginTop: 2,
   },
 

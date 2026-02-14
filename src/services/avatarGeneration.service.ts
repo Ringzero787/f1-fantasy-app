@@ -21,9 +21,10 @@ function generateDemoAvatarUrl(name: string, type: AvatarType): string {
 // Gemini API configuration
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
-// Nano Banana model for image generation
+// Nano Banana model for image generation (with fallback)
 const IMAGE_GENERATION_MODELS = [
-  'gemini-2.5-flash-image',        // Nano Banana - fast image generation
+  'gemini-2.0-flash-exp',           // Stable model with image output
+  'gemini-2.5-flash-image',         // Nano Banana - fast image generation
 ];
 
 // Avatar generation prompts based on type — uses name for thematic imagery
@@ -56,70 +57,84 @@ interface GenerateAvatarResult {
 }
 
 /**
+ * Fetch with a timeout — React Native fetch has no built-in timeout
+ */
+function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`Request timed out after ${timeoutMs / 1000}s`));
+    }, timeoutMs);
+
+    fetch(url, { ...options, signal: controller.signal })
+      .then((res) => { clearTimeout(timer); resolve(res); })
+      .catch((err) => { clearTimeout(timer); reject(err); });
+  });
+}
+
+/**
  * Try to generate image with a specific model using fetch API
- * This avoids Blob/ArrayBuffer issues in React Native
+ * Returns the image data or throws with a descriptive error
  */
 async function tryGenerateWithModel(
   apiKey: string,
   modelName: string,
   prompt: string
-): Promise<{ imageData: string; mimeType: string } | null> {
-  try {
-    console.log(`Trying model: ${modelName}`);
+): Promise<{ imageData: string; mimeType: string }> {
+  console.log(`Trying model: ${modelName}`);
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            responseModalities: ['TEXT', 'IMAGE'],
+  const response = await fetchWithTimeout(
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
           },
-        }),
-      }
-    );
+        ],
+        generationConfig: {
+          responseModalities: ['TEXT', 'IMAGE'],
+        },
+      }),
+    },
+    90_000 // 90 second timeout — image generation can be slow
+  );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.log(`Model ${modelName} HTTP error:`, response.status, errorText);
-      return null;
-    }
-
-    const data = await response.json();
-
-    // Extract image data from response
-    const candidate = data.candidates?.[0];
-    if (!candidate?.content?.parts) {
-      console.log(`No parts in response from ${modelName}`);
-      return null;
-    }
-
-    // Find the image part
-    const imagePart = candidate.content.parts.find(
-      (part: any) => part.inlineData?.mimeType?.startsWith('image/')
-    );
-
-    if (!imagePart?.inlineData) {
-      console.log(`No image data in response from ${modelName}`);
-      return null;
-    }
-
-    return {
-      imageData: imagePart.inlineData.data,
-      mimeType: imagePart.inlineData.mimeType || 'image/png',
-    };
-  } catch (error: any) {
-    console.log(`Model ${modelName} failed:`, error.message || error);
-    return null;
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 200)}`);
   }
+
+  const data = await response.json();
+
+  // Extract image data from response
+  const candidate = data.candidates?.[0];
+  if (!candidate?.content?.parts) {
+    const reason = data.candidates?.[0]?.finishReason || 'no parts in response';
+    throw new Error(`Model returned no content (${reason})`);
+  }
+
+  // Find the image part
+  const imagePart = candidate.content.parts.find(
+    (part: any) => part.inlineData?.mimeType?.startsWith('image/')
+  );
+
+  if (!imagePart?.inlineData) {
+    const partTypes = candidate.content.parts.map((p: any) =>
+      p.text ? 'text' : p.inlineData ? p.inlineData.mimeType : 'unknown'
+    );
+    throw new Error(`No image in response, got: [${partTypes.join(', ')}]`);
+  }
+
+  return {
+    imageData: imagePart.inlineData.data,
+    mimeType: imagePart.inlineData.mimeType || 'image/png',
+  };
 }
 
 /**
@@ -223,20 +238,24 @@ export async function generateAvatar(
 
     // Try each model until one works
     let imageResult: { imageData: string; mimeType: string } | null = null;
-    let lastError = '';
+    const errors: string[] = [];
 
     for (const modelName of IMAGE_GENERATION_MODELS) {
-      imageResult = await tryGenerateWithModel(GEMINI_API_KEY, modelName, prompt);
-      if (imageResult) {
+      try {
+        imageResult = await tryGenerateWithModel(GEMINI_API_KEY, modelName, prompt);
         console.log(`Successfully generated image with model: ${modelName}`);
         break;
+      } catch (err: any) {
+        const msg = `${modelName}: ${err.message || err}`;
+        console.log(`Model failed — ${msg}`);
+        errors.push(msg);
       }
     }
 
     if (!imageResult) {
       return {
         success: false,
-        error: `Image generation failed. None of the available models could generate an image. ${lastError}`
+        error: `Image generation failed.\n${errors.join('\n')}`,
       };
     }
 
