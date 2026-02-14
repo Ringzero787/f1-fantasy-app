@@ -7,7 +7,6 @@ import {
   where,
   orderBy,
   limit,
-  onSnapshot,
   QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -195,37 +194,4 @@ export const driverService = {
     return sorted;
   },
 
-  /**
-   * Subscribe to driver updates
-   */
-  subscribeToDrivers(callback: (drivers: Driver[]) => void) {
-    const q = query(
-      driversCollection,
-      where('isActive', '==', true),
-      orderBy('price', 'desc')
-    );
-
-    return onSnapshot(q, (snapshot) => {
-      const drivers = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Driver[];
-      callback(drivers);
-    });
-  },
-
-  /**
-   * Subscribe to single driver updates
-   */
-  subscribeToDriver(driverId: string, callback: (driver: Driver | null) => void) {
-    const docRef = doc(db, 'drivers', driverId);
-
-    return onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        callback({ id: docSnap.id, ...docSnap.data() } as Driver);
-      } else {
-        callback(null);
-      }
-    });
-  },
 };

@@ -10,3 +10,4 @@ export * from './locks/teamLocks';
 export * from './admin/setAdminClaim';
 export * from './news/fetchNews';
 export * from './invites/sendInviteEmail';
+export * from './purchases/validatePurchase';

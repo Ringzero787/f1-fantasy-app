@@ -7,7 +7,6 @@ import {
   where,
   orderBy,
   limit,
-  onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { Constructor } from '../types';
@@ -82,40 +81,4 @@ export const constructorService = {
     })) as Constructor[];
   },
 
-  /**
-   * Subscribe to constructor updates
-   */
-  subscribeToConstructors(callback: (constructors: Constructor[]) => void) {
-    const q = query(
-      constructorsCollection,
-      where('isActive', '==', true),
-      orderBy('price', 'desc')
-    );
-
-    return onSnapshot(q, (snapshot) => {
-      const constructors = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Constructor[];
-      callback(constructors);
-    });
-  },
-
-  /**
-   * Subscribe to single constructor updates
-   */
-  subscribeToConstructor(
-    constructorId: string,
-    callback: (constructor: Constructor | null) => void
-  ) {
-    const docRef = doc(db, 'constructors', constructorId);
-
-    return onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        callback({ id: docSnap.id, ...docSnap.data() } as Constructor);
-      } else {
-        callback(null);
-      }
-    });
-  },
 };

@@ -11,7 +11,6 @@ import {
   where,
   orderBy,
   limit,
-  onSnapshot,
   serverTimestamp,
   increment,
 } from 'firebase/firestore';
@@ -732,18 +731,4 @@ export const teamService = {
     })) as Transaction[];
   },
 
-  /**
-   * Subscribe to team updates
-   */
-  subscribeToTeam(teamId: string, callback: (team: FantasyTeam | null) => void) {
-    const docRef = doc(db, 'fantasyTeams', teamId);
-
-    return onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        callback({ id: docSnap.id, ...docSnap.data() } as FantasyTeam);
-      } else {
-        callback(null);
-      }
-    });
-  },
 };

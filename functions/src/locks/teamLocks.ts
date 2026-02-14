@@ -3,9 +3,13 @@ import * as admin from 'firebase-admin';
 
 const db = admin.firestore();
 
+const BATCH_OP_LIMIT = 499;
+
 /**
  * Scheduled function to lock teams before qualifying
  * Runs every 15 minutes to check for upcoming qualifying sessions
+ *
+ * Optimized: bulk-fetches league docs using db.getAll() instead of N+1 reads
  */
 export const autoLockTeams = functions.pubsub
   .schedule('every 15 minutes')
@@ -28,23 +32,44 @@ export const autoLockTeams = functions.pubsub
 
     for (const raceDoc of racesSnapshot.docs) {
       const race = raceDoc.data();
-      // Lock all teams for leagues using this race's season
+
+      // Get all unlocked teams
       const teamsSnapshot = await db
         .collection('fantasyTeams')
         .where('isLocked', '==', false)
         .get();
 
-      const batch = db.batch();
+      if (teamsSnapshot.empty) {
+        continue;
+      }
+
+      // Collect unique league IDs and bulk-fetch
+      const leagueIds = [...new Set(
+        teamsSnapshot.docs.map((d) => d.data().leagueId).filter(Boolean)
+      )] as string[];
+
+      const leagueRefs = leagueIds.map((id) => db.collection('leagues').doc(id));
+      const leagueDocs = leagueRefs.length > 0 ? await db.getAll(...leagueRefs) : [];
+
+      // Build lookup map
+      const leagueSettings = new Map<string, string>();
+      for (const leagueDoc of leagueDocs) {
+        if (leagueDoc.exists) {
+          const data = leagueDoc.data();
+          leagueSettings.set(leagueDoc.id, data?.settings?.lockDeadline || 'qualifying');
+        }
+      }
+
+      // Lock teams in batches
+      let batch = db.batch();
       let lockedCount = 0;
+      let opsInBatch = 0;
 
       for (const teamDoc of teamsSnapshot.docs) {
         const team = teamDoc.data();
+        const lockDeadline = leagueSettings.get(team.leagueId) || 'qualifying';
 
-        // Check if team's league allows late changes
-        const leagueDoc = await db.collection('leagues').doc(team.leagueId).get();
-        const league = leagueDoc.data();
-
-        if (league?.settings?.lockDeadline === 'qualifying') {
+        if (lockDeadline === 'qualifying') {
           batch.update(teamDoc.ref, {
             isLocked: true,
             'lockStatus.canModify': false,
@@ -52,11 +77,21 @@ export const autoLockTeams = functions.pubsub
             'lockStatus.nextUnlockTime': race.schedule.race,
           });
           lockedCount++;
+          opsInBatch++;
+
+          if (opsInBatch >= BATCH_OP_LIMIT) {
+            await batch.commit();
+            batch = db.batch();
+            opsInBatch = 0;
+          }
         }
       }
 
-      if (lockedCount > 0) {
+      if (opsInBatch > 0) {
         await batch.commit();
+      }
+
+      if (lockedCount > 0) {
         console.log(`Locked ${lockedCount} teams for race ${race.name}`);
       }
 
@@ -67,63 +102,7 @@ export const autoLockTeams = functions.pubsub
     return null;
   });
 
-/**
- * Scheduled function to unlock teams after race completion
- * Runs every 30 minutes to check for completed races
- */
-export const autoUnlockTeams = functions.pubsub
-  .schedule('every 30 minutes')
-  .onRun(async (context) => {
-    const now = admin.firestore.Timestamp.now();
-
-    // Find completed races
-    const racesSnapshot = await db
-      .collection('races')
-      .where('status', '==', 'completed')
-      .get();
-
-    for (const raceDoc of racesSnapshot.docs) {
-      const race = raceDoc.data();
-
-      // Check if results have been processed
-      if (!race.results?.processedAt) {
-        continue;
-      }
-
-      // Unlock teams that were locked for this race
-      const teamsSnapshot = await db
-        .collection('fantasyTeams')
-        .where('isLocked', '==', true)
-        .where('lockStatus.isSeasonLocked', '==', false) // Don't unlock season-locked teams
-        .get();
-
-      const batch = db.batch();
-      let unlockedCount = 0;
-
-      for (const teamDoc of teamsSnapshot.docs) {
-        const team = teamDoc.data();
-        const nextUnlock = team.lockStatus?.nextUnlockTime?.toDate();
-
-        // Only unlock if the unlock time has passed
-        if (nextUnlock && nextUnlock <= now.toDate()) {
-          batch.update(teamDoc.ref, {
-            isLocked: false,
-            'lockStatus.canModify': true,
-            'lockStatus.lockReason': null,
-            'lockStatus.nextUnlockTime': null,
-          });
-          unlockedCount++;
-        }
-      }
-
-      if (unlockedCount > 0) {
-        await batch.commit();
-        console.log(`Unlocked ${unlockedCount} teams after race ${race.name}`);
-      }
-    }
-
-    return null;
-  });
+// autoUnlockTeams removed — unlocking is now handled by onRaceCompleted in calculatePoints.ts
 
 /**
  * HTTP function to manually lock a team (for testing/admin)

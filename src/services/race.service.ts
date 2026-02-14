@@ -8,7 +8,6 @@ import {
   where,
   orderBy,
   limit,
-  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -245,42 +244,4 @@ export const raceService = {
     };
   },
 
-  /**
-   * Subscribe to race updates
-   */
-  subscribeToRace(raceId: string, callback: (race: Race | null) => void) {
-    const docRef = doc(db, 'races', raceId);
-
-    return onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        callback({
-          id: docSnap.id,
-          ...docSnap.data(),
-          schedule: this.parseScheduleDates(docSnap.data()?.schedule),
-        } as Race);
-      } else {
-        callback(null);
-      }
-    });
-  },
-
-  /**
-   * Subscribe to season races
-   */
-  subscribeToSeasonRaces(seasonId: string, callback: (races: Race[]) => void) {
-    const q = query(
-      racesCollection,
-      where('seasonId', '==', seasonId),
-      orderBy('round', 'asc')
-    );
-
-    return onSnapshot(q, (snapshot) => {
-      const races = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-        schedule: this.parseScheduleDates(docSnap.data().schedule),
-      })) as Race[];
-      callback(races);
-    });
-  },
 };

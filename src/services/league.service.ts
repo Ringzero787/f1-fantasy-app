@@ -11,11 +11,13 @@ import {
   where,
   orderBy,
   limit,
-  onSnapshot,
   collectionGroup,
   serverTimestamp,
   increment,
   writeBatch,
+  startAfter,
+  QueryDocumentSnapshot,
+  DocumentData,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import {
@@ -318,7 +320,7 @@ export const leagueService = {
    */
   async getLeagueMembers(leagueId: string): Promise<LeagueMember[]> {
     const membersCollection = collection(db, 'leagues', leagueId, 'members');
-    const q = query(membersCollection, orderBy('totalPoints', 'desc'));
+    const q = query(membersCollection, orderBy('totalPoints', 'desc'), limit(100));
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((doc, index) => ({
@@ -390,35 +392,30 @@ export const leagueService = {
   },
 
   /**
-   * Subscribe to league updates
+   * Get league members with cursor-based pagination
    */
-  subscribeToLeague(leagueId: string, callback: (league: League | null) => void) {
-    const docRef = doc(db, 'leagues', leagueId);
-
-    return onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        callback({ id: docSnap.id, ...docSnap.data() } as League);
-      } else {
-        callback(null);
-      }
-    });
-  },
-
-  /**
-   * Subscribe to league members
-   */
-  subscribeToLeagueMembers(leagueId: string, callback: (members: LeagueMember[]) => void) {
+  async getLeagueMembersPage(
+    leagueId: string,
+    pageSize: number = 25,
+    startAfterDoc?: QueryDocumentSnapshot<DocumentData>
+  ): Promise<{ members: LeagueMember[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
     const membersCollection = collection(db, 'leagues', leagueId, 'members');
-    const q = query(membersCollection, orderBy('totalPoints', 'desc'));
+    const q = startAfterDoc
+      ? query(membersCollection, orderBy('totalPoints', 'desc'), startAfter(startAfterDoc), limit(pageSize))
+      : query(membersCollection, orderBy('totalPoints', 'desc'), limit(pageSize));
+    const snapshot = await getDocs(q);
 
-    return onSnapshot(q, (snapshot) => {
-      const members = snapshot.docs.map((doc, index) => ({
-        id: doc.id,
-        ...doc.data(),
-        rank: index + 1,
-      })) as LeagueMember[];
-      callback(members);
-    });
+    const members = snapshot.docs.map((doc, index) => ({
+      id: doc.id,
+      ...doc.data(),
+      rank: startAfterDoc ? -1 : index + 1, // Rank only accurate on first page
+    })) as LeagueMember[];
+
+    const lastDoc = snapshot.docs.length > 0
+      ? snapshot.docs[snapshot.docs.length - 1]
+      : null;
+
+    return { members, lastDoc };
   },
 
   /**

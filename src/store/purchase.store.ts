@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import { PRODUCT_IDS, AVATAR_PACK_CREDITS } from '../config/products';
+import { functions, httpsCallable } from '../config/firebase';
 
 // Module-level pending context for bridging requestPurchase → listener callback
 let pendingLeagueId: string | null = null;
@@ -14,6 +15,15 @@ interface PurchaseHistoryEntry {
   leagueId?: string;
 }
 
+interface ServerPurchase {
+  id: string;
+  productId: string;
+  purchaseToken: string;
+  status: string;
+  validatedAt?: string;
+  createdAt?: string;
+}
+
 interface PurchaseState {
   // Persisted
   bonusAvatarCredits: Record<string, number>; // userId -> bonus credits remaining
@@ -21,6 +31,7 @@ interface PurchaseState {
   pendingExpansionCredits: number;
   leagueSlotCredits: number; // extra league slots purchased
   purchaseHistory: PurchaseHistoryEntry[];
+  lastSyncedAt: string | null;
 
   // Transient
   isInitialized: boolean;
@@ -39,8 +50,10 @@ interface PurchaseState {
   consumeExpansionCredit: () => boolean;
   hasLeagueSlotCredit: () => boolean;
   consumeLeagueSlotCredit: () => boolean;
-  handlePurchaseComplete: (purchase: { productId: string }) => Promise<void>;
+  handlePurchaseComplete: (purchase: { productId: string; purchaseToken?: string }) => Promise<void>;
   handlePurchaseError: (error: { code: string; message: string }) => void;
+  recordPurchaseOnServer: (productId: string, purchaseToken: string) => Promise<void>;
+  syncPurchasesFromServer: () => Promise<void>;
 }
 
 export const usePurchaseStore = create<PurchaseState>()(
@@ -52,6 +65,7 @@ export const usePurchaseStore = create<PurchaseState>()(
       pendingExpansionCredits: 0,
       leagueSlotCredits: 0,
       purchaseHistory: [],
+      lastSyncedAt: null,
 
       // Transient state
       isInitialized: false,
@@ -76,7 +90,7 @@ export const usePurchaseStore = create<PurchaseState>()(
           });
 
           // Register purchase listener
-          RNIap.purchaseUpdatedListener(async (purchase: { productId: string }) => {
+          RNIap.purchaseUpdatedListener(async (purchase: { productId: string; purchaseToken?: string }) => {
             await get().handlePurchaseComplete(purchase);
           });
 
@@ -85,6 +99,11 @@ export const usePurchaseStore = create<PurchaseState>()(
           });
 
           set({ isInitialized: true });
+
+          // Sync purchases from server in background (reconcile after reinstall)
+          get().syncPurchasesFromServer().catch((err) => {
+            console.warn('Purchase sync failed (non-critical):', err);
+          });
         } catch (err) {
           console.warn('IAP init failed (expected in dev/emulator):', err);
           set({ isInitialized: true });
@@ -97,6 +116,67 @@ export const usePurchaseStore = create<PurchaseState>()(
           RNIap.endConnection();
         } catch {}
         set({ isInitialized: false });
+      },
+
+      recordPurchaseOnServer: async (productId: string, purchaseToken: string) => {
+        try {
+          const validatePurchaseFn = httpsCallable(functions, 'validatePurchase');
+          await validatePurchaseFn({ productId, purchaseToken, platform: 'android' });
+        } catch (err) {
+          console.warn('Failed to record purchase on server:', err);
+        }
+      },
+
+      syncPurchasesFromServer: async () => {
+        try {
+          const getUserPurchasesFn = httpsCallable<unknown, ServerPurchase[]>(functions, 'getUserPurchases');
+          const result = await getUserPurchasesFn({});
+          const serverPurchases = result.data;
+
+          if (!serverPurchases || serverPurchases.length === 0) return;
+
+          // Count purchases by product on server
+          const serverCounts: Record<string, number> = {};
+          for (const p of serverPurchases) {
+            serverCounts[p.productId] = (serverCounts[p.productId] || 0) + 1;
+          }
+
+          const state = get();
+
+          // Count local purchases by product
+          const localCounts: Record<string, number> = {};
+          for (const p of state.purchaseHistory) {
+            localCounts[p.sku] = (localCounts[p.sku] || 0) + 1;
+          }
+
+          // Only override local if server has MORE (e.g., after reinstall)
+          const serverExpansions = serverCounts[PRODUCT_IDS.LEAGUE_EXPANSION] || 0;
+          const localExpansions = localCounts[PRODUCT_IDS.LEAGUE_EXPANSION] || 0;
+          const serverSlots = serverCounts[PRODUCT_IDS.LEAGUE_SLOT] || 0;
+          const localSlots = localCounts[PRODUCT_IDS.LEAGUE_SLOT] || 0;
+          const serverAvatars = serverCounts[PRODUCT_IDS.AVATAR_PACK] || 0;
+          const localAvatars = localCounts[PRODUCT_IDS.AVATAR_PACK] || 0;
+
+          const updates: Partial<PurchaseState> = {
+            lastSyncedAt: new Date().toISOString(),
+          };
+
+          if (serverExpansions > localExpansions) {
+            updates.pendingExpansionCredits = state.pendingExpansionCredits + (serverExpansions - localExpansions);
+          }
+          if (serverSlots > localSlots) {
+            updates.leagueSlotCredits = state.leagueSlotCredits + (serverSlots - localSlots);
+          }
+          if (serverAvatars > localAvatars) {
+            // Can't easily re-attribute avatar credits to specific user here,
+            // so just log the discrepancy
+            console.warn(`Server has ${serverAvatars - localAvatars} more avatar packs than local`);
+          }
+
+          set(updates);
+        } catch (err) {
+          console.warn('syncPurchasesFromServer failed:', err);
+        }
       },
 
       purchaseLeagueExpansion: async (leagueId?: string) => {
@@ -183,10 +263,10 @@ export const usePurchaseStore = create<PurchaseState>()(
         }
       },
 
-      handlePurchaseComplete: async (purchase: { productId: string }) => {
+      handlePurchaseComplete: async (purchase: { productId: string; purchaseToken?: string }) => {
         try {
           const RNIap = require('react-native-iap');
-          const { productId } = purchase;
+          const { productId, purchaseToken } = purchase;
 
           if (productId === PRODUCT_IDS.LEAGUE_EXPANSION) {
             set((state) => ({
@@ -230,6 +310,11 @@ export const usePurchaseStore = create<PurchaseState>()(
 
           // Finish the transaction (consumable so it can be re-purchased)
           await RNIap.finishTransaction({ purchase, isConsumable: true });
+
+          // Record on server for persistence across reinstalls
+          if (purchaseToken) {
+            get().recordPurchaseOnServer(productId, purchaseToken).catch(() => {});
+          }
         } catch (err) {
           console.error('Error completing purchase:', err);
         } finally {
@@ -298,6 +383,7 @@ export const usePurchaseStore = create<PurchaseState>()(
         pendingExpansionCredits: state.pendingExpansionCredits,
         leagueSlotCredits: state.leagueSlotCredits,
         purchaseHistory: state.purchaseHistory,
+        lastSyncedAt: state.lastSyncedAt,
       }),
     }
   )

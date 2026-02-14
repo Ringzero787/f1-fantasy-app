@@ -161,6 +161,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Purchases collection — users can read their own, only Cloud Functions can write
+    match /purchases/{purchaseId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false; // Only admin SDK (Cloud Functions) can write
+    }
+
     // Notifications
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;

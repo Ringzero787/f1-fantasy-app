@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { initializeAuth, getAuth, getReactNativePersistence, Auth } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
+import { getFunctions, httpsCallable, Functions } from 'firebase/functions';
 import {
   getFirestore,
   collection,
@@ -48,6 +49,7 @@ if (getApps().length === 0) {
 export { firebaseAuth };
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
 
 // Collection references
 export const collections = {
@@ -88,6 +90,6 @@ export const getCollectionGroup = (collectionId: string) =>
   collectionGroup(db, collectionId);
 
 // Type exports
-export type { Auth, Firestore, FirebaseStorage, CollectionReference, DocumentReference, Query, DocumentSnapshot, QuerySnapshot };
+export type { Auth, Firestore, FirebaseStorage, Functions, CollectionReference, DocumentReference, Query, DocumentSnapshot, QuerySnapshot };
 
-export { app, doc, collection };
+export { app, doc, collection, httpsCallable };
