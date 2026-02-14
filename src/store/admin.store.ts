@@ -82,6 +82,7 @@ interface AdminState {
   getConstructorTotalPoints: (constructorId: string) => number;
   getDriverPrice: (driverId: string) => PriceUpdate | null;
   getConstructorPrice: (constructorId: string) => PriceUpdate | null;
+  getCompletedRaceCount: () => number;
 
   // V5: Lockout override
   setAdminLockOverride: (override: 'locked' | 'unlocked' | null) => void;
@@ -454,6 +455,10 @@ export const useAdminStore = create<AdminState>()(
       getConstructorPrice: (constructorId) => {
         const { constructorPrices } = get();
         return constructorPrices[constructorId] || null;
+      },
+
+      getCompletedRaceCount: () => {
+        return Object.values(get().raceResults).filter(r => r.isComplete).length;
       },
 
       setAdminLockOverride: (override) => {

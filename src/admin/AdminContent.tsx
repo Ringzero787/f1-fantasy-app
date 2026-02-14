@@ -481,7 +481,7 @@ export default function AdminContent() {
   const raceResult = selectedRaceId ? getRaceResult(selectedRaceId) : null;
 
   // Count completed races and sprints
-  const completedRacesCount = Object.values(raceResults).filter(r => r.isComplete).length;
+  const completedRacesCount = useAdminStore.getState().getCompletedRaceCount();
   const totalSprints = demoRaces.filter(r => r.hasSprint).length;
   const completedSprints = demoRaces.filter(r => r.hasSprint && raceResults[r.id]?.isComplete).length;
 

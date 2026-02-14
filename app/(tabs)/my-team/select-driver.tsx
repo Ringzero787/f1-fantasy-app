@@ -42,7 +42,7 @@ export default function SelectDriverScreen() {
   // V5: Compute locked-out driver IDs for this team (active lockouts only)
   const raceResults = useAdminStore(s => s.raceResults);
   const lockedOutIds = useMemo(() => {
-    const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
+    const completedRaceCount = useAdminStore.getState().getCompletedRaceCount();
     return new Set(getLockedOutDriverIds(currentTeam?.driverLockouts, completedRaceCount));
   }, [currentTeam?.driverLockouts, raceResults]);
 

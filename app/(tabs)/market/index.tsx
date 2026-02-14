@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,9 +22,15 @@ export default function MarketScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('price');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const driverFilter: DriverFilter = {
-    search: searchQuery,
+    search: debouncedSearch,
     sortBy,
     sortOrder,
   };
@@ -51,7 +57,7 @@ export default function MarketScreen() {
   };
 
   const filteredConstructors = constructors?.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
+    c.name.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   return (
@@ -143,6 +149,10 @@ export default function MarketScreen() {
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            initialNumToRender={10}
           />
         ) : (
           <EmptyState
@@ -166,6 +176,10 @@ export default function MarketScreen() {
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          initialNumToRender={10}
         />
       ) : (
         <EmptyState

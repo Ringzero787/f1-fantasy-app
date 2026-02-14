@@ -327,7 +327,7 @@ export default function MyTeamScreen() {
 
   // V5: Locked-out driver names for the lockout banner
   const lockedOutDriverNames = useMemo(() => {
-    const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
+    const completedRaceCount = useAdminStore.getState().getCompletedRaceCount();
     const lockedIds = getLockedOutDriverIds(currentTeam?.driverLockouts, completedRaceCount);
     if (lockedIds.length === 0) return [];
     return lockedIds.map(id => {
@@ -378,7 +378,7 @@ export default function MyTeamScreen() {
     }
   };
 
-  const handleRemoveDriver = (driverId: string, driverName: string) => {
+  const handleRemoveDriver = useCallback((driverId: string, driverName: string) => {
     // V6: Calculate and show early termination fee in confirmation
     const driver = currentTeam?.drivers.find(d => d.driverId === driverId);
     const contractLen = driver?.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
@@ -405,9 +405,9 @@ export default function MyTeamScreen() {
         },
       ]
     );
-  };
+  }, [currentTeam, allDrivers, removeDriver]);
 
-  const handleRemoveConstructor = () => {
+  const handleRemoveConstructor = useCallback(() => {
     if (!currentTeam?.constructor) return;
     // V8: Calculate and show early termination fee in confirmation
     const c = currentTeam.constructor;
@@ -435,9 +435,9 @@ export default function MyTeamScreen() {
         },
       ]
     );
-  };
+  }, [currentTeam, allConstructors, removeConstructor]);
 
-  const handleSetAce = async (driverId: string) => {
+  const handleSetAce = useCallback(async (driverId: string) => {
     try {
       await setAce(driverId);
       // Check if the store set an error (setAce doesn't throw, it sets error state)
@@ -446,13 +446,13 @@ export default function MyTeamScreen() {
         Alert.alert('Cannot Set Ace', storeError);
       }
     } catch { Alert.alert('Error', 'Failed to set Ace'); }
-  };
+  }, [setAce]);
 
-  const handleClearAce = async () => {
+  const handleClearAce = useCallback(async () => {
     try { await clearAce(); } catch { Alert.alert('Error', 'Failed to clear Ace'); }
-  };
+  }, [clearAce]);
 
-  const handleSetAceConstructor = async (constructorId: string) => {
+  const handleSetAceConstructor = useCallback(async (constructorId: string) => {
     try {
       await setAceConstructor(constructorId);
       const storeError = useTeamStore.getState().error;
@@ -460,7 +460,7 @@ export default function MyTeamScreen() {
         Alert.alert('Cannot Set Ace', storeError);
       }
     } catch { Alert.alert('Error', 'Failed to set Ace Constructor'); }
-  };
+  }, [setAceConstructor]);
 
   // V5: Lockout-aware canModify and canChangeAce
   const canModify = !lockoutInfo.isLocked && (currentTeam?.lockStatus.canModify ?? true);
@@ -510,7 +510,7 @@ export default function MyTeamScreen() {
 
     setIsAutoFilling(true);
     try {
-      const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
+      const completedRaceCount = useAdminStore.getState().getCompletedRaceCount();
       const newDrivers = result.drivers.map(d => ({
         driverId: d.id,
         name: d.name,
@@ -615,6 +615,40 @@ export default function MyTeamScreen() {
       ]
     );
   };
+
+  // Memoize enriched driver data to avoid recomputing on every render
+  const enrichedDrivers = useMemo(() => {
+    if (!currentTeam?.drivers) return [];
+    return [...currentTeam.drivers]
+      .map(driver => {
+        const marketDriver = allDrivers?.find(d => d.id === driver.driverId);
+        const livePrice = marketDriver?.price ?? driver.currentPrice;
+        const driverNumber = marketDriver?.number;
+        const resolvedConstructorId = marketDriver?.constructorId ?? driver.constructorId;
+        const cInfo = constructorLookup[resolvedConstructorId];
+        const isAce = currentTeam?.aceDriverId === driver.driverId;
+        const canBeAce = livePrice <= PRICING_CONFIG.ACE_MAX_PRICE;
+        const priceDiff = livePrice - driver.purchasePrice;
+        const nextRate = getNextLoyaltyRate(driver.racesHeld || 0);
+        const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+        const contractRemaining = contractLen - (driver.racesHeld || 0);
+        const isLastRace = contractRemaining === 1;
+        const isReserve = driver.isReservePick;
+        const inGracePeriod = (driver.racesHeld || 0) === 0;
+        const earlyTermFee = (isReserve || inGracePeriod) ? 0 : calculateEarlyTerminationFee(livePrice, contractLen, driver.racesHeld || 0);
+        const effectiveSaleValue = Math.max(0, livePrice - earlyTermFee);
+        const saleProfit = effectiveSaleValue - driver.purchasePrice;
+        const accentColor = isReserve ? COLORS.text.muted : cInfo?.primaryColor || COLORS.text.muted;
+        return {
+          ...driver,
+          livePrice, driverNumber, resolvedConstructorId, cInfo,
+          isAce, canBeAce, priceDiff, nextRate, contractLen,
+          contractRemaining, isLastRace, isReserve, inGracePeriod,
+          earlyTermFee, effectiveSaleValue, saleProfit, accentColor,
+        };
+      })
+      .sort((a, b) => b.livePrice - a.livePrice);
+  }, [currentTeam?.drivers, currentTeam?.aceDriverId, allDrivers, constructorLookup]);
 
   // --- Early returns ---
 
@@ -862,69 +896,45 @@ export default function MyTeamScreen() {
         )}
 
         {/* Driver list */}
-        {currentTeam?.drivers && currentTeam.drivers.length > 0 ? (
-          [...currentTeam.drivers]
-            .map(driver => {
-              const marketDriver = allDrivers?.find(d => d.id === driver.driverId);
-              const livePrice = marketDriver?.price ?? driver.currentPrice;
-              const driverNumber = marketDriver?.number;
-              const resolvedConstructorId = marketDriver?.constructorId ?? driver.constructorId;
-              return { ...driver, livePrice, driverNumber, resolvedConstructorId };
-            })
-            .sort((a, b) => b.livePrice - a.livePrice)
-            .map((driver) => {
-              const cInfo = constructorLookup[driver.resolvedConstructorId];
-              const isAce = currentTeam?.aceDriverId === driver.driverId;
-              const canBeAce = driver.livePrice <= PRICING_CONFIG.ACE_MAX_PRICE;
-              const priceDiff = driver.livePrice - driver.purchasePrice;
-              const nextRate = getNextLoyaltyRate(driver.racesHeld || 0);
-              const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-              const contractRemaining = contractLen - (driver.racesHeld || 0);
-              const isLastRace = contractRemaining === 1;
-              const isReserve = driver.isReservePick;
-              const inGracePeriod = (driver.racesHeld || 0) === 0;
-              const earlyTermFee = (isReserve || inGracePeriod) ? 0 : calculateEarlyTerminationFee(driver.livePrice, contractLen, driver.racesHeld || 0);
-              const effectiveSaleValue = Math.max(0, driver.livePrice - earlyTermFee);
-              const saleProfit = effectiveSaleValue - driver.purchasePrice;
-              const accentColor = isReserve ? COLORS.text.muted : cInfo?.primaryColor || COLORS.text.muted;
-
+        {enrichedDrivers.length > 0 ? (
+          enrichedDrivers.map((driver) => {
               return (
-                <View key={driver.driverId} style={[styles.card, isReserve && styles.cardReserve]}>
-                  <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
+                <View key={driver.driverId} style={[styles.card, driver.isReserve && styles.cardReserve]}>
+                  <View style={[styles.cardAccent, { backgroundColor: driver.accentColor }]} />
                   <View style={styles.cardBody}>
                     {/* Row 1: Identity + Price */}
                     <View style={styles.cardTopRow}>
                       <View style={styles.cardIdentity}>
                         {driver.driverNumber != null && (
-                          <View style={[styles.cardNumberBadge, { backgroundColor: accentColor }]}>
+                          <View style={[styles.cardNumberBadge, { backgroundColor: driver.accentColor }]}>
                             <Text style={styles.cardNumberText}>
                               {driver.driverNumber}
                             </Text>
                           </View>
                         )}
-                        <Text style={[styles.cardName, isReserve && { color: COLORS.text.muted }]} numberOfLines={1}>
+                        <Text style={[styles.cardName, driver.isReserve && { color: COLORS.text.muted }]} numberOfLines={1}>
                           {driver.name}
                         </Text>
-                        {isAce && (
+                        {driver.isAce && (
                           <TouchableOpacity onPress={() => handleClearAce()} hitSlop={8}>
                             <View style={styles.aceActive}>
                               <Ionicons name="diamond" size={12} color={COLORS.white} />
                             </View>
                           </TouchableOpacity>
                         )}
-                        {!isAce && !isReserve && canBeAce && canChangeAce && (
+                        {!driver.isAce && !driver.isReserve && driver.canBeAce && canChangeAce && (
                           <TouchableOpacity onPress={() => handleSetAce(driver.driverId)} hitSlop={8}>
                             <Ionicons name="diamond-outline" size={15} color={COLORS.gold} />
                           </TouchableOpacity>
                         )}
                       </View>
-                      {!isReserve ? (
+                      {!driver.isReserve ? (
                         <View style={styles.cardPriceBlock}>
                           <Text style={styles.cardPrice}>${driver.livePrice}</Text>
-                          {priceDiff !== 0 && (
-                            <View style={[styles.cardPriceDiff, priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                              <Ionicons name={priceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
-                              <Text style={styles.cardPriceDiffText}>${Math.abs(priceDiff)}</Text>
+                          {driver.priceDiff !== 0 && (
+                            <View style={[styles.cardPriceDiff, driver.priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
+                              <Ionicons name={driver.priceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
+                              <Text style={styles.cardPriceDiffText}>${Math.abs(driver.priceDiff)}</Text>
                             </View>
                           )}
                         </View>
@@ -936,9 +946,9 @@ export default function MyTeamScreen() {
                     </View>
                     {/* Row 2: Meta badges */}
                     <View style={styles.cardMetaRow}>
-                      {cInfo && (
-                        <View style={[styles.metaChip, { backgroundColor: accentColor + '18' }]}>
-                          <Text style={[styles.metaChipText, { color: accentColor }]}>{cInfo.shortName}</Text>
+                      {driver.cInfo && (
+                        <View style={[styles.metaChip, { backgroundColor: driver.accentColor + '18' }]}>
+                          <Text style={[styles.metaChipText, { color: driver.accentColor }]}>{driver.cInfo.shortName}</Text>
                         </View>
                       )}
                       <View style={styles.metaChip}>
@@ -953,40 +963,40 @@ export default function MyTeamScreen() {
                           </Text>
                         </View>
                       )}
-                      {!isReserve ? (
+                      {!driver.isReserve ? (
                         <>
-                          <View style={[styles.metaChip, isLastRace && { backgroundColor: COLORS.warning + '18' }]}>
-                            <Ionicons name="document-text-outline" size={10} color={isLastRace ? COLORS.warning : COLORS.text.muted} />
-                            <Text style={[styles.metaChipText, isLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
-                              {isLastRace ? 'LAST' : `${driver.racesHeld || 0}/${contractLen}`}
+                          <View style={[styles.metaChip, driver.isLastRace && { backgroundColor: COLORS.warning + '18' }]}>
+                            <Ionicons name="document-text-outline" size={10} color={driver.isLastRace ? COLORS.warning : COLORS.text.muted} />
+                            <Text style={[styles.metaChipText, driver.isLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
+                              {driver.isLastRace ? 'LAST' : `${driver.racesHeld || 0}/${driver.contractLen}`}
                             </Text>
                           </View>
                           <View style={styles.metaChip}>
-                            <Ionicons name="flame" size={10} color={nextRate > 1 ? COLORS.gold : COLORS.text.muted} />
-                            <Text style={[styles.metaChipText, nextRate > 1 && { color: COLORS.gold }]}>+{nextRate}/r</Text>
+                            <Ionicons name="flame" size={10} color={driver.nextRate > 1 ? COLORS.gold : COLORS.text.muted} />
+                            <Text style={[styles.metaChipText, driver.nextRate > 1 && { color: COLORS.gold }]}>+{driver.nextRate}/r</Text>
                           </View>
                         </>
                       ) : (
                         <View style={[styles.metaChip, { backgroundColor: COLORS.warning + '18' }]}>
                           <Ionicons name="timer-outline" size={10} color={COLORS.warning} />
                           <Text style={[styles.metaChipText, { color: COLORS.warning }]}>
-                            Expires in {contractRemaining} race{contractRemaining !== 1 ? 's' : ''}
+                            Expires in {driver.contractRemaining} race{driver.contractRemaining !== 1 ? 's' : ''}
                           </Text>
                         </View>
                       )}
                       <View style={{ flex: 1 }} />
-                      {canModify && !isReserve && (
+                      {canModify && !driver.isReserve && (
                         <TouchableOpacity
                           onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
                           hitSlop={6}
-                          style={[styles.sellChip, inGracePeriod ? styles.sellChipNeutral : saleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
+                          style={[styles.sellChip, driver.inGracePeriod ? styles.sellChipNeutral : driver.saleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
                         >
-                          <Text style={[styles.sellChipText, inGracePeriod ? styles.sellChipTextNeutral : saleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
-                            {inGracePeriod ? `Sell $${driver.livePrice}` : `Sell ${saleProfit >= 0 ? '+' : '-'}$${Math.abs(saleProfit)}`}
+                          <Text style={[styles.sellChipText, driver.inGracePeriod ? styles.sellChipTextNeutral : driver.saleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
+                            {driver.inGracePeriod ? `Sell $${driver.livePrice}` : `Sell ${driver.saleProfit >= 0 ? '+' : '-'}$${Math.abs(driver.saleProfit)}`}
                           </Text>
                         </TouchableOpacity>
                       )}
-                      {canModify && isReserve && (
+                      {canModify && driver.isReserve && (
                         <TouchableOpacity
                           onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
                           hitSlop={6}

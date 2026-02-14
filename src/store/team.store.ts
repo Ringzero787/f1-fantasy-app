@@ -843,8 +843,7 @@ export const useTeamStore = create<TeamState>()(
           return;
         }
 
-        const { raceResults } = useAdminStore.getState();
-        const currentCompletedRaces = Object.values(raceResults).filter(r => r.isComplete).length;
+        const currentCompletedRaces = useAdminStore.getState().getCompletedRaceCount();
 
         const fantasyDriver: FantasyDriver = {
           driverId: driver.id,
@@ -1210,8 +1209,7 @@ export const useTeamStore = create<TeamState>()(
           return;
         }
 
-        const { raceResults } = useAdminStore.getState();
-        const currentCompletedRaces = Object.values(raceResults).filter(r => r.isComplete).length;
+        const currentCompletedRaces = useAdminStore.getState().getCompletedRaceCount();
 
         // V8: Bank departing constructor's points before replacement
         const bankedPoints = currentTeam.constructor ? (currentTeam.constructor.pointsScored || 0) : 0;
@@ -1775,10 +1773,10 @@ export const useTeamStore = create<TeamState>()(
   // Recalculate points for all teams
   recalculateAllTeamsPoints: () => {
     const { userTeams, currentTeam } = get();
-    const { driverPrices, constructorPrices, raceResults } = useAdminStore.getState();
+    const { driverPrices, constructorPrices } = useAdminStore.getState();
 
     // Count total completed races
-    const completedRaceCount = Object.values(raceResults).filter(r => r.isComplete).length;
+    const completedRaceCount = useAdminStore.getState().getCompletedRaceCount();
 
     const perRaceCache = new Map<string, { round: number; points: number }[]>();
 

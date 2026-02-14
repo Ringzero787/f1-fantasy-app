@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   RefreshControl,
   TouchableOpacity,
   Alert,
@@ -251,16 +251,8 @@ export default function LeagueDetailScreen() {
   const isOwner = currentLeague.ownerId === user?.id;
   const currentUserMember = members.find((m) => m.userId === user?.id);
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={true}
-      bounces={true}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-      }
-    >
+  const listHeader = (
+    <>
       {/* League Header */}
       <Card variant="elevated" style={styles.headerCard}>
         <View style={styles.headerTop}>
@@ -303,11 +295,10 @@ export default function LeagueDetailScreen() {
         </View>
       </Card>
 
-      {/* Leaderboard */}
+      {/* Leaderboard Title + View Toggle */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Leaderboard</Text>
 
-        {/* View Toggle */}
         <View style={styles.viewToggle}>
           {LEADERBOARD_VIEWS.map((view) => (
             <TouchableOpacity
@@ -334,32 +325,12 @@ export default function LeagueDetailScreen() {
             </TouchableOpacity>
           ))}
         </View>
-
-        {members.length > 0 ? (
-          members.map((member) => (
-            <LeaderboardItem
-              key={member.id}
-              member={member}
-              isCurrentUser={member.userId === user?.id}
-              view={leaderboardView}
-              onPress={() => {
-                if (member.userId === user?.id) {
-                  // Navigate to own team
-                  router.push('/my-team');
-                } else {
-                  // Navigate to read-only view of other player's team
-                  router.push(`/leagues/${id}/team/${member.userId}`);
-                }
-              }}
-            />
-          ))
-        ) : (
-          <Card variant="outlined" padding="large">
-            <Text style={styles.emptyText}>No members yet</Text>
-          </Card>
-        )}
       </View>
+    </>
+  );
 
+  const listFooter = (
+    <>
       {/* Invite Code - Compact */}
       <TouchableOpacity style={styles.inviteRow} onPress={handleShareCode}>
         <View style={styles.inviteRowLeft}>
@@ -394,6 +365,42 @@ export default function LeagueDetailScreen() {
           />
         )}
       </View>
+    </>
+  );
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={members}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item: member }) => (
+          <LeaderboardItem
+            member={member}
+            isCurrentUser={member.userId === user?.id}
+            view={leaderboardView}
+            onPress={() => {
+              if (member.userId === user?.id) {
+                router.push('/my-team');
+              } else {
+                router.push(`/leagues/${id}/team/${member.userId}`);
+              }
+            }}
+          />
+        )}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={listFooter}
+        ListEmptyComponent={
+          <Card variant="outlined" padding="large">
+            <Text style={styles.emptyText}>No members yet</Text>
+          </Card>
+        }
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+        }
+      />
 
       {/* Avatar Picker Modal */}
       {currentLeague && id && (
@@ -410,7 +417,7 @@ export default function LeagueDetailScreen() {
           userId={user?.id}
         />
       )}
-    </ScrollView>
+    </View>
   );
 }
 

@@ -50,6 +50,7 @@ export function Avatar({
   style,
 }: AvatarProps) {
   const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
   const initials = getInitials(name);
   const gradient = getAvatarGradient(name);
   const colors = getAvatarColors(name);
@@ -139,8 +140,14 @@ export function Avatar({
           source={{ uri: imageUrl }}
           style={[styles.image, { borderRadius }]}
           onError={() => setImageError(true)}
+          onLoadEnd={() => setImageLoading(false)}
           resizeMode="cover"
         />
+        {imageLoading && (
+          <View style={[styles.imagePlaceholder, { borderRadius }]}>
+            <ActivityIndicator size="small" color={COLORS.text.muted} />
+          </View>
+        )}
         {renderEditBadge()}
         {renderRegenerateButton()}
       </Wrapper>
@@ -208,6 +215,12 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  imagePlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.card,
   },
   initials: {
     color: '#FFFFFF',
