@@ -4,12 +4,17 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/config/constants';
 import { useAuthStore } from '../../src/store/auth.store';
+import { useOnboardingStore } from '../../src/store/onboarding.store';
+import { OnboardingTutorial } from '../../src/components/OnboardingTutorial';
 
 export default function TabLayout() {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const isAdmin = useAuthStore((state) => state.isAdmin);
+  const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
+  const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
 
   return (
+    <>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
@@ -150,5 +155,7 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    <OnboardingTutorial visible={!hasCompletedOnboarding} onComplete={completeOnboarding} />
+    </>
   );
 }

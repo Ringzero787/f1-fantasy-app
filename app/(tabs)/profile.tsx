@@ -23,6 +23,7 @@ import { Card } from '../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useAdminStore } from '../../src/store/admin.store';
+import { useOnboardingStore } from '../../src/store/onboarding.store';
 import { useTeamStore } from '../../src/store/team.store';
 import { useAvatarStore } from '../../src/store/avatar.store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -362,6 +363,19 @@ export default function ProfileScreen() {
             {isDemoMode ? 'Demo (Offline)' : 'Online'}
           </Text>
         </View>
+
+        <View style={styles.menuDivider} />
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => useOnboardingStore.getState().resetOnboarding()}
+        >
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="play-circle-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <Text style={styles.menuItemText}>Replay Tutorial</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
+        </TouchableOpacity>
       </Card>
 
       {/* Legal / Attribution */}
