@@ -296,15 +296,30 @@ export function AvatarPicker({
                   </Text>
                 </View>
               </View>
-              {isGeneratingAI ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
-              ) : userId ? (
-                <View style={styles.remainingBadge}>
-                  <Text style={styles.remainingBadgeText}>{avatarRemaining}</Text>
-                </View>
-              ) : (
-                <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
-              )}
+              <View style={styles.aiRightSection}>
+                {userId && !isGeneratingAI && (
+                  <TouchableOpacity
+                    style={styles.buyCreditsChip}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      setShowAvatarPurchase(true);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="add-circle" size={14} color={COLORS.success} />
+                    <Text style={styles.buyCreditsChipText}>Buy</Text>
+                  </TouchableOpacity>
+                )}
+                {isGeneratingAI ? (
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                ) : userId ? (
+                  <View style={styles.remainingBadge}>
+                    <Text style={styles.remainingBadgeText}>{avatarRemaining}</Text>
+                  </View>
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+                )}
+              </View>
             </TouchableOpacity>
           )}
 
@@ -742,6 +757,28 @@ const styles = StyleSheet.create({
 
   aiGenerateButtonDisabled: {
     opacity: 0.45,
+  },
+
+  aiRightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  buyCreditsChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.success + '18',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BORDER_RADIUS.full,
+  },
+
+  buyCreditsChipText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.success,
   },
 
   remainingBadge: {
