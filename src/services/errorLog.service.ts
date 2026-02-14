@@ -152,6 +152,26 @@ export const errorLogService = {
     }
   },
 
+  async bulkDelete(logIds: string[]): Promise<number> {
+    if (logIds.length === 0) return 0;
+    try {
+      let deleted = 0;
+      for (let i = 0; i < logIds.length; i += 500) {
+        const chunk = logIds.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(id => {
+          batch.delete(doc(db, 'errorLogs', id));
+        });
+        await batch.commit();
+        deleted += chunk.length;
+      }
+      return deleted;
+    } catch (e) {
+      console.log('errorLogService: failed to bulk delete:', e);
+      return 0;
+    }
+  },
+
   async getUnreviewedCount(): Promise<number> {
     try {
       const q = query(

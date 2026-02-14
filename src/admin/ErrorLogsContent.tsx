@@ -215,6 +215,51 @@ export default function ErrorLogsContent() {
     setBulkClosing(null);
   }, []);
 
+  const [bulkDeleting, setBulkDeleting] = useState<string | null>(null);
+
+  const handleBulkDelete = useCallback(async (group: IssueGroup) => {
+    const ids = group.entries.map(e => e.id);
+    Alert.alert(
+      'Delete Logs',
+      `Permanently delete all ${ids.length} "${group.context}" logs from Firestore?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setBulkDeleting(group.key);
+            const idSet = new Set(ids);
+            setLogs(prev => prev.filter(l => !idSet.has(l.id)));
+            await errorLogService.bulkDelete(ids);
+            setBulkDeleting(null);
+          },
+        },
+      ]
+    );
+  }, []);
+
+  const handleDeleteAllVisible = useCallback(async () => {
+    if (filtered.length === 0) return;
+    Alert.alert(
+      'Delete All Visible',
+      `Permanently delete ${filtered.length} log(s) from Firestore? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            const ids = filtered.map(l => l.id);
+            const idSet = new Set(ids);
+            setLogs(prev => prev.filter(l => !idSet.has(l.id)));
+            await errorLogService.bulkDelete(ids);
+          },
+        },
+      ]
+    );
+  }, [filtered]);
+
   const renderLogItem = ({ item }: { item: ErrorLogEntry }) => {
     const isExpanded = expandedLog === item.id;
     return (
@@ -326,6 +371,9 @@ export default function ErrorLogsContent() {
                     {hideReviewed ? 'Closed Hidden' : 'Show All'}
                   </Text>
                 </TouchableOpacity>
+                <TouchableOpacity onPress={handleDeleteAllVisible} style={styles.deleteAllButton}>
+                  <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={handleExportLogs} style={styles.exportButton}>
                   <Ionicons name="share-outline" size={18} color={COLORS.white} />
                 </TouchableOpacity>
@@ -419,24 +467,40 @@ export default function ErrorLogsContent() {
                               +{group.entries.length - 5} more
                             </Text>
                           )}
-                          {unreviewedCount > 0 && (
+                          <View style={styles.issueActions}>
+                            {unreviewedCount > 0 && (
+                              <TouchableOpacity
+                                style={styles.bulkCloseButton}
+                                onPress={() => handleBulkClose(group)}
+                                disabled={isBulkClosing}
+                              >
+                                {isBulkClosing ? (
+                                  <ActivityIndicator size="small" color={COLORS.success} />
+                                ) : (
+                                  <Ionicons name="checkmark-done" size={16} color={COLORS.success} />
+                                )}
+                                <Text style={styles.bulkCloseText}>
+                                  {isBulkClosing
+                                    ? 'Closing...'
+                                    : `Close All ${unreviewedCount} Similar`}
+                                </Text>
+                              </TouchableOpacity>
+                            )}
                             <TouchableOpacity
-                              style={styles.bulkCloseButton}
-                              onPress={() => handleBulkClose(group)}
-                              disabled={isBulkClosing}
+                              style={styles.bulkDeleteButton}
+                              onPress={() => handleBulkDelete(group)}
+                              disabled={bulkDeleting === group.key}
                             >
-                              {isBulkClosing ? (
-                                <ActivityIndicator size="small" color={COLORS.success} />
+                              {bulkDeleting === group.key ? (
+                                <ActivityIndicator size="small" color={COLORS.error} />
                               ) : (
-                                <Ionicons name="checkmark-done" size={16} color={COLORS.success} />
+                                <Ionicons name="trash-outline" size={16} color={COLORS.error} />
                               )}
-                              <Text style={styles.bulkCloseText}>
-                                {isBulkClosing
-                                  ? 'Closing...'
-                                  : `Close All ${unreviewedCount} Similar`}
+                              <Text style={styles.bulkDeleteText}>
+                                {bulkDeleting === group.key ? 'Deleting...' : `Delete All ${group.count}`}
                               </Text>
                             </TouchableOpacity>
-                          )}
+                          </View>
                         </View>
                       )}
                     </View>
@@ -686,23 +750,48 @@ const styles = StyleSheet.create({
   issueRowReviewed: {
     opacity: 0.5,
   },
+  issueActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
   bulkCloseButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-    marginTop: SPACING.sm,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     backgroundColor: COLORS.success + '12',
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.success + '30',
-    alignSelf: 'flex-start',
   },
   bulkCloseText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     color: COLORS.success,
+  },
+  bulkDeleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.error + '12',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.error + '30',
+  },
+  bulkDeleteText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.error,
+  },
+  deleteAllButton: {
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.error + '15',
   },
 
   // Filters

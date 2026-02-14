@@ -26,23 +26,23 @@ const IMAGE_GENERATION_MODELS = [
   'gemini-2.5-flash-image',        // Nano Banana - fast image generation
 ];
 
-// Avatar generation prompts based on type — kept simple for clean output
+// Avatar generation prompts based on type — uses name for thematic imagery
 const AVATAR_PROMPTS = {
   league: (name: string) =>
-    `A simple, clean racing emblem on a solid dark background. ` +
-    `One bold icon in the center (helmet, flag, or wing shape). ` +
-    `Flat graphic style, 2-3 colors max. Square image, edge-to-edge. ` +
+    `A simple, clean racing emblem inspired by the name "${name}". ` +
+    `One bold icon in the center that represents "${name}". ` +
+    `Flat graphic style, solid dark background, 2-3 colors max. Square image, edge-to-edge. ` +
     `No text, no words, no letters.`,
 
   team: (name: string) =>
-    `A simple, bold team badge for a racing team. ` +
-    `One strong central symbol (animal, shield, or abstract shape). ` +
+    `A simple, bold team badge for a racing team called "${name}". ` +
+    `One strong central symbol that represents "${name}". ` +
     `Flat graphic style, solid dark background, 2-3 accent colors. ` +
     `Square image, edge-to-edge. No text, no words, no letters.`,
 
   user: (name: string) =>
-    `A clean racing driver helmet portrait on a solid dark background. ` +
-    `Simple, minimal detail — just the helmet with one or two color accents. ` +
+    `A stylized racing avatar inspired by the name "${name}". ` +
+    `Simple, bold imagery that evokes "${name}" on a solid dark background. ` +
     `Flat illustrated style, not photorealistic. Square image, edge-to-edge. ` +
     `No text, no words, no letters.`,
 };

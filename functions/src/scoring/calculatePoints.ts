@@ -292,7 +292,17 @@ export const onRaceCompleted = functions
       for (const driver of team.drivers) {
         const raceResult = raceResultsMap.get(driver.driverId);
         const sprintResult = sprintResultsMap.get(driver.driverId) || null;
-        const isAce = driver.driverId === aceDriverId;
+        let isAce = driver.driverId === aceDriverId;
+
+        // Server-side ace price validation: drivers over $240 cannot be ace
+        if (isAce) {
+          const driverDoc = await db.collection('drivers').doc(driver.driverId).get();
+          const driverPrice = driverDoc.exists ? (driverDoc.data()?.price || 0) : 0;
+          if (driverPrice > TIER_A_THRESHOLD) {
+            console.warn(`Invalid ace: driver ${driver.driverId} price $${driverPrice} > $${TIER_A_THRESHOLD}`);
+            isAce = false;
+          }
+        }
 
         let driverPoints = 0;
         if (raceResult) {
@@ -311,7 +321,18 @@ export const onRaceCompleted = functions
       let updatedConstructor: FantasyConstructor | null = null;
       if (team.constructor) {
         const ctor = team.constructor;
-        const isAceConstructor = team.aceConstructorId === ctor.constructorId;
+        let isAceConstructor = team.aceConstructorId === ctor.constructorId;
+
+        // Server-side ace constructor price validation
+        if (isAceConstructor) {
+          const ctorDoc = await db.collection('constructors').doc(ctor.constructorId).get();
+          const ctorPrice = ctorDoc.exists ? (ctorDoc.data()?.price || 0) : 0;
+          if (ctorPrice > TIER_A_THRESHOLD) {
+            console.warn(`Invalid ace constructor: ${ctor.constructorId} price $${ctorPrice} > $${TIER_A_THRESHOLD}`);
+            isAceConstructor = false;
+          }
+        }
+
         let constructorPoints = 0;
 
         const constructorDriverResults = raceResults.filter(

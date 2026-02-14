@@ -140,7 +140,9 @@
       "Bash(\"/mnt/c/Users/natha/AppData/Local/Android/Sdk/platform-tools/adb.exe\" install -r \"C:\\\\Users\\\\natha\\\\f1-app\\\\build-output.apk\")",
       "Bash(cmd.exe /c \"where adb\")",
       "Bash(cmd.exe /c \"dir /s /b C:\\\\Users\\\\natha\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\")",
-      "Bash(cmd.exe:*)"
+      "Bash(cmd.exe:*)",
+      "Bash(find:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

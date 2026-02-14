@@ -95,6 +95,7 @@ export function AvatarPicker({
   const avatarRemaining = useAvatarStore(s => userId ? s.getRemaining(userId) : 10);
   const canGenerateMore = useAvatarStore(s => userId ? s.canGenerate(userId) : true);
   const addAvatar = useAvatarStore(s => s.addAvatar);
+  const consumeCredit = useAvatarStore(s => s.consumeCredit);
 
   // When AI generation finishes, update previewUrl and save to history
   useEffect(() => {
@@ -103,9 +104,10 @@ export function AvatarPicker({
     } else if (wasGenerating && currentAvatarUrl) {
       setPreviewUrl(currentAvatarUrl);
       setWasGenerating(false);
-      // Save to avatar history
+      // Save to avatar history and consume a credit
       if (userId) {
         addAvatar(userId, currentAvatarUrl);
+        consumeCredit(userId);
       }
     }
   }, [isGeneratingAI, currentAvatarUrl, wasGenerating]);

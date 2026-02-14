@@ -81,7 +81,7 @@ export const teamService = {
         canModify: true,
       },
       // V3: Ace and transfer tracking
-      aceDriverId: undefined,
+      aceDriverId: null,
       racesSinceTransfer: 0,
       // V4: Late joiner support
       racesPlayed: 0,
@@ -526,7 +526,7 @@ export const teamService = {
     );
 
     // V3: If swapped driver was ace, clear ace
-    const newAceId = team.aceDriverId === oldDriverId ? undefined : team.aceDriverId;
+    const newAceId = team.aceDriverId === oldDriverId ? null : team.aceDriverId;
 
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {

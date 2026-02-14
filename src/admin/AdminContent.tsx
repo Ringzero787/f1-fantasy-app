@@ -234,8 +234,8 @@ export default function AdminContent() {
     return positionMap;
   }, [currentPositions]);
 
-  // Only show for admins or demo mode (guard placed after all hooks)
-  if (!isAdmin && !isDemoMode) {
+  // Only show for admins (guard placed after all hooks)
+  if (!isAdmin) {
     return (
       <EmptyState
         icon="lock-closed"
