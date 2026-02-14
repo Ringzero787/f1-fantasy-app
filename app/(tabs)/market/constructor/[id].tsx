@@ -70,6 +70,13 @@ export default function ConstructorDetailScreen() {
             <Ionicons name="flag-outline" size={16} color={COLORS.gray[500]} />
             <Text style={styles.nationality}>{constructor.nationality}</Text>
           </View>
+
+          {constructor.teamPrincipal && (
+            <View style={styles.principalRow}>
+              <Ionicons name="person-outline" size={16} color={COLORS.gray[500]} />
+              <Text style={styles.principalText}>{constructor.teamPrincipal}</Text>
+            </View>
+          )}
         </View>
       </Card>
 
@@ -220,6 +227,18 @@ const styles = StyleSheet.create({
   },
 
   nationality: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.gray[500],
+  },
+
+  principalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.xs,
+    gap: SPACING.xs,
+  },
+
+  principalText: {
     fontSize: FONTS.sizes.sm,
     color: COLORS.gray[500],
   },

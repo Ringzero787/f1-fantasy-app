@@ -46,6 +46,7 @@ export interface Constructor {
   name: string;
   shortName: string;
   nationality: string;
+  teamPrincipal?: string;
   logoURL?: string;
   primaryColor: string;
   secondaryColor: string;

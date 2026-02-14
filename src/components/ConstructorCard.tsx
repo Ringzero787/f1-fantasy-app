@@ -79,10 +79,13 @@ export const ConstructorCard = React.memo(function ConstructorCard({
             <View style={[styles.teamColorDot, { backgroundColor: constructor.primaryColor }]} />
           </View>
 
-          {/* Name + nationality */}
+          {/* Name + nationality + principal */}
           <View style={styles.nameBlock}>
             <Text style={styles.name} numberOfLines={1}>{constructor.name}</Text>
             <Text style={styles.nationality}>{constructor.nationality}</Text>
+            {constructor.teamPrincipal && (
+              <Text style={styles.teamPrincipal}>{constructor.teamPrincipal}</Text>
+            )}
           </View>
 
           {/* Right: price + points stacked */}
@@ -210,6 +213,12 @@ const styles = StyleSheet.create({
   },
 
   nationality: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+    marginTop: 1,
+  },
+
+  teamPrincipal: {
     fontSize: FONTS.sizes.xs,
     color: COLORS.text.muted,
     marginTop: 1,
