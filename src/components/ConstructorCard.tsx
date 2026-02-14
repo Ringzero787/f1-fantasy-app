@@ -147,10 +147,10 @@ export const ConstructorCard = React.memo(function ConstructorCard({
               <Text style={[styles.positionText, position <= 3 && styles.topPositionText]}>#{position}</Text>
             </View>
           )}
-          {constructor.currentSeasonPoints > 0 && !showPoints && (
+          {(constructor.currentSeasonPoints ?? 0) > 0 && !showPoints && (
             <View style={styles.fantasyBadge}>
               <Ionicons name="trophy-outline" size={10} color={COLORS.primary} />
-              <Text style={styles.fantasyText}>{formatPoints(constructor.currentSeasonPoints)} pts</Text>
+              <Text style={styles.fantasyText}>{formatPoints(constructor.currentSeasonPoints ?? 0)} pts</Text>
             </View>
           )}
         </View>
