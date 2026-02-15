@@ -1,0 +1,18 @@
+diff --git a/node_modules/react-native-iap/ios/RNIapIosSk2.swift b/node_modules/react-native-iap/ios/RNIapIosSk2.swift
+index c389f6d..72d15d7 100644
+--- a/node_modules/react-native-iap/ios/RNIapIosSk2.swift
++++ b/node_modules/react-native-iap/ios/RNIapIosSk2.swift
+@@ -1198,11 +1198,8 @@ class RNIapIosSk2iOS15: Sk2Delegate {
+                     case .verified(let appTransaction):
+                         var result: [String: Any] = [:]
+ 
+-                        // Add iOS 18.4+ properties
+-                        if #available(iOS 18.4, tvOS 18.4, *) {
+-                            result["appTransactionID"] = appTransaction.appTransactionID
+-                            result["originalPlatform"] = appTransaction.originalPlatform
+-                        }
++                        // iOS 18.4+ properties removed: appTransactionID and originalPlatform
++                        // require Xcode 16.4+ SDK which may not be available on EAS
+ 
+                         // Add other AppTransaction properties
+                         result["originalAppVersion"] = appTransaction.originalAppVersion

@@ -231,6 +231,17 @@ export default function LeagueDetailScreen() {
     );
   };
 
+  const foundedYear = useMemo(() => {
+    if (!currentLeague) return null;
+    const d = currentLeague.createdAt;
+    if (!d) return null;
+    if (d instanceof Date) return d.getFullYear();
+    // Firestore Timestamp object
+    if (typeof d === 'object' && 'seconds' in d) return new Date((d as any).seconds * 1000).getFullYear();
+    const parsed = new Date(d);
+    return isNaN(parsed.getTime()) ? null : parsed.getFullYear();
+  }, [currentLeague?.createdAt]);
+
   if (isLoading && !currentLeague) {
     return <Loading fullScreen message="Loading league..." />;
   }
@@ -270,7 +281,7 @@ export default function LeagueDetailScreen() {
           <View style={styles.headerInfo}>
             <Text style={styles.leagueName}>{currentLeague.name}</Text>
             <Text style={styles.ownerText}>by {currentLeague.ownerName}</Text>
-            <Text style={styles.foundedText}>Founded {new Date(currentLeague.createdAt).getFullYear()}</Text>
+            {foundedYear ? <Text style={styles.foundedText}>Founded {foundedYear}</Text> : null}
           </View>
         </View>
 
@@ -352,12 +363,12 @@ export default function LeagueDetailScreen() {
       {/* Invite Code - Compact */}
       <TouchableOpacity style={styles.inviteRow} onPress={handleShareCode}>
         <View style={styles.inviteRowLeft}>
-          <Ionicons name="link-outline" size={18} color={COLORS.text.muted} />
+          <Ionicons name="link-outline" size={20} color={COLORS.text.muted} />
           <Text style={styles.inviteRowLabel}>Invite Code:</Text>
           <Text style={styles.inviteRowCode}>{currentLeague.inviteCode}</Text>
         </View>
         <View style={styles.shareButton}>
-          <Ionicons name="share-outline" size={18} color={COLORS.primary} />
+          <Ionicons name="share-outline" size={20} color={COLORS.primary} />
           <Text style={styles.shareText}>Share</Text>
         </View>
       </TouchableOpacity>
@@ -369,7 +380,7 @@ export default function LeagueDetailScreen() {
             style={styles.adminButton}
             onPress={() => router.push(`/leagues/${id}/admin`)}
           >
-            <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
+            <Ionicons name="settings-outline" size={20} color={COLORS.primary} />
             <Text style={styles.adminButtonText}>League Admin</Text>
           </TouchableOpacity>
         )}
@@ -472,7 +483,7 @@ const styles = StyleSheet.create({
   },
 
   leagueName: {
-    fontSize: FONTS.sizes.xl,
+    fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
     color: COLORS.text.primary,
   },
@@ -533,8 +544,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.card,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border.default,
@@ -597,8 +608,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.xs,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
     borderRadius: BORDER_RADIUS.sm,
     gap: 4,
   },
@@ -608,7 +619,7 @@ const styles = StyleSheet.create({
   },
 
   viewToggleText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     fontWeight: '500',
     color: COLORS.text.muted,
   },
@@ -634,7 +645,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: SPACING.sm,
     backgroundColor: COLORS.card,
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 2,
@@ -643,7 +654,7 @@ const styles = StyleSheet.create({
   },
 
   adminButtonText: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '600',
     color: COLORS.primary,
   },

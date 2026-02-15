@@ -28,7 +28,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 # google-services.json NOT excluded - EAS needs it for Android builds
-GoogleService-Info.plist
+# GoogleService-Info.plist NOT excluded - EAS needs it for iOS builds
 **/client_secret*.json
 *.keystore
 *.jks

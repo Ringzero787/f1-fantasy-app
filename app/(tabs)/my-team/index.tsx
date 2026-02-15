@@ -1290,13 +1290,13 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   welcomeMessage: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     color: COLORS.text.secondary,
     textAlign: 'center',
     marginBottom: SPACING.xl,
   },
   welcomeHint: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     color: COLORS.text.muted,
     textAlign: 'center',
   },
@@ -1321,7 +1321,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   teamTabText: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     fontWeight: '600',
     color: COLORS.text.secondary,
     maxWidth: 120,
@@ -1347,7 +1347,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   newTeamLinkText: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     fontWeight: '500',
     color: COLORS.primary,
   },
@@ -1370,12 +1370,12 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs,
   },
   statValue: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '700',
     color: COLORS.text.primary,
   },
   statLabel: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     marginTop: 1,
   },
@@ -1385,7 +1385,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border.default,
   },
   joinLeagueText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     color: COLORS.primary,
     marginTop: 2,
@@ -1458,12 +1458,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardNumberText: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     fontWeight: '800',
     color: COLORS.white,
   },
   cardName: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '700',
     color: COLORS.text.primary,
     flexShrink: 1,
@@ -1482,7 +1482,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   cardPrice: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '700',
     color: COLORS.text.primary,
   },
@@ -1501,7 +1501,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.error,
   },
   cardPriceDiffText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     color: COLORS.white,
   },
@@ -1512,7 +1512,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.text.muted + '20',
   },
   reserveTagText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     color: COLORS.text.muted,
     letterSpacing: 0.5,
@@ -1532,7 +1532,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.sm,
   },
   metaChipText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: COLORS.text.muted,
   },
@@ -1555,7 +1555,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.text.muted + '25',
   },
   sellChipText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
   },
   sellChipTextProfit: {
@@ -1576,7 +1576,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary + '25',
   },
   swapChipText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: COLORS.primary,
   },
@@ -1594,12 +1594,12 @@ const styles = StyleSheet.create({
     borderColor: '#7c3aed' + '30',
   },
   lockoutBannerText: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     fontWeight: '600',
     color: '#7c3aed',
   },
   lockoutBannerHint: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: '#7c3aed' + 'AA',
     marginTop: 2,
   },
@@ -1617,9 +1617,9 @@ const styles = StyleSheet.create({
   },
   lockoutNoticeText: {
     flex: 1,
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     color: COLORS.text.secondary,
-    lineHeight: 16,
+    lineHeight: 18,
   },
 
   teamAlert: {
@@ -1634,9 +1634,9 @@ const styles = StyleSheet.create({
   },
   teamAlertText: {
     flex: 1,
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    lineHeight: 18,
+    lineHeight: 20,
   },
 
   // Add slot button
@@ -1654,7 +1654,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary + '06',
   },
   addSlotText: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.md,
     fontWeight: '600',
     color: COLORS.primary,
   },
@@ -1674,7 +1674,7 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.lg,
   },
   autoFillText: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontWeight: '600',
     color: COLORS.white,
   },
@@ -1687,7 +1687,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
   },
   deleteTeamText: {
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     color: COLORS.error,
     fontWeight: '500',
   },

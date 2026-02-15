@@ -1,4 +1,17 @@
-export default {
+const { withEntitlementsPlist } = require('expo/config-plugins');
+
+// Strip aps-environment entitlement so the build succeeds without
+// an Apple-authenticated provisioning profile that includes Push.
+// Remove this plugin once you re-authenticate with Apple via:
+//   npx eas-cli build --profile preview --platform ios
+const withoutPushEntitlement = (config) => {
+  return withEntitlementsPlist(config, (mod) => {
+    delete mod.modResults['aps-environment'];
+    return mod;
+  });
+};
+
+module.exports = {
   expo: {
     name: "Undercut",
     slug: "f1-fantasy-app",
@@ -59,7 +72,8 @@ export default {
       "@react-native-google-signin/google-signin",
       "expo-apple-authentication",
       "react-native-iap",
-      "expo-notifications"
+      "expo-notifications",
+      withoutPushEntitlement,
     ],
     experiments: {
       typedRoutes: true
