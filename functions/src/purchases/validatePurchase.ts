@@ -151,21 +151,26 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
     }
   }
 
-  // Verify purchase with the appropriate store (skip for demo tokens)
-  const isDemoToken = !isIOS && typeof purchaseToken === 'string' && purchaseToken.startsWith('demo_');
-  if (!isDemoToken) {
-    if (isIOS) {
-      const verification = await verifyAppleReceipt(transactionReceipt, productId);
-      if (!verification.valid) {
-        console.warn(`Invalid iOS receipt from user ${userId}: ${verification.error}`);
-        throw new functions.https.HttpsError('permission-denied', 'Invalid iOS receipt');
-      }
-    } else {
-      const verification = await verifyGooglePlayPurchase(productId, purchaseToken);
-      if (!verification.valid) {
-        console.warn(`Invalid purchase token from user ${userId}: ${verification.error}`);
-        throw new functions.https.HttpsError('permission-denied', 'Invalid purchase token');
-      }
+  // Reject demo tokens server-side — demo bypass should only exist in client store
+  if (typeof purchaseToken === 'string' && purchaseToken.startsWith('demo_')) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Demo tokens are not valid for server-side purchase validation'
+    );
+  }
+
+  // Verify purchase with the appropriate store
+  if (isIOS) {
+    const verification = await verifyAppleReceipt(transactionReceipt, productId);
+    if (!verification.valid) {
+      console.warn(`Invalid iOS receipt from user ${userId}: ${verification.error}`);
+      throw new functions.https.HttpsError('permission-denied', 'Invalid iOS receipt');
+    }
+  } else {
+    const verification = await verifyGooglePlayPurchase(productId, purchaseToken);
+    if (!verification.valid) {
+      console.warn(`Invalid purchase token from user ${userId}: ${verification.error}`);
+      throw new functions.https.HttpsError('permission-denied', 'Invalid purchase token');
     }
   }
 

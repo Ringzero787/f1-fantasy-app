@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import * as crypto from 'crypto';
 
 /**
  * Callable Cloud Function to set admin custom claims on a user.
@@ -44,9 +45,15 @@ export const bootstrapAdmin = functions.https.onRequest(async (req, res) => {
 
   const { email, secret } = req.body;
 
-  // Check bootstrap secret from environment config
+  // Check bootstrap secret from environment config (timing-safe comparison)
   const bootstrapSecret = functions.config().admin?.bootstrap_secret;
-  if (!bootstrapSecret || secret !== bootstrapSecret) {
+  if (!bootstrapSecret || typeof secret !== 'string' || secret.length === 0) {
+    res.status(403).json({ error: 'Invalid bootstrap secret' });
+    return;
+  }
+  const provided = Buffer.from(secret);
+  const expected = Buffer.from(bootstrapSecret);
+  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
     res.status(403).json({ error: 'Invalid bootstrap secret' });
     return;
   }

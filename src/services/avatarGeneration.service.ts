@@ -264,7 +264,11 @@ export async function generateAvatar(
     // Try to upload to Firebase Storage
     try {
       const extension = mimeType.split('/')[1] || 'png';
-      const storagePath = `avatars/${type}s/${entityId}.${extension}`;
+      const userId = firebaseAuth.currentUser?.uid;
+      if (!userId) {
+        return { success: false, error: 'Must be authenticated to upload avatars' };
+      }
+      const storagePath = `avatars/${userId}/${type}s/${entityId}.${extension}`;
 
       const imageUrl = await uploadBase64ToStorage(imageData, storagePath, mimeType);
 

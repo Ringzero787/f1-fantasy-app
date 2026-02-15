@@ -94,8 +94,9 @@ export function SocialAuthButtons({
   const handleApplePress = async () => {
     setIsAppleLoading(true);
     try {
-      // Generate a secure nonce
-      const nonce = Math.random().toString(36).substring(2, 10);
+      // Generate a cryptographically secure nonce
+      const randomBytes = await Crypto.getRandomBytesAsync(32);
+      const nonce = Array.from(randomBytes, (b) => b.toString(16).padStart(2, '0')).join('');
       const hashedNonce = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
         nonce
