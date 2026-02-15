@@ -155,7 +155,7 @@ export default function SelectDriverScreen() {
 
   const currentDriverCount = currentTeam?.drivers.length || 0;
   const maxSelectableDrivers = isSwapMode ? 1 : TEAM_SIZE - currentDriverCount;
-  const baseBudget = (currentTeam?.budget || BUDGET) + (isSwapMode ? swapPrice : 0);
+  const baseBudget = (currentTeam?.budget ?? BUDGET) + (isSwapMode ? swapPrice : 0);
 
   const selectedTotal = useMemo(
     () => selectedDrivers.reduce((sum, d) => sum + d.price, 0),

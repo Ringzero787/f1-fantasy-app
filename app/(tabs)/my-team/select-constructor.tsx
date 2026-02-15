@@ -35,7 +35,7 @@ export default function SelectConstructorScreen() {
     return Math.max(0, c.currentPrice - earlyTermFee);
   }, [currentTeam?.constructor]);
 
-  const remainingBudget = (currentTeam?.budget || BUDGET) + currentConstructorSaleValue;
+  const remainingBudget = (currentTeam?.budget ?? BUDGET) + currentConstructorSaleValue;
 
   const availableConstructors = useMemo(() => {
     if (!allConstructors) return [];
