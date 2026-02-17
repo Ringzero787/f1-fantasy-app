@@ -5,18 +5,21 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  Switch,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useRace, useRaceResults } from '../../../src/hooks';
 import { Card, Loading, EmptyState, TrackIcon } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
-import { formatDate, formatTime, formatCountdown } from '../../../src/utils/formatters';
+import { formatCountdown, formatTimeWithZone, formatDateWithZone } from '../../../src/utils/formatters';
+import { usePrefsStore } from '../../../src/store/prefs.store';
 
 export default function RaceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: race, isLoading, refetch } = useRace(id || '');
   const { data: results } = useRaceResults(id || '');
+  const { showLocalTime, toggleLocalTime } = usePrefsStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [countdown, setCountdown] = useState('');
@@ -113,6 +116,18 @@ export default function RaceDetailScreen() {
       {/* Schedule */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Schedule</Text>
+        <View style={styles.timezoneToggleRow}>
+          <Ionicons name="globe-outline" size={18} color={COLORS.text.secondary} />
+          <Text style={styles.timezoneLabel}>
+            {showLocalTime ? 'My Time' : 'Track Time'}
+          </Text>
+          <Switch
+            value={showLocalTime}
+            onValueChange={toggleLocalTime}
+            trackColor={{ false: COLORS.border.default, true: COLORS.primary }}
+            thumbColor={COLORS.white}
+          />
+        </View>
         <Card variant="outlined" padding="none">
           {sessions.map((session, index) => (
             <View
@@ -132,10 +147,12 @@ export default function RaceDetailScreen() {
               <View style={styles.sessionInfo}>
                 <Text style={styles.sessionName}>{session.name}</Text>
                 <Text style={styles.sessionDate}>
-                  {formatDate(session.time!)}
+                  {formatDateWithZone(session.time!, race.timezone, showLocalTime)}
                 </Text>
               </View>
-              <Text style={styles.sessionTime}>{formatTime(session.time!)}</Text>
+              <Text style={styles.sessionTime}>
+                {formatTimeWithZone(session.time!, race.timezone, showLocalTime)}
+              </Text>
             </View>
           ))}
         </Card>
@@ -308,6 +325,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text.primary,
     marginBottom: SPACING.md,
+  },
+
+  timezoneToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+
+  timezoneLabel: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+    fontWeight: '500',
   },
 
   sessionRow: {

@@ -155,6 +155,38 @@ export function formatDriverName(fullName: string): string {
 }
 
 /**
+ * Format time with timezone awareness
+ * When useLocalTime = false → format in track's IANA timezone with tz abbreviation
+ * When useLocalTime = true → format in device timezone with tz abbreviation
+ */
+export function formatTimeWithZone(date: Date | string, trackTimezone: string, useLocalTime: boolean): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const options: Intl.DateTimeFormatOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZoneName: 'short',
+    ...(useLocalTime ? {} : { timeZone: trackTimezone }),
+  };
+  return new Intl.DateTimeFormat('en-GB', options).format(d);
+}
+
+/**
+ * Format date with timezone awareness
+ * Day may differ across timezones so this respects the toggle too
+ */
+export function formatDateWithZone(date: Date | string, trackTimezone: string, useLocalTime: boolean): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const options: Intl.DateTimeFormatOptions = {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    ...(useLocalTime ? {} : { timeZone: trackTimezone }),
+  };
+  return new Intl.DateTimeFormat('en-US', options).format(d);
+}
+
+/**
  * Truncate text with ellipsis
  */
 export function truncate(text: string, maxLength: number): string {
