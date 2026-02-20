@@ -1,16 +1,3 @@
-const { withEntitlementsPlist } = require('expo/config-plugins');
-
-// Strip aps-environment entitlement so the build succeeds without
-// an Apple-authenticated provisioning profile that includes Push.
-// Remove this plugin once you re-authenticate with Apple via:
-//   npx eas-cli build --profile preview --platform ios
-const withoutPushEntitlement = (config) => {
-  return withEntitlementsPlist(config, (mod) => {
-    delete mod.modResults['aps-environment'];
-    return mod;
-  });
-};
-
 module.exports = {
   expo: {
     name: "Undercut",
@@ -34,8 +21,8 @@ module.exports = {
       "**/*"
     ],
     ios: {
-      supportsTablet: true,
-      bundleIdentifier: "com.f1fantasy.app",
+      supportsTablet: false,
+      bundleIdentifier: "com.undercut.app",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -45,9 +32,9 @@ module.exports = {
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#FFFFFF"
+        backgroundColor: "#0D1117"
       },
-      package: "com.f1fantasy.app",
+      package: "com.undercut.app",
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json"
     },
     web: {
@@ -73,11 +60,14 @@ module.exports = {
       "expo-apple-authentication",
       "react-native-iap",
       "expo-notifications",
-      withoutPushEntitlement,
+      "expo-secure-store",
+      "@react-native-firebase/app-check",
+      "@react-native-firebase/crashlytics",
     ],
     experiments: {
       typedRoutes: true
     },
+    privacyPolicyUrl: "https://f1-app-18077.web.app/privacy.html",
     extra: {
       router: {
         origin: false

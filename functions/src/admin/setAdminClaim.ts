@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import * as crypto from 'crypto';
+import { warnIfNoAppCheck } from '../utils/appCheck';
 
 /**
  * Callable Cloud Function to set admin custom claims on a user.
@@ -11,6 +12,7 @@ export const setAdminClaim = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
+  warnIfNoAppCheck(context, 'setAdminClaim');
 
   // Caller must already be an admin
   if (!context.auth.token.admin) {

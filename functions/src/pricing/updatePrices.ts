@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { warnIfNoAppCheck } from '../utils/appCheck';
 
 const db = admin.firestore();
 
@@ -7,6 +8,7 @@ const db = admin.firestore();
  * Get price history for a driver or constructor
  */
 export const getPriceHistory = functions.https.onCall(async (data, context) => {
+  warnIfNoAppCheck(context, 'getPriceHistory');
   const { entityId, entityType, limit = 10 } = data;
 
   if (!entityId || !entityType) {

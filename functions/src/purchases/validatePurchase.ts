@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { GoogleAuth } from 'google-auth-library';
+import { warnIfNoAppCheck } from '../utils/appCheck';
 
 const db = admin.firestore();
 
@@ -106,6 +107,7 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
+  warnIfNoAppCheck(context, 'validatePurchase');
 
   const { productId, purchaseToken, transactionReceipt, transactionId, platform } = data;
   const isIOS = platform === 'ios';
@@ -203,6 +205,7 @@ export const getUserPurchases = functions.https.onCall(async (data, context) => 
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
+  warnIfNoAppCheck(context, 'getUserPurchases');
 
   const userId = context.auth.uid;
 

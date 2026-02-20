@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { warnIfNoAppCheck } from '../utils/appCheck';
 
 const db = admin.firestore();
 
@@ -111,6 +112,7 @@ export const lockTeam = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
+  warnIfNoAppCheck(context, 'lockTeam');
 
   const { teamId, reason } = data;
   if (!teamId) {
@@ -145,6 +147,7 @@ export const seasonLockTeam = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
+  warnIfNoAppCheck(context, 'seasonLockTeam');
 
   const { teamId, racesRemaining } = data;
   if (!teamId || typeof racesRemaining !== 'number') {
@@ -192,6 +195,7 @@ export const earlyUnlockTeam = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
+  warnIfNoAppCheck(context, 'earlyUnlockTeam');
 
   const { teamId } = data;
   if (!teamId) {
@@ -244,6 +248,7 @@ export const earlyUnlockTeam = functions.https.onCall(async (data, context) => {
  * Check lock status for a race
  */
 export const checkLockStatus = functions.https.onCall(async (data, context) => {
+  warnIfNoAppCheck(context, 'checkLockStatus');
   const { raceId, teamId } = data;
 
   if (!raceId) {

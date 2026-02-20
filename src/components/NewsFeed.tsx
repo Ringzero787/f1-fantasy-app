@@ -34,9 +34,10 @@ const CATEGORY_LABELS: Record<ArticleCategory, string> = {
   general: 'General',
 };
 
-function getTimeAgo(date: Date): string {
+function getTimeAgo(date: Date | string | number): string {
+  const d = date instanceof Date ? date : new Date(date);
   const now = Date.now();
-  const diff = now - date.getTime();
+  const diff = now - d.getTime();
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return 'just now';
   if (minutes < 60) return `${minutes}m ago`;

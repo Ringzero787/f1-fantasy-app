@@ -539,3 +539,9 @@ export interface TeamSelectionState {
   isValid: boolean;
   validationErrors: string[];
 }
+
+// ============================================
+// Chat Types
+// ============================================
+
+export type { ChatMessage, ChatReadReceipt } from './chat';

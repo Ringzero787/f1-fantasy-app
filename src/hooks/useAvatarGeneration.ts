@@ -23,17 +23,6 @@ export function useAvatarGeneration(options: UseAvatarGenerationOptions = {}) {
     type: AvatarType,
     entityId: string
   ) => {
-    if (!isAvailable) {
-      const errorMsg = 'Avatar generation not available. Please configure your Gemini API key.';
-      setError(errorMsg);
-      options.onError?.(errorMsg);
-      Alert.alert(
-        'Setup Required',
-        'To generate AI avatars, add your Gemini API key to the environment variables (EXPO_PUBLIC_GEMINI_API_KEY).'
-      );
-      return null;
-    }
-
     setIsGenerating(true);
     setError(null);
 
@@ -59,26 +48,17 @@ export function useAvatarGeneration(options: UseAvatarGenerationOptions = {}) {
     } finally {
       setIsGenerating(false);
     }
-  }, [isAvailable, options]);
+  }, [options]);
 
   const regenerate = useCallback(async (
     name: string,
     type: AvatarType,
     entityId: string
   ) => {
-    if (!isAvailable) {
-      Alert.alert(
-        'Setup Required',
-        'To generate AI avatars, add your Gemini API key to the environment variables (EXPO_PUBLIC_GEMINI_API_KEY).'
-      );
-      return null;
-    }
-
-    // Confirm regeneration
     return new Promise<string | null>((resolve) => {
       Alert.alert(
         'Regenerate Avatar',
-        'This will create a new AI-generated avatar. Each generation uses API credits. Continue?',
+        'This will create a new AI-generated avatar. Continue?',
         [
           { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
           {
@@ -114,7 +94,7 @@ export function useAvatarGeneration(options: UseAvatarGenerationOptions = {}) {
         ]
       );
     });
-  }, [isAvailable, options]);
+  }, [options]);
 
   return {
     generate,

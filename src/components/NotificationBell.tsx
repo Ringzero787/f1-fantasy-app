@@ -3,10 +3,13 @@ import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useNotificationStore } from '../store/notification.store';
+import { useChatStore } from '../store/chat.store';
 import { COLORS } from '../config/constants';
 
 export function NotificationBell() {
-  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const notifUnread = useNotificationStore((s) => s.unreadCount);
+  const chatUnread = useChatStore((s) => s.totalUnread);
+  const unreadCount = notifUnread + chatUnread;
 
   return (
     <TouchableOpacity

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureStorage } from '../utils/secureStorage';
 import type { Notification } from '../types';
 import * as notificationService from '../services/notification.service';
 
@@ -103,7 +103,7 @@ export const useNotificationStore = create<NotificationState>()(
     }),
     {
       name: 'notification-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => secureStorage),
       partialize: (state) => ({
         pushToken: state.pushToken,
         unreadCount: state.unreadCount,

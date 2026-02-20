@@ -19,6 +19,7 @@ import { Card, Button, EmptyState } from '../components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
 import { errorLogService } from '../services/errorLog.service';
 import { articleService } from '../services/article.service';
+import { useChatStore } from '../store/chat.store';
 
 // Filter to only active drivers (should be 22 for full grid)
 const activeDrivers = demoDrivers.filter(d => d.isActive);
@@ -130,6 +131,7 @@ export default function AdminContent() {
   const [entryMode, setEntryMode] = useState<'race' | 'sprint'>('race');
   const [unreviewedCount, setUnreviewedCount] = useState(0);
   const [draftArticleCount, setDraftArticleCount] = useState(0);
+  const chatTotalUnread = useChatStore((s) => s.totalUnread);
 
   useEffect(() => {
     errorLogService.getUnreviewedCount().then(setUnreviewedCount);
@@ -807,6 +809,21 @@ export default function AdminContent() {
         <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
       </TouchableOpacity>
 
+      {/* League Chat Button */}
+      <TouchableOpacity
+        style={styles.chatButton}
+        onPress={() => router.push('/(tabs)/admin/chat-list' as any)}
+      >
+        <Ionicons name="chatbubbles-outline" size={18} color={COLORS.primary} />
+        <Text style={styles.chatButtonText}>League Chat</Text>
+        {chatTotalUnread > 0 && (
+          <View style={styles.chatBadge}>
+            <Text style={styles.chatBadgeText}>{chatTotalUnread}</Text>
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
+      </TouchableOpacity>
+
       {/* Error Log */}
       <TouchableOpacity
         style={styles.errorLogsButton}
@@ -1244,6 +1261,40 @@ const styles = StyleSheet.create({
     marginRight: SPACING.xs,
   },
   draftBadgeText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.primary + '10',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+    marginBottom: SPACING.md,
+  },
+  chatButtonText: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  chatBadge: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    marginRight: SPACING.xs,
+  },
+  chatBadgeText: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
     color: COLORS.white,

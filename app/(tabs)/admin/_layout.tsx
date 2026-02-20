@@ -38,6 +38,18 @@ export default function AdminLayout() {
           title: 'News Management',
         }}
       />
+      <Stack.Screen
+        name="chat-list"
+        options={{
+          title: 'League Chat',
+        }}
+      />
+      <Stack.Screen
+        name="chat-room"
+        options={{
+          title: 'Chat',
+        }}
+      />
     </Stack>
   );
 }

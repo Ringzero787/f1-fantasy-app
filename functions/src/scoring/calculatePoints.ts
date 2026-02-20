@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { warnIfNoAppCheck } from '../utils/appCheck';
 
 const db = admin.firestore();
 
@@ -646,6 +647,7 @@ export const calculatePointsManually = functions.https.onCall(async (data, conte
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
+  warnIfNoAppCheck(context, 'calculatePointsManually');
 
   const { raceId } = data;
   if (!raceId) {

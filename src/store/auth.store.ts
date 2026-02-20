@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureStorage } from '../utils/secureStorage';
 import type { User } from '../types';
 import { authService } from '../services/auth.service';
 import { firebaseAuth } from '../config/firebase';
@@ -81,28 +81,13 @@ export const useAuthStore = create<AuthState>()(
       signInWithGoogle: async (idToken) => {
         set({ isLoading: true, error: null });
         try {
-          // Race Firebase auth against a timeout — fall back to demo mode if Firebase hangs
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Firebase auth timeout')), 8000)
-          );
-          const user = await Promise.race([
-            authService.signInWithGoogle(idToken),
-            timeoutPromise,
-          ]);
+          const user = await authService.signInWithGoogle(idToken);
           const isAdmin = await checkIsAdmin();
           set({ user, isAuthenticated: true, isAdmin, isLoading: false });
         } catch (error) {
-          console.log('Google sign-in Firebase failed, falling back to demo mode:', error);
-          // Fall back to demo mode with Google profile info
-          const demoUser: User = {
-            id: 'google-demo-user',
-            email: 'demo@theundercut.app',
-            displayName: 'Demo User',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            settings: { notifications: true, darkMode: false },
-          };
-          set({ user: demoUser, isAuthenticated: true, isDemoMode: true, isAdmin: false, isLoading: false });
+          const message = error instanceof Error ? error.message : 'Google sign in failed';
+          set({ error: message, isLoading: false });
+          throw error;
         }
       },
 
@@ -164,6 +149,9 @@ export const useAuthStore = create<AuthState>()(
           import('./team.store').then(({ useTeamStore }) => {
             useTeamStore.getState().resetTeamState();
           });
+          import('./chat.store').then(({ useChatStore }) => {
+            useChatStore.getState().clearChatState();
+          });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Sign out failed';
           set({ error: message, isLoading: false });
@@ -212,13 +200,16 @@ export const useAuthStore = create<AuthState>()(
         import('./team.store').then(({ useTeamStore }) => {
           useTeamStore.getState().resetTeamState();
         });
+        import('./chat.store').then(({ useChatStore }) => {
+          useChatStore.getState().clearChatState();
+        });
       },
 
       clearError: () => set({ error: null }),
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => secureStorage),
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,

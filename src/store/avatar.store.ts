@@ -3,13 +3,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MAX_FREE_AVATARS = 10;
-const UNLIMITED_AVATAR_EMAIL = 'nathan.shanks@gmail.com';
 
 function isUnlimitedUser(): boolean {
   try {
     const { useAuthStore } = require('./auth.store');
-    const email = useAuthStore.getState().user?.email;
-    return email === UNLIMITED_AVATAR_EMAIL;
+    const isAdmin = useAuthStore.getState().isAdmin;
+    return isAdmin === true;
   } catch {
     return false;
   }

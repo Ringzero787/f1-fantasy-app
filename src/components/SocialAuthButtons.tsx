@@ -42,10 +42,9 @@ export function SocialAuthButtons({
 
       const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 
-      // Debug logging
-      console.log('=== Google Sign-In Debug ===');
-      console.log('webClientId:', webClientId);
-      console.log('webClientId length:', webClientId?.length);
+      if (__DEV__) {
+        console.log('Google Sign-In: webClientId length:', webClientId?.length);
+      }
 
       // Configure Google Sign-In
       GoogleSignin.configure({
@@ -53,30 +52,22 @@ export function SocialAuthButtons({
         offlineAccess: true,
         scopes: ['profile', 'email'],
       });
-      console.log('GoogleSignin configured');
 
       // Check Play Services
-      const hasPlayServices = await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      console.log('hasPlayServices:', hasPlayServices);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
       // Sign in
-      console.log('Calling GoogleSignin.signIn()...');
       const response = await GoogleSignin.signIn();
-      console.log('signIn response:', JSON.stringify(response, null, 2));
 
       if (isSuccessResponse(response) && response.data.idToken) {
-        console.log('Got idToken, calling onGoogleSignIn');
         await onGoogleSignIn(response.data.idToken);
       } else {
         throw new Error('No ID token received from Google');
       }
     } catch (error: any) {
-      console.error('=== Google Sign-In Error ===');
-      console.error('Error object:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      console.error('Full error JSON:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      if (__DEV__) {
+        console.error('Google Sign-In Error:', error.code, error.message);
+      }
 
       // Handle specific error codes
       if (error.code === 'SIGN_IN_CANCELLED') {

@@ -78,12 +78,15 @@ export const useNewsStore = create<NewsState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state && state.articles) {
-          state.articles = state.articles.map(article => ({
-            ...article,
-            publishedAt: new Date(article.publishedAt),
-            createdAt: new Date(article.createdAt),
-            reviewedAt: article.reviewedAt ? new Date(article.reviewedAt) : undefined,
-          }));
+          // Must call setState to ensure React sees converted Date objects
+          useNewsStore.setState({
+            articles: state.articles.map(article => ({
+              ...article,
+              publishedAt: new Date(article.publishedAt),
+              createdAt: new Date(article.createdAt),
+              reviewedAt: article.reviewedAt ? new Date(article.reviewedAt) : undefined,
+            })),
+          });
         }
       },
     }

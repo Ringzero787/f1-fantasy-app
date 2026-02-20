@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureStorage } from '../utils/secureStorage';
 import { Alert, Platform } from 'react-native';
 import { PRODUCT_IDS, AVATAR_PACK_CREDITS } from '../config/products';
 import { functions, httpsCallable } from '../config/firebase';
@@ -394,7 +394,7 @@ export const usePurchaseStore = create<PurchaseState>()(
     }),
     {
       name: 'purchase-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => secureStorage),
       partialize: (state) => ({
         bonusAvatarCredits: state.bonusAvatarCredits,
         expandedLeagueIds: state.expandedLeagueIds,

@@ -4,7 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
+import crashlytics from '@react-native-firebase/crashlytics';
 import { usePurchaseStore } from '../src/store/purchase.store';
+import { initAppCheck } from '../src/config/appCheck';
+import { ErrorBoundary } from '../src/components/ErrorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +54,14 @@ export default function RootLayout() {
       handleUrl(event.url);
     });
 
+    // Initialize App Check (must be before any protected Firebase calls)
+    initAppCheck();
+
+    // Enable Crashlytics collection in production
+    if (!__DEV__) {
+      crashlytics().setCrashlyticsCollectionEnabled(true);
+    }
+
     // Initialize in-app purchases
     usePurchaseStore.getState().initializeIAP();
 
@@ -61,15 +72,17 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          </Stack>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

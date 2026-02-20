@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/config/constants';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useOnboardingStore } from '../../src/store/onboarding.store';
+import { useChatStore } from '../../src/store/chat.store';
 import { OnboardingTutorial } from '../../src/components/OnboardingTutorial';
 import { NotificationBell } from '../../src/components/NotificationBell';
 
@@ -13,6 +14,7 @@ export default function TabLayout() {
   const isAdmin = useAuthStore((state) => state.isAdmin);
   const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
   const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
+  const totalUnread = useChatStore((state) => state.totalUnread);
 
   return (
     <>
@@ -127,6 +129,19 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Chat',
+          headerShown: false,
+          // Show for non-admins, or in demo mode (where both admin + chat show)
+          href: (!isAdmin || isDemoMode) ? ('/(tabs)/chat' as unknown as '/') : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles" size={size} color={color} />
+          ),
+          tabBarBadge: totalUnread > 0 ? totalUnread : undefined,
         }}
       />
       <Tabs.Screen

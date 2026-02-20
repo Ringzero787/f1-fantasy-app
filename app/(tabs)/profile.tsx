@@ -21,6 +21,7 @@ import { useAvatarGeneration, useAutoSyncOpenF1 } from '../../src/hooks';
 import { authService } from '../../src/services/auth.service';
 import { Card, RulesGuide } from '../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
+import Constants from 'expo-constants';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useAdminStore } from '../../src/store/admin.store';
 import { useOnboardingStore } from '../../src/store/onboarding.store';
@@ -516,7 +517,7 @@ export default function ProfileScreen() {
             <IconBox icon="information-circle-outline" color="#6366F1" bg="#6366F115" />
             <Text style={styles.menuItemText}>Version</Text>
           </View>
-          <Text style={styles.menuItemValue}>1.0.0</Text>
+          <Text style={styles.menuItemValue}>{Constants.expoConfig?.version ?? '1.0.0'}</Text>
         </View>
 
         <View style={styles.menuDivider} />

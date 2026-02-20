@@ -77,6 +77,23 @@ service cloud.firestore {
           allow delete: if false;
         }
       }
+
+      // Chat messages subcollection
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && isLeagueMember(leagueId);
+        allow create: if isAuthenticated() && isLeagueMember(leagueId)
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuthenticated() && isLeagueMember(leagueId)
+                      && (resource.data.senderId == request.auth.uid
+                          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
+        allow delete: if isAuthenticated()
+                      && (resource.data.senderId == request.auth.uid || isLeagueOwner(leagueId));
+      }
+
+      // Chat read receipts subcollection
+      match /chatReadReceipts/{userId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
     }
 
     // Drivers collection (read-only for users)

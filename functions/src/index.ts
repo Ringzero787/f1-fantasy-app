@@ -12,3 +12,4 @@ export * from './news/fetchNews';
 export * from './invites/sendInviteEmail';
 export * from './purchases/validatePurchase';
 export * from './notifications/triggers';
+export * from './avatars/generateAvatar';
