@@ -12,12 +12,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDrivers, useConstructors } from '../../../src/hooks';
 import { Loading, DriverCard, ConstructorCard, EmptyState } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
+import { useScale } from '../../../src/hooks/useScale';
 import type { DriverFilter } from '../../../src/types';
 
 type Tab = 'drivers' | 'constructors';
 type SortOption = 'price' | 'points' | 'name' | 'priceChange';
 
 export default function MarketScreen() {
+  const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const [activeTab, setActiveTab] = useState<Tab>('drivers');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('price');
@@ -68,7 +70,7 @@ export default function MarketScreen() {
           style={[styles.tab, activeTab === 'drivers' && styles.activeTab]}
           onPress={() => setActiveTab('drivers')}
         >
-          <Text style={[styles.tabText, activeTab === 'drivers' && styles.activeTabText]}>
+          <Text style={[styles.tabText, { fontSize: scaledFonts.md }, activeTab === 'drivers' && styles.activeTabText]}>
             Drivers
           </Text>
         </TouchableOpacity>
@@ -76,7 +78,7 @@ export default function MarketScreen() {
           style={[styles.tab, activeTab === 'constructors' && styles.activeTab]}
           onPress={() => setActiveTab('constructors')}
         >
-          <Text style={[styles.tabText, activeTab === 'constructors' && styles.activeTabText]}>
+          <Text style={[styles.tabText, { fontSize: scaledFonts.md }, activeTab === 'constructors' && styles.activeTabText]}>
             Constructors
           </Text>
         </TouchableOpacity>
@@ -84,9 +86,9 @@ export default function MarketScreen() {
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={COLORS.text.muted} />
+        <Ionicons name="search" size={scaledIcon(20)} color={COLORS.text.muted} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { fontSize: scaledFonts.md }]}
           placeholder={`Search ${activeTab}...`}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -94,7 +96,7 @@ export default function MarketScreen() {
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={COLORS.text.muted} />
+            <Ionicons name="close-circle" size={scaledIcon(20)} color={COLORS.text.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -102,7 +104,7 @@ export default function MarketScreen() {
       {/* Sort Options (Drivers only) */}
       {activeTab === 'drivers' && (
         <View style={styles.sortContainer}>
-          <Text style={styles.sortLabel}>Sort by:</Text>
+          <Text style={[styles.sortLabel, { fontSize: scaledFonts.sm }]}>Sort by:</Text>
           <View style={styles.sortOptions}>
             {(['price', 'points', 'name'] as SortOption[]).map((option) => (
               <TouchableOpacity
@@ -112,6 +114,7 @@ export default function MarketScreen() {
               >
                 <Text style={[
                   styles.sortButtonText,
+                  { fontSize: scaledFonts.sm },
                   sortBy === option && styles.sortButtonTextActive,
                 ]}>
                   {option.charAt(0).toUpperCase() + option.slice(1)}

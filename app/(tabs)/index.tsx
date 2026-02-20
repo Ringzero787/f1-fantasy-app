@@ -24,11 +24,13 @@ import { useAnnouncementStore } from '../../src/store/announcement.store';
 import { useNotificationStore } from '../../src/store/notification.store';
 import { scheduleIncompleteTeamReminder } from '../../src/services/notification.service';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
+import { useScale } from '../../src/hooks/useScale';
 import { formatPoints } from '../../src/utils/formatters';
 
 const CURRENT_SEASON_ID = '2026'; // This would come from app config
 
 export default function HomeScreen() {
+  const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const { user } = useAuth();
   const { data: nextRace, isLoading: raceLoading, refetch: refetchRace } = useNextRace(CURRENT_SEASON_ID);
   const { data: upcomingRaces } = useUpcomingRaces(CURRENT_SEASON_ID, 5);
@@ -212,31 +214,31 @@ export default function HomeScreen() {
       {/* Welcome Section */}
       <View style={styles.welcomeSection}>
         <View style={styles.welcomeLeft}>
-          <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.userName}>{user?.displayName || 'Racer'}</Text>
+          <Text style={[styles.greeting, { fontSize: scaledFonts.md }]}>Welcome back,</Text>
+          <Text style={[styles.userName, { fontSize: scaledFonts.xxl }]}>{user?.displayName || 'Racer'}</Text>
         </View>
         {primaryLeague ? (
           <TouchableOpacity
-            style={styles.leagueBadge}
+            style={[styles.leagueBadge, { paddingHorizontal: scaledSpacing.sm, paddingVertical: scaledSpacing.xs }]}
             onPress={() => router.push(`/leagues/${primaryLeague.id}`)}
           >
-            <Ionicons name="trophy" size={14} color={COLORS.accent} />
+            <Ionicons name="trophy" size={scaledIcon(14)} color={COLORS.accent} />
             <View style={styles.leagueBadgeContent}>
-              <Text style={styles.leagueBadgeText} numberOfLines={1}>
+              <Text style={[styles.leagueBadgeText, { fontSize: scaledFonts.sm }]} numberOfLines={1}>
                 {leagueRank ? `#${leagueRank} ` : ''}{primaryLeague.name}
               </Text>
-              <Text style={styles.leagueOwnerText} numberOfLines={1}>
+              <Text style={[styles.leagueOwnerText, { fontSize: scaledFonts.xs }]} numberOfLines={1}>
                 {primaryLeague.ownerName}
               </Text>
             </View>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={styles.joinLeagueBadge}
+            style={[styles.joinLeagueBadge, { paddingHorizontal: scaledSpacing.sm, paddingVertical: scaledSpacing.xs }]}
             onPress={() => router.push('/leagues')}
           >
-            <Ionicons name="trophy-outline" size={14} color={COLORS.primary} />
-            <Text style={styles.joinLeagueBadgeText}>Join League</Text>
+            <Ionicons name="trophy-outline" size={scaledIcon(14)} color={COLORS.primary} />
+            <Text style={[styles.joinLeagueBadgeText, { fontSize: scaledFonts.sm }]}>Join League</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -270,32 +272,32 @@ export default function HomeScreen() {
       )}
 
       {/* Quick Stats */}
-      <View style={styles.statsRow}>
+      <View style={[styles.statsRow, { gap: scaledSpacing.sm }]}>
         <Card style={styles.statCard} variant="elevated">
-          <Text style={styles.statValue}>{formatPoints(totalPoints)}</Text>
-          <Text style={styles.statLabel}>Total Points</Text>
+          <Text style={[styles.statValue, { fontSize: scaledFonts.xxl }]}>{formatPoints(totalPoints)}</Text>
+          <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Total Points</Text>
           {currentTeam && (
-            <Text style={styles.statTeamName} numberOfLines={1}>
+            <Text style={[styles.statTeamName, { fontSize: scaledFonts.sm }]} numberOfLines={1}>
               {currentTeam.name}
             </Text>
           )}
         </Card>
         <Card style={styles.statCard} variant="elevated">
-          <Text style={[styles.statValue, lastRacePoints != null && lastRacePoints > 0 && styles.lastRacePositive]}>
+          <Text style={[styles.statValue, { fontSize: scaledFonts.xxl }, lastRacePoints != null && lastRacePoints > 0 && styles.lastRacePositive]}>
             {lastRacePoints != null ? `+${lastRacePoints}` : '-'}
           </Text>
-          <Text style={styles.statLabel}>Last Race</Text>
+          <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Last Race</Text>
         </Card>
         <Card style={styles.statCard} variant="elevated">
-          <Text style={styles.statValue}>${formatPoints(currentTeam?.budget || 0)}</Text>
-          <Text style={styles.statLabel}>Bank</Text>
+          <Text style={[styles.statValue, { fontSize: scaledFonts.xxl }]}>${formatPoints(currentTeam?.budget || 0)}</Text>
+          <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Bank</Text>
         </Card>
       </View>
 
       {/* Upcoming Races Carousel */}
       <View style={styles.section}>
         <View style={styles.raceSectionHeader}>
-          <Text style={styles.sectionTitle}>Upcoming Races</Text>
+          <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg }]}>Upcoming Races</Text>
           {upcomingRaces && upcomingRaces.length > 1 && (
             <View style={styles.raceDots}>
               {upcomingRaces.map((_, i) => (
@@ -345,7 +347,7 @@ export default function HomeScreen() {
         >
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleWithDots}>
-              <Text style={styles.sectionTitle}>My Teams</Text>
+              <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg }]}>My Teams</Text>
               {userTeams.length > 1 && (
                 <View style={styles.teamDots}>
                   {userTeams.map(team => (
@@ -385,10 +387,10 @@ export default function HomeScreen() {
                 variant="team"
                 imageUrl={currentTeam.avatarUrl || null}
               />
-              <Text style={styles.teamName}>{currentTeam.name}</Text>
+              <Text style={[styles.teamName, { fontSize: scaledFonts.lg }]}>{currentTeam.name}</Text>
               <View style={styles.teamBudget}>
-                <Text style={styles.budgetLabel}>Budget</Text>
-                <Text style={styles.budgetValue}>${formatPoints(currentTeam.budget)}</Text>
+                <Text style={[styles.budgetLabel, { fontSize: scaledFonts.sm }]}>Budget</Text>
+                <Text style={[styles.budgetValue, { fontSize: scaledFonts.md }]}>${formatPoints(currentTeam.budget)}</Text>
               </View>
             </View>
 
@@ -407,45 +409,45 @@ export default function HomeScreen() {
             )}
 
             {/* Drivers Row */}
-            <View style={styles.teamRow}>
+            <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="people" size={18} color={teamDriverCount < TEAM_SIZE ? COLORS.warning : COLORS.text.muted} />
-                <Text style={styles.teamRowLabel}>Drivers</Text>
+                <Ionicons name="people" size={scaledIcon(18)} color={teamDriverCount < TEAM_SIZE ? COLORS.warning : COLORS.text.muted} />
+                <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Drivers</Text>
               </View>
-              <Text style={[styles.teamRowValue, teamDriverCount < TEAM_SIZE && styles.incompleteValue]}>
+              <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, teamDriverCount < TEAM_SIZE && styles.incompleteValue]}>
                 {teamDriverCount}/{TEAM_SIZE}
               </Text>
             </View>
 
             {/* Constructor Row */}
-            <View style={styles.teamRow}>
+            <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="car-sport" size={18} color={!hasConstructor ? COLORS.warning : COLORS.text.muted} />
-                <Text style={styles.teamRowLabel}>Constructor</Text>
+                <Ionicons name="car-sport" size={scaledIcon(18)} color={!hasConstructor ? COLORS.warning : COLORS.text.muted} />
+                <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Constructor</Text>
               </View>
-              <Text style={[styles.teamRowValue, !hasConstructor && styles.incompleteValue]}>
+              <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, !hasConstructor && styles.incompleteValue]}>
                 {currentTeam.constructor?.name || 'Not selected'}
               </Text>
             </View>
 
             {/* Ace Selection Row */}
-            <View style={styles.teamRow}>
+            <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="diamond" size={18} color={COLORS.gold} />
-                <Text style={styles.teamRowLabel}>Ace (2x)</Text>
+                <Ionicons name="diamond" size={scaledIcon(18)} color={COLORS.gold} />
+                <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Ace (2x)</Text>
               </View>
-              <Text style={[styles.teamRowValue, aceDriver && styles.aceText]}>
+              <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, aceDriver && styles.aceText]}>
                 {aceDriver?.name || 'Not selected'}
               </Text>
             </View>
 
             {/* Total Points Row */}
-            <View style={[styles.teamRow, styles.teamRowLast]}>
+            <View style={[styles.teamRow, styles.teamRowLast, { paddingVertical: scaledSpacing.sm }]}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="podium" size={18} color={COLORS.primary} />
-                <Text style={styles.teamRowLabel}>Total Points</Text>
+                <Ionicons name="podium" size={scaledIcon(18)} color={COLORS.primary} />
+                <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Total Points</Text>
               </View>
-              <Text style={[styles.teamRowValue, styles.pointsValue]}>
+              <Text style={[styles.teamRowValue, styles.pointsValue, { fontSize: scaledFonts.md }]}>
                 {formatPoints(currentTeam.totalPoints)}
               </Text>
             </View>

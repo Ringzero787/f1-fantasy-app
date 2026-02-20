@@ -14,6 +14,7 @@ import { useChatStore } from '../../store/chat.store';
 import type { ChatMessage } from '../../types';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
+import { useScale } from '../../hooks/useScale';
 
 interface ChatScreenProps {
   leagueId: string;
@@ -52,6 +53,7 @@ export function ChatScreen({ leagueId }: ChatScreenProps) {
   const hasMore = useChatStore((s) => s.hasMoreOlderMessages[leagueId] ?? true);
   const subscriptionError = useChatStore((s) => s.subscriptionErrors[leagueId]);
   const sendError = useChatStore((s) => s.sendError);
+  const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
 
   useEffect(() => {
     subscribe(leagueId);
@@ -91,7 +93,7 @@ export function ChatScreen({ leagueId }: ChatScreenProps) {
           {showDate && (
             <View style={styles.dateSeparator}>
               <View style={styles.dateLine} />
-              <Text style={styles.dateText}>
+              <Text style={[styles.dateText, { fontSize: scaledFonts.xs }]}>
                 {formatDateSeparator(item.createdAt)}
               </Text>
               <View style={styles.dateLine} />
@@ -129,20 +131,20 @@ export function ChatScreen({ leagueId }: ChatScreenProps) {
       {sendError && (
         <View style={styles.sendErrorBanner}>
           <Ionicons name="warning-outline" size={16} color={COLORS.warning} />
-          <Text style={styles.sendErrorText}>{sendError}</Text>
+          <Text style={[styles.sendErrorText, { fontSize: scaledFonts.sm }]}>{sendError}</Text>
         </View>
       )}
       {subscriptionError ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="cloud-offline-outline" size={64} color={COLORS.text.muted} />
-          <Text style={styles.emptyTitle}>Chat Unavailable</Text>
-          <Text style={styles.emptySubtitle}>{subscriptionError}</Text>
+          <Ionicons name="cloud-offline-outline" size={scaledIcon(64)} color={COLORS.text.muted} />
+          <Text style={[styles.emptyTitle, { fontSize: scaledFonts.lg }]}>Chat Unavailable</Text>
+          <Text style={[styles.emptySubtitle, { fontSize: scaledFonts.md }]}>{subscriptionError}</Text>
         </View>
       ) : messages.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="chatbubbles-outline" size={64} color={COLORS.text.muted} />
-          <Text style={styles.emptyTitle}>No messages yet</Text>
-          <Text style={styles.emptySubtitle}>
+          <Ionicons name="chatbubbles-outline" size={scaledIcon(64)} color={COLORS.text.muted} />
+          <Text style={[styles.emptyTitle, { fontSize: scaledFonts.lg }]}>No messages yet</Text>
+          <Text style={[styles.emptySubtitle, { fontSize: scaledFonts.md }]}>
             Be the first to say something!
           </Text>
         </View>

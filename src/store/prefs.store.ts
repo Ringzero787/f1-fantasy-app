@@ -5,6 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface PrefsState {
   showLocalTime: boolean;
   toggleLocalTime: () => void;
+  displayScale: number;
+  setDisplayScale: (scale: number) => void;
 }
 
 export const usePrefsStore = create<PrefsState>()(
@@ -12,6 +14,8 @@ export const usePrefsStore = create<PrefsState>()(
     (set) => ({
       showLocalTime: false,
       toggleLocalTime: () => set((s) => ({ showLocalTime: !s.showLocalTime })),
+      displayScale: 1.0,
+      setDisplayScale: (scale: number) => set({ displayScale: scale }),
     }),
     {
       name: 'prefs-storage',

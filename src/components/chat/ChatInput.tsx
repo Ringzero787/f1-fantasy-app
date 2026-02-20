@@ -14,6 +14,7 @@ import { useChatStore } from '../../store/chat.store';
 import { chatService } from '../../services/chat.service';
 import { useAuthStore } from '../../store/auth.store';
 import { ReplyPreview } from './ReplyPreview';
+import { useScale } from '../../hooks/useScale';
 
 interface ChatInputProps {
   leagueId: string;
@@ -26,6 +27,7 @@ export function ChatInput({ leagueId }: ChatInputProps) {
   const isSending = useChatStore((s) => s.isSending);
   const replyingTo = useChatStore((s) => s.replyingTo);
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
+  const { scaledFonts, scaledIcon } = useScale();
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const userId = useAuthStore((s) => s.user?.id);
 
@@ -96,12 +98,12 @@ export function ChatInput({ leagueId }: ChatInputProps) {
         >
           <Ionicons
             name="image-outline"
-            size={24}
+            size={scaledIcon(24)}
             color={sending ? COLORS.text.muted : COLORS.text.secondary}
           />
         </TouchableOpacity>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { fontSize: scaledFonts.md }]}
           value={text}
           onChangeText={setText}
           placeholder="Type a message..."
@@ -120,7 +122,7 @@ export function ChatInput({ leagueId }: ChatInputProps) {
           ) : (
             <Ionicons
               name="send"
-              size={20}
+              size={scaledIcon(20)}
               color={text.trim() ? COLORS.primary : COLORS.text.muted}
             />
           )}

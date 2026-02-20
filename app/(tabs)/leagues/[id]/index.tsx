@@ -19,6 +19,7 @@ import { Card, Loading, LeaderboardItem, Button, EmptyState, Avatar, AvatarPicke
 import { LeaderboardView } from '../../../../src/components/LeaderboardItem';
 import { saveAvatarUrl } from '../../../../src/services/avatarGeneration.service';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
+import { useScale } from '../../../../src/hooks/useScale';
 import type { LeagueMember } from '../../../../src/types';
 
 const LEADERBOARD_VIEWS: { key: LeaderboardView; label: string; icon: string }[] = [
@@ -29,6 +30,7 @@ const LEADERBOARD_VIEWS: { key: LeaderboardView; label: string; icon: string }[]
 ];
 
 export default function LeagueDetailScreen() {
+  const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const currentLeague = useLeagueStore(s => s.currentLeague);
@@ -279,32 +281,32 @@ export default function LeagueDetailScreen() {
             onPress={handleOpenAvatarPicker}
           />
           <View style={styles.headerInfo}>
-            <Text style={styles.leagueName}>{currentLeague.name}</Text>
-            <Text style={styles.ownerText}>by {currentLeague.ownerName}</Text>
+            <Text style={[styles.leagueName, { fontSize: scaledFonts.xxl }]}>{currentLeague.name}</Text>
+            <Text style={[styles.ownerText, { fontSize: scaledFonts.sm }]}>by {currentLeague.ownerName}</Text>
             {foundedYear ? <Text style={styles.foundedText}>Founded {foundedYear}</Text> : null}
           </View>
         </View>
 
         {currentLeague.description && (
-          <Text style={styles.description}>{currentLeague.description}</Text>
+          <Text style={[styles.description, { fontSize: scaledFonts.md }]}>{currentLeague.description}</Text>
         )}
 
         <View style={styles.statsRow}>
           <View style={styles.stat}>
-            <Text style={styles.statValue}>{currentLeague.memberCount}</Text>
-            <Text style={styles.statLabel}>Members</Text>
+            <Text style={[styles.statValue, { fontSize: scaledFonts.xl }]}>{currentLeague.memberCount}</Text>
+            <Text style={[styles.statLabel, { fontSize: scaledFonts.xs }]}>Members</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
-            <Text style={styles.statValue}>{currentLeague.maxMembers}</Text>
-            <Text style={styles.statLabel}>Max</Text>
+            <Text style={[styles.statValue, { fontSize: scaledFonts.xl }]}>{currentLeague.maxMembers}</Text>
+            <Text style={[styles.statLabel, { fontSize: scaledFonts.xs }]}>Max</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
-            <Text style={styles.statValue}>
+            <Text style={[styles.statValue, { fontSize: scaledFonts.xl }]}>
               {currentUserMember?.rank || '-'}
             </Text>
-            <Text style={styles.statLabel}>Your Rank</Text>
+            <Text style={[styles.statLabel, { fontSize: scaledFonts.xs }]}>Your Rank</Text>
           </View>
         </View>
       </Card>
@@ -325,7 +327,7 @@ export default function LeagueDetailScreen() {
       {/* Leaderboard Title + View Toggle */}
       {!isPendingApproval && (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Leaderboard</Text>
+        <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg }]}>Leaderboard</Text>
 
         <View style={styles.viewToggle}>
           {LEADERBOARD_VIEWS.map((view) => (
@@ -364,12 +366,12 @@ export default function LeagueDetailScreen() {
       <TouchableOpacity style={styles.inviteRow} onPress={handleShareCode}>
         <View style={styles.inviteRowLeft}>
           <Ionicons name="link-outline" size={20} color={COLORS.text.muted} />
-          <Text style={styles.inviteRowLabel}>Invite Code:</Text>
-          <Text style={styles.inviteRowCode}>{currentLeague.inviteCode}</Text>
+          <Text style={[styles.inviteRowLabel, { fontSize: scaledFonts.sm }]}>Invite Code:</Text>
+          <Text style={[styles.inviteRowCode, { fontSize: scaledFonts.md }]}>{currentLeague.inviteCode}</Text>
         </View>
         <View style={styles.shareButton}>
           <Ionicons name="share-outline" size={20} color={COLORS.primary} />
-          <Text style={styles.shareText}>Share</Text>
+          <Text style={[styles.shareText, { fontSize: scaledFonts.sm }]}>Share</Text>
         </View>
       </TouchableOpacity>
 
@@ -381,7 +383,7 @@ export default function LeagueDetailScreen() {
             onPress={() => router.push(`/leagues/${id}/admin`)}
           >
             <Ionicons name="settings-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.adminButtonText}>League Admin</Text>
+            <Text style={[styles.adminButtonText, { fontSize: scaledFonts.lg }]}>League Admin</Text>
           </TouchableOpacity>
         )}
         {!isOwner && (

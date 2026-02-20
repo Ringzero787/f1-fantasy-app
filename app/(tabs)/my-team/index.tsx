@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
+import { useScale } from '../../../src/hooks/useScale';
 import { useTeamStore, getLockedOutDriverIds, calculateEarlyTerminationFee } from '../../../src/store/team.store';
 import { useLeagueStore } from '../../../src/store/league.store';
 import { useAdminStore } from '../../../src/store/admin.store';
@@ -113,6 +114,7 @@ function autoFillTeam(
 
 export default function MyTeamScreen() {
   const { user } = useAuth();
+  const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const currentTeam = useTeamStore(s => s.currentTeam);
   const userTeams = useTeamStore(s => s.userTeams);
   const isLoading = useTeamStore(s => s.isLoading);
@@ -667,8 +669,8 @@ export default function MyTeamScreen() {
           <View style={styles.welcomeIconContainer}>
             <Ionicons name="people" size={48} color={COLORS.primary} />
           </View>
-          <Text style={styles.welcomeTitle}>Create Your Team</Text>
-          <Text style={styles.welcomeMessage}>
+          <Text style={[styles.welcomeTitle, { fontSize: scaledFonts.xxl }]}>Create Your Team</Text>
+          <Text style={[styles.welcomeMessage, { fontSize: scaledFonts.lg }]}>
             Build your team with 5 drivers and 1 constructor.
             Play solo or compete in leagues with friends!
           </Text>
@@ -761,7 +763,7 @@ export default function MyTeamScreen() {
             activeOpacity={canModify ? 0.6 : 1}
           >
             <View style={styles.teamNameLine}>
-              <Text style={styles.teamName}>{currentTeam?.name || 'My Team'}</Text>
+              <Text style={[styles.teamName, { fontSize: scaledFonts.xxl }]}>{currentTeam?.name || 'My Team'}</Text>
               {canModify && (
                 <Ionicons name="pencil" size={14} color={COLORS.text.muted} />
               )}
@@ -779,7 +781,7 @@ export default function MyTeamScreen() {
           <View style={styles.lockoutBanner}>
             <Ionicons name="lock-closed" size={16} color="#7c3aed" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.lockoutBannerText}>
+              <Text style={[styles.lockoutBannerText, { fontSize: scaledFonts.md }]}>
                 {lockoutInfo.lockReason || 'Teams locked'}
               </Text>
               {!lockoutInfo.aceLocked && (
@@ -797,25 +799,25 @@ export default function MyTeamScreen() {
         {/* Team Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>
+            <Text style={[styles.statValue, { fontSize: scaledFonts.lg }]}>
               {teamStats.hasCompletedRaces ? teamStats.lastRacePoints : '-'}
             </Text>
-            <Text style={styles.statLabel}>Last Race</Text>
+            <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Last Race</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{formatPoints(teamStats.totalPoints)}</Text>
-            <Text style={styles.statLabel}>Total Pts</Text>
+            <Text style={[styles.statValue, { fontSize: scaledFonts.lg }]}>{formatPoints(teamStats.totalPoints)}</Text>
+            <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Total Pts</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>${formatPoints(currentTeam?.budget || 0)}</Text>
-            <Text style={styles.statLabel}>Bank</Text>
+            <Text style={[styles.statValue, { fontSize: scaledFonts.lg }]}>${formatPoints(currentTeam?.budget || 0)}</Text>
+            <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Bank</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>${formatPoints(teamValue)}</Text>
-            <Text style={styles.statLabel}>Value</Text>
+            <Text style={[styles.statValue, { fontSize: scaledFonts.lg }]}>${formatPoints(teamValue)}</Text>
+            <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Value</Text>
           </View>
           <View style={styles.statDivider} />
           {teamStats.leagueId ? (
@@ -823,10 +825,10 @@ export default function MyTeamScreen() {
               style={styles.statItem}
               onPress={() => router.push(`/leagues/${teamStats.leagueId}`)}
             >
-              <Text style={styles.statValue}>
+              <Text style={[styles.statValue, { fontSize: scaledFonts.lg }]}>
                 {teamStats.leagueRank !== null ? `#${teamStats.leagueRank}` : '—'}
               </Text>
-              <Text style={styles.statLabel} numberOfLines={1}>
+              <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]} numberOfLines={1}>
                 {teamStats.leagueName || 'League'}
               </Text>
             </TouchableOpacity>
@@ -836,7 +838,7 @@ export default function MyTeamScreen() {
               onPress={handleJoinLeague}
             >
               <Ionicons name="trophy-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.joinLeagueText}>
+              <Text style={[styles.joinLeagueText, { fontSize: scaledFonts.sm }]}>
                 {availableLeague ? 'Join League' : 'Solo'}
               </Text>
             </TouchableOpacity>
@@ -851,7 +853,7 @@ export default function MyTeamScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="alert-circle" size={16} color={COLORS.warning} />
-            <Text style={[styles.teamAlertText, { color: COLORS.warning }]}>
+            <Text style={[styles.teamAlertText, { color: COLORS.warning, fontSize: scaledFonts.md }]}>
               {TEAM_SIZE - driversCount} driver slot{TEAM_SIZE - driversCount !== 1 ? 's' : ''} empty — tap to add
             </Text>
             <Ionicons name="chevron-forward" size={16} color={COLORS.warning} />
@@ -864,7 +866,7 @@ export default function MyTeamScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="construct" size={16} color={COLORS.primary} />
-            <Text style={[styles.teamAlertText, { color: COLORS.primary }]}>
+            <Text style={[styles.teamAlertText, { color: COLORS.primary, fontSize: scaledFonts.md }]}>
               No constructor selected — tap to add
             </Text>
             <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
@@ -879,7 +881,7 @@ export default function MyTeamScreen() {
           ) <= PRICING_CONFIG.ACE_MAX_PRICE)) && (
           <View style={[styles.teamAlert, { backgroundColor: COLORS.gold + '15', borderColor: COLORS.gold + '30' }]}>
             <Ionicons name="diamond-outline" size={16} color={COLORS.gold} />
-            <Text style={[styles.teamAlertText, { color: COLORS.gold }]}>
+            <Text style={[styles.teamAlertText, { color: COLORS.gold, fontSize: scaledFonts.md }]}>
               No Ace selected — tap the diamond icon on an eligible driver or constructor (under ${PRICING_CONFIG.ACE_MAX_PRICE})
             </Text>
           </View>
@@ -912,7 +914,7 @@ export default function MyTeamScreen() {
                             </Text>
                           </View>
                         )}
-                        <Text style={[styles.cardName, driver.isReserve && { color: COLORS.text.muted }]} numberOfLines={1}>
+                        <Text style={[styles.cardName, { fontSize: scaledFonts.lg }, driver.isReserve && { color: COLORS.text.muted }]} numberOfLines={1}>
                           {driver.name}
                         </Text>
                         {driver.isAce && (
@@ -930,7 +932,7 @@ export default function MyTeamScreen() {
                       </View>
                       {!driver.isReserve ? (
                         <View style={styles.cardPriceBlock}>
-                          <Text style={styles.cardPrice}>${driver.livePrice}</Text>
+                          <Text style={[styles.cardPrice, { fontSize: scaledFonts.lg }]}>${driver.livePrice}</Text>
                           {driver.priceDiff !== 0 && (
                             <View style={[styles.cardPriceDiff, driver.priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
                               <Ionicons name={driver.priceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
@@ -1019,7 +1021,7 @@ export default function MyTeamScreen() {
             onPress={() => router.push('/my-team/select-driver')}
           >
             <Ionicons name="add" size={18} color={COLORS.primary} />
-            <Text style={styles.addSlotText}>Add Driver ({TEAM_SIZE - driversCount} remaining)</Text>
+            <Text style={[styles.addSlotText, { fontSize: scaledFonts.md }]}>Add Driver ({TEAM_SIZE - driversCount} remaining)</Text>
           </TouchableOpacity>
         )}
 
@@ -1052,7 +1054,7 @@ export default function MyTeamScreen() {
                 <View style={styles.cardTopRow}>
                   <View style={styles.cardIdentity}>
                     <Ionicons name="construct" size={14} color={cAccent} />
-                    <Text style={styles.cardName} numberOfLines={1}>{c.name}</Text>
+                    <Text style={[styles.cardName, { fontSize: scaledFonts.lg }]} numberOfLines={1}>{c.name}</Text>
                     {isAceConstructor && (
                       <TouchableOpacity onPress={() => handleClearAce()} hitSlop={8}>
                         <View style={styles.aceActive}>
@@ -1068,7 +1070,7 @@ export default function MyTeamScreen() {
                   </View>
                   {!cIsReserve ? (
                     <View style={styles.cardPriceBlock}>
-                      <Text style={styles.cardPrice}>${livePrice}</Text>
+                      <Text style={[styles.cardPrice, { fontSize: scaledFonts.lg }]}>${livePrice}</Text>
                       {cPriceDiff !== 0 && (
                         <View style={[styles.cardPriceDiff, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
                           <Ionicons name={cPriceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
@@ -1155,7 +1157,7 @@ export default function MyTeamScreen() {
             onPress={() => router.push('/my-team/select-constructor')}
           >
             <Ionicons name="add" size={18} color={COLORS.primary} />
-            <Text style={styles.addSlotText}>Add Constructor (0/1)</Text>
+            <Text style={[styles.addSlotText, { fontSize: scaledFonts.md }]}>Add Constructor (0/1)</Text>
           </TouchableOpacity>
         )}
 
@@ -1168,7 +1170,7 @@ export default function MyTeamScreen() {
             activeOpacity={0.7}
           >
             <Text style={styles.autoFillIcon}>⚡</Text>
-            <Text style={styles.autoFillText}>
+            <Text style={[styles.autoFillText, { fontSize: scaledFonts.lg }]}>
               {isAutoFilling ? 'Filling...' : 'Auto-Fill Remaining Slots'}
             </Text>
           </TouchableOpacity>
@@ -1181,7 +1183,7 @@ export default function MyTeamScreen() {
           disabled={isDeleting}
         >
           <Ionicons name="trash-outline" size={16} color={COLORS.error} />
-          <Text style={styles.deleteTeamText}>
+          <Text style={[styles.deleteTeamText, { fontSize: scaledFonts.lg }]}>
             {isDeleting ? 'Deleting...' : 'Delete Team'}
           </Text>
         </TouchableOpacity>

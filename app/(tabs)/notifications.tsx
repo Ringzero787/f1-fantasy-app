@@ -8,8 +8,10 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useNotificationStore } from '../../src/store/notification.store';
+import { useScale } from '../../src/hooks/useScale';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
 import type { Notification, NotificationType } from '../../src/types';
 
@@ -23,7 +25,42 @@ const ICON_MAP: Record<NotificationType, { name: keyof typeof Ionicons.glyphMap;
   price_change: { name: 'trending-up', color: COLORS.priceUp },
   league_invite: { name: 'mail', color: COLORS.accent },
   league_update: { name: 'trophy', color: COLORS.gold },
+  chat_message: { name: 'chatbubble', color: COLORS.info },
 };
+
+function navigateToNotification(item: Notification) {
+  const data = item.data as Record<string, string> | undefined;
+  switch (item.type) {
+    case 'chat_message':
+      if (data?.leagueId) {
+        router.push(`/(tabs)/chat` as any);
+      }
+      break;
+    case 'announcement':
+    case 'league_invite':
+    case 'league_update':
+      if (data?.leagueId) {
+        router.push(`/(tabs)/leagues/${data.leagueId}` as any);
+      }
+      break;
+    case 'results_available':
+      router.push('/(tabs)/calendar' as any);
+      break;
+    case 'new_story':
+      router.push('/(tabs)' as any);
+      break;
+    case 'price_change':
+      router.push('/(tabs)/market' as any);
+      break;
+    case 'incomplete_team':
+    case 'lock_warning':
+      router.push('/(tabs)/my-team' as any);
+      break;
+    case 'race_reminder':
+      router.push('/(tabs)/calendar' as any);
+      break;
+  }
+}
 
 function timeAgo(date: Date): string {
   const now = new Date();
@@ -41,6 +78,7 @@ function timeAgo(date: Date): string {
 
 function NotificationRow({ item, onPress }: { item: Notification; onPress: () => void }) {
   const icon = ICON_MAP[item.type] ?? { name: 'notifications' as const, color: COLORS.text.muted };
+  const { scaledFonts, scaledIcon } = useScale();
 
   return (
     <TouchableOpacity
@@ -49,16 +87,16 @@ function NotificationRow({ item, onPress }: { item: Notification; onPress: () =>
       activeOpacity={0.7}
     >
       <View style={[styles.iconContainer, { backgroundColor: icon.color + '20' }]}>
-        <Ionicons name={icon.name} size={20} color={icon.color} />
+        <Ionicons name={icon.name} size={scaledIcon(20)} color={icon.color} />
       </View>
       <View style={styles.rowContent}>
-        <Text style={[styles.rowTitle, !item.read && styles.rowTitleUnread]} numberOfLines={1}>
+        <Text style={[styles.rowTitle, !item.read && styles.rowTitleUnread, { fontSize: scaledFonts.md }]} numberOfLines={1}>
           {item.title}
         </Text>
-        <Text style={styles.rowBody} numberOfLines={2}>
+        <Text style={[styles.rowBody, { fontSize: scaledFonts.sm }]} numberOfLines={2}>
           {item.body}
         </Text>
-        <Text style={styles.rowTime}>{timeAgo(item.createdAt)}</Text>
+        <Text style={[styles.rowTime, { fontSize: scaledFonts.xs }]}>{timeAgo(item.createdAt)}</Text>
       </View>
       {!item.read && <View style={styles.unreadDot} />}
     </TouchableOpacity>
@@ -72,6 +110,7 @@ export default function NotificationsScreen() {
   const loadNotifications = useNotificationStore((s) => s.loadNotifications);
   const markRead = useNotificationStore((s) => s.markRead);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
+  const { scaledFonts, scaledIcon } = useScale();
 
   useEffect(() => {
     if (user) {
@@ -93,6 +132,7 @@ export default function NotificationsScreen() {
         item={item}
         onPress={() => {
           if (!item.read) markRead(item.id);
+          navigateToNotification(item);
         }}
       />
     ),
@@ -105,8 +145,8 @@ export default function NotificationsScreen() {
     <View style={styles.container}>
       {hasUnread && (
         <TouchableOpacity style={styles.markAllButton} onPress={handleMarkAllRead}>
-          <Ionicons name="checkmark-done" size={18} color={COLORS.primary} />
-          <Text style={styles.markAllText}>Mark all as read</Text>
+          <Ionicons name="checkmark-done" size={scaledIcon(18)} color={COLORS.primary} />
+          <Text style={[styles.markAllText, { fontSize: scaledFonts.md }]}>Mark all as read</Text>
         </TouchableOpacity>
       )}
       <FlatList
@@ -119,9 +159,9 @@ export default function NotificationsScreen() {
         contentContainerStyle={notifications.length === 0 ? styles.emptyContainer : undefined}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={48} color={COLORS.text.muted} />
-            <Text style={styles.emptyTitle}>No notifications yet</Text>
-            <Text style={styles.emptyText}>
+            <Ionicons name="notifications-off-outline" size={scaledIcon(48)} color={COLORS.text.muted} />
+            <Text style={[styles.emptyTitle, { fontSize: scaledFonts.lg }]}>No notifications yet</Text>
+            <Text style={[styles.emptyText, { fontSize: scaledFonts.md }]}>
               You'll be notified about race results, league announcements, and more.
             </Text>
           </View>

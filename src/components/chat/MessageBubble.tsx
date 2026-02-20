@@ -13,6 +13,7 @@ import { ImageMessage } from './ImageMessage';
 import { ReactionPicker } from './ReactionPicker';
 import { useAuthStore } from '../../store/auth.store';
 import { useChatStore } from '../../store/chat.store';
+import { useScale } from '../../hooks/useScale';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -29,13 +30,14 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
   const userId = useAuthStore((s) => s.user?.id);
   const toggleReaction = useChatStore((s) => s.toggleReaction);
   const deleteMessage = useChatStore((s) => s.deleteMessage);
+  const { scaledFonts, scaledSpacing } = useScale();
   const isOwn = message.senderId === userId;
 
   if (message.isDeleted) {
     return (
       <View style={[styles.container, isOwn ? styles.containerOwn : styles.containerOther]}>
         <View style={[styles.bubble, styles.deletedBubble]}>
-          <Text style={styles.deletedText}>This message was deleted</Text>
+          <Text style={[styles.deletedText, { fontSize: scaledFonts.sm }]}>This message was deleted</Text>
         </View>
       </View>
     );
@@ -67,7 +69,7 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
   return (
     <View style={[styles.container, isOwn ? styles.containerOwn : styles.containerOther]}>
       {!isOwn && (
-        <Text style={styles.senderName}>{message.senderName}</Text>
+        <Text style={[styles.senderName, { fontSize: scaledFonts.xs }]}>{message.senderName}</Text>
       )}
 
       <TouchableOpacity
@@ -79,10 +81,10 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
           <View style={styles.replySnippet}>
             <View style={styles.replyBar} />
             <View style={styles.replyContent}>
-              <Text style={styles.replySender} numberOfLines={1}>
+              <Text style={[styles.replySender, { fontSize: scaledFonts.xs }]} numberOfLines={1}>
                 {message.replyTo.senderName}
               </Text>
-              <Text style={styles.replyText} numberOfLines={1}>
+              <Text style={[styles.replyText, { fontSize: scaledFonts.xs }]} numberOfLines={1}>
                 {message.replyTo.text}
               </Text>
             </View>
@@ -90,7 +92,7 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
         )}
 
         {message.text ? (
-          <Text style={[styles.messageText, isOwn && styles.messageTextOwn]}>
+          <Text style={[styles.messageText, { fontSize: scaledFonts.md }, isOwn && styles.messageTextOwn]}>
             {message.text}
           </Text>
         ) : null}
@@ -101,7 +103,7 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
           {message.editedAt && (
             <Text style={styles.edited}>(edited)</Text>
           )}
-          <Text style={[styles.timestamp, isOwn && styles.timestampOwn]}>
+          <Text style={[styles.timestamp, { fontSize: scaledFonts.xs }, isOwn && styles.timestampOwn]}>
             {formatTime(message.createdAt)}
           </Text>
         </View>

@@ -17,7 +17,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/hooks/useAuth';
-import { useAvatarGeneration, useAutoSyncOpenF1 } from '../../src/hooks';
+import { useAvatarGeneration, useAutoSyncOpenF1, useScale } from '../../src/hooks';
+import { usePrefsStore } from '../../src/store/prefs.store';
 import { authService } from '../../src/services/auth.service';
 import { Card, RulesGuide } from '../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
@@ -49,6 +50,17 @@ export default function ProfileScreen() {
   // League state
   const leagues = useLeagueStore(s => s.leagues);
   const leaveLeague = useLeagueStore(s => s.leaveLeague);
+
+  // Display scale
+  const { scaledFonts, scaledSpacing, scaledIcon, displayScale } = useScale();
+  const setDisplayScale = usePrefsStore(s => s.setDisplayScale);
+
+  const SCALE_OPTIONS = [
+    { label: 'Aa', value: 1.0, name: 'Normal' },
+    { label: 'Aa', value: 1.15, name: 'Large' },
+    { label: 'Aa', value: 1.3, name: 'XL' },
+    { label: 'Aa', value: 1.5, name: 'XXL' },
+  ];
 
   // OpenF1 import functionality
   const autoSyncOpenF1 = useAutoSyncOpenF1();
@@ -328,47 +340,94 @@ export default function ProfileScreen() {
           )}
         </TouchableOpacity>
 
-        <Text style={styles.userName}>{user?.displayName || 'User'}</Text>
-        <Text style={styles.userEmail}>{user?.email || ''}</Text>
+        <Text style={[styles.userName, { fontSize: scaledFonts.xxxl }]}>{user?.displayName || 'User'}</Text>
+        <Text style={[styles.userEmail, { fontSize: scaledFonts.md }]}>{user?.email || ''}</Text>
 
         {/* Stats Pills */}
         <View style={styles.statsPillRow}>
-          <View style={styles.statsPill}>
-            <Ionicons name="people" size={13} color={COLORS.primary} />
-            <Text style={styles.statsPillText}>{userTeams.length} Team{userTeams.length !== 1 ? 's' : ''}</Text>
+          <View style={[styles.statsPill, { paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }]}>
+            <Ionicons name="people" size={scaledIcon(13)} color={COLORS.primary} />
+            <Text style={[styles.statsPillText, { fontSize: scaledFonts.sm }]}>{userTeams.length} Team{userTeams.length !== 1 ? 's' : ''}</Text>
           </View>
-          <View style={styles.statsPill}>
-            <Ionicons name="calendar" size={13} color={COLORS.warning} />
-            <Text style={styles.statsPillText}>2026 Season</Text>
+          <View style={[styles.statsPill, { paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }]}>
+            <Ionicons name="calendar" size={scaledIcon(13)} color={COLORS.warning} />
+            <Text style={[styles.statsPillText, { fontSize: scaledFonts.sm }]}>2026 Season</Text>
           </View>
-          <View style={[styles.statsPill, isDemoMode && styles.statsPillDemo]}>
-            <Ionicons name={isDemoMode ? 'flask' : 'cloud'} size={13} color={isDemoMode ? COLORS.warning : COLORS.success} />
-            <Text style={styles.statsPillText}>{isDemoMode ? 'Demo' : 'Online'}</Text>
+          <View style={[styles.statsPill, { paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }, isDemoMode && styles.statsPillDemo]}>
+            <Ionicons name={isDemoMode ? 'flask' : 'cloud'} size={scaledIcon(13)} color={isDemoMode ? COLORS.warning : COLORS.success} />
+            <Text style={[styles.statsPillText, { fontSize: scaledFonts.sm }]}>{isDemoMode ? 'Demo' : 'Online'}</Text>
           </View>
         </View>
       </Card>
 
       {/* Rules & Scoring Guide */}
       <Card style={styles.menuCard}>
-        <TouchableOpacity style={styles.menuItem} onPress={() => setShowRules(true)}>
+        <TouchableOpacity style={[styles.menuItem, { paddingVertical: scaledSpacing.md, paddingHorizontal: scaledSpacing.md }]} onPress={() => setShowRules(true)}>
           <View style={styles.menuItemLeft}>
             <IconBox icon="book-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
             <View>
-              <Text style={styles.menuItemText}>Game Rules & Scoring Guide</Text>
-              <Text style={styles.menuItemSubtext}>Points, contracts, lockout & more</Text>
+              <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Game Rules & Scoring Guide</Text>
+              <Text style={[styles.menuItemSubtext, { fontSize: scaledFonts.xs }]}>Points, contracts, lockout & more</Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
+          <Ionicons name="chevron-forward" size={scaledIcon(18)} color={COLORS.text.muted} />
         </TouchableOpacity>
       </Card>
 
+      {/* Display Section */}
+      <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Display</Text>
+      <Card style={styles.menuCard}>
+        <View style={styles.displaySection}>
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="text-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Text Size</Text>
+          </View>
+          <View style={styles.scaleButtonRow}>
+            {SCALE_OPTIONS.map((opt) => {
+              const isActive = displayScale === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.scalePill,
+                    isActive && styles.scalePillActive,
+                  ]}
+                  onPress={() => setDisplayScale(opt.value)}
+                >
+                  <Text
+                    style={[
+                      styles.scalePillLabel,
+                      { fontSize: Math.round(14 * opt.value) },
+                      isActive && styles.scalePillLabelActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.scalePillName,
+                      isActive && styles.scalePillNameActive,
+                    ]}
+                  >
+                    {opt.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={[styles.scalePreview, { fontSize: scaledFonts.md }]}>
+            The quick brown fox jumps over the lazy dog.
+          </Text>
+        </View>
+      </Card>
+
       {/* Account Section */}
-      <Text style={styles.sectionTitle}>Account</Text>
+      <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Account</Text>
       <Card style={styles.menuCard}>
         <TouchableOpacity style={styles.menuItem} onPress={handleSwitchAccount}>
           <View style={styles.menuItemLeft}>
             <IconBox icon="swap-horizontal" color={COLORS.primary} bg={COLORS.primary + '15'} />
-            <Text style={styles.menuItemText}>Switch Account</Text>
+            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Switch Account</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
         </TouchableOpacity>
@@ -377,7 +436,7 @@ export default function ProfileScreen() {
       {/* League */}
       {leagues.length > 0 && (
         <>
-          <Text style={styles.sectionTitle}>League</Text>
+          <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>League</Text>
           <Card style={styles.menuCard}>
             {leagues.map((league, index) => {
               const isOwner = league.ownerId === user?.id;
@@ -394,7 +453,7 @@ export default function ProfileScreen() {
                     <View style={styles.menuItemLeft}>
                       <IconBox icon="trophy-outline" color={COLORS.warning} bg={COLORS.warning + '15'} />
                       <View>
-                        <Text style={styles.menuItemText}>{league.name}</Text>
+                        <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>{league.name}</Text>
                         <Text style={styles.menuItemSubtext}>
                           {isOwner ? 'Owner' : 'Tap to leave league'}
                         </Text>
@@ -412,7 +471,7 @@ export default function ProfileScreen() {
       )}
 
       {/* Legal / Attribution */}
-      <Text style={styles.sectionTitle}>Legal</Text>
+      <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Legal</Text>
       <Card style={styles.menuCard}>
         <TouchableOpacity
           style={styles.menuItem}
@@ -420,7 +479,7 @@ export default function ProfileScreen() {
         >
           <View style={styles.menuItemLeft}>
             <IconBox icon="shield-checkmark-outline" color="#6366F1" bg="#6366F115" />
-            <Text style={styles.menuItemText}>Privacy Policy</Text>
+            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Privacy Policy</Text>
           </View>
           <Ionicons name="open-outline" size={16} color={COLORS.text.muted} />
         </TouchableOpacity>
@@ -433,7 +492,7 @@ export default function ProfileScreen() {
         >
           <View style={styles.menuItemLeft}>
             <IconBox icon="document-text-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
-            <Text style={styles.menuItemText}>Terms of Service</Text>
+            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Terms of Service</Text>
           </View>
           <Ionicons name="open-outline" size={16} color={COLORS.text.muted} />
         </TouchableOpacity>
@@ -457,7 +516,7 @@ export default function ProfileScreen() {
       </Card>
 
       {/* Data Management */}
-      <Text style={styles.sectionTitle}>Data</Text>
+      <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Data</Text>
       <Card style={styles.menuCard}>
         <TouchableOpacity
           style={styles.menuItem}
@@ -498,7 +557,7 @@ export default function ProfileScreen() {
       {/* Debug Info for Demo Mode */}
       {isDemoMode && (
         <>
-          <Text style={styles.sectionTitle}>Debug Info</Text>
+          <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Debug Info</Text>
           <Card style={styles.debugCard}>
             <Text style={styles.debugText}>User ID: {user?.id}</Text>
             <Text style={styles.debugText}>Demo Mode: {isDemoMode ? 'Yes' : 'No'}</Text>
@@ -510,14 +569,14 @@ export default function ProfileScreen() {
       )}
 
       {/* App Info */}
-      <Text style={styles.sectionTitle}>App Info</Text>
+      <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>App Info</Text>
       <Card style={styles.menuCard}>
         <View style={styles.menuItem}>
           <View style={styles.menuItemLeft}>
             <IconBox icon="information-circle-outline" color="#6366F1" bg="#6366F115" />
-            <Text style={styles.menuItemText}>Version</Text>
+            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Version</Text>
           </View>
-          <Text style={styles.menuItemValue}>{Constants.expoConfig?.version ?? '1.0.0'}</Text>
+          <Text style={[styles.menuItemValue, { fontSize: scaledFonts.md }]}>{Constants.expoConfig?.version ?? '1.0.0'}</Text>
         </View>
 
         <View style={styles.menuDivider} />
@@ -525,9 +584,9 @@ export default function ProfileScreen() {
         <View style={styles.menuItem}>
           <View style={styles.menuItemLeft}>
             <IconBox icon="calendar-outline" color={COLORS.warning} bg={COLORS.warning + '15'} />
-            <Text style={styles.menuItemText}>Season</Text>
+            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Season</Text>
           </View>
-          <Text style={styles.menuItemValue}>2026</Text>
+          <Text style={[styles.menuItemValue, { fontSize: scaledFonts.md }]}>2026</Text>
         </View>
 
         <View style={styles.menuDivider} />
@@ -535,9 +594,9 @@ export default function ProfileScreen() {
         <View style={styles.menuItem}>
           <View style={styles.menuItemLeft}>
             <IconBox icon="cloud-outline" color={COLORS.success} bg={COLORS.success + '15'} />
-            <Text style={styles.menuItemText}>Mode</Text>
+            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Mode</Text>
           </View>
-          <Text style={styles.menuItemValue}>
+          <Text style={[styles.menuItemValue, { fontSize: scaledFonts.md }]}>
             {isDemoMode ? 'Demo (Offline)' : 'Online'}
           </Text>
         </View>
@@ -550,16 +609,16 @@ export default function ProfileScreen() {
         >
           <View style={styles.menuItemLeft}>
             <IconBox icon="play-circle-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
-            <Text style={styles.menuItemText}>Replay Tutorial</Text>
+            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Replay Tutorial</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
         </TouchableOpacity>
       </Card>
 
       {/* Sign Out Button */}
-      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-        <Ionicons name="log-out-outline" size={20} color={COLORS.error} />
-        <Text style={styles.signOutText}>Sign Out</Text>
+      <TouchableOpacity style={[styles.signOutButton, { paddingVertical: scaledSpacing.md + 2 }]} onPress={handleSignOut}>
+        <Ionicons name="log-out-outline" size={scaledIcon(20)} color={COLORS.error} />
+        <Text style={[styles.signOutText, { fontSize: scaledFonts.md }]}>Sign Out</Text>
       </TouchableOpacity>
     </ScrollView>
 
@@ -869,6 +928,58 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: COLORS.border.default,
     marginLeft: SPACING.md + 36 + SPACING.md, // align with text, past icon
+  },
+
+  // Display scale
+  displaySection: {
+    padding: SPACING.md,
+  },
+
+  scaleButtonRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+
+  scalePill: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.sm + 2,
+    borderWidth: 1.5,
+    borderColor: COLORS.border.default,
+    backgroundColor: COLORS.background,
+  },
+
+  scalePillActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '12',
+  },
+
+  scalePillLabel: {
+    fontWeight: '700',
+    color: COLORS.text.secondary,
+  },
+
+  scalePillLabelActive: {
+    color: COLORS.primary,
+  },
+
+  scalePillName: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: COLORS.text.muted,
+    marginTop: 2,
+  },
+
+  scalePillNameActive: {
+    color: COLORS.primary,
+  },
+
+  scalePreview: {
+    color: COLORS.text.secondary,
+    marginTop: SPACING.md,
+    lineHeight: 22,
   },
 
   // Sign out button

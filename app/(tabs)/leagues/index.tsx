@@ -18,10 +18,12 @@ import { useLeagueStore } from '../../../src/store/league.store';
 import { useTeamStore } from '../../../src/store/team.store';
 import { Card, Loading, EmptyState, Button, Avatar } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
+import { useScale } from '../../../src/hooks/useScale';
 import { validateInviteCode } from '../../../src/utils/validation';
 import type { League } from '../../../src/types';
 
 export default function LeaguesScreen() {
+  const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const { user } = useAuth();
   const { join, code } = useLocalSearchParams<{ join?: string; code?: string }>();
   const leagues = useLeagueStore(s => s.leagues);
@@ -229,12 +231,12 @@ export default function LeaguesScreen() {
         <View style={styles.leagueHeader}>
           <Avatar name={item.name} size="large" variant="league" imageUrl={item.avatarUrl} />
           <View style={styles.leagueInfo}>
-            <Text style={styles.leagueName}>{item.name}</Text>
-            <Text style={styles.leagueMembers}>
+            <Text style={[styles.leagueName, { fontSize: scaledFonts.lg }]}>{item.name}</Text>
+            <Text style={[styles.leagueMembers, { fontSize: scaledFonts.sm }]}>
               {item.memberCount} / {item.maxMembers} members
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
+          <Ionicons name="chevron-forward" size={scaledIcon(20)} color={COLORS.text.muted} />
         </View>
 
         {isPending && (
@@ -245,7 +247,7 @@ export default function LeaguesScreen() {
         )}
 
         {item.description && (
-          <Text style={styles.leagueDescription} numberOfLines={2}>
+          <Text style={[styles.leagueDescription, { fontSize: scaledFonts.sm }]} numberOfLines={2}>
             {item.description}
           </Text>
         )}
@@ -253,7 +255,7 @@ export default function LeaguesScreen() {
         <View style={styles.leagueMeta}>
           <View style={styles.metaItem}>
             <Ionicons name="person-outline" size={14} color={COLORS.text.muted} />
-            <Text style={styles.metaText}>{item.ownerName}</Text>
+            <Text style={[styles.metaText, { fontSize: scaledFonts.sm }]}>{item.ownerName}</Text>
           </View>
           {item.isPublic && (
             <View style={styles.publicBadge}>
@@ -277,16 +279,16 @@ export default function LeaguesScreen() {
           style={styles.actionButton}
           onPress={() => router.push('/leagues/create')}
         >
-          <Ionicons name="add-circle" size={20} color={COLORS.primary} />
-          <Text style={styles.actionButtonText}>Create League</Text>
+          <Ionicons name="add-circle" size={scaledIcon(20)} color={COLORS.primary} />
+          <Text style={[styles.actionButtonText, { fontSize: scaledFonts.md }]}>Create League</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => setShowJoinModal(true)}
         >
-          <Ionicons name="enter" size={20} color={COLORS.primary} />
-          <Text style={styles.actionButtonText}>Join with Code</Text>
+          <Ionicons name="enter" size={scaledIcon(20)} color={COLORS.primary} />
+          <Text style={[styles.actionButtonText, { fontSize: scaledFonts.md }]}>Join with Code</Text>
         </TouchableOpacity>
       </View>
 
@@ -384,10 +386,10 @@ export default function LeaguesScreen() {
       ) : (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconContainer}>
-            <Ionicons name="trophy" size={48} color={COLORS.primary} />
+            <Ionicons name="trophy" size={scaledIcon(48)} color={COLORS.primary} />
           </View>
-          <Text style={styles.emptyTitle}>No Leagues Yet</Text>
-          <Text style={styles.emptyMessage}>
+          <Text style={[styles.emptyTitle, { fontSize: scaledFonts.xxl }]}>No Leagues Yet</Text>
+          <Text style={[styles.emptyMessage, { fontSize: scaledFonts.md }]}>
             Compete with friends and track your standings together
           </Text>
 
@@ -395,9 +397,9 @@ export default function LeaguesScreen() {
           <Card variant="elevated" style={styles.optionCard}>
             <View style={styles.optionHeader}>
               <Ionicons name="enter" size={24} color={COLORS.accent} />
-              <Text style={styles.optionTitle}>Join with Code</Text>
+              <Text style={[styles.optionTitle, { fontSize: scaledFonts.lg }]}>Join with Code</Text>
             </View>
-            <Text style={styles.optionDescription}>
+            <Text style={[styles.optionDescription, { fontSize: scaledFonts.sm }]}>
               Have an invite code? Enter it below to join an existing league.
             </Text>
             <TextInput
@@ -423,9 +425,9 @@ export default function LeaguesScreen() {
           <Card variant="outlined" style={styles.optionCard}>
             <View style={styles.optionHeader}>
               <Ionicons name="add-circle" size={24} color={COLORS.primary} />
-              <Text style={styles.optionTitle}>Create Your Own</Text>
+              <Text style={[styles.optionTitle, { fontSize: scaledFonts.lg }]}>Create Your Own</Text>
             </View>
-            <Text style={styles.optionDescription}>
+            <Text style={[styles.optionDescription, { fontSize: scaledFonts.sm }]}>
               Start a new league and invite your friends to compete.
             </Text>
             <Button

@@ -443,7 +443,8 @@ export type NotificationType =
   | 'league_update'
   | 'announcement'
   | 'new_story'
-  | 'incomplete_team';
+  | 'incomplete_team'
+  | 'chat_message';
 
 // ============================================
 // API Response Types
