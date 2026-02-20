@@ -1,0 +1,49 @@
+appId: com.undercut.app
+tags:
+  - team
+---
+# Create an empty team then add a constructor
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+
+# Create a team first
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+- tapOn:
+    id: "team-name-input"
+- inputText: "Constructor Test"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+- tapOn: "Solo"
+- tapOn:
+    id: "create-empty-team-btn"
+
+# Verify team is created
+- extendedWaitUntil:
+    visible: "Constructor Test"
+    timeout: 10000
+
+# Tap the Add Constructor button
+- tapOn:
+    id: "add-constructor-btn"
+
+# Should see constructor selection screen
+- extendedWaitUntil:
+    visible: "Select Constructor"
+    timeout: 5000
+
+# Tap on a constructor
+- tapOn: "Oracle Red Bull Racing"
+
+# Confirm selection
+- tapOn: "Confirm"
+
+# Verify constructor appears on team
+- extendedWaitUntil:
+    visible: "Oracle Red Bull Racing"
+    timeout: 10000

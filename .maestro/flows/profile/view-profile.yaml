@@ -1,0 +1,12 @@
+appId: com.undercut.app
+tags:
+  - profile
+---
+# View the user profile screen
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Profile tab
+- tapOn: "Profile tab"
+
+# Verify profile screen shows demo user info
+- assertVisible: "Demo User"

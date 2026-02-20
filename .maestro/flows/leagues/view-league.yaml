@@ -1,0 +1,12 @@
+appId: com.undercut.app
+tags:
+  - leagues
+---
+# View the leagues list
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Leagues tab
+- tapOn: "Leagues tab"
+
+# Verify leagues screen content
+- assertVisible: "Create League"

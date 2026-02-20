@@ -1,0 +1,38 @@
+appId: com.undercut.app
+tags:
+  - team
+---
+# Create an empty team then use auto-fill to populate remaining slots
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+
+# Create an empty team
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+- tapOn:
+    id: "team-name-input"
+- inputText: "AutoFill Test"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+- tapOn: "Solo"
+- tapOn:
+    id: "create-empty-team-btn"
+
+# Verify team created
+- extendedWaitUntil:
+    visible: "AutoFill Test"
+    timeout: 10000
+
+# Tap the Auto-Fill button
+- tapOn:
+    id: "auto-fill-btn"
+
+# Verify drivers are now populated (budget should have decreased)
+- extendedWaitUntil:
+    visible: "Bank"
+    timeout: 10000

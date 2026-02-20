@@ -1,0 +1,26 @@
+appId: com.undercut.app
+---
+# Shared setup: launch app, enter demo mode, dismiss onboarding
+- launchApp:
+    clearState: true
+
+# Wait for login screen
+- extendedWaitUntil:
+    visible: "Undercut"
+    timeout: 10000
+
+# Enter demo mode
+- tapOn:
+    id: "demo-mode-button"
+
+# Dismiss onboarding tutorial
+- tapOn:
+    id: "onboarding-skip"
+
+# Wait for home screen to load
+- extendedWaitUntil:
+    visible: "Demo User"
+    timeout: 10000
+
+# Assert home screen is visible
+- assertVisible: "Welcome back,"

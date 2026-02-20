@@ -1,0 +1,26 @@
+appId: com.undercut.app
+tags:
+  - calendar
+---
+# View a race detail page
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Calendar tab
+- tapOn: "Calendar tab"
+- waitForAnimationToEnd
+
+# Tap on a specific race
+- tapOn: "Australian Grand Prix"
+- waitForAnimationToEnd
+
+# Verify race detail loaded — look for schedule section
+- extendedWaitUntil:
+    visible: "Schedule"
+    timeout: 5000
+
+# Scroll to circuit info section
+- scrollUntilVisible:
+    element: "Circuit Information"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "Circuit Information"

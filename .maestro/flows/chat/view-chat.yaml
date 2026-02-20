@@ -1,0 +1,12 @@
+appId: com.undercut.app
+tags:
+  - chat
+---
+# View the chat screen
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Chat tab
+- tapOn: "Chat tab"
+
+# Verify chat screen loads (demo mode has no leagues)
+- assertVisible: "No Leagues Yet"

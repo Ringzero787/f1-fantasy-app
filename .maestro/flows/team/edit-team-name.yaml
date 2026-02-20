@@ -1,0 +1,49 @@
+appId: com.undercut.app
+tags:
+  - team
+---
+# Create a team then edit its name
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+
+# Create a team
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+- tapOn:
+    id: "team-name-input"
+- inputText: "Old Name"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+- tapOn: "Solo"
+- tapOn:
+    id: "create-empty-team-btn"
+
+# Verify team name
+- extendedWaitUntil:
+    visible: "Old Name"
+    timeout: 10000
+
+# Tap team name to open edit modal (name text is tappable)
+- tapOn: "Old Name"
+
+# Wait for edit modal
+- extendedWaitUntil:
+    visible: "Edit Team Name"
+    timeout: 5000
+
+# Clear existing text and type new name
+- eraseText: 20
+- inputText: "New Name"
+
+# Save
+- tapOn: "Save"
+
+# Verify updated name
+- extendedWaitUntil:
+    visible: "New Name"
+    timeout: 5000

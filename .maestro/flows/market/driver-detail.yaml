@@ -1,0 +1,19 @@
+appId: com.undercut.app
+tags:
+  - market
+---
+# View a driver detail page
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Market tab
+- tapOn: "Market tab"
+- waitForAnimationToEnd
+
+# Tap on a specific driver
+- tapOn: "Max Verstappen"
+
+# Verify driver detail screen
+- extendedWaitUntil:
+    visible: "Max Verstappen"
+    timeout: 5000
+- assertVisible: "Current Price"

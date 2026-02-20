@@ -1,0 +1,14 @@
+appId: com.undercut.app
+tags:
+  - market
+---
+# Browse the driver market
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Market tab
+- tapOn: "Market tab"
+- waitForAnimationToEnd
+
+# Verify driver names are visible
+- assertVisible: "Max Verstappen"
+- assertVisible: "Lando Norris"

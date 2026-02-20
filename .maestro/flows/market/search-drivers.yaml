@@ -1,0 +1,22 @@
+appId: com.undercut.app
+tags:
+  - market
+---
+# Search for a specific driver in the market
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Market tab
+- tapOn: "Market tab"
+- waitForAnimationToEnd
+
+# Tap search field (placeholder says "Search drivers...")
+- tapOn: "Search drivers..."
+- inputText: "Hamilton"
+
+# Verify Hamilton appears
+- extendedWaitUntil:
+    visible: "Lewis Hamilton"
+    timeout: 5000
+
+# Verify other drivers are filtered out
+- assertNotVisible: "Max Verstappen"

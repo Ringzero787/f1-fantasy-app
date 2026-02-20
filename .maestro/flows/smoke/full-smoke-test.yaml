@@ -1,0 +1,58 @@
+appId: com.undercut.app
+tags:
+  - smoke
+---
+# Full end-to-end smoke test:
+# Demo login -> Create team -> Browse market -> Check calendar -> Profile
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# 1. Verify home screen
+- assertVisible: "Welcome back,"
+- assertVisible: "Demo User"
+
+# 2. Create a team
+- tapOn: "My Team tab"
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+- tapOn:
+    id: "team-name-input"
+- inputText: "Smoke Test Team"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+- tapOn: "Solo"
+- tapOn:
+    id: "auto-create-team-btn"
+- extendedWaitUntil:
+    visible: "Smoke Test Team"
+    timeout: 10000
+- assertVisible: "Bank"
+
+# 3. Browse market
+- tapOn: "Market tab"
+- waitForAnimationToEnd
+- assertVisible: "Lando Norris"
+
+# 4. Check constructors
+- extendedWaitUntil:
+    visible: "Constructors"
+    timeout: 5000
+- tapOn: "Constructors"
+- waitForAnimationToEnd
+- assertVisible: "McLaren F1 Team"
+
+# 5. Check calendar
+- tapOn: "Calendar tab"
+- waitForAnimationToEnd
+- assertVisible: "Australian Grand Prix"
+
+# 6. View profile
+- tapOn: "Profile tab"
+- waitForAnimationToEnd
+- assertVisible: "Demo User"
+
+# 7. Return home
+- tapOn: "Home tab"
+- waitForAnimationToEnd
+- assertVisible: "Welcome back,"

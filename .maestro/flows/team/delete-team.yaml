@@ -1,0 +1,46 @@
+appId: com.undercut.app
+tags:
+  - team
+---
+# Create a team then delete it
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+
+# Create a team
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+- tapOn:
+    id: "team-name-input"
+- inputText: "Delete Me"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+- tapOn: "Solo"
+- tapOn:
+    id: "create-empty-team-btn"
+
+# Verify team created
+- extendedWaitUntil:
+    visible: "Delete Me"
+    timeout: 10000
+
+# Scroll to Delete Team button
+- scrollUntilVisible:
+    element: "Delete Team"
+    direction: DOWN
+- tapOn: "Delete Team"
+
+# First alert: "Delete Team?" with "Continue" button
+- tapOn: "Continue"
+
+# Final alert: "Permanently Delete?" with "Delete Forever" button
+- tapOn: "Delete Forever"
+
+# Verify we're back to the create team state
+- extendedWaitUntil:
+    visible: "Create Team"
+    timeout: 10000

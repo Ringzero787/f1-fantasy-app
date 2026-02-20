@@ -1,0 +1,35 @@
+appId: com.undercut.app
+tags:
+  - team
+---
+# Create an empty team via Solo mode
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+
+# Tap Create Team button
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+
+# Enter team name
+- tapOn:
+    id: "team-name-input"
+- inputText: "Maestro Test Team"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+
+# Select Solo mode
+- tapOn: "Solo"
+
+# Tap Create Empty Team
+- tapOn:
+    id: "create-empty-team-btn"
+
+# Verify we're on the team page with our team name
+- extendedWaitUntil:
+    visible: "Maestro Test Team"
+    timeout: 10000

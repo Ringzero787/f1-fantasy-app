@@ -1,0 +1,13 @@
+appId: com.undercut.app
+tags:
+  - auth
+  - smoke
+---
+# Verify demo mode login works and lands on home screen
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Verify demo user is shown
+- assertVisible: "Demo User"
+
+# Verify welcome message
+- assertVisible: "Welcome back,"

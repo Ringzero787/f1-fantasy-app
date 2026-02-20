@@ -1,0 +1,13 @@
+appId: com.undercut.app
+tags:
+  - calendar
+---
+# View the race calendar
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Calendar tab
+- tapOn: "Calendar tab"
+- waitForAnimationToEnd
+
+# Verify race calendar content is showing
+- assertVisible: "Australian Grand Prix"

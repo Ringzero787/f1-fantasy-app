@@ -1,0 +1,36 @@
+appId: com.undercut.app
+tags:
+  - team
+---
+# Create an auto-optimized team
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+
+# Tap Create Team button
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+
+# Enter team name
+- tapOn:
+    id: "team-name-input"
+- inputText: "Auto Team"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+
+# Select Solo mode
+- tapOn: "Solo"
+
+# Tap Auto Create
+- tapOn:
+    id: "auto-create-team-btn"
+
+# Verify team was created (should show driver names or budget info)
+- extendedWaitUntil:
+    visible: "Auto Team"
+    timeout: 10000
+- assertVisible: "Bank"

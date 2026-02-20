@@ -1,0 +1,44 @@
+appId: com.undercut.app
+tags:
+  - team
+---
+# Create multiple teams and switch between them
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+
+# Create first team
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+- tapOn:
+    id: "team-name-input"
+- inputText: "Team Alpha"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+- tapOn: "Solo"
+- tapOn:
+    id: "create-empty-team-btn"
+- extendedWaitUntil:
+    visible: "Team Alpha"
+    timeout: 10000
+
+# Create second team (tap + or New Team)
+- tapOn: "New Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+- tapOn:
+    id: "team-name-input"
+- inputText: "Team Beta"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+- tapOn: "Solo"
+- tapOn:
+    id: "create-empty-team-btn"
+- extendedWaitUntil:
+    visible: "Team Beta"
+    timeout: 10000

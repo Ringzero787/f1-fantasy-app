@@ -1,0 +1,6 @@
+appId: com.undercut.app
+onFlowStart:
+  clearState: true
+includeTags: []
+flows:
+  - "flows/**/*.yaml"

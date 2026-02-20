@@ -1,0 +1,42 @@
+appId: com.undercut.app
+tags:
+  - team
+---
+# Create an optimized team then remove a driver
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+
+# Create an auto team
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+- tapOn:
+    id: "team-name-input"
+- inputText: "Remove Test"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+- tapOn: "Solo"
+- tapOn:
+    id: "auto-create-team-btn"
+
+# Verify team created
+- extendedWaitUntil:
+    visible: "Remove Test"
+    timeout: 10000
+
+# Tap a Sell button on a driver card
+- tapOn:
+    id: "sell-driver-btn"
+
+# Confirm removal in the Alert dialog (button text is "Remove")
+- tapOn: "Remove"
+
+# Verify the driver was removed (Add Driver button should appear)
+- extendedWaitUntil:
+    visible:
+      id: "add-driver-btn"
+    timeout: 5000

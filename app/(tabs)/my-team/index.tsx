@@ -172,18 +172,21 @@ export default function MyTeamScreen() {
     }
   }, [user]);
 
-  // Reload leagues on focus; skip team reload if team is already loaded
-  // (prevents overwriting fresh auto-fill data with stale snapshot)
+  // Reload leagues on focus; ensure team state is consistent
   useFocusEffect(
     useCallback(() => {
       if (user) {
         loadUserLeagues(user.id);
-        // Only reload teams if none are loaded yet
-        if (userTeams.length === 0) {
+        // Read fresh state from store to avoid stale closure issues
+        const { userTeams: freshTeams, currentTeam: freshCurrent } = useTeamStore.getState();
+        if (freshTeams.length === 0) {
           loadUserTeams(user.id);
+        } else if (!freshCurrent) {
+          // Teams exist but no team selected (e.g. auto-created by league flow) — select first
+          selectTeam(freshTeams[0].id);
         }
       }
-    }, [user, userTeams.length])
+    }, [user])
   );
 
   // Auto-select team when userTeams changes and no team is selected

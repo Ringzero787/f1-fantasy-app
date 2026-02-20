@@ -1,0 +1,58 @@
+appId: com.undercut.app
+tags:
+  - team
+---
+# Create an empty team then add a driver from the market
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+
+# Create a team first
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Team Name"
+    timeout: 5000
+- tapOn:
+    id: "team-name-input"
+- inputText: "Driver Test"
+- tapOn: "Create Your Team"
+- waitForAnimationToEnd
+- tapOn: "Solo"
+- tapOn:
+    id: "create-empty-team-btn"
+
+# Verify team is created
+- extendedWaitUntil:
+    visible: "Driver Test"
+    timeout: 10000
+
+# Tap the Add Driver button
+- tapOn:
+    id: "add-driver-btn"
+
+# Should see driver selection screen
+- extendedWaitUntil:
+    visible: "Select Driver"
+    timeout: 5000
+
+# Tap on a driver to add them
+- tapOn: "Max Verstappen"
+
+# Contract modal appears — confirm the contract
+- extendedWaitUntil:
+    visible: "Confirm"
+    timeout: 5000
+- tapOn: "Confirm"
+
+# Driver is now in the cart — tap "Add 1 Driver" to finalize
+- extendedWaitUntil:
+    visible: "Add 1 Driver"
+    timeout: 5000
+- tapOn: "Add 1 Driver"
+
+# Verify driver appears on team
+- extendedWaitUntil:
+    visible: "Max Verstappen"
+    timeout: 10000

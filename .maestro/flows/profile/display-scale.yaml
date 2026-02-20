@@ -1,0 +1,21 @@
+appId: com.undercut.app
+tags:
+  - profile
+---
+# Test display scale setting
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Profile tab
+- tapOn: "Profile tab"
+- waitForAnimationToEnd
+
+# Scroll to find the Display section
+- scrollUntilVisible:
+    element: "Text Size"
+    direction: DOWN
+
+# Verify display section is visible
+- assertVisible: "Text Size"
+
+# Tap Large option to change scale
+- tapOn: "Large"

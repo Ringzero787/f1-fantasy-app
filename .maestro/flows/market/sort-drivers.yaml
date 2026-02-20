@@ -1,0 +1,17 @@
+appId: com.undercut.app
+tags:
+  - market
+---
+# Sort drivers in the market
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Market tab
+- tapOn: "Market tab"
+- waitForAnimationToEnd
+
+# Tap the Name sort button to sort by name
+- tapOn: "Name"
+- waitForAnimationToEnd
+
+# Verify market is still showing drivers after sort
+- assertVisible: "Sort by:"

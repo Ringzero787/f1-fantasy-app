@@ -58,6 +58,8 @@ export default function TabLayout() {
             />
           ),
           headerRight: () => <NotificationBell />,
+          tabBarTestID: 'tab-home',
+          tabBarAccessibilityLabel: 'Home tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={scaledIcon(28)} color={color} />
           ),
@@ -79,6 +81,8 @@ export default function TabLayout() {
               style={{ width: 40, height: 32, resizeMode: 'contain', marginRight: 12 }}
             />
           ),
+          tabBarTestID: 'tab-my-team',
+          tabBarAccessibilityLabel: 'My Team tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" size={scaledIcon(28)} color={color} />
           ),
@@ -100,6 +104,8 @@ export default function TabLayout() {
               style={{ width: 40, height: 32, resizeMode: 'contain', marginRight: 12 }}
             />
           ),
+          tabBarTestID: 'tab-market',
+          tabBarAccessibilityLabel: 'Market tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cart" size={scaledIcon(28)} color={color} />
           ),
@@ -121,6 +127,8 @@ export default function TabLayout() {
               style={{ width: 40, height: 32, resizeMode: 'contain', marginRight: 12 }}
             />
           ),
+          tabBarTestID: 'tab-leagues',
+          tabBarAccessibilityLabel: 'Leagues tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trophy" size={scaledIcon(28)} color={color} />
           ),
@@ -131,6 +139,8 @@ export default function TabLayout() {
         options={{
           title: 'Calendar',
           headerShown: false,
+          tabBarTestID: 'tab-calendar',
+          tabBarAccessibilityLabel: 'Calendar tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar" size={scaledIcon(28)} color={color} />
           ),
@@ -143,6 +153,8 @@ export default function TabLayout() {
           headerShown: false,
           // Show for non-admins, or in demo mode (where both admin + chat show)
           href: (!isAdmin || isDemoMode) ? ('/(tabs)/chat' as unknown as '/') : null,
+          tabBarTestID: 'tab-chat',
+          tabBarAccessibilityLabel: 'Chat tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles" size={scaledIcon(28)} color={color} />
           ),
@@ -156,6 +168,8 @@ export default function TabLayout() {
           headerShown: false,
           // Only show admin tab for admins or demo mode
           href: (isAdmin || isDemoMode) ? ('/(tabs)/admin' as unknown as '/') : null,
+          tabBarTestID: 'tab-admin',
+          tabBarAccessibilityLabel: 'Admin tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings" size={scaledIcon(28)} color={color} />
           ),
@@ -171,6 +185,8 @@ export default function TabLayout() {
             height: 50,
           },
           headerShadowVisible: false,
+          tabBarTestID: 'tab-profile',
+          tabBarAccessibilityLabel: 'Profile tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={scaledIcon(28)} color={color} />
           ),

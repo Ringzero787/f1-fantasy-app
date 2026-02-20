@@ -1,0 +1,49 @@
+appId: com.undercut.app
+tags:
+  - leagues
+---
+# Create a new league
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Navigate to Leagues tab
+- tapOn: "Leagues tab"
+- waitForAnimationToEnd
+
+# Tap create league button on the index screen
+- tapOn: "Create League"
+
+# Wait for create league screen
+- extendedWaitUntil:
+    visible: "Create a League"
+    timeout: 5000
+
+# Tap the league name input (use placeholder text)
+- tapOn: "Enter league name"
+- inputText: "Maestro League"
+
+# Dismiss keyboard by tapping on title
+- tapOn: "Create a League"
+- waitForAnimationToEnd
+
+# Scroll down to "Cancel" button (below the Create League button)
+# This ensures the Create League BUTTON is visible, not just the header
+- scrollUntilVisible:
+    element: "Cancel"
+    direction: DOWN
+    timeout: 5000
+
+# Tap the Create League BUTTON (second match — first is the nav header)
+- tapOn:
+    text: "Create League"
+    index: 1
+
+# Alert shows "League Created!" with a "Got it" button
+- extendedWaitUntil:
+    visible: "Got it"
+    timeout: 10000
+- tapOn: "Got it"
+
+# Verify we're on the league page showing the league name
+- extendedWaitUntil:
+    visible: "Maestro League"
+    timeout: 10000

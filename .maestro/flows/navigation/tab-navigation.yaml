@@ -1,0 +1,45 @@
+appId: com.undercut.app
+tags:
+  - navigation
+  - smoke
+---
+# Cycle through all visible tabs and assert key content
+- runFlow: ../setup/launch-demo-mode.yaml
+
+# Home tab (already here after setup)
+- assertVisible: "Welcome back,"
+
+# My Team tab
+- tapOn: "My Team tab"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Create.*Team"
+    optional: true
+
+# Market tab
+- tapOn: "Market tab"
+- waitForAnimationToEnd
+- assertVisible: "Max Verstappen"
+
+# Leagues tab
+- tapOn: "Leagues tab"
+- waitForAnimationToEnd
+
+# Calendar tab
+- tapOn: "Calendar tab"
+- waitForAnimationToEnd
+- assertVisible: "Australian Grand Prix"
+
+# Chat tab (visible in demo mode)
+- tapOn: "Chat tab"
+- waitForAnimationToEnd
+
+# Profile tab
+- tapOn: "Profile tab"
+- waitForAnimationToEnd
+- assertVisible: "Demo User"
+
+# Return to Home
+- tapOn: "Home tab"
+- waitForAnimationToEnd
+- assertVisible: "Welcome back,"
