@@ -90,14 +90,14 @@ function autoFillDrivers(
 // ── Tests ──
 
 describe('Contract Expiry', () => {
-  it('CONTRACT_LENGTH constant should be 5', () => {
-    expect(PRICING_CONFIG.CONTRACT_LENGTH).toBe(5);
+  it('CONTRACT_LENGTH constant should be 3', () => {
+    expect(PRICING_CONFIG.CONTRACT_LENGTH).toBe(3);
   });
 
   it('removes driver with racesHeld >= contractLength', () => {
     const drivers: FantasyDriver[] = [
-      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 110, pointsScored: 50, racesHeld: 5, contractLength: 5 },
-      { driverId: 'd2', name: 'B', shortName: 'BBB', constructorId: 'c2', purchasePrice: 80, currentPrice: 90, pointsScored: 30, racesHeld: 3, contractLength: 5 },
+      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 110, pointsScored: 50, racesHeld: 3, contractLength: 3 },
+      { driverId: 'd2', name: 'B', shortName: 'BBB', constructorId: 'c2', purchasePrice: 80, currentPrice: 90, pointsScored: 30, racesHeld: 1, contractLength: 3 },
     ];
 
     const { remaining, budgetReturn } = expireDrivers(drivers);
@@ -108,16 +108,16 @@ describe('Contract Expiry', () => {
 
   it('uses default CONTRACT_LENGTH when contractLength is undefined', () => {
     const drivers: FantasyDriver[] = [
-      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 5 },
+      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 3 },
     ];
 
     const { remaining } = expireDrivers(drivers);
-    expect(remaining).toHaveLength(0); // Should expire with default 5
+    expect(remaining).toHaveLength(0); // Should expire with default 3
   });
 
   it('does not remove drivers under contract length', () => {
     const drivers: FantasyDriver[] = [
-      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 4, contractLength: 5 },
+      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 2, contractLength: 3 },
     ];
 
     const { remaining, budgetReturn } = expireDrivers(drivers);
@@ -127,7 +127,7 @@ describe('Contract Expiry', () => {
 
   it('clears ace if expired driver was ace', () => {
     const drivers: FantasyDriver[] = [
-      { driverId: 'ace1', name: 'Cap', shortName: 'CAP', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 5, contractLength: 5 },
+      { driverId: 'ace1', name: 'Cap', shortName: 'CAP', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 3, contractLength: 3 },
     ];
 
     const { aceCleared } = expireDrivers(drivers, 'ace1');
@@ -136,7 +136,7 @@ describe('Contract Expiry', () => {
 
   it('does not clear ace if non-ace driver expires', () => {
     const drivers: FantasyDriver[] = [
-      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 5, contractLength: 5 },
+      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 3, contractLength: 3 },
     ];
 
     const { aceCleared } = expireDrivers(drivers, 'other_ace');
@@ -145,9 +145,9 @@ describe('Contract Expiry', () => {
 
   it('returns correct budget for multiple expired drivers', () => {
     const drivers: FantasyDriver[] = [
-      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 50, pointsScored: 0, racesHeld: 6, contractLength: 5 },
-      { driverId: 'd2', name: 'B', shortName: 'BBB', constructorId: 'c2', purchasePrice: 200, currentPrice: 150, pointsScored: 0, racesHeld: 5, contractLength: 5 },
-      { driverId: 'd3', name: 'C', shortName: 'CCC', constructorId: 'c3', purchasePrice: 80, currentPrice: 90, pointsScored: 0, racesHeld: 2, contractLength: 5 },
+      { driverId: 'd1', name: 'A', shortName: 'AAA', constructorId: 'c1', purchasePrice: 100, currentPrice: 50, pointsScored: 0, racesHeld: 4, contractLength: 3 },
+      { driverId: 'd2', name: 'B', shortName: 'BBB', constructorId: 'c2', purchasePrice: 200, currentPrice: 150, pointsScored: 0, racesHeld: 3, contractLength: 3 },
+      { driverId: 'd3', name: 'C', shortName: 'CCC', constructorId: 'c3', purchasePrice: 80, currentPrice: 90, pointsScored: 0, racesHeld: 2, contractLength: 3 },
     ];
 
     const { remaining, budgetReturn } = expireDrivers(drivers);

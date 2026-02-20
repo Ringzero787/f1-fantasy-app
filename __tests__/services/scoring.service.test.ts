@@ -103,7 +103,7 @@ describe('scoringService.calculateRacePoints', () => {
       status: 'dnf'
     });
     const { points, breakdown } = scoringService.calculateRacePoints(result);
-    expect(points).toBe(0);
+    expect(points).toBe(-5); // DNF penalty
     expect(breakdown.some(b => b.label === 'Did Not Finish')).toBe(true);
   });
 
@@ -143,7 +143,7 @@ describe('scoringService.calculateSprintPoints', () => {
   it('should handle sprint DNF', () => {
     const result = createSprintResult({ status: 'dnf' });
     const { points, breakdown } = scoringService.calculateSprintPoints(result);
-    expect(points).toBe(0);
+    expect(points).toBe(-5); // DNF penalty
     expect(breakdown.some(b => b.label === 'Sprint DNF')).toBe(true);
   });
 });

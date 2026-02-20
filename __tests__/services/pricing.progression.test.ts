@@ -2,11 +2,11 @@
  * Tests for price progression as races progress
  *
  * Verifies:
- * - PPM-based price changes per tier (A vs B)
+ * - PPM-based price changes per tier (A, B, C)
  * - Multi-race price evolution with rolling averages
  * - DNF price penalties scale correctly
- * - Price bounds ($3 min, $500 max, $25 max change)
- * - Tier transitions (B→A and A→B when crossing $200)
+ * - Price bounds ($5 min, $700 max, $60 max change)
+ * - Tier transitions (C→B→A when crossing $120/$240)
  * - Initial price calculation from season points
  *
  * Uses pure functions to avoid Firebase dependencies (same pattern as pricing.integration.test.ts)
@@ -44,8 +44,18 @@ const getPerformanceTier = (ppm: number): 'great' | 'good' | 'poor' | 'terrible'
   return 'terrible';
 };
 
-const getLocalPriceTier = (price: number): 'A' | 'B' => {
-  return price > 200 ? 'A' : 'B';
+const getLocalPriceTier = (price: number): 'A' | 'B' | 'C' => {
+  if (price > 240) return 'A';
+  if (price > 120) return 'B';
+  return 'C';
+};
+
+const getPriceChangesForTier = (tier: 'A' | 'B' | 'C') => {
+  switch (tier) {
+    case 'A': return PRICE_CHANGES.A_TIER;
+    case 'B': return PRICE_CHANGES.B_TIER;
+    case 'C': return PRICE_CHANGES.C_TIER;
+  }
 };
 
 const calculateDriverPriceChange = (points: number, currentPrice: number): {
@@ -57,7 +67,7 @@ const calculateDriverPriceChange = (points: number, currentPrice: number): {
   const ppm = calculatePPM(points, currentPrice);
   const performanceTier = getPerformanceTier(ppm);
   const tier = getLocalPriceTier(currentPrice);
-  const priceChanges = tier === 'A' ? PRICE_CHANGES.A_TIER : PRICE_CHANGES.B_TIER;
+  const priceChanges = getPriceChangesForTier(tier);
   const change = priceChanges[performanceTier];
   let newPrice = currentPrice + change;
   newPrice = Math.max(PRICING_CONFIG.MIN_PRICE, Math.min(PRICING_CONFIG.MAX_PRICE, newPrice));
@@ -99,87 +109,93 @@ const getPriceChangePercentage = (current: number, previous: number): number => 
 // ============================================
 
 describe('PPM Classification', () => {
-  it('should classify great PPM (>=0.8)', () => {
-    expect(getPerformanceTier(0.8)).toBe('great');
+  it('should classify great PPM (>=0.06)', () => {
+    expect(getPerformanceTier(0.06)).toBe('great');
+    expect(getPerformanceTier(0.10)).toBe('great');
     expect(getPerformanceTier(1.0)).toBe('great');
-    expect(getPerformanceTier(2.5)).toBe('great');
   });
 
-  it('should classify good PPM (0.6-0.79)', () => {
-    expect(getPerformanceTier(0.6)).toBe('good');
-    expect(getPerformanceTier(0.79)).toBe('good');
+  it('should classify good PPM (0.04-0.059)', () => {
+    expect(getPerformanceTier(0.04)).toBe('good');
+    expect(getPerformanceTier(0.059)).toBe('good');
   });
 
-  it('should classify poor PPM (0.4-0.59)', () => {
-    expect(getPerformanceTier(0.4)).toBe('poor');
-    expect(getPerformanceTier(0.59)).toBe('poor');
+  it('should classify poor PPM (0.02-0.039)', () => {
+    expect(getPerformanceTier(0.02)).toBe('poor');
+    expect(getPerformanceTier(0.039)).toBe('poor');
   });
 
-  it('should classify terrible PPM (<0.4)', () => {
-    expect(getPerformanceTier(0.39)).toBe('terrible');
+  it('should classify terrible PPM (<0.02)', () => {
+    expect(getPerformanceTier(0.019)).toBe('terrible');
     expect(getPerformanceTier(0.0)).toBe('terrible');
   });
 });
 
-describe('A-Tier Price Changes (price >= $200)', () => {
-  it('great performance → +$15', () => {
+describe('A-Tier Price Changes (price > $240)', () => {
+  it('great performance → +$36', () => {
+    // Price 250 (A-tier), PPM = 250/250 = 1.0 → great (>=0.06)
     const result = calculateDriverPriceChange(250, 250);
-    expect(result.change).toBe(15);
-    expect(result.newPrice).toBe(265);
+    expect(result.change).toBe(36);
+    expect(result.newPrice).toBe(286);
     expect(result.performanceTier).toBe('great');
   });
 
-  it('good performance → +$5', () => {
-    // Price 210 (A-tier), PPM = 140/210 ≈ 0.667 → good
-    const result = calculateDriverPriceChange(140, 210);
+  it('good performance → +$12', () => {
+    // Price 250 (A-tier), PPM = 13/250 = 0.052 → good (0.04-0.06)
+    const result = calculateDriverPriceChange(13, 250);
     expect(result.performanceTier).toBe('good');
-    expect(result.change).toBe(5);
-    expect(result.newPrice).toBe(215);
+    expect(result.change).toBe(12);
+    expect(result.newPrice).toBe(262);
   });
 
-  it('poor performance → -$5', () => {
-    // Price 210 (A-tier), PPM = 100/210 ≈ 0.476 → poor
-    const result = calculateDriverPriceChange(100, 210);
+  it('poor performance → -$12', () => {
+    // Price 250 (A-tier), PPM = 8/250 = 0.032 → poor (0.02-0.04)
+    const result = calculateDriverPriceChange(8, 250);
     expect(result.performanceTier).toBe('poor');
-    expect(result.change).toBe(-5);
-    expect(result.newPrice).toBe(205);
+    expect(result.change).toBe(-12);
+    expect(result.newPrice).toBe(238);
   });
 
-  it('terrible performance → -$15', () => {
-    const result = calculateDriverPriceChange(90, 300);
+  it('terrible performance → -$36', () => {
+    // Price 300 (A-tier), PPM = 3/300 = 0.01 → terrible (<0.02)
+    const result = calculateDriverPriceChange(3, 300);
     expect(result.performanceTier).toBe('terrible');
-    expect(result.change).toBe(-15);
-    expect(result.newPrice).toBe(285);
+    expect(result.change).toBe(-36);
+    expect(result.newPrice).toBe(264);
   });
 });
 
-describe('B-Tier Price Changes (price < $200)', () => {
-  it('great performance → +$10', () => {
-    const result = calculateDriverPriceChange(100, 100);
+describe('B-Tier Price Changes (price $121-$240)', () => {
+  it('great performance → +$24', () => {
+    // Price 150 (B-tier), PPM = 15/150 = 0.1 → great (>=0.06)
+    const result = calculateDriverPriceChange(15, 150);
     expect(result.performanceTier).toBe('great');
-    expect(result.change).toBe(10);
-    expect(result.newPrice).toBe(110);
+    expect(result.change).toBe(24);
+    expect(result.newPrice).toBe(174);
   });
 
-  it('good performance → +$3', () => {
-    const result = calculateDriverPriceChange(70, 100);
+  it('good performance → +$7', () => {
+    // Price 150 (B-tier), PPM = 7/150 ≈ 0.047 → good (0.04-0.06)
+    const result = calculateDriverPriceChange(7, 150);
     expect(result.performanceTier).toBe('good');
-    expect(result.change).toBe(3);
-    expect(result.newPrice).toBe(103);
+    expect(result.change).toBe(7);
+    expect(result.newPrice).toBe(157);
   });
 
-  it('poor performance → -$3', () => {
-    const result = calculateDriverPriceChange(75, 150);
+  it('poor performance → -$7', () => {
+    // Price 150 (B-tier), PPM = 5/150 ≈ 0.033 → poor (0.02-0.04)
+    const result = calculateDriverPriceChange(5, 150);
     expect(result.performanceTier).toBe('poor');
-    expect(result.change).toBe(-3);
-    expect(result.newPrice).toBe(147);
+    expect(result.change).toBe(-7);
+    expect(result.newPrice).toBe(143);
   });
 
-  it('terrible performance → -$10', () => {
-    const result = calculateDriverPriceChange(20, 100);
+  it('terrible performance → -$24', () => {
+    // Price 150 (B-tier), PPM = 2/150 ≈ 0.013 → terrible (<0.02)
+    const result = calculateDriverPriceChange(2, 150);
     expect(result.performanceTier).toBe('terrible');
-    expect(result.change).toBe(-10);
-    expect(result.newPrice).toBe(90);
+    expect(result.change).toBe(-24);
+    expect(result.newPrice).toBe(126);
   });
 });
 
@@ -189,7 +205,7 @@ describe('B-Tier Price Changes (price < $200)', () => {
 
 describe('Multi-Race Price Progression', () => {
   it('consistently great performance should increase price steadily', () => {
-    let price = 150; // Start B-tier
+    let price = 150; // Start B-tier (>120, <=240)
 
     for (let i = 0; i < 5; i++) {
       const points = price * 1.0; // PPM = 1.0 → great
@@ -197,50 +213,50 @@ describe('Multi-Race Price Progression', () => {
       price = result.newPrice;
     }
 
-    // B-tier great = +10 per race × 5 races = +50
-    // 150 → 160 → 170 → 180 → 190 → 200
-    expect(price).toBe(200);
+    // B-tier great = +24 per race × 5 races = +120
+    // 150 → 174 → 198 → 222 → 246 (now A-tier!) → 282
+    expect(price).toBe(282);
   });
 
   it('consistently terrible performance should decrease price', () => {
-    let price = 250; // Start A-tier
+    let price = 300; // Start A-tier (>240)
 
     for (let i = 0; i < 5; i++) {
-      const points = price * 0.1; // terrible PPM
+      const points = price * 0.005; // very low PPM → terrible (<0.02)
       const result = calculateDriverPriceChange(points, price);
       price = result.newPrice;
     }
 
-    // A-tier terrible = -15 per race
-    // 250 → 235 → 220 → 205 → 190 → 180 (last 2 are B-tier: -10)
-    expect(price).toBeLessThan(250);
-    expect(price).toBe(180);
+    // A-tier terrible = -36/race, then transitions to B at <=240, then C at <=120
+    // 300 → 264 → 228 (B-tier) → 204 (B) → 180 (B) → 156 (B)
+    expect(price).toBeLessThan(300);
+    expect(price).toBe(156);
   });
 
-  it('tier transition: B→A when crossing $200 threshold', () => {
-    let price = 195;
+  it('tier transition: B→A when crossing $240 threshold', () => {
+    let price = 230; // B-tier
 
-    // Great B-tier: +10 → 205 (now A-tier)
-    const r1 = calculateDriverPriceChange(195, price);
-    expect(r1.newPrice).toBe(205);
+    // Great B-tier: +24 → 254 (now A-tier)
+    const r1 = calculateDriverPriceChange(230, price);
+    expect(r1.newPrice).toBe(254);
     expect(getPriceTier(r1.newPrice)).toBe('A');
 
-    // Great A-tier: +15 → 220
-    const r2 = calculateDriverPriceChange(205, r1.newPrice);
-    expect(r2.change).toBe(15);
-    expect(r2.newPrice).toBe(220);
+    // Great A-tier: +36 → 290
+    const r2 = calculateDriverPriceChange(254, r1.newPrice);
+    expect(r2.change).toBe(36);
+    expect(r2.newPrice).toBe(290);
   });
 
-  it('tier transition: A→B when dropping below $200', () => {
-    // Terrible A-tier: -15 → 190 (now B-tier)
-    const r1 = calculateDriverPriceChange(10, 205);
-    expect(r1.newPrice).toBe(190);
+  it('tier transition: A→B when dropping below $240', () => {
+    // Terrible A-tier: -36 → 214 (now B-tier)
+    const r1 = calculateDriverPriceChange(1, 250);
+    expect(r1.newPrice).toBe(214);
     expect(getPriceTier(r1.newPrice)).toBe('B');
 
-    // Terrible B-tier: -10 → 180
-    const r2 = calculateDriverPriceChange(10, r1.newPrice);
-    expect(r2.change).toBe(-10);
-    expect(r2.newPrice).toBe(180);
+    // Terrible B-tier (PPM = 1/214 ≈ 0.005): -24 → 190
+    const r2 = calculateDriverPriceChange(1, r1.newPrice);
+    expect(r2.change).toBe(-24);
+    expect(r2.newPrice).toBe(190);
   });
 });
 
@@ -249,28 +265,28 @@ describe('Multi-Race Price Progression', () => {
 // ============================================
 
 describe('DNF Price Penalties', () => {
-  it('lap 1 DNF = maximum penalty (10 pts)', () => {
+  it('lap 1 DNF = maximum penalty (24 pts)', () => {
     const penalty = calculateDnfPricePenalty(1, 50);
     expect(penalty).toBe(DNF_PRICE_PENALTY_MAX);
   });
 
-  it('final lap DNF = minimum penalty (1 pt)', () => {
+  it('final lap DNF = minimum penalty (2 pts)', () => {
     const penalty = calculateDnfPricePenalty(50, 50);
     expect(penalty).toBe(DNF_PRICE_PENALTY_MIN);
   });
 
   it('mid-race DNF = intermediate penalty', () => {
     const penalty = calculateDnfPricePenalty(25, 50);
-    // progress = (25-1)/(50-1) ≈ 0.49
-    // penalty = 1 + (10-1) * (1-0.49) = 1 + 4.59 = 5.59 → ceil = 6
+    // progress = (25-1)/(50-1) ≈ 0.4898
+    // penalty = 2 + (24-2) * (1-0.4898) = 2 + 22 * 0.5102 = 2 + 11.224 = 13.224 → ceil = 14
     expect(penalty).toBeGreaterThan(DNF_PRICE_PENALTY_MIN);
     expect(penalty).toBeLessThan(DNF_PRICE_PENALTY_MAX);
-    expect(penalty).toBe(6);
+    expect(penalty).toBe(14);
   });
 
   it('DNF penalty respects $50 minimum price', () => {
     const { newPrice } = applyDnfPenalty(55, 1, 50);
-    // Penalty = 10, 55 - 10 = 45, but min is 50
+    // Penalty = 24, 55 - 24 = 31, but min is 50
     expect(newPrice).toBe(50);
   });
 
@@ -295,9 +311,9 @@ describe('DNF Price Penalties', () => {
 // ============================================
 
 describe('Price Bounds', () => {
-  it('minimum price is $3 (from calculateDriverPriceChange)', () => {
-    const result = calculateDriverPriceChange(0, 5);
-    // PPM = 0 → terrible → B-tier: -10 → 5-10 = -5, clamped to 3
+  it('minimum price is $5 (from calculateDriverPriceChange)', () => {
+    const result = calculateDriverPriceChange(0, 10);
+    // PPM = 0 → terrible → C-tier: -12 → 10-12 = -2, clamped to 5
     expect(result.newPrice).toBe(PRICING_CONFIG.MIN_PRICE);
   });
 
@@ -310,14 +326,14 @@ describe('Price Bounds', () => {
     expect(price).toBe(PRICING_CONFIG.MIN_PRICE);
   });
 
-  it('max price change per race is bounded ($25)', () => {
+  it('max price change per race is bounded ($60)', () => {
     const change = calculatePriceChange(100, 200);
-    expect(change).toBe(25); // Capped at MAX_CHANGE_PER_RACE
+    expect(change).toBe(60); // Capped at MAX_CHANGE_PER_RACE
   });
 
-  it('negative price change is bounded (-$25)', () => {
+  it('negative price change is bounded (-$60)', () => {
     const change = calculatePriceChange(200, 100);
-    expect(change).toBe(-25); // Capped at -MAX_CHANGE_PER_RACE
+    expect(change).toBe(-60); // Capped at -MAX_CHANGE_PER_RACE
   });
 
   it('small changes are not capped', () => {
@@ -325,12 +341,12 @@ describe('Price Bounds', () => {
     expect(change).toBe(10); // Within bounds, not capped
   });
 
-  it('absolute min price is $3 (from config)', () => {
-    expect(PRICING_CONFIG.MIN_PRICE).toBe(3);
+  it('absolute min price is $5 (from config)', () => {
+    expect(PRICING_CONFIG.MIN_PRICE).toBe(5);
   });
 
-  it('absolute max price is $500 (from config)', () => {
-    expect(PRICING_CONFIG.MAX_PRICE).toBe(500);
+  it('absolute max price is $700 (from config)', () => {
+    expect(PRICING_CONFIG.MAX_PRICE).toBe(700);
   });
 });
 
@@ -379,32 +395,32 @@ describe('Rolling Average', () => {
 // ============================================
 
 describe('Initial Price from Season Points', () => {
-  it('Verstappen-level (575 pts) → $240', () => {
-    const price = calculateInitialPrice(575);
-    // 575/24 * 10 = 239.58 → round → 240
-    expect(price).toBe(240);
+  it('Verstappen-level (500 pts) → $500', () => {
+    const price = calculateInitialPrice(500);
+    // 500/24 * 24 = 500
+    expect(price).toBe(500);
   });
 
-  it('mid-tier driver (200 pts) → $83', () => {
+  it('mid-tier driver (200 pts) → $200', () => {
     const price = calculateInitialPrice(200);
-    // 200/24 * 10 = 83.33 → round → 83
-    expect(price).toBe(83);
+    // 200/24 * 24 = 200
+    expect(price).toBe(200);
   });
 
-  it('low scorer (20 pts) → $8', () => {
+  it('low scorer (20 pts) → $20', () => {
     const price = calculateInitialPrice(20);
-    // 20/24 * 10 = 8.33 → round → 8
-    expect(price).toBe(8);
+    // 20/24 * 24 = 20
+    expect(price).toBe(20);
   });
 
-  it('zero points → minimum price ($3)', () => {
+  it('zero points → minimum price ($5)', () => {
     const price = calculateInitialPrice(0);
     expect(price).toBe(PRICING_CONFIG.MIN_PRICE);
   });
 
-  it('extremely high scorer → capped at $500', () => {
+  it('extremely high scorer → capped at $700', () => {
     const price = calculateInitialPrice(2000);
-    // 2000/24 * 10 = 833 → capped at 500
+    // 2000/24 * 24 = 2000 → capped at 700
     expect(price).toBe(PRICING_CONFIG.MAX_PRICE);
   });
 });
@@ -414,26 +430,32 @@ describe('Initial Price from Season Points', () => {
 // ============================================
 
 describe('Driver Tier', () => {
-  it('price $201 → A-tier', () => {
-    expect(getPriceTier(201)).toBe('A');
-    expect(getPriceTier(201)).toBe('A');
+  it('price $241 → A-tier', () => {
+    expect(getPriceTier(241)).toBe('A');
   });
 
-  it('price $200 → B-tier (threshold > 200, exclusive)', () => {
-    expect(getPriceTier(200)).toBe('B');
+  it('price $240 → B-tier (threshold > 240, exclusive)', () => {
+    expect(getPriceTier(240)).toBe('B');
+  });
+
+  it('price $200 → B-tier', () => {
     expect(getPriceTier(200)).toBe('B');
   });
 
-  it('price $199 → B-tier', () => {
-    expect(getPriceTier(199)).toBe('B');
+  it('price $121 → B-tier', () => {
+    expect(getPriceTier(121)).toBe('B');
+  });
+
+  it('price $120 → C-tier (threshold > 120, exclusive)', () => {
+    expect(getPriceTier(120)).toBe('C');
   });
 
   it('price $500 → A-tier', () => {
     expect(getPriceTier(500)).toBe('A');
   });
 
-  it('price $3 → B-tier', () => {
-    expect(getPriceTier(3)).toBe('B');
+  it('price $5 → C-tier', () => {
+    expect(getPriceTier(5)).toBe('C');
   });
 });
 
@@ -471,7 +493,7 @@ describe('Price Trend', () => {
 
 describe('Season Price Simulation', () => {
   it('top driver: consistent great performance maintains high price', () => {
-    let price = 310; // Verstappen starting price
+    let price = 310; // Verstappen starting price (A-tier)
 
     for (let i = 0; i < 10; i++) {
       const points = price * 0.9; // PPM = 0.9 → great
@@ -479,32 +501,32 @@ describe('Season Price Simulation', () => {
       price = result.newPrice;
     }
 
-    // Should be above starting price (all great = +15/race for A-tier)
-    // 310 + 15*10 = 460
-    expect(price).toBe(460);
+    // Should be above starting price (all great = +36/race for A-tier)
+    // 310 + 36*10 = 670
+    expect(price).toBe(670);
     expect(price).toBeLessThanOrEqual(PRICING_CONFIG.MAX_PRICE);
   });
 
   it('inconsistent driver: price oscillates around a midpoint', () => {
-    let price = 150;
+    let price = 150; // B-tier
     const prices: number[] = [price];
 
     for (let i = 0; i < 10; i++) {
       const isGreat = i % 2 === 0;
-      const points = isGreat ? price * 1.0 : price * 0.1;
+      const points = isGreat ? price * 1.0 : price * 0.005;
       const result = calculateDriverPriceChange(points, price);
       price = result.newPrice;
       prices.push(price);
     }
 
-    // B-tier: great +10, terrible -10 → roughly stable
+    // B-tier: great +24, terrible -24 → roughly stable (oscillates)
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
-    expect(maxPrice - minPrice).toBeLessThan(50);
+    expect(maxPrice - minPrice).toBeLessThan(100);
   });
 
   it('breakout rookie: low price + great performance climbs fast', () => {
-    let price = 80;
+    let price = 80; // C-tier (<=120)
 
     for (let i = 0; i < 5; i++) {
       const points = price * 1.2; // PPM = 1.2 → great
@@ -512,7 +534,8 @@ describe('Season Price Simulation', () => {
       price = result.newPrice;
     }
 
-    // B-tier great = +10 per race, 5 races = +50
-    expect(price).toBe(130);
+    // C-tier great = +12 per race for first few, then B-tier great = +24
+    // 80 → 92 → 104 → 116 → 128 (now B-tier!) → 152
+    expect(price).toBe(152);
   });
 });

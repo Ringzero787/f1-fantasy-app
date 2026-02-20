@@ -20,18 +20,19 @@ describe('PRICING_CONFIG', () => {
   });
 
   it('should have correct price calculation constants', () => {
-    expect(PRICING_CONFIG.DOLLARS_PER_POINT).toBe(10);
+    expect(PRICING_CONFIG.DOLLARS_PER_POINT).toBe(24);
     expect(PRICING_CONFIG.ROLLING_WINDOW).toBe(5);
   });
 
   it('should have correct price bounds', () => {
-    expect(PRICING_CONFIG.MIN_PRICE).toBe(3);
-    expect(PRICING_CONFIG.MAX_PRICE).toBe(500);
-    expect(PRICING_CONFIG.MAX_CHANGE_PER_RACE).toBe(25);
+    expect(PRICING_CONFIG.MIN_PRICE).toBe(5);
+    expect(PRICING_CONFIG.MAX_PRICE).toBe(700);
+    expect(PRICING_CONFIG.MAX_CHANGE_PER_RACE).toBe(60);
   });
 
-  it('should have correct tier threshold', () => {
-    expect(PRICING_CONFIG.A_TIER_THRESHOLD).toBe(200);
+  it('should have correct tier thresholds', () => {
+    expect(PRICING_CONFIG.A_TIER_THRESHOLD).toBe(240);
+    expect(PRICING_CONFIG.B_TIER_THRESHOLD).toBe(120);
   });
 
   it('should have correct ace system values', () => {
@@ -48,18 +49,18 @@ describe('PRICING_CONFIG', () => {
 
 describe('calculateInitialPrice', () => {
   it('should calculate price from previous season points', () => {
-    // 240 points / 24 races = 10 avg * $10 = $100
-    expect(calculateInitialPrice(240)).toBe(100);
+    // 240 points / 24 races = 10 avg * $24 = $240
+    expect(calculateInitialPrice(240)).toBe(240);
   });
 
   it('should calculate price for top driver (Verstappen-like)', () => {
-    // 575 points / 24 races = 23.96 avg * $10 = $240
-    expect(calculateInitialPrice(575)).toBe(240);
+    // 500 points / 24 races = 20.833 avg * $24 = $500
+    expect(calculateInitialPrice(500)).toBe(500);
   });
 
   it('should calculate price for mid-tier driver', () => {
-    // 120 points / 24 races = 5 avg * $10 = $50
-    expect(calculateInitialPrice(120)).toBe(50);
+    // 120 points / 24 races = 5 avg * $24 = $120
+    expect(calculateInitialPrice(120)).toBe(120);
   });
 
   it('should enforce minimum price', () => {
@@ -68,20 +69,22 @@ describe('calculateInitialPrice', () => {
   });
 
   it('should enforce maximum price', () => {
-    // 20000 points would be $8333, but capped at MAX_PRICE
+    // 20000 points would be very high, but capped at MAX_PRICE
     expect(calculateInitialPrice(20000)).toBe(PRICING_CONFIG.MAX_PRICE);
   });
 
   it('should round to nearest integer', () => {
-    // 100 points / 24 = 4.167 * 10 = 41.67 → 42
-    expect(calculateInitialPrice(100)).toBe(42);
+    // 100 points / 24 = 4.167 * 24 = 100
+    expect(calculateInitialPrice(100)).toBe(100);
   });
 });
 
 describe('calculatePriceFromRollingAvg', () => {
   it('should multiply rolling average by dollars per point', () => {
-    expect(calculatePriceFromRollingAvg(10)).toBe(100);
-    expect(calculatePriceFromRollingAvg(25)).toBe(250);
+    // 10 avg * $24 = $240
+    expect(calculatePriceFromRollingAvg(10)).toBe(240);
+    // 25 avg * $24 = $600
+    expect(calculatePriceFromRollingAvg(25)).toBe(600);
   });
 
   it('should enforce minimum price', () => {
@@ -89,6 +92,7 @@ describe('calculatePriceFromRollingAvg', () => {
   });
 
   it('should enforce maximum price', () => {
+    // 100 avg * $24 = $2400, capped at $700
     expect(calculatePriceFromRollingAvg(100)).toBe(PRICING_CONFIG.MAX_PRICE);
   });
 });
@@ -145,16 +149,22 @@ describe('calculatePriceChange', () => {
 });
 
 describe('getPriceTier (price-based, for volatility)', () => {
-  it('should return A tier for prices above threshold', () => {
-    expect(getPriceTier(201)).toBe('A');
+  it('should return A tier for prices above 240', () => {
+    expect(getPriceTier(241)).toBe('A');
     expect(getPriceTier(300)).toBe('A');
     expect(getPriceTier(500)).toBe('A');
   });
 
-  it('should return B tier for prices at or below threshold', () => {
+  it('should return B tier for prices above 120 but at or below 240', () => {
+    expect(getPriceTier(240)).toBe('B');
     expect(getPriceTier(200)).toBe('B');
-    expect(getPriceTier(100)).toBe('B');
-    expect(getPriceTier(50)).toBe('B');
+    expect(getPriceTier(121)).toBe('B');
+  });
+
+  it('should return C tier for prices at or below 120', () => {
+    expect(getPriceTier(120)).toBe('C');
+    expect(getPriceTier(100)).toBe('C');
+    expect(getPriceTier(50)).toBe('C');
   });
 });
 

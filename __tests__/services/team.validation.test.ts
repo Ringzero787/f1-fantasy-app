@@ -100,17 +100,17 @@ describe('Team Budget Validation', () => {
   });
 
   it('should validate top 5 drivers cannot be afforded together', () => {
-    // Based on plan: top 5 drivers total ~1360 points
+    // Based on current prices: top 5 A-tier drivers
     const topDrivers = [
-      createMockDriver('norris', 423, 'A'),
-      createMockDriver('verstappen', 421, 'A'),
-      createMockDriver('piastri', 410, 'A'),
-      createMockDriver('russell', 319, 'A'),
-      createMockDriver('leclerc', 242, 'A'),
+      createMockDriver('norris', 510, 'A'),
+      createMockDriver('verstappen', 500, 'A'),
+      createMockDriver('piastri', 380, 'A'),
+      createMockDriver('leclerc', 340, 'A'),
+      createMockDriver('russell', 290, 'A'),
     ];
 
     const totalTopDriversCost = topDrivers.reduce((sum, d) => sum + d.price, 0);
-    // 423 + 421 + 410 + 319 + 242 = 1815
+    // 510 + 500 + 380 + 340 + 290 = 2020
     expect(totalTopDriversCost).toBeGreaterThan(BUDGET);
     // This ensures strategic budget allocation is required
   });
@@ -153,20 +153,29 @@ describe('Ace Validation', () => {
 });
 
 describe('Driver Tier Classification', () => {
-  it('should classify drivers above 200 as A-tier', () => {
+  it('should classify drivers above 240 as A-tier', () => {
     const isATier = (price: number) => price > PRICING_CONFIG.A_TIER_THRESHOLD;
 
-    expect(isATier(201)).toBe(true);
+    expect(isATier(241)).toBe(true);
     expect(isATier(300)).toBe(true);
     expect(isATier(500)).toBe(true);
   });
 
-  it('should classify drivers at or below 200 as B-tier', () => {
-    const isBTier = (price: number) => price <= PRICING_CONFIG.A_TIER_THRESHOLD;
+  it('should classify drivers at or below 240 but above 120 as B-tier', () => {
+    const isBTier = (price: number) =>
+      price > PRICING_CONFIG.B_TIER_THRESHOLD && price <= PRICING_CONFIG.A_TIER_THRESHOLD;
 
-    expect(isBTier(200)).toBe(true);
+    expect(isBTier(240)).toBe(true);
     expect(isBTier(150)).toBe(true);
-    expect(isBTier(50)).toBe(true);
+    expect(isBTier(121)).toBe(true);
+  });
+
+  it('should classify drivers at or below 120 as C-tier', () => {
+    const isCTier = (price: number) => price <= PRICING_CONFIG.B_TIER_THRESHOLD;
+
+    expect(isCTier(120)).toBe(true);
+    expect(isCTier(50)).toBe(true);
+    expect(isCTier(5)).toBe(true);
   });
 });
 
