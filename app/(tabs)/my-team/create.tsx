@@ -18,6 +18,7 @@ import { useLeagueStore } from '../../../src/store/league.store';
 import { useDrivers, useConstructors } from '../../../src/hooks';
 import { Input, Button } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import { validateTeamName } from '../../../src/utils/validation';
 import type { Driver, Constructor } from '../../../src/types';
 
@@ -120,6 +121,7 @@ function generateRecommendedTeam(
 type TeamMode = 'solo' | 'league';
 
 export default function CreateTeamScreen() {
+  const theme = useTheme();
   const { user } = useAuth();
   const leagues = useLeagueStore(s => s.leagues);
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
@@ -324,6 +326,7 @@ export default function CreateTeamScreen() {
             onChangeText={setTeamName}
             maxLength={30}
             autoFocus
+            testID="team-name-input"
           />
 
           {/* Quick Action - Auto Create at the top for easy access */}
@@ -334,6 +337,7 @@ export default function CreateTeamScreen() {
             disabled={(isLoading && !isCreatingRecommended) || dataLoading || !teamName.trim() || (teamMode === 'league' && !autoLeague)}
             fullWidth
             style={styles.quickActionButton}
+            testID="auto-create-team-btn"
           />
           <Text style={styles.quickActionHint}>
             One tap to create a balanced team within budget
@@ -346,6 +350,7 @@ export default function CreateTeamScreen() {
               style={[
                 styles.modeOption,
                 teamMode === 'solo' && styles.modeOptionSelected,
+                teamMode === 'solo' && { backgroundColor: theme.primary, borderColor: theme.primary },
               ]}
               onPress={() => setTeamMode('solo')}
             >
@@ -376,6 +381,7 @@ export default function CreateTeamScreen() {
               style={[
                 styles.modeOption,
                 teamMode === 'league' && styles.modeOptionSelected,
+                teamMode === 'league' && { backgroundColor: theme.primary, borderColor: theme.primary },
               ]}
               onPress={() => setTeamMode('league')}
             >
@@ -405,11 +411,11 @@ export default function CreateTeamScreen() {
 
           {/* League info */}
           {teamMode === 'league' && autoLeague ? (
-            <View style={styles.preselectedLeagueBanner}>
-              <Ionicons name="trophy" size={24} color={COLORS.primary} />
+            <View style={[styles.preselectedLeagueBanner, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '40' }]}>
+              <Ionicons name="trophy" size={24} color={theme.primary} />
               <View style={styles.preselectedLeagueInfo}>
                 <Text style={styles.preselectedLeagueLabel}>Will join</Text>
-                <Text style={styles.preselectedLeagueName}>{autoLeague.name}</Text>
+                <Text style={[styles.preselectedLeagueName, { color: theme.primary }]}>{autoLeague.name}</Text>
               </View>
             </View>
           ) : teamMode === 'league' && !autoLeague ? (
@@ -420,8 +426,8 @@ export default function CreateTeamScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.modeDescription}>
-              <Ionicons name="information-circle" size={20} color={COLORS.primary} />
+            <View style={[styles.modeDescription, { backgroundColor: theme.primary + '15' }]}>
+              <Ionicons name="information-circle" size={20} color={theme.primary} />
               <Text style={styles.modeDescriptionText}>
                 Solo teams let you track your fantasy picks without competing. You can join a league later.
               </Text>
@@ -452,6 +458,7 @@ export default function CreateTeamScreen() {
             variant="outline"
             fullWidth
             style={styles.button}
+            testID="create-empty-team-btn"
           />
           <Text style={styles.recommendedHint}>
             Create an empty team and add drivers manually

@@ -19,6 +19,7 @@ import { Card, Loading, LeaderboardItem, Button, EmptyState, Avatar, AvatarPicke
 import { LeaderboardView } from '../../../../src/components/LeaderboardItem';
 import { saveAvatarUrl } from '../../../../src/services/avatarGeneration.service';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
+import { useTheme } from '../../../../src/hooks/useTheme';
 import { useScale } from '../../../../src/hooks/useScale';
 import type { LeagueMember } from '../../../../src/types';
 
@@ -30,6 +31,7 @@ const LEADERBOARD_VIEWS: { key: LeaderboardView; label: string; icon: string }[]
 ];
 
 export default function LeagueDetailScreen() {
+  const theme = useTheme();
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
@@ -336,6 +338,7 @@ export default function LeagueDetailScreen() {
               style={[
                 styles.viewToggleItem,
                 leaderboardView === view.key && styles.viewToggleItemActive,
+                leaderboardView === view.key && { backgroundColor: theme.primary },
               ]}
               onPress={() => setLeaderboardView(view.key)}
             >
@@ -370,8 +373,8 @@ export default function LeagueDetailScreen() {
           <Text style={[styles.inviteRowCode, { fontSize: scaledFonts.md }]}>{currentLeague.inviteCode}</Text>
         </View>
         <View style={styles.shareButton}>
-          <Ionicons name="share-outline" size={20} color={COLORS.primary} />
-          <Text style={[styles.shareText, { fontSize: scaledFonts.sm }]}>Share</Text>
+          <Ionicons name="share-outline" size={20} color={theme.primary} />
+          <Text style={[styles.shareText, { fontSize: scaledFonts.sm, color: theme.primary }]}>Share</Text>
         </View>
       </TouchableOpacity>
 
@@ -379,11 +382,11 @@ export default function LeagueDetailScreen() {
       <View style={styles.actions}>
         {isOwner && (
           <TouchableOpacity
-            style={styles.adminButton}
+            style={[styles.adminButton, { borderColor: theme.primary }]}
             onPress={() => router.push(`/leagues/${id}/admin`)}
           >
-            <Ionicons name="settings-outline" size={20} color={COLORS.primary} />
-            <Text style={[styles.adminButtonText, { fontSize: scaledFonts.lg }]}>League Admin</Text>
+            <Ionicons name="settings-outline" size={20} color={theme.primary} />
+            <Text style={[styles.adminButtonText, { fontSize: scaledFonts.lg, color: theme.primary }]}>League Admin</Text>
           </TouchableOpacity>
         )}
         {!isOwner && (
@@ -429,7 +432,7 @@ export default function LeagueDetailScreen() {
         showsVerticalScrollIndicator={true}
         bounces={true}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
       />
 

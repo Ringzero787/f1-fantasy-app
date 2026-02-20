@@ -50,8 +50,8 @@ const SEASON_2025_POINTS = {
   hadjar: 40,       // Rookie at RB
   bearman: 35,      // Rookie at Haas
   lawson: 30,       // Alpine rookie
-  bortoleto: 25,    // Sauber rookie
-  colapinto: 15,    // Sauber
+  bortoleto: 25,    // Audi rookie
+  colapinto: 15,    // Audi
   bottas: 10,       // Cadillac new team
   perez: 10,        // Cadillac new team
   lindblad: 0,      // Reserve
@@ -241,8 +241,8 @@ export const drivers2026 = [
     name: 'Nico Hulkenberg',
     shortName: 'HUL',
     number: 27,
-    constructorId: 'sauber',
-    constructorName: 'Stake F1 Team Kick Sauber',
+    constructorId: 'audi',
+    constructorName: 'Audi F1 Team',
     nationality: 'German',
     previousSeasonPoints: SEASON_2025_POINTS.hulkenberg,
     price: calcPrice(SEASON_2025_POINTS.hulkenberg),     // $70
@@ -337,8 +337,8 @@ export const drivers2026 = [
     name: 'Gabriel Bortoleto',
     shortName: 'BOR',
     number: 5,
-    constructorId: 'sauber',
-    constructorName: 'Stake F1 Team Kick Sauber',
+    constructorId: 'audi',
+    constructorName: 'Audi F1 Team',
     nationality: 'Brazilian',
     previousSeasonPoints: SEASON_2025_POINTS.bortoleto,
     price: calcPrice(SEASON_2025_POINTS.bortoleto),      // $25
@@ -522,13 +522,13 @@ export const constructors2026 = [
     isActive: true,
   },
   {
-    id: 'sauber',
-    name: 'Stake F1 Team Kick Sauber',
-    shortName: 'SAU',
-    nationality: 'Swiss',
+    id: 'audi',
+    name: 'Audi F1 Team',
+    shortName: 'AUD',
+    nationality: 'German',
     teamPrincipal: 'Jonathan Wheatley',
-    primaryColor: '#52E252',
-    secondaryColor: '#000000',
+    primaryColor: '#8C8C8C',
+    secondaryColor: '#BB0A30',
     price: 123,
     previousPrice: 123,
     seasonPoints: 0,
@@ -1175,7 +1175,7 @@ export const constructorStandings2025 = [
   { position: 5, constructorId: 'williams', points: 137 },
   { position: 6, constructorId: 'aston_martin', points: 89 },
   { position: 7, constructorId: 'haas', points: 79 },
-  { position: 8, constructorId: 'sauber', points: 70 },
+  { position: 8, constructorId: 'audi', points: 70 },
   { position: 9, constructorId: 'racing_bulls', points: 38 },
   { position: 10, constructorId: 'alpine', points: 22 },
 ];

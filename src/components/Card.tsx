@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle, TouchableOpacity, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 
 interface CardProps {
   children: React.ReactNode;
@@ -20,6 +21,8 @@ export const Card = React.memo(function Card({
   shadow,
   style,
 }: CardProps) {
+  const theme = useTheme();
+
   // Determine shadow based on variant if not explicitly set
   const shadowStyle = shadow
     ? SHADOWS[shadow]
@@ -59,10 +62,10 @@ export const Card = React.memo(function Card({
   if (variant === 'gradient') {
     const content = (
       <LinearGradient
-        colors={[COLORS.cyan[600], COLORS.cyan[800]]}
+        colors={theme.gradients.primaryDark}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.base, styles[`padding_${padding}`], SHADOWS.glow, style]}
+        style={[styles.base, styles[`padding_${padding}`], theme.shadows.glow, style]}
       >
         {children}
       </LinearGradient>

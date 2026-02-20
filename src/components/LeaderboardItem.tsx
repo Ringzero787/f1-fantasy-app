@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { formatPoints } from '../utils/formatters';
 import { Avatar } from './Avatar';
 import type { LeagueMember } from '../types';
@@ -17,6 +18,7 @@ interface LeaderboardItemProps {
 }
 
 export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isCurrentUser = false, onPress, view = 'total' }: LeaderboardItemProps) {
+  const theme = useTheme();
   // Get value and label based on view type
   const getDisplayValue = (): { value: number; label: string } => {
     switch (view) {
@@ -69,7 +71,7 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
   const isWithdrawn = member.isWithdrawn === true;
 
   const content = (
-    <View style={[styles.container, isCurrentUser && styles.currentUser, isWithdrawn && styles.withdrawnContainer]}>
+    <View style={[styles.container, isCurrentUser && [styles.currentUser, { backgroundColor: theme.primary + '15', borderColor: theme.primary }], isWithdrawn && styles.withdrawnContainer]}>
       {/* Rank Badge */}
       <LinearGradient
         colors={getRankColors()}
@@ -95,12 +97,12 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
       {/* Member Info */}
       <View style={styles.info}>
         <View style={styles.nameRow}>
-          <Text style={[styles.teamName, isCurrentUser && styles.currentUserText, isWithdrawn && styles.withdrawnText]} numberOfLines={1}>
+          <Text style={[styles.teamName, isCurrentUser && [styles.currentUserText, { color: theme.primary }], isWithdrawn && styles.withdrawnText]} numberOfLines={1}>
             {member.teamName || 'No Team'}
           </Text>
           {isCurrentUser && (
-            <View style={styles.youBadge}>
-              <Text style={styles.youText}>You</Text>
+            <View style={[styles.youBadge, { backgroundColor: theme.primary + '20' }]}>
+              <Text style={[styles.youText, { color: theme.primary }]}>You</Text>
             </View>
           )}
           {isWithdrawn && (
@@ -109,7 +111,7 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
             </View>
           )}
           {member.isInCatchUp && !isWithdrawn && (
-            <View style={styles.catchUpBadge}>
+            <View style={[styles.catchUpBadge, { backgroundColor: theme.primary }]}>
               <Ionicons name="rocket" size={10} color={COLORS.white} />
               <Text style={styles.catchUpText}>1.5x</Text>
             </View>
@@ -128,7 +130,7 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
 
       {/* Points/Value */}
       <View style={styles.points}>
-        <Text style={[styles.pointsValue, member.rank <= 3 && styles.topPointsValue, isWithdrawn && styles.withdrawnText]}>
+        <Text style={[styles.pointsValue, member.rank <= 3 && [styles.topPointsValue, { color: theme.primary }], isWithdrawn && styles.withdrawnText]}>
           {view === 'ppr' ? displayValue.toFixed(1) : formatPoints(displayValue)}
         </Text>
         <Text style={styles.pointsLabel}>{displayLabel}</Text>

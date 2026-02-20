@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, GRADIENTS, SHADOWS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -67,6 +68,7 @@ const SLIDES: Slide[] = [
 ];
 
 export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialProps) {
+  const theme = useTheme();
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -90,8 +92,8 @@ export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialPr
   const renderSlide = ({ item }: { item: Slide }) => (
     <View style={styles.slide}>
       <View style={styles.slideContent}>
-        <View style={styles.iconCircle}>
-          <Ionicons name={item.icon} size={64} color={COLORS.primary} />
+        <View style={[styles.iconCircle, { backgroundColor: theme.primary + '20' }]}>
+          <Ionicons name={item.icon} size={64} color={theme.primary} />
         </View>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.body}>{item.body}</Text>
@@ -132,7 +134,7 @@ export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialPr
                 key={index}
                 style={[
                   styles.dot,
-                  index === currentIndex ? styles.dotActive : styles.dotInactive,
+                  index === currentIndex ? [styles.dotActive, { backgroundColor: theme.primary }] : styles.dotInactive,
                 ]}
               />
             ))}
@@ -140,12 +142,12 @@ export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialPr
 
           {/* Action button */}
           {isLastSlide ? (
-            <TouchableOpacity onPress={onComplete} activeOpacity={0.85} style={styles.buttonWrapper}>
+            <TouchableOpacity onPress={onComplete} activeOpacity={0.85} style={styles.buttonWrapper} testID="onboarding-get-started">
               <LinearGradient
-                colors={GRADIENTS.primary}
+                colors={theme.gradients.primary as unknown as [string, string]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={[styles.actionButton, SHADOWS.glow]}
+                style={[styles.actionButton, theme.shadows.glow]}
               >
                 <Text style={styles.actionButtonText}>Get Started</Text>
               </LinearGradient>
@@ -155,11 +157,11 @@ export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialPr
               <TouchableOpacity
                 onPress={handleNext}
                 activeOpacity={0.85}
-                style={[styles.actionButton, styles.nextButton]}
+                style={[styles.actionButton, styles.nextButton, { backgroundColor: theme.primary, ...theme.shadows.glow }]}
               >
                 <Text style={styles.nextButtonText}>Next</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={onComplete} style={styles.bottomSkip}>
+              <TouchableOpacity onPress={onComplete} style={styles.bottomSkip} testID="onboarding-skip">
                 <Text style={styles.bottomSkipText}>Skip Tutorial</Text>
               </TouchableOpacity>
             </>

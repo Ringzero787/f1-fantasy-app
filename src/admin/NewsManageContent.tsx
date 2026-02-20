@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { Card, EmptyState } from '../components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { articleService } from '../services/article.service';
 import type { Article, ArticleStatus } from '../types';
 
@@ -43,6 +44,7 @@ const STATUS_COLORS: Record<ArticleStatus, string> = {
 };
 
 export default function NewsManageContent() {
+  const theme = useTheme();
   const [tab, setTab] = useState<TabFilter>('draft');
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,7 +165,7 @@ export default function NewsManageContent() {
   }, []);
 
   const renderArticle = ({ item }: { item: Article }) => {
-    const sourceColor = SOURCE_COLORS[item.source] || COLORS.primary;
+    const sourceColor = SOURCE_COLORS[item.source] || theme.primary;
     const isDraft = item.status === 'draft';
     const isRead = item.isRead === true;
     const editedSummary = editedSummaries[item.id];
@@ -213,27 +215,27 @@ export default function NewsManageContent() {
 
         {/* Category + Edit + Source */}
         <View style={styles.categoryRow}>
-          <View style={styles.categoryChip}>
-            <Text style={styles.categoryChipText}>{item.category}</Text>
+          <View style={[styles.categoryChip, { backgroundColor: theme.primary + '15' }]}>
+            <Text style={[styles.categoryChipText, { color: theme.primary }]}>{item.category}</Text>
           </View>
           <View style={styles.categoryRowRight}>
             {isDraft && (
               <TouchableOpacity
-                style={[styles.editButton, isEditing && styles.editButtonActive]}
+                style={[styles.editButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }, isEditing && [styles.editButtonActive, { backgroundColor: theme.primary, borderColor: theme.primary }]]}
                 onPress={() => toggleEditing(item.id)}
               >
                 <Ionicons
                   name={isEditing ? 'checkmark' : 'create-outline'}
                   size={14}
-                  color={isEditing ? COLORS.white : COLORS.primary}
+                  color={isEditing ? COLORS.white : theme.primary}
                 />
-                <Text style={[styles.editButtonText, isEditing && styles.editButtonTextActive]}>
+                <Text style={[styles.editButtonText, { color: theme.primary }, isEditing && styles.editButtonTextActive]}>
                   {isEditing ? 'Done' : 'Edit'}
                 </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => handleOpenSource(item.sourceUrl)}>
-              <Ionicons name="open-outline" size={16} color={COLORS.primary} />
+              <Ionicons name="open-outline" size={16} color={theme.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -264,11 +266,11 @@ export default function NewsManageContent() {
             </TouchableOpacity>
             {isRead ? (
               <TouchableOpacity
-                style={styles.markUnreadButton}
+                style={[styles.markUnreadButton, { backgroundColor: theme.primary + '25', borderColor: theme.primary + '50' }]}
                 onPress={() => handleMarkUnread(item)}
               >
-                <Ionicons name="eye" size={18} color={COLORS.primary} />
-                <Text style={styles.markUnreadButtonText}>Unread</Text>
+                <Ionicons name="eye" size={18} color={theme.primary} />
+                <Text style={[styles.markUnreadButtonText, { color: theme.primary }]}>Unread</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -297,17 +299,17 @@ export default function NewsManageContent() {
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerLeft}>
-                <Ionicons name="newspaper" size={24} color={COLORS.primary} />
+                <Ionicons name="newspaper" size={24} color={theme.primary} />
                 <Text style={styles.headerTitle}>News Management</Text>
               </View>
               <TouchableOpacity
                 onPress={() => { loadArticles(); loadDraftCount(); }}
-                style={styles.refreshButton}
+                style={[styles.refreshButton, { backgroundColor: theme.primary + '15' }]}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
-                  <Ionicons name="refresh" size={20} color={COLORS.primary} />
+                  <Ionicons name="refresh" size={20} color={theme.primary} />
                 )}
               </TouchableOpacity>
             </View>

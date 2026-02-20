@@ -2,16 +2,19 @@ import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 
 interface HeaderBackgroundProps {
   variant?: 'default' | 'gradient' | 'dark';
 }
 
 export function HeaderBackground({ variant = 'default' }: HeaderBackgroundProps) {
+  const theme = useTheme();
+
   if (variant === 'gradient') {
     return (
       <LinearGradient
-        colors={GRADIENTS.primary}
+        colors={theme.gradients.primary}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.container}

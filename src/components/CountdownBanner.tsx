@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { raceService } from '../services/race.service';
 import { formatCountdown } from '../utils/formatters';
 import { useLockoutStatus } from '../hooks/useLockoutStatus';
@@ -16,6 +17,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 const FIVE_DAYS_MS = 5 * 24 * ONE_HOUR_MS;
 
 export const CountdownBanner = React.memo(function CountdownBanner({ race, accentColor }: CountdownBannerProps) {
+  const theme = useTheme();
   const [sessionName, setSessionName] = useState('');
   const [sessionCountdown, setSessionCountdown] = useState('');
   const [lockCountdown, setLockCountdown] = useState('');
@@ -73,7 +75,7 @@ export const CountdownBanner = React.memo(function CountdownBanner({ race, accen
   }
   if (!lockoutInfo.isLocked && !lockoutInfo.lockTime) return null;
 
-  const normalColor = accentColor || COLORS.primary;
+  const normalColor = accentColor || theme.primary;
 
   const bannerColor =
     urgency === 'critical'

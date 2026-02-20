@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 
 interface PurchaseModalProps {
   visible: boolean;
@@ -33,6 +34,7 @@ export function PurchaseModal({
   icon,
   benefits,
 }: PurchaseModalProps) {
+  const theme = useTheme();
   return (
     <Modal
       visible={visible}
@@ -45,8 +47,8 @@ export function PurchaseModal({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <View style={styles.iconContainer}>
-                <Ionicons name={icon as any} size={24} color={COLORS.primary} />
+              <View style={[styles.iconContainer, { backgroundColor: theme.primary + '20' }]}>
+                <Ionicons name={icon as any} size={24} color={theme.primary} />
               </View>
               <Text style={styles.title}>{title}</Text>
             </View>
@@ -70,7 +72,7 @@ export function PurchaseModal({
 
           {/* Purchase Button */}
           <TouchableOpacity
-            style={styles.purchaseButton}
+            style={[styles.purchaseButton, { backgroundColor: theme.primary }]}
             onPress={onPurchase}
             disabled={isLoading}
           >

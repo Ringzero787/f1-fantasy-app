@@ -20,10 +20,12 @@ import { usePurchaseStore } from '../../../../src/store/purchase.store';
 import { useAuthStore } from '../../../../src/store/auth.store';
 import { Card, Button, Loading, PurchaseModal } from '../../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, SLOTS_PER_EXPANSION } from '../../../../src/config/constants';
+import { useTheme } from '../../../../src/hooks/useTheme';
 import { PRODUCTS, PRODUCT_IDS } from '../../../../src/config/products';
 import { validateLeagueName } from '../../../../src/utils/validation';
 
 export default function LeagueAdminScreen() {
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const {
@@ -492,14 +494,14 @@ export default function LeagueAdminScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="settings" size={24} color={COLORS.primary} />
-        <Text style={styles.headerTitle}>League Admin</Text>
+        <Ionicons name="settings" size={24} color={theme.primary} />
+        <Text style={[styles.headerTitle, { color: theme.primary }]}>League Admin</Text>
       </View>
       {/* Editable League Name */}
       {editingName ? (
         <View style={styles.editRow}>
           <TextInput
-            style={styles.editNameInput}
+            style={[styles.editNameInput, { borderColor: theme.primary }]}
             value={editName}
             onChangeText={setEditName}
             maxLength={50}
@@ -531,7 +533,7 @@ export default function LeagueAdminScreen() {
       {editingDescription ? (
         <View style={styles.editDescriptionContainer}>
           <TextInput
-            style={styles.editDescriptionInput}
+            style={[styles.editDescriptionInput, { borderColor: theme.primary }]}
             value={editDescription}
             onChangeText={setEditDescription}
             maxLength={200}
@@ -585,8 +587,8 @@ export default function LeagueAdminScreen() {
             <Switch
               value={currentLeague.settings?.requireApproval === true}
               onValueChange={handleToggleRequireApproval}
-              trackColor={{ false: COLORS.border.default, true: COLORS.primary + '60' }}
-              thumbColor={currentLeague.settings?.requireApproval ? COLORS.primary : COLORS.surface}
+              trackColor={{ false: COLORS.border.default, true: theme.primary + '60' }}
+              thumbColor={currentLeague.settings?.requireApproval ? theme.primary : COLORS.surface}
             />
           </View>
         </View>
@@ -621,7 +623,7 @@ export default function LeagueAdminScreen() {
                   </Text>
                 </View>
                 {isApprovingOrRejecting === member.userId ? (
-                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
                   <View style={styles.pendingActions}>
                     <TouchableOpacity
@@ -684,12 +686,12 @@ export default function LeagueAdminScreen() {
                 )}
                 {isOwner && (
                   <TouchableOpacity
-                    style={[styles.expandButton, isExpanding && { opacity: 0.6 }]}
+                    style={[styles.expandButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }, isExpanding && { opacity: 0.6 }]}
                     onPress={handleExpandSlots}
                     disabled={isExpanding}
                   >
-                    <Ionicons name="add-circle-outline" size={18} color={COLORS.primary} />
-                    <Text style={styles.expandButtonText}>
+                    <Ionicons name="add-circle-outline" size={18} color={theme.primary} />
+                    <Text style={[styles.expandButtonText, { color: theme.primary }]}>
                       {isExpanding ? 'Adding...' : `Add ${SLOTS_PER_EXPANSION} Slots \u2014 $4.99`}
                     </Text>
                   </TouchableOpacity>
@@ -748,7 +750,7 @@ export default function LeagueAdminScreen() {
               autoCorrect={false}
             />
             <TouchableOpacity
-              style={[styles.inviteButton, isInviting && styles.inviteButtonDisabled]}
+              style={[styles.inviteButton, { backgroundColor: theme.primary }, isInviting && styles.inviteButtonDisabled]}
               onPress={handleInviteByEmail}
               disabled={isInviting}
             >
@@ -791,14 +793,14 @@ export default function LeagueAdminScreen() {
                   <Text style={styles.deactivateText}>Deactivate</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.repliesToggle} onPress={handleShowReplies}>
-                  <Ionicons name="chatbubble-outline" size={16} color={COLORS.primary} />
-                  <Text style={styles.repliesToggleText}>
+                  <Ionicons name="chatbubble-outline" size={16} color={theme.primary} />
+                  <Text style={[styles.repliesToggleText, { color: theme.primary }]}>
                     {activeAnnouncement.replyCount} {activeAnnouncement.replyCount === 1 ? 'Reply' : 'Replies'}
                   </Text>
                   <Ionicons
                     name={showReplies ? 'chevron-up' : 'chevron-down'}
                     size={14}
-                    color={COLORS.primary}
+                    color={theme.primary}
                   />
                 </TouchableOpacity>
               </View>
@@ -838,6 +840,7 @@ export default function LeagueAdminScreen() {
             <TouchableOpacity
               style={[
                 styles.postButton,
+                { backgroundColor: theme.primary },
                 (!announcementMessage.trim() || isPosting) && styles.postButtonDisabled,
               ]}
               onPress={handlePostAnnouncement}
@@ -886,7 +889,7 @@ export default function LeagueAdminScreen() {
           <Text style={styles.sectionTitle}>Co-Admins</Text>
           <Card variant="outlined" style={styles.coAdminCard}>
             <View style={styles.coAdminInfo}>
-              <Ionicons name="shield-checkmark" size={20} color={COLORS.primary} />
+              <Ionicons name="shield-checkmark" size={20} color={theme.primary} />
               <Text style={styles.coAdminInfoText}>
                 Co-admins can invite members, remove members, and manage the league alongside you.
               </Text>
@@ -901,8 +904,8 @@ export default function LeagueAdminScreen() {
                     <View style={styles.memberInfo}>
                       <View style={styles.memberNameRow}>
                         <Text style={styles.memberName}>{member.displayName}</Text>
-                        <View style={styles.adminBadge}>
-                          <Text style={styles.adminBadgeText}>Admin</Text>
+                        <View style={[styles.adminBadge, { backgroundColor: theme.primary + '20' }]}>
+                          <Text style={[styles.adminBadgeText, { color: theme.primary }]}>Admin</Text>
                         </View>
                       </View>
                       <Text style={styles.memberPoints}>{member.totalPoints} pts • Rank #{member.rank}</Text>
@@ -954,12 +957,12 @@ export default function LeagueAdminScreen() {
 
         {/* Owner row (always shown, not removable) */}
         {members.filter(m => m.userId === currentLeague.ownerId).map((member) => (
-          <View key={member.userId} style={[styles.memberRow, styles.ownerRow]}>
+          <View key={member.userId} style={[styles.memberRow, styles.ownerRow, { borderColor: theme.primary + '40', backgroundColor: theme.primary + '08' }]}>
             <View style={styles.memberInfo}>
               <View style={styles.memberNameRow}>
                 <Text style={styles.memberName}>{member.displayName}</Text>
-                <View style={styles.ownerBadge}>
-                  <Text style={styles.ownerBadgeText}>Owner</Text>
+                <View style={[styles.ownerBadge, { backgroundColor: theme.primary + '20' }]}>
+                  <Text style={[styles.ownerBadgeText, { color: theme.primary }]}>Owner</Text>
                 </View>
               </View>
               <Text style={styles.memberPoints}>{member.totalPoints} pts</Text>
@@ -976,8 +979,8 @@ export default function LeagueAdminScreen() {
                 <View style={styles.memberNameRow}>
                   <Text style={styles.memberName}>{member.displayName}</Text>
                   {isMemberCoAdmin && (
-                    <View style={styles.adminBadge}>
-                      <Text style={styles.adminBadgeText}>Admin</Text>
+                    <View style={[styles.adminBadge, { backgroundColor: theme.primary + '20' }]}>
+                      <Text style={[styles.adminBadgeText, { color: theme.primary }]}>Admin</Text>
                     </View>
                   )}
                 </View>

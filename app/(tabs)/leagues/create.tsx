@@ -21,6 +21,7 @@ import { usePurchaseStore } from '../../../src/store/purchase.store';
 import { useAuthStore } from '../../../src/store/auth.store';
 import { Input, Button, Avatar, PurchaseModal } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, FREE_LEAGUE_MEMBER_LIMIT } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import { PRODUCTS, PRODUCT_IDS } from '../../../src/config/products';
 import { validateLeagueName } from '../../../src/utils/validation';
 import type { FantasyTeam, League } from '../../../src/types';
@@ -28,6 +29,7 @@ import type { FantasyTeam, League } from '../../../src/types';
 const CURRENT_SEASON_ID = '2026';
 
 export default function CreateLeagueScreen() {
+  const theme = useTheme();
   const { user } = useAuth();
   const { createLeague, isLoading, error, clearRecentlyCreatedLeague, clearError } = useLeagueStore();
   const { createTeam, userTeams, loadUserTeams, assignTeamToLeague } = useTeamStore();
@@ -287,11 +289,11 @@ export default function CreateLeagueScreen() {
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.buyMoreButton}
+                style={[styles.buyMoreButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }]}
                 onPress={() => setShowExpansionPurchase(true)}
               >
-                <Ionicons name="cart-outline" size={18} color={COLORS.primary} />
-                <Text style={styles.buyMoreText}>Add 20 Slots — $4.99</Text>
+                <Ionicons name="cart-outline" size={18} color={theme.primary} />
+                <Text style={[styles.buyMoreText, { color: theme.primary }]}>Add 20 Slots — $4.99</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -306,8 +308,8 @@ export default function CreateLeagueScreen() {
             <Switch
               value={isPublic}
               onValueChange={setIsPublic}
-              trackColor={{ false: COLORS.border.default, true: COLORS.primary + '60' }}
-              thumbColor={isPublic ? COLORS.primary : COLORS.surface}
+              trackColor={{ false: COLORS.border.default, true: theme.primary + '60' }}
+              thumbColor={isPublic ? theme.primary : COLORS.surface}
             />
           </View>
 
@@ -321,8 +323,8 @@ export default function CreateLeagueScreen() {
             <Switch
               value={requireApproval}
               onValueChange={setRequireApproval}
-              trackColor={{ false: COLORS.border.default, true: COLORS.primary + '60' }}
-              thumbColor={requireApproval ? COLORS.primary : COLORS.surface}
+              trackColor={{ false: COLORS.border.default, true: theme.primary + '60' }}
+              thumbColor={requireApproval ? theme.primary : COLORS.surface}
             />
           </View>
 
@@ -371,7 +373,7 @@ export default function CreateLeagueScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Ionicons name="trophy" size={28} color={COLORS.primary} />
+              <Ionicons name="trophy" size={28} color={theme.primary} />
               <Text style={styles.modalTitle}>League Created!</Text>
             </View>
 
@@ -411,12 +413,12 @@ export default function CreateLeagueScreen() {
             </View>
 
             <TouchableOpacity
-              style={styles.createNewTeamButton}
+              style={[styles.createNewTeamButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
               onPress={handleCreateNewTeam}
               disabled={isAssigningTeam}
             >
-              <Ionicons name="add-circle-outline" size={24} color={COLORS.primary} />
-              <Text style={styles.createNewTeamText}>Create New Team</Text>
+              <Ionicons name="add-circle-outline" size={24} color={theme.primary} />
+              <Text style={[styles.createNewTeamText, { color: theme.primary }]}>Create New Team</Text>
             </TouchableOpacity>
 
             {isAssigningTeam && (

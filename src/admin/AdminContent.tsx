@@ -17,6 +17,7 @@ import { useTeamStore } from '../store/team.store';
 import { demoRaces, demoDrivers, demoConstructors } from '../data/demoData';
 import { Card, Button, EmptyState } from '../components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { errorLogService } from '../services/errorLog.service';
 import { articleService } from '../services/article.service';
 import { useChatStore } from '../store/chat.store';
@@ -102,6 +103,7 @@ const getSprintF1PointsForPosition = (position: number | null): number => {
 };
 
 export default function AdminContent() {
+  const theme = useTheme();
   const router = useRouter();
   const { user } = useAuth();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
@@ -746,7 +748,7 @@ export default function AdminContent() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="settings" size={24} color={COLORS.primary} />
+        <Ionicons name="settings" size={24} color={theme.primary} />
         <Text style={styles.headerTitle}>Race Admin Panel</Text>
       </View>
       <Text style={styles.subtitle}>Enter finishing positions (1-22) for each driver</Text>
@@ -775,9 +777,9 @@ export default function AdminContent() {
           </View>
         </View>
         <View style={styles.summaryActions}>
-          <TouchableOpacity style={styles.recalcButton} onPress={handleRecalculatePoints}>
-            <Ionicons name="refresh" size={16} color={COLORS.primary} />
-            <Text style={styles.recalcButtonText}>Recalculate Points</Text>
+          <TouchableOpacity style={[styles.recalcButton, { backgroundColor: theme.primary + '10' }]} onPress={handleRecalculatePoints}>
+            <Ionicons name="refresh" size={16} color={theme.primary} />
+            <Text style={[styles.recalcButtonText, { color: theme.primary }]}>Recalculate Points</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.resetPricesButton} onPress={handleResetPrices}>
             <Ionicons name="cash-outline" size={16} color={COLORS.warning} />
@@ -796,11 +798,11 @@ export default function AdminContent() {
 
       {/* Manage News Feed Button */}
       <TouchableOpacity
-        style={styles.newsButton}
+        style={[styles.newsButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
         onPress={() => router.push('/(tabs)/admin/news')}
       >
-        <Ionicons name="newspaper-outline" size={18} color={COLORS.primary} />
-        <Text style={styles.newsButtonText}>Manage News Feed</Text>
+        <Ionicons name="newspaper-outline" size={18} color={theme.primary} />
+        <Text style={[styles.newsButtonText, { color: theme.primary }]}>Manage News Feed</Text>
         {draftArticleCount > 0 && (
           <View style={styles.draftBadge}>
             <Text style={styles.draftBadgeText}>{draftArticleCount}</Text>
@@ -811,13 +813,13 @@ export default function AdminContent() {
 
       {/* League Chat Button */}
       <TouchableOpacity
-        style={styles.chatButton}
+        style={[styles.chatButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
         onPress={() => router.push('/(tabs)/admin/chat-list' as any)}
       >
-        <Ionicons name="chatbubbles-outline" size={18} color={COLORS.primary} />
-        <Text style={styles.chatButtonText}>League Chat</Text>
+        <Ionicons name="chatbubbles-outline" size={18} color={theme.primary} />
+        <Text style={[styles.chatButtonText, { color: theme.primary }]}>League Chat</Text>
         {chatTotalUnread > 0 && (
-          <View style={styles.chatBadge}>
+          <View style={[styles.chatBadge, { backgroundColor: theme.primary }]}>
             <Text style={styles.chatBadgeText}>{chatTotalUnread}</Text>
           </View>
         )}
@@ -861,7 +863,7 @@ export default function AdminContent() {
           <TouchableOpacity
             style={[
               styles.lockToggleButton,
-              adminLockOverride === null && styles.lockToggleButtonAuto,
+              adminLockOverride === null && [styles.lockToggleButtonAuto, { backgroundColor: theme.primary, borderColor: theme.primary }],
             ]}
             onPress={() => setAdminLockOverride(null)}
           >
@@ -907,7 +909,7 @@ export default function AdminContent() {
                   key={race.id}
                   style={[
                     styles.raceChip,
-                    selectedRaceId === race.id && styles.raceChipSelected,
+                    selectedRaceId === race.id && [styles.raceChipSelected, { backgroundColor: theme.primary, borderColor: theme.primary }],
                     isComplete && styles.raceChipComplete,
                     race.hasSprint && styles.raceChipSprint,
                   ]}
@@ -982,7 +984,7 @@ export default function AdminContent() {
               <TouchableOpacity
                 style={[
                   styles.modeToggleButton,
-                  entryMode === 'race' && styles.modeToggleButtonActive,
+                  entryMode === 'race' && [styles.modeToggleButtonActive, { backgroundColor: theme.primary, borderColor: theme.primary }],
                 ]}
                 onPress={() => setEntryMode('race')}
               >
@@ -1078,7 +1080,7 @@ export default function AdminContent() {
                 ]}>
                   <View style={styles.driverInfo}>
                     <View style={styles.driverNameRow}>
-                      <Text style={styles.driverNumber}>#{driver.number}</Text>
+                      <Text style={[styles.driverNumber, { color: theme.primary }]}>#{driver.number}</Text>
                       <Text style={[styles.driverName, isDnf && styles.driverNameDnf]}>
                         {driver.name}
                       </Text>
@@ -1111,7 +1113,7 @@ export default function AdminContent() {
                     <TextInput
                       style={[
                         styles.positionInput,
-                        position && styles.positionInputFilled,
+                        position && [styles.positionInputFilled, { borderColor: theme.primary, backgroundColor: theme.primary + '10' }],
                         isDuplicate && styles.positionInputDuplicate,
                         entryMode === 'sprint' && position && styles.positionInputSprint,
                         isDnf && styles.positionInputDisabled,

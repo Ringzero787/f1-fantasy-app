@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { formatDate, formatCountdown, formatCountdownWords } from '../utils/formatters';
 import { raceService } from '../services/race.service';
 import { TrackIcon } from './TrackIcon';
@@ -21,6 +22,7 @@ export const RaceCard = React.memo(function RaceCard({
   showCountdown = true,
   compact = false,
 }: RaceCardProps) {
+  const theme = useTheme();
   const [countdown, setCountdown] = useState<string>('');
   const [nextSession, setNextSession] = useState<string>('');
 
@@ -48,7 +50,7 @@ export const RaceCard = React.memo(function RaceCard({
       case 'completed':
         return COLORS.text.muted;
       default:
-        return COLORS.primary;
+        return theme.primary;
     }
   };
 
@@ -134,8 +136,8 @@ export const RaceCard = React.memo(function RaceCard({
           <View style={styles.countdownSection}>
             <Text style={styles.countdownLabel}>{nextSession} in</Text>
             <View style={styles.countdownBadge}>
-              <Ionicons name="time-outline" size={14} color={COLORS.primary} />
-              <Text style={styles.countdownValue}>{countdown}</Text>
+              <Ionicons name="time-outline" size={14} color={theme.primary} />
+              <Text style={[styles.countdownValue, { color: theme.primary }]}>{countdown}</Text>
             </View>
           </View>
         )}

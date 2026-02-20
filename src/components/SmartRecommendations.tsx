@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS, TEAM_SIZE, BUDGET } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import type { Driver } from '../types';
 
 interface Recommendation {
@@ -29,6 +30,7 @@ export function SmartRecommendations({
   slotsRemaining,
   onSelectDriver,
 }: SmartRecommendationsProps) {
+  const theme = useTheme();
   const recommendations = useMemo(() => {
     if (slotsRemaining <= 0 || budget <= 0) return [];
 
@@ -216,9 +218,9 @@ export function SmartRecommendations({
 
               {/* Price */}
               <View style={styles.priceRow}>
-                <Text style={styles.price}>{rec.driver.price}</Text>
+                <Text style={[styles.price, { color: theme.primary }]}>{rec.driver.price}</Text>
                 <Text style={styles.priceLabel}>pts</Text>
-                <Ionicons name="add-circle" size={20} color={COLORS.primary} style={styles.addIcon} />
+                <Ionicons name="add-circle" size={20} color={theme.primary} style={styles.addIcon} />
               </View>
             </Pressable>
           );

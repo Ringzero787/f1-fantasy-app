@@ -11,9 +11,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDriver } from '../../../../src/hooks';
 import { Card, Loading, EmptyState } from '../../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
+import { useTheme } from '../../../../src/hooks/useTheme';
 import { formatPoints, formatPriceChange } from '../../../../src/utils/formatters';
 
 export default function DriverDetailScreen() {
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: driver, isLoading, refetch } = useDriver(id || '');
   const [refreshing, setRefreshing] = React.useState(false);
@@ -63,8 +65,8 @@ export default function DriverDetailScreen() {
           <Text style={styles.nationality}>{driver.nationality}</Text>
         </View>
 
-        <View style={styles.tierBadge}>
-          <Text style={styles.tierText}>Tier {driver.tier}</Text>
+        <View style={[styles.tierBadge, { backgroundColor: theme.primary + '20' }]}>
+          <Text style={[styles.tierText, { color: theme.primary }]}>Tier {driver.tier}</Text>
         </View>
       </Card>
 

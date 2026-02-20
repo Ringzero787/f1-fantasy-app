@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSeasonRaces } from '../../../src/hooks';
 import { Loading, RaceCard, EmptyState } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import type { Race } from '../../../src/types';
 
 const CURRENT_SEASON_ID = '2026';
@@ -19,6 +20,7 @@ const CURRENT_SEASON_ID = '2026';
 type FilterOption = 'all' | 'upcoming' | 'completed';
 
 export default function CalendarScreen() {
+  const theme = useTheme();
   const [filter, setFilter] = useState<FilterOption>('all');
   const { data: races, isLoading, refetch } = useSeasonRaces(CURRENT_SEASON_ID);
   const [refreshing, setRefreshing] = useState(false);
@@ -66,7 +68,7 @@ export default function CalendarScreen() {
         {(['all', 'upcoming', 'completed'] as FilterOption[]).map((option) => (
           <TouchableOpacity
             key={option}
-            style={[styles.filterButton, filter === option && styles.filterButtonActive]}
+            style={[styles.filterButton, filter === option && styles.filterButtonActive, filter === option && { backgroundColor: theme.primary }]}
             onPress={() => setFilter(option)}
           >
             <Text

@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getInitials, getAvatarGradient, getAvatarColors } from '../utils/avatarColors';
 import { FONTS, BORDER_RADIUS, COLORS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 
 export type AvatarVariant = 'league' | 'team' | 'user';
 export type AvatarSize = 'small' | 'medium' | 'large' | 'xlarge';
@@ -49,6 +50,7 @@ export function Avatar({
   editable = false,
   style,
 }: AvatarProps) {
+  const theme = useTheme();
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const initials = getInitials(name);
@@ -89,7 +91,7 @@ export function Avatar({
     if (!showGenerateButton || !onGeneratePress) return null;
     return (
       <TouchableOpacity
-        style={styles.generateButton}
+        style={[styles.generateButton, { backgroundColor: theme.primary }]}
         onPress={(e) => {
           e.stopPropagation?.();
           onGeneratePress();
@@ -110,7 +112,7 @@ export function Avatar({
     if (!showGenerateButton || !onGeneratePress) return null;
     return (
       <TouchableOpacity
-        style={styles.regenerateButton}
+        style={[styles.regenerateButton, { backgroundColor: theme.primary }]}
         onPress={(e) => {
           e.stopPropagation?.();
           onGeneratePress();

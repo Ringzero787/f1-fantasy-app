@@ -25,12 +25,14 @@ import { useNotificationStore } from '../../src/store/notification.store';
 import { scheduleIncompleteTeamReminder } from '../../src/services/notification.service';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
 import { useScale } from '../../src/hooks/useScale';
+import { useTheme } from '../../src/hooks/useTheme';
 import { formatPoints } from '../../src/utils/formatters';
 
 const CURRENT_SEASON_ID = '2026'; // This would come from app config
 
 export default function HomeScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
+  const theme = useTheme();
   const { user } = useAuth();
   const { data: nextRace, isLoading: raceLoading, refetch: refetchRace } = useNextRace(CURRENT_SEASON_ID);
   const { data: upcomingRaces } = useUpcomingRaces(CURRENT_SEASON_ID, 5);
@@ -234,11 +236,11 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.joinLeagueBadge, { paddingHorizontal: scaledSpacing.sm, paddingVertical: scaledSpacing.xs }]}
+            style={[styles.joinLeagueBadge, { paddingHorizontal: scaledSpacing.sm, paddingVertical: scaledSpacing.xs, backgroundColor: theme.primary + '15' }]}
             onPress={() => router.push('/leagues')}
           >
-            <Ionicons name="trophy-outline" size={scaledIcon(14)} color={COLORS.primary} />
-            <Text style={[styles.joinLeagueBadgeText, { fontSize: scaledFonts.sm }]}>Join League</Text>
+            <Ionicons name="trophy-outline" size={scaledIcon(14)} color={theme.primary} />
+            <Text style={[styles.joinLeagueBadgeText, { fontSize: scaledFonts.sm, color: theme.primary }]}>Join League</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -303,7 +305,7 @@ export default function HomeScreen() {
               {upcomingRaces.map((_, i) => (
                 <View
                   key={i}
-                  style={[styles.raceDot, i === activeRaceIndex && styles.raceDotActive]}
+                  style={[styles.raceDot, i === activeRaceIndex && [styles.raceDotActive, { backgroundColor: theme.primary }]]}
                 />
               ))}
             </View>
@@ -355,7 +357,7 @@ export default function HomeScreen() {
                       key={team.id}
                       style={[
                         styles.teamDot,
-                        team.id === currentTeam?.id && styles.teamDotActive,
+                        team.id === currentTeam?.id && [styles.teamDotActive, { backgroundColor: theme.primary }],
                       ]}
                       onPress={(e) => {
                         e.stopPropagation();
@@ -367,9 +369,9 @@ export default function HomeScreen() {
                 </View>
               )}
             </View>
-            <View style={styles.manageButton}>
-              <Ionicons name="settings-outline" size={18} color={COLORS.primary} />
-              <Text style={styles.manageButtonText}>Manage</Text>
+            <View style={[styles.manageButton, { backgroundColor: theme.primary + '15' }]}>
+              <Ionicons name="settings-outline" size={18} color={theme.primary} />
+              <Text style={[styles.manageButtonText, { color: theme.primary }]}>Manage</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -436,7 +438,7 @@ export default function HomeScreen() {
                 <Ionicons name="diamond" size={scaledIcon(18)} color={COLORS.gold} />
                 <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Ace (2x)</Text>
               </View>
-              <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, aceDriver && styles.aceText]}>
+              <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, aceDriver && [styles.aceText, { color: theme.primary }]]}>
                 {aceDriver?.name || 'Not selected'}
               </Text>
             </View>
@@ -444,10 +446,10 @@ export default function HomeScreen() {
             {/* Total Points Row */}
             <View style={[styles.teamRow, styles.teamRowLast, { paddingVertical: scaledSpacing.sm }]}>
               <View style={styles.teamRowLeft}>
-                <Ionicons name="podium" size={scaledIcon(18)} color={COLORS.primary} />
+                <Ionicons name="podium" size={scaledIcon(18)} color={theme.primary} />
                 <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Total Points</Text>
               </View>
-              <Text style={[styles.teamRowValue, styles.pointsValue, { fontSize: scaledFonts.md }]}>
+              <Text style={[styles.teamRowValue, styles.pointsValue, { fontSize: scaledFonts.md, color: theme.primary }]}>
                 {formatPoints(currentTeam.totalPoints)}
               </Text>
             </View>
@@ -455,7 +457,7 @@ export default function HomeScreen() {
             {/* Complete Team Button if incomplete */}
             {!isTeamComplete && (
               <TouchableOpacity
-                style={styles.completeTeamButton}
+                style={[styles.completeTeamButton, { backgroundColor: theme.primary }]}
                 onPress={() => router.push('/my-team')}
                 activeOpacity={0.8}
               >
@@ -474,7 +476,7 @@ export default function HomeScreen() {
             >
               <Ionicons name="people-outline" size={32} color={COLORS.text.muted} />
               <Text style={styles.noTeamText}>No team created yet</Text>
-              <View style={styles.createTeamButton}>
+              <View style={[styles.createTeamButton, { backgroundColor: theme.primary }]}>
                 <Text style={styles.createTeamButtonText}>Create Team</Text>
               </View>
             </TouchableOpacity>

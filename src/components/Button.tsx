@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS, GRADIENTS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 
 interface ButtonProps {
   title: string;
@@ -23,6 +24,7 @@ interface ButtonProps {
   iconPosition?: 'left' | 'right';
   style?: ViewStyle;
   textStyle?: TextStyle;
+  testID?: string;
 }
 
 export function Button({
@@ -37,13 +39,18 @@ export function Button({
   iconPosition = 'left',
   style,
   textStyle,
+  testID,
 }: ButtonProps) {
+  const theme = useTheme();
+
   const buttonStyles = [
     styles.base,
     styles[variant],
     styles[size],
     fullWidth && styles.fullWidth,
     disabled && styles.disabled,
+    variant === 'primary' && { backgroundColor: theme.primary, ...theme.shadows.glow },
+    variant === 'outline' && { borderColor: theme.primary },
     style,
   ];
 
@@ -52,6 +59,9 @@ export function Button({
     styles[`${variant}Text`],
     styles[`${size}Text`],
     disabled && styles.disabledText,
+    variant === 'primary' && { color: theme.primaryContrastText },
+    variant === 'outline' && { color: theme.primary },
+    variant === 'ghost' && { color: theme.primary },
     textStyle,
   ];
 
@@ -59,7 +69,7 @@ export function Button({
     <View style={styles.contentContainer}>
       {loading ? (
         <ActivityIndicator
-          color={variant === 'outline' || variant === 'ghost' ? COLORS.primary : COLORS.white}
+          color={variant === 'outline' || variant === 'ghost' ? theme.primary : COLORS.white}
           size="small"
         />
       ) : (
@@ -80,9 +90,10 @@ export function Button({
         disabled={disabled || loading}
         activeOpacity={0.85}
         style={[fullWidth && styles.fullWidth, style]}
+        testID={testID}
       >
         <LinearGradient
-          colors={GRADIENTS.primary}
+          colors={theme.gradients.buttonPrimary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.base, styles.gradient, styles[size], SHADOWS.md]}
@@ -99,6 +110,7 @@ export function Button({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.85}
+      testID={testID}
     >
       {renderContent()}
     </TouchableOpacity>

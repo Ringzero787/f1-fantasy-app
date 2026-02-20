@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import type { ChatMessage } from '../../types';
 
 interface ReplyPreviewProps {
@@ -10,11 +11,12 @@ interface ReplyPreviewProps {
 }
 
 export function ReplyPreview({ message, onClose }: ReplyPreviewProps) {
+  const theme = useTheme();
   return (
     <View style={styles.container}>
-      <View style={styles.bar} />
+      <View style={[styles.bar, { backgroundColor: theme.primary }]} />
       <View style={styles.content}>
-        <Text style={styles.senderName} numberOfLines={1}>
+        <Text style={[styles.senderName, { color: theme.primary }]} numberOfLines={1}>
           {message.senderName}
         </Text>
         <Text style={styles.text} numberOfLines={1}>

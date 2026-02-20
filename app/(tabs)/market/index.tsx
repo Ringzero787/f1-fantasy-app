@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDrivers, useConstructors } from '../../../src/hooks';
 import { Loading, DriverCard, ConstructorCard, EmptyState } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import { useScale } from '../../../src/hooks/useScale';
 import type { DriverFilter } from '../../../src/types';
 
@@ -20,6 +21,7 @@ type SortOption = 'price' | 'points' | 'name' | 'priceChange';
 
 export default function MarketScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
+  const theme = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>('drivers');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('price');
@@ -67,7 +69,7 @@ export default function MarketScreen() {
       {/* Tab Selector */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'drivers' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'drivers' && [styles.activeTab, { backgroundColor: theme.primary }]]}
           onPress={() => setActiveTab('drivers')}
         >
           <Text style={[styles.tabText, { fontSize: scaledFonts.md }, activeTab === 'drivers' && styles.activeTabText]}>
@@ -75,7 +77,7 @@ export default function MarketScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'constructors' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'constructors' && [styles.activeTab, { backgroundColor: theme.primary }]]}
           onPress={() => setActiveTab('constructors')}
         >
           <Text style={[styles.tabText, { fontSize: scaledFonts.md }, activeTab === 'constructors' && styles.activeTabText]}>
@@ -109,13 +111,13 @@ export default function MarketScreen() {
             {(['price', 'points', 'name'] as SortOption[]).map((option) => (
               <TouchableOpacity
                 key={option}
-                style={[styles.sortButton, sortBy === option && styles.sortButtonActive]}
+                style={[styles.sortButton, sortBy === option && [styles.sortButtonActive, { borderColor: theme.primary, backgroundColor: theme.primary + '10' }]]}
                 onPress={() => toggleSort(option)}
               >
                 <Text style={[
                   styles.sortButtonText,
                   { fontSize: scaledFonts.sm },
-                  sortBy === option && styles.sortButtonTextActive,
+                  sortBy === option && [styles.sortButtonTextActive, { color: theme.primary }],
                 ]}>
                   {option.charAt(0).toUpperCase() + option.slice(1)}
                 </Text>
@@ -123,7 +125,7 @@ export default function MarketScreen() {
                   <Ionicons
                     name={sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'}
                     size={14}
-                    color={COLORS.primary}
+                    color={theme.primary}
                   />
                 )}
               </TouchableOpacity>

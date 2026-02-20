@@ -63,6 +63,7 @@ pics/app graphics/raceprofile.png
 pics/app graphics/profile.png
 pics/app graphics/adminpanel.png
 android-bundle/
+.maestro/
 public/
 scripts/
 __tests__/

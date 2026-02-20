@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 
 interface ChatListItemProps {
   leagueId: string;
@@ -33,10 +34,11 @@ export function ChatListItem({
   unreadCount,
   onPress,
 }: ChatListItemProps) {
+  const theme = useTheme();
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.avatar}>
-        <Ionicons name="trophy" size={24} color={COLORS.primary} />
+      <View style={[styles.avatar, { backgroundColor: theme.primary + '15' }]}>
+        <Ionicons name="trophy" size={24} color={theme.primary} />
       </View>
       <View style={styles.content}>
         <View style={styles.topRow}>
@@ -55,7 +57,7 @@ export function ChatListItem({
             {lastMessage || 'No messages yet'}
           </Text>
           {unreadCount > 0 && (
-            <View style={styles.badge}>
+            <View style={[styles.badge, { backgroundColor: theme.primary }]}>
               <Text style={styles.badgeText}>
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Text>

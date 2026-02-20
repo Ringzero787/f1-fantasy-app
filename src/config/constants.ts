@@ -120,7 +120,7 @@ export const TEAM_COLORS: Record<string, { primary: string; secondary: string }>
   williams: { primary: '#005AFF', secondary: '#00A3E0' },
   rb: { primary: '#2B4562', secondary: '#1634B5' },
   haas: { primary: '#B6BABD', secondary: '#E10600' },
-  sauber: { primary: '#00E701', secondary: '#006341' },
+  audi: { primary: '#8C8C8C', secondary: '#BB0A30' },
   cadillac: { primary: '#C0C0C0', secondary: '#1C1C1C' },
 };
 
@@ -668,7 +668,7 @@ export const INITIAL_CONSTRUCTOR_PRICES = {
   racing_bulls: 133,
   aston_martin: 132,
   haas: 127,
-  sauber: 123,
+  audi: 123,
   alpine: 101,
   cadillac: 90,
 } as const;

@@ -18,12 +18,14 @@ import { useLeagueStore } from '../../../src/store/league.store';
 import { useTeamStore } from '../../../src/store/team.store';
 import { Card, Loading, EmptyState, Button, Avatar } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import { useScale } from '../../../src/hooks/useScale';
 import { validateInviteCode } from '../../../src/utils/validation';
 import type { League } from '../../../src/types';
 
 export default function LeaguesScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
+  const theme = useTheme();
   const { user } = useAuth();
   const { join, code } = useLocalSearchParams<{ join?: string; code?: string }>();
   const leagues = useLeagueStore(s => s.leagues);
@@ -276,19 +278,19 @@ export default function LeaguesScreen() {
       {/* Action Buttons */}
       <View style={styles.actions}>
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, { borderColor: theme.primary }]}
           onPress={() => router.push('/leagues/create')}
         >
-          <Ionicons name="add-circle" size={scaledIcon(20)} color={COLORS.primary} />
-          <Text style={[styles.actionButtonText, { fontSize: scaledFonts.md }]}>Create League</Text>
+          <Ionicons name="add-circle" size={scaledIcon(20)} color={theme.primary} />
+          <Text style={[styles.actionButtonText, { fontSize: scaledFonts.md, color: theme.primary }]}>Create League</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, { borderColor: theme.primary }]}
           onPress={() => setShowJoinModal(true)}
         >
-          <Ionicons name="enter" size={scaledIcon(20)} color={COLORS.primary} />
-          <Text style={[styles.actionButtonText, { fontSize: scaledFonts.md }]}>Join with Code</Text>
+          <Ionicons name="enter" size={scaledIcon(20)} color={theme.primary} />
+          <Text style={[styles.actionButtonText, { fontSize: scaledFonts.md, color: theme.primary }]}>Join with Code</Text>
         </TouchableOpacity>
       </View>
 
@@ -385,8 +387,8 @@ export default function LeaguesScreen() {
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconContainer}>
-            <Ionicons name="trophy" size={scaledIcon(48)} color={COLORS.primary} />
+          <View style={[styles.emptyIconContainer, { backgroundColor: theme.primary + '20' }]}>
+            <Ionicons name="trophy" size={scaledIcon(48)} color={theme.primary} />
           </View>
           <Text style={[styles.emptyTitle, { fontSize: scaledFonts.xxl }]}>No Leagues Yet</Text>
           <Text style={[styles.emptyMessage, { fontSize: scaledFonts.md }]}>
@@ -424,7 +426,7 @@ export default function LeaguesScreen() {
           {/* Create League Card */}
           <Card variant="outlined" style={styles.optionCard}>
             <View style={styles.optionHeader}>
-              <Ionicons name="add-circle" size={24} color={COLORS.primary} />
+              <Ionicons name="add-circle" size={24} color={theme.primary} />
               <Text style={[styles.optionTitle, { fontSize: scaledFonts.lg }]}>Create Your Own</Text>
             </View>
             <Text style={[styles.optionDescription, { fontSize: scaledFonts.sm }]}>

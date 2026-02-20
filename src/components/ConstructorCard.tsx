@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { formatPoints, formatDollars } from '../utils/formatters';
 import type { Constructor } from '../types';
 
@@ -30,6 +31,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
   position,
   compact = false,
 }: ConstructorCardProps) {
+  const theme = useTheme();
   const priceChange = constructor.price - constructor.previousPrice;
   const priceDirection = priceChange > 0 ? 'up' : priceChange < 0 ? 'down' : 'neutral';
 
@@ -38,7 +40,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
       <Pressable
         style={({ pressed }) => [
           styles.compactContainer,
-          isSelected && styles.selected,
+          isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
           { transform: [{ scale: pressed ? 0.98 : 1 }] },
         ]}
         onPress={onPress || onSelect}
@@ -63,7 +65,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
     <Pressable
       style={({ pressed }) => [
         styles.container,
-        isSelected && styles.selected,
+        isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
         { transform: [{ scale: pressed ? 0.985 : 1 }] },
       ]}
       onPress={onPress || onSelect}
@@ -107,7 +109,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
             )}
             {showPoints && (
               <View style={styles.pointsRow}>
-                <Text style={styles.pointsValue}>{formatPoints(constructor.currentSeasonPoints || 0)}</Text>
+                <Text style={[styles.pointsValue, { color: theme.primary }]}>{formatPoints(constructor.currentSeasonPoints || 0)}</Text>
                 <Text style={styles.pointsLabel}>pts</Text>
               </View>
             )}
@@ -149,8 +151,8 @@ export const ConstructorCard = React.memo(function ConstructorCard({
           )}
           {(constructor.currentSeasonPoints ?? 0) > 0 && !showPoints && (
             <View style={styles.fantasyBadge}>
-              <Ionicons name="trophy-outline" size={10} color={COLORS.primary} />
-              <Text style={styles.fantasyText}>{formatPoints(constructor.currentSeasonPoints ?? 0)} pts</Text>
+              <Ionicons name="trophy-outline" size={10} color={theme.primary} />
+              <Text style={[styles.fantasyText, { color: theme.primary }]}>{formatPoints(constructor.currentSeasonPoints ?? 0)} pts</Text>
             </View>
           )}
         </View>

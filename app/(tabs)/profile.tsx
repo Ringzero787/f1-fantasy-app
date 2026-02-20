@@ -17,8 +17,9 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/hooks/useAuth';
-import { useAvatarGeneration, useAutoSyncOpenF1, useScale } from '../../src/hooks';
+import { useAvatarGeneration, useAutoSyncOpenF1, useScale, useTheme } from '../../src/hooks';
 import { usePrefsStore } from '../../src/store/prefs.store';
+import { CONSTRUCTOR_THEMES, type ConstructorThemeId } from '../../src/config/themes';
 import { authService } from '../../src/services/auth.service';
 import { Card, RulesGuide } from '../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
@@ -51,9 +52,13 @@ export default function ProfileScreen() {
   const leagues = useLeagueStore(s => s.leagues);
   const leaveLeague = useLeagueStore(s => s.leaveLeague);
 
-  // Display scale
+  // Display scale & theme
   const { scaledFonts, scaledSpacing, scaledIcon, displayScale } = useScale();
   const setDisplayScale = usePrefsStore(s => s.setDisplayScale);
+  const theme = useTheme();
+  const constructorTheme = usePrefsStore(s => s.constructorTheme);
+  const setConstructorTheme = usePrefsStore(s => s.setConstructorTheme);
+  const themeIds = Object.keys(CONSTRUCTOR_THEMES) as ConstructorThemeId[];
 
   const SCALE_OPTIONS = [
     { label: 'Aa', value: 1.0, name: 'Normal' },
@@ -310,7 +315,7 @@ export default function ProfileScreen() {
           disabled={isUploading || isGenerating}
         >
           <LinearGradient
-            colors={[COLORS.primary, '#6366F1']}
+            colors={[theme.primary, theme.secondary]}
             style={styles.avatarRing}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -319,7 +324,7 @@ export default function ProfileScreen() {
               <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
             ) : (
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
+                <Text style={[styles.avatarText, { color: theme.primary }]}>
                   {user?.displayName?.charAt(0).toUpperCase() || 'U'}
                 </Text>
               </View>
@@ -330,7 +335,7 @@ export default function ProfileScreen() {
               <ActivityIndicator size="small" color={COLORS.white} />
             </View>
           )}
-          <View style={styles.editBadge}>
+          <View style={[styles.editBadge, { backgroundColor: theme.primary }]}>
             <Ionicons name="camera" size={14} color={COLORS.white} />
           </View>
           {isDemoMode && (
@@ -346,7 +351,7 @@ export default function ProfileScreen() {
         {/* Stats Pills */}
         <View style={styles.statsPillRow}>
           <View style={[styles.statsPill, { paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }]}>
-            <Ionicons name="people" size={scaledIcon(13)} color={COLORS.primary} />
+            <Ionicons name="people" size={scaledIcon(13)} color={theme.primary} />
             <Text style={[styles.statsPillText, { fontSize: scaledFonts.sm }]}>{userTeams.length} Team{userTeams.length !== 1 ? 's' : ''}</Text>
           </View>
           <View style={[styles.statsPill, { paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }]}>
@@ -364,7 +369,7 @@ export default function ProfileScreen() {
       <Card style={styles.menuCard}>
         <TouchableOpacity style={[styles.menuItem, { paddingVertical: scaledSpacing.md, paddingHorizontal: scaledSpacing.md }]} onPress={() => setShowRules(true)}>
           <View style={styles.menuItemLeft}>
-            <IconBox icon="book-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <IconBox icon="book-outline" color={theme.primary} bg={theme.primary + '15'} />
             <View>
               <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Game Rules & Scoring Guide</Text>
               <Text style={[styles.menuItemSubtext, { fontSize: scaledFonts.xs }]}>Points, contracts, lockout & more</Text>
@@ -379,7 +384,7 @@ export default function ProfileScreen() {
       <Card style={styles.menuCard}>
         <View style={styles.displaySection}>
           <View style={styles.menuItemLeft}>
-            <IconBox icon="text-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <IconBox icon="text-outline" color={theme.primary} bg={theme.primary + '15'} />
             <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Text Size</Text>
           </View>
           <View style={styles.scaleButtonRow}>
@@ -390,7 +395,7 @@ export default function ProfileScreen() {
                   key={opt.value}
                   style={[
                     styles.scalePill,
-                    isActive && styles.scalePillActive,
+                    isActive && [styles.scalePillActive, { borderColor: theme.primary, backgroundColor: theme.primary + '12' }],
                   ]}
                   onPress={() => setDisplayScale(opt.value)}
                 >
@@ -398,7 +403,7 @@ export default function ProfileScreen() {
                     style={[
                       styles.scalePillLabel,
                       { fontSize: Math.round(14 * opt.value) },
-                      isActive && styles.scalePillLabelActive,
+                      isActive && [styles.scalePillLabelActive, { color: theme.primary }],
                     ]}
                   >
                     {opt.label}
@@ -406,7 +411,7 @@ export default function ProfileScreen() {
                   <Text
                     style={[
                       styles.scalePillName,
-                      isActive && styles.scalePillNameActive,
+                      isActive && [styles.scalePillNameActive, { color: theme.primary }],
                     ]}
                   >
                     {opt.name}
@@ -418,6 +423,45 @@ export default function ProfileScreen() {
           <Text style={[styles.scalePreview, { fontSize: scaledFonts.md }]}>
             The quick brown fox jumps over the lazy dog.
           </Text>
+
+          {/* Theme Picker */}
+          <View style={styles.themeDivider} />
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="color-palette-outline" color={theme.primary} bg={theme.primary + '15'} />
+            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Theme</Text>
+          </View>
+          <View style={styles.themeGrid}>
+            {themeIds.map((id) => {
+              const t = CONSTRUCTOR_THEMES[id];
+              const isActive = constructorTheme === id;
+              return (
+                <TouchableOpacity
+                  key={id}
+                  style={[
+                    styles.themePill,
+                    isActive && { borderColor: t.primary, backgroundColor: t.primary + '12' },
+                  ]}
+                  onPress={() => setConstructorTheme(id)}
+                >
+                  <View style={[styles.themeDot, { backgroundColor: t.primary }]}>
+                    {t.secondary !== t.primary && (
+                      <View style={[styles.themeDotHalf, { backgroundColor: t.secondary }]} />
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.themePillLabel,
+                      { fontSize: scaledFonts.xs },
+                      isActive && { color: t.primary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {t.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       </Card>
 
@@ -426,7 +470,7 @@ export default function ProfileScreen() {
       <Card style={styles.menuCard}>
         <TouchableOpacity style={styles.menuItem} onPress={handleSwitchAccount}>
           <View style={styles.menuItemLeft}>
-            <IconBox icon="swap-horizontal" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <IconBox icon="swap-horizontal" color={theme.primary} bg={theme.primary + '15'} />
             <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Switch Account</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
@@ -491,7 +535,7 @@ export default function ProfileScreen() {
           onPress={() => Linking.openURL('https://f1-app-18077.web.app/terms.html')}
         >
           <View style={styles.menuItemLeft}>
-            <IconBox icon="document-text-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <IconBox icon="document-text-outline" color={theme.primary} bg={theme.primary + '15'} />
             <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Terms of Service</Text>
           </View>
           <Ionicons name="open-outline" size={16} color={COLORS.text.muted} />
@@ -608,7 +652,7 @@ export default function ProfileScreen() {
           onPress={() => useOnboardingStore.getState().resetOnboarding()}
         >
           <View style={styles.menuItemLeft}>
-            <IconBox icon="play-circle-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <IconBox icon="play-circle-outline" color={theme.primary} bg={theme.primary + '15'} />
             <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Replay Tutorial</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
@@ -640,7 +684,7 @@ export default function ProfileScreen() {
           <Text style={styles.optionsTitle}>Change Profile Picture</Text>
 
           <TouchableOpacity style={styles.optionItem} onPress={handlePickImage}>
-            <IconBox icon="image-outline" color={COLORS.primary} bg={COLORS.primary + '15'} />
+            <IconBox icon="image-outline" color={theme.primary} bg={theme.primary + '15'} />
             <View style={styles.optionTextContainer}>
               <Text style={styles.optionText}>Choose from Library</Text>
               <Text style={styles.optionSubtext}>Upload a photo from your device</Text>
@@ -980,6 +1024,52 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     marginTop: SPACING.md,
     lineHeight: 22,
+  },
+
+  themeDivider: {
+    height: 1,
+    backgroundColor: COLORS.border.default,
+    marginVertical: SPACING.md,
+  },
+
+  themeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+
+  themePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: BORDER_RADIUS.full,
+    borderWidth: 1.5,
+    borderColor: COLORS.border.default,
+    backgroundColor: COLORS.background,
+  },
+
+  themeDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    overflow: 'hidden',
+  },
+
+  themeDotHalf: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 7,
+    height: 14,
+  },
+
+  themePillLabel: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
   },
 
   // Sign out button

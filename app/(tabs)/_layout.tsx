@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/config/constants';
 import { useScale } from '../../src/hooks/useScale';
+import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useOnboardingStore } from '../../src/store/onboarding.store';
 import { useChatStore } from '../../src/store/chat.store';
@@ -12,6 +13,7 @@ import { NotificationBell } from '../../src/components/NotificationBell';
 
 export default function TabLayout() {
   const { scaledFonts, scaledIcon } = useScale();
+  const theme = useTheme();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const isAdmin = useAuthStore((state) => state.isAdmin);
   const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
@@ -22,7 +24,7 @@ export default function TabLayout() {
     <>
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: COLORS.primary,
+        tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: COLORS.text.muted,
         tabBarLabelStyle: {
           fontSize: scaledFonts.xs,

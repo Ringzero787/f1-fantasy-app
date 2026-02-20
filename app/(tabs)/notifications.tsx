@@ -13,6 +13,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { useNotificationStore } from '../../src/store/notification.store';
 import { useScale } from '../../src/hooks/useScale';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
+import { useTheme } from '../../src/hooks/useTheme';
 import type { Notification, NotificationType } from '../../src/types';
 
 const ICON_MAP: Record<NotificationType, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
@@ -77,7 +78,10 @@ function timeAgo(date: Date): string {
 }
 
 function NotificationRow({ item, onPress }: { item: Notification; onPress: () => void }) {
+  const theme = useTheme();
   const icon = ICON_MAP[item.type] ?? { name: 'notifications' as const, color: COLORS.text.muted };
+  // Override COLORS.primary with theme.primary for announcement type
+  const iconColor = item.type === 'announcement' ? theme.primary : icon.color;
   const { scaledFonts, scaledIcon } = useScale();
 
   return (
@@ -86,8 +90,8 @@ function NotificationRow({ item, onPress }: { item: Notification; onPress: () =>
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.iconContainer, { backgroundColor: icon.color + '20' }]}>
-        <Ionicons name={icon.name} size={scaledIcon(20)} color={icon.color} />
+      <View style={[styles.iconContainer, { backgroundColor: iconColor + '20' }]}>
+        <Ionicons name={icon.name} size={scaledIcon(20)} color={iconColor} />
       </View>
       <View style={styles.rowContent}>
         <Text style={[styles.rowTitle, !item.read && styles.rowTitleUnread, { fontSize: scaledFonts.md }]} numberOfLines={1}>
@@ -98,12 +102,13 @@ function NotificationRow({ item, onPress }: { item: Notification; onPress: () =>
         </Text>
         <Text style={[styles.rowTime, { fontSize: scaledFonts.xs }]}>{timeAgo(item.createdAt)}</Text>
       </View>
-      {!item.read && <View style={styles.unreadDot} />}
+      {!item.read && <View style={[styles.unreadDot, { backgroundColor: theme.primary }]} />}
     </TouchableOpacity>
   );
 }
 
 export default function NotificationsScreen() {
+  const theme = useTheme();
   const { user } = useAuth();
   const notifications = useNotificationStore((s) => s.notifications);
   const isLoading = useNotificationStore((s) => s.isLoading);
@@ -145,8 +150,8 @@ export default function NotificationsScreen() {
     <View style={styles.container}>
       {hasUnread && (
         <TouchableOpacity style={styles.markAllButton} onPress={handleMarkAllRead}>
-          <Ionicons name="checkmark-done" size={scaledIcon(18)} color={COLORS.primary} />
-          <Text style={[styles.markAllText, { fontSize: scaledFonts.md }]}>Mark all as read</Text>
+          <Ionicons name="checkmark-done" size={scaledIcon(18)} color={theme.primary} />
+          <Text style={[styles.markAllText, { fontSize: scaledFonts.md, color: theme.primary }]}>Mark all as read</Text>
         </TouchableOpacity>
       )}
       <FlatList
@@ -154,7 +159,7 @@ export default function NotificationsScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={theme.primary} />
         }
         contentContainerStyle={notifications.length === 0 ? styles.emptyContainer : undefined}
         ListEmptyComponent={

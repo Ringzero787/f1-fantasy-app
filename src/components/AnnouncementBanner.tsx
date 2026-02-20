@@ -10,8 +10,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAnnouncementStore } from '../store/announcement.store';
 import { useAuth } from '../hooks/useAuth';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 
 export function AnnouncementBanner() {
+  const theme = useTheme();
   const { user } = useAuth();
   const activeAnnouncements = useAnnouncementStore(s => s.activeAnnouncements);
   const dismissedIds = useAnnouncementStore(s => s.dismissedIds);
@@ -52,22 +54,22 @@ export function AnnouncementBanner() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.primary + '1F', borderColor: theme.primary + '30' }]}>
       <View style={styles.row}>
         <TouchableOpacity
-          style={styles.iconContainer}
+          style={[styles.iconContainer, { backgroundColor: theme.primary + '20' }]}
           onPress={() => setExpanded(!expanded)}
           activeOpacity={0.7}
         >
-          <Ionicons name="megaphone" size={18} color={COLORS.primary} />
+          <Ionicons name="megaphone" size={18} color={theme.primary} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.content}
           onPress={() => setExpanded(!expanded)}
           activeOpacity={0.7}
         >
-          <View style={styles.leagueTag}>
-            <Text style={styles.leagueTagText}>{announcement.leagueName}</Text>
+          <View style={[styles.leagueTag, { backgroundColor: theme.primary + '25' }]}>
+            <Text style={[styles.leagueTagText, { color: theme.primary }]}>{announcement.leagueName}</Text>
           </View>
           <Text style={styles.message} numberOfLines={expanded ? undefined : 2}>
             {announcement.message}
@@ -83,7 +85,7 @@ export function AnnouncementBanner() {
       </View>
 
       {expanded && (
-        <View style={styles.replySection}>
+        <View style={[styles.replySection, { borderTopColor: theme.primary + '20' }]}>
           {replySent ? (
             <View style={styles.replySentRow}>
               <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
@@ -103,6 +105,7 @@ export function AnnouncementBanner() {
               <TouchableOpacity
                 style={[
                   styles.sendButton,
+                  { backgroundColor: theme.primary + '15' },
                   (!replyText.trim() || isSubmittingReply) && styles.sendButtonDisabled,
                 ]}
                 onPress={handleSendReply}
@@ -111,7 +114,7 @@ export function AnnouncementBanner() {
                 <Ionicons
                   name="send"
                   size={16}
-                  color={replyText.trim() && !isSubmittingReply ? COLORS.primary : COLORS.text.muted}
+                  color={replyText.trim() && !isSubmittingReply ? theme.primary : COLORS.text.muted}
                 />
               </TouchableOpacity>
             </View>

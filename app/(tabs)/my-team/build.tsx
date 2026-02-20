@@ -14,11 +14,13 @@ import { useDrivers, useConstructors } from '../../../src/hooks';
 import { useTeamStore } from '../../../src/store/team.store';
 import { Loading, DriverCard, ConstructorCard, BudgetBar, Button } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import type { Driver, Constructor } from '../../../src/types';
 
 type TabType = 'drivers' | 'constructor';
 
 export default function BuildTeamScreen() {
+  const theme = useTheme();
   const { leagueId } = useLocalSearchParams<{ leagueId?: string }>();
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
@@ -127,7 +129,7 @@ export default function BuildTeamScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Fixed Budget Header */}
-      <View style={styles.budgetHeader}>
+      <View style={[styles.budgetHeader, { borderBottomColor: theme.primary }]}>
         <View style={styles.budgetRow}>
           <Text style={styles.budgetLabel}>Dollars Remaining</Text>
           <Text style={[
@@ -178,7 +180,7 @@ export default function BuildTeamScreen() {
           style={[styles.tab, activeTab === 'drivers' && styles.activeTab]}
           onPress={() => { setActiveTab('drivers'); setSearchQuery(''); }}
         >
-          <Text style={[styles.tabText, activeTab === 'drivers' && styles.activeTabText]}>
+          <Text style={[styles.tabText, activeTab === 'drivers' && styles.activeTabText, activeTab === 'drivers' && { color: theme.primary }]}>
             Drivers ({selectedDrivers.length}/{TEAM_SIZE})
           </Text>
         </TouchableOpacity>
@@ -186,7 +188,7 @@ export default function BuildTeamScreen() {
           style={[styles.tab, activeTab === 'constructor' && styles.activeTab]}
           onPress={() => { setActiveTab('constructor'); setSearchQuery(''); }}
         >
-          <Text style={[styles.tabText, activeTab === 'constructor' && styles.activeTabText]}>
+          <Text style={[styles.tabText, activeTab === 'constructor' && styles.activeTabText, activeTab === 'constructor' && { color: theme.primary }]}>
             Constructor ({selectedConstructor ? 1 : 0}/1)
           </Text>
         </TouchableOpacity>
@@ -217,7 +219,7 @@ export default function BuildTeamScreen() {
             {selectedDrivers.map((driver) => (
               <TouchableOpacity
                 key={driver.id}
-                style={styles.chip}
+                style={[styles.chip, { backgroundColor: theme.primary }]}
                 onPress={() => removeDriverFromSelection(driver.id)}
               >
                 <Text style={styles.chipText}>{driver.shortName}</Text>
@@ -234,7 +236,7 @@ export default function BuildTeamScreen() {
           <Text style={styles.selectedTitle}>Selected Constructor</Text>
           <View style={styles.selectedChips}>
             <TouchableOpacity
-              style={styles.chip}
+              style={[styles.chip, { backgroundColor: theme.primary }]}
               onPress={() => setSelectedConstructor(null)}
             >
               <Text style={styles.chipText}>{selectedConstructor.shortName}</Text>

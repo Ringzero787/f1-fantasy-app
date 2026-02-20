@@ -11,10 +11,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { teamService } from '../../../../../src/services/team.service';
 import { Card, Loading, EmptyState, BudgetBar, Avatar } from '../../../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../../../src/config/constants';
+import { useTheme } from '../../../../../src/hooks/useTheme';
 import { formatPoints } from '../../../../../src/utils/formatters';
 import type { FantasyTeam } from '../../../../../src/types';
 
 export default function ViewTeamScreen() {
+  const theme = useTheme();
   const { id: leagueId, memberId } = useLocalSearchParams<{ id: string; memberId: string }>();
 
   const [team, setTeam] = useState<FantasyTeam | null>(null);
@@ -78,7 +80,7 @@ export default function ViewTeamScreen() {
         style={styles.container}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
       >
         {/* Team Header */}
@@ -122,7 +124,7 @@ export default function ViewTeamScreen() {
         <Card variant="outlined" style={styles.pointsCard}>
           <View style={styles.pointsRow}>
             <View style={styles.pointItem}>
-              <Text style={styles.pointValue}>{formatPoints(team.totalPoints || 0)}</Text>
+              <Text style={[styles.pointValue, { color: theme.primary }]}>{formatPoints(team.totalPoints || 0)}</Text>
               <Text style={styles.pointLabel}>Total Points</Text>
             </View>
           </View>
@@ -168,7 +170,7 @@ export default function ViewTeamScreen() {
                     <Text style={styles.driverTeam}>{driver.shortName}</Text>
                   </View>
                   <View style={styles.driverStats}>
-                    <Text style={styles.driverPoints}>
+                    <Text style={[styles.driverPoints, { color: theme.primary }]}>
                       {formatPoints(driver.pointsScored)} pts
                     </Text>
                     <Text style={styles.driverPrice}>
@@ -177,9 +179,9 @@ export default function ViewTeamScreen() {
                   </View>
                 </View>
                 {team.aceDriverId === driver.driverId && (
-                  <View style={styles.aceBadge}>
-                    <Ionicons name="shield" size={12} color={COLORS.primary} />
-                    <Text style={styles.aceBadgeText}>Ace (2x)</Text>
+                  <View style={[styles.aceBadge, { backgroundColor: theme.primary + '20' }]}>
+                    <Ionicons name="shield" size={12} color={theme.primary} />
+                    <Text style={[styles.aceBadgeText, { color: theme.primary }]}>Ace (2x)</Text>
                   </View>
                 )}
                 {driver.racesHeld > 0 && (
@@ -207,7 +209,7 @@ export default function ViewTeamScreen() {
                   {team.constructor.name}
                 </Text>
                 <View style={styles.constructorStats}>
-                  <Text style={styles.constructorPoints}>
+                  <Text style={[styles.constructorPoints, { color: theme.primary }]}>
                     {formatPoints(team.constructor.pointsScored)} pts
                   </Text>
                   <Text style={styles.constructorPrice}>

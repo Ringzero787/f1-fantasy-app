@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { getAvatarGradient, getInitials } from '../utils/avatarColors';
 import { useAvatarStore } from '../store/avatar.store';
 import { usePurchaseStore } from '../store/purchase.store';
@@ -79,6 +80,7 @@ export function AvatarPicker({
   canGenerateAI = true,
   userId,
 }: AvatarPickerProps) {
+  const theme = useTheme();
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -273,12 +275,12 @@ export function AvatarPicker({
           {/* AI Generation Option */}
           {canGenerateAI && canGenerateMore && (
             <TouchableOpacity
-              style={styles.aiGenerateButton}
+              style={[styles.aiGenerateButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
               onPress={handleGenerateAI}
               disabled={isGeneratingAI}
             >
               <View style={styles.aiGenerateContent}>
-                <View style={styles.aiIconContainer}>
+                <View style={[styles.aiIconContainer, { backgroundColor: theme.primary }]}>
                   <Ionicons
                     name="sparkles"
                     size={20}
@@ -313,10 +315,10 @@ export function AvatarPicker({
                   </TouchableOpacity>
                 )}
                 {isGeneratingAI ? (
-                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <ActivityIndicator size="small" color={theme.primary} />
                 ) : userId ? (
-                  <View style={styles.remainingBadge}>
-                    <Text style={styles.remainingBadgeText}>{avatarRemaining}</Text>
+                  <View style={[styles.remainingBadge, { backgroundColor: theme.primary + '20' }]}>
+                    <Text style={[styles.remainingBadgeText, { color: theme.primary }]}>{avatarRemaining}</Text>
                   </View>
                 ) : (
                   <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
@@ -328,7 +330,7 @@ export function AvatarPicker({
           {/* Buy More Credits Option — shown when free credits exhausted */}
           {canGenerateAI && !canGenerateMore && userId && (
             <TouchableOpacity
-              style={styles.aiGenerateButton}
+              style={[styles.aiGenerateButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
               onPress={() => setShowAvatarPurchase(true)}
             >
               <View style={styles.aiGenerateContent}>
@@ -430,7 +432,7 @@ export function AvatarPicker({
                     key={style.id}
                     style={[
                       styles.styleOption,
-                      isSelected && styles.styleOptionSelected,
+                      isSelected && [styles.styleOptionSelected, { borderColor: theme.primary, backgroundColor: theme.primary + '10' }],
                     ]}
                     onPress={() => handleStyleSelect(style.id)}
                   >
@@ -442,13 +444,13 @@ export function AvatarPicker({
                     <Text
                       style={[
                         styles.styleName,
-                        isSelected && styles.styleNameSelected,
+                        isSelected && [styles.styleNameSelected, { color: theme.primary }],
                       ]}
                     >
                       {style.name}
                     </Text>
                     {isSelected && (
-                      <View style={styles.selectedBadge}>
+                      <View style={[styles.selectedBadge, { backgroundColor: theme.primary }]}>
                         <Ionicons name="checkmark" size={12} color={COLORS.white} />
                       </View>
                     )}
@@ -469,6 +471,7 @@ export function AvatarPicker({
             <TouchableOpacity
               style={[
                 styles.confirmButton,
+                { backgroundColor: theme.primary },
                 (!previewUrl || isLoading) && styles.confirmButtonDisabled,
               ]}
               onPress={handleConfirm}

@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import { useChatStore } from '../../store/chat.store';
 import { chatService } from '../../services/chat.service';
 import { useAuthStore } from '../../store/auth.store';
@@ -21,6 +22,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ leagueId }: ChatInputProps) {
+  const theme = useTheme();
   const [text, setText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const sendMessage = useChatStore((s) => s.sendMessage);
@@ -118,12 +120,12 @@ export function ChatInput({ leagueId }: ChatInputProps) {
           disabled={!text.trim() || sending}
         >
           {sending ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={theme.primary} />
           ) : (
             <Ionicons
               name="send"
               size={scaledIcon(20)}
-              color={text.trim() ? COLORS.primary : COLORS.text.muted}
+              color={text.trim() ? theme.primary : COLORS.text.muted}
             />
           )}
         </TouchableOpacity>

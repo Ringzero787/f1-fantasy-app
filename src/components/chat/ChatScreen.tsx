@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import { useChatStore } from '../../store/chat.store';
 import type { ChatMessage } from '../../types';
 import { MessageBubble } from './MessageBubble';
@@ -42,6 +43,7 @@ function formatDateSeparator(date: Date): string {
 }
 
 export function ChatScreen({ leagueId }: ChatScreenProps) {
+  const theme = useTheme();
   const subscribe = useChatStore((s) => s.subscribe);
   const unsubscribe = useChatStore((s) => s.unsubscribe);
   const markAsRead = useChatStore((s) => s.markAsRead);
@@ -109,7 +111,7 @@ export function ChatScreen({ leagueId }: ChatScreenProps) {
     if (!isLoadingOlder) return null;
     return (
       <View style={styles.loadingOlder}>
-        <ActivityIndicator size="small" color={COLORS.primary} />
+        <ActivityIndicator size="small" color={theme.primary} />
       </View>
     );
   }, [isLoadingOlder]);
@@ -117,7 +119,7 @@ export function ChatScreen({ leagueId }: ChatScreenProps) {
   if (isLoading && messages.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }

@@ -12,10 +12,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRace, useRaceResults } from '../../../src/hooks';
 import { Card, Loading, EmptyState, TrackIcon } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import { formatCountdown, formatTimeWithZone, formatDateWithZone } from '../../../src/utils/formatters';
 import { usePrefsStore } from '../../../src/store/prefs.store';
 
 export default function RaceDetailScreen() {
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: race, isLoading, refetch } = useRace(id || '');
   const { data: results } = useRaceResults(id || '');
@@ -84,7 +86,7 @@ export default function RaceDetailScreen() {
           <TrackIcon country={race.country} city={race.city} size={100} />
         </View>
 
-        <View style={styles.roundBadge}>
+        <View style={[styles.roundBadge, { backgroundColor: theme.primary }]}>
           <Text style={styles.roundText}>Round {race.round}</Text>
         </View>
 
@@ -108,7 +110,7 @@ export default function RaceDetailScreen() {
         {race.status === 'upcoming' && (
           <View style={styles.countdownContainer}>
             <Text style={styles.countdownLabel}>Race starts in</Text>
-            <Text style={styles.countdownValue}>{countdown}</Text>
+            <Text style={[styles.countdownValue, { color: theme.primary }]}>{countdown}</Text>
           </View>
         )}
       </Card>
@@ -124,7 +126,7 @@ export default function RaceDetailScreen() {
           <Switch
             value={showLocalTime}
             onValueChange={toggleLocalTime}
-            trackColor={{ false: COLORS.border.default, true: COLORS.primary }}
+            trackColor={{ false: COLORS.border.default, true: theme.primary }}
             thumbColor={COLORS.white}
           />
         </View>
@@ -187,7 +189,7 @@ export default function RaceDetailScreen() {
                       : result.status.toUpperCase()}
                   </Text>
                 </View>
-                <Text style={styles.resultPoints}>{result.points} pts</Text>
+                <Text style={[styles.resultPoints, { color: theme.primary }]}>{result.points} pts</Text>
               </View>
             ))}
           </Card>

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -34,6 +35,7 @@ export function Input({
   variant = 'default',
   ...props
 }: InputProps) {
+  const theme = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -45,7 +47,7 @@ export function Input({
     styles.inputContainer,
     variant === 'filled' && styles.inputContainerFilled,
     variant === 'outlined' && styles.inputContainerOutlined,
-    isFocused && styles.inputContainerFocused,
+    isFocused && [styles.inputContainerFocused, { borderColor: theme.primary }],
     isFocused && variant === 'filled' && styles.inputContainerFilledFocused,
     error && styles.inputContainerError,
   ];
@@ -63,7 +65,7 @@ export function Input({
           <Ionicons
             name={leftIcon}
             size={20}
-            color={isFocused ? COLORS.primary : COLORS.gray[400]}
+            color={isFocused ? theme.primary : COLORS.gray[400]}
             style={styles.leftIcon}
           />
         )}
@@ -75,7 +77,7 @@ export function Input({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           secureTextEntry={isPassword && !showPassword}
-          selectionColor={COLORS.primary}
+          selectionColor={theme.primary}
           underlineColorAndroid="transparent"
           {...props}
         />

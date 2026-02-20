@@ -8,6 +8,36 @@ import { sendPushToLeague, sendPushToUsers } from './sendPush';
 const db = admin.firestore();
 
 /**
+ * When a new chat message is created in a league, send push to all other league members.
+ */
+export const onChatMessageCreated = onDocumentCreated(
+  'leagues/{leagueId}/messages/{messageId}',
+  async (event) => {
+    const data = event.data?.data();
+    if (!data || data.isDeleted) return;
+
+    const leagueId = event.params.leagueId;
+    const senderName = (data.senderName as string) || 'Someone';
+    const text = (data.text as string) || '';
+    const preview = data.imageUrl
+      ? `${senderName} sent a photo`
+      : text.length > 80 ? `${senderName}: ${text.slice(0, 80)}...` : `${senderName}: ${text}`;
+
+    // Get league name
+    const leagueDoc = await db.doc(`leagues/${leagueId}`).get();
+    const leagueName = leagueDoc.data()?.name || 'League Chat';
+
+    await sendPushToLeague(
+      leagueId,
+      leagueName,
+      preview,
+      { type: 'chat_message', leagueId, messageId: event.params.messageId },
+      data.senderId, // Don't notify the sender
+    );
+  },
+);
+
+/**
  * When a new announcement is created in a league, send push to all league members.
  */
 export const onAnnouncementCreated = onDocumentCreated(

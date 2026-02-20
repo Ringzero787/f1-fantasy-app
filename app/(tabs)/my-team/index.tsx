@@ -24,6 +24,7 @@ import { useDrivers, useConstructors, useAvatarGeneration, useLockoutStatus } fr
 import { saveAvatarUrl } from '../../../src/services/avatarGeneration.service';
 import { Loading, Button, Avatar, AvatarPicker, CountdownBanner } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import { demoConstructors } from '../../../src/data/demoData';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import { formatPoints } from '../../../src/utils/formatters';
@@ -115,6 +116,7 @@ function autoFillTeam(
 export default function MyTeamScreen() {
   const { user } = useAuth();
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
+  const theme = useTheme();
   const currentTeam = useTeamStore(s => s.currentTeam);
   const userTeams = useTeamStore(s => s.userTeams);
   const isLoading = useTeamStore(s => s.isLoading);
@@ -315,7 +317,7 @@ export default function MyTeamScreen() {
   }, [raceResults, currentTeam]);
 
   // Build a lookup: constructorId -> { shortName, primaryColor }
-  // Include demoConstructors as base layer so renamed IDs (e.g. sauber->audi) still resolve
+  // Include demoConstructors as base layer so all constructor IDs resolve
   const constructorLookup = useMemo(() => {
     const map: Record<string, { shortName: string; primaryColor: string }> = {};
     demoConstructors.forEach(c => {
@@ -667,7 +669,7 @@ export default function MyTeamScreen() {
       <View style={styles.emptyContainer}>
         <View style={styles.welcomeContainer}>
           <View style={styles.welcomeIconContainer}>
-            <Ionicons name="people" size={48} color={COLORS.primary} />
+            <Ionicons name="people" size={48} color={theme.primary} />
           </View>
           <Text style={[styles.welcomeTitle, { fontSize: scaledFonts.xxl }]}>Create Your Team</Text>
           <Text style={[styles.welcomeMessage, { fontSize: scaledFonts.lg }]}>
@@ -711,7 +713,7 @@ export default function MyTeamScreen() {
                 key={team.id}
                 style={[
                   styles.teamTab,
-                  currentTeam?.id === team.id && styles.teamTabActive,
+                  currentTeam?.id === team.id && [styles.teamTabActive, { backgroundColor: theme.primary, borderColor: theme.primary }],
                 ]}
                 onPress={() => selectTeam(team.id)}
               >
@@ -730,7 +732,7 @@ export default function MyTeamScreen() {
               style={styles.teamTabNew}
               onPress={() => router.push('/my-team/create')}
             >
-              <Ionicons name="add" size={18} color={COLORS.primary} />
+              <Ionicons name="add" size={18} color={theme.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -741,8 +743,8 @@ export default function MyTeamScreen() {
             style={styles.newTeamLink}
             onPress={() => router.push('/my-team/create')}
           >
-            <Ionicons name="add-circle-outline" size={14} color={COLORS.primary} />
-            <Text style={styles.newTeamLinkText}>New Team</Text>
+            <Ionicons name="add-circle-outline" size={14} color={theme.primary} />
+            <Text style={[styles.newTeamLinkText, { color: theme.primary }]}>New Team</Text>
           </TouchableOpacity>
         )}
 
@@ -837,8 +839,8 @@ export default function MyTeamScreen() {
               style={styles.statItem}
               onPress={handleJoinLeague}
             >
-              <Ionicons name="trophy-outline" size={20} color={COLORS.primary} />
-              <Text style={[styles.joinLeagueText, { fontSize: scaledFonts.sm }]}>
+              <Ionicons name="trophy-outline" size={20} color={theme.primary} />
+              <Text style={[styles.joinLeagueText, { fontSize: scaledFonts.sm, color: theme.primary }]}>
                 {availableLeague ? 'Join League' : 'Solo'}
               </Text>
             </TouchableOpacity>
@@ -861,15 +863,15 @@ export default function MyTeamScreen() {
         )}
         {currentTeam && !currentTeam.constructor && canModify && (
           <TouchableOpacity
-            style={[styles.teamAlert, { backgroundColor: COLORS.primary + '15', borderColor: COLORS.primary + '30' }]}
+            style={[styles.teamAlert, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }]}
             onPress={() => router.push('/my-team/select-constructor')}
             activeOpacity={0.7}
           >
-            <Ionicons name="construct" size={16} color={COLORS.primary} />
-            <Text style={[styles.teamAlertText, { color: COLORS.primary, fontSize: scaledFonts.md }]}>
+            <Ionicons name="construct" size={16} color={theme.primary} />
+            <Text style={[styles.teamAlertText, { color: theme.primary, fontSize: scaledFonts.md }]}>
               No constructor selected — tap to add
             </Text>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+            <Ionicons name="chevron-forward" size={16} color={theme.primary} />
           </TouchableOpacity>
         )}
         {currentTeam && !currentTeam.aceDriverId && !currentTeam.aceConstructorId && driversCount > 0 &&
@@ -925,7 +927,7 @@ export default function MyTeamScreen() {
                           </TouchableOpacity>
                         )}
                         {!driver.isAce && !driver.isReserve && driver.canBeAce && canChangeAce && (
-                          <TouchableOpacity onPress={() => handleSetAce(driver.driverId)} hitSlop={8}>
+                          <TouchableOpacity testID="set-ace-btn" onPress={() => handleSetAce(driver.driverId)} hitSlop={8}>
                             <Ionicons name="diamond-outline" size={15} color={COLORS.gold} />
                           </TouchableOpacity>
                         )}
@@ -989,6 +991,7 @@ export default function MyTeamScreen() {
                       <View style={{ flex: 1 }} />
                       {canModify && !driver.isReserve && (
                         <TouchableOpacity
+                          testID="sell-driver-btn"
                           onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
                           hitSlop={6}
                           style={[styles.sellChip, driver.inGracePeriod ? styles.sellChipNeutral : driver.saleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
@@ -1002,9 +1005,9 @@ export default function MyTeamScreen() {
                         <TouchableOpacity
                           onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
                           hitSlop={6}
-                          style={styles.swapChip}
+                          style={[styles.swapChip, { backgroundColor: theme.primary + '12', borderColor: theme.primary + '25' }]}
                         >
-                          <Text style={styles.swapChipText}>Swap</Text>
+                          <Text style={[styles.swapChipText, { color: theme.primary }]}>Swap</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -1017,11 +1020,12 @@ export default function MyTeamScreen() {
         {/* Add Driver button */}
         {driversCount < TEAM_SIZE && canModify && (
           <TouchableOpacity
-            style={styles.addSlotButton}
+            testID="add-driver-btn"
+            style={[styles.addSlotButton, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '06' }]}
             onPress={() => router.push('/my-team/select-driver')}
           >
-            <Ionicons name="add" size={18} color={COLORS.primary} />
-            <Text style={[styles.addSlotText, { fontSize: scaledFonts.md }]}>Add Driver ({TEAM_SIZE - driversCount} remaining)</Text>
+            <Ionicons name="add" size={18} color={theme.primary} />
+            <Text style={[styles.addSlotText, { fontSize: scaledFonts.md, color: theme.primary }]}>Add Driver ({TEAM_SIZE - driversCount} remaining)</Text>
           </TouchableOpacity>
         )}
 
@@ -1041,7 +1045,7 @@ export default function MyTeamScreen() {
           const cEarlyTermFee = (cIsReserve || cInGracePeriod) ? 0 : calculateEarlyTerminationFee(livePrice, cContractLen, c.racesHeld || 0);
           const cEffectiveSaleValue = Math.max(0, livePrice - cEarlyTermFee);
           const cSaleProfit = cEffectiveSaleValue - c.purchasePrice;
-          const cAccent = cInfo?.primaryColor || COLORS.primary;
+          const cAccent = cInfo?.primaryColor || theme.primary;
 
           const isAceConstructor = currentTeam?.aceConstructorId === c.constructorId;
           const canBeAceConstructor = livePrice <= PRICING_CONFIG.ACE_MAX_PRICE;
@@ -1139,9 +1143,9 @@ export default function MyTeamScreen() {
                     <TouchableOpacity
                       onPress={handleRemoveConstructor}
                       hitSlop={6}
-                      style={styles.swapChip}
+                      style={[styles.swapChip, { backgroundColor: theme.primary + '12', borderColor: theme.primary + '25' }]}
                     >
-                      <Text style={styles.swapChipText}>Swap</Text>
+                      <Text style={[styles.swapChipText, { color: theme.primary }]}>Swap</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1153,17 +1157,19 @@ export default function MyTeamScreen() {
         {/* Add Constructor button */}
         {!hasConstructor && canModify && (
           <TouchableOpacity
-            style={styles.addSlotButton}
+            testID="add-constructor-btn"
+            style={[styles.addSlotButton, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '06' }]}
             onPress={() => router.push('/my-team/select-constructor')}
           >
-            <Ionicons name="add" size={18} color={COLORS.primary} />
-            <Text style={[styles.addSlotText, { fontSize: scaledFonts.md }]}>Add Constructor (0/1)</Text>
+            <Ionicons name="add" size={18} color={theme.primary} />
+            <Text style={[styles.addSlotText, { fontSize: scaledFonts.md, color: theme.primary }]}>Add Constructor (0/1)</Text>
           </TouchableOpacity>
         )}
 
         {/* Auto-fill button — shown when team has empty slots */}
         {canModify && (driversCount < TEAM_SIZE || !hasConstructor) && (
           <TouchableOpacity
+            testID="auto-fill-btn"
             style={styles.autoFillButton}
             onPress={handleAutoFill}
             disabled={isAutoFilling}
@@ -1237,6 +1243,7 @@ export default function MyTeamScreen() {
               <TouchableOpacity
                 style={[
                   styles.modalSaveButton,
+                  { backgroundColor: theme.primary },
                   (!editingName.trim() || isSavingName) && { opacity: 0.5 },
                 ]}
                 onPress={handleSaveName}

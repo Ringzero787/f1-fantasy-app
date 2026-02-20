@@ -117,7 +117,7 @@ const DRIVER_NUMBER_TO_ID: Record<number, string> = {
   14: 'alonso',
   16: 'leclerc',
   18: 'stroll',
-  20: 'hulkenberg', // Assuming Hulk keeps 20 at Sauber
+  20: 'hulkenberg', // Assuming Hulk keeps 20 at Audi
   22: 'antonelli', // New number for Antonelli - may change
   23: 'albon',
   27: 'hulkenberg',
@@ -129,7 +129,7 @@ const DRIVER_NUMBER_TO_ID: Record<number, string> = {
   // 2026 rookies - numbers may change
   6: 'bearman', // Haas
   7: 'lawson', // Red Bull/Racing Bulls
-  30: 'bortoleto', // Sauber
+  30: 'bortoleto', // Audi
   43: 'colapinto', // Alpine (rumored)
   35: 'hadjar', // Racing Bulls
   77: 'bottas', // Cadillac
@@ -148,8 +148,9 @@ const TEAM_NAME_TO_ID: Record<string, string> = {
   'RB': 'racing_bulls',
   'Visa Cash App RB': 'racing_bulls',
   'Racing Bulls': 'racing_bulls',
-  'Kick Sauber': 'sauber',
-  'Sauber': 'sauber',
+  'Kick Sauber': 'audi',
+  'Sauber': 'audi',
+  'Audi': 'audi',
   'Haas F1 Team': 'haas',
   'Haas': 'haas',
   'Cadillac': 'cadillac',

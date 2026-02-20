@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -360,6 +361,7 @@ const SECTIONS: RuleSection[] = [
 /* ───────────────── component ───────────────── */
 
 export function RulesGuide({ visible, onClose }: RulesGuideProps) {
+  const theme = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const [activeSection, setActiveSection] = useState(0);
   const sectionOffsets = useRef<number[]>([]);
@@ -393,7 +395,7 @@ export function RulesGuide({ visible, onClose }: RulesGuideProps) {
           {SECTIONS.map((s, i) => (
             <TouchableOpacity
               key={s.id}
-              style={[styles.chip, i === activeSection && styles.chipActive]}
+              style={[styles.chip, i === activeSection && [styles.chipActive, { backgroundColor: theme.primary, borderColor: theme.primary }]]}
               onPress={() => handleChipPress(i)}
             >
               <Ionicons
@@ -439,8 +441,8 @@ export function RulesGuide({ visible, onClose }: RulesGuideProps) {
             >
               {/* Section header */}
               <View style={styles.sectionHeader}>
-                <View style={styles.sectionIconCircle}>
-                  <Ionicons name={section.icon} size={20} color={COLORS.primary} />
+                <View style={[styles.sectionIconCircle, { backgroundColor: theme.primary + '20' }]}>
+                  <Ionicons name={section.icon} size={20} color={theme.primary} />
                 </View>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
               </View>
@@ -465,7 +467,7 @@ export function RulesGuide({ visible, onClose }: RulesGuideProps) {
                       <View key={bIdx} style={styles.bulletList}>
                         {block.items.map((item, iIdx) => (
                           <View key={iIdx} style={styles.bulletRow}>
-                            <Text style={styles.bulletDot}>{'\u2022'}</Text>
+                            <Text style={[styles.bulletDot, { color: theme.primary }]}>{'\u2022'}</Text>
                             <Text style={styles.bulletText}>{item}</Text>
                           </View>
                         ))}

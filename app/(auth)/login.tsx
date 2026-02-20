@@ -4,15 +4,18 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
 import { SocialAuthButtons } from '../../src/components';
 import { COLORS, SPACING, FONTS } from '../../src/config/constants';
+import { useTheme } from '../../src/hooks/useTheme';
 
 export default function LoginScreen() {
-  const { signInWithGoogle, signInWithApple, isLoading, error, clearError } = useAuth();
+  const theme = useTheme();
+  const { signInWithGoogle, signInWithApple, enterDemoMode, isLoading, error, clearError } = useAuth();
 
   const handleGoogleSignIn = async (idToken: string) => {
     clearError();
@@ -42,7 +45,7 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.tagline}>Leave it to me.</Text>
-          <Text style={styles.logo}>Undercut</Text>
+          <Text style={[styles.logo, { color: theme.primary }]}>Undercut</Text>
         </View>
 
         <View style={styles.form}>
@@ -63,6 +66,19 @@ export default function LoginScreen() {
             onAppleSignIn={handleAppleSignIn}
             disabled={isLoading}
           />
+
+          {/* Demo Mode */}
+          <TouchableOpacity
+            testID="demo-mode-button"
+            style={styles.demoButton}
+            onPress={() => {
+              enterDemoMode();
+              router.replace('/(tabs)');
+            }}
+            disabled={isLoading}
+          >
+            <Text style={styles.demoButtonText}>Try Demo Mode</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -128,6 +144,18 @@ const styles = StyleSheet.create({
   errorText: {
     color: COLORS.error,
     fontSize: FONTS.sizes.sm,
+  },
+
+  demoButton: {
+    marginTop: SPACING.xl,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+  },
+
+  demoButtonText: {
+    fontSize: FONTS.sizes.md,
+    color: '#6B7280',
+    fontWeight: '500',
   },
 
 });

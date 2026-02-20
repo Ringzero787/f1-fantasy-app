@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import type { ChatMessage } from '../../types';
 import { ImageMessage } from './ImageMessage';
 import { ReactionPicker } from './ReactionPicker';
@@ -26,6 +27,7 @@ function formatTime(date: Date): string {
 }
 
 export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps) {
+  const theme = useTheme();
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const userId = useAuthStore((s) => s.user?.id);
   const toggleReaction = useChatStore((s) => s.toggleReaction);
@@ -69,19 +71,19 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
   return (
     <View style={[styles.container, isOwn ? styles.containerOwn : styles.containerOther]}>
       {!isOwn && (
-        <Text style={[styles.senderName, { fontSize: scaledFonts.xs }]}>{message.senderName}</Text>
+        <Text style={[styles.senderName, { fontSize: scaledFonts.xs, color: theme.primary }]}>{message.senderName}</Text>
       )}
 
       <TouchableOpacity
         activeOpacity={0.7}
         onLongPress={handleLongPress}
-        style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}
+        style={[styles.bubble, isOwn ? [styles.bubbleOwn, { backgroundColor: theme.primary + '20' }] : styles.bubbleOther]}
       >
         {message.replyTo && (
           <View style={styles.replySnippet}>
-            <View style={styles.replyBar} />
+            <View style={[styles.replyBar, { backgroundColor: theme.primary }]} />
             <View style={styles.replyContent}>
-              <Text style={[styles.replySender, { fontSize: scaledFonts.xs }]} numberOfLines={1}>
+              <Text style={[styles.replySender, { fontSize: scaledFonts.xs, color: theme.primary }]} numberOfLines={1}>
                 {message.replyTo.senderName}
               </Text>
               <Text style={[styles.replyText, { fontSize: scaledFonts.xs }]} numberOfLines={1}>
@@ -116,7 +118,7 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
               key={emoji}
               style={[
                 styles.reactionChip,
-                users.includes(userId || '') && styles.reactionChipActive,
+                users.includes(userId || '') && [styles.reactionChipActive, { borderColor: theme.primary, backgroundColor: theme.primary + '15' }],
               ]}
               onPress={() => toggleReaction(leagueId, message.id, emoji)}
             >

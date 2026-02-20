@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Card, EmptyState } from '../components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { errorLogService, ErrorLogEntry } from '../services/errorLog.service';
 
 type SeverityFilter = 'all' | 'error' | 'warn' | 'info';
@@ -57,6 +58,7 @@ interface IssueGroup {
 }
 
 export default function ErrorLogsContent() {
+  const theme = useTheme();
   const [logs, setLogs] = useState<ErrorLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
@@ -313,11 +315,11 @@ export default function ErrorLogsContent() {
               </Text>
               <View style={styles.detailActions}>
                 <TouchableOpacity
-                  style={styles.copyLogButton}
+                  style={[styles.copyLogButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }]}
                   onPress={() => handleCopyLog(item)}
                 >
-                  <Ionicons name="copy-outline" size={14} color={COLORS.primary} />
-                  <Text style={styles.copyLogText}>Copy</Text>
+                  <Ionicons name="copy-outline" size={14} color={theme.primary} />
+                  <Text style={[styles.copyLogText, { color: theme.primary }]}>Copy</Text>
                 </TouchableOpacity>
                 {!item.reviewed && (
                   <TouchableOpacity
@@ -374,14 +376,14 @@ export default function ErrorLogsContent() {
                 <TouchableOpacity onPress={handleDeleteAllVisible} style={styles.deleteAllButton}>
                   <Ionicons name="trash-outline" size={18} color={COLORS.error} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleExportLogs} style={styles.exportButton}>
+                <TouchableOpacity onPress={handleExportLogs} style={[styles.exportButton, { backgroundColor: theme.primary }]}>
                   <Ionicons name="share-outline" size={18} color={COLORS.white} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={loadLogs} style={styles.refreshButton}>
+                <TouchableOpacity onPress={loadLogs} style={[styles.refreshButton, { backgroundColor: theme.primary + '15' }]}>
                   {loading ? (
-                    <ActivityIndicator size="small" color={COLORS.primary} />
+                    <ActivityIndicator size="small" color={theme.primary} />
                   ) : (
-                    <Ionicons name="refresh" size={20} color={COLORS.primary} />
+                    <Ionicons name="refresh" size={20} color={theme.primary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -463,7 +465,7 @@ export default function ErrorLogsContent() {
                             </View>
                           ))}
                           {group.entries.length > 5 && (
-                            <Text style={styles.moreEntriesText}>
+                            <Text style={[styles.moreEntriesText, { color: theme.primary }]}>
                               +{group.entries.length - 5} more
                             </Text>
                           )}
@@ -517,7 +519,7 @@ export default function ErrorLogsContent() {
                     key={s}
                     style={[
                       styles.filterChip,
-                      severityFilter === s && styles.filterChipActive,
+                      severityFilter === s && [styles.filterChipActive, { backgroundColor: theme.primary + '20', borderColor: theme.primary }],
                       severityFilter === s && s !== 'all' && {
                         backgroundColor: SEVERITY_COLORS[s] + '25',
                         borderColor: SEVERITY_COLORS[s],
@@ -527,7 +529,7 @@ export default function ErrorLogsContent() {
                   >
                     <Text style={[
                       styles.filterChipText,
-                      severityFilter === s && styles.filterChipTextActive,
+                      severityFilter === s && [styles.filterChipTextActive, { color: theme.primary }],
                       severityFilter === s && s !== 'all' && { color: SEVERITY_COLORS[s] },
                     ]}>
                       {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -540,13 +542,13 @@ export default function ErrorLogsContent() {
                     key={t}
                     style={[
                       styles.filterChip,
-                      timeFilter === t && styles.filterChipActive,
+                      timeFilter === t && [styles.filterChipActive, { backgroundColor: theme.primary + '20', borderColor: theme.primary }],
                     ]}
                     onPress={() => setTimeFilter(t)}
                   >
                     <Text style={[
                       styles.filterChipText,
-                      timeFilter === t && styles.filterChipTextActive,
+                      timeFilter === t && [styles.filterChipTextActive, { color: theme.primary }],
                     ]}>
                       {t === 'all' ? 'All Time' : t}
                     </Text>

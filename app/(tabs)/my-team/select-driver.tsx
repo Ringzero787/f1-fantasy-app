@@ -15,6 +15,7 @@ import { useTeamStore, getLockedOutDriverIds, isDriverLockedOut, calculateEarlyT
 import { useAdminStore } from '../../../src/store/admin.store';
 import { Loading, DriverCard, Button, SmartRecommendations } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE, TEAM_COLORS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import type { Driver, FantasyDriver, FantasyTeam } from '../../../src/types';
 
@@ -29,6 +30,7 @@ export default function SelectDriverScreen() {
     swapDriverPrice?: string;
   }>();
 
+  const theme = useTheme();
   const { data: allDrivers, isLoading } = useDrivers();
   const currentTeam = useTeamStore(s => s.currentTeam);
   const lockoutInfo = useLockoutStatus();
@@ -269,10 +271,10 @@ export default function SelectDriverScreen() {
     <>
       {/* Swap Mode Banner */}
       {isSwapMode && (
-        <View style={styles.swapBanner}>
-          <Ionicons name="swap-horizontal" size={16} color={COLORS.primary} />
+        <View style={[styles.swapBanner, { backgroundColor: theme.primary + '15' }]}>
+          <Ionicons name="swap-horizontal" size={16} color={theme.primary} />
           <Text style={styles.swapBannerText}>
-            Swapping <Text style={styles.swapDriverName}>{swappingDriverName}</Text> (+${swapPrice})
+            Swapping <Text style={[styles.swapDriverName, { color: theme.primary }]}>{swappingDriverName}</Text> (+${swapPrice})
           </Text>
         </View>
       )}
@@ -348,7 +350,7 @@ export default function SelectDriverScreen() {
         <View style={styles.contractOverlay}>
           <View style={styles.contractModal}>
             <Text style={styles.contractTitle}>{pendingDriver.name}</Text>
-            <Text style={styles.contractSubtitle}>${pendingDriver.price}</Text>
+            <Text style={[styles.contractSubtitle, { color: theme.primary }]}>${pendingDriver.price}</Text>
             <Text style={styles.contractLabel}>Contract Length</Text>
             <View style={styles.contractButtons}>
               {[1, 2, 3, 4, 5].map((n) => (
@@ -356,7 +358,7 @@ export default function SelectDriverScreen() {
                   key={n}
                   style={[
                     styles.contractButton,
-                    pendingContractLength === n && styles.contractButtonActive,
+                    pendingContractLength === n && [styles.contractButtonActive, { borderColor: theme.primary, backgroundColor: theme.primary }],
                   ]}
                   onPress={() => setPendingContractLength(n)}
                 >
@@ -382,7 +384,7 @@ export default function SelectDriverScreen() {
                 <Text style={styles.contractCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.contractConfirmBtn}
+                style={[styles.contractConfirmBtn, { backgroundColor: theme.primary }]}
                 onPress={handleConfirmContract}
               >
                 <Text style={styles.contractConfirmText}>Confirm</Text>
@@ -421,7 +423,7 @@ export default function SelectDriverScreen() {
                     <View style={[styles.cartSlotTeamStripe, { backgroundColor: teamColor }]} />
                     <Text style={styles.cartSlotName} numberOfLines={1}>{driver.shortName}</Text>
                     <Text style={styles.cartSlotPrice}>${driver.price}</Text>
-                    <Text style={styles.cartSlotContract}>{contractLen}R</Text>
+                    <Text style={[styles.cartSlotContract, { color: theme.primary }]}>{contractLen}R</Text>
                     <View style={styles.cartSlotRemoveHint}>
                       <Ionicons name="close" size={10} color={COLORS.text.muted} />
                     </View>
@@ -455,7 +457,7 @@ export default function SelectDriverScreen() {
             <Text style={styles.selectedName}>
               Swap with {selectedDrivers[0].name}
             </Text>
-            <Text style={styles.selectedPrice}>
+            <Text style={[styles.selectedPrice, { color: theme.primary }]}>
               ${selectedTotal} (saves ${swapPrice - selectedTotal})
             </Text>
           </View>

@@ -13,9 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
 import { Input, Button, SocialAuthButtons } from '../../src/components';
 import { COLORS, SPACING, FONTS } from '../../src/config/constants';
+import { useTheme } from '../../src/hooks/useTheme';
 import { isValidEmail, validatePassword, validateDisplayName } from '../../src/utils/validation';
 
 export default function RegisterScreen() {
+  const theme = useTheme();
   const { signUp, signInWithGoogle, signInWithApple, isLoading, error, clearError } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -180,7 +182,7 @@ export default function RegisterScreen() {
               <Text style={styles.signinText}>Already have an account? </Text>
               <Link href="/(auth)/login" asChild>
                 <TouchableOpacity>
-                  <Text style={styles.signinLink}>Sign In</Text>
+                  <Text style={[styles.signinLink, { color: theme.primary }]}>Sign In</Text>
                 </TouchableOpacity>
               </Link>
             </View>

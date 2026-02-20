@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS, TEAM_COLORS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { formatPoints, formatDollars } from '../utils/formatters';
 import type { Driver } from '../types';
 
@@ -29,6 +30,7 @@ export const DriverCard = React.memo(function DriverCard({
   compact = false,
   isTopTen = false,
 }: DriverCardProps) {
+  const theme = useTheme();
   const priceChange = driver.price - driver.previousPrice;
   const priceDirection = priceChange > 0 ? 'up' : priceChange < 0 ? 'down' : 'neutral';
   const canBeAce = driver.price <= 240;
@@ -39,7 +41,7 @@ export const DriverCard = React.memo(function DriverCard({
       <Pressable
         style={({ pressed }) => [
           styles.compactContainer,
-          isSelected && styles.selected,
+          isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
           { transform: [{ scale: pressed ? 0.98 : 1 }] },
         ]}
         onPress={onPress || onSelect}
@@ -60,7 +62,7 @@ export const DriverCard = React.memo(function DriverCard({
         <View style={styles.compactRight}>
           {showPoints && (
             <View style={styles.compactPointsContainer}>
-              <Text style={styles.compactPointsValue}>{formatPoints(driver.currentSeasonPoints || 0)}</Text>
+              <Text style={[styles.compactPointsValue, { color: theme.primary }]}>{formatPoints(driver.currentSeasonPoints || 0)}</Text>
               <Text style={styles.compactPointsLabel}>pts</Text>
             </View>
           )}
@@ -92,7 +94,7 @@ export const DriverCard = React.memo(function DriverCard({
     <Pressable
       style={({ pressed }) => [
         styles.container,
-        isSelected && styles.selected,
+        isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
         { transform: [{ scale: pressed ? 0.985 : 1 }] },
       ]}
       onPress={onPress || onSelect}
@@ -121,8 +123,8 @@ export const DriverCard = React.memo(function DriverCard({
                 <Ionicons name="star" size={11} color={COLORS.gold} />
               )}
               {canBeAce && !isTopTen && (
-                <View style={styles.aceBadge}>
-                  <Text style={styles.aceText}>ACE</Text>
+                <View style={[styles.aceBadge, { backgroundColor: theme.primary + '20' }]}>
+                  <Text style={[styles.aceText, { color: theme.primary }]}>ACE</Text>
                 </View>
               )}
             </View>
@@ -150,7 +152,7 @@ export const DriverCard = React.memo(function DriverCard({
             )}
             {showPoints && (
               <View style={styles.pointsRow}>
-                <Text style={styles.pointsValue}>{formatPoints(driver.currentSeasonPoints || 0)}</Text>
+                <Text style={[styles.pointsValue, { color: theme.primary }]}>{formatPoints(driver.currentSeasonPoints || 0)}</Text>
                 <Text style={styles.pointsLabel}>pts</Text>
               </View>
             )}
@@ -188,8 +190,8 @@ export const DriverCard = React.memo(function DriverCard({
           </View>
           {driver.fantasyPoints > 0 && (
             <View style={styles.fantasyBadge}>
-              <Ionicons name="trophy-outline" size={10} color={COLORS.primary} />
-              <Text style={styles.fantasyText}>{driver.fantasyPoints} FP</Text>
+              <Ionicons name="trophy-outline" size={10} color={theme.primary} />
+              <Text style={[styles.fantasyText, { color: theme.primary }]}>{driver.fantasyPoints} FP</Text>
             </View>
           )}
           <Text style={styles.shortCode}>{driver.shortName}</Text>

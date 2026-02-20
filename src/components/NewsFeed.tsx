@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { useNewsStore } from '../store/news.store';
 import type { Article, ArticleCategory } from '../types';
 
@@ -51,6 +52,7 @@ function getTimeAgo(date: Date | string | number): string {
 const MAX_ARTICLES = 5;
 
 export function NewsFeed() {
+  const theme = useTheme();
   const allArticles = useNewsStore(s => s.articles);
   const isLoading = useNewsStore(s => s.isLoading);
   const readArticleIds = useNewsStore(s => s.readArticleIds);
@@ -99,11 +101,11 @@ export function NewsFeed() {
       {/* Section Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="newspaper-outline" size={18} color={COLORS.primary} />
+          <Ionicons name="newspaper-outline" size={18} color={theme.primary} />
           <Text style={styles.headerTitle}>F1 News</Text>
           {articles.length > 0 && (
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{activeIndex + 1} / {articles.length}</Text>
+            <View style={[styles.countBadge, { backgroundColor: theme.primary + '20' }]}>
+              <Text style={[styles.countBadgeText, { color: theme.primary }]}>{activeIndex + 1} / {articles.length}</Text>
             </View>
           )}
         </View>
@@ -111,7 +113,7 @@ export function NewsFeed() {
 
       {isLoading && articles.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={theme.primary} />
         </View>
       ) : (
         <>
@@ -144,7 +146,7 @@ export function NewsFeed() {
                   key={index}
                   style={[
                     styles.dot,
-                    index === activeIndex && styles.dotActive,
+                    index === activeIndex && [styles.dotActive, { backgroundColor: theme.primary }],
                   ]}
                 />
               ))}
@@ -167,7 +169,8 @@ function ArticleCard({
   onReadMore: (url: string) => void;
   onToggleRead: () => void;
 }) {
-  const sourceColor = SOURCE_COLORS[article.source] || COLORS.primary;
+  const theme = useTheme();
+  const sourceColor = SOURCE_COLORS[article.source] || theme.primary;
 
   return (
     <View style={[styles.card, isRead && styles.cardRead]}>
@@ -199,29 +202,30 @@ function ArticleCard({
 
       {/* Bottom row: category chip + mark read + read more */}
       <View style={styles.cardBottomRow}>
-        <View style={styles.categoryChip}>
-          <Text style={styles.categoryChipText}>
+        <View style={[styles.categoryChip, { backgroundColor: theme.primary + '15' }]}>
+          <Text style={[styles.categoryChipText, { color: theme.primary }]}>
             {CATEGORY_LABELS[article.category] || article.category}
           </Text>
         </View>
         <View style={styles.cardActions}>
           <TouchableOpacity
-            style={[styles.markReadButton, isRead && styles.markReadButtonActive]}
+            style={[styles.markReadButton, isRead && [styles.markReadButtonActive, { backgroundColor: theme.primary + '25', borderColor: theme.primary + '50' }]]}
+
             onPress={onToggleRead}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons
               name={isRead ? 'eye' : 'eye-off-outline'}
               size={16}
-              color={isRead ? COLORS.primary : COLORS.text.secondary}
+              color={isRead ? theme.primary : COLORS.text.secondary}
             />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.readMoreButton}
             onPress={() => onReadMore(article.sourceUrl)}
           >
-            <Text style={styles.readMoreText}>Read More</Text>
-            <Ionicons name="open-outline" size={14} color={COLORS.primary} />
+            <Text style={[styles.readMoreText, { color: theme.primary }]}>Read More</Text>
+            <Ionicons name="open-outline" size={14} color={theme.primary} />
           </TouchableOpacity>
         </View>
       </View>

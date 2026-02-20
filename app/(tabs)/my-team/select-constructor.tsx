@@ -14,10 +14,12 @@ import { useTeamStore, calculateEarlyTerminationFee } from '../../../src/store/t
 import { useAdminStore } from '../../../src/store/admin.store';
 import { Loading, ConstructorCard, Button } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import type { Constructor, FantasyConstructor, FantasyTeam } from '../../../src/types';
 
 export default function SelectConstructorScreen() {
+  const theme = useTheme();
   const { data: allConstructors, isLoading } = useConstructors();
   const currentTeam = useTeamStore(s => s.currentTeam);
   const lockoutInfo = useLockoutStatus();
@@ -179,7 +181,7 @@ export default function SelectConstructorScreen() {
         <View style={styles.contractOverlay}>
           <View style={styles.contractModal}>
             <Text style={styles.contractTitle}>{pendingConstructor.name}</Text>
-            <Text style={styles.contractSubtitle}>${pendingConstructor.price}</Text>
+            <Text style={[styles.contractSubtitle, { color: theme.primary }]}>${pendingConstructor.price}</Text>
             <Text style={styles.contractLabel}>Contract Length</Text>
             <View style={styles.contractButtons}>
               {[1, 2, 3, 4, 5].map((n) => (
@@ -187,7 +189,7 @@ export default function SelectConstructorScreen() {
                   key={n}
                   style={[
                     styles.contractButton,
-                    pendingContractLength === n && styles.contractButtonActive,
+                    pendingContractLength === n && [styles.contractButtonActive, { borderColor: theme.primary, backgroundColor: theme.primary }],
                   ]}
                   onPress={() => setPendingContractLength(n)}
                 >
@@ -213,7 +215,7 @@ export default function SelectConstructorScreen() {
                 <Text style={styles.contractCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.contractConfirmBtn}
+                style={[styles.contractConfirmBtn, { backgroundColor: theme.primary }]}
                 onPress={handleConfirmContract}
               >
                 <Text style={styles.contractConfirmText}>Confirm</Text>
