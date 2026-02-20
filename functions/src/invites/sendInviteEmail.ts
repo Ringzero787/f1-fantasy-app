@@ -11,7 +11,26 @@ const gmailAppPassword = defineSecret('GMAIL_APP_PASSWORD');
 const SENDER_EMAIL = 'theundercutapp@gmail.com';
 const BASE_URL = 'https://f1-app-18077.web.app';
 
+// Rate limits: invites per league
+const BASE_INVITE_LIMIT = 100;
+const EXPANDED_INVITE_LIMIT = 200;  // when league slots > 40
+const MAX_INVITE_LIMIT = 10_000;    // hard cap regardless of slots
+const EXPANDED_SLOT_THRESHOLD = 40;
+
+// Simple email format validation
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function buildEmailHtml(leagueName: string, inviteCode: string, joinUrl: string): string {
+  const safeName = escapeHtml(leagueName);
+  const safeCode = escapeHtml(inviteCode);
   return `
 <!DOCTYPE html>
 <html>
@@ -36,14 +55,14 @@ function buildEmailHtml(leagueName: string, inviteCode: string, joinUrl: string)
             <td style="padding:32px;">
               <h2 style="margin:0 0 8px;color:#E6EDF3;font-size:20px;font-weight:600;">You're invited!</h2>
               <p style="margin:0 0 24px;color:#8B949E;font-size:15px;line-height:1.6;">
-                You've been invited to join <strong style="color:#E6EDF3;">${leagueName}</strong> on Undercut.
+                You've been invited to join <strong style="color:#E6EDF3;">${safeName}</strong> on Undercut.
               </p>
               <!-- Code Box -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background:#0D1117;border:2px solid #30363D;border-radius:8px;padding:16px;text-align:center;">
                     <p style="margin:0 0 4px;color:#8B949E;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Your Invite Code</p>
-                    <p style="margin:0;font-size:32px;font-weight:700;color:#E6EDF3;letter-spacing:6px;font-family:'SF Mono','Fira Code','Courier New',monospace;">${inviteCode}</p>
+                    <p style="margin:0;font-size:32px;font-weight:700;color:#E6EDF3;letter-spacing:6px;font-family:'SF Mono','Fira Code','Courier New',monospace;">${safeCode}</p>
                   </td>
                 </tr>
               </table>
@@ -80,6 +99,34 @@ function buildEmailHtml(leagueName: string, inviteCode: string, joinUrl: string)
 }
 
 /**
+ * Get the invite limit for a league based on its maxMembers (slot count).
+ */
+function getInviteLimit(maxMembers: number | undefined): number {
+  if (!maxMembers) return BASE_INVITE_LIMIT;
+  const limit = maxMembers > EXPANDED_SLOT_THRESHOLD
+    ? EXPANDED_INVITE_LIMIT
+    : BASE_INVITE_LIMIT;
+  return Math.min(limit, MAX_INVITE_LIMIT);
+}
+
+/**
+ * Check if the league has exceeded its invite rate limit.
+ * Counts all invite docs (regardless of status) in the subcollection.
+ */
+async function checkInviteRateLimit(leagueId: string, maxMembers: number | undefined): Promise<void> {
+  const limit = getInviteLimit(maxMembers);
+  const countSnapshot = await db
+    .collection(`leagues/${leagueId}/invites`)
+    .count()
+    .get();
+  const totalInvites = countSnapshot.data().count;
+
+  if (totalInvites > limit) {
+    throw new Error(`Invite limit reached (${limit}) for this league`);
+  }
+}
+
+/**
  * Firestore trigger: sends an invite email when a new invite document is created.
  *
  * Set the secret: firebase functions:secrets:set GMAIL_APP_PASSWORD
@@ -106,6 +153,13 @@ export const sendInviteEmail = onDocumentCreated(
       return;
     }
 
+    // Validate email format
+    if (typeof email !== 'string' || !EMAIL_REGEX.test(email)) {
+      console.log(`Invalid email format: ${typeof email === 'string' ? email.slice(0, 50) : 'non-string'}`);
+      await snapshot.ref.update({ status: 'failed', error: 'Invalid email format' });
+      return;
+    }
+
     // Guard: skip if already processed
     const status = inviteData.status;
     if (status === 'sent' || status === 'failed') {
@@ -121,15 +175,17 @@ export const sendInviteEmail = onDocumentCreated(
       return;
     }
 
-    // Look up league for name and invite code
+    // Look up league for name, invite code, and slot count
     let leagueName = 'a league';
     let inviteCode = '';
+    let maxMembers: number | undefined;
     try {
       const leagueDoc = await db.doc(`leagues/${leagueId}`).get();
       if (leagueDoc.exists) {
         const leagueData = leagueDoc.data();
         leagueName = leagueData?.name || 'a league';
         inviteCode = leagueData?.inviteCode || '';
+        maxMembers = leagueData?.maxMembers;
       }
     } catch (err) {
       console.error('Failed to fetch league:', err);
@@ -138,6 +194,16 @@ export const sendInviteEmail = onDocumentCreated(
     if (!inviteCode) {
       console.error('No invite code found for league');
       await snapshot.ref.update({ status: 'failed', error: 'No invite code for league' });
+      return;
+    }
+
+    // Check rate limit
+    try {
+      await checkInviteRateLimit(leagueId, maxMembers);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Rate limit exceeded';
+      console.log(`Invite rate limited for league ${leagueId}: ${msg}`);
+      await snapshot.ref.update({ status: 'failed', error: msg });
       return;
     }
 
@@ -156,7 +222,7 @@ export const sendInviteEmail = onDocumentCreated(
       await transporter.sendMail({
         from: `"Undercut" <${SENDER_EMAIL}>`,
         to: email,
-        subject: `You're invited to join "${leagueName}" on Undercut!`,
+        subject: `You're invited to join "${escapeHtml(leagueName)}" on Undercut!`,
         html: buildEmailHtml(leagueName, inviteCode, joinUrl),
       });
 
@@ -165,7 +231,7 @@ export const sendInviteEmail = onDocumentCreated(
         sentAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(`Invite email sent to ${email} for league "${leagueName}"`);
+      console.log(`Invite email sent for league "${leagueName}"`);
     } catch (err) {
       console.error('Failed to send invite email:', err);
       await snapshot.ref.update({

@@ -248,6 +248,9 @@ export const earlyUnlockTeam = functions.https.onCall(async (data, context) => {
  * Check lock status for a race
  */
 export const checkLockStatus = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
   warnIfNoAppCheck(context, 'checkLockStatus');
   const { raceId, teamId } = data;
 

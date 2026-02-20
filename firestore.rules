@@ -191,5 +191,10 @@ service cloud.firestore {
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow create, delete: if false;
     }
+
+    // Avatar rate limits — Cloud Functions only
+    match /avatarRateLimits/{userId} {
+      allow read, write: if false;
+    }
   }
 }

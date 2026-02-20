@@ -35,6 +35,15 @@ const COLLECTION_MAP: Record<AvatarType, string> = {
   user: 'users',
 };
 
+const MIME_EXTENSIONS: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+};
+
+// Rate limit: 1 generation per 30 seconds per user
+const RATE_LIMIT_MS = 30_000;
+
 async function tryGenerateWithModel(
   apiKey: string,
   modelName: string,
@@ -81,6 +90,72 @@ async function tryGenerateWithModel(
 }
 
 /**
+ * Verify the caller owns the entity they're generating an avatar for.
+ */
+async function verifyOwnership(
+  userId: string,
+  avatarType: AvatarType,
+  entityId: string
+): Promise<void> {
+  const db = admin.firestore();
+
+  if (avatarType === 'user') {
+    if (entityId !== userId) {
+      throw new HttpsError('permission-denied', 'Cannot generate avatars for other users');
+    }
+    return;
+  }
+
+  if (avatarType === 'team') {
+    const teamDoc = await db.collection('fantasyTeams').doc(entityId).get();
+    if (!teamDoc.exists) {
+      throw new HttpsError('not-found', 'Team not found');
+    }
+    if (teamDoc.data()?.userId !== userId) {
+      throw new HttpsError('permission-denied', 'You do not own this team');
+    }
+    return;
+  }
+
+  if (avatarType === 'league') {
+    const leagueDoc = await db.collection('leagues').doc(entityId).get();
+    if (!leagueDoc.exists) {
+      throw new HttpsError('not-found', 'League not found');
+    }
+    if (leagueDoc.data()?.ownerId !== userId) {
+      throw new HttpsError('permission-denied', 'You do not own this league');
+    }
+    return;
+  }
+}
+
+/**
+ * Per-user rate limiting via Firestore timestamps.
+ */
+async function checkRateLimit(userId: string): Promise<void> {
+  const db = admin.firestore();
+  const rateLimitRef = db.collection('avatarRateLimits').doc(userId);
+  const doc = await rateLimitRef.get();
+
+  if (doc.exists) {
+    const lastGenerated = doc.data()?.lastGeneratedAt?.toDate();
+    if (lastGenerated) {
+      const elapsed = Date.now() - lastGenerated.getTime();
+      if (elapsed < RATE_LIMIT_MS) {
+        const waitSec = Math.ceil((RATE_LIMIT_MS - elapsed) / 1000);
+        throw new HttpsError(
+          'resource-exhausted',
+          `Please wait ${waitSec}s before generating another avatar`
+        );
+      }
+    }
+  }
+
+  // Update the timestamp
+  await rateLimitRef.set({ lastGeneratedAt: admin.firestore.FieldValue.serverTimestamp() });
+}
+
+/**
  * Cloud Function: generate an AI avatar via Gemini, upload to Storage,
  * update the Firestore entity doc with the avatarUrl.
  *
@@ -120,6 +195,13 @@ export const generateAvatarFn = onCall(
 
     const avatarType = type as AvatarType;
     const userId = request.auth.uid;
+
+    // Verify the caller owns the entity
+    await verifyOwnership(userId, avatarType, entityId);
+
+    // Per-user rate limit
+    await checkRateLimit(userId);
+
     const apiKey = geminiApiKey.value();
 
     if (!apiKey) {
@@ -154,7 +236,7 @@ export const generateAvatarFn = onCall(
     }
 
     // Upload to Firebase Storage via Admin SDK
-    const extension = imageResult.mimeType.split('/')[1] || 'png';
+    const extension = MIME_EXTENSIONS[imageResult.mimeType] || 'png';
     const storagePath = `avatars/${userId}/${avatarType}s/${entityId}.${extension}`;
     const bucket = admin.storage().bucket();
     const file = bucket.file(storagePath);
@@ -163,7 +245,6 @@ export const generateAvatarFn = onCall(
       metadata: { contentType: imageResult.mimeType },
     });
 
-    // Make file publicly accessible and get download URL
     // Generate a signed URL that lasts 10 years (effectively permanent)
     const [signedUrl] = await file.getSignedUrl({
       action: 'read',

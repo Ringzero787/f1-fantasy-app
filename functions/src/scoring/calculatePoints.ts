@@ -647,6 +647,9 @@ export const calculatePointsManually = functions.https.onCall(async (data, conte
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
+  if (!context.auth.token.admin) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin access required');
+  }
   warnIfNoAppCheck(context, 'calculatePointsManually');
 
   const { raceId } = data;
