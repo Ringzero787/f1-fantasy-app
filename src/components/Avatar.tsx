@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getInitials, getAvatarGradient, getAvatarColors } from '../utils/avatarColors';
@@ -142,8 +143,10 @@ export function Avatar({
           source={{ uri: imageUrl }}
           style={[styles.image, { borderRadius }]}
           onError={() => setImageError(true)}
-          onLoadEnd={() => setImageLoading(false)}
-          resizeMode="cover"
+          onLoad={() => setImageLoading(false)}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
         />
         {imageLoading && (
           <View style={[styles.imagePlaceholder, { borderRadius }]}>

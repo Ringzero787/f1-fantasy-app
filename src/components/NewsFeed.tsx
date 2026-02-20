@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -58,14 +58,17 @@ export function NewsFeed() {
   const readArticleIds = useNewsStore(s => s.readArticleIds);
   const toggleArticleRead = useNewsStore(s => s.toggleArticleRead);
   const scrollViewRef = useRef<ScrollView>(null);
-  // Sort unread first, then take top MAX_ARTICLES
-  const articles = [...allArticles]
-    .sort((a, b) => {
-      const aRead = readArticleIds.includes(a.id) ? 1 : 0;
-      const bRead = readArticleIds.includes(b.id) ? 1 : 0;
-      return aRead - bRead;
-    })
-    .slice(0, MAX_ARTICLES);
+  // Sort unread first, then take top MAX_ARTICLES (memoized to avoid recomputing every render)
+  const articles = useMemo(() =>
+    [...allArticles]
+      .sort((a, b) => {
+        const aRead = readArticleIds.includes(a.id) ? 1 : 0;
+        const bRead = readArticleIds.includes(b.id) ? 1 : 0;
+        return aRead - bRead;
+      })
+      .slice(0, MAX_ARTICLES),
+    [allArticles, readArticleIds]
+  );
   const [activeIndex, setActiveIndex] = useState(0);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../store/auth.store';
 import { useAdminStore } from '../store/admin.store';
@@ -135,10 +136,12 @@ export default function AdminContent() {
   const [draftArticleCount, setDraftArticleCount] = useState(0);
   const chatTotalUnread = useChatStore((s) => s.totalUnread);
 
-  useEffect(() => {
-    errorLogService.getUnreviewedCount().then(setUnreviewedCount);
-    articleService.getDraftCount().then(setDraftArticleCount);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      errorLogService.getUnreviewedCount().then(setUnreviewedCount);
+      articleService.getDraftCount().then(setDraftArticleCount);
+    }, [])
+  );
 
   const selectedRace = selectedRaceId
     ? demoRaces.find(r => r.id === selectedRaceId)

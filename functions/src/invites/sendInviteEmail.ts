@@ -45,8 +45,8 @@ function buildEmailHtml(leagueName: string, inviteCode: string, joinUrl: string)
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:500px;background:#161B22;border-radius:12px;border:1px solid #30363D;">
           <!-- Header -->
           <tr>
-            <td style="padding:32px 32px 16px;text-align:center;border-bottom:2px solid #E10600;">
-              <h1 style="margin:0;font-size:24px;font-weight:800;color:#E10600;letter-spacing:-0.5px;">Undercut</h1>
+            <td style="padding:32px 32px 16px;text-align:center;border-bottom:2px solid #14B8A6;">
+              <h1 style="margin:0;font-size:24px;font-weight:800;color:#14B8A6;letter-spacing:-0.5px;">Undercut</h1>
               <p style="margin:4px 0 0;color:#8B949E;font-size:14px;">Leave Me To It</p>
             </td>
           </tr>
@@ -70,7 +70,7 @@ function buildEmailHtml(leagueName: string, inviteCode: string, joinUrl: string)
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
                 <tr>
                   <td align="center">
-                    <a href="${joinUrl}" style="display:inline-block;background:#E10600;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:600;">
+                    <a href="${joinUrl}" style="display:inline-block;background:#14B8A6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:600;">
                       Join League
                     </a>
                   </td>

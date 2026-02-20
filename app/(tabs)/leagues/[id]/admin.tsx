@@ -335,13 +335,12 @@ export default function LeagueAdminScreen() {
   };
 
   const handleExpansionPurchaseComplete = async () => {
-    setShowExpansionPurchase(false);
     await purchaseLeagueExpansion(currentLeague?.id);
-
-    // After purchase, consume the credit and expand
-    // Small delay to let the purchase state update
+    // Modal stays open during purchase flow; user can dismiss via "Not now"
+    // After purchase listener grants credit, check and expand
     setTimeout(async () => {
       if (currentLeague && hasExpansionCredit()) {
+        setShowExpansionPurchase(false);
         setIsExpanding(true);
         try {
           consumeExpansionCredit();

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Image,
   TouchableOpacity,
   Modal,
   View,
@@ -8,6 +7,7 @@ import {
   Dimensions,
   Pressable,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../config/constants';
 
@@ -26,7 +26,9 @@ export function ImageMessage({ imageUrl }: ImageMessageProps) {
         <Image
           source={{ uri: imageUrl }}
           style={styles.thumbnail}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
         />
       </TouchableOpacity>
 
@@ -44,7 +46,8 @@ export function ImageMessage({ imageUrl }: ImageMessageProps) {
           <Image
             source={{ uri: imageUrl }}
             style={styles.fullscreenImage}
-            resizeMode="contain"
+            contentFit="contain"
+            cachePolicy="memory-disk"
           />
           <TouchableOpacity
             style={styles.closeButton}

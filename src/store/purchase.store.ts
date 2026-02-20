@@ -208,9 +208,15 @@ export const usePurchaseStore = create<PurchaseState>()(
               ? { sku: PRODUCT_IDS.LEAGUE_EXPANSION }
               : { skus: [PRODUCT_IDS.LEAGUE_EXPANSION] }
           );
-        } catch (err) {
+        } catch (err: any) {
           set({ isPurchasing: false });
           pendingLeagueId = null;
+          if (err?.code !== 'E_USER_CANCELLED') {
+            Alert.alert(
+              'Purchase Unavailable',
+              'In-app purchases are not available right now. Please try again later.'
+            );
+          }
         }
       },
 
@@ -243,9 +249,15 @@ export const usePurchaseStore = create<PurchaseState>()(
               ? { sku: PRODUCT_IDS.AVATAR_PACK }
               : { skus: [PRODUCT_IDS.AVATAR_PACK] }
           );
-        } catch (err) {
+        } catch (err: any) {
           set({ isPurchasing: false });
           pendingUserId = null;
+          if (err?.code !== 'E_USER_CANCELLED') {
+            Alert.alert(
+              'Purchase Unavailable',
+              'In-app purchases are not available right now. Please try again later.'
+            );
+          }
         }
       },
 
@@ -273,8 +285,14 @@ export const usePurchaseStore = create<PurchaseState>()(
               ? { sku: PRODUCT_IDS.LEAGUE_SLOT }
               : { skus: [PRODUCT_IDS.LEAGUE_SLOT] }
           );
-        } catch (err) {
+        } catch (err: any) {
           set({ isPurchasing: false });
+          if (err?.code !== 'E_USER_CANCELLED') {
+            Alert.alert(
+              'Purchase Unavailable',
+              'In-app purchases are not available right now. Please try again later.'
+            );
+          }
         }
       },
 

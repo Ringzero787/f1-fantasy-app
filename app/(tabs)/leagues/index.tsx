@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -46,8 +46,11 @@ export default function LeaguesScreen() {
   const [joining, setJoining] = useState(false);
 
   // Leagues the current team could be assigned to (user's leagues that the team isn't already in)
-  const availableLeagues = leagues.filter(
-    (l) => currentTeam && !currentTeam.leagueId && l.id !== currentTeam.leagueId
+  const availableLeagues = useMemo(() =>
+    leagues.filter(
+      (l) => currentTeam && !currentTeam.leagueId && l.id !== currentTeam.leagueId
+    ),
+    [leagues, currentTeam?.leagueId]
   );
 
   useEffect(() => {

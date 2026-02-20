@@ -111,15 +111,15 @@ export const INVITE_EXPIRY_DAYS = 7;
 // ============================================
 
 export const TEAM_COLORS: Record<string, { primary: string; secondary: string }> = {
-  red_bull: { primary: '#1E3A8A', secondary: '#0600EF' },
+  red_bull: { primary: '#1E3A8A', secondary: '#E10600' },
   ferrari: { primary: '#DC2626', secondary: '#A91D1D' },
   mclaren: { primary: '#FF8000', secondary: '#E67300' },
   mercedes: { primary: '#00D2BE', secondary: '#00A19C' },
   aston_martin: { primary: '#006F62', secondary: '#00483B' },
   alpine: { primary: '#0090FF', secondary: '#FF87BC' },
   williams: { primary: '#005AFF', secondary: '#00A3E0' },
-  rb: { primary: '#2B4562', secondary: '#1634B5' },
-  haas: { primary: '#B6BABD', secondary: '#E10600' },
+  rb: { primary: '#FFFFFF', secondary: '#1634B5' },
+  haas: { primary: '#FFFFFF', secondary: '#E10600' },
   audi: { primary: '#8C8C8C', secondary: '#BB0A30' },
   cadillac: { primary: '#C0C0C0', secondary: '#1C1C1C' },
 };

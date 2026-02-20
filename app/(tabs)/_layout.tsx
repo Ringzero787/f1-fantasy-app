@@ -26,9 +26,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: COLORS.text.muted,
-        tabBarLabelStyle: {
-          fontSize: scaledFonts.xs,
-        },
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border.default,
@@ -61,7 +59,7 @@ export default function TabLayout() {
           ),
           headerRight: () => <NotificationBell />,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={scaledIcon(size)} color={color} />
+            <Ionicons name="home" size={scaledIcon(28)} color={color} />
           ),
         }}
       />
@@ -82,7 +80,7 @@ export default function TabLayout() {
             />
           ),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={scaledIcon(size)} color={color} />
+            <Ionicons name="people" size={scaledIcon(28)} color={color} />
           ),
         }}
       />
@@ -103,7 +101,7 @@ export default function TabLayout() {
             />
           ),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cart" size={scaledIcon(size)} color={color} />
+            <Ionicons name="cart" size={scaledIcon(28)} color={color} />
           ),
         }}
       />
@@ -124,7 +122,7 @@ export default function TabLayout() {
             />
           ),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trophy" size={scaledIcon(size)} color={color} />
+            <Ionicons name="trophy" size={scaledIcon(28)} color={color} />
           ),
         }}
       />
@@ -134,7 +132,7 @@ export default function TabLayout() {
           title: 'Calendar',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" size={scaledIcon(size)} color={color} />
+            <Ionicons name="calendar" size={scaledIcon(28)} color={color} />
           ),
         }}
       />
@@ -146,7 +144,7 @@ export default function TabLayout() {
           // Show for non-admins, or in demo mode (where both admin + chat show)
           href: (!isAdmin || isDemoMode) ? ('/(tabs)/chat' as unknown as '/') : null,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubbles" size={scaledIcon(size)} color={color} />
+            <Ionicons name="chatbubbles" size={scaledIcon(28)} color={color} />
           ),
           tabBarBadge: totalUnread > 0 ? totalUnread : undefined,
         }}
@@ -159,7 +157,7 @@ export default function TabLayout() {
           // Only show admin tab for admins or demo mode
           href: (isAdmin || isDemoMode) ? ('/(tabs)/admin' as unknown as '/') : null,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings" size={scaledIcon(size)} color={color} />
+            <Ionicons name="settings" size={scaledIcon(28)} color={color} />
           ),
         }}
       />
@@ -174,7 +172,7 @@ export default function TabLayout() {
           },
           headerShadowVisible: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={scaledIcon(size)} color={color} />
+            <Ionicons name="person" size={scaledIcon(28)} color={color} />
           ),
         }}
       />
@@ -188,7 +186,7 @@ export default function TabLayout() {
           },
           headerTintColor: COLORS.text.primary,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications" size={scaledIcon(size)} color={color} />
+            <Ionicons name="notifications" size={scaledIcon(28)} color={color} />
           ),
         }}
       />

@@ -4,7 +4,7 @@
  * Used when running in demo mode (no Firebase connection required)
  */
 
-import type { Driver, Constructor, Race, RaceResults } from '../types';
+import type { Driver, Constructor, Race, RaceResults, Article } from '../types';
 
 export const demoDrivers: Driver[] = [
   // A-Tier Drivers (price > 240) - prices from (2025pts / 24 races) * $24
@@ -402,8 +402,8 @@ export const demoConstructors: Constructor[] = [
     shortName: 'RBR',
     nationality: 'Austrian',
     teamPrincipal: 'Laurent Mekies',
-    primaryColor: '#3671C6',
-    secondaryColor: '#FFD700',
+    primaryColor: '#1E3A8A',
+    secondaryColor: '#E10600',
     price: 301,
     previousPrice: 301,
     seasonPoints: 0, // 2025 points (used for initial pricing)
@@ -450,8 +450,8 @@ export const demoConstructors: Constructor[] = [
     shortName: 'RB',
     nationality: 'Italian',
     teamPrincipal: 'Alan Permane',
-    primaryColor: '#6692FF',
-    secondaryColor: '#1E5BC6',
+    primaryColor: '#FFFFFF',
+    secondaryColor: '#1634B5',
     price: 133,
     previousPrice: 133,
     seasonPoints: 0, // 2025 points (used for initial pricing)
@@ -482,7 +482,7 @@ export const demoConstructors: Constructor[] = [
     shortName: 'HAA',
     nationality: 'American',
     teamPrincipal: 'Ayao Komatsu',
-    primaryColor: '#B6BABD',
+    primaryColor: '#FFFFFF',
     secondaryColor: '#E10600',
     price: 127,
     previousPrice: 127,
@@ -1130,3 +1130,84 @@ export const demoMemberTeams: Record<string, {
     aceDriverId: 'russell',
   },
 };
+
+// ============================================
+// Demo News Articles
+// ============================================
+
+function hoursAgo(h: number): Date {
+  return new Date(Date.now() - h * 3600_000);
+}
+
+export const demoArticles: Article[] = [
+  {
+    id: 'demo-article-1',
+    title: 'Norris Takes Dominant Victory in Melbourne as McLaren Lock Out Front Row',
+    summary: 'Lando Norris led from lights to flag at the Australian Grand Prix, extending his championship lead to 25 points. Oscar Piastri completed a dream result for McLaren with a strong second place on home soil, while Max Verstappen salvaged third after a dramatic qualifying session.',
+    sourceUrl: 'https://www.formula1.com',
+    source: 'F1',
+    category: 'race',
+    guid: 'demo-guid-1',
+    publishedAt: hoursAgo(2),
+    status: 'approved',
+    createdAt: hoursAgo(3),
+    reviewedBy: 'admin',
+    reviewedAt: hoursAgo(2),
+  },
+  {
+    id: 'demo-article-2',
+    title: 'FIA Confirms New Sprint Format Changes for 2026 Season',
+    summary: 'The FIA has announced revisions to the sprint race format starting from the European leg of the 2026 calendar. Sprint qualifying will now use a single elimination format, and sprint race points have been increased to better reward consistent performance across the weekend.',
+    sourceUrl: 'https://www.fia.com',
+    source: 'FIA',
+    category: 'regulation',
+    guid: 'demo-guid-2',
+    publishedAt: hoursAgo(5),
+    status: 'approved',
+    createdAt: hoursAgo(6),
+    reviewedBy: 'admin',
+    reviewedAt: hoursAgo(5),
+  },
+  {
+    id: 'demo-article-3',
+    title: 'Hamilton Fastest in FP2 as Ferrari Show Strong Race Pace',
+    summary: 'Lewis Hamilton topped the second practice session in Bahrain with a 1:29.432, edging out teammate Charles Leclerc by just 0.087s. Ferrari appear to have made significant gains with their upgraded floor package, with both drivers consistently quick on high-fuel runs.',
+    sourceUrl: 'https://www.formula1.com',
+    source: 'F1',
+    category: 'practice',
+    guid: 'demo-guid-3',
+    publishedAt: hoursAgo(8),
+    status: 'approved',
+    createdAt: hoursAgo(9),
+    reviewedBy: 'admin',
+    reviewedAt: hoursAgo(8),
+  },
+  {
+    id: 'demo-article-4',
+    title: 'Cadillac F1 Announce Colapinto as Lead Driver for Debut Season',
+    summary: 'The newest team on the grid has confirmed Franco Colapinto will spearhead their 2026 campaign. The Argentine driver, who impressed during his Williams stint, joins alongside veteran experience as Cadillac prepares for their historic first season in Formula 1.',
+    sourceUrl: 'https://www.formula1.com',
+    source: 'F1',
+    category: 'transfer',
+    guid: 'demo-guid-4',
+    publishedAt: hoursAgo(14),
+    status: 'approved',
+    createdAt: hoursAgo(15),
+    reviewedBy: 'admin',
+    reviewedAt: hoursAgo(14),
+  },
+  {
+    id: 'demo-article-5',
+    title: 'Verstappen Claims Pole by 0.3s in Stunning Qualifying Lap',
+    summary: 'Max Verstappen reminded the paddock of his raw speed with a breathtaking pole position lap in Jeddah qualifying. The Red Bull driver was untouchable in Q3, gapping the field by three tenths despite tricky wind conditions that caught out several rivals including George Russell who crashed at Turn 13.',
+    sourceUrl: 'https://www.formula1.com',
+    source: 'F1',
+    category: 'qualifying',
+    guid: 'demo-guid-5',
+    publishedAt: hoursAgo(20),
+    status: 'approved',
+    createdAt: hoursAgo(21),
+    reviewedBy: 'admin',
+    reviewedAt: hoursAgo(20),
+  },
+];

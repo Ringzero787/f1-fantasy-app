@@ -28,6 +28,7 @@ import { useTheme } from '../../../src/hooks/useTheme';
 import { demoConstructors } from '../../../src/data/demoData';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import { formatPoints } from '../../../src/utils/formatters';
+import { DriverTeamCard } from '../../../src/components/team/DriverTeamCard';
 import type { Driver, Constructor } from '../../../src/types';
 
 function getLoyaltyBonus(racesHeld: number): number {
@@ -901,120 +902,18 @@ export default function MyTeamScreen() {
 
         {/* Driver list */}
         {enrichedDrivers.length > 0 ? (
-          enrichedDrivers.map((driver) => {
-              return (
-                <View key={driver.driverId} style={[styles.card, driver.isReserve && styles.cardReserve]}>
-                  <View style={[styles.cardAccent, { backgroundColor: driver.accentColor }]} />
-                  <View style={styles.cardBody}>
-                    {/* Row 1: Identity + Price */}
-                    <View style={styles.cardTopRow}>
-                      <View style={styles.cardIdentity}>
-                        {driver.driverNumber != null && (
-                          <View style={[styles.cardNumberBadge, { backgroundColor: driver.accentColor }]}>
-                            <Text style={styles.cardNumberText}>
-                              {driver.driverNumber}
-                            </Text>
-                          </View>
-                        )}
-                        <Text style={[styles.cardName, { fontSize: scaledFonts.lg }, driver.isReserve && { color: COLORS.text.muted }]} numberOfLines={1}>
-                          {driver.name}
-                        </Text>
-                        {driver.isAce && (
-                          <TouchableOpacity onPress={() => handleClearAce()} hitSlop={8}>
-                            <View style={styles.aceActive}>
-                              <Ionicons name="diamond" size={12} color={COLORS.white} />
-                            </View>
-                          </TouchableOpacity>
-                        )}
-                        {!driver.isAce && !driver.isReserve && driver.canBeAce && canChangeAce && (
-                          <TouchableOpacity testID="set-ace-btn" onPress={() => handleSetAce(driver.driverId)} hitSlop={8}>
-                            <Ionicons name="diamond-outline" size={15} color={COLORS.gold} />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                      {!driver.isReserve ? (
-                        <View style={styles.cardPriceBlock}>
-                          <Text style={[styles.cardPrice, { fontSize: scaledFonts.lg }]}>${driver.livePrice}</Text>
-                          {driver.priceDiff !== 0 && (
-                            <View style={[styles.cardPriceDiff, driver.priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                              <Ionicons name={driver.priceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
-                              <Text style={styles.cardPriceDiffText}>${Math.abs(driver.priceDiff)}</Text>
-                            </View>
-                          )}
-                        </View>
-                      ) : (
-                        <View style={styles.reserveTag}>
-                          <Text style={styles.reserveTagText}>AUTO-FILL</Text>
-                        </View>
-                      )}
-                    </View>
-                    {/* Row 2: Meta badges */}
-                    <View style={styles.cardMetaRow}>
-                      {driver.cInfo && (
-                        <View style={[styles.metaChip, { backgroundColor: driver.accentColor + '18' }]}>
-                          <Text style={[styles.metaChipText, { color: driver.accentColor }]}>{driver.cInfo.shortName}</Text>
-                        </View>
-                      )}
-                      <View style={styles.metaChip}>
-                        <Text style={styles.metaChipText}>{formatPoints(driver.pointsScored)} pts</Text>
-                      </View>
-                      {lastRaceBreakdown[driver.driverId] != null && (
-                        <View style={[styles.metaChip, { backgroundColor: lastRaceBreakdown[driver.driverId].base > 0 ? '#16a34a18' : undefined }]}>
-                          <Text style={[styles.metaChipText, lastRaceBreakdown[driver.driverId].base > 0 && { color: '#16a34a' }]}>
-                            +{lastRaceBreakdown[driver.driverId].base}
-                            {lastRaceBreakdown[driver.driverId].aceBonus > 0 ? ` (+${lastRaceBreakdown[driver.driverId].aceBonus})` : ''}
-                            {' last'}
-                          </Text>
-                        </View>
-                      )}
-                      {!driver.isReserve ? (
-                        <>
-                          <View style={[styles.metaChip, driver.isLastRace && { backgroundColor: COLORS.warning + '18' }]}>
-                            <Ionicons name="document-text-outline" size={10} color={driver.isLastRace ? COLORS.warning : COLORS.text.muted} />
-                            <Text style={[styles.metaChipText, driver.isLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
-                              {driver.isLastRace ? 'LAST' : `${driver.racesHeld || 0}/${driver.contractLen}`}
-                            </Text>
-                          </View>
-                          <View style={styles.metaChip}>
-                            <Ionicons name="flame" size={10} color={driver.nextRate > 1 ? COLORS.gold : COLORS.text.muted} />
-                            <Text style={[styles.metaChipText, driver.nextRate > 1 && { color: COLORS.gold }]}>+{driver.nextRate}/r</Text>
-                          </View>
-                        </>
-                      ) : (
-                        <View style={[styles.metaChip, { backgroundColor: COLORS.warning + '18' }]}>
-                          <Ionicons name="timer-outline" size={10} color={COLORS.warning} />
-                          <Text style={[styles.metaChipText, { color: COLORS.warning }]}>
-                            Expires in {driver.contractRemaining} race{driver.contractRemaining !== 1 ? 's' : ''}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={{ flex: 1 }} />
-                      {canModify && !driver.isReserve && (
-                        <TouchableOpacity
-                          testID="sell-driver-btn"
-                          onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
-                          hitSlop={6}
-                          style={[styles.sellChip, driver.inGracePeriod ? styles.sellChipNeutral : driver.saleProfit >= 0 ? styles.sellChipProfit : styles.sellChipLoss]}
-                        >
-                          <Text style={[styles.sellChipText, driver.inGracePeriod ? styles.sellChipTextNeutral : driver.saleProfit >= 0 ? styles.sellChipTextProfit : styles.sellChipTextLoss]}>
-                            {driver.inGracePeriod ? `Sell $${driver.livePrice}` : `Sell ${driver.saleProfit >= 0 ? '+' : '-'}$${Math.abs(driver.saleProfit)}`}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                      {canModify && driver.isReserve && (
-                        <TouchableOpacity
-                          onPress={() => handleRemoveDriver(driver.driverId, driver.name)}
-                          hitSlop={6}
-                          style={[styles.swapChip, { backgroundColor: theme.primary + '12', borderColor: theme.primary + '25' }]}
-                        >
-                          <Text style={[styles.swapChipText, { color: theme.primary }]}>Swap</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              );
-            })
+          enrichedDrivers.map((driver) => (
+            <DriverTeamCard
+              key={driver.driverId}
+              driver={driver}
+              lastRaceEntry={lastRaceBreakdown[driver.driverId]}
+              canModify={canModify}
+              canChangeAce={canChangeAce}
+              onSetAce={handleSetAce}
+              onClearAce={handleClearAce}
+              onRemoveDriver={handleRemoveDriver}
+            />
+          ))
         ) : null}
 
         {/* Add Driver button */}

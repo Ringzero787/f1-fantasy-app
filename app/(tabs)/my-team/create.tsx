@@ -347,6 +347,7 @@ export default function CreateTeamScreen() {
           <Text style={styles.sectionLabel}>Team Type</Text>
           <View style={styles.modeSelector}>
             <TouchableOpacity
+              testID="solo-mode-btn"
               style={[
                 styles.modeOption,
                 teamMode === 'solo' && styles.modeOptionSelected,

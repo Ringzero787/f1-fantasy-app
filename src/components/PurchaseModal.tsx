@@ -14,7 +14,7 @@ import { useTheme } from '../hooks/useTheme';
 interface PurchaseModalProps {
   visible: boolean;
   onClose: () => void;
-  onPurchase: () => void;
+  onPurchase: () => void | Promise<void>;
   isLoading: boolean;
   title: string;
   description: string;

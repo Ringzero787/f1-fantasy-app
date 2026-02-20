@@ -352,6 +352,7 @@ export default function CreateLeagueScreen() {
             loading={isCreating || isLoading}
             fullWidth
             style={styles.button}
+            testID="create-league-btn"
           />
 
           <Button
@@ -432,9 +433,10 @@ export default function CreateLeagueScreen() {
       <PurchaseModal
         visible={showExpansionPurchase}
         onClose={() => setShowExpansionPurchase(false)}
-        onPurchase={() => {
-          purchaseLeagueExpansion();
-          setShowExpansionPurchase(false);
+        onPurchase={async () => {
+          await purchaseLeagueExpansion();
+          // Modal stays open during purchase; closes when listener grants credit
+          // or when user dismisses after error alert
         }}
         isLoading={isPurchasing}
         title={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].title}
@@ -448,9 +450,10 @@ export default function CreateLeagueScreen() {
       <PurchaseModal
         visible={showLeagueSlotPurchase}
         onClose={() => setShowLeagueSlotPurchase(false)}
-        onPurchase={() => {
-          purchaseLeagueSlot();
-          setShowLeagueSlotPurchase(false);
+        onPurchase={async () => {
+          await purchaseLeagueSlot();
+          // Modal stays open during purchase; closes when listener grants credit
+          // or when user dismisses after error alert
         }}
         isLoading={isPurchasing}
         title={PRODUCTS[PRODUCT_IDS.LEAGUE_SLOT].title}

@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Article } from '../types';
 import { articleService } from '../services/article.service';
+import { useAuthStore } from './auth.store';
+import { demoArticles } from '../data/demoData';
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -30,6 +32,14 @@ export const useNewsStore = create<NewsState>()(
 
       loadArticles: async (force = false) => {
         const { lastFetchTime, isLoading } = get();
+        const isDemoMode = useAuthStore.getState().isDemoMode;
+
+        // In demo mode, always use local demo articles (no cache/network needed)
+        if (isDemoMode) {
+          set({ articles: demoArticles, lastFetchTime: Date.now(), isLoading: false, error: null });
+          return;
+        }
+
         if (isLoading) return;
 
         // Skip if cache is fresh (unless forced)

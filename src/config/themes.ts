@@ -24,15 +24,15 @@ interface ConstructorThemeDef {
 
 export const CONSTRUCTOR_THEMES: Record<ConstructorThemeId, ConstructorThemeDef> = {
   default:      { label: 'Default',       primary: '#00D4FF', secondary: '#0EA5E9' },
-  red_bull:     { label: 'Red Bull',      primary: '#1E3A8A', secondary: '#0600EF' },
+  red_bull:     { label: 'Red Bull',      primary: '#1E3A8A', secondary: '#E10600' },
   ferrari:      { label: 'Ferrari',       primary: '#DC2626', secondary: '#A91D1D' },
   mclaren:      { label: 'McLaren',       primary: '#FF8000', secondary: '#E67300' },
   mercedes:     { label: 'Mercedes',      primary: '#00D2BE', secondary: '#00A19C' },
   aston_martin: { label: 'Aston Martin',  primary: '#006F62', secondary: '#00483B' },
   alpine:       { label: 'Alpine',        primary: '#0090FF', secondary: '#FF87BC' },
   williams:     { label: 'Williams',      primary: '#005AFF', secondary: '#00A3E0' },
-  rb:           { label: 'RB',            primary: '#2B4562', secondary: '#1634B5' },
-  haas:         { label: 'Haas',          primary: '#B6BABD', secondary: '#E10600' },
+  rb:           { label: 'RB',            primary: '#FFFFFF', secondary: '#1634B5' },
+  haas:         { label: 'Haas',          primary: '#FFFFFF', secondary: '#E10600' },
   audi:         { label: 'Audi',          primary: '#8C8C8C', secondary: '#BB0A30' },
   cadillac:     { label: 'Cadillac',      primary: '#C0C0C0', secondary: '#1C1C1C' },
 };

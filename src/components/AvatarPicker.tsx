@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Image,
   Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -192,7 +192,8 @@ export function AvatarPicker({
         <Image
           source={{ uri: currentAvatarUrl }}
           style={styles.currentAvatarImage}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
         />
       );
     }
@@ -230,7 +231,9 @@ export function AvatarPicker({
         <Image
           source={{ uri: displayUrl }}
           style={styles.previewAvatar}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
         />
       );
     }
@@ -373,7 +376,7 @@ export function AvatarPicker({
                       setSelectedStyle(null);
                     }}
                   >
-                    <Image source={{ uri: url }} style={styles.historyImage} />
+                    <Image source={{ uri: url }} style={styles.historyImage} cachePolicy="memory-disk" />
                     {url === (previewUrl || currentAvatarUrl) && (
                       <View style={styles.historyCheck}>
                         <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
@@ -439,7 +442,8 @@ export function AvatarPicker({
                     <Image
                       source={{ uri: styleUrl }}
                       style={styles.styleImage}
-                      resizeMode="cover"
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
                     />
                     <Text
                       style={[
