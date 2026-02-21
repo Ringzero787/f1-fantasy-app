@@ -77,14 +77,14 @@ service cloud.firestore {
 
       // Chat messages subcollection
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && isLeagueMember(leagueId);
-        allow create: if isAuthenticated() && isLeagueMember(leagueId)
+        allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId) || isAdmin());
+        allow create: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId))
                       && request.resource.data.senderId == request.auth.uid;
-        allow update: if isAuthenticated() && isLeagueMember(leagueId)
+        allow update: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId))
                       && (resource.data.senderId == request.auth.uid
                           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
         allow delete: if isAuthenticated()
-                      && (resource.data.senderId == request.auth.uid || isLeagueOwner(leagueId));
+                      && (resource.data.senderId == request.auth.uid || isLeagueOwner(leagueId) || isAdmin());
       }
 
       // Chat read receipts subcollection

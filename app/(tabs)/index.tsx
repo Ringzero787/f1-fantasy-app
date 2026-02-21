@@ -43,6 +43,8 @@ export default function HomeScreen() {
   const loadUserTeams = useTeamStore(s => s.loadUserTeams);
   const leagues = useLeagueStore(s => s.leagues);
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
+  const pendingCountsByLeague = useLeagueStore(s => s.pendingCountsByLeague);
+  const loadPendingCountsForOwnedLeagues = useLeagueStore(s => s.loadPendingCountsForOwnedLeagues);
   const raceResults = useAdminStore(s => s.raceResults);
   const loadArticles = useNewsStore(s => s.loadArticles);
   const loadActiveAnnouncements = useAnnouncementStore(s => s.loadActiveAnnouncements);
@@ -194,6 +196,13 @@ export default function HomeScreen() {
     return warnings;
   }, [userTeams]);
 
+  // Pending approvals for owned leagues
+  const pendingApprovals = useMemo(() => {
+    return leagues
+      .filter(l => (pendingCountsByLeague[l.id] ?? 0) > 0)
+      .map(l => ({ leagueId: l.id, leagueName: l.name, count: pendingCountsByLeague[l.id] }));
+  }, [leagues, pendingCountsByLeague]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     const leagueIds = leagues.map(l => l.id);
@@ -201,6 +210,7 @@ export default function HomeScreen() {
       refetchRace(),
       loadArticles(true),
       leagueIds.length > 0 ? loadActiveAnnouncements(leagueIds) : Promise.resolve(),
+      user ? loadPendingCountsForOwnedLeagues(user.id) : Promise.resolve(),
     ]);
     setRefreshing(false);
   };
@@ -271,6 +281,30 @@ export default function HomeScreen() {
           </View>
           <Ionicons name="chevron-forward" size={16} color={COLORS.warning} />
         </TouchableOpacity>
+      )}
+
+      {/* Pending Approvals Banner */}
+      {pendingApprovals.length > 0 && (
+        <View style={styles.approvalBanner}>
+          <View style={styles.approvalIconContainer}>
+            <Ionicons name="person-add" size={20} color={COLORS.info} />
+          </View>
+          <View style={styles.warningContent}>
+            {pendingApprovals.map((p) => (
+              <TouchableOpacity
+                key={p.leagueId}
+                onPress={() => router.push(`/(tabs)/leagues/${p.leagueId}/admin` as any)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.approvalText} numberOfLines={1}>
+                  <Text style={styles.approvalLeagueName}>{p.leagueName}</Text>
+                  {` — ${p.count} pending approval${p.count > 1 ? 's' : ''}`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.info} />
+        </View>
       )}
 
       {/* Quick Stats */}
@@ -845,6 +879,37 @@ const styles = StyleSheet.create({
 
   incompleteValue: {
     color: COLORS.warning,
+  },
+
+  approvalBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.info + '12',
+    borderWidth: 1,
+    borderColor: COLORS.info + '30',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+
+  approvalIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.info + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  approvalText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.secondary,
+  },
+
+  approvalLeagueName: {
+    fontWeight: '700',
+    color: COLORS.info,
   },
 
   completeTeamButton: {

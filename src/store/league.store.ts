@@ -89,6 +89,9 @@ interface LeagueState {
 
   expandLeagueCapacity: (leagueId: string, additionalSlots: number) => Promise<void>;
 
+  pendingCountsByLeague: Record<string, number>;
+  loadPendingCountsForOwnedLeagues: (userId: string) => Promise<void>;
+
   demoInviteCounts: Record<string, number>;
   demoPendingMembers: LeagueMember[]; // Demo mode pending members
   clearError: () => void;
@@ -105,6 +108,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
   pendingMembers: [],
   isLoading: false,
   error: null,
+  pendingCountsByLeague: {},
   demoInviteCounts: {},
   demoPendingMembers: [],
 
@@ -155,10 +159,52 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       }
 
       set({ leagues, pendingLeagueIds: pendingIds, isLoading: false });
+
+      // Load pending counts for leagues this user owns
+      get().loadPendingCountsForOwnedLeagues(userId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load leagues';
       errorLogService.logError('loadUserLeagues', error);
       set({ error: message, isLoading: false });
+    }
+  },
+
+  loadPendingCountsForOwnedLeagues: async (userId) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+    const { leagues } = get();
+    const ownedLeagues = leagues.filter(l => l.ownerId === userId);
+
+    if (ownedLeagues.length === 0) {
+      set({ pendingCountsByLeague: {} });
+      return;
+    }
+
+    if (isDemoMode) {
+      const { demoPendingMembers } = get();
+      const counts: Record<string, number> = {};
+      for (const league of ownedLeagues) {
+        const count = demoPendingMembers.filter(m => m.leagueId === league.id).length;
+        if (count > 0) counts[league.id] = count;
+      }
+      set({ pendingCountsByLeague: counts });
+      return;
+    }
+
+    try {
+      const counts: Record<string, number> = {};
+      await Promise.all(
+        ownedLeagues.map(async (league) => {
+          try {
+            const pending = await leagueService.getPendingMembers(league.id);
+            if (pending.length > 0) counts[league.id] = pending.length;
+          } catch {
+            // Ignore errors for individual leagues
+          }
+        }),
+      );
+      set({ pendingCountsByLeague: counts });
+    } catch (error) {
+      errorLogService.logError('loadPendingCountsForOwnedLeagues', error);
     }
   },
 

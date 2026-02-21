@@ -7,6 +7,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useOnboardingStore } from '../../src/store/onboarding.store';
 import { useChatStore } from '../../src/store/chat.store';
+import { useLeagueStore } from '../../src/store/league.store';
 import { OnboardingTutorial } from '../../src/components/OnboardingTutorial';
 import { NotificationBell } from '../../src/components/NotificationBell';
 
@@ -17,6 +18,7 @@ export default function TabLayout() {
   const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
   const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
   const totalUnread = useChatStore((state) => state.totalUnread);
+  const hasLeagues = useLeagueStore((state) => state.leagues.length > 0);
 
   return (
     <>
@@ -149,8 +151,8 @@ export default function TabLayout() {
         options={{
           title: 'Chat',
           headerShown: false,
-          // Show for non-admins, or in demo mode (where both admin + chat show)
-          href: (!isAdmin || isDemoMode) ? ('/(tabs)/chat' as unknown as '/') : null,
+          // Show when user has leagues (non-admins, or demo mode where both admin + chat show)
+          href: ((!isAdmin || isDemoMode) && hasLeagues) ? ('/(tabs)/chat' as unknown as '/') : null,
           tabBarTestID: 'tab-chat',
           tabBarAccessibilityLabel: 'Chat tab',
           tabBarIcon: ({ color, size }) => (

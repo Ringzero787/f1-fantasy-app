@@ -27,6 +27,7 @@ const ICON_MAP: Record<NotificationType, { name: keyof typeof Ionicons.glyphMap;
   league_invite: { name: 'mail', color: COLORS.accent },
   league_update: { name: 'trophy', color: COLORS.gold },
   chat_message: { name: 'chatbubble', color: COLORS.info },
+  join_request: { name: 'person-add', color: COLORS.info },
 };
 
 function navigateToNotification(item: Notification) {
@@ -59,6 +60,11 @@ function navigateToNotification(item: Notification) {
       break;
     case 'race_reminder':
       router.push('/(tabs)/calendar' as any);
+      break;
+    case 'join_request':
+      if (data?.leagueId) {
+        router.push(`/(tabs)/leagues/${data.leagueId}/admin` as any);
+      }
       break;
   }
 }

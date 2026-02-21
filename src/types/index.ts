@@ -444,7 +444,8 @@ export type NotificationType =
   | 'announcement'
   | 'new_story'
   | 'incomplete_team'
-  | 'chat_message';
+  | 'chat_message'
+  | 'join_request';
 
 // ============================================
 // API Response Types

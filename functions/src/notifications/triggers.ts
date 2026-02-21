@@ -3,7 +3,7 @@ import {
   onDocumentUpdated,
 } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
-import { sendPushToLeague, sendPushToUsers } from './sendPush';
+import { sendPushToLeague, sendPushToUsers, sendPushToUser } from './sendPush';
 
 const db = admin.firestore();
 
@@ -87,6 +87,35 @@ export const onArticleApproved = onDocumentUpdated(
       `New Story: ${title}`,
       preview,
       { type: 'new_story', articleId: event.params.articleId },
+    );
+  },
+);
+
+/**
+ * When a new member document is created with status 'pending', notify the league owner.
+ */
+export const onJoinRequestCreated = onDocumentCreated(
+  'leagues/{leagueId}/members/{memberId}',
+  async (event) => {
+    const data = event.data?.data();
+    if (!data || data.status !== 'pending') return;
+
+    const leagueId = event.params.leagueId;
+    const requesterName = (data.displayName as string) || 'Someone';
+
+    // Fetch league to get owner and name
+    const leagueDoc = await db.doc(`leagues/${leagueId}`).get();
+    const leagueData = leagueDoc.data();
+    if (!leagueData) return;
+
+    const ownerId = leagueData.ownerId as string;
+    const leagueName = (leagueData.name as string) || 'Your league';
+
+    await sendPushToUser(
+      ownerId,
+      `Join Request: ${leagueName}`,
+      `${requesterName} wants to join your league`,
+      { type: 'join_request', leagueId },
     );
   },
 );
