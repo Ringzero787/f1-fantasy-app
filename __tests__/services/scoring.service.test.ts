@@ -44,14 +44,15 @@ const createFantasyDriver = (overrides: Partial<FantasyDriver> = {}): FantasyDri
 });
 
 describe('scoringService.calculateRacePoints', () => {
-  it('should return 25 points for P1 finish', () => {
+  it('should return 47 points for P1 finish (25 race + 22 bonus)', () => {
     const result = createRaceResult({ position: 1 });
     const { points } = scoringService.calculateRacePoints(result);
-    expect(points).toBe(25);
+    expect(points).toBe(47); // 25 + 22
   });
 
-  it('should return correct points for all top 10 positions', () => {
-    const expectedPoints = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+  it('should return correct points for all top 10 positions (race + position bonus)', () => {
+    // Race points + position bonus (23 - position)
+    const expectedPoints = [47, 39, 35, 31, 28, 25, 22, 19, 16, 14];
     for (let i = 0; i < 10; i++) {
       const result = createRaceResult({ position: i + 1 });
       const { points } = scoringService.calculateRacePoints(result);
@@ -59,10 +60,16 @@ describe('scoringService.calculateRacePoints', () => {
     }
   });
 
-  it('should return 0 for positions outside top 10', () => {
-    const result = createRaceResult({ position: 11 });
-    const { points } = scoringService.calculateRacePoints(result);
-    expect(points).toBe(0);
+  it('should return position bonus for P11-P22 (bottom half of grid)', () => {
+    // P11 = 0 race + 12 bonus = 12
+    const p11 = createRaceResult({ position: 11 });
+    expect(scoringService.calculateRacePoints(p11).points).toBe(12);
+    // P15 = 0 race + 8 bonus = 8
+    const p15 = createRaceResult({ position: 15 });
+    expect(scoringService.calculateRacePoints(p15).points).toBe(8);
+    // P22 = 0 race + 1 bonus = 1
+    const p22 = createRaceResult({ position: 22 });
+    expect(scoringService.calculateRacePoints(p22).points).toBe(1);
   });
 
   it('should add position gained bonus', () => {
@@ -72,8 +79,8 @@ describe('scoringService.calculateRacePoints', () => {
       positionsGained: 5
     });
     const { points, breakdown } = scoringService.calculateRacePoints(result);
-    // P5 = 10 points + 5 positions gained = 15 points
-    expect(points).toBe(15);
+    // P5 = 10 race + 18 bonus + 5 positions gained = 33 points
+    expect(points).toBe(33);
     expect(breakdown.some(b => b.label === 'Positions Gained')).toBe(true);
   });
 
@@ -83,8 +90,8 @@ describe('scoringService.calculateRacePoints', () => {
       fastestLap: true
     });
     const { points, breakdown } = scoringService.calculateRacePoints(result);
-    // P5 = 10 points + 1 fastest lap = 11 points
-    expect(points).toBe(11);
+    // P5 = 10 race + 18 bonus + 1 fastest lap = 29 points
+    expect(points).toBe(29);
     expect(breakdown.some(b => b.label === 'Fastest Lap')).toBe(true);
   });
 
@@ -94,7 +101,8 @@ describe('scoringService.calculateRacePoints', () => {
       fastestLap: true
     });
     const { points } = scoringService.calculateRacePoints(result);
-    expect(points).toBe(0);
+    // P11 = 0 race + 12 bonus = 12 (no fastest lap bonus)
+    expect(points).toBe(12);
   });
 
   it('should handle DNF correctly', () => {
@@ -242,7 +250,7 @@ describe('scoringService.calculateValueCaptureBonus (V3)', () => {
 describe('scoringService.calculateDriverScore (V3)', () => {
   it('should double points for ace', () => {
     const driver = createFantasyDriver();
-    const raceResult = createRaceResult({ position: 1 }); // 25 pts
+    const raceResult = createRaceResult({ position: 1 }); // 25 race + 22 bonus = 47 pts
 
     const nonAceScore = scoringService.calculateDriverScore(
       'test', 'race1', raceResult, null, driver, undefined, { isAce: false }
@@ -252,13 +260,13 @@ describe('scoringService.calculateDriverScore (V3)', () => {
       'test', 'race1', raceResult, null, driver, undefined, { isAce: true }
     );
 
-    // Ace should have 2x the race points
-    expect(aceScore.totalPoints).toBe(nonAceScore.totalPoints + 25);
+    // Ace should have 2x the base points (47 race+bonus)
+    expect(aceScore.totalPoints).toBe(nonAceScore.totalPoints + 47);
   });
 
   it('should add hot hand bonus for new transfers', () => {
     const driver = createFantasyDriver();
-    const raceResult = createRaceResult({ position: 1 }); // Podium = 15 pts bonus
+    const raceResult = createRaceResult({ position: 1 }); // Podium = +15 hot hand bonus
 
     const normalScore = scoringService.calculateDriverScore(
       'test', 'race1', raceResult, null, driver, undefined, { isNewTransfer: false }
@@ -268,6 +276,7 @@ describe('scoringService.calculateDriverScore (V3)', () => {
       'test', 'race1', raceResult, null, driver, undefined, { isNewTransfer: true }
     );
 
+    // Hot hand podium bonus is +15
     expect(newTransferScore.totalPoints).toBe(normalScore.totalPoints + 15);
   });
 });

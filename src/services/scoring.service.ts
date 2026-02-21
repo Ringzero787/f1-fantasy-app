@@ -1,6 +1,7 @@
 import {
   RACE_POINTS,
   SPRINT_POINTS,
+  GRID_SIZE,
   FASTEST_LAP_BONUS,
   POSITION_GAINED_BONUS,
   POSITION_LOST_PENALTY,
@@ -71,6 +72,17 @@ export const scoringService = {
         label: `P${result.position} Finish`,
         points: positionPoints,
         description: `${this.getOrdinal(result.position)} place finish`,
+      });
+    }
+
+    // Position bonus — all classified finishers (P1–P22) earn reverse-grid bonus
+    if (result.position >= 1 && result.position <= GRID_SIZE) {
+      const posBonus = GRID_SIZE + 1 - result.position;
+      points += posBonus;
+      breakdown.push({
+        label: 'Position Bonus',
+        points: posBonus,
+        description: `${this.getOrdinal(result.position)} place bonus`,
       });
     }
 

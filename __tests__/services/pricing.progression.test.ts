@@ -395,22 +395,22 @@ describe('Rolling Average', () => {
 // ============================================
 
 describe('Initial Price from Season Points', () => {
-  it('Verstappen-level (500 pts) → $500', () => {
+  it('Verstappen-level (500 pts) → $208', () => {
     const price = calculateInitialPrice(500);
-    // 500/24 * 24 = 500
-    expect(price).toBe(500);
+    // 500/24 * $10 = 208
+    expect(price).toBe(208);
   });
 
-  it('mid-tier driver (200 pts) → $200', () => {
+  it('mid-tier driver (200 pts) → $83', () => {
     const price = calculateInitialPrice(200);
-    // 200/24 * 24 = 200
-    expect(price).toBe(200);
+    // 200/24 * $10 = round(83.33) = 83
+    expect(price).toBe(83);
   });
 
-  it('low scorer (20 pts) → $20', () => {
+  it('low scorer (20 pts) → $8', () => {
     const price = calculateInitialPrice(20);
-    // 20/24 * 24 = 20
-    expect(price).toBe(20);
+    // 20/24 * $10 = round(8.33) = 8
+    expect(price).toBe(8);
   });
 
   it('zero points → minimum price ($5)', () => {
@@ -420,7 +420,7 @@ describe('Initial Price from Season Points', () => {
 
   it('extremely high scorer → capped at $700', () => {
     const price = calculateInitialPrice(2000);
-    // 2000/24 * 24 = 2000 → capped at 700
+    // 2000/24 * $10 = 833 → capped at 700
     expect(price).toBe(PRICING_CONFIG.MAX_PRICE);
   });
 });

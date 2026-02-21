@@ -332,8 +332,8 @@ describe('Full Team Scoring Integration', () => {
       'd1', 'race_1', aceResult, null, aceDriver, undefined, { isAce: true }
     );
 
-    // P1 = 25, ace bonus = 25, total = 50
-    expect(aceScore.totalPoints).toBe(50);
+    // P1 = 25 race + 22 position bonus = 47 base, ace = +47, total = 94
+    expect(aceScore.totalPoints).toBe(94);
 
     const teammateResult = createRaceResult({ position: 5, driverId: 'd2' });
     const teammateDriver = createFantasyDriver({ driverId: 'd2', racesHeld: 0 });
@@ -341,8 +341,8 @@ describe('Full Team Scoring Integration', () => {
       'd2', 'race_1', teammateResult, null, teammateDriver
     );
 
-    // P5 = 10
-    expect(teammateScore.totalPoints).toBe(10);
+    // P5 = 10 race + 18 position bonus = 28
+    expect(teammateScore.totalPoints).toBe(28);
 
     // Constructor averages the ace's doubled score
     const constructor = createFantasyConstructor({ racesHeld: 0 });
@@ -350,7 +350,7 @@ describe('Full Team Scoring Integration', () => {
       'c1', 'race_1', aceScore, teammateScore, constructor
     );
 
-    // floor((50 + 10) / 2) = 30
-    expect(conScore.totalPoints).toBe(30);
+    // floor((94 + 28) / 2) = floor(61) = 61
+    expect(conScore.totalPoints).toBe(61);
   });
 });

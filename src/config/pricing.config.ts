@@ -15,7 +15,7 @@ export const PRICING_CONFIG = {
   SPRINTS_PER_SEASON: 4,
 
   // Price calculation
-  DOLLARS_PER_POINT: 24, // Dollars per average point per race
+  DOLLARS_PER_POINT: 10, // Dollars per average point per race (reduced from 24 to account for position bonus inflating totals)
 
   // Rolling average
   ROLLING_WINDOW: 5, // Number of races for rolling average

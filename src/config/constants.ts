@@ -18,6 +18,9 @@ export const SALE_COMMISSION_RATE = 0; // No commission - sell at current market
 
 export const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 export const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1];
+export const GRID_SIZE = 22; // Total grid positions for position bonus
+// Position bonus: every classified finisher gets (GRID_SIZE + 1 - position) bonus pts
+// P1 = +22, P2 = +21, ... P22 = +1
 export const FASTEST_LAP_BONUS = 1;
 export const POSITION_GAINED_BONUS = 1;
 export const POSITION_LOST_PENALTY = 1; // Per position lost (grid vs finish)
@@ -626,33 +629,36 @@ export const COMPONENT_STYLES = {
 // ============================================
 
 export const INITIAL_DRIVER_PRICES = {
-  // A-tier (>240) — price = 2025 season points at $24/pt
-  NOR: 510, // Norris
-  VER: 500, // Verstappen
-  PIA: 380, // Piastri
-  LEC: 340, // Leclerc
-  RUS: 290, // Russell
-  HAM: 260, // Hamilton
+  // Prices = round((2025_fantasy_pts / 24) * $10/pt)
+  // Fantasy pts = F1 championship pts + position bonus (23 - finish pos per classified race)
+
+  // A-tier (>240)
+  VER: 367, // Verstappen (881 fantasy pts)
+  NOR: 361, // Norris (866)
+  PIA: 358, // Piastri (858)
+  RUS: 318, // Russell (763)
+  LEC: 260, // Leclerc (625)
 
   // B-tier (121-240)
-  SAI: 240, // Sainz
-  ALO: 150, // Alonso
-  ANT: 120, // Antonelli
+  HAM: 208, // Hamilton (498)
+  ANT: 190, // Antonelli (455)
+  ALB: 145, // Albon (349)
+  ALO: 128, // Alonso (307)
+  SAI: 125, // Sainz (300)
+  HAD: 125, // Hadjar (300)
+  BEA: 125, // Bearman (301)
 
   // C-tier (<=120)
-  ALB: 100, // Albon
-  STR: 80,  // Stroll
-  HUL: 70,  // Hulkenberg
-  GAS: 65,  // Gasly
-  OCO: 60,  // Ocon
-  HAD: 40,  // Hadjar
-  BEA: 35,  // Bearman
-  LAW: 30,  // Lawson
-  BOR: 25,  // Bortoleto
-  COL: 15,  // Colapinto
-  BOT: 10,  // Bottas
-  PER: 10,  // Perez
-  LIN: 5,   // Lindblad
+  OCO: 120, // Ocon (287)
+  HUL: 115, // Hulkenberg (277)
+  LAW: 108, // Lawson (258)
+  STR: 100, // Stroll (241)
+  GAS: 91,  // Gasly (218)
+  BOR: 89,  // Bortoleto (213)
+  COL: 50,  // Colapinto (121)
+  BOT: 10,  // Bottas (no 2025 data)
+  PER: 10,  // Perez (no 2025 data)
+  LIN: 5,   // Lindblad (rookie)
 } as const;
 
 // ============================================
@@ -660,15 +666,16 @@ export const INITIAL_DRIVER_PRICES = {
 // ============================================
 
 export const INITIAL_CONSTRUCTOR_PRICES = {
-  mclaren: 480,
-  mercedes: 310,
-  red_bull: 301,
-  ferrari: 276,
-  williams: 154,
-  racing_bulls: 133,
-  aston_martin: 132,
-  haas: 127,
-  audi: 123,
-  alpine: 101,
-  cadillac: 90,
+  // Constructor price = round(((d1_fantasy + d2_fantasy) / 2 / 24) * $10/pt)
+  mclaren: 359,     // NOR 866 + PIA 858
+  mercedes: 254,    // RUS 763 + ANT 455
+  red_bull: 246,    // VER 881 + HAD 300
+  ferrari: 234,     // LEC 625 + HAM 498
+  williams: 135,    // SAI 300 + ALB 349
+  haas: 123,        // OCO 287 + BEA 301
+  aston_martin: 114,// ALO 307 + STR 241
+  audi: 102,        // HUL 277 + BOR 213
+  alpine: 71,       // GAS 218 + COL 121
+  racing_bulls: 54, // LAW 258 + LIN 0
+  cadillac: 5,      // BOT 0 + PER 0
 } as const;

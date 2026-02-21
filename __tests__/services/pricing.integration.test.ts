@@ -343,8 +343,8 @@ describe('Driver Price Changes After Race Results', () => {
       expect(rollingAvg).toBe(15.2);
 
       const newPrice = calculatePriceFromRollingAvg(rollingAvg);
-      // 15.2 * 24 = 364.8 → round → 365
-      expect(newPrice).toBe(365);
+      // 15.2 * $10 = 152
+      expect(newPrice).toBe(152);
     });
 
     it('should only use last 5 races for rolling average', () => {
@@ -360,22 +360,22 @@ describe('Driver Price Changes After Race Results', () => {
     it('should calculate initial price from 2025 season points', () => {
       // Verstappen-like: 500 points in 2025
       const price = calculateInitialPrice(500);
-      // 500 / 24 = 20.833 avg * $24 = $500
-      expect(price).toBe(500);
+      // 500 / 24 = 20.833 avg * $10 = $208
+      expect(price).toBe(208);
     });
 
     it('should calculate initial price for midfield driver', () => {
       // 120 points in 2025
       const price = calculateInitialPrice(120);
-      // 120 / 24 = 5 avg * $24 = $120
-      expect(price).toBe(120);
+      // 120 / 24 = 5 avg * $10 = $50
+      expect(price).toBe(50);
     });
 
     it('should calculate initial price for backmarker', () => {
       // 24 points in 2025 (1 point per race average)
       const price = calculateInitialPrice(24);
-      // 24 / 24 = 1 avg * $24 = $24
-      expect(price).toBe(24);
+      // 24 / 24 = 1 avg * $10 = $10
+      expect(price).toBe(10);
     });
   });
 });

@@ -117,38 +117,38 @@ const createDriverScore = (overrides: Partial<DriverScore> = {}): DriverScore =>
 describe('Ace + Hot Hand Balance', () => {
   it('ace doubles race+sprint only, not lock bonus', () => {
     const driver = createFantasyDriver({ racesHeld: 5 });
-    const raceResult = createRaceResult({ position: 1 }); // 25 pts
+    const raceResult = createRaceResult({ position: 1 }); // 25 race + 22 bonus = 47 pts
 
     const score = scoringService.calculateDriverScore(
       'driver_1', 'race_1', raceResult, null, driver, undefined, { isAce: true }
     );
 
-    // Race: 25, Ace bonus: 25 (doubles race only)
+    // Race: 47 (25 race + 22 position bonus), Ace bonus: 47 (doubles base)
     // Lock: 3×1 + 2×2 = 7 (NOT doubled)
-    // Total: 25 + 25 + 7 = 57
-    expect(score.racePoints).toBe(25);
+    // Total: 47 + 47 + 7 = 101
+    expect(score.racePoints).toBe(47);
     expect(score.lockBonus).toBe(7);
-    expect(score.totalPoints).toBe(57);
+    expect(score.totalPoints).toBe(101);
   });
 
   it('ace + sprint weekend doubles both race and sprint', () => {
     const driver = createFantasyDriver({ racesHeld: 0 });
-    const raceResult = createRaceResult({ position: 1 }); // 25 pts
+    const raceResult = createRaceResult({ position: 1 }); // 25 + 22 = 47 pts
     const sprintResult = createSprintResult({ position: 1 }); // 8 pts
 
     const score = scoringService.calculateDriverScore(
       'driver_1', 'race_1', raceResult, sprintResult, driver, undefined, { isAce: true }
     );
 
-    // Base: 25 + 8 = 33
-    // Ace: +33
-    // Total: 66
-    expect(score.totalPoints).toBe(66);
+    // Base: 47 + 8 = 55
+    // Ace: +55
+    // Total: 110
+    expect(score.totalPoints).toBe(110);
   });
 
   it('hot hand podium bonus is NOT doubled by ace', () => {
     const driver = createFantasyDriver({ racesHeld: 0 });
-    const raceResult = createRaceResult({ position: 1 }); // 25 pts
+    const raceResult = createRaceResult({ position: 1 }); // 25 + 22 = 47 pts
 
     // Both ace + new transfer
     const score = scoringService.calculateDriverScore(
@@ -156,14 +156,14 @@ describe('Ace + Hot Hand Balance', () => {
       { isAce: true, isNewTransfer: true }
     );
 
-    // Race: 25, Ace bonus: 25, Hot hand podium: 15
-    // Total: 25 + 25 + 15 = 65
-    expect(score.totalPoints).toBe(65);
+    // Race: 47, Ace bonus: 47, Hot hand podium: 15
+    // Total: 47 + 47 + 15 = 109
+    expect(score.totalPoints).toBe(109);
   });
 
   it('hot hand 15+ point bonus triggers on high-scoring non-podium', () => {
     const driver = createFantasyDriver({ racesHeld: 0 });
-    // P4 (12pts) + 5 positions gained (5pts) = 17 base → qualifies for 15+ bonus
+    // P4 (12 race + 19 bonus = 31) + 5 positions gained (5pts) = 36 base → qualifies for 15+ bonus
     const raceResult = createRaceResult({
       position: 4,
       gridPosition: 9,
@@ -175,21 +175,21 @@ describe('Ace + Hot Hand Balance', () => {
       { isNewTransfer: true }
     );
 
-    // Race: 12 + 5 = 17, Hot hand: 10 (scored 17 ≥ 15)
-    expect(score.totalPoints).toBe(27);
+    // Race: 31 + 5 = 36, Hot hand: 10 (scored 36 ≥ 15)
+    expect(score.totalPoints).toBe(46);
   });
 
   it('hot hand does NOT trigger for low-scoring new transfer', () => {
     const driver = createFantasyDriver({ racesHeld: 0 });
-    const raceResult = createRaceResult({ position: 8 }); // 4 pts, no gains
+    const raceResult = createRaceResult({ position: 18 }); // 0 race + 5 bonus = 5 pts, no gains
 
     const score = scoringService.calculateDriverScore(
       'driver_1', 'race_1', raceResult, null, driver, undefined,
       { isNewTransfer: true }
     );
 
-    // Race: 4, no hot hand (4 < 15 and P8 not podium)
-    expect(score.totalPoints).toBe(4);
+    // Race: 5 (position bonus only), no hot hand (5 < 15 and P18 not podium)
+    expect(score.totalPoints).toBe(5);
   });
 });
 
@@ -324,8 +324,8 @@ describe('Full Race Weekend Scoring Balance', () => {
     expect(result.total).toBeLessThan(300);
   });
 
-  it('terrible race weekend should still produce some points from lock bonuses', () => {
-    // All drivers finish outside top 10 but have lock bonuses
+  it('terrible race weekend still scores from position bonus + lock bonuses', () => {
+    // All drivers finish outside top 10 but get position bonus + lock bonuses
     const driverScores: DriverScore[] = [];
     for (let i = 0; i < 5; i++) {
       const driver = createFantasyDriver({ driverId: `d${i}`, racesHeld: 8 });
@@ -341,9 +341,10 @@ describe('Full Race Weekend Scoring Balance', () => {
     const team = createTeam();
     const result = scoringService.calculateTeamPointsV3(team, driverScores, null);
 
-    // All drivers finish outside points but each has lock bonus (8 races = 3+6+6=15)
-    // 5 drivers × 15 lock bonus = 75
-    expect(result.total).toBe(75);
+    // Position bonuses: P15=8, P16=7, P17=6, P18=5, P19=4 = 30
+    // Lock bonus: 5 × (3+6+6) = 5 × 15 = 75
+    // Total: 30 + 75 = 105
+    expect(result.total).toBe(105);
   });
 
   it('sprint weekend adds meaningful but not overwhelming points', () => {
@@ -358,7 +359,7 @@ describe('Full Race Weekend Scoring Balance', () => {
       'driver_1', 'race_1', raceResult, null, driver
     );
 
-    // Sprint adds 8 points for P1 (32% of race P1 points)
+    // Sprint adds 8 points for P1 (~17% of race P1 points with position bonus)
     const sprintContribution = withSprint.totalPoints - withoutSprint.totalPoints;
     expect(sprintContribution).toBe(8);
     expect(sprintContribution / withoutSprint.totalPoints).toBeLessThan(0.5);

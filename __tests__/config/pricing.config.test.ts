@@ -20,7 +20,7 @@ describe('PRICING_CONFIG', () => {
   });
 
   it('should have correct price calculation constants', () => {
-    expect(PRICING_CONFIG.DOLLARS_PER_POINT).toBe(24);
+    expect(PRICING_CONFIG.DOLLARS_PER_POINT).toBe(10);
     expect(PRICING_CONFIG.ROLLING_WINDOW).toBe(5);
   });
 
@@ -49,18 +49,18 @@ describe('PRICING_CONFIG', () => {
 
 describe('calculateInitialPrice', () => {
   it('should calculate price from previous season points', () => {
-    // 240 points / 24 races = 10 avg * $24 = $240
-    expect(calculateInitialPrice(240)).toBe(240);
+    // 240 points / 24 races = 10 avg * $10 = $100
+    expect(calculateInitialPrice(240)).toBe(100);
   });
 
   it('should calculate price for top driver (Verstappen-like)', () => {
-    // 500 points / 24 races = 20.833 avg * $24 = $500
-    expect(calculateInitialPrice(500)).toBe(500);
+    // 500 points / 24 races = 20.833 avg * $10 = $208
+    expect(calculateInitialPrice(500)).toBe(208);
   });
 
   it('should calculate price for mid-tier driver', () => {
-    // 120 points / 24 races = 5 avg * $24 = $120
-    expect(calculateInitialPrice(120)).toBe(120);
+    // 120 points / 24 races = 5 avg * $10 = $50
+    expect(calculateInitialPrice(120)).toBe(50);
   });
 
   it('should enforce minimum price', () => {
@@ -74,17 +74,17 @@ describe('calculateInitialPrice', () => {
   });
 
   it('should round to nearest integer', () => {
-    // 100 points / 24 = 4.167 * 24 = 100
-    expect(calculateInitialPrice(100)).toBe(100);
+    // 100 points / 24 = 4.167 * $10 = round(41.67) = $42
+    expect(calculateInitialPrice(100)).toBe(42);
   });
 });
 
 describe('calculatePriceFromRollingAvg', () => {
   it('should multiply rolling average by dollars per point', () => {
-    // 10 avg * $24 = $240
-    expect(calculatePriceFromRollingAvg(10)).toBe(240);
-    // 25 avg * $24 = $600
-    expect(calculatePriceFromRollingAvg(25)).toBe(600);
+    // 10 avg * $10 = $100
+    expect(calculatePriceFromRollingAvg(10)).toBe(100);
+    // 25 avg * $10 = $250
+    expect(calculatePriceFromRollingAvg(25)).toBe(250);
   });
 
   it('should enforce minimum price', () => {
@@ -92,7 +92,7 @@ describe('calculatePriceFromRollingAvg', () => {
   });
 
   it('should enforce maximum price', () => {
-    // 100 avg * $24 = $2400, capped at $700
+    // 100 avg * $10 = $1000, capped at $700
     expect(calculatePriceFromRollingAvg(100)).toBe(PRICING_CONFIG.MAX_PRICE);
   });
 });
