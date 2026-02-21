@@ -825,14 +825,20 @@ export default function AdminContent() {
     // Find fastest lap driver
     const fastestLapDriver = result.driverResults.find(dr => dr.fastestLap);
 
-    return {
+    // Build result object — omit undefined fields (Firestore rejects undefined values)
+    const cloudResult: RaceResults = {
       raceId,
       qualifyingResults: [],
       raceResults,
-      sprintResults: cloudSprintResults,
-      fastestLap: fastestLapDriver?.driverId,
       processedAt: new Date(),
     };
+    if (cloudSprintResults) {
+      cloudResult.sprintResults = cloudSprintResults;
+    }
+    if (fastestLapDriver) {
+      cloudResult.fastestLap = fastestLapDriver.driverId;
+    }
+    return cloudResult;
   };
 
   // Publish race results to Firestore (first time)
@@ -964,7 +970,14 @@ export default function AdminContent() {
             <Ionicons name="cash-outline" size={16} color={COLORS.warning} />
             <Text style={styles.resetPricesButtonText}>Reset Prices</Text>
           </TouchableOpacity>
-          {/* Reset Races and Reset All hidden for production — use seed scripts instead */}
+          <TouchableOpacity style={styles.resetRacesButton} onPress={handleResetAllRaceResults}>
+            <Ionicons name="refresh-circle-outline" size={16} color={COLORS.warning} />
+            <Text style={styles.resetRacesButtonText}>Reset Races</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.resetAllButton} onPress={handleResetAllRaces}>
+            <Ionicons name="trash-outline" size={16} color={COLORS.error} />
+            <Text style={styles.resetAllButtonText}>Reset All</Text>
+          </TouchableOpacity>
         </View>
       </Card>
 
