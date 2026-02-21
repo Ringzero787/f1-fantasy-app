@@ -528,7 +528,7 @@ export default function CreateTeamScreen() {
             onPress={handleCreate}
             loading={isLoading && !isCreatingRecommended}
             disabled={isCreatingRecommended || (teamMode === 'league' && !currentLeague)}
-            variant="outline"
+            variant={isCreatingRecommended || (teamMode === 'league' && !currentLeague) ? 'outline' : 'secondary'}
             fullWidth
             style={styles.button}
             testID="create-empty-team-btn"
