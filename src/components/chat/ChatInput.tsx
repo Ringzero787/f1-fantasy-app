@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Text,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,6 +19,13 @@ import { useAuthStore } from '../../store/auth.store';
 import { ReplyPreview } from './ReplyPreview';
 import { useScale } from '../../hooks/useScale';
 
+const EMOJI_LIST = [
+  '😀', '😂', '🤣', '😍', '🥳', '😎', '🤔', '😤',
+  '😭', '🥺', '😱', '🤯', '💀', '🫡', '🙄', '😴',
+  '👍', '👎', '👏', '🙌', '🤝', '✌️', '🤞', '💪',
+  '❤️', '🔥', '⭐', '💯', '🎉', '🏎️', '🏁', '🏆',
+];
+
 interface ChatInputProps {
   leagueId: string;
 }
@@ -25,6 +34,8 @@ export function ChatInput({ leagueId }: ChatInputProps) {
   const theme = useTheme();
   const [text, setText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const inputRef = useRef<TextInput>(null);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const isSending = useChatStore((s) => s.isSending);
   const replyingTo = useChatStore((s) => s.replyingTo);
@@ -33,11 +44,23 @@ export function ChatInput({ leagueId }: ChatInputProps) {
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const userId = useAuthStore((s) => s.user?.id);
 
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      setShowEmojiPicker(false);
+    });
+    return () => sub.remove();
+  }, []);
+
   const handleSend = async () => {
     const trimmed = text.trim();
     if (!trimmed) return;
+    setShowEmojiPicker(false);
     setText('');
     await sendMessage(leagueId, trimmed);
+  };
+
+  const handleEmojiPress = (emoji: string) => {
+    setText((prev) => prev + emoji);
   };
 
   const handlePickImage = async () => {
@@ -92,6 +115,19 @@ export function ChatInput({ leagueId }: ChatInputProps) {
           onClose={() => setReplyingTo(null)}
         />
       )}
+      {showEmojiPicker && (
+        <View style={[styles.emojiGrid, { backgroundColor: theme.card }]}>
+          {EMOJI_LIST.map((emoji) => (
+            <TouchableOpacity
+              key={emoji}
+              style={styles.emojiItem}
+              onPress={() => handleEmojiPress(emoji)}
+            >
+              <Text style={styles.emojiText}>{emoji}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
       <View style={styles.container}>
         <TouchableOpacity
           style={styles.imageButton}
@@ -104,7 +140,22 @@ export function ChatInput({ leagueId }: ChatInputProps) {
             color={sending ? COLORS.text.muted : COLORS.text.secondary}
           />
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.emojiButton}
+          onPress={() => {
+            if (!showEmojiPicker) Keyboard.dismiss();
+            setShowEmojiPicker((prev) => !prev);
+          }}
+          disabled={sending}
+        >
+          <Ionicons
+            name={showEmojiPicker ? 'happy' : 'happy-outline'}
+            size={scaledIcon(24)}
+            color={showEmojiPicker ? theme.primary : sending ? COLORS.text.muted : COLORS.text.secondary}
+          />
+        </TouchableOpacity>
         <TextInput
+          ref={inputRef}
           style={[styles.input, { backgroundColor: theme.card, fontSize: scaledFonts.md }]}
           value={text}
           onChangeText={setText}
@@ -149,6 +200,27 @@ const styles = StyleSheet.create({
   imageButton: {
     padding: SPACING.sm,
     justifyContent: 'center',
+  },
+  emojiButton: {
+    padding: SPACING.sm,
+    justifyContent: 'center',
+  },
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
+  },
+  emojiItem: {
+    width: '12.5%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xs,
+  },
+  emojiText: {
+    fontSize: 24,
   },
   input: {
     flex: 1,
