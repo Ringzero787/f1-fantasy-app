@@ -39,6 +39,8 @@ export default function LeagueDetailScreen() {
   const pendingLeagueIds = useLeagueStore(s => s.pendingLeagueIds);
   const isLoading = useLeagueStore(s => s.isLoading);
   const loadLeague = useLeagueStore(s => s.loadLeague);
+  const loadLeagueMembers = useLeagueStore(s => s.loadLeagueMembers);
+  const storeMembers = useLeagueStore(s => s.members);
   const leaveLeague = useLeagueStore(s => s.leaveLeague);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -56,49 +58,54 @@ export default function LeagueDetailScreen() {
   const loadUserTeams = useTeamStore(s => s.loadUserTeams);
   const retiredMembers = useLeagueStore(s => s.retiredMembers);
 
-  // Compute league members directly from team data (more reliable than async loading)
+  // Use store members (fetched from Firestore) as primary source
   const members = useMemo((): LeagueMember[] => {
     if (!id || !currentLeague || !user) return [];
 
-    // Build comprehensive list of teams
-    const teamMap = new Map<string, typeof currentTeam>();
-    userTeams.forEach(team => {
-      if (team) teamMap.set(team.id, team);
-    });
-    if (currentTeam) {
-      teamMap.set(currentTeam.id, currentTeam);
+    // Start from store members (loaded via loadLeagueMembers from Firestore)
+    let memberList: LeagueMember[] = storeMembers.length > 0
+      ? [...storeMembers]
+      : [];
+
+    // Fallback to local team data in demo mode or if store is empty
+    if (memberList.length === 0) {
+      const teamMap = new Map<string, typeof currentTeam>();
+      userTeams.forEach(team => {
+        if (team) teamMap.set(team.id, team);
+      });
+      if (currentTeam) {
+        teamMap.set(currentTeam.id, currentTeam);
+      }
+
+      const teamsInLeagueAll = Array.from(teamMap.values()).filter(
+        (team): team is NonNullable<typeof team> => team != null && team.leagueId === id
+      );
+      const seenUserIds = new Set<string>();
+      const teamsInLeague = teamsInLeagueAll.filter(team => {
+        if (seenUserIds.has(team.userId)) return false;
+        seenUserIds.add(team.userId);
+        return true;
+      });
+
+      memberList = teamsInLeague.map((team) => ({
+        id: team.id,
+        leagueId: id,
+        userId: team.userId,
+        displayName: team.userId === user.id ? (user.displayName || 'Demo User') : 'League Member',
+        teamName: team.name,
+        teamAvatarUrl: team.avatarUrl,
+        role: team.userId === currentLeague.ownerId ? 'owner' as const : 'member' as const,
+        totalPoints: team.totalPoints || 0,
+        rank: 0,
+        joinedAt: team.createdAt,
+        racesPlayed: team.racesPlayed || 0,
+        pprAverage: team.racesPlayed && team.racesPlayed > 0
+          ? Math.round((team.totalPoints / team.racesPlayed) * 10) / 10
+          : 0,
+        recentFormPoints: (team.pointsHistory || []).slice(-5).reduce((a, b) => a + b, 0),
+        raceWins: team.raceWins || 0,
+      }));
     }
-
-    // Filter teams in this league, deduplicate by userId (keep latest)
-    const teamsInLeagueAll = Array.from(teamMap.values()).filter(
-      (team): team is NonNullable<typeof team> => team != null && team.leagueId === id
-    );
-    const seenUserIds = new Set<string>();
-    const teamsInLeague = teamsInLeagueAll.filter(team => {
-      if (seenUserIds.has(team.userId)) return false;
-      seenUserIds.add(team.userId);
-      return true;
-    });
-
-    // Create member entries
-    const memberList: LeagueMember[] = teamsInLeague.map((team) => ({
-      id: team.id,
-      leagueId: id,
-      userId: team.userId,
-      displayName: team.userId === user.id ? (user.displayName || 'Demo User') : 'League Member',
-      teamName: team.name,
-      teamAvatarUrl: team.avatarUrl,
-      role: team.userId === currentLeague.ownerId ? 'owner' as const : 'member' as const,
-      totalPoints: team.totalPoints || 0,
-      rank: 0,
-      joinedAt: team.createdAt,
-      racesPlayed: team.racesPlayed || 0,
-      pprAverage: team.racesPlayed && team.racesPlayed > 0
-        ? Math.round((team.totalPoints / team.racesPlayed) * 10) / 10
-        : 0,
-      recentFormPoints: (team.pointsHistory || []).slice(-5).reduce((a, b) => a + b, 0),
-      raceWins: team.raceWins || 0,
-    }));
 
     // Merge retired members (withdrawn teams whose scores are preserved)
     const retired = retiredMembers
@@ -126,7 +133,7 @@ export default function LeagueDetailScreen() {
       member.rank = index + 1;
     });
 
-    // Fallback: if no teams found but user is owner, show them
+    // Fallback: if still empty but user is owner, show them
     if (memberList.length === 0 && currentLeague.ownerId === user.id) {
       const userTeam = currentTeam?.userId === user.id ? currentTeam :
                        userTeams.find(t => t.userId === user.id);
@@ -151,11 +158,12 @@ export default function LeagueDetailScreen() {
     }
 
     return memberList;
-  }, [id, currentLeague, user, userTeams, currentTeam, leaderboardView, retiredMembers]);
+  }, [id, currentLeague, user, storeMembers, userTeams, currentTeam, leaderboardView, retiredMembers]);
 
   useEffect(() => {
     if (id && user) {
       loadLeague(id);
+      loadLeagueMembers(id);
       loadUserTeams(user.id);
     }
   }, [id, user]);
@@ -194,6 +202,7 @@ export default function LeagueDetailScreen() {
     setRefreshing(true);
     if (id && user) {
       await loadLeague(id);
+      await loadLeagueMembers(id);
       await loadUserTeams(user.id);
     }
     setRefreshing(false);
