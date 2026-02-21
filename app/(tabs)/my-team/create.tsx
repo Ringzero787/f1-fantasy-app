@@ -418,6 +418,7 @@ export default function CreateTeamScreen() {
                 styles.modeOption,
                 teamMode === 'league' && styles.modeOptionSelected,
                 teamMode === 'league' && { backgroundColor: theme.primary, borderColor: theme.primary },
+                teamMode === 'league' && !currentLeague && { opacity: 0.6 },
               ]}
               onPress={() => setTeamMode('league')}
             >
@@ -775,10 +776,11 @@ const styles = StyleSheet.create({
   },
 
   inviteCodeHint: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
     marginTop: SPACING.sm,
-    lineHeight: 18,
+    lineHeight: 20,
   },
 
 });

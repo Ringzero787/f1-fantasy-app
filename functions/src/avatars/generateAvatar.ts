@@ -12,20 +12,29 @@ type AvatarType = 'league' | 'team' | 'user';
 
 const AVATAR_PROMPTS: Record<AvatarType, (name: string) => string> = {
   league: (name) =>
-    `A simple, clean racing emblem inspired by the name "${name}". ` +
-    `One bold icon in the center that represents "${name}". ` +
-    `Flat graphic style, solid dark background, 2-3 colors max. Square image, edge-to-edge. ` +
-    `No text, no words, no letters.`,
+    `A premium, detailed racing league crest for a Formula 1 fantasy league called "${name}". ` +
+    `The imagery should directly represent the meaning or theme of "${name}" — ` +
+    `interpret the name literally or metaphorically and make it the central focus. ` +
+    `Incorporate motorsport elements like checkered flags, racing stripes, or laurel wreaths around the central imagery. ` +
+    `Rich color palette with metallic gold or silver accents on a deep dark background. ` +
+    `Highly detailed digital illustration, polished and professional. Square image, edge-to-edge. ` +
+    `No text, no words, no letters, no numbers.`,
   team: (name) =>
-    `A simple, bold team badge for a racing team called "${name}". ` +
-    `One strong central symbol that represents "${name}". ` +
-    `Flat graphic style, solid dark background, 2-3 accent colors. ` +
-    `Square image, edge-to-edge. No text, no words, no letters.`,
+    `A striking, detailed team emblem for a Formula 1 fantasy team called "${name}". ` +
+    `The design must visually represent "${name}" — think about what "${name}" means or evokes ` +
+    `and make that the hero element of the badge. ` +
+    `Blend the "${name}" concept with motorsport energy: speed lines, carbon fiber textures, or racing livery patterns. ` +
+    `Bold, vibrant colors with strong contrast against a dark background. ` +
+    `Detailed digital art style, like a professional racing team logo. Square image, edge-to-edge. ` +
+    `No text, no words, no letters, no numbers.`,
   user: (name) =>
-    `A stylized racing avatar inspired by the name "${name}". ` +
-    `Simple, bold imagery that evokes "${name}" on a solid dark background. ` +
-    `Flat illustrated style, not photorealistic. Square image, edge-to-edge. ` +
-    `No text, no words, no letters.`,
+    `A stylish, detailed avatar portrait inspired by the name "${name}". ` +
+    `Create imagery that personally represents "${name}" — interpret the name creatively ` +
+    `and build the visual identity around its meaning or vibe. ` +
+    `Add subtle racing or F1 motifs like a helmet visor reflection, racing suit collar, or pit lane atmosphere. ` +
+    `Cinematic lighting, rich colors, detailed digital illustration on a dark moody background. ` +
+    `Square image, edge-to-edge. Not photorealistic. ` +
+    `No text, no words, no letters, no numbers.`,
 };
 
 const COLLECTION_MAP: Record<AvatarType, string> = {
