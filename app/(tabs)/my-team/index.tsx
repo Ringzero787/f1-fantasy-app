@@ -670,7 +670,7 @@ export default function MyTeamScreen() {
 
   if (!isLoading && !currentTeam && userTeams.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
+      <View style={[styles.emptyContainer, { backgroundColor: theme.background }]}>
         <View style={styles.welcomeContainer}>
           <View style={styles.welcomeIconContainer}>
             <Ionicons name="people" size={48} color={theme.primary} />
@@ -702,7 +702,7 @@ export default function MyTeamScreen() {
   const hasConstructor = !!currentTeam?.constructor;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -717,6 +717,7 @@ export default function MyTeamScreen() {
                 key={team.id}
                 style={[
                   styles.teamTab,
+                  { backgroundColor: theme.card },
                   currentTeam?.id === team.id && [styles.teamTabActive, { backgroundColor: theme.primary, borderColor: theme.primary }],
                 ]}
                 onPress={() => selectTeam(team.id)}
@@ -803,7 +804,7 @@ export default function MyTeamScreen() {
         )}
 
         {/* Team Stats */}
-        <View style={styles.statsRow}>
+        <View style={[styles.statsRow, { backgroundColor: theme.card }]}>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { fontSize: scaledFonts.lg }]}>
               {teamStats.hasCompletedRaces ? teamStats.lastRacePoints : '-'}
@@ -954,7 +955,7 @@ export default function MyTeamScreen() {
           const hasNoAce = !currentTeam?.aceDriverId && !currentTeam?.aceConstructorId;
 
           return (
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: theme.card }]}>
               <View style={[styles.cardAccent, { backgroundColor: cAccent }]} />
               <View style={styles.cardBody}>
                 <View style={styles.cardTopRow}>
@@ -996,11 +997,11 @@ export default function MyTeamScreen() {
                       <Text style={[styles.metaChipText, { color: cAccent }]}>{cInfo.shortName}</Text>
                     </View>
                   )}
-                  <View style={styles.metaChip}>
+                  <View style={[styles.metaChip, { backgroundColor: theme.background }]}>
                     <Text style={styles.metaChipText}>{formatPoints(c.pointsScored)} pts</Text>
                   </View>
                   {lastRaceBreakdown[c.constructorId] != null && (
-                    <View style={[styles.metaChip, { backgroundColor: lastRaceBreakdown[c.constructorId].base > 0 ? '#16a34a18' : undefined }]}>
+                    <View style={[styles.metaChip, { backgroundColor: lastRaceBreakdown[c.constructorId].base > 0 ? '#16a34a18' : theme.background }]}>
                       <Text style={[styles.metaChipText, lastRaceBreakdown[c.constructorId].base > 0 && { color: '#16a34a' }]}>
                         +{lastRaceBreakdown[c.constructorId].base}
                         {lastRaceBreakdown[c.constructorId].aceBonus > 0 ? ` (+${lastRaceBreakdown[c.constructorId].aceBonus})` : ''}
@@ -1010,13 +1011,13 @@ export default function MyTeamScreen() {
                   )}
                   {!cIsReserve ? (
                     <>
-                      <View style={[styles.metaChip, cIsLastRace && { backgroundColor: COLORS.warning + '18' }]}>
+                      <View style={[styles.metaChip, { backgroundColor: cIsLastRace ? COLORS.warning + '18' : theme.background }]}>
                         <Ionicons name="document-text-outline" size={10} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
                         <Text style={[styles.metaChipText, cIsLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
                           {cIsLastRace ? 'LAST' : `${c.racesHeld || 0}/${cContractLen}`}
                         </Text>
                       </View>
-                      <View style={styles.metaChip}>
+                      <View style={[styles.metaChip, { backgroundColor: theme.background }]}>
                         <Ionicons name="flame" size={10} color={cNextRate > 1 ? COLORS.gold : COLORS.text.muted} />
                         <Text style={[styles.metaChipText, cNextRate > 1 && { color: COLORS.gold }]}>+{cNextRate}/r</Text>
                       </View>
@@ -1124,10 +1125,10 @@ export default function MyTeamScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             <Text style={styles.modalTitle}>Edit Team Name</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { backgroundColor: theme.card }]}
               value={editingName}
               onChangeText={setEditingName}
               placeholder="Enter team name"
@@ -1137,7 +1138,7 @@ export default function MyTeamScreen() {
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={styles.modalCancelButton}
+                style={[styles.modalCancelButton, { backgroundColor: theme.card }]}
                 onPress={() => setShowEditNameModal(false)}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
@@ -1166,7 +1167,6 @@ export default function MyTeamScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   content: {
     padding: SPACING.lg,
@@ -1176,7 +1176,6 @@ const styles = StyleSheet.create({
   // Empty state
   emptyContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   welcomeContainer: {
     flex: 1,
@@ -1223,7 +1222,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
@@ -1270,7 +1268,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingVertical: SPACING.sm,
     marginBottom: SPACING.md,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border.default,
@@ -1331,7 +1328,6 @@ const styles = StyleSheet.create({
   // Driver/Constructor card
   card: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     borderWidth: 1,
@@ -1437,7 +1433,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: COLORS.background,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BORDER_RADIUS.sm,
@@ -1612,7 +1607,6 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
   },
   modalContent: {
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.xl,
     width: '100%',
@@ -1634,7 +1628,6 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     fontSize: FONTS.sizes.md,
     color: COLORS.text.primary,
-    backgroundColor: COLORS.card,
     marginBottom: SPACING.lg,
   },
   modalButtons: {
@@ -1648,7 +1641,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.button,
     borderWidth: 1,
     borderColor: COLORS.border.default,
-    backgroundColor: COLORS.card,
   },
   modalCancelText: {
     fontSize: FONTS.sizes.md,

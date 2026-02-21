@@ -145,7 +145,7 @@ export const raceService = {
   },
 
   /**
-   * Set race results
+   * Set race results (initial publish — sets status to 'completed', triggering onRaceCompleted)
    */
   async setRaceResults(raceId: string, results: RaceResults): Promise<void> {
     const docRef = doc(db, 'races', raceId);
@@ -155,6 +155,20 @@ export const raceService = {
         processedAt: serverTimestamp(),
       },
       status: 'completed',
+    });
+  },
+
+  /**
+   * Update race results only (for corrections to already-completed races).
+   * Does NOT change status — use calculatePointsManually to re-trigger scoring.
+   */
+  async updateRaceResults(raceId: string, results: RaceResults): Promise<void> {
+    const docRef = doc(db, 'races', raceId);
+    await updateDoc(docRef, {
+      results: {
+        ...results,
+        processedAt: serverTimestamp(),
+      },
     });
   },
 

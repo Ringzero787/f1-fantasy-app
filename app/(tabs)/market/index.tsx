@@ -223,9 +223,9 @@ export default function MarketScreen() {
   const handleConfirmContract = pendingDriver ? handleConfirmAddDriver : handleConfirmAddConstructor;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Tab Selector */}
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, { backgroundColor: theme.card }]}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'drivers' && [styles.activeTab, { backgroundColor: theme.primary }]]}
           onPress={() => setActiveTab('drivers')}
@@ -245,7 +245,7 @@ export default function MarketScreen() {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
+      <View style={[styles.searchContainer, { backgroundColor: theme.card }]}>
         <Ionicons name="search" size={scaledIcon(20)} color={COLORS.text.muted} />
         <TextInput
           style={[styles.searchInput, { fontSize: scaledFonts.md }]}
@@ -270,7 +270,7 @@ export default function MarketScreen() {
               {(['price', 'points', 'name'] as SortOption[]).map((option) => (
                 <TouchableOpacity
                   key={option}
-                  style={[styles.sortButton, sortBy === option && [styles.sortButtonActive, { borderColor: theme.primary, backgroundColor: theme.primary + '10' }]]}
+                  style={[styles.sortButton, { backgroundColor: theme.card }, sortBy === option && [styles.sortButtonActive, { borderColor: theme.primary, backgroundColor: theme.primary + '10' }]]}
                   onPress={() => toggleSort(option)}
                 >
                   <Text style={[
@@ -294,7 +294,7 @@ export default function MarketScreen() {
         ) : (
           <View style={{ flex: 1 }} />
         )}
-        <View style={[styles.budgetBadge, { borderColor: theme.primary + '40' }]}>
+        <View style={[styles.budgetBadge, { backgroundColor: theme.card, borderColor: theme.primary + '40' }]}>
           <Ionicons name="wallet-outline" size={14} color={theme.primary} />
           <Text style={[styles.budgetBadgeText, { color: theme.primary }]}>
             {formatDollars(teamBudget)}
@@ -375,7 +375,7 @@ export default function MarketScreen() {
       {/* Contract Length Picker Modal */}
       {pendingItem && (
         <View style={styles.contractOverlay}>
-          <View style={styles.contractModal}>
+          <View style={[styles.contractModal, { backgroundColor: theme.card }]}>
             <Text style={styles.contractTitle}>{pendingItem.name}</Text>
             <Text style={[styles.contractSubtitle, { color: theme.primary }]}>
               {formatDollars(pendingItem.price)}
@@ -407,7 +407,7 @@ export default function MarketScreen() {
             </Text>
             <View style={styles.contractActions}>
               <TouchableOpacity
-                style={styles.contractCancelBtn}
+                style={[styles.contractCancelBtn, { backgroundColor: theme.card }]}
                 onPress={() => { setPendingDriver(null); setPendingConstructor(null); }}
               >
                 <Text style={styles.contractCancelText}>Cancel</Text>
@@ -429,12 +429,10 @@ export default function MarketScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
     padding: SPACING.xs,
     margin: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
@@ -466,7 +464,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
     marginHorizontal: SPACING.md,
     marginBottom: SPACING.md,
     paddingHorizontal: SPACING.md,
@@ -507,7 +504,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.sm,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.sm,
     borderWidth: 1,
     borderColor: COLORS.border.default,
@@ -535,7 +531,6 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: SPACING.sm + 2,
     paddingVertical: SPACING.xs,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.full,
     borderWidth: 1,
     borderColor: COLORS.border.default,
@@ -563,7 +558,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   contractModal: {
-    backgroundColor: COLORS.card,
     borderTopLeftRadius: BORDER_RADIUS.lg,
     borderTopRightRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
@@ -634,7 +628,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.button,
     borderWidth: 1,
     borderColor: COLORS.border.default,
-    backgroundColor: COLORS.card,
   },
   contractCancelText: {
     fontSize: FONTS.sizes.md,

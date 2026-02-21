@@ -9,6 +9,11 @@ export function useTheme(): ThemeColors {
     if (themeId === 'default') return DEFAULT_THEME;
     const def = CONSTRUCTOR_THEMES[themeId];
     if (!def) return DEFAULT_THEME;
-    return buildTheme(def.primary, def.secondary);
+    return buildTheme(def.primary, def.secondary, {
+      background: def.background,
+      surface: def.surface,
+      card: def.card,
+      cardElevated: def.cardElevated,
+    });
   }, [themeId]);
 }

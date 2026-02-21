@@ -3,13 +3,16 @@ import { Image, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 
 export default function CalendarLayout() {
+  const theme = useTheme();
+
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: COLORS.surface,
+          backgroundColor: theme.surface,
         },
         headerTintColor: COLORS.text.primary,
         headerTitleStyle: {

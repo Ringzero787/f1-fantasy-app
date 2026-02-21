@@ -61,6 +61,7 @@ export default function ProfileScreen() {
   const themeIds = Object.keys(CONSTRUCTOR_THEMES) as ConstructorThemeId[];
 
   const SCALE_OPTIONS = [
+    { label: 'Aa', value: 0.85, name: 'Small' },
     { label: 'Aa', value: 1.0, name: 'Normal' },
     { label: 'Aa', value: 1.15, name: 'Large' },
     { label: 'Aa', value: 1.3, name: 'XL' },
@@ -305,8 +306,8 @@ export default function ProfileScreen() {
   );
 
   return (
-    <View style={styles.root}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={[styles.root, { backgroundColor: theme.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
       {/* Hero Profile Card */}
       <Card style={styles.userCard} variant="elevated">
         <TouchableOpacity
@@ -321,9 +322,9 @@ export default function ProfileScreen() {
             end={{ x: 1, y: 1 }}
           >
             {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              <Image source={{ uri: avatarUrl }} style={[styles.avatarImage, { borderColor: theme.background }]} />
             ) : (
-              <View style={styles.avatar}>
+              <View style={[styles.avatar, { backgroundColor: theme.card, borderColor: theme.background }]}>
                 <Text style={[styles.avatarText, { color: theme.primary }]}>
                   {user?.displayName?.charAt(0).toUpperCase() || 'U'}
                 </Text>
@@ -335,7 +336,7 @@ export default function ProfileScreen() {
               <ActivityIndicator size="small" color={COLORS.white} />
             </View>
           )}
-          <View style={[styles.editBadge, { backgroundColor: theme.primary }]}>
+          <View style={[styles.editBadge, { backgroundColor: theme.primary, borderColor: theme.background }]}>
             <Ionicons name="camera" size={14} color={COLORS.white} />
           </View>
           {isDemoMode && (
@@ -350,15 +351,15 @@ export default function ProfileScreen() {
 
         {/* Stats Pills */}
         <View style={styles.statsPillRow}>
-          <View style={[styles.statsPill, { paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }]}>
+          <View style={[styles.statsPill, { backgroundColor: theme.background, paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }]}>
             <Ionicons name="people" size={scaledIcon(13)} color={theme.primary} />
             <Text style={[styles.statsPillText, { fontSize: scaledFonts.sm }]}>{userTeams.length} Team{userTeams.length !== 1 ? 's' : ''}</Text>
           </View>
-          <View style={[styles.statsPill, { paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }]}>
+          <View style={[styles.statsPill, { backgroundColor: theme.background, paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }]}>
             <Ionicons name="calendar" size={scaledIcon(13)} color={COLORS.warning} />
             <Text style={[styles.statsPillText, { fontSize: scaledFonts.sm }]}>2026 Season</Text>
           </View>
-          <View style={[styles.statsPill, { paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }, isDemoMode && styles.statsPillDemo]}>
+          <View style={[styles.statsPill, { backgroundColor: theme.background, paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }, isDemoMode && styles.statsPillDemo]}>
             <Ionicons name={isDemoMode ? 'flask' : 'cloud'} size={scaledIcon(13)} color={isDemoMode ? COLORS.warning : COLORS.success} />
             <Text style={[styles.statsPillText, { fontSize: scaledFonts.sm }]}>{isDemoMode ? 'Demo' : 'Online'}</Text>
           </View>
@@ -395,6 +396,7 @@ export default function ProfileScreen() {
                   key={opt.value}
                   style={[
                     styles.scalePill,
+                    { backgroundColor: theme.background },
                     isActive && [styles.scalePillActive, { borderColor: theme.primary, backgroundColor: theme.primary + '12' }],
                   ]}
                   onPress={() => setDisplayScale(opt.value)}
@@ -439,6 +441,7 @@ export default function ProfileScreen() {
                   key={id}
                   style={[
                     styles.themePill,
+                    { backgroundColor: theme.background },
                     isActive && { borderColor: t.primary, backgroundColor: t.primary + '12' },
                   ]}
                   onPress={() => setConstructorTheme(id)}
@@ -602,7 +605,7 @@ export default function ProfileScreen() {
       {isDemoMode && (
         <>
           <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Debug Info</Text>
-          <Card style={styles.debugCard}>
+          <Card style={{ ...styles.debugCard, backgroundColor: theme.surface }}>
             <Text style={styles.debugText}>User ID: {user?.id}</Text>
             <Text style={styles.debugText}>Demo Mode: {isDemoMode ? 'Yes' : 'No'}</Text>
             <Text style={styles.debugText}>
@@ -679,11 +682,11 @@ export default function ProfileScreen() {
         onPress={() => setShowAvatarOptions(false)}
       >
         <View style={styles.modalSpacer} />
-        <TouchableOpacity activeOpacity={1} style={styles.optionsCard}>
+        <TouchableOpacity activeOpacity={1} style={[styles.optionsCard, { backgroundColor: theme.card }]}>
           <View style={styles.modalHandle} />
           <Text style={styles.optionsTitle}>Change Profile Picture</Text>
 
-          <TouchableOpacity style={styles.optionItem} onPress={handlePickImage}>
+          <TouchableOpacity style={[styles.optionItem, { backgroundColor: theme.background }]} onPress={handlePickImage}>
             <IconBox icon="image-outline" color={theme.primary} bg={theme.primary + '15'} />
             <View style={styles.optionTextContainer}>
               <Text style={styles.optionText}>Choose from Library</Text>
@@ -693,7 +696,7 @@ export default function ProfileScreen() {
 
           {isAvatarGenerationAvailable && (
             <TouchableOpacity
-              style={[styles.optionItem, !canGenerateAvatar && styles.optionItemDisabled]}
+              style={[styles.optionItem, { backgroundColor: theme.background }, !canGenerateAvatar && styles.optionItemDisabled]}
               onPress={handleGenerateAvatar}
             >
               <IconBox icon="sparkles" color={COLORS.purple[500]} bg={COLORS.purple[500] + '15'} />
@@ -730,7 +733,7 @@ export default function ProfileScreen() {
                     >
                       <Image source={{ uri: url }} style={styles.historyImage} />
                       {url === avatarUrl && (
-                        <View style={styles.historyCheck}>
+                        <View style={[styles.historyCheck, { backgroundColor: theme.card }]}>
                           <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
                         </View>
                       )}
@@ -742,7 +745,7 @@ export default function ProfileScreen() {
           )}
 
           <TouchableOpacity
-            style={[styles.optionItem, styles.cancelOption]}
+            style={[styles.optionItem, styles.cancelOption, { backgroundColor: theme.card }]}
             onPress={() => setShowAvatarOptions(false)}
           >
             <Text style={styles.cancelText}>Cancel</Text>
@@ -762,12 +765,10 @@ const AVATAR_SIZE = 110;
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -801,11 +802,9 @@ const styles = StyleSheet.create({
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: COLORS.background,
   },
 
   avatarText: {
@@ -819,7 +818,6 @@ const styles = StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     borderWidth: 3,
-    borderColor: COLORS.background,
   },
 
   avatarLoading: {
@@ -845,7 +843,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: COLORS.background,
   },
 
   demoBadge: {
@@ -889,7 +886,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: COLORS.background,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 2,
     borderRadius: BORDER_RADIUS.full,
@@ -992,7 +988,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.sm + 2,
     borderWidth: 1.5,
     borderColor: COLORS.border.default,
-    backgroundColor: COLORS.background,
   },
 
   scalePillActive: {
@@ -1048,7 +1043,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.full,
     borderWidth: 1.5,
     borderColor: COLORS.border.default,
-    backgroundColor: COLORS.background,
   },
 
   themeDot: {
@@ -1119,7 +1113,6 @@ const styles = StyleSheet.create({
   // Debug
   debugCard: {
     padding: SPACING.md,
-    backgroundColor: COLORS.surface,
     marginBottom: SPACING.md,
   },
 
@@ -1151,7 +1144,6 @@ const styles = StyleSheet.create({
   },
 
   optionsCard: {
-    backgroundColor: COLORS.card,
     borderTopLeftRadius: BORDER_RADIUS.xl,
     borderTopRightRadius: BORDER_RADIUS.xl,
     padding: SPACING.lg,
@@ -1171,7 +1163,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
-    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     gap: SPACING.md,
@@ -1194,7 +1185,6 @@ const styles = StyleSheet.create({
   },
 
   cancelOption: {
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
     justifyContent: 'center',
@@ -1274,7 +1264,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: COLORS.card,
     borderRadius: 10,
   },
 });

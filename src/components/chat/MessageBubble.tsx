@@ -38,7 +38,7 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
   if (message.isDeleted) {
     return (
       <View style={[styles.container, isOwn ? styles.containerOwn : styles.containerOther]}>
-        <View style={[styles.bubble, styles.deletedBubble]}>
+        <View style={[styles.bubble, styles.deletedBubble, { backgroundColor: theme.surface }]}>
           <Text style={[styles.deletedText, { fontSize: scaledFonts.sm }]}>This message was deleted</Text>
         </View>
       </View>
@@ -77,10 +77,10 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
       <TouchableOpacity
         activeOpacity={0.7}
         onLongPress={handleLongPress}
-        style={[styles.bubble, isOwn ? [styles.bubbleOwn, { backgroundColor: theme.primary + '20' }] : styles.bubbleOther]}
+        style={[styles.bubble, isOwn ? [styles.bubbleOwn, { backgroundColor: theme.primary + '20' }] : [styles.bubbleOther, { backgroundColor: theme.card }]]}
       >
         {message.replyTo && (
-          <View style={styles.replySnippet}>
+          <View style={[styles.replySnippet, { backgroundColor: theme.surface }]}>
             <View style={[styles.replyBar, { backgroundColor: theme.primary }]} />
             <View style={styles.replyContent}>
               <Text style={[styles.replySender, { fontSize: scaledFonts.xs, color: theme.primary }]} numberOfLines={1}>
@@ -117,7 +117,7 @@ export function MessageBubble({ message, leagueId, onReply }: MessageBubbleProps
             <TouchableOpacity
               key={emoji}
               style={[
-                styles.reactionChip,
+                styles.reactionChip, { backgroundColor: theme.surface },
                 users.includes(userId || '') && [styles.reactionChipActive, { borderColor: theme.primary, backgroundColor: theme.primary + '15' }],
               ]}
               onPress={() => toggleReaction(leagueId, message.id, emoji)}
@@ -187,13 +187,11 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: BORDER_RADIUS.xs,
   },
   bubbleOther: {
-    backgroundColor: COLORS.card,
     borderBottomLeftRadius: BORDER_RADIUS.xs,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
   deletedBubble: {
-    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
@@ -205,7 +203,6 @@ const styles = StyleSheet.create({
   replySnippet: {
     flexDirection: 'row',
     marginBottom: SPACING.sm,
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.sm,
     padding: SPACING.sm,
   },
@@ -268,7 +265,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.pill,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 3,

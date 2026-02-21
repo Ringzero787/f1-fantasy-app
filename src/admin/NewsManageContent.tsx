@@ -197,7 +197,7 @@ export default function NewsManageContent() {
         {/* Summary - tap Edit to modify */}
         {isDraft && isEditing ? (
           <TextInput
-            style={styles.summaryInput}
+            style={[styles.summaryInput, { backgroundColor: theme.background }]}
             multiline
             autoFocus
             value={editedSummary !== undefined ? editedSummary : item.summary}
@@ -288,7 +288,7 @@ export default function NewsManageContent() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <FlatList
         data={articles}
         keyExtractor={item => item.id}
@@ -331,6 +331,7 @@ export default function NewsManageContent() {
                   key={t}
                   style={[
                     styles.tabChip,
+                    { backgroundColor: theme.card },
                     tab === t && styles.tabChipActive,
                     tab === t && { borderColor: STATUS_COLORS[t] },
                   ]}
@@ -375,7 +376,6 @@ export default function NewsManageContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   content: {
     padding: SPACING.md,
@@ -432,12 +432,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
   tabChipActive: {
-    backgroundColor: COLORS.card,
   },
   tabChipText: {
     fontSize: FONTS.sizes.sm,
@@ -543,7 +541,6 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
     lineHeight: 18,
     marginBottom: SPACING.sm,
-    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border.default,

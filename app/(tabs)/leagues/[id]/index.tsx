@@ -252,7 +252,7 @@ export default function LeagueDetailScreen() {
 
   if (!currentLeague) {
     return (
-      <View style={styles.emptyContainer}>
+      <View style={[styles.emptyContainer, { backgroundColor: theme.background }]}>
         <EmptyState
           icon="alert-circle-outline"
           title="League Not Found"
@@ -331,7 +331,7 @@ export default function LeagueDetailScreen() {
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg }]}>Leaderboard</Text>
 
-        <View style={styles.viewToggle}>
+        <View style={[styles.viewToggle, { backgroundColor: theme.card }]}>
           {LEADERBOARD_VIEWS.map((view) => (
             <TouchableOpacity
               key={view.key}
@@ -366,7 +366,7 @@ export default function LeagueDetailScreen() {
   const listFooter = (
     <>
       {/* Invite Code - Compact */}
-      <TouchableOpacity style={styles.inviteRow} onPress={handleShareCode}>
+      <TouchableOpacity style={[styles.inviteRow, { backgroundColor: theme.card }]} onPress={handleShareCode}>
         <View style={styles.inviteRowLeft}>
           <Ionicons name="link-outline" size={20} color={COLORS.text.muted} />
           <Text style={[styles.inviteRowLabel, { fontSize: scaledFonts.sm }]}>Invite Code:</Text>
@@ -382,7 +382,7 @@ export default function LeagueDetailScreen() {
       <View style={styles.actions}>
         {isOwner && (
           <TouchableOpacity
-            style={[styles.adminButton, { borderColor: theme.primary }]}
+            style={[styles.adminButton, { backgroundColor: theme.card, borderColor: theme.primary }]}
             onPress={() => router.push(`/leagues/${id}/admin`)}
           >
             <Ionicons name="settings-outline" size={20} color={theme.primary} />
@@ -403,7 +403,7 @@ export default function LeagueDetailScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <FlatList
         data={isPendingApproval ? [] : members}
         keyExtractor={(item) => item.id}
@@ -458,12 +458,10 @@ export default function LeagueDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   emptyContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -548,7 +546,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.card,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
@@ -600,7 +597,6 @@ const styles = StyleSheet.create({
 
   viewToggle: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     padding: 4,
     marginBottom: SPACING.md,
@@ -649,7 +645,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    backgroundColor: COLORS.card,
     paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,

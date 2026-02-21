@@ -240,7 +240,7 @@ export default function SelectDriverScreen() {
   // V5: Lockout guard - prevent team changes during race weekend
   if (lockoutInfo.isLocked) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
         <View style={styles.lockedContainer}>
           <Ionicons name="lock-closed" size={48} color={COLORS.error} />
           <Text style={styles.lockedTitle}>Teams Locked</Text>
@@ -304,7 +304,7 @@ export default function SelectDriverScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       {/* Driver list with header */}
       <FlatList
         data={availableDrivers}
@@ -348,7 +348,7 @@ export default function SelectDriverScreen() {
       {/* Contract Length Picker */}
       {pendingDriver && (
         <View style={styles.contractOverlay}>
-          <View style={styles.contractModal}>
+          <View style={[styles.contractModal, { backgroundColor: theme.card }]}>
             <Text style={styles.contractTitle}>{pendingDriver.name}</Text>
             <Text style={[styles.contractSubtitle, { color: theme.primary }]}>${pendingDriver.price}</Text>
             <Text style={styles.contractLabel}>Contract Length</Text>
@@ -378,7 +378,7 @@ export default function SelectDriverScreen() {
             </Text>
             <View style={styles.contractActions}>
               <TouchableOpacity
-                style={styles.contractCancelBtn}
+                style={[styles.contractCancelBtn, { backgroundColor: theme.card }]}
                 onPress={() => setPendingDriver(null)}
               >
                 <Text style={styles.contractCancelText}>Cancel</Text>
@@ -396,7 +396,7 @@ export default function SelectDriverScreen() {
 
       {/* Bottom Cart Panel (non-swap mode) */}
       {!isSwapMode && !pendingDriver && (
-        <View style={styles.cartPanel}>
+        <View style={[styles.cartPanel, { backgroundColor: theme.card }]}>
           {/* Budget row */}
           <View style={styles.cartBudgetRow}>
             <Text style={styles.cartBudgetLabel}>
@@ -416,7 +416,7 @@ export default function SelectDriverScreen() {
                 return (
                   <TouchableOpacity
                     key={driver.id}
-                    style={styles.cartSlotFilled}
+                    style={[styles.cartSlotFilled, { backgroundColor: theme.card }]}
                     onPress={() => handleRemoveSelected(driver.id)}
                     activeOpacity={0.7}
                   >
@@ -431,7 +431,7 @@ export default function SelectDriverScreen() {
                 );
               }
               return (
-                <View key={`empty-${index}`} style={styles.cartSlotEmpty}>
+                <View key={`empty-${index}`} style={[styles.cartSlotEmpty, { backgroundColor: theme.surface }]}>
                   <Ionicons name="add" size={18} color={COLORS.text.muted} />
                 </View>
               );
@@ -452,7 +452,7 @@ export default function SelectDriverScreen() {
 
       {/* Swap mode confirm (original behavior) */}
       {isSwapMode && selectedDrivers.length > 0 && !pendingDriver && (
-        <View style={styles.confirmContainer}>
+        <View style={[styles.confirmContainer, { backgroundColor: theme.card }]}>
           <View style={styles.selectedInfo}>
             <Text style={styles.selectedName}>
               Swap with {selectedDrivers[0].name}
@@ -474,7 +474,6 @@ export default function SelectDriverScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   swapBanner: {
@@ -581,7 +580,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.card,
     borderTopWidth: 1,
     borderTopColor: COLORS.border.default,
     paddingHorizontal: SPACING.md,
@@ -621,7 +619,6 @@ const styles = StyleSheet.create({
   cartSlotFilled: {
     width: SLOT_WIDTH,
     height: 58,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.sm,
     borderWidth: 1,
     borderColor: COLORS.border.accent,
@@ -671,7 +668,6 @@ const styles = StyleSheet.create({
   cartSlotEmpty: {
     width: SLOT_WIDTH,
     height: 58,
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.sm,
     borderWidth: 1,
     borderColor: COLORS.border.light,
@@ -692,7 +688,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border.default,
@@ -729,7 +724,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   contractModal: {
-    backgroundColor: COLORS.card,
     borderTopLeftRadius: BORDER_RADIUS.lg,
     borderTopRightRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
@@ -800,7 +794,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.button,
     borderWidth: 1,
     borderColor: COLORS.border.default,
-    backgroundColor: COLORS.card,
   },
   contractCancelText: {
     fontSize: FONTS.sizes.md,

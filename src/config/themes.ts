@@ -20,21 +20,36 @@ interface ConstructorThemeDef {
   label: string;
   primary: string;
   secondary: string;
+  background?: string;
+  surface?: string;
+  card?: string;
+  cardElevated?: string;
 }
 
 export const CONSTRUCTOR_THEMES: Record<ConstructorThemeId, ConstructorThemeDef> = {
   default:      { label: 'Default',       primary: '#00D4FF', secondary: '#0EA5E9' },
-  red_bull:     { label: 'Red Bull',      primary: '#1E3A8A', secondary: '#E10600' },
-  ferrari:      { label: 'Ferrari',       primary: '#DC2626', secondary: '#A91D1D' },
-  mclaren:      { label: 'McLaren',       primary: '#FF8000', secondary: '#E67300' },
-  mercedes:     { label: 'Mercedes',      primary: '#00D2BE', secondary: '#00A19C' },
-  aston_martin: { label: 'Aston Martin',  primary: '#006F62', secondary: '#00483B' },
-  alpine:       { label: 'Alpine',        primary: '#0090FF', secondary: '#FF87BC' },
-  williams:     { label: 'Williams',      primary: '#005AFF', secondary: '#00A3E0' },
-  rb:           { label: 'RB',            primary: '#FFFFFF', secondary: '#1634B5' },
-  haas:         { label: 'Haas',          primary: '#FFFFFF', secondary: '#E10600' },
-  audi:         { label: 'Audi',          primary: '#8C8C8C', secondary: '#BB0A30' },
-  cadillac:     { label: 'Cadillac',      primary: '#C0C0C0', secondary: '#1C1C1C' },
+  red_bull:     { label: 'Red Bull',      primary: '#1E3A8A', secondary: '#E10600',
+                  background: '#0D1225', surface: '#141A30', card: '#1A2240', cardElevated: '#20294A' },
+  ferrari:      { label: 'Ferrari',       primary: '#DC2626', secondary: '#A91D1D',
+                  background: '#150D0D', surface: '#1E1214', card: '#2A181A', cardElevated: '#321C1F' },
+  mclaren:      { label: 'McLaren',       primary: '#FF8000', secondary: '#E67300',
+                  background: '#14110D', surface: '#1E1812', card: '#2A2118', cardElevated: '#32281D' },
+  mercedes:     { label: 'Mercedes',      primary: '#00D2BE', secondary: '#00A19C',
+                  background: '#0D1515', surface: '#121E1D', card: '#182A28', cardElevated: '#1D322F' },
+  aston_martin: { label: 'Aston Martin',  primary: '#006F62', secondary: '#00483B',
+                  background: '#0D1312', surface: '#121B19', card: '#182520', cardElevated: '#1D2D27' },
+  alpine:       { label: 'Alpine',        primary: '#0090FF', secondary: '#FF87BC',
+                  background: '#0D1219', surface: '#121A24', card: '#182230', cardElevated: '#1D2938' },
+  williams:     { label: 'Williams',      primary: '#005AFF', secondary: '#00A3E0',
+                  background: '#0D1120', surface: '#12182A', card: '#182038', cardElevated: '#1D2742' },
+  rb:           { label: 'RB',            primary: '#FFFFFF', secondary: '#1634B5',
+                  background: '#0D1020', surface: '#12162A', card: '#181E38', cardElevated: '#1D2442' },
+  haas:         { label: 'Haas',          primary: '#FFFFFF', secondary: '#E10600',
+                  background: '#130D0D', surface: '#1C1214', card: '#26181A', cardElevated: '#2E1C1F' },
+  audi:         { label: 'Audi',          primary: '#8C8C8C', secondary: '#BB0A30',
+                  background: '#120D0F', surface: '#1A1215', card: '#24181D', cardElevated: '#2C1D23' },
+  cadillac:     { label: 'Cadillac',      primary: '#C0C0C0', secondary: '#1C1C1C',
+                  background: '#101010', surface: '#181818', card: '#202020', cardElevated: '#282828' },
 };
 
 export interface ThemeColors {
@@ -43,6 +58,10 @@ export interface ThemeColors {
   primaryLight: string;
   secondary: string;
   accent: string;
+  background: string;
+  surface: string;
+  card: string;
+  cardElevated: string;
   brand: {
     50: string;
     100: string;
@@ -146,6 +165,17 @@ function luminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/** Blend a tint color into a dark base at the given ratio (0–1) */
+function blendWithBase(tint: string, ratio: number, base = '#0D1117'): string {
+  const [br, bg, bb] = hexToRgb(base);
+  const [tr, tg, tb] = hexToRgb(tint);
+  return rgbToHex(
+    br + (tr - br) * ratio,
+    bg + (tg - bg) * ratio,
+    bb + (tb - bb) * ratio,
+  );
+}
+
 function buildBrandPalette(primary: string) {
   return {
     50: lighten(primary, 0.90),
@@ -161,11 +191,20 @@ function buildBrandPalette(primary: string) {
   };
 }
 
-export function buildTheme(primary: string, secondary: string): ThemeColors {
+interface SurfaceOverrides {
+  background?: string;
+  surface?: string;
+  card?: string;
+  cardElevated?: string;
+}
+
+export function buildTheme(primary: string, secondary: string, overrides?: SurfaceOverrides): ThemeColors {
   const lum = luminance(primary);
   const contrastText = lum > 0.25 ? '#0D1117' : '#FFFFFF';
-  // For tab active background, light primaries work as-is; for dark ones use primary
   const tabActiveText = lum > 0.25 ? '#0D1117' : '#0D1117';
+
+  // Pick a tint color — use primary if dark enough, otherwise secondary
+  const tint = lum < 0.25 ? primary : secondary;
 
   return {
     primary,
@@ -173,6 +212,10 @@ export function buildTheme(primary: string, secondary: string): ThemeColors {
     primaryLight: lighten(primary, 0.30),
     secondary,
     accent: primary,
+    background:    overrides?.background    ?? blendWithBase(tint, 0.08),
+    surface:       overrides?.surface       ?? blendWithBase(tint, 0.12),
+    card:          overrides?.card          ?? blendWithBase(tint, 0.18),
+    cardElevated:  overrides?.cardElevated  ?? blendWithBase(tint, 0.22),
     brand: buildBrandPalette(primary),
     glass: {
       brand: withOpacity(primary, 0.10),
@@ -228,6 +271,10 @@ export const DEFAULT_THEME: ThemeColors = {
   primaryLight: '#5CE1FF',
   secondary: '#0EA5E9',
   accent: '#00D4FF',
+  background: '#0D1117',
+  surface: '#161B22',
+  card: '#1E2530',
+  cardElevated: '#242C3A',
   brand: {
     50: '#ECFEFF',
     100: '#CFFAFE',

@@ -153,7 +153,7 @@ export default function NotificationsScreen() {
   const hasUnread = notifications.some((n) => !n.read);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {hasUnread && (
         <TouchableOpacity style={styles.markAllButton} onPress={handleMarkAllRead}>
           <Ionicons name="checkmark-done" size={scaledIcon(18)} color={theme.primary} />
@@ -185,7 +185,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: undefined, // themed via inline style
   },
   markAllButton: {
     flexDirection: 'row',

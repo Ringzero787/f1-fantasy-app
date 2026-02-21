@@ -85,7 +85,7 @@ export function ChatInput({ leagueId }: ChatInputProps) {
   const sending = isSending || isUploading;
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { backgroundColor: theme.surface }]}>
       {replyingTo && (
         <ReplyPreview
           message={replyingTo}
@@ -105,7 +105,7 @@ export function ChatInput({ leagueId }: ChatInputProps) {
           />
         </TouchableOpacity>
         <TextInput
-          style={[styles.input, { fontSize: scaledFonts.md }]}
+          style={[styles.input, { backgroundColor: theme.card, fontSize: scaledFonts.md }]}
           value={text}
           onChangeText={setText}
           placeholder="Type a message..."
@@ -136,7 +136,6 @@ export function ChatInput({ leagueId }: ChatInputProps) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: COLORS.surface,
     borderTopWidth: 1,
     borderTopColor: COLORS.border.default,
   },
@@ -153,7 +152,6 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.xl,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,

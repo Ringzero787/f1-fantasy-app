@@ -73,7 +73,7 @@ export default function RaceDetailScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -139,7 +139,7 @@ export default function RaceDetailScreen() {
                 index < sessions.length - 1 && styles.sessionBorder,
               ]}
             >
-              <View style={styles.sessionIcon}>
+              <View style={[styles.sessionIcon, { backgroundColor: theme.surface }]}>
                 <Ionicons
                   name={session.icon as any}
                   size={20}
@@ -175,6 +175,7 @@ export default function RaceDetailScreen() {
               >
                 <View style={[
                   styles.positionBadge,
+                  { backgroundColor: theme.surface },
                   index === 0 && styles.gold,
                   index === 1 && styles.silver,
                   index === 2 && styles.bronze,
@@ -221,7 +222,7 @@ export default function RaceDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: undefined, // themed via inline style
   },
 
   content: {
@@ -358,7 +359,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.surface,
+    backgroundColor: undefined, // themed via inline style
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -401,7 +402,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.surface,
+    backgroundColor: undefined, // themed via inline style
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,

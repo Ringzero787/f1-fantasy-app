@@ -277,11 +277,11 @@ export default function LeaguesScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Action Buttons */}
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.actionButton, { borderColor: theme.primary }]}
+          style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.primary }]}
           onPress={() => router.push('/leagues/create')}
         >
           <Ionicons name="add-circle" size={scaledIcon(20)} color={theme.primary} />
@@ -289,7 +289,7 @@ export default function LeaguesScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionButton, { borderColor: theme.primary }]}
+          style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.primary }]}
           onPress={() => setShowJoinModal(true)}
         >
           <Ionicons name="enter" size={scaledIcon(20)} color={theme.primary} />
@@ -300,7 +300,7 @@ export default function LeaguesScreen() {
       {/* Join Modal */}
       {showJoinModal && (
         <View style={styles.modalOverlay}>
-          <View style={styles.modal}>
+          <View style={[styles.modal, { backgroundColor: theme.card }]}>
             <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={styles.modalTitle}>Join League</Text>
 
@@ -314,7 +314,7 @@ export default function LeaguesScreen() {
                   {availableLeagues.map((league) => (
                     <TouchableOpacity
                       key={league.id}
-                      style={styles.leaguePickerItem}
+                      style={[styles.leaguePickerItem, { backgroundColor: theme.surface }]}
                       onPress={() => handleAssignToLeague(league)}
                       disabled={joining}
                     >
@@ -344,7 +344,7 @@ export default function LeaguesScreen() {
             )}
 
             <TextInput
-              style={styles.codeInput}
+              style={[styles.codeInput, { backgroundColor: theme.surface }]}
               placeholder="Enter code"
               value={inviteCode}
               onChangeText={setInviteCode}
@@ -408,7 +408,7 @@ export default function LeaguesScreen() {
               Have an invite code? Enter it below to join an existing league.
             </Text>
             <TextInput
-              style={styles.inlineCodeInput}
+              style={[styles.inlineCodeInput, { backgroundColor: theme.surface }]}
               placeholder="ENTER CODE"
               value={inviteCode}
               onChangeText={setInviteCode}
@@ -451,7 +451,6 @@ export default function LeaguesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   actions: {
@@ -465,7 +464,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
@@ -564,7 +562,6 @@ const styles = StyleSheet.create({
   },
 
   modal: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.xl,
     width: '85%',
@@ -588,7 +585,6 @@ const styles = StyleSheet.create({
   },
 
   codeInput: {
-    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border.default,
     borderRadius: BORDER_RADIUS.md,
@@ -672,7 +668,6 @@ const styles = StyleSheet.create({
   },
 
   inlineCodeInput: {
-    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border.default,
     borderRadius: BORDER_RADIUS.md,
@@ -701,7 +696,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     borderWidth: 1,

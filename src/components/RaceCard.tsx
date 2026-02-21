@@ -71,7 +71,7 @@ export const RaceCard = React.memo(function RaceCard({
     return (
       <Pressable
         style={({ pressed }) => [
-          styles.compactContainer,
+          styles.compactContainer, { backgroundColor: theme.card },
           { transform: [{ scale: pressed ? 0.98 : 1 }] },
         ]}
         onPress={onPress}
@@ -96,7 +96,7 @@ export const RaceCard = React.memo(function RaceCard({
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.container,
+        styles.container, { backgroundColor: theme.card },
         { transform: [{ scale: pressed ? 0.985 : 1 }] },
       ]}
       onPress={onPress}
@@ -104,7 +104,7 @@ export const RaceCard = React.memo(function RaceCard({
       <View style={styles.header}>
         <View style={styles.trackContainer}>
           <TrackIcon country={race.country} city={race.city} size={56} />
-          <View style={styles.roundOverlay}>
+          <View style={[styles.roundOverlay, { borderColor: theme.card }]}>
             <Text style={styles.roundOverlayText}>{race.round}</Text>
           </View>
         </View>
@@ -162,7 +162,6 @@ export const RaceCard = React.memo(function RaceCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.xl,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
@@ -171,7 +170,6 @@ const styles = StyleSheet.create({
   },
 
   compactContainer: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
@@ -209,7 +207,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.card,
   },
 
   roundOverlayText: {

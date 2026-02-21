@@ -105,7 +105,7 @@ export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialPr
 
   return (
     <Modal visible={visible} animationType="fade" statusBarTranslucent>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         {/* Slides */}
         <FlatList
           ref={flatListRef}
@@ -175,7 +175,6 @@ export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   skipButton: {
     position: 'absolute',

@@ -94,7 +94,7 @@ export function AnnouncementBanner() {
           ) : (
             <View style={styles.replyRow}>
               <TextInput
-                style={styles.replyInput}
+                style={[styles.replyInput, { backgroundColor: theme.card }]}
                 placeholder="Write a reply..."
                 placeholderTextColor={COLORS.text.muted}
                 value={replyText}
@@ -184,7 +184,6 @@ const styles = StyleSheet.create({
   },
   replyInput: {
     flex: 1,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,

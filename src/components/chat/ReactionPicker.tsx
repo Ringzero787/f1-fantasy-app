@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Modal, Pressable } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
@@ -11,16 +12,17 @@ interface ReactionPickerProps {
 }
 
 export function ReactionPicker({ visible, onSelect, onClose }: ReactionPickerProps) {
+  const theme = useTheme();
   if (!visible) return null;
 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.card }]}>
           {EMOJI_OPTIONS.map((emoji) => (
             <TouchableOpacity
               key={emoji}
-              style={styles.emojiButton}
+              style={[styles.emojiButton, { backgroundColor: theme.surface }]}
               onPress={() => {
                 onSelect(emoji);
                 onClose();
@@ -44,7 +46,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.xxl,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.sm,
@@ -59,7 +60,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.surface,
   },
   emoji: {
     fontSize: 24,

@@ -482,6 +482,70 @@ class OpenF1Service {
 
     return { race, sprint, sessions: allSessions };
   }
+
+  /**
+   * Fetch race results from OpenF1 and return in admin-store format
+   * (positions + DNF flags) so they can pre-populate the admin form.
+   */
+  async fetchRaceResultsForAdmin(
+    meetingKey: number,
+    isSprint: boolean = false,
+  ): Promise<{
+    positions: Record<string, string>;
+    dnf: Record<string, boolean>;
+    fastestLapDriverId?: string;
+  }> {
+    const sessions = await this.fetch<OpenF1Session>('/sessions', { meeting_key: meetingKey });
+    const sessionName = isSprint ? 'Sprint' : 'Race';
+    const session = sessions.find(s => s.session_name === sessionName);
+
+    if (!session) {
+      throw new Error(`No ${sessionName} session found for meeting ${meetingKey}`);
+    }
+
+    const results = await this.getSessionResults(session.session_key);
+    if (!results || results.length === 0) {
+      throw new Error(`No results found for ${sessionName} session ${session.session_key}`);
+    }
+
+    const positions: Record<string, string> = {};
+    const dnf: Record<string, boolean> = {};
+    let fastestLapDriverId: string | undefined;
+
+    for (const result of results) {
+      if (!result || result.driver_number === undefined) continue;
+
+      const driverId = this.driverNumberToId(result.driver_number);
+      if (!driverId) continue;
+
+      const isDnf = result.dnf === true || result.dns === true || result.dsq === true;
+      dnf[driverId] = isDnf;
+
+      if (isDnf || !result.position) {
+        positions[driverId] = '';
+      } else {
+        positions[driverId] = String(result.position);
+      }
+    }
+
+    return { positions, dnf, fastestLapDriverId };
+  }
+
+  /**
+   * Find OpenF1 meeting key by matching country name from our demoRaces data.
+   */
+  async findMeetingKeyForRace(
+    year: number,
+    countryName: string,
+  ): Promise<number | null> {
+    const sessions = await this.getSessions(year);
+    const lowerCountry = countryName.toLowerCase();
+    const match = sessions.find(
+      s => s.country_name.toLowerCase().includes(lowerCountry) ||
+           lowerCountry.includes(s.country_name.toLowerCase())
+    );
+    return match?.meeting_key ?? null;
+  }
 }
 
 export const openF1Service = new OpenF1Service();

@@ -43,7 +43,7 @@ export function PurchaseModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.card }]}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -103,7 +103,6 @@ const styles = StyleSheet.create({
   },
 
   container: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.lg,
     width: '100%',
     maxWidth: 380,

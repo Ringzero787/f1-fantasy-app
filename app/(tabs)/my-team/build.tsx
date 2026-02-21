@@ -127,9 +127,9 @@ export default function BuildTeamScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       {/* Fixed Budget Header */}
-      <View style={[styles.budgetHeader, { borderBottomColor: theme.primary }]}>
+      <View style={[styles.budgetHeader, { backgroundColor: theme.card, borderBottomColor: theme.primary }]}>
         <View style={styles.budgetRow}>
           <Text style={styles.budgetLabel}>Dollars Remaining</Text>
           <Text style={[
@@ -177,7 +177,7 @@ export default function BuildTeamScreen() {
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'drivers' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'drivers' && styles.activeTab, activeTab === 'drivers' && { backgroundColor: theme.card }]}
           onPress={() => { setActiveTab('drivers'); setSearchQuery(''); }}
         >
           <Text style={[styles.tabText, activeTab === 'drivers' && styles.activeTabText, activeTab === 'drivers' && { color: theme.primary }]}>
@@ -185,7 +185,7 @@ export default function BuildTeamScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'constructor' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'constructor' && styles.activeTab, activeTab === 'constructor' && { backgroundColor: theme.card }]}
           onPress={() => { setActiveTab('constructor'); setSearchQuery(''); }}
         >
           <Text style={[styles.tabText, activeTab === 'constructor' && styles.activeTabText, activeTab === 'constructor' && { color: theme.primary }]}>
@@ -195,7 +195,7 @@ export default function BuildTeamScreen() {
       </View>
 
       {/* Search */}
-      <View style={styles.searchContainer}>
+      <View style={[styles.searchContainer, { backgroundColor: theme.card }]}>
         <Ionicons name="search" size={20} color={COLORS.text.muted} />
         <TextInput
           style={styles.searchInput}
@@ -319,7 +319,7 @@ export default function BuildTeamScreen() {
       )}
 
       {/* Confirm Button */}
-      <View style={styles.confirmContainer}>
+      <View style={[styles.confirmContainer, { backgroundColor: theme.card }]}>
         <View style={styles.validationInfo}>
           {!selectionState.isValid && selectionState.validationErrors.length > 0 && (
             <Text style={styles.validationText}>
@@ -341,11 +341,9 @@ export default function BuildTeamScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   budgetHeader: {
-    backgroundColor: COLORS.card,
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
@@ -439,9 +437,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.sm,
   },
 
-  activeTab: {
-    backgroundColor: COLORS.card,
-  },
+  activeTab: {},
 
   tabText: {
     fontSize: FONTS.sizes.sm,
@@ -456,7 +452,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
     marginHorizontal: SPACING.md,
     marginTop: SPACING.md,
     paddingHorizontal: SPACING.md,
@@ -553,7 +548,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border.default,

@@ -176,7 +176,7 @@ function ArticleCard({
   const sourceColor = SOURCE_COLORS[article.source] || theme.primary;
 
   return (
-    <View style={[styles.card, isRead && styles.cardRead]}>
+    <View style={[styles.card, { backgroundColor: theme.card }, isRead && styles.cardRead]}>
       {/* Top row: source badge + read badge + time */}
       <View style={styles.cardTopRow}>
         <View style={styles.cardTopLeft}>
@@ -287,7 +287,6 @@ const styles = StyleSheet.create({
 
   card: {
     width: CARD_WIDTH,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,

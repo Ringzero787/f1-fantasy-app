@@ -117,7 +117,7 @@ export default function LeagueAdminScreen() {
 
   if (!isAdmin) {
     return (
-      <View style={styles.accessDenied}>
+      <View style={[styles.accessDenied, { backgroundColor: theme.background }]}>
         <Ionicons name="lock-closed" size={48} color={COLORS.text.muted} />
         <Text style={styles.accessDeniedTitle}>Access Denied</Text>
         <Text style={styles.accessDeniedText}>
@@ -490,7 +490,7 @@ export default function LeagueAdminScreen() {
   const topScorer = members.length > 0 ? members.reduce((top, m) => m.totalPoints > top.totalPoints ? m : top, members[0]) : null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
         <Ionicons name="settings" size={24} color={theme.primary} />
@@ -500,7 +500,7 @@ export default function LeagueAdminScreen() {
       {editingName ? (
         <View style={styles.editRow}>
           <TextInput
-            style={[styles.editNameInput, { borderColor: theme.primary }]}
+            style={[styles.editNameInput, { backgroundColor: theme.background, borderColor: theme.primary }]}
             value={editName}
             onChangeText={setEditName}
             maxLength={50}
@@ -532,7 +532,7 @@ export default function LeagueAdminScreen() {
       {editingDescription ? (
         <View style={styles.editDescriptionContainer}>
           <TextInput
-            style={[styles.editDescriptionInput, { borderColor: theme.primary }]}
+            style={[styles.editDescriptionInput, { backgroundColor: theme.background, borderColor: theme.primary }]}
             value={editDescription}
             onChangeText={setEditDescription}
             maxLength={200}
@@ -576,7 +576,7 @@ export default function LeagueAdminScreen() {
       {/* Require Approval Toggle */}
       {isOwner && (
         <View style={styles.section}>
-          <View style={styles.switchRow}>
+          <View style={[styles.switchRow, { backgroundColor: theme.card }]}>
             <View style={styles.switchInfo}>
               <Text style={styles.switchLabel}>Require Approval</Text>
               <Text style={styles.switchDescription}>
@@ -587,7 +587,7 @@ export default function LeagueAdminScreen() {
               value={currentLeague.settings?.requireApproval === true}
               onValueChange={handleToggleRequireApproval}
               trackColor={{ false: COLORS.border.default, true: theme.primary + '60' }}
-              thumbColor={currentLeague.settings?.requireApproval ? theme.primary : COLORS.surface}
+              thumbColor={currentLeague.settings?.requireApproval ? theme.primary : theme.surface}
             />
           </View>
         </View>
@@ -739,7 +739,7 @@ export default function LeagueAdminScreen() {
         <Card variant="outlined">
           <View style={styles.inviteRow}>
             <TextInput
-              style={styles.emailInput}
+              style={[styles.emailInput, { backgroundColor: theme.background }]}
               placeholder="Enter email address"
               placeholderTextColor={COLORS.text.muted}
               value={inviteEmail}
@@ -757,7 +757,7 @@ export default function LeagueAdminScreen() {
                 <Text style={styles.inviteButtonText}>...</Text>
               ) : (
                 <>
-                  <Ionicons name="paper-plane" size={16} color={COLORS.card} />
+                  <Ionicons name="paper-plane" size={16} color={theme.card} />
                   <Text style={styles.inviteButtonText}>Invite</Text>
                 </>
               )}
@@ -828,7 +828,7 @@ export default function LeagueAdminScreen() {
           <View style={styles.postSection}>
             <Text style={styles.postLabel}>Post New Announcement</Text>
             <TextInput
-              style={styles.annInput}
+              style={[styles.annInput, { backgroundColor: theme.background }]}
               placeholder="Write an announcement for league members..."
               placeholderTextColor={COLORS.text.muted}
               value={announcementMessage}
@@ -973,7 +973,7 @@ export default function LeagueAdminScreen() {
         {removableMembers.map((member) => {
           const isMemberCoAdmin = coAdminIds.includes(member.userId);
           return (
-            <View key={member.userId} style={styles.memberRow}>
+            <View key={member.userId} style={[styles.memberRow, { backgroundColor: theme.card }]}>
               <View style={styles.memberInfo}>
                 <View style={styles.memberNameRow}>
                   <Text style={styles.memberName}>{member.displayName}</Text>
@@ -1037,7 +1037,7 @@ export default function LeagueAdminScreen() {
                 Type <Text style={styles.leagueNameHighlight}>{currentLeague.name.replace(/\s+/g, ' ').trim()}</Text> to confirm:
               </Text>
               <TextInput
-                style={styles.deleteConfirmInput}
+                style={[styles.deleteConfirmInput, { backgroundColor: theme.background }]}
                 value={deleteConfirmText}
                 onChangeText={setDeleteConfirmText}
                 placeholder="Type league name here"
@@ -1084,7 +1084,6 @@ export default function LeagueAdminScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -1131,7 +1130,6 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
     color: COLORS.text.primary,
-    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
@@ -1178,7 +1176,6 @@ const styles = StyleSheet.create({
   editDescriptionInput: {
     fontSize: FONTS.sizes.sm,
     color: COLORS.text.primary,
-    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.sm,
@@ -1277,7 +1274,6 @@ const styles = StyleSheet.create({
 
   emailInput: {
     flex: 1,
-    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -1336,7 +1332,6 @@ const styles = StyleSheet.create({
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
@@ -1518,7 +1513,6 @@ const styles = StyleSheet.create({
 
   deleteConfirmInput: {
     width: '100%',
-    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -1686,7 +1680,6 @@ const styles = StyleSheet.create({
   },
 
   annInput: {
-    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -1751,7 +1744,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.xl,
-    backgroundColor: COLORS.background,
   },
 
   accessDeniedTitle: {
@@ -1777,7 +1769,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,

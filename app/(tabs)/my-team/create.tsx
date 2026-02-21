@@ -334,7 +334,7 @@ export default function CreateTeamScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -385,6 +385,7 @@ export default function CreateTeamScreen() {
               testID="solo-mode-btn"
               style={[
                 styles.modeOption,
+                { backgroundColor: theme.card },
                 teamMode === 'solo' && styles.modeOptionSelected,
                 teamMode === 'solo' && { backgroundColor: theme.primary, borderColor: theme.primary },
               ]}
@@ -416,6 +417,7 @@ export default function CreateTeamScreen() {
             <TouchableOpacity
               style={[
                 styles.modeOption,
+                { backgroundColor: theme.card },
                 teamMode === 'league' && styles.modeOptionSelected,
                 teamMode === 'league' && { backgroundColor: theme.primary, borderColor: theme.primary },
                 teamMode === 'league' && !currentLeague && { opacity: 0.6 },
@@ -456,7 +458,7 @@ export default function CreateTeamScreen() {
               </View>
             </View>
           ) : teamMode === 'league' && !autoLeague && !inviteLeague ? (
-            <View style={styles.inviteCodeSection}>
+            <View style={[styles.inviteCodeSection, { backgroundColor: theme.card }]}>
               <Text style={styles.inviteCodeLabel}>Enter a league invite code to join</Text>
               <View style={styles.inviteCodeRow}>
                 <Input
@@ -505,7 +507,7 @@ export default function CreateTeamScreen() {
             </View>
           )}
 
-          <View style={styles.infoBox}>
+          <View style={[styles.infoBox, { backgroundColor: theme.card }]}>
             <Text style={styles.infoTitle}>Team Rules</Text>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Starting Dollars:</Text>
@@ -550,7 +552,6 @@ export default function CreateTeamScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   keyboardView: {
@@ -631,7 +632,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
     alignItems: 'center',
@@ -681,7 +681,6 @@ const styles = StyleSheet.create({
   },
 
   infoBox: {
-    backgroundColor: COLORS.card,
     padding: SPACING.sm,
     borderRadius: BORDER_RADIUS.sm,
     marginBottom: SPACING.md,
@@ -739,7 +738,6 @@ const styles = StyleSheet.create({
   },
 
   inviteCodeSection: {
-    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.lg,

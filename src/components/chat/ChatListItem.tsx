@@ -36,7 +36,7 @@ export function ChatListItem({
 }: ChatListItemProps) {
   const theme = useTheme();
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.container, { backgroundColor: theme.card }]} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.avatar, { backgroundColor: theme.primary + '15' }]}>
         <Ionicons name="trophy" size={24} color={theme.primary} />
       </View>
@@ -75,7 +75,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border.default,

@@ -13,7 +13,7 @@ interface ReplyPreviewProps {
 export function ReplyPreview({ message, onClose }: ReplyPreviewProps) {
   const theme = useTheme();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.card }]}>
       <View style={[styles.bar, { backgroundColor: theme.primary }]} />
       <View style={styles.content}>
         <Text style={[styles.senderName, { color: theme.primary }]} numberOfLines={1}>
@@ -34,7 +34,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
     borderTopWidth: 1,
     borderTopColor: COLORS.border.default,
     paddingHorizontal: SPACING.md,

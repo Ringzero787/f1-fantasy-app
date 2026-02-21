@@ -166,7 +166,7 @@ export function SmartRecommendations({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.card }]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Ionicons name="bulb" size={16} color={COLORS.gold} />
@@ -189,7 +189,7 @@ export function SmartRecommendations({
               key={`rec-${rec.driver.id}`}
               style={({ pressed }) => [
                 styles.card,
-                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+                { backgroundColor: theme.surface, transform: [{ scale: pressed ? 0.98 : 1 }] },
               ]}
               onPress={() => onSelectDriver(rec.driver)}
             >
@@ -232,7 +232,6 @@ export function SmartRecommendations({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.card,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
     borderBottomWidth: 1,
@@ -271,7 +270,6 @@ const styles = StyleSheet.create({
 
   card: {
     width: 160,
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,

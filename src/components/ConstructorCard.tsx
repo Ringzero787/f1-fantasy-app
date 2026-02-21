@@ -43,7 +43,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
     return (
       <Pressable
         style={({ pressed }) => [
-          styles.compactContainer,
+          styles.compactContainer, { backgroundColor: theme.card },
           isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
           { transform: [{ scale: pressed ? 0.98 : 1 }] },
         ]}
@@ -68,7 +68,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.container,
+        styles.container, { backgroundColor: theme.card },
         isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
         isOnTeam && !isSelected && styles.onTeamContainer,
         { transform: [{ scale: pressed ? 0.985 : 1 }] },
@@ -126,7 +126,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
               onPress={onSelect}
               style={({ pressed }) => [styles.selectButton, { opacity: pressed ? 0.7 : 1 }]}
             >
-              <View style={[styles.selectCircle, isSelected && styles.selectCircleActive]}>
+              <View style={[styles.selectCircle, { backgroundColor: theme.surface }, isSelected && styles.selectCircleActive]}>
                 {isSelected ? (
                   <Ionicons name="checkmark" size={16} color={COLORS.white} />
                 ) : (
@@ -142,7 +142,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
               onPress={onAdd}
               style={({ pressed }) => [styles.selectButton, { opacity: pressed ? 0.7 : 1 }]}
             >
-              <View style={[styles.selectCircle, { borderColor: theme.primary }]}>
+              <View style={[styles.selectCircle, { backgroundColor: theme.surface, borderColor: theme.primary }]}>
                 <Ionicons name="add" size={16} color={theme.primary} />
               </View>
             </Pressable>
@@ -151,7 +151,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
 
         {/* Bottom badges row */}
         <View style={styles.badgesRow}>
-          <View style={styles.constructorBadge}>
+          <View style={[styles.constructorBadge, { backgroundColor: theme.surface }]}>
             <Text style={styles.constructorBadgeText}>Constructor</Text>
           </View>
           {isOnTeam && (
@@ -185,7 +185,6 @@ export const ConstructorCard = React.memo(function ConstructorCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     flexDirection: 'row',
@@ -318,7 +317,6 @@ const styles = StyleSheet.create({
   },
 
   constructorBadge: {
-    backgroundColor: COLORS.surface,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
     borderRadius: BORDER_RADIUS.full,
@@ -367,7 +365,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -405,7 +402,6 @@ const styles = StyleSheet.create({
 
   // Compact (unchanged)
   compactContainer: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     flexDirection: 'row',

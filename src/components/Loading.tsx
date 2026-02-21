@@ -14,7 +14,7 @@ export function Loading({ message, size = 'large', fullScreen = false }: Loading
 
   if (fullScreen) {
     return (
-      <View style={styles.fullScreen}>
+      <View style={[styles.fullScreen, { backgroundColor: theme.background }]}>
         <ActivityIndicator size={size} color={theme.primary} />
         {message && <Text style={styles.message}>{message}</Text>}
       </View>
@@ -40,7 +40,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background,
   },
 
   message: {

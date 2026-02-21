@@ -113,7 +113,7 @@ export default function SelectConstructorScreen() {
   // V5: Lockout guard
   if (lockoutInfo.isLocked) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
         <View style={styles.lockedContainer}>
           <Ionicons name="lock-closed" size={48} color={COLORS.error} />
           <Text style={styles.lockedTitle}>Teams Locked</Text>
@@ -131,9 +131,9 @@ export default function SelectConstructorScreen() {
   const swappingName = currentTeam?.constructor?.name;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       {/* Budget bar */}
-      <View style={styles.budgetBar}>
+      <View style={[styles.budgetBar, { backgroundColor: theme.card }]}>
         <Text style={styles.budgetLabel}>${remainingBudget}</Text>
         <Text style={styles.budgetMeta}>
           {swappingName ? `Swapping ${swappingName}` : 'Select constructor'}
@@ -179,7 +179,7 @@ export default function SelectConstructorScreen() {
       {/* Contract Length Picker */}
       {pendingConstructor && (
         <View style={styles.contractOverlay}>
-          <View style={styles.contractModal}>
+          <View style={[styles.contractModal, { backgroundColor: theme.card }]}>
             <Text style={styles.contractTitle}>{pendingConstructor.name}</Text>
             <Text style={[styles.contractSubtitle, { color: theme.primary }]}>${pendingConstructor.price}</Text>
             <Text style={styles.contractLabel}>Contract Length</Text>
@@ -209,7 +209,7 @@ export default function SelectConstructorScreen() {
             </Text>
             <View style={styles.contractActions}>
               <TouchableOpacity
-                style={styles.contractCancelBtn}
+                style={[styles.contractCancelBtn, { backgroundColor: theme.card }]}
                 onPress={() => setPendingConstructor(null)}
               >
                 <Text style={styles.contractCancelText}>Cancel</Text>
@@ -231,7 +231,6 @@ export default function SelectConstructorScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   budgetBar: {
@@ -240,7 +239,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.card,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border.default,
   },
@@ -328,7 +326,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   contractModal: {
-    backgroundColor: COLORS.card,
     borderTopLeftRadius: BORDER_RADIUS.lg,
     borderTopRightRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
@@ -399,7 +396,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.button,
     borderWidth: 1,
     borderColor: COLORS.border.default,
-    backgroundColor: COLORS.card,
   },
   contractCancelText: {
     fontSize: FONTS.sizes.md,

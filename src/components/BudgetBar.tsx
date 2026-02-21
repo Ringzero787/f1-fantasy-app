@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, BUDGET, SHADOWS } from '../config/constants';
+import { useTheme } from '../hooks/useTheme';
 import { formatDollars } from '../utils/formatters';
 
 interface BudgetBarProps {
@@ -17,6 +18,7 @@ export function BudgetBar({
   showPercentage = false,
   compact = false,
 }: BudgetBarProps) {
+  const theme = useTheme();
   const spent = total - remaining;
   const spentPercentage = (spent / total) * 100;
   const remainingPercentage = (remaining / total) * 100;
@@ -53,7 +55,7 @@ export function BudgetBar({
   if (compact) {
     return (
       <View style={styles.compactContainer}>
-        <View style={styles.compactBarContainer}>
+        <View style={[styles.compactBarContainer, { backgroundColor: theme.surface }]}>
           <LinearGradient
             colors={getBarColors()}
             start={{ x: 0, y: 0 }}
@@ -74,7 +76,7 @@ export function BudgetBar({
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.card }]}>
       <View style={styles.header}>
         <View style={styles.labelContainer}>
           <Text style={styles.label}>Dollars</Text>
@@ -91,7 +93,7 @@ export function BudgetBar({
         </Text>
       </View>
 
-      <View style={styles.barContainer}>
+      <View style={[styles.barContainer, { backgroundColor: theme.surface }]}>
         <LinearGradient
           colors={getBarColors()}
           start={{ x: 0, y: 0 }}
@@ -119,7 +121,6 @@ export function BudgetBar({
 const styles = StyleSheet.create({
   container: {
     padding: SPACING.sm,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border.default,
@@ -170,7 +171,6 @@ const styles = StyleSheet.create({
 
   barContainer: {
     height: 6,
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.full,
     overflow: 'hidden',
   },
@@ -178,7 +178,6 @@ const styles = StyleSheet.create({
   compactBarContainer: {
     flex: 1,
     height: 4,
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.full,
     overflow: 'hidden',
   },

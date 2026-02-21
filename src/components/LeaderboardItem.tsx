@@ -71,7 +71,7 @@ export const LeaderboardItem = React.memo(function LeaderboardItem({ member, isC
   const isWithdrawn = member.isWithdrawn === true;
 
   const content = (
-    <View style={[styles.container, isCurrentUser && [styles.currentUser, { backgroundColor: theme.primary + '15', borderColor: theme.primary }], isWithdrawn && styles.withdrawnContainer]}>
+    <View style={[styles.container, { backgroundColor: theme.card }, isCurrentUser && [styles.currentUser, { backgroundColor: theme.primary + '15', borderColor: theme.primary }], isWithdrawn && styles.withdrawnContainer]}>
       {/* Rank Badge */}
       <LinearGradient
         colors={getRankColors()}
@@ -162,7 +162,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.lg,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.sm,
     gap: SPACING.md,

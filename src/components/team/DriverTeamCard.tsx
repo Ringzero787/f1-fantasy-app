@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import { useScale } from '../../hooks/useScale';
 import { formatPoints } from '../../utils/formatters';
 import type { FantasyDriver } from '../../types';
@@ -50,10 +51,11 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
   onClearAce,
   onRemoveDriver,
 }: DriverTeamCardProps) {
+  const theme = useTheme();
   const { scaledFonts } = useScale();
 
   return (
-    <View style={[styles.card, driver.isReserve && styles.cardReserve]}>
+    <View style={[styles.card, { backgroundColor: theme.card }, driver.isReserve && styles.cardReserve]}>
       <View style={[styles.cardAccent, { backgroundColor: driver.accentColor }]} />
       <View style={styles.cardBody}>
         {/* Row 1: Identity + Price */}
@@ -106,11 +108,11 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
               <Text style={[styles.metaChipText, { color: driver.accentColor }]}>{driver.cInfo.shortName}</Text>
             </View>
           )}
-          <View style={styles.metaChip}>
+          <View style={[styles.metaChip, { backgroundColor: theme.surface }]}>
             <Text style={styles.metaChipText}>{formatPoints(driver.pointsScored)} pts</Text>
           </View>
           {lastRaceEntry != null && (
-            <View style={[styles.metaChip, { backgroundColor: lastRaceEntry.base > 0 ? '#16a34a18' : undefined }]}>
+            <View style={[styles.metaChip, { backgroundColor: lastRaceEntry.base > 0 ? '#16a34a18' : theme.surface }]}>
               <Text style={[styles.metaChipText, lastRaceEntry.base > 0 && { color: '#16a34a' }]}>
                 +{lastRaceEntry.base}
                 {lastRaceEntry.aceBonus > 0 ? ` (+${lastRaceEntry.aceBonus})` : ''}
@@ -120,13 +122,13 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
           )}
           {!driver.isReserve ? (
             <>
-              <View style={[styles.metaChip, driver.isLastRace && { backgroundColor: COLORS.warning + '18' }]}>
+              <View style={[styles.metaChip, { backgroundColor: driver.isLastRace ? COLORS.warning + '18' : theme.surface }]}>
                 <Ionicons name="document-text-outline" size={10} color={driver.isLastRace ? COLORS.warning : COLORS.text.muted} />
                 <Text style={[styles.metaChipText, driver.isLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
                   {driver.isLastRace ? 'LAST' : `${driver.racesHeld || 0}/${driver.contractLen}`}
                 </Text>
               </View>
-              <View style={styles.metaChip}>
+              <View style={[styles.metaChip, { backgroundColor: theme.surface }]}>
                 <Ionicons name="flame" size={10} color={driver.nextRate > 1 ? COLORS.gold : COLORS.text.muted} />
                 <Text style={[styles.metaChipText, driver.nextRate > 1 && { color: COLORS.gold }]}>+{driver.nextRate}/r</Text>
               </View>
@@ -170,7 +172,6 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.sm,
     borderWidth: 1,
@@ -272,7 +273,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: COLORS.surface,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,

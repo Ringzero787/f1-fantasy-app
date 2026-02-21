@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, TouchableOpacity, Pressable } from 'react-native';
+import { View, StyleSheet, ViewStyle, StyleProp, TouchableOpacity, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../config/constants';
 import { useTheme } from '../hooks/useTheme';
@@ -10,7 +10,7 @@ interface CardProps {
   variant?: 'default' | 'elevated' | 'outlined' | 'glass' | 'gradient';
   padding?: 'none' | 'small' | 'medium' | 'large';
   shadow?: 'none' | 'sm' | 'md' | 'lg';
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const Card = React.memo(function Card({
@@ -32,8 +32,13 @@ export const Card = React.memo(function Card({
         ? SHADOWS.sm
         : SHADOWS.none;
 
+  const variantBg = variant === 'elevated'
+    ? theme.cardElevated
+    : theme.card;
+
   const cardStyles = [
     styles.base,
+    { backgroundColor: variantBg },
     styles[variant],
     styles[`padding_${padding}`],
     shadowStyle,
@@ -101,23 +106,19 @@ export const Card = React.memo(function Card({
 const styles = StyleSheet.create({
   base: {
     borderRadius: BORDER_RADIUS.card,
-    backgroundColor: COLORS.card,
     overflow: 'hidden',
   },
 
   // Variants
   default: {
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
   elevated: {
-    backgroundColor: COLORS.cardElevated,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
   outlined: {
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },

@@ -28,12 +28,12 @@ export default function TabLayout() {
         tabBarInactiveTintColor: COLORS.text.muted,
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
+          backgroundColor: theme.surface,
           borderTopColor: COLORS.border.default,
           borderTopWidth: 1,
         },
         headerStyle: {
-          backgroundColor: COLORS.surface,
+          backgroundColor: theme.surface,
         },
         headerTintColor: COLORS.text.primary,
         headerTitleStyle: {
@@ -181,7 +181,7 @@ export default function TabLayout() {
           title: 'Profile',
           headerTitle: '',
           headerStyle: {
-            backgroundColor: COLORS.surface,
+            backgroundColor: theme.surface,
             height: 50,
           },
           headerShadowVisible: false,
@@ -198,7 +198,7 @@ export default function TabLayout() {
           title: 'Notifications',
           href: null,
           headerStyle: {
-            backgroundColor: COLORS.surface,
+            backgroundColor: theme.surface,
           },
           headerTintColor: COLORS.text.primary,
           tabBarIcon: ({ color, size }) => (

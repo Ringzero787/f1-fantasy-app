@@ -53,12 +53,21 @@ export interface RaceResult {
   completedAt: Date | null;
 }
 
+// Cloud sync tracking per race
+export interface CloudSyncInfo {
+  syncedAt: string;
+  version: number;
+}
+
 interface AdminState {
   raceResults: Record<string, RaceResult>; // keyed by raceId
 
   // Price tracking for demo mode (keyed by driver/constructor ID)
   driverPrices: Record<string, PriceUpdate>;
   constructorPrices: Record<string, PriceUpdate>;
+
+  // Cloud sync tracking (keyed by raceId)
+  cloudSyncedRaces: Record<string, CloudSyncInfo>;
 
   // V5: Lockout override for testing
   adminLockOverride: 'locked' | 'unlocked' | null;
@@ -86,6 +95,11 @@ interface AdminState {
 
   // V5: Lockout override
   setAdminLockOverride: (override: 'locked' | 'unlocked' | null) => void;
+
+  // Cloud sync tracking
+  markRaceCloudSynced: (raceId: string) => void;
+  isRaceCloudSynced: (raceId: string) => boolean;
+  incrementSyncVersion: (raceId: string) => void;
 
   // Reset prices only (keeps race results)
   resetPrices: () => void;
@@ -120,6 +134,7 @@ export const useAdminStore = create<AdminState>()(
       raceResults: {},
       driverPrices: {},
       constructorPrices: {},
+      cloudSyncedRaces: {},
       adminLockOverride: null,
 
       initializeRaceResult: (raceId) => {
@@ -465,6 +480,40 @@ export const useAdminStore = create<AdminState>()(
         set({ adminLockOverride: override });
       },
 
+      markRaceCloudSynced: (raceId) => {
+        const { cloudSyncedRaces } = get();
+        const existing = cloudSyncedRaces[raceId];
+        set({
+          cloudSyncedRaces: {
+            ...cloudSyncedRaces,
+            [raceId]: {
+              syncedAt: new Date().toISOString(),
+              version: (existing?.version ?? 0) + 1,
+            },
+          },
+        });
+      },
+
+      isRaceCloudSynced: (raceId) => {
+        return !!get().cloudSyncedRaces[raceId];
+      },
+
+      incrementSyncVersion: (raceId) => {
+        const { cloudSyncedRaces } = get();
+        const existing = cloudSyncedRaces[raceId];
+        if (!existing) return;
+        set({
+          cloudSyncedRaces: {
+            ...cloudSyncedRaces,
+            [raceId]: {
+              ...existing,
+              syncedAt: new Date().toISOString(),
+              version: existing.version + 1,
+            },
+          },
+        });
+      },
+
       // Reset prices only, keeping race results intact
       resetPrices: () => {
         console.log('Resetting all driver/constructor prices to initial values...');
@@ -488,6 +537,7 @@ export const useAdminStore = create<AdminState>()(
           raceResults: {},
           driverPrices: {},
           constructorPrices: {},
+          cloudSyncedRaces: {},
           adminLockOverride: null,
         });
         console.log('Admin data reset complete');

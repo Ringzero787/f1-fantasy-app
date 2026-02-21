@@ -62,9 +62,9 @@ export default function CalendarScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { backgroundColor: theme.card }]}>
         {(['all', 'upcoming', 'completed'] as FilterOption[]).map((option) => (
           <TouchableOpacity
             key={option}
@@ -136,12 +136,12 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: undefined, // themed via inline style
   },
 
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
+    backgroundColor: undefined, // themed via inline style
     margin: SPACING.md,
     padding: SPACING.xs,
     borderRadius: BORDER_RADIUS.md,

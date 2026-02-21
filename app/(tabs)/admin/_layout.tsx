@@ -1,12 +1,15 @@
 import { Stack } from 'expo-router';
 import { COLORS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 
 export default function AdminLayout() {
+  const theme = useTheme();
+
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: COLORS.surface,
+          backgroundColor: theme.surface,
         },
         headerTintColor: COLORS.text.primary,
         headerTitleStyle: {
@@ -20,7 +23,7 @@ export default function AdminLayout() {
           title: 'Admin Panel',
           headerTitle: '',
           headerStyle: {
-            backgroundColor: COLORS.surface,
+            backgroundColor: theme.surface,
             height: 50,
           },
           headerShadowVisible: false,

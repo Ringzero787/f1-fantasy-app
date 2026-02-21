@@ -45,7 +45,7 @@ export default function DriverDetailScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -53,7 +53,7 @@ export default function DriverDetailScreen() {
     >
       {/* Header Card */}
       <Card variant="elevated" style={styles.headerCard}>
-        <View style={styles.numberBadge}>
+        <View style={[styles.numberBadge, { backgroundColor: theme.surface }]}>
           <Text style={styles.numberText}>{driver.number}</Text>
         </View>
 
@@ -168,7 +168,7 @@ export default function DriverDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: undefined, // themed via inline style
   },
 
   content: {
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: BORDER_RADIUS.lg,
-    backgroundColor: COLORS.surface,
+    backgroundColor: undefined, // themed via inline style
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.md,

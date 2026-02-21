@@ -44,7 +44,7 @@ export const DriverCard = React.memo(function DriverCard({
     return (
       <Pressable
         style={({ pressed }) => [
-          styles.compactContainer,
+          styles.compactContainer, { backgroundColor: theme.card },
           isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
           { transform: [{ scale: pressed ? 0.98 : 1 }] },
         ]}
@@ -97,7 +97,7 @@ export const DriverCard = React.memo(function DriverCard({
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.container,
+        styles.container, { backgroundColor: theme.card },
         isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
         isOnTeam && !isSelected && styles.onTeamContainer,
         { transform: [{ scale: pressed ? 0.985 : 1 }] },
@@ -169,7 +169,7 @@ export const DriverCard = React.memo(function DriverCard({
               onPress={onSelect}
               style={({ pressed }) => [styles.selectButton, { opacity: pressed ? 0.7 : 1 }]}
             >
-              <View style={[styles.selectCircle, isSelected && styles.selectCircleActive]}>
+              <View style={[styles.selectCircle, { backgroundColor: theme.surface }, isSelected && styles.selectCircleActive]}>
                 {isSelected ? (
                   <Ionicons name="checkmark" size={16} color={COLORS.white} />
                 ) : (
@@ -185,7 +185,7 @@ export const DriverCard = React.memo(function DriverCard({
               onPress={onAdd}
               style={({ pressed }) => [styles.selectButton, { opacity: pressed ? 0.7 : 1 }]}
             >
-              <View style={[styles.selectCircle, { borderColor: theme.primary }]}>
+              <View style={[styles.selectCircle, { backgroundColor: theme.surface, borderColor: theme.primary }]}>
                 <Ionicons name="add" size={16} color={theme.primary} />
               </View>
             </Pressable>
@@ -194,7 +194,7 @@ export const DriverCard = React.memo(function DriverCard({
 
         {/* Bottom badges row */}
         <View style={styles.badgesRow}>
-          <View style={[styles.tierBadge, driver.tier === 'A' ? styles.tierA : driver.tier === 'C' ? styles.tierC : styles.tierB]}>
+          <View style={[styles.tierBadge, driver.tier === 'A' ? styles.tierA : driver.tier === 'C' ? styles.tierC : [styles.tierB, { backgroundColor: theme.surface }]]}>
             <Text style={[styles.tierText, driver.tier === 'A' && styles.tierAText, driver.tier === 'C' && styles.tierCText]}>
               Tier {driver.tier}
             </Text>
@@ -225,7 +225,6 @@ export const DriverCard = React.memo(function DriverCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     flexDirection: 'row',
@@ -395,9 +394,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.purple[600] + '30',
   },
 
-  tierB: {
-    backgroundColor: COLORS.surface,
-  },
+  tierB: {},
 
   tierC: {
     backgroundColor: COLORS.success + '20',
@@ -468,7 +465,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -506,7 +502,6 @@ const styles = StyleSheet.create({
 
   // Compact (unchanged)
   compactContainer: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,

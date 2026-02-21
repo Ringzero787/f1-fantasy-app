@@ -3,11 +3,13 @@ import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 import { useLeagueStore } from '../../../src/store/league.store';
 import { useChatStore } from '../../../src/store/chat.store';
 import { ChatListItem } from '../../../src/components/chat/ChatListItem';
 
 export default function AdminChatListScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const leagues = useLeagueStore((s) => s.leagues);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
@@ -22,7 +24,7 @@ export default function AdminChatListScreen() {
 
   if (leagues.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
+      <View style={[styles.emptyContainer, { backgroundColor: theme.background }]}>
         <Ionicons name="chatbubbles-outline" size={64} color={COLORS.text.muted} />
         <Text style={styles.emptyTitle}>No Leagues Yet</Text>
         <Text style={styles.emptySubtitle}>
@@ -33,7 +35,7 @@ export default function AdminChatListScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <FlatList
         data={leagues}
         keyExtractor={(item) => item.id}
@@ -79,7 +81,7 @@ export default function AdminChatListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: undefined, // themed via inline style
   },
   listContent: {
     padding: SPACING.md,
@@ -89,7 +91,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.xl,
-    backgroundColor: COLORS.background,
+    backgroundColor: undefined, // themed via inline style
   },
   emptyTitle: {
     fontSize: FONTS.sizes.lg,

@@ -223,7 +223,7 @@ export default function CreateLeagueScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -263,7 +263,7 @@ export default function CreateLeagueScreen() {
 
           <Text style={styles.inputLabel}>Max Members</Text>
           <View style={styles.memberRow}>
-            <View style={styles.lockedField}>
+            <View style={[styles.lockedField, { backgroundColor: theme.surface }]}>
               <Text style={styles.lockedFieldText}>
                 {hasCredit || isDemoMode ? maxMembers : String(FREE_LEAGUE_MEMBER_LIMIT)}
               </Text>
@@ -309,7 +309,7 @@ export default function CreateLeagueScreen() {
               value={isPublic}
               onValueChange={setIsPublic}
               trackColor={{ false: COLORS.border.default, true: theme.primary + '60' }}
-              thumbColor={isPublic ? theme.primary : COLORS.surface}
+              thumbColor={isPublic ? theme.primary : theme.surface}
             />
           </View>
 
@@ -324,11 +324,11 @@ export default function CreateLeagueScreen() {
               value={requireApproval}
               onValueChange={setRequireApproval}
               trackColor={{ false: COLORS.border.default, true: theme.primary + '60' }}
-              thumbColor={requireApproval ? theme.primary : COLORS.surface}
+              thumbColor={requireApproval ? theme.primary : theme.surface}
             />
           </View>
 
-          <View style={styles.infoBox}>
+          <View style={[styles.infoBox, { backgroundColor: theme.surface }]}>
             <Text style={styles.infoTitle}>What happens next?</Text>
             <Text style={styles.infoText}>
               {soloTeams.length > 0
@@ -372,7 +372,7 @@ export default function CreateLeagueScreen() {
         onRequestClose={() => {}}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <View style={styles.modalHeader}>
               <Ionicons name="trophy" size={28} color={theme.primary} />
               <Text style={styles.modalTitle}>League Created!</Text>
@@ -386,7 +386,7 @@ export default function CreateLeagueScreen() {
               {modalSoloTeams.map((team) => (
                 <TouchableOpacity
                   key={team.id}
-                  style={styles.teamOption}
+                  style={[styles.teamOption, { backgroundColor: theme.surface }]}
                   onPress={() => handleSelectTeam(team)}
                   disabled={isAssigningTeam}
                 >
@@ -469,7 +469,6 @@ export default function CreateLeagueScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   keyboardView: {
@@ -531,7 +530,6 @@ const styles = StyleSheet.create({
   },
 
   infoBox: {
-    backgroundColor: COLORS.surface,
     padding: SPACING.md,
     borderRadius: 8,
     marginBottom: SPACING.xl,
@@ -564,7 +562,6 @@ const styles = StyleSheet.create({
   },
 
   modalContent: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.xl,
     width: '100%',
@@ -601,7 +598,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
     borderWidth: 1,
@@ -688,7 +684,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,

@@ -376,9 +376,9 @@ export function RulesGuide({ visible, onClose }: RulesGuideProps) {
 
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.surface }]}>
           <Text style={styles.headerTitle}>Rules & Scoring</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={COLORS.text.primary} />
@@ -389,13 +389,13 @@ export function RulesGuide({ visible, onClose }: RulesGuideProps) {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.chipBar}
+          style={[styles.chipBar, { backgroundColor: theme.surface }]}
           contentContainerStyle={styles.chipBarContent}
         >
           {SECTIONS.map((s, i) => (
             <TouchableOpacity
               key={s.id}
-              style={[styles.chip, i === activeSection && [styles.chipActive, { backgroundColor: theme.primary, borderColor: theme.primary }]]}
+              style={[styles.chip, { backgroundColor: theme.card }, i === activeSection && [styles.chipActive, { backgroundColor: theme.primary, borderColor: theme.primary }]]}
               onPress={() => handleChipPress(i)}
             >
               <Ionicons
@@ -477,7 +477,7 @@ export function RulesGuide({ visible, onClose }: RulesGuideProps) {
                     return (
                       <View key={bIdx} style={styles.table}>
                         {/* Header row */}
-                        <View style={[styles.tableRow, styles.tableHeaderRow]}>
+                        <View style={[styles.tableRow, styles.tableHeaderRow, { backgroundColor: theme.card }]}>
                           {block.headers.map((h, hIdx) => (
                             <Text
                               key={hIdx}
@@ -497,7 +497,7 @@ export function RulesGuide({ visible, onClose }: RulesGuideProps) {
                             key={rIdx}
                             style={[
                               styles.tableRow,
-                              rIdx % 2 === 1 && styles.tableRowAlt,
+                              rIdx % 2 === 1 && [styles.tableRowAlt, { backgroundColor: theme.surface }],
                             ]}
                           >
                             {row.map((cell, cIdx) => (
@@ -531,7 +531,6 @@ export function RulesGuide({ visible, onClose }: RulesGuideProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -540,7 +539,6 @@ const styles = StyleSheet.create({
     paddingTop: 52,
     paddingBottom: SPACING.md,
     paddingHorizontal: SPACING.lg,
-    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border.default,
   },
@@ -556,7 +554,6 @@ const styles = StyleSheet.create({
   /* chip bar */
   chipBar: {
     maxHeight: 48,
-    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border.default,
   },
@@ -572,12 +569,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 2,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
   chipActive: {
-    backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
   chipText: {
@@ -669,12 +664,8 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: 'row',
   },
-  tableRowAlt: {
-    backgroundColor: COLORS.surface,
-  },
-  tableHeaderRow: {
-    backgroundColor: COLORS.card,
-  },
+  tableRowAlt: {},
+  tableHeaderRow: {},
   tableCell: {
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,

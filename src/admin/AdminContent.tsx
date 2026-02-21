@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -22,6 +23,10 @@ import { useTheme } from '../hooks/useTheme';
 import { errorLogService } from '../services/errorLog.service';
 import { articleService } from '../services/article.service';
 import { useChatStore } from '../store/chat.store';
+import { raceService } from '../services/race.service';
+import { openF1Service } from '../services/openf1.service';
+import { functions, httpsCallable } from '../config/firebase';
+import type { RaceResults, RaceResult as CloudRaceResult, SprintResult as CloudSprintResult } from '../types';
 
 // Filter to only active drivers (should be 22 for full grid)
 const activeDrivers = demoDrivers.filter(d => d.isActive);
@@ -122,6 +127,9 @@ export default function AdminContent() {
   const getRaceResult = useAdminStore(s => s.getRaceResult);
   const adminLockOverride = useAdminStore(s => s.adminLockOverride);
   const setAdminLockOverride = useAdminStore(s => s.setAdminLockOverride);
+  const cloudSyncedRaces = useAdminStore(s => s.cloudSyncedRaces);
+  const markRaceCloudSynced = useAdminStore(s => s.markRaceCloudSynced);
+  const isRaceCloudSynced = useAdminStore(s => s.isRaceCloudSynced);
 
   const recalculateAllTeamsPoints = useTeamStore(s => s.recalculateAllTeamsPoints);
   const userTeams = useTeamStore(s => s.userTeams);
@@ -132,6 +140,8 @@ export default function AdminContent() {
   const [driverDnf, setDriverDnf] = useState<Record<string, boolean>>({});
   const [sprintDnf, setSprintDnf] = useState<Record<string, boolean>>({});
   const [entryMode, setEntryMode] = useState<'race' | 'sprint'>('race');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [unreviewedCount, setUnreviewedCount] = useState(0);
   const [draftArticleCount, setDraftArticleCount] = useState(0);
   const chatTotalUnread = useChatStore((s) => s.totalUnread);
@@ -747,8 +757,174 @@ export default function AdminContent() {
     );
   };
 
+  // Convert admin store race data to Firestore cloud format
+  const convertToCloudFormat = (raceId: string): RaceResults => {
+    const result = getRaceResult(raceId);
+    if (!result) throw new Error('No race result found for ' + raceId);
+
+    // Build grid from price ranking (highest price = P1 qualifying)
+    const gridOrder = [...activeDrivers].sort((a, b) => b.price - a.price);
+    const gridPositions: Record<string, number> = {};
+    gridOrder.forEach((d, i) => { gridPositions[d.id] = i + 1; });
+
+    // Convert driver results to cloud format
+    const raceResults: CloudRaceResult[] = result.driverResults
+      .filter(dr => {
+        // Include drivers that have a position or are DNF
+        const pos = driverPositions[dr.driverId];
+        const isDnf = driverDnf[dr.driverId];
+        return pos !== '' || isDnf;
+      })
+      .map(dr => {
+        const isDnf = driverDnf[dr.driverId] || false;
+        const posStr = driverPositions[dr.driverId] || '0';
+        const position = isDnf ? 0 : parseInt(posStr, 10);
+        const demoDriver = demoDrivers.find(d => d.id === dr.driverId);
+        const constructorId = demoDriver?.constructorId || '';
+        const grid = gridPositions[dr.driverId] || position;
+
+        return {
+          position,
+          driverId: dr.driverId,
+          constructorId,
+          gridPosition: grid,
+          points: dr.points,
+          positionsGained: grid - position,
+          laps: isDnf ? 0 : 58, // approximate
+          status: isDnf ? 'dnf' as const : 'finished' as const,
+          fastestLap: dr.fastestLap,
+        };
+      });
+
+    // Convert sprint results if present
+    let cloudSprintResults: CloudSprintResult[] | undefined;
+    if (result.sprintResults && result.sprintResults.some(sr => sr.points !== 0 || sr.dnf)) {
+      cloudSprintResults = result.sprintResults
+        .filter(sr => {
+          const pos = sprintPositions[sr.driverId];
+          const isDnf = sprintDnf[sr.driverId];
+          return pos !== '' || isDnf;
+        })
+        .map(sr => {
+          const isDnf = sprintDnf[sr.driverId] || false;
+          const posStr = sprintPositions[sr.driverId] || '0';
+          const position = isDnf ? 0 : parseInt(posStr, 10);
+          const demoDriver = demoDrivers.find(d => d.id === sr.driverId);
+          const constructorId = demoDriver?.constructorId || '';
+
+          return {
+            position,
+            driverId: sr.driverId,
+            constructorId,
+            points: sr.points,
+            status: isDnf ? 'dnf' as const : 'finished' as const,
+          };
+        });
+    }
+
+    // Find fastest lap driver
+    const fastestLapDriver = result.driverResults.find(dr => dr.fastestLap);
+
+    return {
+      raceId,
+      qualifyingResults: [],
+      raceResults,
+      sprintResults: cloudSprintResults,
+      fastestLap: fastestLapDriver?.driverId,
+      processedAt: new Date(),
+    };
+  };
+
+  // Publish race results to Firestore (first time)
+  const handlePublishToCloud = async () => {
+    if (!selectedRaceId || !raceResult?.isComplete) return;
+
+    setIsSyncing(true);
+    try {
+      const cloudResults = convertToCloudFormat(selectedRaceId);
+      await raceService.setRaceResults(selectedRaceId, cloudResults);
+      markRaceCloudSynced(selectedRaceId);
+      Alert.alert('Published', 'Race results published to cloud. The scoring Cloud Function will process team points automatically.');
+    } catch (error: any) {
+      console.error('[Admin] Cloud publish failed:', error);
+      Alert.alert('Publish Failed', error.message || 'Failed to publish results to cloud.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Re-publish corrected results and re-trigger scoring
+  const handleRepublishToCloud = async () => {
+    if (!selectedRaceId || !raceResult?.isComplete) return;
+
+    Alert.alert(
+      'Re-publish Correction',
+      'This will update the cloud results and re-trigger scoring for all teams. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Re-publish',
+          onPress: async () => {
+            setIsSyncing(true);
+            try {
+              const cloudResults = convertToCloudFormat(selectedRaceId);
+              // Update results without changing status
+              await raceService.updateRaceResults(selectedRaceId, cloudResults);
+              // Re-trigger scoring via Cloud Function
+              const calculatePoints = httpsCallable(functions, 'calculatePointsManually');
+              await calculatePoints({ raceId: selectedRaceId });
+              markRaceCloudSynced(selectedRaceId);
+              Alert.alert('Re-published', 'Corrected results uploaded and scoring re-triggered.');
+            } catch (error: any) {
+              console.error('[Admin] Cloud re-publish failed:', error);
+              Alert.alert('Re-publish Failed', error.message || 'Failed to re-publish results.');
+            } finally {
+              setIsSyncing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Import results from OpenF1 API
+  const handleImportFromApi = async () => {
+    if (!selectedRaceId || !selectedRace) return;
+
+    setIsImporting(true);
+    try {
+      // Find the OpenF1 meeting key by country name
+      const meetingKey = await openF1Service.findMeetingKeyForRace(2026, selectedRace.country);
+      if (!meetingKey) {
+        Alert.alert('Not Found', `Could not find OpenF1 data for ${selectedRace.country}. The race may not have happened yet.`);
+        return;
+      }
+
+      const isSprint = entryMode === 'sprint';
+      const apiData = await openF1Service.fetchRaceResultsForAdmin(meetingKey, isSprint);
+
+      // Populate form with API data
+      if (isSprint) {
+        setSprintPositions(prev => ({ ...prev, ...apiData.positions }));
+        setSprintDnf(prev => ({ ...prev, ...apiData.dnf }));
+      } else {
+        setDriverPositions(prev => ({ ...prev, ...apiData.positions }));
+        setDriverDnf(prev => ({ ...prev, ...apiData.dnf }));
+      }
+
+      const posCount = Object.values(apiData.positions).filter(p => p !== '').length;
+      const dnfCount = Object.values(apiData.dnf).filter(Boolean).length;
+      Alert.alert('Imported', `Loaded ${posCount} positions and ${dnfCount} DNFs from OpenF1 API. Review and save.`);
+    } catch (error: any) {
+      console.error('[Admin] API import failed:', error);
+      Alert.alert('Import Failed', error.message || 'Failed to fetch results from OpenF1 API.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
         <Ionicons name="settings" size={24} color={theme.primary} />
@@ -840,12 +1016,13 @@ export default function AdminContent() {
       </TouchableOpacity>
 
       {/* V5: Lock Override Toggle */}
-      <View style={styles.lockToggleContainer}>
+      <View style={[styles.lockToggleContainer, { backgroundColor: theme.card }]}>
         <Text style={styles.lockToggleTitle}>Team Lock Override</Text>
         <View style={styles.lockToggleRow}>
           <TouchableOpacity
             style={[
               styles.lockToggleButton,
+              { backgroundColor: theme.background },
               adminLockOverride === 'locked' && styles.lockToggleButtonLocked,
             ]}
             onPress={() => setAdminLockOverride(adminLockOverride === 'locked' ? null : 'locked')}
@@ -859,6 +1036,7 @@ export default function AdminContent() {
           <TouchableOpacity
             style={[
               styles.lockToggleButton,
+              { backgroundColor: theme.background },
               adminLockOverride === null && [styles.lockToggleButtonAuto, { backgroundColor: theme.primary, borderColor: theme.primary }],
             ]}
             onPress={() => setAdminLockOverride(null)}
@@ -872,6 +1050,7 @@ export default function AdminContent() {
           <TouchableOpacity
             style={[
               styles.lockToggleButton,
+              { backgroundColor: theme.background },
               adminLockOverride === 'unlocked' && styles.lockToggleButtonUnlocked,
             ]}
             onPress={() => setAdminLockOverride(adminLockOverride === 'unlocked' ? null : 'unlocked')}
@@ -905,6 +1084,7 @@ export default function AdminContent() {
                   key={race.id}
                   style={[
                     styles.raceChip,
+                    { backgroundColor: theme.card },
                     selectedRaceId === race.id && [styles.raceChipSelected, { backgroundColor: theme.primary, borderColor: theme.primary }],
                     isComplete && styles.raceChipComplete,
                     race.hasSprint && styles.raceChipSprint,
@@ -935,12 +1115,20 @@ export default function AdminContent() {
                   >
                     {race.country}
                   </Text>
-                  {isComplete && (
-                    <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
-                  )}
-                  {!isComplete && hasData && (
-                    <Ionicons name="ellipse" size={8} color={COLORS.warning} />
-                  )}
+                  <View style={styles.raceChipBadges}>
+                    {isComplete && (
+                      <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
+                    )}
+                    {!isComplete && hasData && (
+                      <Ionicons name="ellipse" size={8} color={COLORS.warning} />
+                    )}
+                    {isComplete && cloudSyncedRaces[race.id] && (
+                      <Ionicons name="cloud-done" size={12} color={COLORS.info} />
+                    )}
+                    {isComplete && !cloudSyncedRaces[race.id] && (
+                      <Ionicons name="cloud-offline-outline" size={12} color={COLORS.text.muted} />
+                    )}
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -980,6 +1168,7 @@ export default function AdminContent() {
               <TouchableOpacity
                 style={[
                   styles.modeToggleButton,
+                  { backgroundColor: theme.card },
                   entryMode === 'race' && [styles.modeToggleButtonActive, { backgroundColor: theme.primary, borderColor: theme.primary }],
                 ]}
                 onPress={() => setEntryMode('race')}
@@ -999,6 +1188,7 @@ export default function AdminContent() {
               <TouchableOpacity
                 style={[
                   styles.modeToggleButton,
+                  { backgroundColor: theme.card },
                   entryMode === 'sprint' && styles.modeToggleButtonActive,
                   entryMode === 'sprint' && styles.modeToggleButtonSprint,
                 ]}
@@ -1036,6 +1226,20 @@ export default function AdminContent() {
                 <Text style={styles.autoCompleteButtonText}>Auto-Complete</Text>
               </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={[styles.importApiButton, isImporting && styles.buttonDisabled]}
+              onPress={handleImportFromApi}
+              disabled={isImporting}
+            >
+              {isImporting ? (
+                <ActivityIndicator size="small" color={COLORS.white} />
+              ) : (
+                <Ionicons name="download-outline" size={16} color={COLORS.white} />
+              )}
+              <Text style={styles.importApiButtonText}>
+                {isImporting ? 'Importing...' : `Import ${entryMode === 'sprint' ? 'Sprint' : 'Race'} from OpenF1`}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Driver Positions */}
@@ -1048,7 +1252,7 @@ export default function AdminContent() {
                 {entryMode === 'sprint' ? 'Top 8 score' : `${activeDrivers.length} drivers`}
               </Text>
             </View>
-            <View style={styles.statusBar}>
+            <View style={[styles.statusBar, { backgroundColor: theme.card }]}>
               <Text style={styles.statusText}>
                 Filled: {filledCount}/{entryMode === 'sprint' ? '8 (scoring)' : activeDrivers.length}
                 {dnfCount > 0 && ` · ${dnfCount} DNF`}
@@ -1070,6 +1274,7 @@ export default function AdminContent() {
               return (
                 <View key={driver.id} style={[
                   styles.driverRow,
+                  { backgroundColor: theme.card },
                   isDuplicate && styles.driverRowDuplicate,
                   entryMode === 'sprint' && styles.driverRowSprint,
                   isDnf && styles.driverRowDnf,
@@ -1109,6 +1314,7 @@ export default function AdminContent() {
                     <TextInput
                       style={[
                         styles.positionInput,
+                        { backgroundColor: theme.background },
                         position && [styles.positionInputFilled, { borderColor: theme.primary, backgroundColor: theme.primary + '10' }],
                         isDuplicate && styles.positionInputDuplicate,
                         entryMode === 'sprint' && position && styles.positionInputSprint,
@@ -1144,6 +1350,56 @@ export default function AdminContent() {
               style={styles.actionButton}
               disabled={raceResult?.isComplete}
             />
+
+            {/* Cloud Publish / Re-publish */}
+            {raceResult?.isComplete && (
+              <View style={[styles.cloudSyncSection, { backgroundColor: theme.card }]}>
+                <View style={styles.cloudSyncHeader}>
+                  <Ionicons
+                    name={cloudSyncedRaces[selectedRaceId!] ? 'cloud-done' : 'cloud-offline-outline'}
+                    size={16}
+                    color={cloudSyncedRaces[selectedRaceId!] ? COLORS.info : COLORS.text.muted}
+                  />
+                  <Text style={styles.cloudSyncLabel}>
+                    {cloudSyncedRaces[selectedRaceId!]
+                      ? `Synced (v${cloudSyncedRaces[selectedRaceId!].version})`
+                      : 'Local only'}
+                  </Text>
+                </View>
+                {!cloudSyncedRaces[selectedRaceId!] ? (
+                  <TouchableOpacity
+                    style={[styles.publishButton, isSyncing && styles.buttonDisabled]}
+                    onPress={handlePublishToCloud}
+                    disabled={isSyncing}
+                  >
+                    {isSyncing ? (
+                      <ActivityIndicator size="small" color={COLORS.white} />
+                    ) : (
+                      <Ionicons name="cloud-upload" size={18} color={COLORS.white} />
+                    )}
+                    <Text style={styles.publishButtonText}>
+                      {isSyncing ? 'Publishing...' : 'Publish to Cloud'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.republishButton, isSyncing && styles.buttonDisabled]}
+                    onPress={handleRepublishToCloud}
+                    disabled={isSyncing}
+                  >
+                    {isSyncing ? (
+                      <ActivityIndicator size="small" color={COLORS.white} />
+                    ) : (
+                      <Ionicons name="refresh-circle" size={18} color={COLORS.white} />
+                    )}
+                    <Text style={styles.republishButtonText}>
+                      {isSyncing ? 'Re-publishing...' : 'Re-publish (Correction)'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
             <Button
               title="Reset Race"
               onPress={handleResetRace}
@@ -1167,7 +1423,6 @@ export default function AdminContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -1417,7 +1672,6 @@ const styles = StyleSheet.create({
 
   // V5: Lock toggle
   lockToggleContainer: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.lg,
@@ -1442,7 +1696,6 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
@@ -1506,7 +1759,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
     alignItems: 'center',
@@ -1625,7 +1877,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.card,
     borderWidth: 2,
     borderColor: COLORS.border.default,
   },
@@ -1654,7 +1905,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
@@ -1677,7 +1927,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.card,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     marginBottom: SPACING.sm,
@@ -1753,7 +2002,6 @@ const styles = StyleSheet.create({
   positionInput: {
     width: 50,
     height: 44,
-    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 2,
     borderColor: COLORS.border.default,
@@ -1896,5 +2144,80 @@ const styles = StyleSheet.create({
     color: COLORS.text.muted,
     marginTop: SPACING.md,
     textAlign: 'center',
+  },
+
+  raceChipBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  importApiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    backgroundColor: '#6366f1',
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: SPACING.sm,
+  },
+
+  importApiButtonText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+
+  cloudSyncSection: {
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+    gap: SPACING.sm,
+  },
+
+  cloudSyncHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+
+  cloudSyncLabel: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    fontWeight: '500',
+  },
+
+  publishButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+  },
+
+  publishButtonText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+
+  republishButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.warning,
+    borderRadius: BORDER_RADIUS.md,
+  },
+
+  republishButtonText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });

@@ -50,6 +50,7 @@ export function Button({
     fullWidth && styles.fullWidth,
     disabled && styles.disabled,
     variant === 'primary' && { backgroundColor: theme.primary, ...theme.shadows.glow },
+    variant === 'secondary' && { backgroundColor: theme.card },
     variant === 'outline' && { borderColor: theme.primary },
     style,
   ];
@@ -137,7 +138,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.glow,
   },
   secondary: {
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },

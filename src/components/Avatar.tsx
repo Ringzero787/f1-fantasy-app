@@ -149,7 +149,7 @@ export function Avatar({
           transition={200}
         />
         {imageLoading && (
-          <View style={[styles.imagePlaceholder, { borderRadius }]}>
+          <View style={[styles.imagePlaceholder, { backgroundColor: theme.card, borderRadius }]}>
             <ActivityIndicator size="small" color={COLORS.text.muted} />
           </View>
         )}
@@ -225,7 +225,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.card,
   },
   initials: {
     color: '#FFFFFF',

@@ -266,7 +266,7 @@ export default function ErrorLogsContent() {
     const isExpanded = expandedLog === item.id;
     return (
       <TouchableOpacity
-        style={[styles.logItem, item.reviewed && styles.logItemReviewed]}
+        style={[styles.logItem, { backgroundColor: theme.card }, item.reviewed && styles.logItemReviewed]}
         onPress={() => setExpandedLog(isExpanded ? null : item.id)}
         activeOpacity={0.7}
       >
@@ -345,7 +345,7 @@ export default function ErrorLogsContent() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <FlatList
         data={filtered}
         keyExtractor={item => item.id}
@@ -362,7 +362,7 @@ export default function ErrorLogsContent() {
               <View style={styles.headerRight}>
                 <TouchableOpacity
                   onPress={() => setHideReviewed(!hideReviewed)}
-                  style={[styles.hideReviewedToggle, hideReviewed && styles.hideReviewedToggleActive]}
+                  style={[styles.hideReviewedToggle, { backgroundColor: theme.card }, hideReviewed && styles.hideReviewedToggleActive]}
                 >
                   <Ionicons
                     name={hideReviewed ? 'eye-off' : 'eye'}
@@ -391,15 +391,15 @@ export default function ErrorLogsContent() {
 
             {/* Summary Row */}
             <View style={styles.summaryRow}>
-              <View style={[styles.statCard, { borderColor: COLORS.error + '40' }]}>
+              <View style={[styles.statCard, { backgroundColor: theme.card, borderColor: COLORS.error + '40' }]}>
                 <Text style={[styles.statValue, { color: COLORS.error }]}>{counts.error}</Text>
                 <Text style={styles.statLabel}>Errors</Text>
               </View>
-              <View style={[styles.statCard, { borderColor: COLORS.warning + '40' }]}>
+              <View style={[styles.statCard, { backgroundColor: theme.card, borderColor: COLORS.warning + '40' }]}>
                 <Text style={[styles.statValue, { color: COLORS.warning }]}>{counts.warn}</Text>
                 <Text style={styles.statLabel}>Warnings</Text>
               </View>
-              <View style={[styles.statCard, { borderColor: COLORS.info + '40' }]}>
+              <View style={[styles.statCard, { backgroundColor: theme.card, borderColor: COLORS.info + '40' }]}>
                 <Text style={[styles.statValue, { color: COLORS.info }]}>{counts.info}</Text>
                 <Text style={styles.statLabel}>Info</Text>
               </View>
@@ -519,6 +519,7 @@ export default function ErrorLogsContent() {
                     key={s}
                     style={[
                       styles.filterChip,
+                      { backgroundColor: theme.card },
                       severityFilter === s && [styles.filterChipActive, { backgroundColor: theme.primary + '20', borderColor: theme.primary }],
                       severityFilter === s && s !== 'all' && {
                         backgroundColor: SEVERITY_COLORS[s] + '25',
@@ -542,6 +543,7 @@ export default function ErrorLogsContent() {
                     key={t}
                     style={[
                       styles.filterChip,
+                      { backgroundColor: theme.card },
                       timeFilter === t && [styles.filterChipActive, { backgroundColor: theme.primary + '20', borderColor: theme.primary }],
                     ]}
                     onPress={() => setTimeFilter(t)}
@@ -582,7 +584,6 @@ export default function ErrorLogsContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   content: {
     padding: SPACING.md,
@@ -618,7 +619,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
@@ -656,7 +656,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
   },
@@ -810,7 +809,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.pill,
-    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border.default,
   },
@@ -841,7 +839,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   logItem: {
-    backgroundColor: COLORS.card,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,

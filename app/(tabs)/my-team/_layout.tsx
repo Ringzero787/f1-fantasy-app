@@ -1,13 +1,16 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { COLORS } from '../../../src/config/constants';
+import { useTheme } from '../../../src/hooks/useTheme';
 
 export default function MyTeamLayout() {
+  const theme = useTheme();
+
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: COLORS.surface,
+          backgroundColor: theme.surface,
         },
         headerTintColor: COLORS.text.primary,
         headerTitleStyle: {
