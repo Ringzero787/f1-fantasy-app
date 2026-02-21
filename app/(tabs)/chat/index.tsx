@@ -6,6 +6,8 @@ import { COLORS, SPACING, FONTS } from '../../../src/config/constants';
 import { useLeagueStore } from '../../../src/store/league.store';
 import { useChatStore } from '../../../src/store/chat.store';
 import { ChatListItem } from '../../../src/components/chat/ChatListItem';
+import { ChatScreen } from '../../../src/components/chat/ChatScreen';
+import { Stack } from 'expo-router';
 
 export default function ChatListScreen() {
   const router = useRouter();
@@ -17,13 +19,6 @@ export default function ChatListScreen() {
   useEffect(() => {
     if (leagues.length > 0) {
       loadUnreadCounts(leagues.map((l) => l.id));
-    }
-  }, [leagues.length]);
-
-  // Auto-navigate if only one league
-  useEffect(() => {
-    if (leagues.length === 1) {
-      router.replace(`/(tabs)/chat/${leagues[0].id}` as any);
     }
   }, [leagues.length]);
 
@@ -39,8 +34,15 @@ export default function ChatListScreen() {
     );
   }
 
-  // If only one league, we already redirected above
-  if (leagues.length === 1) return null;
+  // Single league: render chat inline (no navigation, so back works correctly)
+  if (leagues.length === 1) {
+    return (
+      <>
+        <Stack.Screen options={{ title: leagues[0].name || 'Chat' }} />
+        <ChatScreen leagueId={leagues[0].id} />
+      </>
+    );
+  }
 
   return (
     <View style={styles.container}>
