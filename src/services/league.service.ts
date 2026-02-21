@@ -352,6 +352,36 @@ export const leagueService = {
         rank: index + 1,
       })) as LeagueMember[];
 
+    // Enrich members with team data (teamName, teamAvatarUrl)
+    // Member docs don't store team info, so fetch from fantasyTeams collection
+    try {
+      const teamsQuery = query(
+        collection(db, 'fantasyTeams'),
+        where('leagueId', '==', leagueId)
+      );
+      const teamsSnapshot = await getDocs(teamsQuery);
+      const teamsByUserId = new Map<string, { name: string; avatarUrl?: string }>();
+      teamsSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.userId) {
+          teamsByUserId.set(data.userId, {
+            name: data.name || 'Unnamed Team',
+            avatarUrl: data.avatarUrl,
+          });
+        }
+      });
+
+      approved.forEach((member) => {
+        const team = teamsByUserId.get(member.userId);
+        if (team) {
+          member.teamName = team.name;
+          member.teamAvatarUrl = team.avatarUrl;
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to enrich members with team data:', e);
+    }
+
     return approved;
   },
 
