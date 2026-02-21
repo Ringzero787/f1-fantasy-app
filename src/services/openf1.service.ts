@@ -109,31 +109,30 @@ export interface OpenF1ChampionshipTeam {
 }
 
 // Map OpenF1 driver numbers to our app's driver IDs
+// Confirmed 2026 numbers from formula1.com/en/drivers
 const DRIVER_NUMBER_TO_ID: Record<number, string> = {
-  1: 'verstappen',
-  4: 'norris',
-  10: 'gasly',
-  11: 'perez',
-  14: 'alonso',
-  16: 'leclerc',
-  18: 'stroll',
-  20: 'hulkenberg', // Assuming Hulk keeps 20 at Audi
-  22: 'antonelli', // New number for Antonelli - may change
-  23: 'albon',
-  27: 'hulkenberg',
-  31: 'ocon',
-  44: 'hamilton',
-  55: 'sainz',
-  63: 'russell',
-  81: 'piastri',
-  // 2026 rookies - numbers may change
-  6: 'bearman', // Haas
-  7: 'lawson', // Red Bull/Racing Bulls
-  30: 'bortoleto', // Audi
-  43: 'colapinto', // Alpine (rumored)
-  35: 'hadjar', // Racing Bulls
-  77: 'bottas', // Cadillac
-  87: 'linblad', // Reserve
+  1: 'norris',        // McLaren (2025 World Champion)
+  3: 'verstappen',    // Red Bull
+  5: 'bortoleto',     // Audi
+  6: 'hadjar',        // Red Bull
+  10: 'gasly',        // Alpine
+  11: 'perez',        // Cadillac
+  12: 'antonelli',    // Mercedes
+  14: 'alonso',       // Aston Martin
+  16: 'leclerc',      // Ferrari
+  18: 'stroll',       // Aston Martin
+  23: 'albon',        // Williams
+  27: 'hulkenberg',   // Audi
+  30: 'lawson',       // Racing Bulls
+  31: 'ocon',         // Haas
+  41: 'lindblad',     // Racing Bulls
+  43: 'colapinto',    // Alpine
+  44: 'hamilton',     // Ferrari
+  55: 'sainz',        // Williams
+  63: 'russell',      // Mercedes
+  77: 'bottas',       // Cadillac
+  81: 'piastri',      // McLaren
+  87: 'bearman',      // Haas
 };
 
 // Map OpenF1 team names to our constructor IDs

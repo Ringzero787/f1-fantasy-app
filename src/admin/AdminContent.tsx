@@ -788,14 +788,7 @@ export default function AdminContent() {
             <Ionicons name="cash-outline" size={16} color={COLORS.warning} />
             <Text style={styles.resetPricesButtonText}>Reset Prices</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.resetRacesButton} onPress={handleResetAllRaceResults}>
-            <Ionicons name="flag-outline" size={16} color={COLORS.warning} />
-            <Text style={styles.resetRacesButtonText}>Reset Races</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.resetAllButton} onPress={handleResetAllRaces}>
-            <Ionicons name="trash-outline" size={16} color={COLORS.error} />
-            <Text style={styles.resetAllButtonText}>Reset All</Text>
-          </TouchableOpacity>
+          {/* Reset Races and Reset All hidden for production — use seed scripts instead */}
         </View>
       </Card>
 
