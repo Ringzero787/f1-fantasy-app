@@ -369,7 +369,7 @@ export default function CreateTeamScreen() {
             title={dataLoading ? "Loading data..." : "⚡ Auto Create Optimized Team"}
             onPress={handleCreateRecommended}
             loading={isCreatingRecommended}
-            disabled={(isLoading && !isCreatingRecommended) || dataLoading || !teamName.trim() || (teamMode === 'league' && !currentLeague)}
+            disabled={(isLoading && !isCreatingRecommended) || dataLoading || (teamMode === 'league' && !currentLeague)}
             fullWidth
             style={styles.quickActionButton}
             testID="auto-create-team-btn"

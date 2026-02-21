@@ -46,7 +46,7 @@ export const PRICING_CONFIG = {
 
   // V3: Ace System
   ACE_MULTIPLIER: 2.0, // Ace scores 2x points
-  ACE_MAX_PRICE: 240,  // Drivers over this price cannot be ace
+  ACE_MAX_PRICE: 200,  // Drivers over this price cannot be ace
 
   // V3: Stale Roster Penalty (encourages active management)
   STALE_ROSTER_THRESHOLD: 5,  // Races before penalty kicks in

@@ -11,7 +11,9 @@ interface DriverCardProps {
   driver: Driver;
   onPress?: () => void;
   onSelect?: () => void;
+  onAdd?: () => void;
   isSelected?: boolean;
+  isOnTeam?: boolean;
   showPrice?: boolean;
   showPoints?: boolean;
   showPriceChange?: boolean;
@@ -23,7 +25,9 @@ export const DriverCard = React.memo(function DriverCard({
   driver,
   onPress,
   onSelect,
+  onAdd,
   isSelected = false,
+  isOnTeam = false,
   showPrice = true,
   showPoints = false,
   showPriceChange = false,
@@ -33,7 +37,7 @@ export const DriverCard = React.memo(function DriverCard({
   const theme = useTheme();
   const priceChange = driver.price - driver.previousPrice;
   const priceDirection = priceChange > 0 ? 'up' : priceChange < 0 ? 'down' : 'neutral';
-  const canBeAce = driver.price <= 240;
+  const canBeAce = driver.price <= 200;
   const teamColor = TEAM_COLORS[driver.constructorId]?.primary || '#4B5563';
 
   if (compact) {
@@ -95,6 +99,7 @@ export const DriverCard = React.memo(function DriverCard({
       style={({ pressed }) => [
         styles.container,
         isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
+        isOnTeam && !isSelected && styles.onTeamContainer,
         { transform: [{ scale: pressed ? 0.985 : 1 }] },
       ]}
       onPress={onPress || onSelect}
@@ -173,6 +178,18 @@ export const DriverCard = React.memo(function DriverCard({
               </View>
             </Pressable>
           )}
+
+          {/* Quick-add button (market mode) */}
+          {onAdd && !onSelect && (
+            <Pressable
+              onPress={onAdd}
+              style={({ pressed }) => [styles.selectButton, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <View style={[styles.selectCircle, { borderColor: theme.primary }]}>
+                <Ionicons name="add" size={16} color={theme.primary} />
+              </View>
+            </Pressable>
+          )}
         </View>
 
         {/* Bottom badges row */}
@@ -192,6 +209,11 @@ export const DriverCard = React.memo(function DriverCard({
             <View style={styles.fantasyBadge}>
               <Ionicons name="trophy-outline" size={10} color={theme.primary} />
               <Text style={[styles.fantasyText, { color: theme.primary }]}>{driver.fantasyPoints} FP</Text>
+            </View>
+          )}
+          {isOnTeam && (
+            <View style={styles.onTeamBadge}>
+              <Text style={styles.onTeamText}>ON TEAM</Text>
             </View>
           )}
           <Text style={styles.shortCode}>{driver.shortName}</Text>
@@ -462,6 +484,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.primary,
     ...SHADOWS.glow,
+  },
+
+  onTeamContainer: {
+    borderColor: COLORS.success + '60',
+  },
+
+  onTeamBadge: {
+    backgroundColor: COLORS.success + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+  },
+
+  onTeamText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.success,
+    letterSpacing: 0.5,
   },
 
   // Compact (unchanged)

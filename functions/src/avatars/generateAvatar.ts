@@ -69,8 +69,8 @@ const MIME_EXTENSIONS: Record<string, string> = {
   'image/webp': 'webp',
 };
 
-// Rate limit: 1 generation per 30 seconds per user
-const RATE_LIMIT_MS = 30_000;
+// Rate limit: 1 generation per 10 seconds per user
+const RATE_LIMIT_MS = 10_000;
 
 async function tryGenerateWithModel(
   apiKey: string,
