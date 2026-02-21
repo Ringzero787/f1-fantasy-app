@@ -9,32 +9,52 @@ const IMAGE_GENERATION_MODELS = [
 ];
 
 type AvatarType = 'league' | 'team' | 'user';
+type AvatarStyle = 'simple' | 'detailed';
 
-const AVATAR_PROMPTS: Record<AvatarType, (name: string) => string> = {
-  league: (name) =>
-    `A premium, detailed racing league crest for a Formula 1 fantasy league called "${name}". ` +
-    `The imagery should directly represent the meaning or theme of "${name}" — ` +
-    `interpret the name literally or metaphorically and make it the central focus. ` +
-    `Incorporate motorsport elements like checkered flags, racing stripes, or laurel wreaths around the central imagery. ` +
-    `Rich color palette with metallic gold or silver accents on a deep dark background. ` +
-    `Highly detailed digital illustration, polished and professional. Square image, edge-to-edge. ` +
-    `No text, no words, no letters, no numbers.`,
-  team: (name) =>
-    `A striking, detailed team emblem for a Formula 1 fantasy team called "${name}". ` +
-    `The design must visually represent "${name}" — think about what "${name}" means or evokes ` +
-    `and make that the hero element of the badge. ` +
-    `Blend the "${name}" concept with motorsport energy: speed lines, carbon fiber textures, or racing livery patterns. ` +
-    `Bold, vibrant colors with strong contrast against a dark background. ` +
-    `Detailed digital art style, like a professional racing team logo. Square image, edge-to-edge. ` +
-    `No text, no words, no letters, no numbers.`,
-  user: (name) =>
-    `A stylish, detailed avatar portrait inspired by the name "${name}". ` +
-    `Create imagery that personally represents "${name}" — interpret the name creatively ` +
-    `and build the visual identity around its meaning or vibe. ` +
-    `Add subtle racing or F1 motifs like a helmet visor reflection, racing suit collar, or pit lane atmosphere. ` +
-    `Cinematic lighting, rich colors, detailed digital illustration on a dark moody background. ` +
-    `Square image, edge-to-edge. Not photorealistic. ` +
-    `No text, no words, no letters, no numbers.`,
+const AVATAR_PROMPTS: Record<AvatarStyle, Record<AvatarType, (name: string) => string>> = {
+  detailed: {
+    league: (name) =>
+      `A premium, detailed racing league crest for a Formula 1 fantasy league called "${name}". ` +
+      `The imagery should directly represent the meaning or theme of "${name}" — ` +
+      `interpret the name literally or metaphorically and make it the central focus. ` +
+      `Incorporate motorsport elements like checkered flags, racing stripes, or laurel wreaths around the central imagery. ` +
+      `Rich color palette with metallic gold or silver accents on a deep dark background. ` +
+      `Highly detailed digital illustration, polished and professional. Square image, edge-to-edge. ` +
+      `No text, no words, no letters, no numbers.`,
+    team: (name) =>
+      `A striking, detailed team emblem for a Formula 1 fantasy team called "${name}". ` +
+      `The design must visually represent "${name}" — think about what "${name}" means or evokes ` +
+      `and make that the hero element of the badge. ` +
+      `Blend the "${name}" concept with motorsport energy: speed lines, carbon fiber textures, or racing livery patterns. ` +
+      `Bold, vibrant colors with strong contrast against a dark background. ` +
+      `Detailed digital art style, like a professional racing team logo. Square image, edge-to-edge. ` +
+      `No text, no words, no letters, no numbers.`,
+    user: (name) =>
+      `A stylish, detailed avatar portrait inspired by the name "${name}". ` +
+      `Create imagery that personally represents "${name}" — interpret the name creatively ` +
+      `and build the visual identity around its meaning or vibe. ` +
+      `Add subtle racing or F1 motifs like a helmet visor reflection, racing suit collar, or pit lane atmosphere. ` +
+      `Cinematic lighting, rich colors, detailed digital illustration on a dark moody background. ` +
+      `Square image, edge-to-edge. Not photorealistic. ` +
+      `No text, no words, no letters, no numbers.`,
+  },
+  simple: {
+    league: (name) =>
+      `A clean, minimalist logo for a racing league called "${name}". ` +
+      `Simple flat icon inspired by the name. ` +
+      `One or two bold colors on a solid dark background. Minimal detail, geometric shapes. ` +
+      `Square image, edge-to-edge. No text, no words, no letters, no numbers.`,
+    team: (name) =>
+      `A clean, minimalist emblem for a racing team called "${name}". ` +
+      `Simple flat icon inspired by the name. ` +
+      `One or two bold colors on a solid dark background. Minimal detail, geometric shapes. ` +
+      `Square image, edge-to-edge. No text, no words, no letters, no numbers.`,
+    user: (name) =>
+      `A clean, minimalist avatar inspired by the name "${name}". ` +
+      `Simple flat illustration, minimal detail. ` +
+      `One or two bold colors on a solid dark background. Geometric or cartoon style. ` +
+      `Square image, edge-to-edge. Not photorealistic. No text, no words, no letters, no numbers.`,
+  },
 };
 
 const COLLECTION_MAP: Record<AvatarType, string> = {
@@ -187,10 +207,11 @@ export const generateAvatarFn = onCall(
       );
     }
 
-    const { name, type, entityId } = request.data as {
+    const { name, type, entityId, style } = request.data as {
       name?: string;
       type?: string;
       entityId?: string;
+      style?: string;
     };
 
     if (!name || !type || !entityId) {
@@ -202,6 +223,7 @@ export const generateAvatarFn = onCall(
     }
 
     const avatarType = type as AvatarType;
+    const avatarStyle: AvatarStyle = style === 'simple' ? 'simple' : 'detailed';
     const userId = request.auth.uid;
 
     // Verify the caller owns the entity
@@ -220,7 +242,7 @@ export const generateAvatarFn = onCall(
     }
 
     // Generate image with Gemini (try each model)
-    const prompt = AVATAR_PROMPTS[avatarType](name);
+    const prompt = AVATAR_PROMPTS[avatarStyle][avatarType](name);
     let imageResult: { imageData: Buffer; mimeType: string } | null = null;
     const errors: string[] = [];
 

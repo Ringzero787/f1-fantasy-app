@@ -20,7 +20,7 @@ import { useAvatarStore } from '../store/avatar.store';
 import { usePurchaseStore } from '../store/purchase.store';
 import { PurchaseModal } from './PurchaseModal';
 import { PRODUCTS, PRODUCT_IDS } from '../config/products';
-import type { AvatarType } from '../services/avatarGeneration.service';
+import type { AvatarType, AvatarStyle } from '../services/avatarGeneration.service';
 
 // DiceBear styles available for each type
 const AVATAR_STYLES: Record<AvatarType, { id: string; name: string }[]> = {
@@ -62,7 +62,7 @@ interface AvatarPickerProps {
   type: AvatarType;
   currentAvatarUrl: string | null;
   onSelectAvatar: (url: string) => void;
-  onGenerateAI?: () => void;
+  onGenerateAI?: (style: AvatarStyle) => void;
   isGeneratingAI?: boolean;
   canGenerateAI?: boolean;
   userId?: string;
@@ -87,6 +87,7 @@ export function AvatarPicker({
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [wasGenerating, setWasGenerating] = useState(false);
   const [showAvatarPurchase, setShowAvatarPurchase] = useState(false);
+  const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>('detailed');
 
   // Purchase store
   const isPurchasing = usePurchaseStore(s => s.isPurchasing);
@@ -139,7 +140,7 @@ export function AvatarPicker({
       return;
     }
     if (onGenerateAI) {
-      onGenerateAI();
+      onGenerateAI(avatarStyle);
     }
   };
 
@@ -275,6 +276,32 @@ export function AvatarPicker({
             </Text>
           </View>
 
+          {/* AI Style Toggle */}
+          {canGenerateAI && (
+            <View style={styles.styleToggleContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.styleToggleOption,
+                  avatarStyle === 'simple' && [styles.styleToggleActive, { backgroundColor: theme.primary, borderColor: theme.primary }],
+                ]}
+                onPress={() => setAvatarStyle('simple')}
+              >
+                <Ionicons name="flash-outline" size={16} color={avatarStyle === 'simple' ? COLORS.white : COLORS.gray[500]} />
+                <Text style={[styles.styleToggleText, avatarStyle === 'simple' && styles.styleToggleTextActive]}>Simple</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.styleToggleOption,
+                  avatarStyle === 'detailed' && [styles.styleToggleActive, { backgroundColor: theme.primary, borderColor: theme.primary }],
+                ]}
+                onPress={() => setAvatarStyle('detailed')}
+              >
+                <Ionicons name="color-palette-outline" size={16} color={avatarStyle === 'detailed' ? COLORS.white : COLORS.gray[500]} />
+                <Text style={[styles.styleToggleText, avatarStyle === 'detailed' && styles.styleToggleTextActive]}>Detailed</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* AI Generation Option */}
           {canGenerateAI && canGenerateMore && (
             <TouchableOpacity
@@ -299,7 +326,7 @@ export function AvatarPicker({
                       ? (avatarRemaining <= (usePurchaseStore.getState().getBonusCredits(userId || '') || 0)
                           ? `${avatarRemaining} purchased credits remaining`
                           : `${avatarRemaining} of 10 remaining`)
-                      : 'Create a unique avatar using AI'}
+                      : `${avatarStyle === 'simple' ? 'Clean & minimal' : 'Rich & elaborate'} style`}
                   </Text>
                 </View>
               </View>
@@ -843,5 +870,39 @@ const styles = StyleSheet.create({
     right: -2,
     backgroundColor: COLORS.white,
     borderRadius: 10,
+  },
+
+  styleToggleContainer: {
+    flexDirection: 'row',
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    overflow: 'hidden',
+  },
+
+  styleToggleOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.white,
+  },
+
+  styleToggleActive: {
+    backgroundColor: COLORS.primary,
+  },
+
+  styleToggleText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.gray[500],
+  },
+
+  styleToggleTextActive: {
+    color: COLORS.white,
   },
 });

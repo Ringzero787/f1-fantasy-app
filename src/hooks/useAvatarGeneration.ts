@@ -5,6 +5,7 @@ import {
   regenerateAvatar,
   isAvatarGenerationAvailable,
   AvatarType,
+  AvatarStyle,
 } from '../services/avatarGeneration.service';
 
 interface UseAvatarGenerationOptions {
@@ -21,13 +22,14 @@ export function useAvatarGeneration(options: UseAvatarGenerationOptions = {}) {
   const generate = useCallback(async (
     name: string,
     type: AvatarType,
-    entityId: string
+    entityId: string,
+    style: AvatarStyle = 'detailed'
   ) => {
     setIsGenerating(true);
     setError(null);
 
     try {
-      const result = await generateAvatar(name, type, entityId);
+      const result = await generateAvatar(name, type, entityId, style);
 
       if (result.success && result.imageUrl) {
         options.onSuccess?.(result.imageUrl);
@@ -53,7 +55,8 @@ export function useAvatarGeneration(options: UseAvatarGenerationOptions = {}) {
   const regenerate = useCallback(async (
     name: string,
     type: AvatarType,
-    entityId: string
+    entityId: string,
+    style: AvatarStyle = 'detailed'
   ) => {
     return new Promise<string | null>((resolve) => {
       Alert.alert(
@@ -68,7 +71,7 @@ export function useAvatarGeneration(options: UseAvatarGenerationOptions = {}) {
               setError(null);
 
               try {
-                const result = await regenerateAvatar(name, type, entityId);
+                const result = await regenerateAvatar(name, type, entityId, style);
 
                 if (result.success && result.imageUrl) {
                   options.onSuccess?.(result.imageUrl);

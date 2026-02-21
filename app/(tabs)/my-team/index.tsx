@@ -210,12 +210,12 @@ export default function MyTeamScreen() {
     setCurrentTeam({ ...currentTeam, avatarUrl: url, updatedAt: new Date() });
   };
 
-  const handleGenerateTeamAvatar = async () => {
+  const handleGenerateTeamAvatar = async (style: 'simple' | 'detailed' = 'detailed') => {
     if (!currentTeam) return;
     if (teamAvatarUrl) {
-      await regenerateAvatar(currentTeam.name, 'team', currentTeam.id);
+      await regenerateAvatar(currentTeam.name, 'team', currentTeam.id, style);
     } else {
-      await generateAvatar(currentTeam.name, 'team', currentTeam.id);
+      await generateAvatar(currentTeam.name, 'team', currentTeam.id, style);
     }
   };
 

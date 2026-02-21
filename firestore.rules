@@ -31,17 +31,14 @@ service cloud.firestore {
 
     // Leagues collection
     match /leagues/{leagueId} {
-      // get: members, owners, public leagues, or admin
-      allow get: if isAuthenticated() && (
-        isLeagueMember(leagueId) ||
-        isLeagueOwner(leagueId) ||
-        resource.data.isPublic == true ||
-        isAdmin()
-      );
-      // list: authenticated users can query (needed for invite code lookup, public leagues)
-      allow list: if isAuthenticated();
+      // Any authenticated user can read a league (invite code is the access control)
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isLeagueOwner(leagueId);
+      // Owner can update anything; authenticated users can only increment/decrement memberCount
+      allow update: if isAuthenticated() && (
+        isLeagueOwner(leagueId) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'updatedAt'])
+      );
       allow delete: if isLeagueOwner(leagueId);
 
       // League members subcollection — members/owner can see members

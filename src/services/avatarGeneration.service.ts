@@ -2,6 +2,7 @@ import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, functions, httpsCallable } from '../config/firebase';
 
 export type AvatarType = 'league' | 'team' | 'user';
+export type AvatarStyle = 'simple' | 'detailed';
 
 interface GenerateAvatarResult {
   success: boolean;
@@ -31,15 +32,16 @@ function generateDemoAvatarUrl(name: string, type: AvatarType): string {
 export async function generateAvatar(
   name: string,
   type: AvatarType,
-  entityId: string
+  entityId: string,
+  style: AvatarStyle = 'detailed'
 ): Promise<GenerateAvatarResult> {
   try {
     const generateAvatarFn = httpsCallable<
-      { name: string; type: string; entityId: string },
+      { name: string; type: string; entityId: string; style: string },
       { imageUrl: string }
     >(functions, 'generateAvatarFn', { timeout: 120_000 });
 
-    const result = await generateAvatarFn({ name, type, entityId });
+    const result = await generateAvatarFn({ name, type, entityId, style });
     return { success: true, imageUrl: result.data.imageUrl };
   } catch (error: any) {
     console.error('Cloud avatar generation failed:', error);
@@ -96,9 +98,10 @@ export function isAvatarGenerationAvailable(): boolean {
 export async function regenerateAvatar(
   name: string,
   type: AvatarType,
-  entityId: string
+  entityId: string,
+  style: AvatarStyle = 'detailed'
 ): Promise<GenerateAvatarResult> {
-  return generateAvatar(name, type, entityId);
+  return generateAvatar(name, type, entityId, style);
 }
 
 /**

@@ -3,7 +3,6 @@ import { Image } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/config/constants';
-import { useScale } from '../../src/hooks/useScale';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useOnboardingStore } from '../../src/store/onboarding.store';
@@ -12,7 +11,6 @@ import { OnboardingTutorial } from '../../src/components/OnboardingTutorial';
 import { NotificationBell } from '../../src/components/NotificationBell';
 
 export default function TabLayout() {
-  const { scaledFonts, scaledIcon } = useScale();
   const theme = useTheme();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const isAdmin = useAuthStore((state) => state.isAdmin);
@@ -61,7 +59,7 @@ export default function TabLayout() {
           tabBarTestID: 'tab-home',
           tabBarAccessibilityLabel: 'Home tab',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={scaledIcon(28)} color={color} />
+            <Ionicons name="home" size={28} color={color} />
           ),
         }}
       />
@@ -84,7 +82,7 @@ export default function TabLayout() {
           tabBarTestID: 'tab-my-team',
           tabBarAccessibilityLabel: 'My Team tab',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={scaledIcon(28)} color={color} />
+            <Ionicons name="people" size={28} color={color} />
           ),
         }}
       />
@@ -107,7 +105,7 @@ export default function TabLayout() {
           tabBarTestID: 'tab-market',
           tabBarAccessibilityLabel: 'Market tab',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cart" size={scaledIcon(28)} color={color} />
+            <Ionicons name="cart" size={28} color={color} />
           ),
         }}
       />
@@ -130,7 +128,7 @@ export default function TabLayout() {
           tabBarTestID: 'tab-leagues',
           tabBarAccessibilityLabel: 'Leagues tab',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trophy" size={scaledIcon(28)} color={color} />
+            <Ionicons name="trophy" size={28} color={color} />
           ),
         }}
       />
@@ -142,7 +140,7 @@ export default function TabLayout() {
           tabBarTestID: 'tab-calendar',
           tabBarAccessibilityLabel: 'Calendar tab',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" size={scaledIcon(28)} color={color} />
+            <Ionicons name="calendar" size={28} color={color} />
           ),
         }}
       />
@@ -156,7 +154,7 @@ export default function TabLayout() {
           tabBarTestID: 'tab-chat',
           tabBarAccessibilityLabel: 'Chat tab',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubbles" size={scaledIcon(28)} color={color} />
+            <Ionicons name="chatbubbles" size={28} color={color} />
           ),
           tabBarBadge: totalUnread > 0 ? totalUnread : undefined,
         }}
@@ -171,7 +169,7 @@ export default function TabLayout() {
           tabBarTestID: 'tab-admin',
           tabBarAccessibilityLabel: 'Admin tab',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings" size={scaledIcon(28)} color={color} />
+            <Ionicons name="settings" size={28} color={color} />
           ),
         }}
       />
@@ -188,7 +186,7 @@ export default function TabLayout() {
           tabBarTestID: 'tab-profile',
           tabBarAccessibilityLabel: 'Profile tab',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={scaledIcon(28)} color={color} />
+            <Ionicons name="person" size={28} color={color} />
           ),
         }}
       />
@@ -202,7 +200,7 @@ export default function TabLayout() {
           },
           headerTintColor: COLORS.text.primary,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications" size={scaledIcon(28)} color={color} />
+            <Ionicons name="notifications" size={28} color={color} />
           ),
         }}
       />

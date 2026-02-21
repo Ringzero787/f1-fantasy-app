@@ -167,12 +167,12 @@ export default function LeagueDetailScreen() {
     }
   }, [currentLeague?.avatarUrl]);
 
-  const handleGenerateAvatar = async () => {
+  const handleGenerateAvatar = async (style: 'simple' | 'detailed' = 'detailed') => {
     if (!currentLeague || !id) return;
     if (avatarUrl) {
-      await regenerateAvatar(currentLeague.name, 'league', id);
+      await regenerateAvatar(currentLeague.name, 'league', id, style);
     } else {
-      await generateAvatar(currentLeague.name, 'league', id);
+      await generateAvatar(currentLeague.name, 'league', id, style);
     }
   };
 
