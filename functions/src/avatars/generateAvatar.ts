@@ -5,7 +5,6 @@ import * as admin from 'firebase-admin';
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
 
 const IMAGE_GENERATION_MODELS = [
-  'gemini-2.0-flash-exp',
   'gemini-2.5-flash-image',
 ];
 
@@ -241,23 +240,28 @@ export const generateAvatarFn = onCall(
     const bucket = admin.storage().bucket();
     const file = bucket.file(storagePath);
 
+    // Generate a download token for the file
+    const downloadToken = require('crypto').randomUUID();
+
     await file.save(imageResult.imageData, {
-      metadata: { contentType: imageResult.mimeType },
+      metadata: {
+        contentType: imageResult.mimeType,
+        metadata: { firebaseStorageDownloadTokens: downloadToken },
+      },
     });
 
-    // Generate a signed URL that lasts 10 years (effectively permanent)
-    const [signedUrl] = await file.getSignedUrl({
-      action: 'read',
-      expires: '2036-01-01',
-    });
+    // Build a Firebase Storage download URL (no signBlob permission needed)
+    const bucketName = bucket.name;
+    const encodedPath = encodeURIComponent(storagePath);
+    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${downloadToken}`;
 
     // Update Firestore entity doc
     const collectionName = COLLECTION_MAP[avatarType];
     await admin.firestore().collection(collectionName).doc(entityId).update({
-      avatarUrl: signedUrl,
+      avatarUrl: downloadUrl,
       avatarGeneratedAt: new Date().toISOString(),
     });
 
-    return { imageUrl: signedUrl };
+    return { imageUrl: downloadUrl };
   }
 );

@@ -20,7 +20,8 @@ import { Input, Button } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { validateTeamName } from '../../../src/utils/validation';
-import type { Driver, Constructor } from '../../../src/types';
+import { leagueService } from '../../../src/services/league.service';
+import type { Driver, Constructor, League } from '../../../src/types';
 
 // Generate a recommended team that maximizes budget usage
 function generateRecommendedTeam(
@@ -140,6 +141,10 @@ export default function CreateTeamScreen() {
   const [teamMode, setTeamMode] = useState<TeamMode>('league');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isCreatingRecommended, setIsCreatingRecommended] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteLeague, setInviteLeague] = useState<League | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
   const hasCreated = useRef(false);
 
   // Auto-dismiss stale create modal when returning to this screen after team was already created
@@ -177,8 +182,28 @@ export default function CreateTeamScreen() {
     return leagues.find(l => !leaguesWithTeams.has(l.id)) || null;
   }, [leagues, userTeams, recentlyCreatedLeague]);
 
-  // The league to join (auto-assigned) or null for solo
-  const currentLeague = teamMode === 'league' ? autoLeague : null;
+  // The league to join: auto-assigned, from invite code, or null for solo
+  const currentLeague = teamMode === 'league' ? (autoLeague || inviteLeague) : null;
+
+  const handleLookupInviteCode = async () => {
+    if (!inviteCode.trim()) return;
+    setInviteError(null);
+    setIsLookingUp(true);
+    try {
+      const league = await leagueService.getLeagueByCode(inviteCode.trim());
+      if (!league) {
+        setInviteError('No league found with that code');
+        setInviteLeague(null);
+      } else {
+        setInviteLeague(league);
+      }
+    } catch {
+      setInviteError('Failed to look up code');
+      setInviteLeague(null);
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
 
   const handleCreate = async () => {
     setValidationError(null);
@@ -192,6 +217,11 @@ export default function CreateTeamScreen() {
     if (!user) return;
 
     try {
+      // If joining via invite code, join the league first
+      if (inviteLeague && !autoLeague) {
+        await leagueService.joinLeague(inviteLeague.id, user.id, user.displayName || 'Player');
+      }
+
       await createTeam(user.id, currentLeague?.id || null, teamName.trim());
       hasCreated.current = true;
 
@@ -236,6 +266,11 @@ export default function CreateTeamScreen() {
 
     setIsCreatingRecommended(true);
     try {
+      // If joining via invite code, join the league first
+      if (inviteLeague && !autoLeague) {
+        await leagueService.joinLeague(inviteLeague.id, user.id, user.displayName || 'Player');
+      }
+
       // Create the team first (support solo teams with null leagueId)
       await createTeam(user.id, currentLeague?.id || null, teamName.trim());
 
@@ -334,7 +369,7 @@ export default function CreateTeamScreen() {
             title={dataLoading ? "Loading data..." : "⚡ Auto Create Optimized Team"}
             onPress={handleCreateRecommended}
             loading={isCreatingRecommended}
-            disabled={(isLoading && !isCreatingRecommended) || dataLoading || !teamName.trim() || (teamMode === 'league' && !autoLeague)}
+            disabled={(isLoading && !isCreatingRecommended) || dataLoading || !teamName.trim() || (teamMode === 'league' && !currentLeague)}
             fullWidth
             style={styles.quickActionButton}
             testID="auto-create-team-btn"
@@ -419,12 +454,46 @@ export default function CreateTeamScreen() {
                 <Text style={[styles.preselectedLeagueName, { color: theme.primary }]}>{autoLeague.name}</Text>
               </View>
             </View>
-          ) : teamMode === 'league' && !autoLeague ? (
-            <View style={styles.modeDescription}>
-              <Ionicons name="information-circle" size={20} color={COLORS.warning} />
-              <Text style={styles.modeDescriptionText}>
-                No league found. Create or join a league first from the Leagues tab, then create your team.
+          ) : teamMode === 'league' && !autoLeague && !inviteLeague ? (
+            <View style={styles.inviteCodeSection}>
+              <Text style={styles.inviteCodeLabel}>Enter a league invite code to join</Text>
+              <View style={styles.inviteCodeRow}>
+                <Input
+                  placeholder="e.g. ABC123"
+                  value={inviteCode}
+                  onChangeText={(text: string) => {
+                    setInviteCode(text.toUpperCase());
+                    setInviteError(null);
+                    setInviteLeague(null);
+                  }}
+                  maxLength={8}
+                  autoCapitalize="characters"
+                  containerStyle={styles.inviteCodeInput}
+                />
+                <Button
+                  title={isLookingUp ? "..." : "Join"}
+                  onPress={handleLookupInviteCode}
+                  disabled={!inviteCode.trim() || isLookingUp}
+                  style={styles.inviteCodeButton}
+                />
+              </View>
+              {inviteError && (
+                <Text style={styles.inviteErrorText}>{inviteError}</Text>
+              )}
+              <Text style={styles.inviteCodeHint}>
+                Don't have a code? Create a solo team or go to the Leagues tab to create your own league.
               </Text>
+            </View>
+          ) : teamMode === 'league' && inviteLeague ? (
+            <View style={[styles.preselectedLeagueBanner, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '40' }]}>
+              <Ionicons name="trophy" size={24} color={theme.primary} />
+              <View style={styles.preselectedLeagueInfo}>
+                <Text style={styles.preselectedLeagueLabel}>Will join</Text>
+                <Text style={[styles.preselectedLeagueName, { color: theme.primary }]}>{inviteLeague.name}</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setInviteLeague(null); setInviteCode(''); }}>
+                <Ionicons name="close-circle" size={24} color={COLORS.text.muted} />
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={[styles.modeDescription, { backgroundColor: theme.primary + '15' }]}>
@@ -455,7 +524,7 @@ export default function CreateTeamScreen() {
             title="Create Empty Team"
             onPress={handleCreate}
             loading={isLoading && !isCreatingRecommended}
-            disabled={isCreatingRecommended || (teamMode === 'league' && !autoLeague)}
+            disabled={isCreatingRecommended || (teamMode === 'league' && !currentLeague)}
             variant="outline"
             fullWidth
             style={styles.button}
@@ -666,6 +735,50 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: SPACING.lg,
     fontStyle: 'italic',
+  },
+
+  inviteCodeSection: {
+    backgroundColor: COLORS.card,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+  },
+
+  inviteCodeLabel: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    marginBottom: SPACING.sm,
+  },
+
+  inviteCodeRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    alignItems: 'flex-start',
+  },
+
+  inviteCodeInput: {
+    flex: 1,
+  },
+
+  inviteCodeButton: {
+    marginTop: 0,
+    minWidth: 70,
+  },
+
+  inviteErrorText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.error,
+    marginTop: SPACING.xs,
+  },
+
+  inviteCodeHint: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    marginTop: SPACING.sm,
+    lineHeight: 18,
   },
 
 });

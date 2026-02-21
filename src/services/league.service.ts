@@ -112,12 +112,13 @@ export const leagueService = {
       settings: leagueSettings,
     };
 
-    // Create league document
-    const leagueRef = await addDoc(leaguesCollection, leagueData);
-
-    // Add owner as first member
+    // Create league + owner member in a single batch write
+    const leagueRef = doc(leaguesCollection);
     const memberRef = doc(db, 'leagues', leagueRef.id, 'members', userId);
-    await setDoc(memberRef, {
+
+    const batch = writeBatch(db);
+    batch.set(leagueRef, leagueData);
+    batch.set(memberRef, {
       leagueId: leagueRef.id,
       userId,
       displayName: userName,
@@ -126,6 +127,7 @@ export const leagueService = {
       rank: 1,
       joinedAt: serverTimestamp(),
     });
+    await batch.commit();
 
     return {
       id: leagueRef.id,
