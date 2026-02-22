@@ -52,19 +52,47 @@ export default function MarketScreen() {
   const { data: drivers, isLoading: driversLoading } = useDrivers(driverFilter);
   const { data: constructors, isLoading: constructorsLoading } = useConstructors();
   const currentTeam = useTeamStore(s => s.currentTeam);
+  const userTeams = useTeamStore(s => s.userTeams);
+  const selectTeam = useTeamStore(s => s.selectTeam);
+  const removeDriver = useTeamStore(s => s.removeDriver);
+  const removeConstructor = useTeamStore(s => s.removeConstructor);
   const lockoutInfo = useLockoutStatus();
   const raceResults = useAdminStore(s => s.raceResults);
 
   const isLoading = activeTab === 'drivers' ? driversLoading : constructorsLoading;
   const teamBudget = currentTeam?.budget ?? BUDGET;
 
-  // On-team driver IDs
-  const onTeamDriverIds = useMemo(() => {
-    if (!currentTeam?.drivers) return new Set<string>();
-    return new Set(currentTeam.drivers.map(d => d.driverId));
-  }, [currentTeam?.drivers]);
+  // Map drivers/constructors to which teams they belong to (supports multi-team sell)
+  const driverTeamMap = useMemo(() => {
+    const map = new Map<string, { teamId: string; teamName: string }[]>();
+    for (const team of userTeams) {
+      for (const d of team.drivers) {
+        const entries = map.get(d.driverId) || [];
+        entries.push({ teamId: team.id, teamName: team.name });
+        map.set(d.driverId, entries);
+      }
+    }
+    return map;
+  }, [userTeams]);
 
-  // On-team constructor ID
+  const constructorTeamMap = useMemo(() => {
+    const map = new Map<string, { teamId: string; teamName: string }[]>();
+    for (const team of userTeams) {
+      if (team.constructor) {
+        const entries = map.get(team.constructor.constructorId) || [];
+        entries.push({ teamId: team.id, teamName: team.name });
+        map.set(team.constructor.constructorId, entries);
+      }
+    }
+    return map;
+  }, [userTeams]);
+
+  // On-team driver IDs (derived from map for backward compat)
+  const onTeamDriverIds = useMemo(() => {
+    return new Set(driverTeamMap.keys());
+  }, [driverTeamMap]);
+
+  // On-team constructor ID (current team only, for add logic)
   const onTeamConstructorId = currentTeam?.constructor?.constructorId ?? null;
 
   // Locked-out driver IDs
@@ -219,6 +247,146 @@ export default function MarketScreen() {
     setPendingConstructor(null);
   };
 
+  // === Sell Handlers ===
+
+  const confirmSellDriver = (driver: Driver, teamId: string) => {
+    const team = userTeams.find(t => t.id === teamId);
+    if (!team) return;
+    const fantasyDriver = team.drivers.find(d => d.driverId === driver.id);
+    if (!fantasyDriver) return;
+
+    // Calculate sale value & profit/loss
+    const { driverPrices } = useAdminStore.getState();
+    const priceUpdate = driverPrices[driver.id];
+    const currentMarketPrice = priceUpdate?.currentPrice ?? fantasyDriver.currentPrice;
+    const contractLen = fantasyDriver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+    const inGracePeriod = (fantasyDriver.racesHeld || 0) === 0;
+    const earlyTermFee = (fantasyDriver.isReservePick || inGracePeriod) ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, fantasyDriver.racesHeld || 0);
+    const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
+    const profitLoss = saleValue - fantasyDriver.purchasePrice;
+    const profitLossStr = profitLoss >= 0 ? `+${formatDollars(profitLoss)}` : `-${formatDollars(Math.abs(profitLoss))}`;
+
+    let message = `Bought: ${formatDollars(fantasyDriver.purchasePrice)}\nMarket: ${formatDollars(currentMarketPrice)}`;
+    if (earlyTermFee > 0) {
+      message += `\nEarly term fee: -${formatDollars(earlyTermFee)}`;
+    }
+    message += `\nSale value: ${formatDollars(saleValue)}`;
+    message += `\nP/L: ${profitLossStr}`;
+    if (userTeams.length > 1) {
+      message += `\n\nFrom: ${team.name}`;
+    }
+
+    Alert.alert(
+      `Sell ${driver.name}?`,
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sell',
+          style: 'destructive',
+          onPress: () => {
+            if (currentTeam?.id !== teamId) selectTeam(teamId);
+            // Small delay to let selectTeam take effect
+            setTimeout(() => removeDriver(driver.id), 50);
+          },
+        },
+      ],
+    );
+  };
+
+  const handleSellDriver = (driver: Driver) => {
+    if (lockoutInfo.isLocked) {
+      Alert.alert('Teams Locked', lockoutInfo.lockReason || 'Team changes are locked during race weekend.');
+      return;
+    }
+    const teams = driverTeamMap.get(driver.id);
+    if (!teams || teams.length === 0) return;
+
+    if (teams.length === 1) {
+      confirmSellDriver(driver, teams[0].teamId);
+    } else {
+      // Multi-team picker
+      Alert.alert(
+        `Sell ${driver.name}`,
+        'Which team do you want to sell from?',
+        [
+          ...teams.map(t => ({
+            text: t.teamName,
+            onPress: () => confirmSellDriver(driver, t.teamId),
+          })),
+          { text: 'Cancel', style: 'cancel' as const },
+        ],
+      );
+    }
+  };
+
+  const confirmSellConstructor = (item: Constructor, teamId: string) => {
+    const team = userTeams.find(t => t.id === teamId);
+    if (!team || !team.constructor) return;
+    const fantasyConstructor = team.constructor;
+
+    const { constructorPrices } = useAdminStore.getState();
+    const cPriceUpdate = constructorPrices[item.id];
+    const currentMarketPrice = cPriceUpdate?.currentPrice ?? fantasyConstructor.currentPrice;
+    const contractLen = fantasyConstructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+    const cInGracePeriod = (fantasyConstructor.racesHeld || 0) === 0;
+    const earlyTermFee = (fantasyConstructor.isReservePick || cInGracePeriod) ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, fantasyConstructor.racesHeld || 0);
+    const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
+    const profitLoss = saleValue - fantasyConstructor.purchasePrice;
+    const profitLossStr = profitLoss >= 0 ? `+${formatDollars(profitLoss)}` : `-${formatDollars(Math.abs(profitLoss))}`;
+
+    let message = `Bought: ${formatDollars(fantasyConstructor.purchasePrice)}\nMarket: ${formatDollars(currentMarketPrice)}`;
+    if (earlyTermFee > 0) {
+      message += `\nEarly term fee: -${formatDollars(earlyTermFee)}`;
+    }
+    message += `\nSale value: ${formatDollars(saleValue)}`;
+    message += `\nP/L: ${profitLossStr}`;
+    if (userTeams.length > 1) {
+      message += `\n\nFrom: ${team.name}`;
+    }
+
+    Alert.alert(
+      `Sell ${item.name}?`,
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sell',
+          style: 'destructive',
+          onPress: () => {
+            if (currentTeam?.id !== teamId) selectTeam(teamId);
+            setTimeout(() => removeConstructor(), 50);
+          },
+        },
+      ],
+    );
+  };
+
+  const handleSellConstructor = (item: Constructor) => {
+    if (lockoutInfo.isLocked) {
+      Alert.alert('Teams Locked', lockoutInfo.lockReason || 'Team changes are locked during race weekend.');
+      return;
+    }
+    const teams = constructorTeamMap.get(item.id);
+    if (!teams || teams.length === 0) return;
+
+    if (teams.length === 1) {
+      confirmSellConstructor(item, teams[0].teamId);
+    } else {
+      Alert.alert(
+        `Sell ${item.name}`,
+        'Which team do you want to sell from?',
+        [
+          ...teams.map(t => ({
+            text: t.teamName,
+            onPress: () => confirmSellConstructor(item, t.teamId),
+          })),
+          { text: 'Cancel', style: 'cancel' as const },
+        ],
+      );
+    }
+  };
+
   const pendingItem = pendingDriver || pendingConstructor;
   const handleConfirmContract = pendingDriver ? handleConfirmAddDriver : handleConfirmAddConstructor;
 
@@ -322,6 +490,7 @@ export default function MarketScreen() {
                   isOnTeam={isOnTeam}
                   onPress={() => router.push(`/market/driver/${item.id}`)}
                   onAdd={!isOnTeam && currentTeam ? () => handleAddDriver(item) : undefined}
+                  onSell={isOnTeam ? () => handleSellDriver(item) : undefined}
                 />
               );
             }}
@@ -344,7 +513,7 @@ export default function MarketScreen() {
           data={filteredConstructors}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
-            const isOnTeam = item.id === onTeamConstructorId;
+            const isOnTeam = constructorTeamMap.has(item.id);
             return (
               <ConstructorCard
                 constructorData={item}
@@ -353,7 +522,8 @@ export default function MarketScreen() {
                 showPriceChange
                 isOnTeam={isOnTeam}
                 onPress={() => router.push(`/market/constructor/${item.id}`)}
-                onAdd={currentTeam ? () => handleAddConstructor(item) : undefined}
+                onAdd={!isOnTeam && currentTeam ? () => handleAddConstructor(item) : undefined}
+                onSell={isOnTeam ? () => handleSellConstructor(item) : undefined}
               />
             );
           }}

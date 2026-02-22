@@ -12,6 +12,7 @@ interface DriverCardProps {
   onPress?: () => void;
   onSelect?: () => void;
   onAdd?: () => void;
+  onSell?: () => void;
   isSelected?: boolean;
   isOnTeam?: boolean;
   showPrice?: boolean;
@@ -26,6 +27,7 @@ export const DriverCard = React.memo(function DriverCard({
   onPress,
   onSelect,
   onAdd,
+  onSell,
   isSelected = false,
   isOnTeam = false,
   showPrice = true,
@@ -187,6 +189,18 @@ export const DriverCard = React.memo(function DriverCard({
             >
               <View style={[styles.selectCircle, { backgroundColor: theme.surface, borderColor: theme.primary }]}>
                 <Ionicons name="add" size={16} color={theme.primary} />
+              </View>
+            </Pressable>
+          )}
+
+          {/* Sell button (market mode) */}
+          {onSell && !onSelect && !onAdd && (
+            <Pressable
+              onPress={onSell}
+              style={({ pressed }) => [styles.selectButton, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <View style={[styles.selectCircle, { backgroundColor: COLORS.error + '15', borderColor: COLORS.error }]}>
+                <Ionicons name="remove" size={16} color={COLORS.error} />
               </View>
             </Pressable>
           )}
