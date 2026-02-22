@@ -420,7 +420,7 @@ export default function HomeScreen() {
             <View style={styles.teamHeader}>
               <Avatar
                 name={currentTeam.name}
-                size="small"
+                size="medium"
                 variant="team"
                 imageUrl={currentTeam.avatarUrl || null}
               />

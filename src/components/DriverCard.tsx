@@ -41,6 +41,15 @@ export const DriverCard = React.memo(function DriverCard({
   const priceDirection = priceChange > 0 ? 'up' : priceChange < 0 ? 'down' : 'neutral';
   const canBeAce = driver.price <= 200;
   const teamColor = TEAM_COLORS[driver.constructorId]?.primary || '#4B5563';
+  // Use dark text on light team colors (e.g. RB white, Haas white)
+  const isLightTeamColor = (() => {
+    const hex = teamColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return (r * 0.299 + g * 0.587 + b * 0.114) > 180;
+  })();
+  const numberTextColor = isLightTeamColor ? '#0D1117' : COLORS.white;
 
   if (compact) {
     return (
@@ -120,7 +129,7 @@ export const DriverCard = React.memo(function DriverCard({
             ]}
             style={styles.numberBadge}
           >
-            <Text style={styles.number}>{driver.number}</Text>
+            <Text style={[styles.number, { color: numberTextColor }]}>{driver.number}</Text>
           </LinearGradient>
 
           <View style={styles.nameBlock}>
