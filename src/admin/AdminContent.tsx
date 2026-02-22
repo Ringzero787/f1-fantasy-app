@@ -679,11 +679,11 @@ export default function AdminContent() {
     recalculateAllTeamsPoints();
   };
 
-  // Reset prices to initial demoData values (keeps race results)
+  // Reset prices to initial demoData values and fix existing team values
   const handleResetPrices = () => {
     Alert.alert(
       'Reset Driver Prices',
-      'This will reset all driver and constructor prices to their initial values. Race results will be kept.',
+      'This will reset all driver and constructor prices to their initial values and recalculate team budgets. Race results will be kept.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -691,18 +691,19 @@ export default function AdminContent() {
           style: 'destructive',
           onPress: () => {
             useAdminStore.getState().resetPrices();
-            Alert.alert('Done', 'All prices reset to initial values.');
+            useTeamStore.getState().resetAllTeamPricesToBase();
+            Alert.alert('Done', 'All prices and team values reset to initial values.');
           },
         },
       ]
     );
   };
 
-  // Reset all race results only (keeps teams and prices)
+  // Reset all race results and prices (prices are derived from races)
   const handleResetAllRaceResults = () => {
     Alert.alert(
       'Reset All Races',
-      `This will clear ALL ${completedRacesCount} completed race results and recalculate team points to 0. Teams and prices will be kept.`,
+      `This will clear ALL ${completedRacesCount} completed race results, reset prices to initial values, and recalculate team points to 0. Teams will be kept.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -710,7 +711,7 @@ export default function AdminContent() {
           style: 'destructive',
           onPress: () => {
             useAdminStore.getState().resetAllRaceResults();
-            recalculateAllTeamsPoints();
+            useTeamStore.getState().resetAllTeamPricesToBase();
 
             // Clear local state
             setSelectedRaceId(null);
@@ -719,7 +720,7 @@ export default function AdminContent() {
             setDriverDnf({});
             setSprintDnf({});
 
-            Alert.alert('Success', 'All race results have been cleared. Team points recalculated.');
+            Alert.alert('Success', 'All race results, prices, and team values have been reset.');
           },
         },
       ]

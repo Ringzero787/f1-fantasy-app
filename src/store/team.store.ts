@@ -248,6 +248,9 @@ interface TeamState {
   recalculateAllTeamsPoints: () => void;
   getTeamPointsBreakdown: () => { totalPoints: number; driverPoints: Record<string, number>; constructorPoints: number } | null;
 
+  // Reset all team prices to base values (after admin price reset)
+  resetAllTeamPricesToBase: () => void;
+
   clearError: () => void;
   resetTeamState: () => void;
 }
@@ -2066,6 +2069,73 @@ export const useTeamStore = create<TeamState>()(
     const { currentTeam } = get();
     if (!currentTeam) return null;
     return calculateTeamPointsFromRaces(currentTeam);
+  },
+
+  // Reset all team driver/constructor prices to base demoData values and recalculate budget
+  resetAllTeamPricesToBase: () => {
+    const { userTeams, currentTeam } = get();
+    if (userTeams.length === 0) return;
+
+    // Build lookup maps for base prices
+    const baseDriverPrices = new Map<string, number>();
+    demoDrivers.forEach(d => baseDriverPrices.set(d.id, d.price));
+    const baseConstructorPrices = new Map<string, number>();
+    demoConstructors.forEach(c => baseConstructorPrices.set(c.id, c.price));
+
+    const updatedUserTeams = userTeams.map(team => {
+      // Reset each driver's purchasePrice and currentPrice to base
+      const updatedDrivers = team.drivers.map(driver => {
+        const basePrice = baseDriverPrices.get(driver.driverId) ?? driver.currentPrice;
+        return {
+          ...driver,
+          purchasePrice: basePrice,
+          currentPrice: basePrice,
+          pointsScored: 0,
+          racesHeld: 0,
+        };
+      });
+
+      // Reset constructor price to base
+      let updatedConstructor = team.constructor;
+      if (updatedConstructor) {
+        const basePrice = baseConstructorPrices.get(updatedConstructor.constructorId) ?? updatedConstructor.currentPrice;
+        updatedConstructor = {
+          ...updatedConstructor,
+          purchasePrice: basePrice,
+          currentPrice: basePrice,
+          pointsScored: 0,
+          racesHeld: 0,
+        };
+      }
+
+      // Recalculate totalSpent and budget from base prices
+      const driverSpent = updatedDrivers.reduce((sum, d) => sum + d.purchasePrice, 0);
+      const constructorSpent = updatedConstructor?.purchasePrice ?? 0;
+      const totalSpent = driverSpent + constructorSpent;
+
+      return {
+        ...team,
+        drivers: updatedDrivers,
+        constructor: updatedConstructor,
+        totalSpent,
+        budget: BUDGET - totalSpent,
+        totalPoints: 0,
+        lockedPoints: 0,
+        racesPlayed: 0,
+        pointsHistory: [],
+        raceWins: 0,
+        racesSinceTransfer: 0,
+        driverLockouts: undefined,
+        updatedAt: new Date(),
+      };
+    });
+
+    const updatedCurrentTeam = currentTeam
+      ? updatedUserTeams.find(t => t.id === currentTeam.id) || null
+      : null;
+
+    console.log('Reset all team prices to base values');
+    set({ userTeams: updatedUserTeams, currentTeam: updatedCurrentTeam });
   },
     }),
     {

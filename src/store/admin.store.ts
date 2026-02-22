@@ -523,11 +523,11 @@ export const useAdminStore = create<AdminState>()(
         });
       },
 
-      // Reset all race results only (keeps prices and teams)
+      // Reset all race results and prices (prices are derived from races, so both must reset together)
       resetAllRaceResults: () => {
-        console.log('Resetting all race results...');
-        set({ raceResults: {} });
-        console.log('All race results reset');
+        console.log('Resetting all race results and prices...');
+        set({ raceResults: {}, driverPrices: {}, constructorPrices: {} });
+        console.log('All race results and prices reset');
       },
 
       // Reset all cached data to fresh state
