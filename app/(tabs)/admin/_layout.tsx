@@ -15,6 +15,9 @@ export default function AdminLayout() {
         headerTitleStyle: {
           fontWeight: '600',
         },
+        contentStyle: {
+          backgroundColor: theme.background,
+        },
       }}
     >
       <Stack.Screen

@@ -98,10 +98,7 @@ export default function HomeScreen() {
   React.useEffect(() => {
     if (user) {
       loadUserLeagues(user.id);
-      // Only load teams if not already hydrated from persistence
-      if (userTeams.length === 0) {
-        loadUserTeams(user.id);
-      }
+      loadUserTeams(user.id);
       loadArticles();
       registerToken(user.id);
       loadNotifications(user.id);
@@ -214,6 +211,7 @@ export default function HomeScreen() {
       loadArticles(true),
       leagueIds.length > 0 ? loadActiveAnnouncements(leagueIds) : Promise.resolve(),
       user ? loadPendingCountsForOwnedLeagues(user.id) : Promise.resolve(),
+      user ? loadUserTeams(user.id) : Promise.resolve(),
     ]);
     setRefreshing(false);
   };

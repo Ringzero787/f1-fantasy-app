@@ -559,34 +559,43 @@ export const useTeamStore = create<TeamState>()(
           }
         }
       } else {
-        // Local state is empty — try recovering teams from Firebase
-        try {
-          const firebaseTeams = await teamService.getUserTeams(userId);
-          if (firebaseTeams.length > 0) {
-            console.log(`loadUserTeams: Recovered ${firebaseTeams.length} team(s) from Firebase`);
-            set({
-              userTeams: firebaseTeams,
-              currentTeam: firebaseTeams[0],
-              isLoading: false,
-            });
-            return;
-          }
-        } catch (fetchError) {
-          errorLogService.logError('loadUserTeams', fetchError);
-        }
         set({ isLoading: false });
       }
 
-      // Sync local teams TO Firebase in background
-      if (uniqueTeams.length > 0) {
-        const isDemoMode2 = useAuthStore.getState().isDemoMode;
-        if (!isDemoMode2) {
-          teamService.syncTeams(uniqueTeams).then(() => {
-            set({ lastSyncTime: Date.now() });
-            console.log('loadUserTeams: Firebase sync successful');
-          }).catch((firebaseError) => {
-            errorLogService.logError('loadUserTeams.sync', firebaseError);
-          });
+      // Always check Firebase for teams (recover missing or merge new ones)
+      const isDemoMode2 = useAuthStore.getState().isDemoMode;
+      if (!isDemoMode2) {
+        try {
+          const firebaseTeams = await teamService.getUserTeams(userId);
+          if (firebaseTeams.length > 0) {
+            const { userTeams: currentLocal } = get();
+            const localIds = new Set(currentLocal.map(t => t.id));
+            const newFromFirebase = firebaseTeams.filter(t => !localIds.has(t.id));
+            if (newFromFirebase.length > 0) {
+              const merged = [...currentLocal, ...newFromFirebase];
+              console.log(`loadUserTeams: Merged ${newFromFirebase.length} team(s) from Firebase`);
+              set({ userTeams: merged });
+              // If no current team was set, pick the first
+              if (!get().currentTeam) {
+                set({ currentTeam: merged[0] });
+              }
+            } else if (currentLocal.length === 0 && firebaseTeams.length > 0) {
+              console.log(`loadUserTeams: Recovered ${firebaseTeams.length} team(s) from Firebase`);
+              set({ userTeams: firebaseTeams, currentTeam: firebaseTeams[0] });
+            }
+          }
+          // Sync local teams to Firebase
+          const { userTeams: latestLocal } = get();
+          if (latestLocal.length > 0) {
+            teamService.syncTeams(latestLocal).then(() => {
+              set({ lastSyncTime: Date.now() });
+              console.log('loadUserTeams: Firebase sync successful');
+            }).catch((firebaseError) => {
+              errorLogService.logError('loadUserTeams.sync', firebaseError);
+            });
+          }
+        } catch (fetchError) {
+          errorLogService.logError('loadUserTeams', fetchError);
         }
       }
     } catch (error) {
