@@ -48,6 +48,7 @@ export default function LeagueDetailScreen() {
   const unsubscribeFromLeagueMembers = useLeagueStore(s => s.unsubscribeFromLeagueMembers);
   const storeMembers = useLeagueStore(s => s.members);
   const leaveLeague = useLeagueStore(s => s.leaveLeague);
+  const pendingCountsByLeague = useLeagueStore(s => s.pendingCountsByLeague);
   const raceResults = useAdminStore(s => s.raceResults);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -429,6 +430,11 @@ export default function LeagueDetailScreen() {
           >
             <Ionicons name="settings-outline" size={20} color={theme.primary} />
             <Text style={[styles.adminButtonText, { fontSize: scaledFonts.lg, color: theme.primary }]}>League Admin</Text>
+            {id && (pendingCountsByLeague[id] ?? 0) > 0 && (
+              <View style={styles.pendingCountBadge}>
+                <Text style={styles.pendingCountText}>{pendingCountsByLeague[id]}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
         {!isOwner && (
@@ -699,6 +705,23 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
     color: COLORS.primary,
+  },
+
+  pendingCountBadge: {
+    backgroundColor: COLORS.info,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    marginLeft: SPACING.sm,
+  },
+
+  pendingCountText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: 'bold',
   },
 
   actionButton: {

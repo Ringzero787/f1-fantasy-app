@@ -110,8 +110,14 @@ export default function LeagueAdminScreen() {
     }
   }, [id]);
 
+  // Show loading while league data loads (must come before access check
+  // to avoid briefly showing "Access Denied" when currentLeague is null/stale)
+  if (isLoading || !currentLeague || currentLeague.id !== id) {
+    return <Loading fullScreen message="Loading..." />;
+  }
+
   // Check if user is owner or admin
-  const isOwner = currentLeague?.ownerId === user?.id;
+  const isOwner = currentLeague.ownerId === user?.id;
   const isAdmin = user ? isUserAdmin(user.id) : false;
   const isCoAdmin = isAdmin && !isOwner;
 
@@ -130,10 +136,6 @@ export default function LeagueAdminScreen() {
         />
       </View>
     );
-  }
-
-  if (isLoading || !currentLeague) {
-    return <Loading fullScreen message="Loading..." />;
   }
 
   const handleInviteByEmail = async () => {

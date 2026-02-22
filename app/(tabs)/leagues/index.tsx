@@ -35,6 +35,7 @@ export default function LeaguesScreen() {
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
   const joinLeagueByCode = useLeagueStore(s => s.joinLeagueByCode);
   const clearError = useLeagueStore(s => s.clearError);
+  const pendingCountsByLeague = useLeagueStore(s => s.pendingCountsByLeague);
 
   const currentTeam = useTeamStore(s => s.currentTeam);
   const assignTeamToLeague = useTeamStore(s => s.assignTeamToLeague);
@@ -226,6 +227,7 @@ export default function LeaguesScreen() {
 
   const renderLeagueItem = ({ item }: { item: League }) => {
     const isPending = pendingLeagueIds.includes(item.id);
+    const pendingCount = pendingCountsByLeague[item.id] ?? 0;
 
     return (
       <Card
@@ -241,6 +243,12 @@ export default function LeaguesScreen() {
               {item.memberCount} / {item.maxMembers} members
             </Text>
           </View>
+          {pendingCount > 0 && (
+            <View style={styles.approvalCountBadge}>
+              <Ionicons name="person-add" size={12} color={COLORS.white} />
+              <Text style={styles.approvalCountText}>{pendingCount}</Text>
+            </View>
+          )}
           <Ionicons name="chevron-forward" size={scaledIcon(20)} color={COLORS.text.muted} />
         </View>
 
@@ -248,6 +256,15 @@ export default function LeaguesScreen() {
           <View style={styles.pendingBadge}>
             <Ionicons name="hourglass-outline" size={14} color={COLORS.warning} />
             <Text style={styles.pendingBadgeText}>Pending Approval</Text>
+          </View>
+        )}
+
+        {pendingCount > 0 && !isPending && (
+          <View style={styles.approvalBadge}>
+            <Ionicons name="person-add-outline" size={14} color={COLORS.info} />
+            <Text style={styles.approvalBadgeText}>
+              {pendingCount} pending request{pendingCount > 1 ? 's' : ''}
+            </Text>
           </View>
         )}
 
@@ -754,5 +771,42 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
     color: COLORS.warning,
+  },
+
+  approvalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.info + '15',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.sm,
+    alignSelf: 'flex-start',
+    marginTop: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.info + '30',
+  },
+
+  approvalBadgeText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.info,
+  },
+
+  approvalCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.info,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: SPACING.xs,
+  },
+
+  approvalCountText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: 'bold',
   },
 });
