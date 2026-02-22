@@ -417,23 +417,13 @@ export const useTeamStore = create<TeamState>()(
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error, isLoading: false }),
   clearError: () => set({ error: null }),
-  resetTeamState: () => {
-    // Delete teams from Firebase so they don't get recovered on next load
-    const { userTeams } = get();
-    const isDemoMode = useAuthStore.getState().isDemoMode;
-    if (!isDemoMode && userTeams.length > 0) {
-      Promise.all(userTeams.map(t => teamService.deleteTeam(t.id).catch(() => {})))
-        .then(() => console.log('resetTeamState: Deleted teams from Firebase'))
-        .catch(() => {});
-    }
-    set({
-      currentTeam: null,
-      userTeams: [],
-      selectedDrivers: [],
-      selectedConstructor: null,
-      selectionState: initialSelectionState,
-    });
-  },
+  resetTeamState: () => set({
+    currentTeam: null,
+    userTeams: [],
+    selectedDrivers: [],
+    selectedConstructor: null,
+    selectionState: initialSelectionState,
+  }),
 
   addDriverToSelection: (driver) => {
     const { selectedDrivers } = get();
@@ -2127,14 +2117,30 @@ export const useTeamStore = create<TeamState>()(
         };
       }
 
-      // Recalculate totalSpent and budget from base prices
-      const driverSpent = updatedDrivers.reduce((sum, d) => sum + d.purchasePrice, 0);
+      // Drop most expensive drivers while over budget
+      let trimmedDrivers = [...updatedDrivers];
       const constructorSpent = updatedConstructor?.purchasePrice ?? 0;
+      while (trimmedDrivers.length > 0) {
+        const driverSpent = trimmedDrivers.reduce((sum, d) => sum + d.purchasePrice, 0);
+        if (driverSpent + constructorSpent <= BUDGET) break;
+        // Remove the most expensive driver
+        const maxIdx = trimmedDrivers.reduce((mi, d, i) =>
+          d.purchasePrice > trimmedDrivers[mi].purchasePrice ? i : mi, 0);
+        console.log(`resetAllTeamPricesToBase: Dropping ${trimmedDrivers[maxIdx].driverId} ($${trimmedDrivers[maxIdx].purchasePrice}) from ${team.name} — over budget`);
+        trimmedDrivers.splice(maxIdx, 1);
+      }
+
+      const driverSpent = trimmedDrivers.reduce((sum, d) => sum + d.purchasePrice, 0);
       const totalSpent = driverSpent + constructorSpent;
+
+      // Clear ace if the ace driver was removed
+      const aceDriverId = trimmedDrivers.some(d => d.driverId === team.aceDriverId)
+        ? team.aceDriverId : undefined;
+      const aceConstructorId = updatedConstructor ? team.aceConstructorId : undefined;
 
       return {
         ...team,
-        drivers: updatedDrivers,
+        drivers: trimmedDrivers,
         constructor: updatedConstructor,
         totalSpent,
         budget: BUDGET - totalSpent,
@@ -2145,6 +2151,8 @@ export const useTeamStore = create<TeamState>()(
         raceWins: 0,
         racesSinceTransfer: 0,
         driverLockouts: undefined,
+        aceDriverId,
+        aceConstructorId,
         updatedAt: new Date(),
       };
     });

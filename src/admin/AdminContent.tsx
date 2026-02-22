@@ -731,7 +731,7 @@ export default function AdminContent() {
   const handleResetAllRaces = () => {
     Alert.alert(
       'Reset Everything',
-      'This will clear ALL race results, prices, teams, and lockouts. Fresh start! This cannot be undone!',
+      'This will clear ALL race results and prices, reset team budgets to $1,000 (dropping expensive drivers if needed), and clear all points. This cannot be undone!',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -741,8 +741,8 @@ export default function AdminContent() {
             // Reset all admin data (races, prices)
             useAdminStore.getState().resetAllData();
 
-            // Reset team state (clears teams, lockouts, etc.)
-            useTeamStore.getState().resetTeamState();
+            // Reset team prices/budgets — drops most expensive drivers if over budget
+            useTeamStore.getState().resetAllTeamPricesToBase();
 
             // Clear local state
             setSelectedRaceId(null);
@@ -751,7 +751,7 @@ export default function AdminContent() {
             setDriverDnf({});
             setSprintDnf({});
 
-            Alert.alert('Success', 'Everything has been reset! Create a new team to start fresh.');
+            Alert.alert('Success', 'Everything has been reset! Team budgets recalculated to $1,000.');
           },
         },
       ]
