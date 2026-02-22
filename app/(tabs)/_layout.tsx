@@ -1,5 +1,5 @@
-import React from 'react';
-import { Image } from 'react-native';
+import React, { useEffect, useCallback } from 'react';
+import { Image, AppState } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/config/constants';
@@ -18,7 +18,26 @@ export default function TabLayout() {
   const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
   const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
   const totalUnread = useChatStore((state) => state.totalUnread);
-  const hasLeagues = useLeagueStore((state) => state.leagues.length > 0);
+  const leagues = useLeagueStore((state) => state.leagues);
+  const hasLeagues = leagues.length > 0;
+  const loadUnreadCounts = useChatStore((state) => state.loadUnreadCounts);
+
+  const refreshUnread = useCallback(() => {
+    if (leagues.length > 0 && !isDemoMode) {
+      loadUnreadCounts(leagues.map((l) => l.id));
+    }
+  }, [leagues, isDemoMode, loadUnreadCounts]);
+
+  // Load unread counts on mount and when app returns to foreground
+  useEffect(() => {
+    refreshUnread();
+
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshUnread();
+    });
+
+    return () => sub.remove();
+  }, [refreshUnread]);
 
   return (
     <>
