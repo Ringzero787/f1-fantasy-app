@@ -44,7 +44,7 @@ const SLIDES: Slide[] = [
   {
     id: '3',
     title: 'Set Your Ace',
-    body: 'Choose one driver as your Ace for 2\u00D7 points each race. Only drivers $240 or under qualify \u2014 find the hidden gems.',
+    body: 'Choose one driver as your Ace for 2\u00D7 points each race. Only drivers $200 or under qualify \u2014 find the hidden gems.',
     icon: 'diamond',
   },
   {

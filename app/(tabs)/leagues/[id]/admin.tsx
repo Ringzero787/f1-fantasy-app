@@ -254,11 +254,10 @@ export default function LeagueAdminScreen() {
     );
   };
 
-  const handleApproveMember = async (memberId: string, memberName: string) => {
+  const handleApproveMember = async (memberId: string) => {
     setIsApprovingOrRejecting(memberId);
     try {
       await approveMember(currentLeague.id, memberId);
-      Alert.alert('Approved', `${memberName} has been approved and added to the league.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to approve member';
       Alert.alert('Error', message);
@@ -627,7 +626,7 @@ export default function LeagueAdminScreen() {
                   <View style={styles.pendingActions}>
                     <TouchableOpacity
                       style={styles.approveButton}
-                      onPress={() => handleApproveMember(member.userId, member.displayName)}
+                      onPress={() => handleApproveMember(member.userId)}
                       disabled={currentLeague.memberCount >= currentLeague.maxMembers}
                     >
                       <Ionicons

@@ -952,7 +952,7 @@ export default function MyTeamScreen() {
 
           const isAceConstructor = currentTeam?.aceConstructorId === c.constructorId;
           const canBeAceConstructor = livePrice <= PRICING_CONFIG.ACE_MAX_PRICE;
-          const hasNoAce = !currentTeam?.aceDriverId && !currentTeam?.aceConstructorId;
+
 
           return (
             <View style={[styles.card, { backgroundColor: theme.card }]}>
@@ -969,7 +969,7 @@ export default function MyTeamScreen() {
                         </View>
                       </TouchableOpacity>
                     )}
-                    {!isAceConstructor && canBeAceConstructor && canChangeAce && hasNoAce && (
+                    {!isAceConstructor && canBeAceConstructor && canChangeAce && (
                       <TouchableOpacity onPress={() => handleSetAceConstructor(c.constructorId)} hitSlop={8}>
                         <Ionicons name="diamond-outline" size={15} color={COLORS.gold} />
                       </TouchableOpacity>

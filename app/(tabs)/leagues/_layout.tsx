@@ -13,6 +13,7 @@ export default function LeaguesLayout() {
           backgroundColor: theme.surface,
         },
         headerTintColor: COLORS.text.primary,
+        headerShadowVisible: false,
         headerTitleStyle: {
           fontWeight: '600',
         },

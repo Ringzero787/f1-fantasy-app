@@ -12,11 +12,13 @@ import { teamService } from '../../../../../src/services/team.service';
 import { Card, Loading, EmptyState, BudgetBar, Avatar } from '../../../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../../../src/config/constants';
 import { useTheme } from '../../../../../src/hooks/useTheme';
+import { useScale } from '../../../../../src/hooks/useScale';
 import { formatPoints } from '../../../../../src/utils/formatters';
 import type { FantasyTeam } from '../../../../../src/types';
 
 export default function ViewTeamScreen() {
   const theme = useTheme();
+  const { scaledFonts } = useScale();
   const { id: leagueId, memberId } = useLocalSearchParams<{ id: string; memberId: string }>();
 
   const [team, setTeam] = useState<FantasyTeam | null>(null);
@@ -55,11 +57,13 @@ export default function ViewTeamScreen() {
 
   if (error || !team) {
     return (
-      <EmptyState
-        icon="alert-circle-outline"
-        title="Team Not Found"
-        message={error || "This player hasn't created a team yet"}
-      />
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Team Not Found"
+          message={error || "This player hasn't created a team yet"}
+        />
+      </View>
     );
   }
 
@@ -74,10 +78,12 @@ export default function ViewTeamScreen() {
         options={{
           title: team.name || 'View Team',
           headerBackTitle: 'Back',
+          headerStyle: { backgroundColor: theme.surface },
+          headerTintColor: COLORS.text.primary,
         }}
       />
       <ScrollView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
@@ -93,28 +99,28 @@ export default function ViewTeamScreen() {
               imageUrl={team.avatarUrl}
             />
             <View style={styles.headerInfo}>
-              <Text style={styles.teamName}>{team.name}</Text>
+              <Text style={[styles.teamName, { color: COLORS.text.primary, fontSize: scaledFonts.xl }]}>{team.name}</Text>
               <View style={styles.readOnlyBadge}>
-                <Ionicons name="eye-outline" size={12} color={COLORS.gray[500]} />
-                <Text style={styles.readOnlyText}>View Only</Text>
+                <Ionicons name="eye-outline" size={12} color={COLORS.text.muted} />
+                <Text style={[styles.readOnlyText, { color: COLORS.text.muted }]}>View Only</Text>
               </View>
             </View>
           </View>
 
           {/* Budget Display */}
-          <View style={styles.budgetSection}>
+          <View style={[styles.budgetSection, { borderTopColor: theme.border?.accent || COLORS.border.default }]}>
             <BudgetBar
               remaining={team.budget}
               total={BUDGET}
             />
             <View style={styles.budgetDetails}>
               <View style={styles.budgetItem}>
-                <Text style={styles.budgetLabel}>Team Value</Text>
-                <Text style={styles.budgetValue}>{formatPoints(totalValue)}</Text>
+                <Text style={[styles.budgetLabel, { color: COLORS.text.muted }]}>Team Value</Text>
+                <Text style={[styles.budgetValue, { color: COLORS.text.primary }]}>{formatPoints(totalValue)}</Text>
               </View>
               <View style={styles.budgetItem}>
-                <Text style={styles.budgetLabel}>Remaining</Text>
-                <Text style={styles.budgetValue}>{formatPoints(team.budget)}</Text>
+                <Text style={[styles.budgetLabel, { color: COLORS.text.muted }]}>Remaining</Text>
+                <Text style={[styles.budgetValue, { color: COLORS.text.primary }]}>{formatPoints(team.budget)}</Text>
               </View>
             </View>
           </View>
@@ -124,27 +130,29 @@ export default function ViewTeamScreen() {
         <Card variant="outlined" style={styles.pointsCard}>
           <View style={styles.pointsRow}>
             <View style={styles.pointItem}>
-              <Text style={[styles.pointValue, { color: theme.primary }]}>{formatPoints(team.totalPoints || 0)}</Text>
-              <Text style={styles.pointLabel}>Total Points</Text>
+              <Text style={[styles.pointValue, { color: theme.primary, fontSize: scaledFonts.xxl }]}>{formatPoints(team.totalPoints || 0)}</Text>
+              <Text style={[styles.pointLabel, { color: COLORS.text.muted }]}>Total Points</Text>
             </View>
           </View>
         </Card>
 
         {/* Team Composition Status */}
-        <View style={styles.compositionStatus}>
+        <View style={[styles.compositionStatus, { backgroundColor: theme.card }]}>
           <View style={styles.compositionItem}>
-            <Text style={styles.compositionLabel}>Drivers</Text>
+            <Text style={[styles.compositionLabel, { color: COLORS.text.muted }]}>Drivers</Text>
             <Text style={[
               styles.compositionValue,
+              { color: COLORS.text.muted },
               driversCount === TEAM_SIZE && styles.compositionComplete,
             ]}>
               {driversCount}/{TEAM_SIZE}
             </Text>
           </View>
           <View style={styles.compositionItem}>
-            <Text style={styles.compositionLabel}>Constructor</Text>
+            <Text style={[styles.compositionLabel, { color: COLORS.text.muted }]}>Constructor</Text>
             <Text style={[
               styles.compositionValue,
+              { color: COLORS.text.muted },
               hasConstructor && styles.compositionComplete,
             ]}>
               {hasConstructor ? '1/1' : '0/1'}
@@ -154,7 +162,7 @@ export default function ViewTeamScreen() {
 
         {/* Drivers Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Drivers</Text>
+          <Text style={[styles.sectionTitle, { color: COLORS.text.primary, fontSize: scaledFonts.lg }]}>Drivers</Text>
 
           {team.drivers && team.drivers.length > 0 ? (
             team.drivers.map((driver) => (
@@ -166,61 +174,70 @@ export default function ViewTeamScreen() {
               >
                 <View style={styles.driverInfo}>
                   <View style={styles.driverMain}>
-                    <Text style={styles.driverName}>{driver.name}</Text>
-                    <Text style={styles.driverTeam}>{driver.shortName}</Text>
+                    <Text style={[styles.driverName, { color: COLORS.text.primary }]}>{driver.name}</Text>
+                    <Text style={[styles.driverTeam, { color: COLORS.text.muted }]}>{driver.shortName}</Text>
                   </View>
                   <View style={styles.driverStats}>
                     <Text style={[styles.driverPoints, { color: theme.primary }]}>
                       {formatPoints(driver.pointsScored)} pts
                     </Text>
-                    <Text style={styles.driverPrice}>
+                    <Text style={[styles.driverPrice, { color: COLORS.text.muted }]}>
                       {formatPoints(driver.currentPrice)}
                     </Text>
                   </View>
                 </View>
                 {team.aceDriverId === driver.driverId && (
                   <View style={[styles.aceBadge, { backgroundColor: theme.primary + '20' }]}>
-                    <Ionicons name="shield" size={12} color={theme.primary} />
+                    <Ionicons name="diamond" size={12} color={theme.primary} />
                     <Text style={[styles.aceBadgeText, { color: theme.primary }]}>Ace (2x)</Text>
                   </View>
                 )}
                 {driver.racesHeld > 0 && (
-                  <Text style={styles.lockBonus}>
-                    Lock bonus: {driver.racesHeld} race(s)
-                  </Text>
+                  <View style={styles.contractRow}>
+                    <Ionicons name="document-text-outline" size={10} color={COLORS.text.muted} />
+                    <Text style={[styles.contractText, { color: COLORS.text.muted }]}>
+                      {driver.racesHeld} race{driver.racesHeld !== 1 ? 's' : ''} held
+                    </Text>
+                  </View>
                 )}
               </Card>
             ))
           ) : (
             <Card variant="outlined" padding="large">
-              <Text style={styles.emptyText}>No drivers selected</Text>
+              <Text style={[styles.emptyText, { color: COLORS.text.muted }]}>No drivers selected</Text>
             </Card>
           )}
         </View>
 
         {/* Constructor Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Constructor</Text>
+          <Text style={[styles.sectionTitle, { color: COLORS.text.primary, fontSize: scaledFonts.lg }]}>Constructor</Text>
 
           {team.constructor ? (
             <Card variant="outlined" padding="medium" style={styles.constructorItem}>
               <View style={styles.constructorInfo}>
-                <Text style={styles.constructorName}>
+                <Text style={[styles.constructorName, { color: COLORS.text.primary }]}>
                   {team.constructor.name}
                 </Text>
                 <View style={styles.constructorStats}>
                   <Text style={[styles.constructorPoints, { color: theme.primary }]}>
                     {formatPoints(team.constructor.pointsScored)} pts
                   </Text>
-                  <Text style={styles.constructorPrice}>
+                  <Text style={[styles.constructorPrice, { color: COLORS.text.muted }]}>
                     {formatPoints(team.constructor.currentPrice)}
                   </Text>
                 </View>
               </View>
+              {team.aceConstructorId === team.constructor.constructorId && (
+                <View style={[styles.aceBadge, { backgroundColor: theme.primary + '20' }]}>
+                  <Ionicons name="diamond" size={12} color={theme.primary} />
+                  <Text style={[styles.aceBadgeText, { color: theme.primary }]}>Ace (2x)</Text>
+                </View>
+              )}
             </Card>
           ) : (
             <Card variant="outlined" padding="large">
-              <Text style={styles.emptyText}>No constructor selected</Text>
+              <Text style={[styles.emptyText, { color: COLORS.text.muted }]}>No constructor selected</Text>
             </Card>
           )}
         </View>
@@ -232,7 +249,6 @@ export default function ViewTeamScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
   },
   content: {
     padding: SPACING.md,
@@ -253,7 +269,6 @@ const styles = StyleSheet.create({
   teamName: {
     fontSize: FONTS.sizes.xl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
   },
   readOnlyBadge: {
     flexDirection: 'row',
@@ -263,12 +278,10 @@ const styles = StyleSheet.create({
   },
   readOnlyText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
   },
   budgetSection: {
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
   },
   budgetDetails: {
     flexDirection: 'row',
@@ -280,12 +293,10 @@ const styles = StyleSheet.create({
   },
   budgetLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
   },
   budgetValue: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
   },
   pointsCard: {
     marginBottom: SPACING.md,
@@ -300,15 +311,12 @@ const styles = StyleSheet.create({
   pointValue: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.primary,
   },
   pointLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
   },
   compositionStatus: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -320,12 +328,10 @@ const styles = StyleSheet.create({
   },
   compositionLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
   },
   compositionValue: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[400],
   },
   compositionComplete: {
     color: COLORS.success,
@@ -336,7 +342,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
     marginBottom: SPACING.sm,
   },
   driverItem: {
@@ -353,11 +358,9 @@ const styles = StyleSheet.create({
   driverName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
   },
   driverTeam: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
   },
   driverStats: {
     alignItems: 'flex-end',
@@ -365,18 +368,15 @@ const styles = StyleSheet.create({
   driverPoints: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.primary,
   },
   driverPrice: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
   },
   aceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginTop: SPACING.sm,
-    backgroundColor: COLORS.primary + '20',
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.sm,
@@ -384,13 +384,16 @@ const styles = StyleSheet.create({
   },
   aceBadgeText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.primary,
     fontWeight: '600',
   },
-  lockBonus: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
+  contractRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginTop: SPACING.xs,
+  },
+  contractText: {
+    fontSize: FONTS.sizes.xs,
   },
   constructorItem: {
     marginBottom: SPACING.sm,
@@ -403,7 +406,6 @@ const styles = StyleSheet.create({
   constructorName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.gray[900],
     flex: 1,
   },
   constructorStats: {
@@ -412,15 +414,12 @@ const styles = StyleSheet.create({
   constructorPoints: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.primary,
   },
   constructorPrice: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
   },
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
     textAlign: 'center',
   },
 });

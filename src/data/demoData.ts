@@ -1103,7 +1103,7 @@ export const demoMemberTeams: Record<string, {
   'demo-member-1': {
     drivers: ['verstappen', 'gasly', 'stroll', 'bortoleto', 'lindblad'],
     constructor: 'ferrari',
-    aceDriverId: 'gasly', // Ace must be under $240
+    aceDriverId: 'gasly', // Ace must be under $200
   },
   // DRS_Danny - Balanced mid-field approach ($885)
   'demo-member-2': {

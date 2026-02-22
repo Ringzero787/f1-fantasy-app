@@ -136,9 +136,9 @@ const SECTIONS: RuleSection[] = [
       {
         type: 'bullets',
         items: [
-          'Only drivers priced $240 or under can be Ace',
+          'Only drivers priced $200 or under can be Ace',
           'Ace doubles race + sprint points (not loyalty bonus)',
-          'If your Ace\u2019s price rises above $240, they lose Ace status',
+          'If your Ace\u2019s price rises above $200, they lose Ace status',
           'You can also set your constructor as Ace for 2\u00D7 constructor points',
         ],
       },
