@@ -138,8 +138,14 @@ export const authService = {
       settings: DEFAULT_SETTINGS,
     };
 
+    // Strip undefined values — Firestore rejects them
+    const firestoreData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(user)) {
+      if (value !== undefined) firestoreData[key] = value;
+    }
+
     await setDoc(doc(db, 'users', userId), {
-      ...user,
+      ...firestoreData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -188,8 +194,13 @@ export const authService = {
     userId: string,
     data: Partial<Pick<User, 'displayName' | 'photoURL' | 'settings'>>
   ): Promise<void> {
+    // Strip undefined values — Firestore rejects them
+    const cleanData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) cleanData[key] = value;
+    }
     await updateDoc(doc(db, 'users', userId), {
-      ...data,
+      ...cleanData,
       updatedAt: serverTimestamp(),
     });
   },
