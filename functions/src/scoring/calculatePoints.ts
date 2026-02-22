@@ -23,6 +23,9 @@ const LOCK_BONUS = {
 const TIER_A_THRESHOLD = 240;
 const TIER_B_THRESHOLD = 120;
 
+// Ace system: only drivers/constructors at or below this price can be ace
+const ACE_MAX_PRICE = 200;
+
 // PPM thresholds for pricing
 const PPM_GREAT = 0.06;
 const PPM_GOOD = 0.04;
@@ -295,12 +298,12 @@ export const onRaceCompleted = functions
         const sprintResult = sprintResultsMap.get(driver.driverId) || null;
         let isAce = driver.driverId === aceDriverId;
 
-        // Server-side ace price validation: drivers over $240 cannot be ace
+        // Server-side ace price validation: drivers over $200 cannot be ace
         if (isAce) {
           const driverDoc = await db.collection('drivers').doc(driver.driverId).get();
           const driverPrice = driverDoc.exists ? (driverDoc.data()?.price || 0) : 0;
-          if (driverPrice > TIER_A_THRESHOLD) {
-            console.warn(`Invalid ace: driver ${driver.driverId} price $${driverPrice} > $${TIER_A_THRESHOLD}`);
+          if (driverPrice > ACE_MAX_PRICE) {
+            console.warn(`Invalid ace: driver ${driver.driverId} price $${driverPrice} > $${ACE_MAX_PRICE}`);
             isAce = false;
           }
         }
@@ -324,12 +327,12 @@ export const onRaceCompleted = functions
         const ctor = team.constructor;
         let isAceConstructor = team.aceConstructorId === ctor.constructorId;
 
-        // Server-side ace constructor price validation
+        // Server-side ace constructor price validation: constructors over $200 cannot be ace
         if (isAceConstructor) {
           const ctorDoc = await db.collection('constructors').doc(ctor.constructorId).get();
           const ctorPrice = ctorDoc.exists ? (ctorDoc.data()?.price || 0) : 0;
-          if (ctorPrice > TIER_A_THRESHOLD) {
-            console.warn(`Invalid ace constructor: ${ctor.constructorId} price $${ctorPrice} > $${TIER_A_THRESHOLD}`);
+          if (ctorPrice > ACE_MAX_PRICE) {
+            console.warn(`Invalid ace constructor: ${ctor.constructorId} price $${ctorPrice} > $${ACE_MAX_PRICE}`);
             isAceConstructor = false;
           }
         }

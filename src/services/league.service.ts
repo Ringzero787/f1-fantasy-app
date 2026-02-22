@@ -16,6 +16,7 @@ import {
   increment,
   writeBatch,
   startAfter,
+  onSnapshot,
   QueryDocumentSnapshot,
   DocumentData,
 } from 'firebase/firestore';
@@ -383,6 +384,73 @@ export const leagueService = {
     }
 
     return approved;
+  },
+
+  /**
+   * Subscribe to real-time league member updates.
+   * Returns an unsubscribe function. Only listens to the members subcollection
+   * (small dataset) — team enrichment is done once on initial snapshot.
+   */
+  subscribeToLeagueMembers(
+    leagueId: string,
+    onUpdate: (members: LeagueMember[]) => void,
+    onError?: (error: Error) => void,
+  ): () => void {
+    const membersCollection = collection(db, 'leagues', leagueId, 'members');
+    const q = query(membersCollection, orderBy('totalPoints', 'desc'), limit(100));
+
+    // Cache team data so we don't re-fetch on every snapshot
+    let teamCache: Map<string, { name: string; avatarUrl?: string }> | null = null;
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const approved = snapshot.docs
+        .filter((d) => d.data().status !== 'pending')
+        .map((d, index) => ({
+          id: d.id,
+          ...d.data(),
+          rank: index + 1,
+        })) as LeagueMember[];
+
+      // Fetch team data once, then cache it
+      if (!teamCache) {
+        try {
+          const teamsQuery = query(
+            collection(db, 'fantasyTeams'),
+            where('leagueId', '==', leagueId)
+          );
+          const teamsSnapshot = await getDocs(teamsQuery);
+          teamCache = new Map();
+          teamsSnapshot.docs.forEach((d) => {
+            const data = d.data();
+            if (data.userId) {
+              teamCache!.set(data.userId, {
+                name: data.name || 'Unnamed Team',
+                avatarUrl: data.avatarUrl,
+              });
+            }
+          });
+        } catch (e) {
+          console.warn('Failed to enrich members with team data:', e);
+        }
+      }
+
+      if (teamCache) {
+        approved.forEach((member) => {
+          const team = teamCache!.get(member.userId);
+          if (team) {
+            member.teamName = team.name;
+            member.teamAvatarUrl = team.avatarUrl;
+          }
+        });
+      }
+
+      onUpdate(approved);
+    }, (error) => {
+      console.error('League members listener error:', error);
+      onError?.(error);
+    });
+
+    return unsubscribe;
   },
 
   /**

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../../src/hooks/useAuth';
 import { useLeagueStore } from '../../../../src/store/league.store';
 import { useTeamStore } from '../../../../src/store/team.store';
+import { useAdminStore } from '../../../../src/store/admin.store';
 import { useAvatarGeneration } from '../../../../src/hooks';
 import { Card, Loading, LeaderboardItem, Button, EmptyState, Avatar, AvatarPicker } from '../../../../src/components';
 import { LeaderboardView } from '../../../../src/components/LeaderboardItem';
@@ -22,6 +23,9 @@ import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/co
 import { useTheme } from '../../../../src/hooks/useTheme';
 import { useScale } from '../../../../src/hooks/useScale';
 import type { LeagueMember } from '../../../../src/types';
+
+// How recently a race must have completed to activate real-time listener (30 min)
+const LIVE_LISTENER_WINDOW_MS = 30 * 60 * 1000;
 
 const LEADERBOARD_VIEWS: { key: LeaderboardView; label: string; icon: string }[] = [
   { key: 'total', label: 'Total', icon: 'podium-outline' },
@@ -40,8 +44,11 @@ export default function LeagueDetailScreen() {
   const isLoading = useLeagueStore(s => s.isLoading);
   const loadLeague = useLeagueStore(s => s.loadLeague);
   const loadLeagueMembers = useLeagueStore(s => s.loadLeagueMembers);
+  const subscribeToLeagueMembers = useLeagueStore(s => s.subscribeToLeagueMembers);
+  const unsubscribeFromLeagueMembers = useLeagueStore(s => s.unsubscribeFromLeagueMembers);
   const storeMembers = useLeagueStore(s => s.members);
   const leaveLeague = useLeagueStore(s => s.leaveLeague);
+  const raceResults = useAdminStore(s => s.raceResults);
 
   const [refreshing, setRefreshing] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -160,13 +167,33 @@ export default function LeagueDetailScreen() {
     return memberList;
   }, [id, currentLeague, user, storeMembers, userTeams, currentTeam, leaderboardView, retiredMembers]);
 
+  // Check if a race was recently completed (within LIVE_LISTENER_WINDOW_MS)
+  const hasRecentRace = useMemo(() => {
+    const now = Date.now();
+    return Object.values(raceResults).some(r => {
+      if (!r.isComplete || !r.completedAt) return false;
+      const completedTime = r.completedAt instanceof Date ? r.completedAt.getTime() : new Date(r.completedAt).getTime();
+      return (now - completedTime) < LIVE_LISTENER_WINDOW_MS;
+    });
+  }, [raceResults]);
+
   useEffect(() => {
-    if (id && user) {
-      loadLeague(id);
+    if (!id || !user) return;
+
+    loadLeague(id);
+    loadUserTeams(user.id);
+
+    if (hasRecentRace) {
+      // Race recently completed — use real-time listener for live score updates
+      loadLeagueMembers(id); // Initial fetch (with team enrichment)
+      const unsub = subscribeToLeagueMembers(id);
+      return () => unsub();
+    } else {
+      // No recent race — one-time fetch, no ongoing connection
       loadLeagueMembers(id);
-      loadUserTeams(user.id);
+      return () => unsubscribeFromLeagueMembers();
     }
-  }, [id, user]);
+  }, [id, user, hasRecentRace]);
 
   // Update avatar URL when league loads
   useEffect(() => {

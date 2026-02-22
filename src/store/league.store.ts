@@ -62,6 +62,8 @@ interface LeagueState {
   loadUserLeagues: (userId: string) => Promise<void>;
   loadLeague: (leagueId: string) => Promise<void>;
   loadLeagueMembers: (leagueId: string) => Promise<void>;
+  subscribeToLeagueMembers: (leagueId: string) => () => void;
+  unsubscribeFromLeagueMembers: () => void;
   lookupLeagueByCode: (code: string) => Promise<League | null>;
   createLeague: (userId: string, userName: string, data: CreateLeagueForm, seasonId: string) => Promise<League>;
   joinLeague: (leagueId: string, userId: string, userName: string) => Promise<void>;
@@ -97,6 +99,9 @@ interface LeagueState {
   clearError: () => void;
   clearRecentlyCreatedLeague: () => void;
 }
+
+// Module-level ref for the active Firestore listener (only one at a time)
+let activeMembersUnsubscribe: (() => void) | null = null;
 
 export const useLeagueStore = create<LeagueState>()((set, get) => ({
   leagues: [],
@@ -329,6 +334,41 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       const message = error instanceof Error ? error.message : 'Failed to load members';
       errorLogService.logError('loadLeagueMembers', error);
       set({ error: message, isLoading: false });
+    }
+  },
+
+  // Real-time listener for league members (used after recent race completion)
+  subscribeToLeagueMembers: (leagueId) => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+    if (isDemoMode) {
+      // No Firestore listener in demo mode — return no-op
+      return () => {};
+    }
+
+    // Tear down any existing listener first
+    if (activeMembersUnsubscribe) {
+      activeMembersUnsubscribe();
+      activeMembersUnsubscribe = null;
+    }
+
+    const unsubscribe = leagueService.subscribeToLeagueMembers(
+      leagueId,
+      (members) => {
+        set({ members });
+      },
+      (error) => {
+        console.error('League members subscription error:', error);
+      },
+    );
+
+    activeMembersUnsubscribe = unsubscribe;
+    return unsubscribe;
+  },
+
+  unsubscribeFromLeagueMembers: () => {
+    if (activeMembersUnsubscribe) {
+      activeMembersUnsubscribe();
+      activeMembersUnsubscribe = null;
     }
   },
 
