@@ -5,6 +5,9 @@ import type { ChatMessage } from '../types';
 import { chatService } from '../services/chat.service';
 import { useAuthStore } from './auth.store';
 
+// Guard against circular sync between chat and notification stores
+let _syncingReadState = false;
+
 interface ChatState {
   messagesByLeague: Record<string, ChatMessage[]>;
   unreadCounts: Record<string, number>;
@@ -388,6 +391,20 @@ export const useChatStore = create<ChatState>()(
           unreadCounts: newUnreadCounts,
           totalUnread: newTotalUnread,
         });
+
+        // Sync: mark any chat_message notifications for this league as read
+        if (!_syncingReadState) {
+          _syncingReadState = true;
+          try {
+            const { useNotificationStore } = require('./notification.store');
+            const notifStore = useNotificationStore.getState();
+            const chatNotifs = notifStore.notifications.filter(
+              (n: any) => !n.read && n.type === 'chat_message' &&
+                (n.data as Record<string, string>)?.leagueId === leagueId,
+            );
+            chatNotifs.forEach((n: any) => notifStore.markRead(n.id));
+          } finally { _syncingReadState = false; }
+        }
 
         if (!isDemoMode && userId) {
           chatService.updateReadReceipt(leagueId, userId).catch(console.error);

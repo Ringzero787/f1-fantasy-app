@@ -3,6 +3,10 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { secureStorage } from '../utils/secureStorage';
 import type { Notification } from '../types';
 import * as notificationService from '../services/notification.service';
+import { useChatStore } from './chat.store';
+
+// Guard against circular sync between notification and chat stores
+let _syncingReadState = false;
 
 interface NotificationState {
   notifications: Notification[];
@@ -43,11 +47,21 @@ export const useNotificationStore = create<NotificationState>()(
       markRead: async (notificationId: string) => {
         // Optimistic update
         const { notifications } = get();
+        const notification = notifications.find((n) => n.id === notificationId);
         const updated = notifications.map((n) =>
           n.id === notificationId ? { ...n, read: true } : n,
         );
         const unreadCount = updated.filter((n) => !n.read).length;
         set({ notifications: updated, unreadCount });
+
+        // Sync: if this is a chat notification, also clear chat unread for that league
+        if (!_syncingReadState && notification?.type === 'chat_message') {
+          const leagueId = (notification.data as Record<string, string>)?.leagueId;
+          if (leagueId) {
+            _syncingReadState = true;
+            try { useChatStore.getState().markAsRead(leagueId); } finally { _syncingReadState = false; }
+          }
+        }
 
         try {
           await notificationService.markAsRead(notificationId);
@@ -61,6 +75,18 @@ export const useNotificationStore = create<NotificationState>()(
         const { notifications } = get();
         const updated = notifications.map((n) => ({ ...n, read: true }));
         set({ notifications: updated, unreadCount: 0 });
+
+        // Sync: also clear all chat unread counts
+        if (!_syncingReadState) {
+          _syncingReadState = true;
+          try {
+            const chatStore = useChatStore.getState();
+            const chatLeagueIds = Object.keys(chatStore.unreadCounts).filter(
+              (id) => chatStore.unreadCounts[id] > 0,
+            );
+            chatLeagueIds.forEach((leagueId) => chatStore.markAsRead(leagueId));
+          } finally { _syncingReadState = false; }
+        }
 
         try {
           await notificationService.markAllAsRead(userId);
