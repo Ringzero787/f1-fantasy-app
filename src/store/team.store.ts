@@ -417,13 +417,23 @@ export const useTeamStore = create<TeamState>()(
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error, isLoading: false }),
   clearError: () => set({ error: null }),
-  resetTeamState: () => set({
-    currentTeam: null,
-    userTeams: [],
-    selectedDrivers: [],
-    selectedConstructor: null,
-    selectionState: initialSelectionState,
-  }),
+  resetTeamState: () => {
+    // Delete teams from Firebase so they don't get recovered on next load
+    const { userTeams } = get();
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+    if (!isDemoMode && userTeams.length > 0) {
+      Promise.all(userTeams.map(t => teamService.deleteTeam(t.id).catch(() => {})))
+        .then(() => console.log('resetTeamState: Deleted teams from Firebase'))
+        .catch(() => {});
+    }
+    set({
+      currentTeam: null,
+      userTeams: [],
+      selectedDrivers: [],
+      selectedConstructor: null,
+      selectionState: initialSelectionState,
+    });
+  },
 
   addDriverToSelection: (driver) => {
     const { selectedDrivers } = get();
