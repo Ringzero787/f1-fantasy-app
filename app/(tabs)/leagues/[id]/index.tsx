@@ -136,8 +136,14 @@ export default function LeagueDetailScreen() {
     };
 
     memberList.sort((a, b) => getSortValue(b) - getSortValue(a));
+    // Assign ranks with ties — members with the same score share the same rank
     memberList.forEach((member, index) => {
-      member.rank = index + 1;
+      if (index === 0) {
+        member.rank = 1;
+      } else {
+        const prev = memberList[index - 1];
+        member.rank = getSortValue(member) === getSortValue(prev) ? prev.rank : index + 1;
+      }
     });
 
     // Fallback: if still empty but user is owner, show them
