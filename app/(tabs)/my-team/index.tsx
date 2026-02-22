@@ -978,7 +978,7 @@ export default function MyTeamScreen() {
                   {!cIsReserve ? (
                     <View style={styles.cardPriceBlock}>
                       <Text style={[styles.cardPrice, { fontSize: scaledFonts.lg }]}>${livePrice}</Text>
-                      {cPriceDiff !== 0 && (
+                      {cPriceDiff !== 0 && !cInGracePeriod && (
                         <View style={[styles.cardPriceDiff, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
                           <Ionicons name={cPriceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
                           <Text style={styles.cardPriceDiffText}>${Math.abs(cPriceDiff)}</Text>

@@ -88,7 +88,7 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
           {!driver.isReserve ? (
             <View style={styles.cardPriceBlock}>
               <Text style={[styles.cardPrice, { fontSize: scaledFonts.lg }]}>${driver.livePrice}</Text>
-              {driver.priceDiff !== 0 && (
+              {driver.priceDiff !== 0 && !driver.inGracePeriod && (
                 <View style={[styles.cardPriceDiff, driver.priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
                   <Ionicons name={driver.priceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
                   <Text style={styles.cardPriceDiffText}>${Math.abs(driver.priceDiff)}</Text>
