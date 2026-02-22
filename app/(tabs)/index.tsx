@@ -123,8 +123,11 @@ export default function HomeScreen() {
     }
   }, [leagues]);
 
-  // Get the first league the user is in
-  const primaryLeague = leagues.length > 0 ? leagues[0] : null;
+  // Get the league matching the currently selected team
+  const primaryLeague = useMemo(() => {
+    if (!currentTeam?.leagueId) return leagues.length > 0 ? leagues[0] : null;
+    return leagues.find(l => l.id === currentTeam.leagueId) || (leagues.length > 0 ? leagues[0] : null);
+  }, [currentTeam?.leagueId, leagues]);
 
   // Calculate team stats
   const teamDriverCount = currentTeam?.drivers.length || 0;

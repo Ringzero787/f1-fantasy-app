@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
@@ -87,12 +88,13 @@ export default function MarketScreen() {
     return map;
   }, [userTeams]);
 
-  // On-team driver IDs (derived from map for backward compat)
+  // On-team driver IDs (scoped to current/selected team only)
   const onTeamDriverIds = useMemo(() => {
-    return new Set(driverTeamMap.keys());
-  }, [driverTeamMap]);
+    if (!currentTeam) return new Set<string>();
+    return new Set(currentTeam.drivers.map(d => d.driverId));
+  }, [currentTeam]);
 
-  // On-team constructor ID (current team only, for add logic)
+  // On-team constructor ID (current team only)
   const onTeamConstructorId = currentTeam?.constructor?.constructorId ?? null;
 
   // Locked-out driver IDs
@@ -429,6 +431,36 @@ export default function MarketScreen() {
         )}
       </View>
 
+      {/* Team Selector (multi-team only) */}
+      {userTeams.length > 1 && (
+        <View style={styles.teamSelectorContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.teamSelectorScroll}>
+            {userTeams.map((team) => (
+              <TouchableOpacity
+                key={team.id}
+                style={[
+                  styles.teamPill,
+                  { backgroundColor: theme.card, borderColor: COLORS.border.default },
+                  team.id === currentTeam?.id && { borderColor: theme.primary, backgroundColor: theme.primary + '15' },
+                ]}
+                onPress={() => selectTeam(team.id)}
+              >
+                <Text
+                  style={[
+                    styles.teamPillText,
+                    { color: COLORS.text.secondary },
+                    team.id === currentTeam?.id && { color: theme.primary, fontWeight: '700' },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {team.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* Sort Row + Budget Badge */}
       <View style={styles.sortContainer}>
         {activeTab === 'drivers' ? (
@@ -480,6 +512,7 @@ export default function MarketScreen() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
               const isOnTeam = onTeamDriverIds.has(item.id);
+              const isOnAnyTeam = driverTeamMap.has(item.id);
               return (
                 <DriverCard
                   driver={item}
@@ -490,7 +523,7 @@ export default function MarketScreen() {
                   isOnTeam={isOnTeam}
                   onPress={() => router.push(`/market/driver/${item.id}`)}
                   onAdd={!isOnTeam && currentTeam ? () => handleAddDriver(item) : undefined}
-                  onSell={isOnTeam ? () => handleSellDriver(item) : undefined}
+                  onSell={isOnAnyTeam ? () => handleSellDriver(item) : undefined}
                 />
               );
             }}
@@ -513,7 +546,8 @@ export default function MarketScreen() {
           data={filteredConstructors}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
-            const isOnTeam = constructorTeamMap.has(item.id);
+            const isOnTeam = onTeamConstructorId === item.id;
+            const isOnAnyTeam = constructorTeamMap.has(item.id);
             return (
               <ConstructorCard
                 constructorData={item}
@@ -523,7 +557,7 @@ export default function MarketScreen() {
                 isOnTeam={isOnTeam}
                 onPress={() => router.push(`/market/constructor/${item.id}`)}
                 onAdd={!isOnTeam && currentTeam ? () => handleAddConstructor(item) : undefined}
-                onSell={isOnTeam ? () => handleSellConstructor(item) : undefined}
+                onSell={isOnAnyTeam ? () => handleSellConstructor(item) : undefined}
               />
             );
           }}
@@ -693,6 +727,30 @@ const styles = StyleSheet.create({
   sortButtonTextActive: {
     color: COLORS.primary,
     fontWeight: '600',
+  },
+
+  teamSelectorContainer: {
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+
+  teamSelectorScroll: {
+    gap: SPACING.sm,
+  },
+
+  teamPill: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: BORDER_RADIUS.full,
+    borderWidth: 1.5,
+    borderColor: COLORS.border.default,
+    maxWidth: 160,
+  },
+
+  teamPillText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
   },
 
   budgetBadge: {
