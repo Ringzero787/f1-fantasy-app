@@ -11,7 +11,7 @@
       --border: #30363D;
       --text: #E6EDF3;
       --text-muted: #8B949E;
-      --accent: #E10600;
+      --accent: #14B8A6;
       --link: #58A6FF;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -43,12 +43,28 @@
       font-size: 1rem;
     }
     .links a:hover { text-decoration: underline; }
+    .download {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      padding: 0.75rem 2rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-decoration: none;
+      margin-top: 1.5rem;
+      transition: opacity 0.2s;
+    }
+    .download:hover { opacity: 0.85; text-decoration: none; }
+    .version { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; }
   </style>
 </head>
 <body>
   <div class="hero">
     <h1><span class="accent">The Undercut</span></h1>
     <p class="tagline">Fantasy Formula 1</p>
+    <a class="download" href="/undercut.apk">Download APK</a>
+    <p class="version">v1.1.0 - Android</p>
     <div class="links">
       <a href="/privacy.html">Privacy Policy</a>
       <a href="/terms.html">Terms of Service</a>
