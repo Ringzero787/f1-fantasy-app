@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS } from '../config/constants';
+import { PRICING_CONFIG } from '../config/pricing.config';
 import { useTheme } from '../hooks/useTheme';
 import { formatPoints, formatDollars } from '../utils/formatters';
 import type { Constructor } from '../types';
@@ -40,6 +41,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
   const theme = useTheme();
   const priceChange = constructor.price - constructor.previousPrice;
   const priceDirection = priceChange > 0 ? 'up' : priceChange < 0 ? 'down' : 'neutral';
+  const canBeAce = constructor.price <= PRICING_CONFIG.ACE_MAX_PRICE;
 
   if (compact) {
     return (
@@ -90,7 +92,14 @@ export const ConstructorCard = React.memo(function ConstructorCard({
 
           {/* Name + nationality + principal */}
           <View style={styles.nameBlock}>
-            <Text style={styles.name} numberOfLines={1}>{constructor.name}</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.name} numberOfLines={1}>{constructor.name}</Text>
+              {canBeAce && (
+                <View style={[styles.aceBadge, { backgroundColor: theme.primary + '20' }]}>
+                  <Text style={[styles.aceText, { color: theme.primary }]}>ACE</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.nationality}>{constructor.nationality}</Text>
             {constructor.teamPrincipal && (
               <Text style={styles.teamPrincipal}>{constructor.teamPrincipal}</Text>
@@ -242,11 +251,30 @@ const styles = StyleSheet.create({
     marginRight: SPACING.sm,
   },
 
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
   name: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
     color: COLORS.text.primary,
     letterSpacing: -0.3,
+    flexShrink: 1,
+  },
+
+  aceBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: BORDER_RADIUS.full,
+  },
+
+  aceText: {
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 
   nationality: {

@@ -395,18 +395,20 @@ export const scoringService = {
 
   /**
    * Calculate constructor score (sum of both drivers)
-   * V3: Removed star constructor bonus (ace system is driver-only)
+   * V9: Supports ace system (2x points on base, not lock bonus)
    */
   calculateConstructorScore(
     constructorId: string,
     raceId: string,
     driver1Score: DriverScore,
     driver2Score: DriverScore,
-    fantasyConstructor: FantasyConstructor
+    fantasyConstructor: FantasyConstructor,
+    options: { isAce?: boolean } = {}
   ): ConstructorScore {
     const lockCalc = this.calculateLockBonus(fantasyConstructor.racesHeld);
     // Constructor gets average of both drivers' points (divided by 2)
     const basePoints = Math.floor((driver1Score.totalPoints + driver2Score.totalPoints) / 2);
+    const aceBonus = options.isAce ? basePoints : 0;
 
     return {
       constructorId,
@@ -414,7 +416,7 @@ export const scoringService = {
       driver1Points: driver1Score.totalPoints,
       driver2Points: driver2Score.totalPoints,
       lockBonus: lockCalc.bonus,
-      totalPoints: basePoints + lockCalc.bonus,
+      totalPoints: basePoints + aceBonus + lockCalc.bonus,
     };
   },
 
