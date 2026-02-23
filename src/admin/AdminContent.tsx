@@ -1029,6 +1029,16 @@ export default function AdminContent() {
         </View>
       </TouchableOpacity>
 
+      {/* Global Broadcast Button */}
+      <TouchableOpacity
+        style={[styles.broadcastButton, { backgroundColor: COLORS.warning + '10', borderColor: COLORS.warning + '30' }]}
+        onPress={() => router.push('/(tabs)/admin/broadcast' as any)}
+      >
+        <Ionicons name="megaphone-outline" size={18} color={COLORS.warning} />
+        <Text style={[styles.broadcastButtonText, { color: COLORS.warning }]}>Global Broadcast</Text>
+        <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
+      </TouchableOpacity>
+
       {/* V5: Lock Override Toggle */}
       <View style={[styles.lockToggleContainer, { backgroundColor: theme.card }]}>
         <Text style={styles.lockToggleTitle}>Team Lock Override</Text>
@@ -1531,6 +1541,22 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
     color: COLORS.white,
+  },
+
+  broadcastButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    marginBottom: SPACING.md,
+  },
+  broadcastButtonText: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
   },
 
   chatButton: {

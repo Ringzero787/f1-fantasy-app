@@ -14,3 +14,4 @@ export * from './purchases/validatePurchase';
 export * from './notifications/triggers';
 export * from './avatars/generateAvatar';
 export * from './users/deleteUserData';
+export * from './notifications/sendBroadcast';

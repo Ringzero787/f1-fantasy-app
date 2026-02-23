@@ -51,6 +51,12 @@ export default function AdminLayout() {
         }}
       />
       <Stack.Screen
+        name="broadcast"
+        options={{
+          title: 'Global Broadcast',
+        }}
+      />
+      <Stack.Screen
         name="chat-room"
         options={{
           title: 'Chat',

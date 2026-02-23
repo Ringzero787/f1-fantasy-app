@@ -28,6 +28,7 @@ const ICON_MAP: Record<NotificationType, { name: keyof typeof Ionicons.glyphMap;
   league_update: { name: 'trophy', color: COLORS.gold },
   chat_message: { name: 'chatbubble', color: COLORS.info },
   join_request: { name: 'person-add', color: COLORS.info },
+  system_broadcast: { name: 'megaphone', color: COLORS.warning },
 };
 
 function navigateToNotification(item: Notification) {
@@ -66,6 +67,8 @@ function navigateToNotification(item: Notification) {
         router.push(`/(tabs)/leagues/${data.leagueId}/admin` as any);
       }
       break;
+    case 'system_broadcast':
+      break; // informational only
   }
 }
 
@@ -90,14 +93,19 @@ function NotificationRow({ item, onPress }: { item: Notification; onPress: () =>
   const iconColor = item.type === 'announcement' ? theme.primary : icon.color;
   const { scaledFonts, scaledIcon } = useScale();
 
+  // Priority-based color for system broadcasts
+  const broadcastPriority = item.type === 'system_broadcast' ? (item.data as Record<string, string> | undefined)?.priority : undefined;
+  const broadcastAccent = broadcastPriority === 'critical' ? '#EF4444' : broadcastPriority === 'warning' ? '#F59E0B' : broadcastPriority === 'info' ? '#06B6D4' : undefined;
+  const resolvedIconColor = broadcastAccent ?? iconColor;
+
   return (
     <TouchableOpacity
-      style={[styles.row, !item.read && styles.rowUnread]}
+      style={[styles.row, !item.read && styles.rowUnread, broadcastAccent != null && { borderLeftWidth: 3, borderLeftColor: broadcastAccent }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.iconContainer, { backgroundColor: iconColor + '20' }]}>
-        <Ionicons name={icon.name} size={scaledIcon(20)} color={iconColor} />
+      <View style={[styles.iconContainer, { backgroundColor: resolvedIconColor + '20' }]}>
+        <Ionicons name={icon.name} size={scaledIcon(20)} color={resolvedIconColor} />
       </View>
       <View style={styles.rowContent}>
         <Text style={[styles.rowTitle, !item.read && styles.rowTitleUnread, { fontSize: scaledFonts.md }]} numberOfLines={1}>
