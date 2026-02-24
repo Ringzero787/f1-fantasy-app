@@ -35,7 +35,11 @@ module.exports = {
         backgroundColor: "#0D1117"
       },
       package: "com.undercut.app",
-      googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json"
+      versionCode: 2,
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
+      blockedPermissions: [
+        "android.permission.CAMERA",
+      ]
     },
     web: {
       bundler: "metro",
