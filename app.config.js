@@ -47,6 +47,9 @@ module.exports = {
         ios: {
           useFrameworks: "static",
         },
+        android: {
+          targetSdkVersion: 35,
+        },
       }],
       "expo-router",
       "expo-asset",
