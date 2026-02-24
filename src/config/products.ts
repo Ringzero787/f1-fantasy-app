@@ -1,7 +1,7 @@
 export const PRODUCT_IDS = {
-  LEAGUE_EXPANSION: 'com.f1fantasy.app.league_expansion',
-  AVATAR_PACK: 'com.f1fantasy.app.avatar_pack',
-  LEAGUE_SLOT: 'com.f1fantasy.app.league_slot',
+  LEAGUE_EXPANSION: 'league.expansion',
+  AVATAR_PACK: 'avatar.pack',
+  LEAGUE_SLOT: 'league.slot',
 } as const;
 
 export const AVATAR_PACK_CREDITS = 20;
