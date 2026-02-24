@@ -50,7 +50,7 @@ const SECTIONS: RuleSection[] = [
         items: [
           '5 drivers + 1 constructor per team',
           '$1,000 starting budget',
-          'Drivers sign contracts (default 3 races)',
+          'Drivers sign 1\u20135 race contracts (default 3)',
           'Choose 1 Ace driver for double points',
         ],
       },
@@ -181,7 +181,7 @@ const SECTIONS: RuleSection[] = [
     content: [
       {
         type: 'paragraph',
-        text: 'When you sign a driver, they\u2019re on a contract (default 3 races). You can customize the length when adding them.',
+        text: 'When you sign a driver, you choose a contract length of 1\u20135 races (default 3). When a contract expires, that seat is locked out for 1 race.',
       },
       { type: 'heading', text: 'Contract Expiry' },
       {

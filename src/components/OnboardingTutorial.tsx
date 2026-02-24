@@ -50,7 +50,7 @@ const SLIDES: Slide[] = [
   {
     id: '4',
     title: 'Contracts & Loyalty',
-    body: 'Drivers sign 3-race contracts. Hold them longer to earn loyalty bonuses \u2014 up to +3 extra points per race.',
+    body: 'Sign drivers to 1\u20135 race contracts. When a contract expires, that seat is locked for 1 race. Hold drivers longer to earn loyalty bonuses \u2014 up to +3 extra points per race.',
     icon: 'document-text',
   },
   {

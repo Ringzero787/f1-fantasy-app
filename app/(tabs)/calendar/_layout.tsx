@@ -38,7 +38,13 @@ export default function CalendarLayout() {
           title: 'Race Details',
           headerLeft: () => (
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.navigate('/(tabs)/calendar');
+                }
+              }}
               style={{ marginRight: 16 }}
             >
               <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
