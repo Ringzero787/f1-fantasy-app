@@ -54,12 +54,18 @@ export default function RootLayout() {
       handleUrl(event.url);
     });
 
-    // Initialize App Check (must be before any protected Firebase calls)
-    initAppCheck();
+    // App Check disabled for initial release — Play Integrity needs
+    // SHA-256 registration in Firebase Console before it works.
+    // TODO: Re-enable after configuring Play Integrity
+    // try { initAppCheck(); } catch (e) { console.warn('App Check init error:', e); }
 
     // Enable Crashlytics collection in production
-    if (!__DEV__) {
-      crashlytics().setCrashlyticsCollectionEnabled(true);
+    try {
+      if (!__DEV__) {
+        crashlytics().setCrashlyticsCollectionEnabled(true);
+      }
+    } catch (e) {
+      console.warn('Crashlytics init error:', e);
     }
 
     // Initialize in-app purchases
