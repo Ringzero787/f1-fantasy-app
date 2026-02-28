@@ -72,7 +72,6 @@ pics/maestro_fail*.png
 pics/featured-graphic.*
 pics/leagues.png
 pics/Thumbs.db
-pics/app graphics/adminpanel.png
 debug_*.png
 backup-pre-theming.patch
 test-openf1-results-2025.txt
@@ -80,4 +79,3 @@ tmp_build.json
 tmp_ios_build.json
 *.patch
 .pipebe4eec6
-C*
