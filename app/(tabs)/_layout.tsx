@@ -77,6 +77,7 @@ export default function TabLayout() {
             />
           ),
           headerRight: () => <NotificationBell />,
+          // @ts-ignore tabBarTestID for E2E testing
           tabBarTestID: 'tab-home',
           tabBarAccessibilityLabel: 'Home tab',
           tabBarIcon: ({ color, size }) => (
@@ -100,6 +101,7 @@ export default function TabLayout() {
               style={{ width: 40, height: 32, resizeMode: 'contain', marginRight: 12 }}
             />
           ),
+          // @ts-ignore tabBarTestID for E2E testing
           tabBarTestID: 'tab-my-team',
           tabBarAccessibilityLabel: 'My Team tab',
           tabBarIcon: ({ color, size }) => (
@@ -123,6 +125,7 @@ export default function TabLayout() {
               style={{ width: 40, height: 32, resizeMode: 'contain', marginRight: 12 }}
             />
           ),
+          // @ts-ignore tabBarTestID for E2E testing
           tabBarTestID: 'tab-market',
           tabBarAccessibilityLabel: 'Market tab',
           tabBarIcon: ({ color, size }) => (
@@ -146,6 +149,7 @@ export default function TabLayout() {
               style={{ width: 40, height: 32, resizeMode: 'contain', marginRight: 12 }}
             />
           ),
+          // @ts-ignore tabBarTestID for E2E testing
           tabBarTestID: 'tab-leagues',
           tabBarAccessibilityLabel: 'Leagues tab',
           tabBarIcon: ({ color, size }) => (
@@ -158,6 +162,7 @@ export default function TabLayout() {
         options={{
           title: 'Calendar',
           headerShown: false,
+          // @ts-ignore tabBarTestID for E2E testing
           tabBarTestID: 'tab-calendar',
           tabBarAccessibilityLabel: 'Calendar tab',
           tabBarIcon: ({ color, size }) => (
@@ -172,6 +177,7 @@ export default function TabLayout() {
           headerShown: false,
           // Show when user has leagues (non-admins, or demo mode where both admin + chat show)
           href: ((!isAdmin || isDemoMode) && hasLeagues) ? ('/(tabs)/chat' as unknown as '/') : null,
+          // @ts-ignore tabBarTestID for E2E testing
           tabBarTestID: 'tab-chat',
           tabBarAccessibilityLabel: 'Chat tab',
           tabBarIcon: ({ color, size }) => (
@@ -187,6 +193,7 @@ export default function TabLayout() {
           headerShown: false,
           // Only show admin tab for admins or demo mode
           href: (isAdmin || isDemoMode) ? ('/(tabs)/admin' as unknown as '/') : null,
+          // @ts-ignore tabBarTestID for E2E testing
           tabBarTestID: 'tab-admin',
           tabBarAccessibilityLabel: 'Admin tab',
           tabBarIcon: ({ color, size }) => (
@@ -204,6 +211,7 @@ export default function TabLayout() {
             height: 50,
           },
           headerShadowVisible: false,
+          // @ts-ignore tabBarTestID for E2E testing
           tabBarTestID: 'tab-profile',
           tabBarAccessibilityLabel: 'Profile tab',
           tabBarIcon: ({ color, size }) => (

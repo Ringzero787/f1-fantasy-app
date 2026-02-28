@@ -14,7 +14,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useAvatarGeneration, useAutoSyncOpenF1, useScale, useTheme } from '../../src/hooks';

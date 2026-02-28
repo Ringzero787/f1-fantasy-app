@@ -27,7 +27,6 @@ export default function AdminLayout() {
           headerTitle: '',
           headerStyle: {
             backgroundColor: theme.surface,
-            height: 50,
           },
           headerShadowVisible: false,
         }}

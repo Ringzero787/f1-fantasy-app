@@ -451,8 +451,8 @@ class OpenF1Service {
    * Get complete race weekend results (race + sprint if applicable)
    */
   async getRaceWeekendResults(meetingKey: number): Promise<{
-    race: Awaited<ReturnType<typeof this.convertSessionResultsForApp>> | null;
-    sprint: Awaited<ReturnType<typeof this.convertSessionResultsForApp>> | null;
+    race: { driverResults: Array<{ driverId: string; driverNumber: number; position: number | null; points: number; dnf: boolean }>; constructorResults: Array<{ constructorId: string; points: number }> } | null;
+    sprint: { driverResults: Array<{ driverId: string; driverNumber: number; position: number | null; points: number; dnf: boolean }>; constructorResults: Array<{ constructorId: string; points: number }> } | null;
     sessions: OpenF1Session[];
   }> {
     // Get all sessions for this meeting

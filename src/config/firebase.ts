@@ -1,4 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+// @ts-ignore getReactNativePersistence exists in RN bundle but not in TS types
 import { initializeAuth, getAuth, getReactNativePersistence, Auth } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStorage, FirebaseStorage } from 'firebase/storage';

@@ -99,7 +99,7 @@ export const teamService = {
       ...teamData,
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as FantasyTeam;
+    } as unknown as FantasyTeam;
   },
 
   /**
