@@ -5,6 +5,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
 
+function goToCalendar() {
+  router.navigate('/(tabs)/calendar');
+}
+
+function goBack() {
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.navigate('/(tabs)/calendar');
+  }
+}
+
 export default function CalendarLayout() {
   const theme = useTheme();
 
@@ -38,16 +50,18 @@ export default function CalendarLayout() {
           title: 'Race Details',
           headerLeft: () => (
             <TouchableOpacity
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.navigate('/(tabs)/calendar');
-                }
-              }}
+              onPress={goToCalendar}
               style={{ marginRight: 16 }}
             >
               <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+            </TouchableOpacity>
+          ),
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={goBack}
+              style={{ marginLeft: 16 }}
+            >
+              <Ionicons name="close" size={24} color={COLORS.text.primary} />
             </TouchableOpacity>
           ),
         }}

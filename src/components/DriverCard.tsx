@@ -15,6 +15,7 @@ interface DriverCardProps {
   onSell?: () => void;
   isSelected?: boolean;
   isOnTeam?: boolean;
+  teamName?: string;
   showPrice?: boolean;
   showPoints?: boolean;
   showPriceChange?: boolean;
@@ -30,6 +31,7 @@ export const DriverCard = React.memo(function DriverCard({
   onSell,
   isSelected = false,
   isOnTeam = false,
+  teamName,
   showPrice = true,
   showPoints = false,
   showPriceChange = false,
@@ -236,7 +238,7 @@ export const DriverCard = React.memo(function DriverCard({
           )}
           {isOnTeam && (
             <View style={styles.onTeamBadge}>
-              <Text style={styles.onTeamText}>ON TEAM</Text>
+              <Text style={styles.onTeamText} numberOfLines={1}>{teamName || 'ON TEAM'}</Text>
             </View>
           )}
           <Text style={styles.shortCode}>{driver.shortName}</Text>
@@ -514,6 +516,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BORDER_RADIUS.full,
+    maxWidth: 80,
   },
 
   onTeamText: {

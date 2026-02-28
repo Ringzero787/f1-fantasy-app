@@ -375,7 +375,7 @@ export function RulesGuide({ visible, onClose }: RulesGuideProps) {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" statusBarTranslucent>
+    <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         {/* Header */}
         <View style={[styles.header, { backgroundColor: theme.surface }]}>

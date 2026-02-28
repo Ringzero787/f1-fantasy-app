@@ -165,10 +165,18 @@ export function formatTimeWithZone(date: Date | string, trackTimezone: string, u
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-    timeZoneName: 'short',
+    timeZoneName: 'shortGeneric',
     ...(useLocalTime ? {} : { timeZone: trackTimezone }),
   };
-  return new Intl.DateTimeFormat('en-GB', options).format(d);
+  // Try shortGeneric first (gives "CT", "ET", "PT"), fall back to short ("CST", "EST")
+  try {
+    const result = new Intl.DateTimeFormat('en-US', options).format(d);
+    return result;
+  } catch {
+    // Fallback if shortGeneric not supported
+    const fallbackOptions = { ...options, timeZoneName: 'short' as const };
+    return new Intl.DateTimeFormat('en-US', fallbackOptions).format(d);
+  }
 }
 
 /**

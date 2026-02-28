@@ -23,7 +23,7 @@ import { formatDollars } from '../../../src/utils/formatters';
 import type { DriverFilter, Driver, Constructor, FantasyDriver, FantasyConstructor, FantasyTeam } from '../../../src/types';
 
 type Tab = 'drivers' | 'constructors';
-type SortOption = 'price' | 'points' | 'name' | 'priceChange';
+type SortOption = 'price' | 'points' | 'name' | 'priceChange' | 'team';
 
 export default function MarketScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
@@ -46,7 +46,7 @@ export default function MarketScreen() {
 
   const driverFilter: DriverFilter = {
     search: debouncedSearch,
-    sortBy,
+    sortBy: sortBy === 'team' ? 'price' : sortBy,
     sortOrder,
   };
 
@@ -109,6 +109,18 @@ export default function MarketScreen() {
     const sorted = [...drivers].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));
     return new Set(sorted.slice(0, 10).map(d => d.id));
   }, [drivers]);
+
+  // Sort drivers by team membership when "team" sort is selected
+  const sortedDrivers = useMemo(() => {
+    if (!drivers || sortBy !== 'team') return drivers;
+    const sorted = [...drivers].sort((a, b) => {
+      const aOnTeam = driverTeamMap.has(a.id) ? 1 : 0;
+      const bOnTeam = driverTeamMap.has(b.id) ? 1 : 0;
+      const comparison = aOnTeam - bOnTeam;
+      return sortOrder === 'desc' ? -comparison : comparison;
+    });
+    return sorted;
+  }, [drivers, sortBy, sortOrder, driverTeamMap]);
 
   const toggleSort = (option: SortOption) => {
     if (sortBy === option) {
@@ -467,7 +479,7 @@ export default function MarketScreen() {
           <>
             <Text style={[styles.sortLabel, { fontSize: scaledFonts.sm }]}>Sort by:</Text>
             <View style={styles.sortOptions}>
-              {(['price', 'points', 'name'] as SortOption[]).map((option) => (
+              {(['price', 'points', 'name', 'team'] as SortOption[]).map((option) => (
                 <TouchableOpacity
                   key={option}
                   style={[styles.sortButton, { backgroundColor: theme.card }, sortBy === option && [styles.sortButtonActive, { borderColor: theme.primary, backgroundColor: theme.primary + '10' }]]}
@@ -506,13 +518,15 @@ export default function MarketScreen() {
       {isLoading ? (
         <Loading message={`Loading ${activeTab}...`} />
       ) : activeTab === 'drivers' ? (
-        drivers && drivers.length > 0 ? (
+        sortedDrivers && sortedDrivers.length > 0 ? (
           <FlatList
-            data={drivers}
+            data={sortedDrivers}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
               const isOnTeam = onTeamDriverIds.has(item.id);
               const isOnAnyTeam = driverTeamMap.has(item.id);
+              const teams = driverTeamMap.get(item.id);
+              const driverTeamName = teams && teams.length > 0 ? teams[0].teamName : undefined;
               return (
                 <DriverCard
                   driver={item}
@@ -520,7 +534,8 @@ export default function MarketScreen() {
                   showPoints
                   showPriceChange
                   isTopTen={topTenDriverIds.has(item.id)}
-                  isOnTeam={isOnTeam}
+                  isOnTeam={isOnTeam || isOnAnyTeam}
+                  teamName={driverTeamName}
                   onPress={() => router.push(`/market/driver/${item.id}`)}
                   onAdd={!isOnTeam && currentTeam ? () => handleAddDriver(item) : undefined}
                   onSell={isOnAnyTeam ? () => handleSellDriver(item) : undefined}
@@ -548,13 +563,16 @@ export default function MarketScreen() {
           renderItem={({ item }) => {
             const isOnTeam = onTeamConstructorId === item.id;
             const isOnAnyTeam = constructorTeamMap.has(item.id);
+            const teams = constructorTeamMap.get(item.id);
+            const cTeamName = teams && teams.length > 0 ? teams[0].teamName : undefined;
             return (
               <ConstructorCard
                 constructorData={item}
                 showPrice
                 showPoints
                 showPriceChange
-                isOnTeam={isOnTeam}
+                isOnTeam={isOnTeam || isOnAnyTeam}
+                teamName={cTeamName}
                 onPress={() => router.push(`/market/constructor/${item.id}`)}
                 onAdd={!isOnTeam && currentTeam ? () => handleAddConstructor(item) : undefined}
                 onSell={isOnAnyTeam ? () => handleSellConstructor(item) : undefined}

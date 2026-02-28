@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,16 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
-  PanResponder,
-  Animated,
   Dimensions,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -27,8 +33,190 @@ import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/conf
 import { useScale } from '../../src/hooks/useScale';
 import { useTheme } from '../../src/hooks/useTheme';
 import { formatPoints } from '../../src/utils/formatters';
+import type { FantasyTeam } from '../../src/types';
 
 const CURRENT_SEASON_ID = '2026'; // This would come from app config
+
+/* ─── TeamCard: collapsible team tile ─── */
+function TeamCard({
+  team,
+  isCollapsed,
+  onToggleCollapse,
+  onPress,
+  isPrimary,
+  scaledFonts,
+  scaledSpacing,
+  scaledIcon,
+  theme,
+  raceResults,
+  userTeams,
+}: {
+  team: FantasyTeam;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  onPress: () => void;
+  isPrimary: boolean;
+  scaledFonts: any;
+  scaledSpacing: any;
+  scaledIcon: (s: number) => number;
+  theme: any;
+  raceResults: any;
+  userTeams: FantasyTeam[];
+}) {
+  const teamDriverCount = team.drivers.length;
+  const hasConstructor = !!team.constructor;
+  const isTeamComplete = teamDriverCount === TEAM_SIZE && hasConstructor;
+  const aceDriver = team.aceDriverId
+    ? team.drivers.find(d => d.driverId === team.aceDriverId)
+    : null;
+
+  if (isCollapsed) {
+    // Collapsed: single line with key stats
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={onPress}
+        style={{ marginTop: isPrimary ? 0 : SPACING.sm }}
+      >
+        <Card variant="elevated" style={styles.teamSummaryCard}>
+          <View style={styles.collapsedRow}>
+            <Avatar
+              name={team.name}
+              size="small"
+              variant="team"
+              imageUrl={team.avatarUrl || null}
+            />
+            <Text style={[styles.collapsedName, { fontSize: scaledFonts.md }]} numberOfLines={1}>{team.name}</Text>
+            <View style={styles.collapsedStats}>
+              <View style={styles.collapsedStat}>
+                <Ionicons name="podium" size={14} color={theme.primary} />
+                <Text style={[styles.collapsedStatText, { color: theme.primary, fontSize: scaledFonts.sm }]}>
+                  {formatPoints(team.totalPoints)}
+                </Text>
+              </View>
+              <View style={styles.collapsedStat}>
+                <Ionicons name="wallet-outline" size={14} color={COLORS.success} />
+                <Text style={[styles.collapsedStatText, { color: COLORS.success, fontSize: scaledFonts.sm }]}>
+                  ${formatPoints(team.budget)}
+                </Text>
+              </View>
+              <Text style={[styles.collapsedDriverCount, { fontSize: scaledFonts.xs }]}>
+                {teamDriverCount}/{TEAM_SIZE}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation(); onToggleCollapse(); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.collapseToggle}
+            >
+              <Ionicons name="chevron-down" size={18} color={COLORS.text.muted} />
+            </TouchableOpacity>
+          </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  }
+
+  // Expanded: full team card
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={onPress}
+      style={{ marginTop: isPrimary ? 0 : SPACING.sm }}
+    >
+      <Card variant="elevated" style={styles.teamSummaryCard}>
+        <View style={styles.teamHeader}>
+          <Avatar
+            name={team.name}
+            size="medium"
+            variant="team"
+            imageUrl={team.avatarUrl || null}
+          />
+          <Text style={[styles.teamName, { fontSize: scaledFonts.lg }]}>{team.name}</Text>
+          <View style={styles.teamHeaderRight}>
+            <View style={styles.teamBudget}>
+              <Text style={[styles.budgetLabel, { fontSize: scaledFonts.sm }]}>Budget</Text>
+              <Text style={[styles.budgetValue, { fontSize: scaledFonts.md }]}>${formatPoints(team.budget)}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation(); onToggleCollapse(); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.collapseToggle}
+            >
+              <Ionicons name="chevron-up" size={18} color={COLORS.text.muted} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Team Status Banner */}
+        {!isTeamComplete && (
+          <View style={styles.incompleteTeamBanner}>
+            <Ionicons name="alert-circle" size={16} color={COLORS.warning} />
+            <Text style={styles.incompleteTeamText}>
+              {teamDriverCount < TEAM_SIZE && !hasConstructor
+                ? `Add ${TEAM_SIZE - teamDriverCount} driver${TEAM_SIZE - teamDriverCount > 1 ? 's' : ''} and a constructor`
+                : teamDriverCount < TEAM_SIZE
+                ? `Add ${TEAM_SIZE - teamDriverCount} more driver${TEAM_SIZE - teamDriverCount > 1 ? 's' : ''}`
+                : 'Select a constructor'}
+            </Text>
+          </View>
+        )}
+
+        {/* Drivers Row */}
+        <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
+          <View style={styles.teamRowLeft}>
+            <Ionicons name="people" size={scaledIcon(18)} color={teamDriverCount < TEAM_SIZE ? COLORS.warning : COLORS.text.muted} />
+            <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Drivers</Text>
+          </View>
+          <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, teamDriverCount < TEAM_SIZE && styles.incompleteValue]}>
+            {teamDriverCount}/{TEAM_SIZE}
+          </Text>
+        </View>
+
+        {/* Constructor Row */}
+        <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
+          <View style={styles.teamRowLeft}>
+            <Ionicons name="car-sport" size={scaledIcon(18)} color={!hasConstructor ? COLORS.warning : COLORS.text.muted} />
+            <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Constructor</Text>
+          </View>
+          <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, !hasConstructor && styles.incompleteValue]}>
+            {team.constructor?.name || 'Not selected'}
+          </Text>
+        </View>
+
+        {/* Ace Row */}
+        <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
+          <View style={styles.teamRowLeft}>
+            <Ionicons name="diamond" size={scaledIcon(18)} color={COLORS.gold} />
+            <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Ace</Text>
+          </View>
+          <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, aceDriver && [styles.aceText, { color: theme.primary }]]}>
+            {aceDriver?.name || 'Not selected'}
+          </Text>
+        </View>
+
+        {/* Total Points Row */}
+        <View style={[styles.teamRow, styles.teamRowLast, { paddingVertical: scaledSpacing.sm }]}>
+          <View style={styles.teamRowLeft}>
+            <Ionicons name="podium" size={scaledIcon(18)} color={theme.primary} />
+            <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Total Points</Text>
+          </View>
+          <Text style={[styles.teamRowValue, styles.pointsValue, { fontSize: scaledFonts.md, color: theme.primary }]}>
+            {formatPoints(team.totalPoints)}
+          </Text>
+        </View>
+
+        {/* Complete Team Button if incomplete */}
+        {!isTeamComplete && (
+          <View style={[styles.completeTeamButton, { backgroundColor: theme.primary }]}>
+            <Text style={styles.completeTeamButtonText}>Complete Your Team</Text>
+            <Ionicons name="arrow-forward" size={16} color={COLORS.white} />
+          </View>
+        )}
+      </Card>
+    </TouchableOpacity>
+  );
+}
 
 export default function HomeScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
@@ -52,47 +240,8 @@ export default function HomeScreen() {
   const loadNotifications = useNotificationStore(s => s.loadNotifications);
 
   const [refreshing, setRefreshing] = React.useState(false);
-
-  // Swipe to switch teams
-  const swipeX = useRef(new Animated.Value(0)).current;
-  const swipeTeamRef = useRef<(dir: 'left' | 'right') => void>(() => {});
-  swipeTeamRef.current = (direction: 'left' | 'right') => {
-    if (userTeams.length < 2 || !currentTeam) return;
-    const idx = userTeams.findIndex(t => t.id === currentTeam.id);
-    const nextIdx = direction === 'left'
-      ? (idx + 1) % userTeams.length
-      : (idx - 1 + userTeams.length) % userTeams.length;
-    selectTeam(userTeams[nextIdx].id);
-  };
-
-  const teamPanResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 15 && Math.abs(gs.dy) < Math.abs(gs.dx),
-      onPanResponderMove: (_, gs) => {
-        swipeX.setValue(gs.dx);
-      },
-      onPanResponderRelease: (_, gs) => {
-        if (gs.dx < -50) {
-          swipeTeamRef.current('left');
-        } else if (gs.dx > 50) {
-          swipeTeamRef.current('right');
-        }
-        Animated.spring(swipeX, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 120,
-          friction: 8,
-        }).start();
-      },
-      onPanResponderTerminate: () => {
-        Animated.spring(swipeX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      },
-    })
-  ).current;
+  const [teamsExpanded, setTeamsExpanded] = useState(false);
+  const [teamCollapsed, setTeamCollapsed] = useState<Record<string, boolean>>({});
 
   // Load user's leagues, teams, and news on mount
   React.useEffect(() => {
@@ -125,15 +274,6 @@ export default function HomeScreen() {
     if (!currentTeam?.leagueId) return leagues.length > 0 ? leagues[0] : null;
     return leagues.find(l => l.id === currentTeam.leagueId) || (leagues.length > 0 ? leagues[0] : null);
   }, [currentTeam?.leagueId, leagues]);
-
-  // Calculate team stats
-  const teamDriverCount = currentTeam?.drivers.length || 0;
-  const hasConstructor = !!currentTeam?.constructor;
-  // V3: Ace system - find the ace driver
-  const aceDriver = currentTeam?.aceDriverId
-    ? currentTeam.drivers.find(d => d.driverId === currentTeam.aceDriverId)
-    : null;
-  const isTeamComplete = teamDriverCount === TEAM_SIZE && hasConstructor;
 
   // Calculate actual stats
   const totalPoints = currentTeam?.totalPoints || 0;
@@ -378,130 +518,88 @@ export default function HomeScreen() {
 
       {/* My Teams Summary */}
       <View style={styles.section}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => router.push('/my-team')}
-        >
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleWithDots}>
-              <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg }]}>My Teams</Text>
-              {userTeams.length > 1 && (
-                <View style={styles.teamDots}>
-                  {userTeams.map(team => (
-                    <TouchableOpacity
-                      key={team.id}
-                      style={[
-                        styles.teamDot,
-                        team.id === currentTeam?.id && [styles.teamDotActive, { backgroundColor: theme.primary }],
-                      ]}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        selectTeam(team.id);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    />
-                  ))}
-                </View>
-              )}
-            </View>
-            <View style={[styles.manageButton, { backgroundColor: theme.primary + '15' }]}>
-              <Ionicons name="settings-outline" size={18} color={theme.primary} />
-              <Text style={[styles.manageButtonText, { color: theme.primary }]}>Manage</Text>
-            </View>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleWithDots}>
+            <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg }]}>My Team</Text>
+            <TouchableOpacity
+              style={[styles.manageButton, { backgroundColor: theme.primary + '15' }]}
+              onPress={() => router.push('/my-team')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="settings-outline" size={14} color={theme.primary} />
+              <Text style={[styles.manageButtonText, { color: theme.primary, fontSize: scaledFonts.sm }]}>Manage</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
 
         {currentTeam ? (
-          <Animated.View
-            {...teamPanResponder.panHandlers}
-            style={{ transform: [{ translateX: swipeX }] }}
-          >
-          <Card variant="elevated" style={styles.teamSummaryCard}>
-            <View style={styles.teamHeader}>
-              <Avatar
-                name={currentTeam.name}
-                size="medium"
-                variant="team"
-                imageUrl={currentTeam.avatarUrl || null}
-              />
-              <Text style={[styles.teamName, { fontSize: scaledFonts.lg }]}>{currentTeam.name}</Text>
-              <View style={styles.teamBudget}>
-                <Text style={[styles.budgetLabel, { fontSize: scaledFonts.sm }]}>Budget</Text>
-                <Text style={[styles.budgetValue, { fontSize: scaledFonts.md }]}>${formatPoints(currentTeam.budget)}</Text>
-              </View>
-            </View>
+          <>
+            {/* Primary team card */}
+            <TeamCard
+              team={currentTeam}
+              isCollapsed={userTeams.length > 1 ? (teamCollapsed[currentTeam.id] ?? false) : (teamCollapsed[currentTeam.id] ?? false)}
+              onToggleCollapse={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setTeamCollapsed(prev => ({ ...prev, [currentTeam.id]: !prev[currentTeam.id] }));
+              }}
+              onPress={() => router.push('/my-team')}
+              isPrimary
+              scaledFonts={scaledFonts}
+              scaledSpacing={scaledSpacing}
+              scaledIcon={scaledIcon}
+              theme={theme}
+              raceResults={raceResults}
+              userTeams={userTeams}
+            />
 
-            {/* Team Status Banner - Shows if incomplete */}
-            {!isTeamComplete && (
-              <View style={styles.incompleteTeamBanner}>
-                <Ionicons name="alert-circle" size={16} color={COLORS.warning} />
-                <Text style={styles.incompleteTeamText}>
-                  {teamDriverCount < TEAM_SIZE && !hasConstructor
-                    ? `Add ${TEAM_SIZE - teamDriverCount} driver${TEAM_SIZE - teamDriverCount > 1 ? 's' : ''} and a constructor`
-                    : teamDriverCount < TEAM_SIZE
-                    ? `Add ${TEAM_SIZE - teamDriverCount} more driver${TEAM_SIZE - teamDriverCount > 1 ? 's' : ''}`
-                    : 'Select a constructor'}
-                </Text>
-              </View>
+            {/* Other teams (expandable) */}
+            {userTeams.length > 1 && (
+              <>
+                {teamsExpanded && userTeams
+                  .filter(t => t.id !== currentTeam.id)
+                  .map(team => (
+                    <TeamCard
+                      key={team.id}
+                      team={team}
+                      isCollapsed={teamCollapsed[team.id] ?? true}
+                      onToggleCollapse={() => {
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                        setTeamCollapsed(prev => ({ ...prev, [team.id]: !prev[team.id] }));
+                      }}
+                      onPress={() => {
+                        selectTeam(team.id);
+                        router.push('/my-team');
+                      }}
+                      isPrimary={false}
+                      scaledFonts={scaledFonts}
+                      scaledSpacing={scaledSpacing}
+                      scaledIcon={scaledIcon}
+                      theme={theme}
+                      raceResults={raceResults}
+                      userTeams={userTeams}
+                    />
+                  ))
+                }
+                <TouchableOpacity
+                  style={[styles.expandTeamsButton, { backgroundColor: theme.card, borderColor: COLORS.border.default }]}
+                  onPress={() => {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    setTeamsExpanded(prev => !prev);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={teamsExpanded ? 'chevron-up' : 'ellipsis-horizontal'}
+                    size={teamsExpanded ? 18 : 20}
+                    color={theme.primary}
+                  />
+                  <Text style={[styles.expandTeamsText, { color: theme.primary }]}>
+                    {teamsExpanded ? 'Show less' : `${userTeams.length - 1} more team${userTeams.length - 1 > 1 ? 's' : ''}`}
+                  </Text>
+                </TouchableOpacity>
+              </>
             )}
-
-            {/* Drivers Row */}
-            <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
-              <View style={styles.teamRowLeft}>
-                <Ionicons name="people" size={scaledIcon(18)} color={teamDriverCount < TEAM_SIZE ? COLORS.warning : COLORS.text.muted} />
-                <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Drivers</Text>
-              </View>
-              <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, teamDriverCount < TEAM_SIZE && styles.incompleteValue]}>
-                {teamDriverCount}/{TEAM_SIZE}
-              </Text>
-            </View>
-
-            {/* Constructor Row */}
-            <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
-              <View style={styles.teamRowLeft}>
-                <Ionicons name="car-sport" size={scaledIcon(18)} color={!hasConstructor ? COLORS.warning : COLORS.text.muted} />
-                <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Constructor</Text>
-              </View>
-              <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, !hasConstructor && styles.incompleteValue]}>
-                {currentTeam.constructor?.name || 'Not selected'}
-              </Text>
-            </View>
-
-            {/* Ace Selection Row */}
-            <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
-              <View style={styles.teamRowLeft}>
-                <Ionicons name="diamond" size={scaledIcon(18)} color={COLORS.gold} />
-                <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Ace (2x)</Text>
-              </View>
-              <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, aceDriver && [styles.aceText, { color: theme.primary }]]}>
-                {aceDriver?.name || 'Not selected'}
-              </Text>
-            </View>
-
-            {/* Total Points Row */}
-            <View style={[styles.teamRow, styles.teamRowLast, { paddingVertical: scaledSpacing.sm }]}>
-              <View style={styles.teamRowLeft}>
-                <Ionicons name="podium" size={scaledIcon(18)} color={theme.primary} />
-                <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Total Points</Text>
-              </View>
-              <Text style={[styles.teamRowValue, styles.pointsValue, { fontSize: scaledFonts.md, color: theme.primary }]}>
-                {formatPoints(currentTeam.totalPoints)}
-              </Text>
-            </View>
-
-            {/* Complete Team Button if incomplete */}
-            {!isTeamComplete && (
-              <TouchableOpacity
-                style={[styles.completeTeamButton, { backgroundColor: theme.primary }]}
-                onPress={() => router.push('/my-team')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.completeTeamButtonText}>Complete Your Team</Text>
-                <Ionicons name="arrow-forward" size={16} color={COLORS.white} />
-              </TouchableOpacity>
-            )}
-          </Card>
-          </Animated.View>
+          </>
         ) : (
           <Card variant="outlined" padding="large">
             <TouchableOpacity
@@ -929,5 +1027,69 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
     color: COLORS.white,
+  },
+
+  // Collapsed team row
+  collapsedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+
+  collapsedName: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    flex: 1,
+  },
+
+  collapsedStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+
+  collapsedStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+
+  collapsedStatText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+  },
+
+  collapsedDriverCount: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.text.muted,
+  },
+
+  collapseToggle: {
+    padding: 4,
+    marginLeft: SPACING.xs,
+  },
+
+  teamHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+
+  expandTeamsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    marginTop: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+  },
+
+  expandTeamsText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
   },
 });

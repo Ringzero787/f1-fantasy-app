@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Undercut",
     slug: "f1-fantasy-app",
-    version: "1.1.0",
+    version: "1.2.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     scheme: "theundercut",
@@ -23,7 +23,7 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "1",
+      buildNumber: "2",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -36,7 +36,7 @@ module.exports = {
         backgroundColor: "#0D1117"
       },
       package: "com.undercut.app",
-      versionCode: 7,
+      versionCode: 8,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",

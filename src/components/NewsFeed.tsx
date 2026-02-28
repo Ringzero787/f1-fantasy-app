@@ -1,14 +1,14 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -17,9 +17,13 @@ import { useTheme } from '../hooks/useTheme';
 import { useNewsStore } from '../store/news.store';
 import type { Article, ArticleCategory } from '../types';
 
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = SCREEN_WIDTH - SPACING.md * 2 - SPACING.sm;
-const CARD_GAP = SPACING.sm;
+const CARD_WIDTH = SCREEN_WIDTH - SPACING.md * 2;
 
 const SOURCE_COLORS: Record<string, string> = {
   F1: '#E10600',
@@ -57,8 +61,9 @@ export function NewsFeed() {
   const isLoading = useNewsStore(s => s.isLoading);
   const readArticleIds = useNewsStore(s => s.readArticleIds);
   const toggleArticleRead = useNewsStore(s => s.toggleArticleRead);
-  const scrollViewRef = useRef<ScrollView>(null);
-  // Sort unread first, then take top MAX_ARTICLES (memoized to avoid recomputing every render)
+  const [expanded, setExpanded] = useState(false);
+
+  // Sort unread first, then take top MAX_ARTICLES
   const articles = useMemo(() =>
     [...allArticles]
       .sort((a, b) => {
@@ -69,25 +74,10 @@ export function NewsFeed() {
       .slice(0, MAX_ARTICLES),
     [allArticles, readArticleIds]
   );
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / (CARD_WIDTH + CARD_GAP));
-    setActiveIndex(index);
-  }, []);
 
   const handleMarkRead = useCallback((id: string) => {
-    const wasRead = readArticleIds.includes(id);
     toggleArticleRead(id);
-    // If marking as read, scroll back to first card
-    if (!wasRead) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollTo({ x: 0, animated: true });
-        setActiveIndex(0);
-      }, 300);
-    }
-  }, [readArticleIds, toggleArticleRead]);
+  }, [toggleArticleRead]);
 
   const handleReadMore = useCallback(async (url: string) => {
     try {
@@ -97,7 +87,16 @@ export function NewsFeed() {
     }
   }, []);
 
+  const toggleExpand = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(prev => !prev);
+  }, []);
+
   if (articles.length === 0 && !isLoading) return null;
+
+  // Show first article always, rest only when expanded
+  const visibleArticles = expanded ? articles : articles.slice(0, 1);
+  const hasMore = articles.length > 1;
 
   return (
     <View style={styles.container}>
@@ -108,7 +107,7 @@ export function NewsFeed() {
           <Text style={styles.headerTitle}>F1 News</Text>
           {articles.length > 0 && (
             <View style={[styles.countBadge, { backgroundColor: theme.primary + '20' }]}>
-              <Text style={[styles.countBadgeText, { color: theme.primary }]}>{activeIndex + 1} / {articles.length}</Text>
+              <Text style={[styles.countBadgeText, { color: theme.primary }]}>{articles.length}</Text>
             </View>
           )}
         </View>
@@ -119,43 +118,36 @@ export function NewsFeed() {
           <ActivityIndicator size="small" color={theme.primary} />
         </View>
       ) : (
-        <>
-          <ScrollView
-            ref={scrollViewRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={CARD_WIDTH + CARD_GAP}
-            decelerationRate="fast"
-            contentContainerStyle={styles.scrollContent}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-          >
-            {articles.map((article) => (
-              <ArticleCard
-                key={article.id}
-                article={article}
-                isRead={readArticleIds.includes(article.id)}
-                onReadMore={handleReadMore}
-                onToggleRead={() => handleMarkRead(article.id)}
-              />
-            ))}
-          </ScrollView>
+        <View style={styles.articlesList}>
+          {visibleArticles.map((article, index) => (
+            <ArticleCard
+              key={article.id}
+              article={article}
+              isRead={readArticleIds.includes(article.id)}
+              onReadMore={handleReadMore}
+              onToggleRead={() => handleMarkRead(article.id)}
+              isFirst={index === 0}
+            />
+          ))}
 
-          {/* Dot Indicators */}
-          {articles.length > 1 && (
-            <View style={styles.dotsContainer}>
-              {articles.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.dot,
-                    index === activeIndex && [styles.dotActive, { backgroundColor: theme.primary }],
-                  ]}
-                />
-              ))}
-            </View>
+          {/* Expand/Collapse button */}
+          {hasMore && (
+            <TouchableOpacity
+              style={[styles.expandButton, { backgroundColor: theme.card, borderColor: COLORS.border.default }]}
+              onPress={toggleExpand}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={expanded ? 'chevron-up' : 'ellipsis-horizontal'}
+                size={expanded ? 18 : 20}
+                color={theme.primary}
+              />
+              <Text style={[styles.expandButtonText, { color: theme.primary }]}>
+                {expanded ? 'Show less' : `${articles.length - 1} more`}
+              </Text>
+            </TouchableOpacity>
           )}
-        </>
+        </View>
       )}
     </View>
   );
@@ -166,17 +158,19 @@ function ArticleCard({
   isRead,
   onReadMore,
   onToggleRead,
+  isFirst,
 }: {
   article: Article;
   isRead: boolean;
   onReadMore: (url: string) => void;
   onToggleRead: () => void;
+  isFirst: boolean;
 }) {
   const theme = useTheme();
   const sourceColor = SOURCE_COLORS[article.source] || theme.primary;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.card }, isRead && styles.cardRead]}>
+    <View style={[styles.card, { backgroundColor: theme.card }, isRead && styles.cardRead, !isFirst && styles.cardNotFirst]}>
       {/* Top row: source badge + read badge + time */}
       <View style={styles.cardTopRow}>
         <View style={styles.cardTopLeft}>
@@ -213,7 +207,6 @@ function ArticleCard({
         <View style={styles.cardActions}>
           <TouchableOpacity
             style={[styles.markReadButton, isRead && [styles.markReadButtonActive, { backgroundColor: theme.primary + '25', borderColor: theme.primary + '50' }]]}
-
             onPress={onToggleRead}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -280,9 +273,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  scrollContent: {
-    paddingRight: SPACING.md,
-    gap: CARD_GAP,
+  articlesList: {
+    gap: 0,
   },
 
   card: {
@@ -291,6 +283,10 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.border.default,
+  },
+
+  cardNotFirst: {
+    marginTop: SPACING.sm,
   },
 
   cardRead: {
@@ -416,24 +412,19 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
 
-  dotsContainer: {
+  expandButton: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
     marginTop: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
   },
 
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.border.default,
-  },
-
-  dotActive: {
-    backgroundColor: COLORS.primary,
-    width: 18,
-    borderRadius: 4,
+  expandButtonText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
   },
 });

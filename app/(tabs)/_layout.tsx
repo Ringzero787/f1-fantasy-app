@@ -1,8 +1,8 @@
 import React, { useEffect, useCallback } from 'react';
-import { Image, AppState } from 'react-native';
+import { Image, AppState, View, TouchableOpacity } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../src/config/constants';
+import { COLORS, SPACING } from '../../src/config/constants';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useOnboardingStore } from '../../src/store/onboarding.store';
@@ -76,8 +76,20 @@ export default function TabLayout() {
               style={{ width: 120, height: 36, resizeMode: 'contain' }}
             />
           ),
-          headerRight: () => <NotificationBell />,
-          // @ts-ignore tabBarTestID for E2E testing
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              {hasCompletedOnboarding && (
+                <TouchableOpacity
+                  onPress={() => useOnboardingStore.getState().resetOnboarding()}
+                  style={{ padding: 8, marginRight: -4 }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="help-circle-outline" size={22} color={COLORS.text.muted} />
+                </TouchableOpacity>
+              )}
+              <NotificationBell />
+            </View>
+          ),
           tabBarTestID: 'tab-home',
           tabBarAccessibilityLabel: 'Home tab',
           tabBarIcon: ({ color, size }) => (

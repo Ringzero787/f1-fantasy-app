@@ -26,7 +26,7 @@ import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constant
 import Constants from 'expo-constants';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useAdminStore } from '../../src/store/admin.store';
-import { useOnboardingStore } from '../../src/store/onboarding.store';
+
 import { useTeamStore } from '../../src/store/team.store';
 import { useLeagueStore } from '../../src/store/league.store';
 import { useAvatarStore } from '../../src/store/avatar.store';
@@ -372,7 +372,7 @@ export default function ProfileScreen() {
           <View style={styles.menuItemLeft}>
             <IconBox icon="book-outline" color={theme.primary} bg={theme.primary + '15'} />
             <View>
-              <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Game Rules & Scoring Guide</Text>
+              <Text style={[styles.menuItemText, { fontSize: scaledFonts.lg, fontWeight: '600' }]}>Game Rules & Scoring Guide</Text>
               <Text style={[styles.menuItemSubtext, { fontSize: scaledFonts.xs }]}>Points, contracts, lockout & more</Text>
             </View>
           </View>
@@ -648,18 +648,6 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
-        <View style={styles.menuDivider} />
-
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => useOnboardingStore.getState().resetOnboarding()}
-        >
-          <View style={styles.menuItemLeft}>
-            <IconBox icon="play-circle-outline" color={theme.primary} bg={theme.primary + '15'} />
-            <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Replay Tutorial</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
-        </TouchableOpacity>
       </Card>
 
       {/* Sign Out Button */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,19 @@ import {
   ScrollView,
   RefreshControl,
   Switch,
+  BackHandler,
+  TouchableOpacity,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useRace, useRaceResults } from '../../../src/hooks';
+import { useRace, useRaceResults, useSeasonRaces } from '../../../src/hooks';
 import { Card, Loading, EmptyState, TrackIcon } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { formatCountdown, formatTimeWithZone, formatDateWithZone } from '../../../src/utils/formatters';
 import { usePrefsStore } from '../../../src/store/prefs.store';
+
+const CURRENT_SEASON_ID = '2026';
 
 export default function RaceDetailScreen() {
   const theme = useTheme();
@@ -22,9 +26,30 @@ export default function RaceDetailScreen() {
   const { data: race, isLoading, refetch } = useRace(id || '');
   const { data: results } = useRaceResults(id || '');
   const { showLocalTime, toggleLocalTime } = usePrefsStore();
+  const { data: allRaces } = useSeasonRaces(CURRENT_SEASON_ID);
+
+  const { prevRace, nextRace } = useMemo(() => {
+    if (!allRaces || !id) return { prevRace: null, nextRace: null };
+    const sorted = [...allRaces].sort((a, b) => a.round - b.round);
+    const idx = sorted.findIndex((r) => r.id === id);
+    return {
+      prevRace: idx > 0 ? sorted[idx - 1] : null,
+      nextRace: idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null,
+    };
+  }, [allRaces, id]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [countdown, setCountdown] = useState('');
+
+  // Handle Android hardware back button — always go to calendar list
+  useEffect(() => {
+    const onBackPress = () => {
+      router.navigate('/(tabs)/calendar');
+      return true;
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (!race || race.status !== 'upcoming') return;
@@ -215,6 +240,44 @@ export default function RaceDetailScreen() {
           </View>
         </Card>
       </View>
+
+      {/* Prev / Next Race Navigation */}
+      {(prevRace || nextRace) && (
+        <View style={[styles.raceNav, { borderTopColor: COLORS.border.default }]}>
+          {prevRace ? (
+            <TouchableOpacity
+              style={styles.raceNavButton}
+              onPress={() => router.replace(`/calendar/${prevRace.id}`)}
+            >
+              <Ionicons name="chevron-back" size={18} color={theme.primary} />
+              <View style={styles.raceNavTextBlock}>
+                <Text style={styles.raceNavLabel}>Previous</Text>
+                <Text style={[styles.raceNavName, { color: theme.primary }]} numberOfLines={1}>
+                  {prevRace.name}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.raceNavButton} />
+          )}
+          {nextRace ? (
+            <TouchableOpacity
+              style={[styles.raceNavButton, styles.raceNavButtonRight]}
+              onPress={() => router.replace(`/calendar/${nextRace.id}`)}
+            >
+              <View style={[styles.raceNavTextBlock, { alignItems: 'flex-end' }]}>
+                <Text style={styles.raceNavLabel}>Next</Text>
+                <Text style={[styles.raceNavName, { color: theme.primary }]} numberOfLines={1}>
+                  {nextRace.name}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.primary} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.raceNavButton} />
+          )}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -465,5 +528,39 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     fontWeight: '500',
     color: COLORS.text.primary,
+  },
+
+  raceNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    paddingTop: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+
+  raceNavButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: SPACING.xs,
+  },
+
+  raceNavButtonRight: {
+    justifyContent: 'flex-end',
+  },
+
+  raceNavTextBlock: {
+    flexShrink: 1,
+  },
+
+  raceNavLabel: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+    fontWeight: '500',
+  },
+
+  raceNavName: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
   },
 });
