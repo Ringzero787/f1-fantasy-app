@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/hooks/useAuth';
-import { useAvatarGeneration, useAutoSyncOpenF1, useScale, useTheme } from '../../src/hooks';
+import { useAvatarGeneration, useScale, useTheme } from '../../src/hooks';
 import { usePrefsStore } from '../../src/store/prefs.store';
 import { CONSTRUCTOR_THEMES, type ConstructorThemeId } from '../../src/config/themes';
 import { authService } from '../../src/services/auth.service';
@@ -25,17 +25,14 @@ import { Card, RulesGuide } from '../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../../src/store/auth.store';
-import { useAdminStore } from '../../src/store/admin.store';
-
 import { useTeamStore } from '../../src/store/team.store';
 import { useLeagueStore } from '../../src/store/league.store';
 import { useAvatarStore } from '../../src/store/avatar.store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 export default function ProfileScreen() {
   const { user, isDemoMode, signOut } = useAuth();
   const setUser = useAuthStore((state) => state.setUser);
-  const resetAdminData = useAdminStore((state) => state.resetAllData);
   const userTeams = useTeamStore((state) => state.userTeams);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.photoURL || null);
   const [isUploading, setIsUploading] = useState(false);
@@ -67,10 +64,6 @@ export default function ProfileScreen() {
     { label: 'Aa', value: 1.3, name: 'XL' },
     { label: 'Aa', value: 1.5, name: 'XXL' },
   ];
-
-  // OpenF1 import functionality
-  const autoSyncOpenF1 = useAutoSyncOpenF1();
-  const [isImporting, setIsImporting] = useState(false);
 
   const { generate: generateAvatar, isGenerating, isAvailable: isAvatarGenerationAvailable } = useAvatarGeneration({
     onSuccess: async (url) => {
@@ -240,59 +233,38 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleResetData = () => {
+  const handleDeleteAccount = () => {
     Alert.alert(
-      'Reset All Data',
-      'This will clear all cached data including race results and price updates. The app will reload with fresh data. Continue?',
+      'Delete Account',
+      'Are you sure you want to delete your account? This will permanently remove all your data including teams, leagues, and purchases. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Reset',
+          text: 'Continue',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.clear();
-              resetAdminData();
-              Alert.alert('Success', 'All data has been reset. Please restart the app.', [
-                { text: 'OK', onPress: () => router.replace('/(auth)/login') }
-              ]);
-            } catch (error) {
-              console.error('Reset error:', error);
-              Alert.alert('Error', 'Failed to reset data');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleImportOpenF1 = async () => {
-    Alert.alert(
-      'Import Race Results',
-      'This will fetch the latest race results from OpenF1 and import them into the app. This may update driver prices. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Import',
-          onPress: async () => {
-            setIsImporting(true);
-            try {
-              const result = await autoSyncOpenF1.mutateAsync(2025);
-              Alert.alert(
-                'Import Successful',
-                `Imported ${result.driversImported} driver results.\n` +
-                `Race: ${result.raceImported ? 'Yes' : 'No'}\n` +
-                `Sprint: ${result.sprintImported ? 'Yes' : 'No'}`
-              );
-            } catch (error) {
-              console.error('OpenF1 import error:', error);
-              Alert.alert(
-                'Import Failed',
-                error instanceof Error ? error.message : 'Failed to import race results from OpenF1'
-              );
-            } finally {
-              setIsImporting(false);
-            }
+          onPress: () => {
+            Alert.alert(
+              'Final Confirmation',
+              'Your account deletion request will be sent to our support team and processed within 24-48 hours. You will receive a confirmation email when complete.',
+              [
+                { text: 'Go Back', style: 'cancel' },
+                {
+                  text: 'Delete My Account',
+                  style: 'destructive',
+                  onPress: () => {
+                    const subject = encodeURIComponent('Account Deletion Request');
+                    const body = encodeURIComponent(
+                      `I would like to request the deletion of my account.\n\n` +
+                      `User ID: ${user?.id || 'N/A'}\n` +
+                      `Email: ${user?.email || 'N/A'}\n` +
+                      `Display Name: ${user?.displayName || 'N/A'}\n\n` +
+                      `I understand this action is permanent and all my data (teams, leagues, purchases) will be removed.`
+                    );
+                    Linking.openURL(`mailto:support@humannpc.com?subject=${subject}&body=${body}`);
+                  },
+                },
+              ]
+            );
           },
         },
       ]
@@ -478,6 +450,19 @@ export default function ProfileScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
         </TouchableOpacity>
+
+        <View style={styles.menuDivider} />
+
+        <TouchableOpacity style={styles.menuItem} onPress={handleDeleteAccount}>
+          <View style={styles.menuItemLeft}>
+            <IconBox icon="person-remove-outline" color={COLORS.error} bg={COLORS.error + '15'} />
+            <View>
+              <Text style={[styles.menuItemText, { fontSize: scaledFonts.md, color: COLORS.error }]}>Delete Account</Text>
+              <Text style={[styles.menuItemSubtext, { fontSize: scaledFonts.xs }]}>Permanently remove all data</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
+        </TouchableOpacity>
       </Card>
 
       {/* League */}
@@ -560,45 +545,6 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </View>
-      </Card>
-
-      {/* Data Management */}
-      <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Data</Text>
-      <Card style={styles.menuCard}>
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={handleImportOpenF1}
-          disabled={isImporting}
-        >
-          <View style={styles.menuItemLeft}>
-            {isImporting ? (
-              <View style={[styles.iconBox, { backgroundColor: COLORS.success + '15' }]}>
-                <ActivityIndicator size="small" color={COLORS.success} />
-              </View>
-            ) : (
-              <IconBox icon="cloud-download-outline" color={COLORS.success} bg={COLORS.success + '15'} />
-            )}
-            <View>
-              <Text style={[styles.menuItemText, { color: COLORS.success }]}>
-                {isImporting ? 'Importing...' : 'Import from OpenF1'}
-              </Text>
-              <Text style={styles.menuItemSubtext}>Fetch latest race results</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
-        </TouchableOpacity>
-
-        <View style={styles.menuDivider} />
-
-        <TouchableOpacity style={styles.menuItem} onPress={handleResetData}>
-          <View style={styles.menuItemLeft}>
-            <IconBox icon="refresh-outline" color={COLORS.warning} bg={COLORS.warning + '15'} />
-            <Text style={[styles.menuItemText, { color: COLORS.warning }]}>
-              Reset All Data
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
-        </TouchableOpacity>
       </Card>
 
       {/* Debug Info for Demo Mode */}

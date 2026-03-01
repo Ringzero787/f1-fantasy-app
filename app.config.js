@@ -23,7 +23,7 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "2",
+      buildNumber: "3",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {

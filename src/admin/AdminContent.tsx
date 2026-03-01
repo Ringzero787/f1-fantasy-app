@@ -25,6 +25,7 @@ import { articleService } from '../services/article.service';
 import { useChatStore } from '../store/chat.store';
 import { raceService } from '../services/race.service';
 import { openF1Service } from '../services/openf1.service';
+import { useAutoSyncOpenF1 } from '../hooks';
 import { functions, httpsCallable } from '../config/firebase';
 import type { RaceResults, RaceResult as CloudRaceResult, SprintResult as CloudSprintResult } from '../types';
 
@@ -142,6 +143,8 @@ export default function AdminContent() {
   const [entryMode, setEntryMode] = useState<'race' | 'sprint'>('race');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
+  const autoSyncOpenF1 = useAutoSyncOpenF1();
   const [unreviewedCount, setUnreviewedCount] = useState(0);
   const [draftArticleCount, setDraftArticleCount] = useState(0);
   const chatTotalUnread = useChatStore((s) => s.totalUnread);
@@ -930,6 +933,39 @@ export default function AdminContent() {
     }
   };
 
+  const handleBulkImportOpenF1 = () => {
+    Alert.alert(
+      'Bulk Import Race Results',
+      'This will fetch the latest race results from OpenF1 and import them into the app. This may update driver prices. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          onPress: async () => {
+            setIsBulkImporting(true);
+            try {
+              const result = await autoSyncOpenF1.mutateAsync(2025);
+              Alert.alert(
+                'Import Successful',
+                `Imported ${result.driversImported} driver results.\n` +
+                `Race: ${result.raceImported ? 'Yes' : 'No'}\n` +
+                `Sprint: ${result.sprintImported ? 'Yes' : 'No'}`
+              );
+            } catch (error) {
+              console.error('OpenF1 bulk import error:', error);
+              Alert.alert(
+                'Import Failed',
+                error instanceof Error ? error.message : 'Failed to import race results from OpenF1'
+              );
+            } finally {
+              setIsBulkImporting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
       {/* Header */}
@@ -981,6 +1017,23 @@ export default function AdminContent() {
           </TouchableOpacity>
         </View>
       </Card>
+
+      {/* Bulk Import from OpenF1 */}
+      <TouchableOpacity
+        style={[styles.newsButton, { backgroundColor: COLORS.success + '10', borderColor: COLORS.success + '30' }]}
+        onPress={handleBulkImportOpenF1}
+        disabled={isBulkImporting}
+      >
+        {isBulkImporting ? (
+          <ActivityIndicator size="small" color={COLORS.success} />
+        ) : (
+          <Ionicons name="cloud-download-outline" size={18} color={COLORS.success} />
+        )}
+        <Text style={[styles.newsButtonText, { color: COLORS.success }]}>
+          {isBulkImporting ? 'Importing...' : 'Import F1 Results'}
+        </Text>
+        <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
+      </TouchableOpacity>
 
       {/* Manage News Feed Button */}
       <TouchableOpacity
