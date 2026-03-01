@@ -77,5 +77,6 @@ backup-pre-theming.patch
 test-openf1-results-2025.txt
 tmp_build.json
 tmp_ios_build.json
-*.patch
+backup-*.patch
+tmp_*.patch
 .pipebe4eec6
