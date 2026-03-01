@@ -53,9 +53,9 @@ interface PurchaseState {
   consumeExpansionCredit: () => boolean;
   hasLeagueSlotCredit: () => boolean;
   consumeLeagueSlotCredit: () => boolean;
-  handlePurchaseComplete: (purchase: { id: string; productId: string; purchaseToken?: string | null; transactionDate: number }) => Promise<void>;
+  handlePurchaseComplete: (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }) => Promise<void>;
   handlePurchaseError: (error: { code: string; message: string }) => void;
-  recordPurchaseOnServer: (productId: string, verificationData: { purchaseToken?: string }, platform: string) => Promise<void>;
+  recordPurchaseOnServer: (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string) => Promise<void>;
   syncPurchasesFromServer: () => Promise<void>;
 }
 
@@ -88,12 +88,12 @@ export const usePurchaseStore = create<PurchaseState>()(
           await RNIap.initConnection();
 
           // Fetch products
-          await RNIap.fetchProducts({
+          await RNIap.getProducts({
             skus: [PRODUCT_IDS.LEAGUE_EXPANSION, PRODUCT_IDS.AVATAR_PACK, PRODUCT_IDS.LEAGUE_SLOT],
           });
 
           // Register purchase listener
-          RNIap.purchaseUpdatedListener(async (purchase: any) => {
+          RNIap.purchaseUpdatedListener(async (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }) => {
             await get().handlePurchaseComplete(purchase);
           });
 
@@ -121,7 +121,7 @@ export const usePurchaseStore = create<PurchaseState>()(
         set({ isInitialized: false });
       },
 
-      recordPurchaseOnServer: async (productId: string, verificationData: { purchaseToken?: string }, platform: string) => {
+      recordPurchaseOnServer: async (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string) => {
         try {
           const validatePurchaseFn = httpsCallable(functions, 'validatePurchase');
           await validatePurchaseFn({ productId, ...verificationData, platform });
@@ -203,13 +203,11 @@ export const usePurchaseStore = create<PurchaseState>()(
         pendingLeagueId = leagueId || null;
         try {
           const RNIap = require('react-native-iap');
-          await RNIap.requestPurchase({
-            request: {
-              apple: { sku: PRODUCT_IDS.LEAGUE_EXPANSION },
-              google: { skus: [PRODUCT_IDS.LEAGUE_EXPANSION] },
-            },
-            type: 'in-app',
-          });
+          await RNIap.requestPurchase(
+            Platform.OS === 'ios'
+              ? { sku: PRODUCT_IDS.LEAGUE_EXPANSION }
+              : { skus: [PRODUCT_IDS.LEAGUE_EXPANSION] }
+          );
         } catch (err: any) {
           set({ isPurchasing: false });
           pendingLeagueId = null;
@@ -246,13 +244,11 @@ export const usePurchaseStore = create<PurchaseState>()(
         pendingUserId = userId;
         try {
           const RNIap = require('react-native-iap');
-          await RNIap.requestPurchase({
-            request: {
-              apple: { sku: PRODUCT_IDS.AVATAR_PACK },
-              google: { skus: [PRODUCT_IDS.AVATAR_PACK] },
-            },
-            type: 'in-app',
-          });
+          await RNIap.requestPurchase(
+            Platform.OS === 'ios'
+              ? { sku: PRODUCT_IDS.AVATAR_PACK }
+              : { skus: [PRODUCT_IDS.AVATAR_PACK] }
+          );
         } catch (err: any) {
           set({ isPurchasing: false });
           pendingUserId = null;
@@ -284,13 +280,11 @@ export const usePurchaseStore = create<PurchaseState>()(
         set({ isPurchasing: true });
         try {
           const RNIap = require('react-native-iap');
-          await RNIap.requestPurchase({
-            request: {
-              apple: { sku: PRODUCT_IDS.LEAGUE_SLOT },
-              google: { skus: [PRODUCT_IDS.LEAGUE_SLOT] },
-            },
-            type: 'in-app',
-          });
+          await RNIap.requestPurchase(
+            Platform.OS === 'ios'
+              ? { sku: PRODUCT_IDS.LEAGUE_SLOT }
+              : { skus: [PRODUCT_IDS.LEAGUE_SLOT] }
+          );
         } catch (err: any) {
           set({ isPurchasing: false });
           if (err?.code !== 'E_USER_CANCELLED') {
@@ -302,10 +296,10 @@ export const usePurchaseStore = create<PurchaseState>()(
         }
       },
 
-      handlePurchaseComplete: async (purchase: { id: string; productId: string; purchaseToken?: string | null; transactionDate: number }) => {
+      handlePurchaseComplete: async (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }) => {
         try {
           const RNIap = require('react-native-iap');
-          const { productId, purchaseToken } = purchase;
+          const { productId, purchaseToken, transactionReceipt, transactionId } = purchase;
 
           if (productId === PRODUCT_IDS.LEAGUE_EXPANSION) {
             set((state) => ({
@@ -352,9 +346,10 @@ export const usePurchaseStore = create<PurchaseState>()(
 
           // Record on server for persistence across reinstalls
           const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-          const token = purchaseToken ?? undefined;
-          if (token) {
-            get().recordPurchaseOnServer(productId, { purchaseToken: token }, platform).catch(() => {});
+          if (platform === 'ios' && transactionReceipt) {
+            get().recordPurchaseOnServer(productId, { transactionReceipt, transactionId }, platform).catch(() => {});
+          } else if (purchaseToken) {
+            get().recordPurchaseOnServer(productId, { purchaseToken }, platform).catch(() => {});
           }
         } catch (err) {
           console.error('Error completing purchase:', err);
