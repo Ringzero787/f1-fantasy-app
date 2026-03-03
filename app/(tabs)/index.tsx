@@ -223,7 +223,7 @@ export default function HomeScreen() {
   const theme = useTheme();
   const { user } = useAuth();
   const { data: nextRace, isLoading: raceLoading, refetch: refetchRace } = useNextRace(CURRENT_SEASON_ID);
-  const { data: upcomingRaces } = useUpcomingRaces(CURRENT_SEASON_ID, 10);
+  const { data: upcomingRaces } = useUpcomingRaces(CURRENT_SEASON_ID, 4);
   const [racesExpanded, setRacesExpanded] = useState(false);
   const currentTeam = useTeamStore(s => s.currentTeam);
   const userTeams = useTeamStore(s => s.userTeams);
