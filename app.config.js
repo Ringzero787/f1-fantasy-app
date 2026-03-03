@@ -7,11 +7,12 @@ module.exports = {
     icon: "./assets/icon.png",
     scheme: "theundercut",
     userInterfaceStyle: "automatic",
-    newArchEnabled: true,
-    updates: {
-      url: "https://u.expo.dev/e79dd8e5-5f63-40f9-a153-87c5225a2516"
-    },
-    runtimeVersion: "1.0.0",
+    newArchEnabled: false,
+    // updates disabled for iOS diagnostic build
+    // updates: {
+    //   url: "https://u.expo.dev/e79dd8e5-5f63-40f9-a153-87c5225a2516"
+    // },
+    // runtimeVersion: "1.0.0",
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
@@ -23,7 +24,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "9",
+      buildNumber: "10",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -36,7 +37,7 @@ module.exports = {
         backgroundColor: "#0D1117"
       },
       package: "com.undercut.app",
-      versionCode: 15,
+      versionCode: 16,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",
@@ -52,7 +53,6 @@ module.exports = {
       ["expo-build-properties", {
         ios: {
           useFrameworks: "static",
-          newArchEnabled: false,
         },
         android: {
           targetSdkVersion: 35,
@@ -66,13 +66,14 @@ module.exports = {
           photosPermission: "Allow $(PRODUCT_NAME) to access your photos to set your profile picture."
         }
       ],
-      "@react-native-google-signin/google-signin",
       "expo-apple-authentication",
-      "react-native-iap",
-      "expo-notifications",
       "expo-secure-store",
-      "@react-native-firebase/app-check",
-      "@react-native-firebase/crashlytics",
+      // Stripped for iOS diagnostic — these are suspected crash sources:
+      // "@react-native-google-signin/google-signin",
+      // "react-native-iap",
+      // "expo-notifications",
+      // "@react-native-firebase/app-check",
+      // "@react-native-firebase/crashlytics",
     ],
     experiments: {
       typedRoutes: true
