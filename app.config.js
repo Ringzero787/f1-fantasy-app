@@ -23,7 +23,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "15",
+      buildNumber: "16",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -36,7 +36,7 @@ module.exports = {
         backgroundColor: "#0D1117"
       },
       package: "com.undercut.app",
-      versionCode: 21,
+      versionCode: 22,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",
@@ -70,8 +70,6 @@ module.exports = {
       "react-native-iap",
       "expo-notifications",
       "expo-secure-store",
-      // "@react-native-firebase/app-check",
-      // "@react-native-firebase/crashlytics",
     ],
     experiments: {
       typedRoutes: true
