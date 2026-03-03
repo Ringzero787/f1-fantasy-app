@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Linking,
   Modal,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ import { usePrefsStore } from '../../src/store/prefs.store';
 import { CONSTRUCTOR_THEMES, type ConstructorThemeId } from '../../src/config/themes';
 import { authService } from '../../src/services/auth.service';
 import { Card, RulesGuide } from '../../src/components';
+import { getGoogleIdToken, getAppleCredential } from '../../src/components/SocialAuthButtons';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../../src/store/auth.store';
@@ -45,6 +47,78 @@ export default function ProfileScreen() {
   const avatarHistory = useAvatarStore(s => s.getHistory(user?.id || ''));
   const avatarRemaining = useAvatarStore(s => s.getRemaining(user?.id || ''));
   const canGenerateAvatar = useAvatarStore(s => s.canGenerate(user?.id || ''));
+
+  // Account linking
+  const linkedProviders = useAuthStore(s => s.linkedProviders);
+  const linkWithGoogle = useAuthStore(s => s.linkWithGoogle);
+  const linkWithApple = useAuthStore(s => s.linkWithApple);
+  const unlinkProvider = useAuthStore(s => s.unlinkProvider);
+  const refreshLinkedProviders = useAuthStore(s => s.refreshLinkedProviders);
+  const [isLinking, setIsLinking] = useState(false);
+
+  // Refresh linked providers on mount
+  useEffect(() => { refreshLinkedProviders(); }, []);
+
+  const isGoogleLinked = linkedProviders.includes('google.com');
+  const isAppleLinked = linkedProviders.includes('apple.com');
+  const canUnlink = linkedProviders.length >= 2;
+
+  const handleLinkGoogle = async () => {
+    setIsLinking(true);
+    try {
+      const idToken = await getGoogleIdToken();
+      await linkWithGoogle(idToken);
+      Alert.alert('Success', 'Google account linked.');
+    } catch (error: any) {
+      if (error.code === 'SIGN_IN_CANCELLED') { setIsLinking(false); return; }
+      if (error.code === 'auth/credential-already-in-use') {
+        Alert.alert('Cannot Link', 'This Google account is already linked to a different user.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to link Google account.');
+      }
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  const handleLinkApple = async () => {
+    setIsLinking(true);
+    try {
+      const { identityToken, nonce } = await getAppleCredential();
+      await linkWithApple(identityToken, nonce);
+      Alert.alert('Success', 'Apple account linked.');
+    } catch (error: any) {
+      if (error.code === 'ERR_REQUEST_CANCELED') { setIsLinking(false); return; }
+      if (error.code === 'auth/credential-already-in-use') {
+        Alert.alert('Cannot Link', 'This Apple account is already linked to a different user.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to link Apple account.');
+      }
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  const handleUnlink = (providerId: string, providerName: string) => {
+    if (!canUnlink) {
+      Alert.alert('Cannot Unlink', 'You must have at least one linked sign-in method.');
+      return;
+    }
+    Alert.alert('Unlink Account', `Remove ${providerName} from your account?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Unlink',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await unlinkProvider(providerId);
+          } catch (error: any) {
+            Alert.alert('Error', error.message || `Failed to unlink ${providerName}.`);
+          }
+        },
+      },
+    ]);
+  };
 
   // League state
   const leagues = useLeagueStore(s => s.leagues);
@@ -440,6 +514,79 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Card>
+
+      {/* Linked Accounts Section */}
+      {!isDemoMode && (
+        <>
+          <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Linked Accounts</Text>
+          <Card style={styles.menuCard}>
+            {/* Google */}
+            <View style={styles.menuItem}>
+              <View style={styles.menuItemLeft}>
+                <IconBox icon="logo-google" color="#4285F4" bg="#4285F415" />
+                <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Google</Text>
+              </View>
+              {isGoogleLinked ? (
+                <TouchableOpacity
+                  onPress={() => handleUnlink('google.com', 'Google')}
+                  disabled={!canUnlink || isLinking}
+                  style={{ opacity: canUnlink ? 1 : 0.4 }}
+                >
+                  <View style={styles.linkedBadge}>
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                    <Text style={[styles.linkedText, { fontSize: scaledFonts.sm }]}>Linked</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleLinkGoogle}
+                  disabled={isLinking}
+                  style={[styles.linkButton, { backgroundColor: theme.primary + '15' }]}
+                >
+                  <Text style={[styles.linkButtonText, { color: theme.primary, fontSize: scaledFonts.sm }]}>
+                    {isLinking ? 'Linking...' : 'Link'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Apple — iOS only */}
+            {Platform.OS === 'ios' && (
+              <>
+                <View style={styles.menuDivider} />
+                <View style={styles.menuItem}>
+                  <View style={styles.menuItemLeft}>
+                    <IconBox icon="logo-apple" color="#000000" bg="#00000010" />
+                    <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Apple</Text>
+                  </View>
+                  {isAppleLinked ? (
+                    <TouchableOpacity
+                      onPress={() => handleUnlink('apple.com', 'Apple')}
+                      disabled={!canUnlink || isLinking}
+                      style={{ opacity: canUnlink ? 1 : 0.4 }}
+                    >
+                      <View style={styles.linkedBadge}>
+                        <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                        <Text style={[styles.linkedText, { fontSize: scaledFonts.sm }]}>Linked</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={handleLinkApple}
+                      disabled={isLinking}
+                      style={[styles.linkButton, { backgroundColor: theme.primary + '15' }]}
+                    >
+                      <Text style={[styles.linkButtonText, { color: theme.primary, fontSize: scaledFonts.sm }]}>
+                        {isLinking ? 'Linking...' : 'Link'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
+            )}
+          </Card>
+        </>
+      )}
 
       {/* Account Section */}
       <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Account</Text>
@@ -999,6 +1146,30 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
     color: COLORS.text.secondary,
+  },
+
+  // Linked accounts
+  linkedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  linkedText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.success,
+  },
+
+  linkButton: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: BORDER_RADIUS.button,
+  },
+
+  linkButtonText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
   },
 
   // Sign out button

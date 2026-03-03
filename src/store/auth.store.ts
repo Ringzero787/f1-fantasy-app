@@ -24,6 +24,7 @@ interface AuthState {
   isDemoMode: boolean;
   isAdmin: boolean;
   error: string | null;
+  linkedProviders: string[];
 
   // Actions
   setUser: (user: User | null) => void;
@@ -37,6 +38,10 @@ interface AuthState {
   resetPassword: (email: string) => Promise<void>;
   enterDemoMode: () => void;
   clearError: () => void;
+  refreshLinkedProviders: () => void;
+  linkWithGoogle: (idToken: string) => Promise<void>;
+  linkWithApple: (identityToken: string, nonce: string) => Promise<void>;
+  unlinkProvider: (providerId: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -48,6 +53,7 @@ export const useAuthStore = create<AuthState>()(
       isDemoMode: false,
       isAdmin: false,
       error: null,
+      linkedProviders: [],
 
       setUser: (user) => {
         set({
@@ -58,6 +64,9 @@ export const useAuthStore = create<AuthState>()(
         });
         if (user) {
           checkIsAdmin().then((isAdmin) => set({ isAdmin }));
+          set({ linkedProviders: authService.getLinkedProviders() });
+        } else {
+          set({ linkedProviders: [] });
         }
       },
 
@@ -70,7 +79,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const user = await authService.signIn({ email, password });
           const isAdmin = await checkIsAdmin();
-          set({ user, isAuthenticated: true, isAdmin, isLoading: false });
+          set({ user, isAuthenticated: true, isAdmin, isLoading: false, linkedProviders: authService.getLinkedProviders() });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Sign in failed';
           set({ error: message, isLoading: false });
@@ -83,7 +92,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const user = await authService.signInWithGoogle(idToken);
           const isAdmin = await checkIsAdmin();
-          set({ user, isAuthenticated: true, isAdmin, isLoading: false });
+          set({ user, isAuthenticated: true, isAdmin, isLoading: false, linkedProviders: authService.getLinkedProviders() });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Google sign in failed';
           set({ error: message, isLoading: false });
@@ -96,7 +105,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const user = await authService.signInWithApple(identityToken, nonce);
           const isAdmin = await checkIsAdmin();
-          set({ user, isAuthenticated: true, isAdmin, isLoading: false });
+          set({ user, isAuthenticated: true, isAdmin, isLoading: false, linkedProviders: authService.getLinkedProviders() });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Apple sign in failed';
           set({ error: message, isLoading: false });
@@ -114,7 +123,7 @@ export const useAuthStore = create<AuthState>()(
             displayName,
           });
           const isAdmin = await checkIsAdmin();
-          set({ user, isAuthenticated: true, isAdmin, isLoading: false });
+          set({ user, isAuthenticated: true, isAdmin, isLoading: false, linkedProviders: authService.getLinkedProviders() });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Sign up failed';
           set({ error: message, isLoading: false });
@@ -139,7 +148,7 @@ export const useAuthStore = create<AuthState>()(
           if (!isDemoMode) {
             await authService.signOut();
           }
-          set({ user: null, isAuthenticated: false, isDemoMode: false, isAdmin: false, isLoading: false });
+          set({ user: null, isAuthenticated: false, isDemoMode: false, isAdmin: false, isLoading: false, linkedProviders: [] });
 
           // Clear other stores on sign out
           import('./league.store').then(({ useLeagueStore }) => {
@@ -203,6 +212,25 @@ export const useAuthStore = create<AuthState>()(
         import('./chat.store').then(({ useChatStore }) => {
           useChatStore.getState().clearChatState();
         });
+      },
+
+      refreshLinkedProviders: () => {
+        set({ linkedProviders: authService.getLinkedProviders() });
+      },
+
+      linkWithGoogle: async (idToken) => {
+        await authService.linkWithGoogle(idToken);
+        set({ linkedProviders: authService.getLinkedProviders() });
+      },
+
+      linkWithApple: async (identityToken, nonce) => {
+        await authService.linkWithApple(identityToken, nonce);
+        set({ linkedProviders: authService.getLinkedProviders() });
+      },
+
+      unlinkProvider: async (providerId) => {
+        await authService.unlinkProvider(providerId);
+        set({ linkedProviders: authService.getLinkedProviders() });
       },
 
       clearError: () => set({ error: null }),

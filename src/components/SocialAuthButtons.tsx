@@ -9,6 +9,59 @@ import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
 // Check if running in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
 
+/**
+ * Get a Google ID token via native Google Sign-In.
+ * Throws if user cancels or sign-in fails.
+ */
+export async function getGoogleIdToken(): Promise<string> {
+  if (isExpoGo) {
+    throw new Error('Google Sign In is not available in Expo Go.');
+  }
+
+  const { GoogleSignin, isSuccessResponse } = require('@react-native-google-signin/google-signin');
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+
+  GoogleSignin.configure({
+    webClientId,
+    offlineAccess: true,
+    scopes: ['profile', 'email'],
+  });
+
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  const response = await GoogleSignin.signIn();
+
+  if (isSuccessResponse(response) && response.data.idToken) {
+    return response.data.idToken;
+  }
+  throw new Error('No ID token received from Google');
+}
+
+/**
+ * Get Apple identity token + raw nonce via Apple Authentication.
+ * Throws if user cancels or sign-in fails.
+ */
+export async function getAppleCredential(): Promise<{ identityToken: string; nonce: string }> {
+  const randomBytes = await Crypto.getRandomBytesAsync(32);
+  const nonce = Array.from(randomBytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  const hashedNonce = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    nonce
+  );
+
+  const credential = await AppleAuthentication.signInAsync({
+    requestedScopes: [
+      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+      AppleAuthentication.AppleAuthenticationScope.EMAIL,
+    ],
+    nonce: hashedNonce,
+  });
+
+  if (credential.identityToken) {
+    return { identityToken: credential.identityToken, nonce };
+  }
+  throw new Error('No identity token received from Apple');
+}
+
 interface SocialAuthButtonsProps {
   onGoogleSignIn: (idToken: string) => Promise<void>;
   onAppleSignIn: (identityToken: string, nonce: string) => Promise<void>;
@@ -25,7 +78,6 @@ export function SocialAuthButtons({
 
   const handleGooglePress = async () => {
     if (isExpoGo) {
-      // Google Sign-In requires native modules not available in Expo Go
       Alert.alert(
         'Google Sign In',
         'Google Sign In is not available in Expo Go. Please use Demo Mode or build a development version.',
@@ -34,47 +86,15 @@ export function SocialAuthButtons({
       return;
     }
 
-    // In development build, use native Google Sign-In
     setIsGoogleLoading(true);
     try {
-      // Dynamic import to avoid crash in Expo Go
-      const { GoogleSignin, isSuccessResponse, statusCodes } = require('@react-native-google-signin/google-signin');
-
-      const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
-
-      if (__DEV__) {
-        console.log('Google Sign-In: webClientId length:', webClientId?.length);
-      }
-
-      // Configure Google Sign-In
-      GoogleSignin.configure({
-        webClientId,
-        offlineAccess: true,
-        scopes: ['profile', 'email'],
-      });
-
-      // Check Play Services
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-
-      // Sign in
-      const response = await GoogleSignin.signIn();
-
-      if (isSuccessResponse(response) && response.data.idToken) {
-        await onGoogleSignIn(response.data.idToken);
-      } else {
-        throw new Error('No ID token received from Google');
-      }
+      const idToken = await getGoogleIdToken();
+      await onGoogleSignIn(idToken);
     } catch (error: any) {
       if (__DEV__) {
         console.error('Google Sign-In Error:', error.code, error.message);
       }
-
-      // Handle specific error codes
-      if (error.code === 'SIGN_IN_CANCELLED') {
-        // User cancelled - don't show error
-        return;
-      }
-
+      if (error.code === 'SIGN_IN_CANCELLED') return;
       const message = error instanceof Error ? error.message : 'Google sign in failed';
       Alert.alert('Sign In Error', `${message}\n\nCode: ${error.code || 'unknown'}`);
     } finally {
@@ -85,32 +105,10 @@ export function SocialAuthButtons({
   const handleApplePress = async () => {
     setIsAppleLoading(true);
     try {
-      // Generate a cryptographically secure nonce
-      const randomBytes = await Crypto.getRandomBytesAsync(32);
-      const nonce = Array.from(randomBytes, (b) => b.toString(16).padStart(2, '0')).join('');
-      const hashedNonce = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        nonce
-      );
-
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-        nonce: hashedNonce,
-      });
-
-      if (credential.identityToken) {
-        await onAppleSignIn(credential.identityToken, nonce);
-      } else {
-        throw new Error('No identity token received from Apple');
-      }
+      const { identityToken, nonce } = await getAppleCredential();
+      await onAppleSignIn(identityToken, nonce);
     } catch (error: any) {
-      if (error.code === 'ERR_REQUEST_CANCELED') {
-        // User canceled the sign-in
-        return;
-      }
+      if (error.code === 'ERR_REQUEST_CANCELED') return;
       const message = error instanceof Error ? error.message : 'Apple sign in failed';
       Alert.alert('Error', message);
     } finally {

@@ -55,6 +55,20 @@ export const useNewsStore = create<NewsState>()(
             lastFetchTime: Date.now(),
             isLoading: false,
           });
+          // Cold-start retry: if we got 0 articles and no error, auth may not
+          // have been ready yet (common on iOS). Retry once after 2 seconds.
+          if (articles.length === 0 && !force) {
+            setTimeout(async () => {
+              try {
+                const retry = await articleService.fetchApprovedArticles(20);
+                if (retry.length > 0) {
+                  set({ articles: retry, lastFetchTime: Date.now() });
+                }
+              } catch {
+                // silent — original load already completed
+              }
+            }, 2000);
+          }
         } catch (e) {
           const message = e instanceof Error ? e.message : 'Failed to load news';
           set({ error: message, isLoading: false });

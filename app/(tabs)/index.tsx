@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  FlatList,
   RefreshControl,
   TouchableOpacity,
   LayoutAnimation,
@@ -33,7 +32,6 @@ import { scheduleIncompleteTeamReminder } from '../../src/services/notification.
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
 import { useScale } from '../../src/hooks/useScale';
 import { useTheme } from '../../src/hooks/useTheme';
-import { useLayout } from '../../src/hooks/useLayout';
 import { formatPoints } from '../../src/utils/formatters';
 import type { FantasyTeam } from '../../src/types';
 
@@ -223,11 +221,10 @@ function TeamCard({
 export default function HomeScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const theme = useTheme();
-  const { contentWidth } = useLayout();
   const { user } = useAuth();
   const { data: nextRace, isLoading: raceLoading, refetch: refetchRace } = useNextRace(CURRENT_SEASON_ID);
-  const { data: upcomingRaces } = useUpcomingRaces(CURRENT_SEASON_ID, 5);
-  const [activeRaceIndex, setActiveRaceIndex] = useState(0);
+  const { data: upcomingRaces } = useUpcomingRaces(CURRENT_SEASON_ID, 10);
+  const [racesExpanded, setRacesExpanded] = useState(false);
   const currentTeam = useTeamStore(s => s.currentTeam);
   const userTeams = useTeamStore(s => s.userTeams);
   const selectTeam = useTeamStore(s => s.selectTeam);
@@ -474,44 +471,42 @@ export default function HomeScreen() {
         </Card>
       </View>
 
-      {/* Upcoming Races Carousel */}
+      {/* Upcoming Races */}
       <View style={styles.section}>
-        <View style={styles.raceSectionHeader}>
-          <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg }]}>Upcoming Races</Text>
-          {upcomingRaces && upcomingRaces.length > 1 && (
-            <View style={styles.raceDots}>
-              {upcomingRaces.map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.raceDot, i === activeRaceIndex && [styles.raceDotActive, { backgroundColor: theme.primary }]]}
-                />
-              ))}
-            </View>
-          )}
-        </View>
+        <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg, marginBottom: SPACING.md }]}>Upcoming Races</Text>
         {raceLoading ? (
           <Loading />
         ) : upcomingRaces && upcomingRaces.length > 0 ? (
-          <FlatList
-            data={upcomingRaces}
-            keyExtractor={item => item.id}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / (contentWidth - SPACING.md * 2));
-              setActiveRaceIndex(index);
-            }}
-            renderItem={({ item, index }) => (
-              <View style={{ width: contentWidth - SPACING.md * 2 }}>
+          <>
+            {(racesExpanded ? upcomingRaces : upcomingRaces.slice(0, 3)).map((race, index) => (
+              <View key={race.id} style={index > 0 ? { marginTop: SPACING.sm } : undefined}>
                 <RaceCard
-                  race={item}
-                  onPress={() => router.push(`/calendar/${item.id}`)}
+                  race={race}
+                  onPress={() => router.push(`/calendar/${race.id}`)}
                   showCountdown={index === 0}
                 />
               </View>
+            ))}
+            {upcomingRaces.length > 3 && (
+              <TouchableOpacity
+                style={[styles.expandTeamsButton, { backgroundColor: theme.card, borderColor: COLORS.border.default }]}
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setRacesExpanded(prev => !prev);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={racesExpanded ? 'chevron-up' : 'ellipsis-horizontal'}
+                  size={racesExpanded ? 18 : 20}
+                  color={theme.primary}
+                />
+                <Text style={[styles.expandTeamsText, { color: theme.primary }]}>
+                  {racesExpanded ? 'Show less' : `${upcomingRaces.length - 3} more race${upcomingRaces.length - 3 > 1 ? 's' : ''}`}
+                </Text>
+              </TouchableOpacity>
             )}
-          />
+          </>
         ) : (
           <Card variant="outlined" padding="large">
             <Text style={styles.emptyText}>No upcoming races</Text>
@@ -790,27 +785,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text.primary,
   },
-  raceSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
-  },
-  raceDots: {
-    flexDirection: 'row',
-    gap: 5,
-  },
-  raceDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.text.muted + '40',
-  },
-  raceDotActive: {
-    backgroundColor: COLORS.primary,
-    width: 16,
-  },
-
   sectionTitleWithDots: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -6,6 +6,8 @@ import {
   updateProfile,
   onAuthStateChanged,
   signInWithCredential,
+  linkWithCredential,
+  unlink,
   GoogleAuthProvider,
   OAuthProvider,
   User as FirebaseUser,
@@ -227,6 +229,48 @@ export const authService = {
     if (currentUser && currentUser.uid === userId) {
       await currentUser.delete();
     }
+  },
+
+  /**
+   * Link current user with Google credential
+   */
+  async linkWithGoogle(idToken: string): Promise<void> {
+    const currentUser = firebaseAuth.currentUser;
+    if (!currentUser) throw new Error('No user signed in');
+    const credential = GoogleAuthProvider.credential(idToken);
+    await linkWithCredential(currentUser, credential);
+  },
+
+  /**
+   * Link current user with Apple credential
+   */
+  async linkWithApple(identityToken: string, nonce: string): Promise<void> {
+    const currentUser = firebaseAuth.currentUser;
+    if (!currentUser) throw new Error('No user signed in');
+    const provider = new OAuthProvider('apple.com');
+    const credential = provider.credential({
+      idToken: identityToken,
+      rawNonce: nonce,
+    });
+    await linkWithCredential(currentUser, credential);
+  },
+
+  /**
+   * Unlink a provider from the current user
+   */
+  async unlinkProvider(providerId: string): Promise<void> {
+    const currentUser = firebaseAuth.currentUser;
+    if (!currentUser) throw new Error('No user signed in');
+    await unlink(currentUser, providerId);
+  },
+
+  /**
+   * Get list of linked provider IDs for the current user
+   */
+  getLinkedProviders(): string[] {
+    const currentUser = firebaseAuth.currentUser;
+    if (!currentUser) return [];
+    return currentUser.providerData.map(p => p.providerId);
   },
 
   /**
