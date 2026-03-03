@@ -5,9 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import crashlytics from '@react-native-firebase/crashlytics';
 import { usePurchaseStore } from '../src/store/purchase.store';
-import { initAppCheck } from '../src/config/appCheck';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { useLayout } from '../src/hooks/useLayout';
 
@@ -66,20 +64,6 @@ export default function RootLayout() {
     const subscription = Linking.addEventListener('url', (event) => {
       handleUrl(event.url);
     });
-
-    // App Check disabled for initial release — Play Integrity needs
-    // SHA-256 registration in Firebase Console before it works.
-    // TODO: Re-enable after configuring Play Integrity
-    // try { initAppCheck(); } catch (e) { console.warn('App Check init error:', e); }
-
-    // Enable Crashlytics collection in production
-    try {
-      if (!__DEV__) {
-        crashlytics().setCrashlyticsCollectionEnabled(true);
-      }
-    } catch (e) {
-      console.warn('Crashlytics init error:', e);
-    }
 
     // Initialize in-app purchases
     usePurchaseStore.getState().initializeIAP();

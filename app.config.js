@@ -7,7 +7,7 @@ module.exports = {
     icon: "./assets/icon.png",
     scheme: "theundercut",
     userInterfaceStyle: "automatic",
-    newArchEnabled: true,
+    newArchEnabled: false,
     updates: {
       url: "https://u.expo.dev/e79dd8e5-5f63-40f9-a153-87c5225a2516"
     },
@@ -23,7 +23,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "6",
+      buildNumber: "7",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -36,7 +36,7 @@ module.exports = {
         backgroundColor: "#0D1117"
       },
       package: "com.undercut.app",
-      versionCode: 12,
+      versionCode: 13,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",
@@ -70,8 +70,8 @@ module.exports = {
       "react-native-iap",
       "expo-notifications",
       "expo-secure-store",
-      "@react-native-firebase/app-check",
-      "@react-native-firebase/crashlytics",
+      // "@react-native-firebase/app-check",    // disabled: native auto-init crashes iOS without App Attest config
+      // "@react-native-firebase/crashlytics",  // disabled: incompatible with newArch on iOS, not actively used
     ],
     experiments: {
       typedRoutes: true
