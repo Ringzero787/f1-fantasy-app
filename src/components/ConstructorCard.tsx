@@ -5,6 +5,8 @@ import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS } from '../config/consta
 import { PRICING_CONFIG } from '../config/pricing.config';
 import { useTheme } from '../hooks/useTheme';
 import { formatPoints, formatDollars } from '../utils/formatters';
+import { TooltipText } from './TooltipText';
+import { GLOSSARY } from '../config/glossary';
 import type { Constructor } from '../types';
 
 interface ConstructorCardProps {
@@ -98,7 +100,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
               <Text style={styles.name} numberOfLines={1}>{constructor.name}</Text>
               {canBeAce && (
                 <View style={[styles.aceBadge, { backgroundColor: theme.primary + '20' }]}>
-                  <Text style={[styles.aceText, { color: theme.primary }]}>ACE</Text>
+                  <TooltipText term="ACE" definition={GLOSSARY.ace} style={[styles.aceText, { color: theme.primary }]} />
                 </View>
               )}
             </View>

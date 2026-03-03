@@ -269,6 +269,17 @@ export default function SelectDriverScreen() {
 
   const affordableCount = availableDrivers.filter(d => d.price <= effectiveBudget).length;
 
+  // Current team drivers with full data for display
+  const currentTeamDriversWithData = useMemo(() => {
+    if (!currentTeam?.drivers || !allDrivers) return [];
+    return currentTeam.drivers
+      .filter(d => d.driverId !== swapDriverId) // exclude the driver being swapped
+      .map(td => {
+        const fullDriver = allDrivers.find(d => d.id === td.driverId);
+        return { ...td, teamColor: fullDriver ? TEAM_COLORS[fullDriver.constructorId]?.primary : '#4B5563' };
+      });
+  }, [currentTeam?.drivers, allDrivers, swapDriverId]);
+
   const listHeader = (
     <>
       {/* Swap Mode Banner */}
@@ -278,6 +289,22 @@ export default function SelectDriverScreen() {
           <Text style={styles.swapBannerText}>
             Swapping <Text style={[styles.swapDriverName, { color: theme.primary }]}>{swappingDriverName}</Text> (+${swapPrice})
           </Text>
+        </View>
+      )}
+
+      {/* Current Team Roster */}
+      {currentTeamDriversWithData.length > 0 && (
+        <View style={styles.currentTeamSection}>
+          <Text style={styles.currentTeamLabel}>On Your Team</Text>
+          <View style={styles.currentTeamRow}>
+            {currentTeamDriversWithData.map((td) => (
+              <View key={td.driverId} style={[styles.currentTeamChip, { borderColor: td.teamColor }]}>
+                <View style={[styles.currentTeamDot, { backgroundColor: td.teamColor }]} />
+                <Text style={styles.currentTeamName} numberOfLines={1}>{td.shortName || td.name}</Text>
+                <Text style={styles.currentTeamPrice}>${td.currentPrice}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       )}
 
@@ -307,6 +334,14 @@ export default function SelectDriverScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
+      {/* Budget bar */}
+      <View style={[styles.budgetBar, { backgroundColor: theme.card }]}>
+        <Text style={styles.budgetBarLabel}>${effectiveBudget}</Text>
+        <Text style={styles.budgetBarMeta}>
+          {isSwapMode ? `Swapping ${swappingDriverName}` : `${slotsLeft} slot${slotsLeft !== 1 ? 's' : ''} left`}
+        </Text>
+      </View>
+
       {/* Driver list with header */}
       <FlatList
         key={`select-drivers-${numColumns}`}
@@ -481,6 +516,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  budgetBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.default,
+  },
+
+  budgetBarLabel: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: 'bold',
+    color: COLORS.success,
+  },
+
+  budgetBarMeta: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+  },
+
   swapBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -516,6 +572,48 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.warning,
     fontWeight: '500',
+  },
+
+  currentTeamSection: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  currentTeamLabel: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.text.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: SPACING.sm,
+  },
+  currentTeamRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  currentTeamChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+  },
+  currentTeamDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  currentTeamName: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  currentTeamPrice: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
   },
 
   driverItem: {

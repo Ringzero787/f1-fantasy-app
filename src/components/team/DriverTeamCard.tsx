@@ -5,6 +5,8 @@ import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../config/constants';
 import { useTheme } from '../../hooks/useTheme';
 import { useScale } from '../../hooks/useScale';
 import { formatPoints } from '../../utils/formatters';
+import { TooltipText } from '../TooltipText';
+import { GLOSSARY } from '../../config/glossary';
 import type { FantasyDriver } from '../../types';
 
 export type EnrichedDriver = FantasyDriver & {
@@ -97,7 +99,7 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
             </View>
           ) : (
             <View style={styles.reserveTag}>
-              <Text style={styles.reserveTagText}>AUTO-FILL</Text>
+              <TooltipText term="AUTO-FILL" definition={GLOSSARY.autoFill} style={styles.reserveTagText} />
             </View>
           )}
         </View>
@@ -124,13 +126,15 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
             <>
               <View style={[styles.metaChip, { backgroundColor: driver.isLastRace ? COLORS.warning + '18' : theme.surface }]}>
                 <Ionicons name="document-text-outline" size={10} color={driver.isLastRace ? COLORS.warning : COLORS.text.muted} />
-                <Text style={[styles.metaChipText, driver.isLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
-                  {driver.isLastRace ? 'LAST' : `${driver.racesHeld || 0}/${driver.contractLen}`}
-                </Text>
+                <TooltipText
+                  term={driver.isLastRace ? 'LAST' : `${driver.racesHeld || 0}/${driver.contractLen}`}
+                  definition={driver.isLastRace ? GLOSSARY.last : GLOSSARY.contractLength}
+                  style={[styles.metaChipText, driver.isLastRace && { color: COLORS.warning, fontWeight: '700' }]}
+                />
               </View>
               <View style={[styles.metaChip, { backgroundColor: theme.surface }]}>
                 <Ionicons name="flame" size={10} color={driver.nextRate > 1 ? COLORS.gold : COLORS.text.muted} />
-                <Text style={[styles.metaChipText, driver.nextRate > 1 && { color: COLORS.gold }]}>+{driver.nextRate}/r</Text>
+                <TooltipText term={`+${driver.nextRate}/r`} definition={GLOSSARY.loyalty} style={[styles.metaChipText, driver.nextRate > 1 && { color: COLORS.gold }]} />
               </View>
             </>
           ) : (

@@ -19,6 +19,7 @@ import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET } from '../../../src/conf
 import { useTheme } from '../../../src/hooks/useTheme';
 import { useLayout } from '../../../src/hooks/useLayout';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
+import { TEAM_COLORS } from '../../../src/config/constants';
 import type { Constructor, FantasyConstructor, FantasyTeam } from '../../../src/types';
 
 export default function SelectConstructorScreen() {
@@ -144,6 +145,29 @@ export default function SelectConstructorScreen() {
         </Text>
       </View>
 
+      {/* Current Team */}
+      {currentTeam && currentTeam.drivers.length > 0 && (
+        <View style={styles.currentTeamSection}>
+          <Text style={styles.currentTeamLabel}>On Your Team</Text>
+          <View style={styles.currentTeamRow}>
+            {currentTeam.constructor && (
+              <View style={[styles.currentTeamChip, { borderColor: TEAM_COLORS[currentTeam.constructor.constructorId]?.primary || '#4B5563' }]}>
+                <View style={[styles.currentTeamDot, { backgroundColor: TEAM_COLORS[currentTeam.constructor.constructorId]?.primary || '#4B5563' }]} />
+                <Text style={styles.currentTeamName}>{currentTeam.constructor.name}</Text>
+                <Text style={styles.currentTeamPrice}>${currentTeam.constructor.currentPrice}</Text>
+              </View>
+            )}
+            {currentTeam.drivers.map((d) => (
+              <View key={d.driverId} style={[styles.currentTeamChip, { borderColor: TEAM_COLORS[d.constructorId]?.primary || '#4B5563' }]}>
+                <View style={[styles.currentTeamDot, { backgroundColor: TEAM_COLORS[d.constructorId]?.primary || '#4B5563' }]} />
+                <Text style={styles.currentTeamName}>{d.shortName || d.name}</Text>
+                <Text style={styles.currentTeamPrice}>${d.currentPrice}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* No budget warning */}
       {affordableCount === 0 && availableConstructors.length > 0 && (
         <View style={styles.noBudgetBanner}>
@@ -258,6 +282,47 @@ const styles = StyleSheet.create({
 
   budgetMeta: {
     fontSize: FONTS.sizes.sm,
+    color: COLORS.text.muted,
+  },
+
+  currentTeamSection: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  currentTeamLabel: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.text.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: SPACING.sm,
+  },
+  currentTeamRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  currentTeamChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+  },
+  currentTeamDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  currentTeamName: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  currentTeamPrice: {
+    fontSize: FONTS.sizes.xs,
     color: COLORS.text.muted,
   },
 

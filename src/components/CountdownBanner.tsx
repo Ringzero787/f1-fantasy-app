@@ -6,6 +6,8 @@ import { useTheme } from '../hooks/useTheme';
 import { raceService } from '../services/race.service';
 import { formatCountdown } from '../utils/formatters';
 import { useLockoutStatus } from '../hooks/useLockoutStatus';
+import { TooltipText } from './TooltipText';
+import { GLOSSARY } from '../config/glossary';
 import type { Race } from '../types';
 
 interface CountdownBannerProps {
@@ -127,9 +129,7 @@ export const CountdownBanner = React.memo(function CountdownBanner({ race, accen
       {lockoutInfo.isLocked && (
         <View style={styles.lockRow}>
           <Ionicons name="lock-closed" size={16} color={COLORS.error} />
-          <Text style={[styles.lockLabel, { color: COLORS.error }]}>
-            Teams locked
-          </Text>
+          <TooltipText term="Teams locked" definition={GLOSSARY.teamsLocked} style={[styles.lockLabel, { color: COLORS.error }]} />
         </View>
       )}
     </View>

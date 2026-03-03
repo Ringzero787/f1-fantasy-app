@@ -872,15 +872,15 @@ export default function MyTeamScreen() {
         )}
         {currentTeam && !currentTeam.constructor && canModify && (
           <TouchableOpacity
-            style={[styles.teamAlert, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }]}
+            style={[styles.teamAlert, { backgroundColor: COLORS.warning + '15', borderColor: COLORS.warning + '30' }]}
             onPress={() => router.push('/my-team/select-constructor')}
             activeOpacity={0.7}
           >
-            <Ionicons name="construct" size={16} color={theme.primary} />
-            <Text style={[styles.teamAlertText, { color: theme.primary, fontSize: scaledFonts.md }]}>
+            <Ionicons name="construct" size={16} color={COLORS.warning} />
+            <Text style={[styles.teamAlertText, { color: COLORS.warning, fontSize: scaledFonts.md }]}>
               No constructor selected — tap to add
             </Text>
-            <Ionicons name="chevron-forward" size={16} color={theme.primary} />
+            <Ionicons name="chevron-forward" size={16} color={COLORS.warning} />
           </TouchableOpacity>
         )}
         {currentTeam && !currentTeam.aceDriverId && !currentTeam.aceConstructorId && driversCount > 0 &&

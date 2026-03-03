@@ -5,6 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS, TEAM_COLORS } from '../config/constants';
 import { useTheme } from '../hooks/useTheme';
 import { formatPoints, formatDollars } from '../utils/formatters';
+import { TooltipText } from './TooltipText';
+import { GLOSSARY } from '../config/glossary';
 import type { Driver } from '../types';
 
 interface DriverCardProps {
@@ -142,7 +144,7 @@ export const DriverCard = React.memo(function DriverCard({
               )}
               {canBeAce && !isTopTen && (
                 <View style={[styles.aceBadge, { backgroundColor: theme.primary + '20' }]}>
-                  <Text style={[styles.aceText, { color: theme.primary }]}>ACE</Text>
+                  <TooltipText term="ACE" definition={GLOSSARY.ace} style={[styles.aceText, { color: theme.primary }]} />
                 </View>
               )}
             </View>
@@ -220,9 +222,11 @@ export const DriverCard = React.memo(function DriverCard({
         {/* Bottom badges row */}
         <View style={styles.badgesRow}>
           <View style={[styles.tierBadge, driver.tier === 'A' ? styles.tierA : driver.tier === 'C' ? styles.tierC : [styles.tierB, { backgroundColor: theme.surface }]]}>
-            <Text style={[styles.tierText, driver.tier === 'A' && styles.tierAText, driver.tier === 'C' && styles.tierCText]}>
-              Tier {driver.tier}
-            </Text>
+            <TooltipText
+              term={`Tier ${driver.tier}`}
+              definition={GLOSSARY.tier}
+              style={[styles.tierText, driver.tier === 'A' && styles.tierAText, driver.tier === 'C' && styles.tierCText]}
+            />
           </View>
           <View style={[styles.constructorBadge, { backgroundColor: teamColor + '20' }]}>
             <View style={[styles.constructorDot, { backgroundColor: teamColor }]} />
@@ -233,7 +237,7 @@ export const DriverCard = React.memo(function DriverCard({
           {driver.fantasyPoints > 0 && (
             <View style={styles.fantasyBadge}>
               <Ionicons name="trophy-outline" size={10} color={theme.primary} />
-              <Text style={[styles.fantasyText, { color: theme.primary }]}>{driver.fantasyPoints} FP</Text>
+              <TooltipText term={`${driver.fantasyPoints} FP`} definition={GLOSSARY.fp} style={[styles.fantasyText, { color: theme.primary }]} />
             </View>
           )}
           {isOnTeam && (
