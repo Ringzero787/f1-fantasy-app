@@ -3,7 +3,7 @@ module.exports = {
     name: "Undercut",
     slug: "f1-fantasy-app",
     version: "1.2.0",
-    orientation: "portrait",
+    orientation: "default",
     icon: "./assets/icon.png",
     scheme: "theundercut",
     userInterfaceStyle: "automatic",
@@ -21,7 +21,7 @@ module.exports = {
       "**/*"
     ],
     ios: {
-      supportsTablet: false,
+      supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
       buildNumber: "3",
       usesAppleSignIn: true,

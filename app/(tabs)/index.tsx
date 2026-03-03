@@ -7,11 +7,12 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
-  Dimensions,
   LayoutAnimation,
   Platform,
   UIManager,
 } from 'react-native';
+import { TooltipText } from '../../src/components/TooltipText';
+import { GLOSSARY } from '../../src/config/glossary';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -32,6 +33,7 @@ import { scheduleIncompleteTeamReminder } from '../../src/services/notification.
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, TEAM_SIZE } from '../../src/config/constants';
 import { useScale } from '../../src/hooks/useScale';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useLayout } from '../../src/hooks/useLayout';
 import { formatPoints } from '../../src/utils/formatters';
 import type { FantasyTeam } from '../../src/types';
 
@@ -177,7 +179,7 @@ function TeamCard({
         <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
           <View style={styles.teamRowLeft}>
             <Ionicons name="car-sport" size={scaledIcon(18)} color={!hasConstructor ? COLORS.warning : COLORS.text.muted} />
-            <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Constructor</Text>
+            <TooltipText term="Constructor" definition={GLOSSARY.f1Constructor} style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]} />
           </View>
           <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, !hasConstructor && styles.incompleteValue]}>
             {team.constructor?.name || 'Not selected'}
@@ -188,7 +190,7 @@ function TeamCard({
         <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
           <View style={styles.teamRowLeft}>
             <Ionicons name="diamond" size={scaledIcon(18)} color={COLORS.gold} />
-            <Text style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]}>Ace</Text>
+            <TooltipText term="Ace" definition={GLOSSARY.ace} style={[styles.teamRowLabel, { fontSize: scaledFonts.md }]} />
           </View>
           <Text style={[styles.teamRowValue, { fontSize: scaledFonts.md }, aceDriver && [styles.aceText, { color: theme.primary }]]}>
             {aceDriver?.name || 'Not selected'}
@@ -221,6 +223,7 @@ function TeamCard({
 export default function HomeScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const theme = useTheme();
+  const { contentWidth } = useLayout();
   const { user } = useAuth();
   const { data: nextRace, isLoading: raceLoading, refetch: refetchRace } = useNextRace(CURRENT_SEASON_ID);
   const { data: upcomingRaces } = useUpcomingRaces(CURRENT_SEASON_ID, 5);
@@ -467,7 +470,7 @@ export default function HomeScreen() {
         </Card>
         <Card style={styles.statCard} variant="elevated">
           <Text style={[styles.statValue, { fontSize: scaledFonts.xxl }]}>${formatPoints(currentTeam?.budget || 0)}</Text>
-          <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Bank</Text>
+          <TooltipText term="Bank" definition={GLOSSARY.bank} style={[styles.statLabel, { fontSize: scaledFonts.sm }]} />
         </Card>
       </View>
 
@@ -496,11 +499,11 @@ export default function HomeScreen() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / (Dimensions.get('window').width - SPACING.md * 2));
+              const index = Math.round(e.nativeEvent.contentOffset.x / (contentWidth - SPACING.md * 2));
               setActiveRaceIndex(index);
             }}
             renderItem={({ item, index }) => (
-              <View style={{ width: Dimensions.get('window').width - SPACING.md * 2 }}>
+              <View style={{ width: contentWidth - SPACING.md * 2 }}>
                 <RaceCard
                   race={item}
                   onPress={() => router.push(`/calendar/${item.id}`)}

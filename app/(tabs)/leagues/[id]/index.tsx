@@ -9,6 +9,8 @@ import {
   Alert,
   Share,
 } from 'react-native';
+import { TooltipText } from '../../../../src/components/TooltipText';
+import { GLOSSARY } from '../../../../src/config/glossary';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../../src/hooks/useAuth';
@@ -22,6 +24,7 @@ import { saveAvatarUrl } from '../../../../src/services/avatarGeneration.service
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
 import { useTheme } from '../../../../src/hooks/useTheme';
 import { useScale } from '../../../../src/hooks/useScale';
+import { useLayout } from '../../../../src/hooks/useLayout';
 import type { LeagueMember } from '../../../../src/types';
 
 // How recently a race must have completed to activate real-time listener (30 min)
@@ -37,6 +40,7 @@ const LEADERBOARD_VIEWS: { key: LeaderboardView; label: string; icon: string }[]
 export default function LeagueDetailScreen() {
   const theme = useTheme();
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
+  const { isLandscape } = useLayout();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const currentLeague = useLeagueStore(s => s.currentLeague);
@@ -390,14 +394,25 @@ export default function LeagueDetailScreen() {
                 size={14}
                 color={leaderboardView === view.key ? COLORS.white : COLORS.text.muted}
               />
-              <Text
-                style={[
-                  styles.viewToggleText,
-                  leaderboardView === view.key && styles.viewToggleTextActive,
-                ]}
-              >
-                {view.label}
-              </Text>
+              {view.key === 'ppr' ? (
+                <TooltipText
+                  term={view.label}
+                  definition={GLOSSARY.ppr}
+                  style={[
+                    styles.viewToggleText,
+                    leaderboardView === view.key && styles.viewToggleTextActive,
+                  ]}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.viewToggleText,
+                    leaderboardView === view.key && styles.viewToggleTextActive,
+                  ]}
+                >
+                  {view.label}
+                </Text>
+              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -451,8 +466,9 @@ export default function LeagueDetailScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }, isLandscape && { alignItems: 'center' }]}>
       <FlatList
+        style={isLandscape ? { maxWidth: 700, width: '100%' } : undefined}
         data={isPendingApproval ? [] : members}
         keyExtractor={(item) => item.id}
         renderItem={({ item: member }) => (

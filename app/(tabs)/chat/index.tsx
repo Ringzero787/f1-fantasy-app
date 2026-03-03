@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
+
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
+import { useLayout } from '../../../src/hooks/useLayout';
 import { useLeagueStore } from '../../../src/store/league.store';
 import { useChatStore } from '../../../src/store/chat.store';
 import { ChatListItem } from '../../../src/components/chat/ChatListItem';
@@ -12,6 +14,7 @@ import { Stack } from 'expo-router';
 
 export default function ChatListScreen() {
   const theme = useTheme();
+  const { numColumns } = useLayout();
   const router = useRouter();
   const leagues = useLeagueStore((s) => s.leagues);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
@@ -49,8 +52,11 @@ export default function ChatListScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <FlatList
+        key={`chat-${numColumns}`}
         data={leagues}
         keyExtractor={(item) => item.id}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
           const messages = messagesByLeague[item.id] || [];
@@ -70,14 +76,16 @@ export default function ChatListScreen() {
           }
 
           return (
-            <ChatListItem
-              leagueId={item.id}
-              leagueName={item.name}
-              lastMessage={lastMessagePreview}
-              lastMessageTime={lastMessageTime}
-              unreadCount={unreadCounts[item.id] || 0}
-              onPress={() => router.push(`/(tabs)/chat/${item.id}` as any)}
-            />
+            <View style={numColumns > 1 ? { flex: 1 } : undefined}>
+              <ChatListItem
+                leagueId={item.id}
+                leagueName={item.name}
+                lastMessage={lastMessagePreview}
+                lastMessageTime={lastMessageTime}
+                unreadCount={unreadCounts[item.id] || 0}
+                onPress={() => router.push(`/(tabs)/chat/${item.id}` as any)}
+              />
+            </View>
           );
         }}
       />

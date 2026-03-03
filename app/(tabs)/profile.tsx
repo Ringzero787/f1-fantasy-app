@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/hooks/useAuth';
-import { useAvatarGeneration, useScale, useTheme } from '../../src/hooks';
+import { useAvatarGeneration, useScale, useTheme, useLayout } from '../../src/hooks';
 import { usePrefsStore } from '../../src/store/prefs.store';
 import { CONSTRUCTOR_THEMES, type ConstructorThemeId } from '../../src/config/themes';
 import { authService } from '../../src/services/auth.service';
@@ -32,6 +32,7 @@ import { useAvatarStore } from '../../src/store/avatar.store';
 
 export default function ProfileScreen() {
   const { user, isDemoMode, signOut } = useAuth();
+  const { isLandscape } = useLayout();
   const setUser = useAuthStore((state) => state.setUser);
   const userTeams = useTeamStore((state) => state.userTeams);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.photoURL || null);
@@ -279,7 +280,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={[styles.content, isLandscape && { maxWidth: 700, alignSelf: 'center', width: '100%' }]}>
       {/* Hero Profile Card */}
       <Card style={styles.userCard} variant="elevated">
         <TouchableOpacity

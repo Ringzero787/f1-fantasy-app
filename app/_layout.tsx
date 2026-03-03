@@ -4,10 +4,12 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import crashlytics from '@react-native-firebase/crashlytics';
 import { usePurchaseStore } from '../src/store/purchase.store';
 import { initAppCheck } from '../src/config/appCheck';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { useLayout } from '../src/hooks/useLayout';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +38,17 @@ function extractInviteCode(url: string): string | null {
 }
 
 export default function RootLayout() {
+  const { isTablet } = useLayout();
+
+  // Lock phones to portrait; let tablets rotate freely
+  useEffect(() => {
+    if (!isTablet) {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    } else {
+      ScreenOrientation.unlockAsync();
+    }
+  }, [isTablet]);
+
   useEffect(() => {
     function handleUrl(url: string) {
       const code = extractInviteCode(url);

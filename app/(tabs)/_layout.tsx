@@ -4,15 +4,18 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../../src/config/constants';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useLayout } from '../../src/hooks/useLayout';
 import { useAuthStore } from '../../src/store/auth.store';
 import { useOnboardingStore } from '../../src/store/onboarding.store';
 import { useChatStore } from '../../src/store/chat.store';
 import { useLeagueStore } from '../../src/store/league.store';
 import { OnboardingTutorial } from '../../src/components/OnboardingTutorial';
 import { NotificationBell } from '../../src/components/NotificationBell';
+import { SideRail } from '../../src/components/SideRail';
 
 export default function TabLayout() {
   const theme = useTheme();
+  const { isLandscape } = useLayout();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const isAdmin = useAuthStore((state) => state.isAdmin);
   const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
@@ -41,16 +44,20 @@ export default function TabLayout() {
 
   return (
     <>
+    <View style={{ flex: 1, flexDirection: isLandscape ? 'row' : 'column' }}>
+    {isLandscape && <SideRail />}
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: COLORS.text.muted,
         tabBarShowLabel: false,
-        tabBarStyle: {
-          backgroundColor: theme.surface,
-          borderTopColor: COLORS.border.default,
-          borderTopWidth: 1,
-        },
+        tabBarStyle: isLandscape
+          ? { display: 'none' }
+          : {
+              backgroundColor: theme.surface,
+              borderTopColor: COLORS.border.default,
+              borderTopWidth: 1,
+            },
         headerStyle: {
           backgroundColor: theme.surface,
         },
@@ -246,6 +253,7 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </View>
     <OnboardingTutorial visible={!hasCompletedOnboarding} onComplete={completeOnboarding} />
     </>
   );

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Modal,
   FlatList,
-  Dimensions,
   TouchableOpacity,
   ViewToken,
 } from 'react-native';
@@ -13,8 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, GRADIENTS, SHADOWS } from '../config/constants';
 import { useTheme } from '../hooks/useTheme';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { useLayout } from '../hooks/useLayout';
 
 interface OnboardingTutorialProps {
   visible: boolean;
@@ -69,6 +67,7 @@ const SLIDES: Slide[] = [
 
 export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialProps) {
   const theme = useTheme();
+  const { screenWidth: SCREEN_WIDTH } = useLayout();
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -90,7 +89,7 @@ export function OnboardingTutorial({ visible, onComplete }: OnboardingTutorialPr
   };
 
   const renderSlide = ({ item }: { item: Slide }) => (
-    <View style={styles.slide}>
+    <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
       <View style={styles.slideContent}>
         <View style={[styles.iconCircle, { backgroundColor: theme.primary + '20' }]}>
           <Ionicons name={item.icon} size={64} color={theme.primary} />
@@ -190,7 +189,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   slide: {
-    width: SCREEN_WIDTH,
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',

@@ -20,12 +20,14 @@ import { Card, Loading, EmptyState, Button, Avatar } from '../../../src/componen
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { useScale } from '../../../src/hooks/useScale';
+import { useLayout } from '../../../src/hooks/useLayout';
 import { validateInviteCode } from '../../../src/utils/validation';
 import type { League } from '../../../src/types';
 
 export default function LeaguesScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const theme = useTheme();
+  const { numColumns } = useLayout();
   const { user } = useAuth();
   const { join, code } = useLocalSearchParams<{ join?: string; code?: string }>();
   const leagues = useLeagueStore(s => s.leagues);
@@ -396,9 +398,16 @@ export default function LeaguesScreen() {
       {/* Leagues List */}
       {leagues.length > 0 ? (
         <FlatList
+          key={`leagues-${numColumns}`}
           data={leagues}
           keyExtractor={(item) => item.id}
-          renderItem={renderLeagueItem}
+          numColumns={numColumns}
+          columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
+          renderItem={({ item }) => (
+            <View style={numColumns > 1 ? { flex: 1 } : undefined}>
+              {renderLeagueItem({ item })}
+            </View>
+          )}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

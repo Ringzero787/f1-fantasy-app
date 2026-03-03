@@ -12,6 +12,8 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { TooltipText } from '../../../src/components/TooltipText';
+import { GLOSSARY } from '../../../src/config/glossary';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +27,7 @@ import { saveAvatarUrl } from '../../../src/services/avatarGeneration.service';
 import { Loading, Button, Avatar, AvatarPicker, CountdownBanner } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BUDGET, TEAM_SIZE, BORDER_RADIUS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
+import { useLayout } from '../../../src/hooks/useLayout';
 import { demoConstructors } from '../../../src/data/demoData';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import { formatPoints } from '../../../src/utils/formatters';
@@ -118,6 +121,7 @@ export default function MyTeamScreen() {
   const { user } = useAuth();
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const theme = useTheme();
+  const { isLandscape } = useLayout();
   const currentTeam = useTeamStore(s => s.currentTeam);
   const userTeams = useTeamStore(s => s.userTeams);
   const isLoading = useTeamStore(s => s.isLoading);
@@ -396,7 +400,7 @@ export default function MyTeamScreen() {
     const fee = (driver && !driver.isReservePick && !inGracePeriod) ? calculateEarlyTerminationFee(livePrice, contractLen, driver.racesHeld || 0) : 0;
     const saleProceeds = Math.max(0, livePrice - fee);
     const feeMessage = fee > 0
-      ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
+      ? `\n\nEarly termination fee (10% penalty for selling before contract ends): $${fee}\nYou'll receive: $${saleProceeds}`
       : `\n\nYou'll receive: $${saleProceeds}`;
 
     Alert.alert(
@@ -426,7 +430,7 @@ export default function MyTeamScreen() {
     const fee = (c.isReservePick || cInGracePeriod) ? 0 : calculateEarlyTerminationFee(livePrice, contractLen, c.racesHeld || 0);
     const saleProceeds = Math.max(0, livePrice - fee);
     const feeMessage = fee > 0
-      ? `\n\nEarly termination fee: $${fee}\nYou'll receive: $${saleProceeds}`
+      ? `\n\nEarly termination fee (10% penalty for selling before contract ends): $${fee}\nYou'll receive: $${saleProceeds}`
       : `\n\nYou'll receive: $${saleProceeds}`;
 
     Alert.alert(
@@ -819,12 +823,12 @@ export default function MyTeamScreen() {
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { fontSize: scaledFonts.lg }]}>${formatPoints(currentTeam?.budget || 0)}</Text>
-            <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Bank</Text>
+            <TooltipText term="Bank" definition={GLOSSARY.bank} style={[styles.statLabel, { fontSize: scaledFonts.sm }]} />
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { fontSize: scaledFonts.lg }]}>${formatPoints(teamValue)}</Text>
-            <Text style={[styles.statLabel, { fontSize: scaledFonts.sm }]}>Value</Text>
+            <TooltipText term="Value" definition={GLOSSARY.value} style={[styles.statLabel, { fontSize: scaledFonts.sm }]} />
           </View>
           <View style={styles.statDivider} />
           {teamStats.leagueId ? (
@@ -906,9 +910,10 @@ export default function MyTeamScreen() {
 
         {/* Driver list */}
         {enrichedDrivers.length > 0 ? (
-          enrichedDrivers.map((driver) => (
+          <View style={isLandscape ? { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm } : undefined}>
+          {enrichedDrivers.map((driver) => (
+            <View key={driver.driverId} style={isLandscape ? { width: '48%' } : undefined}>
             <DriverTeamCard
-              key={driver.driverId}
               driver={driver}
               lastRaceEntry={lastRaceBreakdown[driver.driverId]}
               canModify={canModify}
@@ -917,7 +922,9 @@ export default function MyTeamScreen() {
               onClearAce={handleClearAce}
               onRemoveDriver={handleRemoveDriver}
             />
-          ))
+            </View>
+          ))}
+          </View>
         ) : null}
 
         {/* Add Driver button */}
@@ -1013,13 +1020,15 @@ export default function MyTeamScreen() {
                     <>
                       <View style={[styles.metaChip, { backgroundColor: cIsLastRace ? COLORS.warning + '18' : theme.background }]}>
                         <Ionicons name="document-text-outline" size={10} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
-                        <Text style={[styles.metaChipText, cIsLastRace && { color: COLORS.warning, fontWeight: '700' }]}>
-                          {cIsLastRace ? 'LAST' : `${c.racesHeld || 0}/${cContractLen}`}
-                        </Text>
+                        <TooltipText
+                          term={cIsLastRace ? 'LAST' : `${c.racesHeld || 0}/${cContractLen}`}
+                          definition={cIsLastRace ? GLOSSARY.last : GLOSSARY.contractLength}
+                          style={[styles.metaChipText, cIsLastRace && { color: COLORS.warning, fontWeight: '700' }]}
+                        />
                       </View>
                       <View style={[styles.metaChip, { backgroundColor: theme.background }]}>
                         <Ionicons name="flame" size={10} color={cNextRate > 1 ? COLORS.gold : COLORS.text.muted} />
-                        <Text style={[styles.metaChipText, cNextRate > 1 && { color: COLORS.gold }]}>+{cNextRate}/r</Text>
+                        <TooltipText term={`+${cNextRate}/r`} definition={GLOSSARY.loyalty} style={[styles.metaChipText, cNextRate > 1 && { color: COLORS.gold }]} />
                       </View>
                     </>
                   ) : (

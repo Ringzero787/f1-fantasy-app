@@ -4,8 +4,8 @@ import {
   Modal,
   View,
   StyleSheet,
-  Dimensions,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,10 +15,9 @@ interface ImageMessageProps {
   imageUrl: string;
 }
 
-const SCREEN = Dimensions.get('window');
-
 export function ImageMessage({ imageUrl }: ImageMessageProps) {
   const [fullscreen, setFullscreen] = useState(false);
+  const { width: screenW, height: screenH } = useWindowDimensions();
 
   return (
     <>
@@ -45,7 +44,7 @@ export function ImageMessage({ imageUrl }: ImageMessageProps) {
           />
           <Image
             source={{ uri: imageUrl }}
-            style={styles.fullscreenImage}
+            style={[styles.fullscreenImage, { width: screenW, height: screenH * 0.8 }]}
             contentFit="contain"
             cachePolicy="memory-disk"
           />
@@ -78,8 +77,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   fullscreenImage: {
-    width: SCREEN.width,
-    height: SCREEN.height * 0.8,
+    // width/height applied inline via useWindowDimensions
   },
   closeButton: {
     position: 'absolute',

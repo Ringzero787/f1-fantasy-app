@@ -7,3 +7,4 @@ export * from './useOpenF1';
 export * from './useLockoutStatus';
 export * from './useScale';
 export * from './useTheme';
+export * from './useLayout';

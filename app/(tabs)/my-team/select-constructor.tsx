@@ -6,6 +6,8 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
+import { TooltipText } from '../../../src/components/TooltipText';
+import { GLOSSARY } from '../../../src/config/glossary';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,11 +17,13 @@ import { useAdminStore } from '../../../src/store/admin.store';
 import { Loading, ConstructorCard, Button } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
+import { useLayout } from '../../../src/hooks/useLayout';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import type { Constructor, FantasyConstructor, FantasyTeam } from '../../../src/types';
 
 export default function SelectConstructorScreen() {
   const theme = useTheme();
+  const { numColumns } = useLayout();
   const { data: allConstructors, isLoading } = useConstructors();
   const currentTeam = useTeamStore(s => s.currentTeam);
   const lockoutInfo = useLockoutStatus();
@@ -116,7 +120,7 @@ export default function SelectConstructorScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
         <View style={styles.lockedContainer}>
           <Ionicons name="lock-closed" size={48} color={COLORS.error} />
-          <Text style={styles.lockedTitle}>Teams Locked</Text>
+          <TooltipText term="Teams Locked" definition={GLOSSARY.teamsLocked} style={styles.lockedTitle} />
           <Text style={styles.lockedMessage}>{lockoutInfo.lockReason || 'Team changes are locked during race weekend'}</Text>
           <Button title="Go Back" onPress={() => router.back()} variant="outline" />
         </View>
@@ -152,12 +156,15 @@ export default function SelectConstructorScreen() {
 
       {/* Constructor List */}
       <FlatList
+        key={`constructors-${numColumns}`}
         data={availableConstructors}
         keyExtractor={(item) => item.id}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
         renderItem={({ item }) => {
           const isAffordable = item.price <= remainingBudget;
           return (
-            <View style={[styles.constructorItem, !isAffordable && styles.unaffordableItem]}>
+            <View style={[styles.constructorItem, !isAffordable && styles.unaffordableItem, numColumns > 1 && { flex: 1 }]}>
               <ConstructorCard
                 constructorData={item}
                 showPrice
@@ -182,7 +189,7 @@ export default function SelectConstructorScreen() {
           <View style={[styles.contractModal, { backgroundColor: theme.card }]}>
             <Text style={styles.contractTitle}>{pendingConstructor.name}</Text>
             <Text style={[styles.contractSubtitle, { color: theme.primary }]}>${pendingConstructor.price}</Text>
-            <Text style={styles.contractLabel}>Contract Length</Text>
+            <TooltipText term="Contract Length" definition={GLOSSARY.contractLength} style={styles.contractLabel} showIcon />
             <View style={styles.contractButtons}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <TouchableOpacity

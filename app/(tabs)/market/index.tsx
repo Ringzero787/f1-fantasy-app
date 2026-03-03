@@ -16,6 +16,7 @@ import { Loading, DriverCard, ConstructorCard, EmptyState } from '../../../src/c
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { useScale } from '../../../src/hooks/useScale';
+import { useLayout } from '../../../src/hooks/useLayout';
 import { useTeamStore, isDriverLockedOut, getLockedOutDriverIds, calculateEarlyTerminationFee } from '../../../src/store/team.store';
 import { useAdminStore } from '../../../src/store/admin.store';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
@@ -28,6 +29,7 @@ type SortOption = 'price' | 'points' | 'name' | 'priceChange' | 'team';
 export default function MarketScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const theme = useTheme();
+  const { numColumns } = useLayout();
   const [activeTab, setActiveTab] = useState<Tab>('drivers');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('price');
@@ -282,10 +284,10 @@ export default function MarketScreen() {
 
     let message = `Bought: ${formatDollars(fantasyDriver.purchasePrice)}\nMarket: ${formatDollars(currentMarketPrice)}`;
     if (earlyTermFee > 0) {
-      message += `\nEarly term fee: -${formatDollars(earlyTermFee)}`;
+      message += `\nEarly term fee (10% for selling before contract ends): -${formatDollars(earlyTermFee)}`;
     }
     message += `\nSale value: ${formatDollars(saleValue)}`;
-    message += `\nP/L: ${profitLossStr}`;
+    message += `\nProfit/Loss: ${profitLossStr}`;
     if (userTeams.length > 1) {
       message += `\n\nFrom: ${team.name}`;
     }
@@ -351,10 +353,10 @@ export default function MarketScreen() {
 
     let message = `Bought: ${formatDollars(fantasyConstructor.purchasePrice)}\nMarket: ${formatDollars(currentMarketPrice)}`;
     if (earlyTermFee > 0) {
-      message += `\nEarly term fee: -${formatDollars(earlyTermFee)}`;
+      message += `\nEarly term fee (10% for selling before contract ends): -${formatDollars(earlyTermFee)}`;
     }
     message += `\nSale value: ${formatDollars(saleValue)}`;
-    message += `\nP/L: ${profitLossStr}`;
+    message += `\nProfit/Loss: ${profitLossStr}`;
     if (userTeams.length > 1) {
       message += `\n\nFrom: ${team.name}`;
     }
@@ -520,14 +522,18 @@ export default function MarketScreen() {
       ) : activeTab === 'drivers' ? (
         sortedDrivers && sortedDrivers.length > 0 ? (
           <FlatList
+            key={`drivers-${numColumns}`}
             data={sortedDrivers}
             keyExtractor={(item) => item.id}
+            numColumns={numColumns}
+            columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
             renderItem={({ item }) => {
               const isOnTeam = onTeamDriverIds.has(item.id);
               const isOnAnyTeam = driverTeamMap.has(item.id);
               const teams = driverTeamMap.get(item.id);
               const driverTeamName = teams && teams.length > 0 ? teams[0].teamName : undefined;
               return (
+                <View style={numColumns > 1 ? { flex: 1 } : undefined}>
                 <DriverCard
                   driver={item}
                   showPrice
@@ -540,6 +546,7 @@ export default function MarketScreen() {
                   onAdd={!isOnTeam && currentTeam ? () => handleAddDriver(item) : undefined}
                   onSell={isOnAnyTeam ? () => handleSellDriver(item) : undefined}
                 />
+                </View>
               );
             }}
             contentContainerStyle={styles.listContent}
@@ -558,14 +565,18 @@ export default function MarketScreen() {
         )
       ) : filteredConstructors && filteredConstructors.length > 0 ? (
         <FlatList
+          key={`constructors-${numColumns}`}
           data={filteredConstructors}
           keyExtractor={(item) => item.id}
+          numColumns={numColumns}
+          columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
           renderItem={({ item }) => {
             const isOnTeam = onTeamConstructorId === item.id;
             const isOnAnyTeam = constructorTeamMap.has(item.id);
             const teams = constructorTeamMap.get(item.id);
             const cTeamName = teams && teams.length > 0 ? teams[0].teamName : undefined;
             return (
+              <View style={numColumns > 1 ? { flex: 1 } : undefined}>
               <ConstructorCard
                 constructorData={item}
                 showPrice
@@ -577,6 +588,7 @@ export default function MarketScreen() {
                 onAdd={!isOnTeam && currentTeam ? () => handleAddConstructor(item) : undefined}
                 onSell={isOnAnyTeam ? () => handleSellConstructor(item) : undefined}
               />
+              </View>
             );
           }}
           contentContainerStyle={styles.listContent}

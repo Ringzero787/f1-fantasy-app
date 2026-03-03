@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
   LayoutAnimation,
   Platform,
@@ -14,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
 import { useTheme } from '../hooks/useTheme';
+import { useLayout } from '../hooks/useLayout';
 import { useNewsStore } from '../store/news.store';
 import type { Article, ArticleCategory } from '../types';
 
@@ -21,9 +21,6 @@ import type { Article, ArticleCategory } from '../types';
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = SCREEN_WIDTH - SPACING.md * 2;
 
 const SOURCE_COLORS: Record<string, string> = {
   F1: '#E10600',
@@ -167,10 +164,12 @@ function ArticleCard({
   isFirst: boolean;
 }) {
   const theme = useTheme();
+  const { contentWidth } = useLayout();
+  const cardWidth = contentWidth - SPACING.md * 2;
   const sourceColor = SOURCE_COLORS[article.source] || theme.primary;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.card }, isRead && styles.cardRead, !isFirst && styles.cardNotFirst]}>
+    <View style={[styles.card, { width: cardWidth, backgroundColor: theme.card }, isRead && styles.cardRead, !isFirst && styles.cardNotFirst]}>
       {/* Top row: source badge + read badge + time */}
       <View style={styles.cardTopRow}>
         <View style={styles.cardTopLeft}>
@@ -278,7 +277,6 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    width: CARD_WIDTH,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,

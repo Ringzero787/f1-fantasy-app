@@ -13,6 +13,7 @@ import { useSeasonRaces } from '../../../src/hooks';
 import { Loading, RaceCard, EmptyState } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
+import { useLayout } from '../../../src/hooks/useLayout';
 import type { Race } from '../../../src/types';
 
 const CURRENT_SEASON_ID = '2026';
@@ -21,6 +22,7 @@ type FilterOption = 'all' | 'upcoming' | 'completed';
 
 export default function CalendarScreen() {
   const theme = useTheme();
+  const { numColumns } = useLayout();
   const [filter, setFilter] = useState<FilterOption>('all');
   const { data: races, isLoading, refetch } = useSeasonRaces(CURRENT_SEASON_ID);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,6 +41,7 @@ export default function CalendarScreen() {
   });
 
   // Group races by status for section list
+  // When numColumns > 1, chunk data into pairs for row rendering
   const sections = React.useMemo(() => {
     if (!filteredRaces) return [];
 
@@ -47,15 +50,24 @@ export default function CalendarScreen() {
     );
     const completed = filteredRaces.filter((r) => r.status === 'completed');
 
-    const result = [];
+    const chunkIfNeeded = (races: Race[]): (Race | Race[])[] => {
+      if (numColumns <= 1) return races;
+      const chunks: Race[][] = [];
+      for (let i = 0; i < races.length; i += numColumns) {
+        chunks.push(races.slice(i, i + numColumns));
+      }
+      return chunks;
+    };
+
+    const result: { title: string; data: (Race | Race[])[] }[] = [];
     if (upcoming.length > 0) {
-      result.push({ title: 'Upcoming', data: upcoming });
+      result.push({ title: 'Upcoming', data: chunkIfNeeded(upcoming) });
     }
     if (completed.length > 0) {
-      result.push({ title: 'Completed', data: completed });
+      result.push({ title: 'Completed', data: chunkIfNeeded(completed) });
     }
     return result;
-  }, [filteredRaces]);
+  }, [filteredRaces, numColumns]);
 
   if (isLoading && !refreshing) {
     return <Loading fullScreen message="Loading calendar..." />;
@@ -96,14 +108,32 @@ export default function CalendarScreen() {
       {sections.length > 0 ? (
         <SectionList
           sections={sections}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <RaceCard
-              race={item}
-              onPress={() => router.push(`/calendar/${item.id}`)}
-              showCountdown={item.status === 'upcoming'}
-            />
-          )}
+          keyExtractor={(item) => Array.isArray(item) ? item.map(r => r.id).join('-') : item.id}
+          renderItem={({ item }) => {
+            if (Array.isArray(item)) {
+              return (
+                <View style={{ flexDirection: 'row', gap: SPACING.sm }}>
+                  {item.map((race) => (
+                    <View key={race.id} style={{ flex: 1 }}>
+                      <RaceCard
+                        race={race}
+                        onPress={() => router.push(`/calendar/${race.id}`)}
+                        showCountdown={race.status === 'upcoming'}
+                      />
+                    </View>
+                  ))}
+                  {item.length < numColumns && <View style={{ flex: 1 }} />}
+                </View>
+              );
+            }
+            return (
+              <RaceCard
+                race={item}
+                onPress={() => router.push(`/calendar/${item.id}`)}
+                showCountdown={item.status === 'upcoming'}
+              />
+            );
+          }}
           renderSectionHeader={({ section: { title } }) => (
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{title}</Text>

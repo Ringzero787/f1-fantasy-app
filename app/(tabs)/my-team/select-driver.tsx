@@ -5,8 +5,9 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
+import { TooltipText } from '../../../src/components/TooltipText';
+import { GLOSSARY } from '../../../src/config/glossary';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,12 +18,11 @@ import { Loading, DriverCard, Button, SmartRecommendations } from '../../../src/
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE, TEAM_COLORS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
+import { useLayout } from '../../../src/hooks/useLayout';
 import type { Driver, FantasyDriver, FantasyTeam } from '../../../src/types';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const CART_HORIZONTAL_PADDING = SPACING.md * 2;
 const SLOT_GAP = 6;
-const SLOT_WIDTH = (SCREEN_WIDTH - CART_HORIZONTAL_PADDING - SLOT_GAP * 4) / 5;
 
 export default function SelectDriverScreen() {
   const { swapDriverId, swapDriverPrice } = useLocalSearchParams<{
@@ -31,6 +31,8 @@ export default function SelectDriverScreen() {
   }>();
 
   const theme = useTheme();
+  const { contentWidth, numColumns } = useLayout();
+  const slotWidth = (contentWidth - CART_HORIZONTAL_PADDING - SLOT_GAP * 4) / 5;
   const { data: allDrivers, isLoading } = useDrivers();
   const currentTeam = useTeamStore(s => s.currentTeam);
   const lockoutInfo = useLockoutStatus();
@@ -243,7 +245,7 @@ export default function SelectDriverScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
         <View style={styles.lockedContainer}>
           <Ionicons name="lock-closed" size={48} color={COLORS.error} />
-          <Text style={styles.lockedTitle}>Teams Locked</Text>
+          <TooltipText term="Teams Locked" definition={GLOSSARY.teamsLocked} style={styles.lockedTitle} />
           <Text style={styles.lockedMessage}>{lockoutInfo.lockReason || 'Team changes are locked during race weekend'}</Text>
           <Button title="Go Back" onPress={() => router.back()} variant="outline" />
         </View>
@@ -307,8 +309,11 @@ export default function SelectDriverScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       {/* Driver list with header */}
       <FlatList
+        key={`select-drivers-${numColumns}`}
         data={availableDrivers}
         keyExtractor={(item) => item.id}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
         ListHeaderComponent={listHeader}
         renderItem={({ item }) => {
           const isLockedOut = lockedOutIds.has(item.id);
@@ -316,7 +321,7 @@ export default function SelectDriverScreen() {
           const canSelect = !isLockedOut && isAffordable && selectedDrivers.length < maxSelectableDrivers;
 
           return (
-            <View style={[styles.driverItem, (isLockedOut || !isAffordable) && styles.lockedOutItem]}>
+            <View style={[styles.driverItem, (isLockedOut || !isAffordable) && styles.lockedOutItem, numColumns > 1 && { flex: 1 }]}>
               <DriverCard
                 driver={item}
                 compact
@@ -351,7 +356,7 @@ export default function SelectDriverScreen() {
           <View style={[styles.contractModal, { backgroundColor: theme.card }]}>
             <Text style={styles.contractTitle}>{pendingDriver.name}</Text>
             <Text style={[styles.contractSubtitle, { color: theme.primary }]}>${pendingDriver.price}</Text>
-            <Text style={styles.contractLabel}>Contract Length</Text>
+            <TooltipText term="Contract Length" definition={GLOSSARY.contractLength} style={styles.contractLabel} showIcon />
             <View style={styles.contractButtons}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <TouchableOpacity
@@ -416,7 +421,7 @@ export default function SelectDriverScreen() {
                 return (
                   <TouchableOpacity
                     key={driver.id}
-                    style={[styles.cartSlotFilled, { backgroundColor: theme.card }]}
+                    style={[styles.cartSlotFilled, { width: slotWidth, backgroundColor: theme.card }]}
                     onPress={() => handleRemoveSelected(driver.id)}
                     activeOpacity={0.7}
                   >
@@ -431,7 +436,7 @@ export default function SelectDriverScreen() {
                 );
               }
               return (
-                <View key={`empty-${index}`} style={[styles.cartSlotEmpty, { backgroundColor: theme.surface }]}>
+                <View key={`empty-${index}`} style={[styles.cartSlotEmpty, { width: slotWidth, backgroundColor: theme.surface }]}>
                   <Ionicons name="add" size={18} color={COLORS.text.muted} />
                 </View>
               );
@@ -617,7 +622,6 @@ const styles = StyleSheet.create({
   },
 
   cartSlotFilled: {
-    width: SLOT_WIDTH,
     height: 58,
     borderRadius: BORDER_RADIUS.sm,
     borderWidth: 1,
@@ -666,7 +670,6 @@ const styles = StyleSheet.create({
   },
 
   cartSlotEmpty: {
-    width: SLOT_WIDTH,
     height: 58,
     borderRadius: BORDER_RADIUS.sm,
     borderWidth: 1,
