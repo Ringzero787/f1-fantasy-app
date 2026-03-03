@@ -7,7 +7,7 @@ module.exports = {
     icon: "./assets/icon.png",
     scheme: "theundercut",
     userInterfaceStyle: "automatic",
-    newArchEnabled: false,
+    newArchEnabled: true,
     updates: {
       url: "https://u.expo.dev/e79dd8e5-5f63-40f9-a153-87c5225a2516"
     },
@@ -52,6 +52,7 @@ module.exports = {
       ["expo-build-properties", {
         ios: {
           useFrameworks: "static",
+          newArchEnabled: false,
         },
         android: {
           targetSdkVersion: 35,
@@ -70,8 +71,8 @@ module.exports = {
       "react-native-iap",
       "expo-notifications",
       "expo-secure-store",
-      // "@react-native-firebase/app-check",    // disabled: native auto-init crashes iOS without App Attest config
-      // "@react-native-firebase/crashlytics",  // disabled: incompatible with newArch on iOS, not actively used
+      "@react-native-firebase/app-check",
+      "@react-native-firebase/crashlytics",
     ],
     experiments: {
       typedRoutes: true

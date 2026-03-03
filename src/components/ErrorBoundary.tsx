@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import crashlytics from '@react-native-firebase/crashlytics';
 
 interface Props {
   children: ReactNode;
@@ -25,8 +26,12 @@ export class ErrorBoundary extends Component<Props, State> {
       console.error('ErrorBoundary caught:', error, errorInfo);
     }
 
-    // Crashlytics native module removed — log to console instead
-    console.error('Uncaught error:', error);
+    // Report to Firebase Crashlytics
+    try {
+      crashlytics().recordError(error);
+    } catch {
+      // Crashlytics may not be available in dev
+    }
 
     // Log to Firestore error logs if available
     try {
