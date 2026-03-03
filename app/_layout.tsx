@@ -6,7 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
 // import crashlytics from '@react-native-firebase/crashlytics';
-// import { usePurchaseStore } from '../src/store/purchase.store';
+import { usePurchaseStore } from '../src/store/purchase.store';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { useLayout } from '../src/hooks/useLayout';
 
@@ -66,8 +66,12 @@ export default function RootLayout() {
       handleUrl(event.url);
     });
 
+    // Initialize in-app purchases
+    usePurchaseStore.getState().initializeIAP();
+
     return () => {
       subscription.remove();
+      usePurchaseStore.getState().cleanupIAP();
     };
   }, []);
 
