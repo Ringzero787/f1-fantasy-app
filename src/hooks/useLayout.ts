@@ -4,7 +4,7 @@ export const SIDE_RAIL_WIDTH = 72;
 
 export function useLayout() {
   const { width, height } = useWindowDimensions();
-  const isTablet = Math.min(width, height) >= 600;
+  const isTablet = Math.min(width, height) >= 500;
   const isLandscape = isTablet && width > height;
   const numColumns = isLandscape ? 2 : 1;
   const contentWidth = isLandscape ? width - SIDE_RAIL_WIDTH : width;
