@@ -478,7 +478,7 @@ export default function HomeScreen() {
           <Loading />
         ) : upcomingRaces && upcomingRaces.length > 0 ? (
           <>
-            {(racesExpanded ? upcomingRaces : upcomingRaces.slice(0, 3)).map((race, index) => (
+            {(racesExpanded ? upcomingRaces : upcomingRaces.slice(0, 1)).map((race, index) => (
               <View key={race.id} style={index > 0 ? { marginTop: SPACING.sm } : undefined}>
                 <RaceCard
                   race={race}
@@ -487,7 +487,7 @@ export default function HomeScreen() {
                 />
               </View>
             ))}
-            {upcomingRaces.length > 3 && (
+            {upcomingRaces.length > 1 && (
               <TouchableOpacity
                 style={[styles.expandTeamsButton, { backgroundColor: theme.card, borderColor: COLORS.border.default }]}
                 onPress={() => {
@@ -502,7 +502,7 @@ export default function HomeScreen() {
                   color={theme.primary}
                 />
                 <Text style={[styles.expandTeamsText, { color: theme.primary }]}>
-                  {racesExpanded ? 'Show less' : `${upcomingRaces.length - 3} more race${upcomingRaces.length - 3 > 1 ? 's' : ''}`}
+                  {racesExpanded ? 'Show less' : `${upcomingRaces.length - 1} more race${upcomingRaces.length - 1 > 1 ? 's' : ''}`}
                 </Text>
               </TouchableOpacity>
             )}
