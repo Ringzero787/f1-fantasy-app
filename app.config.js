@@ -8,10 +8,11 @@ module.exports = {
     scheme: "theundercut",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
-    updates: {
-      url: "https://u.expo.dev/e79dd8e5-5f63-40f9-a153-87c5225a2516"
-    },
-    runtimeVersion: "1.0.0",
+    // updates temporarily disabled to bypass ErrorRecovery crash loop on iOS
+    // updates: {
+    //   url: "https://u.expo.dev/e79dd8e5-5f63-40f9-a153-87c5225a2516"
+    // },
+    // runtimeVersion: "1.0.0",
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
@@ -23,7 +24,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "7",
+      buildNumber: "8",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -36,7 +37,7 @@ module.exports = {
         backgroundColor: "#0D1117"
       },
       package: "com.undercut.app",
-      versionCode: 13,
+      versionCode: 14,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",
@@ -52,7 +53,6 @@ module.exports = {
       ["expo-build-properties", {
         ios: {
           useFrameworks: "static",
-          newArchEnabled: false,
         },
         android: {
           targetSdkVersion: 35,
