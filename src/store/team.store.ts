@@ -1850,86 +1850,10 @@ export const useTeamStore = create<TeamState>()(
         };
       });
 
-      // V5: Contract expiry - remove drivers whose racesHeld >= contractLength
-      let budgetReturn = 0;
-      let aceId = team.aceDriverId;
-      const expiredDriverIds: string[] = [];
-      // Copy existing lockouts (will add new ones for expired drivers)
-      const updatedLockouts: Record<string, number> = { ...(team.driverLockouts || {}) };
-      // V7: Bank departing driver points
-      let lockedPoints = team.lockedPoints || 0;
-
-      updatedDrivers = updatedDrivers.filter(driver => {
-        const contractLen = driver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-        if (driver.racesHeld >= contractLen) {
-          // Contract expired - sell at current market value (minus commission)
-          budgetReturn += calculateSaleValue(driver.currentPrice);
-          expiredDriverIds.push(driver.driverId);
-          // V7: Bank departing driver's points before removal
-          lockedPoints += driverPoints[driver.driverId] || 0;
-          // V5: Add lockout for this driver (locked until completedRaceCount + LOCKOUT_RACES)
-          updatedLockouts[driver.driverId] = completedRaceCount + PRICING_CONFIG.CONTRACT_LOCKOUT_RACES;
-          // Clear ace if expired driver was ace
-          if (aceId === driver.driverId) {
-            aceId = undefined;
-          }
-          return false; // Remove from team
-        }
-        return true;
-      });
-
-      // V5: Prune expired lockouts (no longer needed once completedRaceCount >= expiresAt)
-      Object.entries(updatedLockouts).forEach(([dId, expiresAt]) => {
-        if (completedRaceCount >= expiresAt) {
-          delete updatedLockouts[dId];
-        }
-      });
-
-      // V5: Auto-fill empty slots with cheapest available drivers
-      let autoFillBudget = team.budget + budgetReturn;
-      const teamDriverIds = new Set(updatedDrivers.map(d => d.driverId));
-
-      // Only auto-fill teams that previously had drivers (skip brand-new empty teams being built)
-      const hadDriversBefore = team.drivers.length > 0 || (team.lockedPoints || 0) > 0 || team.totalSpent > 0;
-      // Only auto-fill after all lockouts have cleared AND exclude drivers that just expired this pass
-      const expiredSet = new Set(expiredDriverIds);
-      if (updatedDrivers.length < TEAM_SIZE && Object.keys(updatedLockouts).length === 0 && hadDriversBefore) {
-        // Find cheapest available drivers not on the team, not locked out, and not just expired
-        const availableForAutoFill = demoDrivers
-          .filter(d => d.isActive && !teamDriverIds.has(d.id) && !expiredSet.has(d.id) && !isDriverLockedOut(updatedLockouts, d.id, completedRaceCount))
-          .map(d => {
-            const priceUpdate = driverPrices[d.id];
-            return { ...d, marketPrice: priceUpdate?.currentPrice ?? d.price };
-          })
-          .sort((a, b) => a.marketPrice - b.marketPrice);
-
-        for (const candidate of availableForAutoFill) {
-          if (updatedDrivers.length >= TEAM_SIZE) break;
-          if (candidate.marketPrice > autoFillBudget) break;
-
-          const reserveDriver: FantasyDriver = {
-            driverId: candidate.id,
-            name: candidate.name,
-            shortName: candidate.shortName,
-            constructorId: candidate.constructorId,
-            purchasePrice: candidate.marketPrice,
-            currentPrice: candidate.marketPrice,
-            pointsScored: 0,
-            racesHeld: 0,
-            contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
-            isReservePick: true,
-            addedAtRace: completedRaceCount,
-          };
-          updatedDrivers.push(reserveDriver);
-          teamDriverIds.add(candidate.id);
-          autoFillBudget -= candidate.marketPrice;
-        }
-      }
-
       // Update constructor points, sync current price, and update racesHeld
-      // V8: Use constructor's own addedAtRace for accurate racesHeld calculation
+      // Use constructor's own addedAtRace for accurate racesHeld calculation
       // If addedAtRace is missing (legacy data), treat as added now to prevent premature expiry
-      let updatedConstructor = team.constructor ? (() => {
+      const updatedConstructor = team.constructor ? (() => {
         const cAddedAt = team.constructor!.addedAtRace ?? completedRaceCount;
         const cRacesHeld = Math.max(0, completedRaceCount - cAddedAt);
         return {
@@ -1941,59 +1865,9 @@ export const useTeamStore = create<TeamState>()(
         };
       })() : null;
 
-      // V8: Constructor contract expiry - auto-sell if racesHeld >= contractLength
+      // Auto-clear ace if price exceeded threshold (display consistency)
+      let aceId = team.aceDriverId;
       let aceConstructorId = team.aceConstructorId;
-      const expiredConstructorId = updatedConstructor?.constructorId;
-      if (updatedConstructor) {
-        const cContractLen = updatedConstructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-        if (updatedConstructor.racesHeld >= cContractLen) {
-          // Contract expired - sell at current market value and bank points
-          const constructorSaleValue = calculateSaleValue(updatedConstructor.currentPrice);
-          budgetReturn += constructorSaleValue;
-          autoFillBudget += constructorSaleValue;
-          lockedPoints += constructorPoints;
-          // Clear ace if expired constructor was ace
-          if (aceConstructorId === updatedConstructor.constructorId) {
-            aceConstructorId = undefined;
-          }
-          updatedConstructor = null;
-        }
-      }
-
-      // V9: Auto-fill empty constructor slot with cheapest available constructor
-      if (!updatedConstructor && hadDriversBefore) {
-        const availableConstructors = demoConstructors
-          .filter(c => c.isActive && c.id !== expiredConstructorId)
-          .map(c => {
-            const cPriceUpdate = constructorPrices[c.id];
-            return { ...c, marketPrice: cPriceUpdate?.currentPrice ?? c.price };
-          })
-          .sort((a, b) => a.marketPrice - b.marketPrice);
-
-        for (const candidate of availableConstructors) {
-          if (candidate.marketPrice > autoFillBudget) break;
-
-          updatedConstructor = {
-            constructorId: candidate.id,
-            name: candidate.name,
-            purchasePrice: candidate.marketPrice,
-            currentPrice: candidate.marketPrice,
-            pointsScored: 0,
-            racesHeld: 0,
-            contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
-            isReservePick: true,
-            addedAtRace: completedRaceCount,
-          };
-          autoFillBudget -= candidate.marketPrice;
-          break; // Only need one constructor
-        }
-      }
-
-      // Recalculate budget: original budget + all sale returns - all auto-fill costs
-      const totalAutoFillCost = team.budget + budgetReturn - autoFillBudget;
-      const newBudget = team.budget + budgetReturn - totalAutoFillCost;
-
-      // Auto-clear ace if price exceeded threshold
       if (aceId) {
         const aceDriver = updatedDrivers.find(d => d.driverId === aceId);
         if (aceDriver && aceDriver.currentPrice > PRICING_CONFIG.ACE_MAX_PRICE) {
@@ -2013,11 +1887,8 @@ export const useTeamStore = create<TeamState>()(
         drivers: updatedDrivers,
         constructor: updatedConstructor,
         totalPoints,
-        budget: newBudget,
         aceDriverId: aceId,
         aceConstructorId,
-        driverLockouts: Object.keys(updatedLockouts).length > 0 ? updatedLockouts : undefined,
-        lockedPoints: lockedPoints > 0 ? lockedPoints : undefined,
         racesPlayed: perRacePoints.length,
         pointsHistory: perRacePoints.map(r => r.points),
         updatedAt: new Date(),

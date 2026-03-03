@@ -45,6 +45,11 @@ const DIMINISH_MIN_FACTOR = 0.25;
 const DNF_PRICE_PENALTY_MAX = 24;
 const DNF_PRICE_PENALTY_MIN = 2;
 
+// Contract system
+const CONTRACT_LENGTH_DEFAULT = 3;
+const CONTRACT_LOCKOUT_RACES = 1;
+const TEAM_SIZE = 5;
+
 // Firestore batch limit
 const BATCH_OP_LIMIT = 499;
 
@@ -74,6 +79,9 @@ interface FantasyDriver {
   pointsScored: number;
   racesHeld: number;
   purchasedAtRaceId?: string;
+  contractLength?: number;
+  isReservePick?: boolean;
+  addedAtRace?: number;
 }
 
 interface FantasyConstructor {
@@ -83,6 +91,9 @@ interface FantasyConstructor {
   currentPrice: number;
   pointsScored: number;
   racesHeld: number;
+  contractLength?: number;
+  isReservePick?: boolean;
+  addedAtRace?: number;
 }
 
 interface FantasyTeam {
@@ -104,6 +115,9 @@ interface FantasyTeam {
   aceConstructorId?: string;
   lastTransferRaceId?: string;
   racesSinceTransfer: number;
+  driverLockouts?: Record<string, number>;
+  lockedPoints?: number;
+  totalSpent?: number;
 }
 
 type PerformanceTier = 'great' | 'good' | 'poor' | 'terrible';
@@ -570,6 +584,211 @@ export const onRaceCompleted = functions
 
     await commitInBatches(teamPriceOps);
     console.log(`[Phase 3] Updated prices for ${freshTeamsSnap.size} teams`);
+
+    // ─── PHASE 3.5: Contract expiry + auto-fill ───
+    console.log(`[Phase 3.5] Processing contract expiry and auto-fill`);
+
+    const completedRacesSnap = await db.collection('races').where('status', '==', 'completed').get();
+    const completedRaceCount = completedRacesSnap.size;
+
+    // Re-read teams again (fresh after Phase 3 price updates)
+    const contractTeamsSnap = await db.collection('fantasyTeams').get();
+    const contractOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+
+    // Build driver/constructor maps for auto-fill candidates
+    const allDriversSnap = await db.collection('drivers').where('isActive', '==', true).get();
+    const allDriversList: Array<{ id: string; name: string; shortName: string; constructorId: string; price: number }> = [];
+    for (const d of allDriversSnap.docs) {
+      const data = d.data();
+      allDriversList.push({
+        id: d.id,
+        name: data.name || '',
+        shortName: data.shortName || '',
+        constructorId: data.constructorId || '',
+        price: data.price || 0,
+      });
+    }
+    allDriversList.sort((a, b) => a.price - b.price);
+
+    const allCtorsSnap = await db.collection('constructors').where('isActive', '==', true).get();
+    const allCtorsList: Array<{ id: string; name: string; price: number }> = [];
+    for (const c of allCtorsSnap.docs) {
+      const data = c.data();
+      allCtorsList.push({ id: c.id, name: data.name || '', price: data.price || 0 });
+    }
+    allCtorsList.sort((a, b) => a.price - b.price);
+
+    let totalExpiredDrivers = 0;
+    let totalExpiredConstructors = 0;
+    let totalAutoFilled = 0;
+
+    for (const teamDoc of contractTeamsSnap.docs) {
+      const team = teamDoc.data() as FantasyTeam & Record<string, unknown>;
+      let drivers = [...(team.drivers || [])] as FantasyDriver[];
+      let teamCtor = (team['constructor'] as FantasyConstructor | null);
+      let budget = (team.budget as number) ?? 0;
+      let aceDriverId = team.aceDriverId;
+      let aceConstructorId = team.aceConstructorId;
+      let lockedPoints = team.lockedPoints || 0;
+      const lockouts: Record<string, number> = { ...(team.driverLockouts || {}) };
+
+      let saleReturns = 0;
+      let autoFillCosts = 0;
+      const expiredDriverIds: string[] = [];
+      let constructorExpired = false;
+
+      // (a) Driver contract expiry
+      const remainingDrivers: FantasyDriver[] = [];
+      for (const driver of drivers) {
+        const contractLen = driver.contractLength || CONTRACT_LENGTH_DEFAULT;
+        if (driver.racesHeld >= contractLen) {
+          // Expired: sell at current price, bank points, add lockout
+          saleReturns += driver.currentPrice; // SALE_COMMISSION_RATE is 0
+          lockedPoints += driver.pointsScored;
+          lockouts[driver.driverId] = completedRaceCount + CONTRACT_LOCKOUT_RACES;
+          expiredDriverIds.push(driver.driverId);
+          if (aceDriverId === driver.driverId) aceDriverId = undefined;
+          totalExpiredDrivers++;
+        } else {
+          remainingDrivers.push(driver);
+        }
+      }
+      drivers = remainingDrivers;
+
+      // (b) Constructor contract expiry
+      let expiredConstructorId: string | undefined;
+      if (teamCtor) {
+        const cContractLen = teamCtor.contractLength || CONTRACT_LENGTH_DEFAULT;
+        if (teamCtor.racesHeld >= cContractLen) {
+          saleReturns += teamCtor.currentPrice;
+          lockedPoints += teamCtor.pointsScored;
+          expiredConstructorId = teamCtor.constructorId;
+          if (aceConstructorId === teamCtor.constructorId) aceConstructorId = undefined;
+          teamCtor = null;
+          constructorExpired = true;
+          totalExpiredConstructors++;
+        }
+      }
+
+      // Skip if nothing expired
+      if (expiredDriverIds.length === 0 && !constructorExpired) {
+        // Still prune expired lockouts even if no new expirations
+        let lockoutsChanged = false;
+        for (const [dId, expiresAt] of Object.entries(lockouts)) {
+          if (completedRaceCount >= expiresAt) {
+            delete lockouts[dId];
+            lockoutsChanged = true;
+          }
+        }
+        if (lockoutsChanged) {
+          contractOps.push({
+            ref: teamDoc.ref,
+            data: {
+              driverLockouts: Object.keys(lockouts).length > 0 ? lockouts : admin.firestore.FieldValue.delete(),
+            },
+          });
+        }
+        continue;
+      }
+
+      // (c) Prune expired lockouts
+      for (const [dId, expiresAt] of Object.entries(lockouts)) {
+        if (completedRaceCount >= expiresAt) {
+          delete lockouts[dId];
+        }
+      }
+
+      // (d) Auto-fill drivers (only if drivers expired this pass)
+      if (expiredDriverIds.length > 0) {
+        const teamDriverIds = new Set(drivers.map(d => d.driverId));
+        const expiredSet = new Set(expiredDriverIds);
+        let fillBudget = budget + saleReturns - autoFillCosts;
+
+        for (const candidate of allDriversList) {
+          if (drivers.length >= TEAM_SIZE) break;
+          if (candidate.price > fillBudget) break;
+          if (teamDriverIds.has(candidate.id)) continue;
+          if (expiredSet.has(candidate.id)) continue;
+          // Check lockout
+          const lockExpiry = lockouts[candidate.id];
+          if (lockExpiry !== undefined && completedRaceCount < lockExpiry) continue;
+
+          drivers.push({
+            driverId: candidate.id,
+            name: candidate.name,
+            shortName: candidate.shortName,
+            constructorId: candidate.constructorId,
+            purchasePrice: candidate.price,
+            currentPrice: candidate.price,
+            pointsScored: 0,
+            racesHeld: 0,
+            contractLength: CONTRACT_LENGTH_DEFAULT,
+            isReservePick: true,
+            addedAtRace: completedRaceCount,
+          });
+          teamDriverIds.add(candidate.id);
+          autoFillCosts += candidate.price;
+          fillBudget -= candidate.price;
+          totalAutoFilled++;
+        }
+      }
+
+      // (e) Auto-fill constructor (only if constructor expired this pass)
+      if (constructorExpired) {
+        let fillBudget = budget + saleReturns - autoFillCosts;
+        for (const candidate of allCtorsList) {
+          if (candidate.price > fillBudget) break;
+          if (candidate.id === expiredConstructorId) continue;
+
+          teamCtor = {
+            constructorId: candidate.id,
+            name: candidate.name,
+            purchasePrice: candidate.price,
+            currentPrice: candidate.price,
+            pointsScored: 0,
+            racesHeld: 0,
+            contractLength: CONTRACT_LENGTH_DEFAULT,
+            isReservePick: true,
+            addedAtRace: completedRaceCount,
+          };
+          autoFillCosts += candidate.price;
+          totalAutoFilled++;
+          break;
+        }
+      }
+
+      // (f) Budget = original budget + sale returns - auto-fill costs
+      const newBudget = budget + saleReturns - autoFillCosts;
+
+      // (g) Ace auto-clear if price > $200
+      if (aceDriverId) {
+        const aceDriver = drivers.find(d => d.driverId === aceDriverId);
+        if (aceDriver && aceDriver.currentPrice > ACE_MAX_PRICE) {
+          aceDriverId = undefined;
+        }
+      }
+      if (aceConstructorId && teamCtor) {
+        if (teamCtor.currentPrice > ACE_MAX_PRICE) {
+          aceConstructorId = undefined;
+        }
+      }
+
+      contractOps.push({
+        ref: teamDoc.ref,
+        data: {
+          drivers,
+          constructor: teamCtor,
+          budget: Math.round(newBudget),
+          aceDriverId: aceDriverId ?? admin.firestore.FieldValue.delete(),
+          aceConstructorId: aceConstructorId ?? admin.firestore.FieldValue.delete(),
+          driverLockouts: Object.keys(lockouts).length > 0 ? lockouts : admin.firestore.FieldValue.delete(),
+          lockedPoints: lockedPoints > 0 ? lockedPoints : admin.firestore.FieldValue.delete(),
+        },
+      });
+    }
+
+    await commitInBatches(contractOps);
+    console.log(`[Phase 3.5] Expired ${totalExpiredDrivers} drivers, ${totalExpiredConstructors} constructors, auto-filled ${totalAutoFilled} slots`);
 
     // ─── PHASE 4: Update league rankings ───
     console.log(`[Phase 4] Updating league rankings`);
