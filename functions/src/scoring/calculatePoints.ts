@@ -9,6 +9,7 @@ const RACE_POINTS = [45, 37, 33, 29, 26, 23, 20, 17, 14, 12, 10, 9, 8, 7, 6, 5, 
 const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1];
 const FASTEST_LAP_BONUS = 1;
 const POSITION_GAINED_BONUS = 1;
+const GRID_SIZE = 22;
 
 // Lock bonus tiers
 const LOCK_BONUS = {
@@ -171,6 +172,10 @@ function calculateDriverPoints(
     }
     if (result.fastestLap && result.position <= 10) {
       racePoints += FASTEST_LAP_BONUS;
+    }
+    // Position bonus: all classified finishers P1-P22 get reverse-grid points
+    if (result.position >= 1 && result.position <= GRID_SIZE) {
+      racePoints += GRID_SIZE + 1 - result.position;
     }
   } else if (result.status === 'dnf') {
     racePoints = -5;
@@ -357,8 +362,14 @@ export const onRaceCompleted = functions
           (r) => r.constructorId === ctor.constructorId
         );
         for (const result of constructorDriverResults) {
-          if (result.status === 'finished' && result.position <= RACE_POINTS.length) {
-            constructorPoints += RACE_POINTS[result.position - 1];
+          if (result.status === 'finished') {
+            if (result.position <= RACE_POINTS.length) {
+              constructorPoints += RACE_POINTS[result.position - 1];
+            }
+            // Position bonus for each constructor driver
+            if (result.position >= 1 && result.position <= GRID_SIZE) {
+              constructorPoints += GRID_SIZE + 1 - result.position;
+            }
           }
         }
         constructorPoints += calculateLockBonus(ctor.racesHeld);
@@ -424,11 +435,17 @@ export const onRaceCompleted = functions
 
     for (const result of raceResults) {
       let points = 0;
-      if (result.status === 'finished' && result.position <= PRICING_RACE_POINTS.length) {
-        points = PRICING_RACE_POINTS[result.position - 1];
+      if (result.status === 'finished') {
+        if (result.position <= PRICING_RACE_POINTS.length) {
+          points = PRICING_RACE_POINTS[result.position - 1];
+        }
         const positionsGained = result.gridPosition - result.position;
         if (positionsGained > 0) points += positionsGained;
         if (result.fastestLap && result.position <= 10) points += 1;
+        // Position bonus for pricing
+        if (result.position >= 1 && result.position <= GRID_SIZE) {
+          points += GRID_SIZE + 1 - result.position;
+        }
       } else if (result.status === 'dnf' && totalLaps > 0) {
         const dnfLap = result.laps || 1;
         const dnfPenalty = calculateDnfPricePenalty(dnfLap, totalLaps);
