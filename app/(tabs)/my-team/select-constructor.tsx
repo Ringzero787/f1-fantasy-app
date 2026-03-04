@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET } from '../../../src/conf
 import { useTheme } from '../../../src/hooks/useTheme';
 import { useLayout } from '../../../src/hooks/useLayout';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
-import { TEAM_COLORS } from '../../../src/config/constants';
 import type { Constructor, FantasyConstructor, FantasyTeam } from '../../../src/types';
 
 export default function SelectConstructorScreen() {
@@ -42,14 +41,16 @@ export default function SelectConstructorScreen() {
     return Math.max(0, c.currentPrice - earlyTermFee);
   }, [currentTeam?.constructor]);
 
+  const currentConstructorId = currentTeam?.constructor?.constructorId;
   const remainingBudget = (currentTeam?.budget ?? BUDGET) + currentConstructorSaleValue;
 
-  const availableConstructors = useMemo(() => {
+  // All constructors in one list: current on-team shown inline
+  const displayConstructors = useMemo(() => {
     if (!allConstructors) return [];
-    const currentId = currentTeam?.constructor?.constructorId;
-    return allConstructors
-      .filter((c) => c.id !== currentId)
-      // Sort affordable first (by price desc), then unaffordable (by price desc)
+    // Current constructor first, then rest sorted by affordability + price
+    const onTeam = allConstructors.filter(c => c.id === currentConstructorId);
+    const rest = allConstructors
+      .filter(c => c.id !== currentConstructorId)
       .sort((a, b) => {
         const aAffordable = a.price <= remainingBudget;
         const bAffordable = b.price <= remainingBudget;
@@ -57,11 +58,12 @@ export default function SelectConstructorScreen() {
         if (!aAffordable && bAffordable) return 1;
         return b.price - a.price;
       });
-  }, [allConstructors, remainingBudget, currentTeam?.constructor?.constructorId]);
+    return [...onTeam, ...rest];
+  }, [allConstructors, remainingBudget, currentConstructorId]);
 
   const affordableCount = useMemo(() =>
-    availableConstructors.filter(c => c.price <= remainingBudget).length,
-    [availableConstructors, remainingBudget]
+    displayConstructors.filter(c => c.id !== currentConstructorId && c.price <= remainingBudget).length,
+    [displayConstructors, remainingBudget, currentConstructorId]
   );
 
   const handleSelectConstructor = (item: Constructor) => {
@@ -145,31 +147,8 @@ export default function SelectConstructorScreen() {
         </Text>
       </View>
 
-      {/* Current Team */}
-      {currentTeam && currentTeam.drivers.length > 0 && (
-        <View style={styles.currentTeamSection}>
-          <Text style={styles.currentTeamLabel}>On Your Team</Text>
-          <View style={styles.currentTeamRow}>
-            {currentTeam.constructor && (
-              <View style={[styles.currentTeamChip, { borderColor: TEAM_COLORS[currentTeam.constructor.constructorId]?.primary || '#4B5563' }]}>
-                <View style={[styles.currentTeamDot, { backgroundColor: TEAM_COLORS[currentTeam.constructor.constructorId]?.primary || '#4B5563' }]} />
-                <Text style={styles.currentTeamName}>{currentTeam.constructor.name}</Text>
-                <Text style={styles.currentTeamPrice}>${currentTeam.constructor.currentPrice}</Text>
-              </View>
-            )}
-            {currentTeam.drivers.map((d) => (
-              <View key={d.driverId} style={[styles.currentTeamChip, { borderColor: TEAM_COLORS[d.constructorId]?.primary || '#4B5563' }]}>
-                <View style={[styles.currentTeamDot, { backgroundColor: TEAM_COLORS[d.constructorId]?.primary || '#4B5563' }]} />
-                <Text style={styles.currentTeamName}>{d.shortName || d.name}</Text>
-                <Text style={styles.currentTeamPrice}>${d.currentPrice}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
       {/* No budget warning */}
-      {affordableCount === 0 && availableConstructors.length > 0 && (
+      {affordableCount === 0 && displayConstructors.length > 0 && (
         <View style={styles.noBudgetBanner}>
           <Ionicons name="wallet-outline" size={16} color={COLORS.warning} />
           <Text style={styles.noBudgetText}>
@@ -178,22 +157,28 @@ export default function SelectConstructorScreen() {
         </View>
       )}
 
-      {/* Constructor List */}
+      {/* Single constructor list — everything inline */}
       <FlatList
         key={`constructors-${numColumns}`}
-        data={availableConstructors}
+        data={displayConstructors}
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
         renderItem={({ item }) => {
+          const isOnTeam = item.id === currentConstructorId;
           const isAffordable = item.price <= remainingBudget;
           return (
-            <View style={[styles.constructorItem, !isAffordable && styles.unaffordableItem, numColumns > 1 && { flex: 1 }]}>
+            <View style={[
+              styles.constructorItem,
+              !isAffordable && !isOnTeam && styles.unaffordableItem,
+              numColumns > 1 && { flex: 1 },
+            ]}>
               <ConstructorCard
                 constructorData={item}
                 showPrice
                 showPoints
-                onSelect={isAffordable ? () => handleSelectConstructor(item) : undefined}
+                isOnTeam={isOnTeam}
+                onSelect={!isOnTeam && isAffordable ? () => handleSelectConstructor(item) : undefined}
               />
             </View>
           );
@@ -285,47 +270,6 @@ const styles = StyleSheet.create({
     color: COLORS.text.muted,
   },
 
-  currentTeamSection: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  currentTeamLabel: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: SPACING.sm,
-  },
-  currentTeamRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
-  },
-  currentTeamChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: BORDER_RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-  },
-  currentTeamDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  currentTeamName: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-  currentTeamPrice: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
-  },
-
   constructorItem: {
     marginHorizontal: SPACING.md,
   },
@@ -387,7 +331,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.muted,
   },
 
-  // Contract length picker (mirrors select-driver.tsx)
+  // Contract length picker
   contractOverlay: {
     position: 'absolute',
     bottom: 0,

@@ -83,10 +83,17 @@ export const ConstructorCard = React.memo(function ConstructorCard({
       ]}
       onPress={onPress || onSelect}
     >
+      {/* On-team banner */}
+      {isOnTeam && !isSelected && (
+        <View style={styles.onTeamBanner}>
+          <Ionicons name="checkmark-circle" size={12} color={COLORS.white} />
+          <Text style={styles.onTeamBannerText}>{teamName || 'ON YOUR TEAM'}</Text>
+        </View>
+      )}
       {/* Team color accent bar */}
       <View style={[styles.teamColorBar, { backgroundColor: constructor.primaryColor }]} />
 
-      <View style={styles.content}>
+      <View style={[styles.content, isOnTeam && !isSelected && { paddingTop: SPACING.md + 4 }]}>
         {/* Main row: badge + name left, stats right */}
         <View style={styles.mainRow}>
           {/* Team color badge */}
@@ -181,7 +188,7 @@ export const ConstructorCard = React.memo(function ConstructorCard({
           <View style={[styles.constructorBadge, { backgroundColor: theme.surface }]}>
             <Text style={styles.constructorBadgeText}>Constructor</Text>
           </View>
-          {isOnTeam && (
+          {false && isOnTeam && (
             <View style={styles.onTeamBadge}>
               <Text style={styles.onTeamText} numberOfLines={1}>{teamName || 'ON TEAM'}</Text>
             </View>
@@ -429,7 +436,32 @@ const styles = StyleSheet.create({
   },
 
   onTeamContainer: {
-    borderColor: COLORS.success + '60',
+    opacity: 0.5,
+    borderColor: COLORS.success,
+    borderWidth: 1.5,
+  },
+
+  onTeamBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 3,
+    zIndex: 1,
+    borderTopLeftRadius: BORDER_RADIUS.md,
+    borderTopRightRadius: BORDER_RADIUS.md,
+  },
+
+  onTeamBannerText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.white,
+    letterSpacing: 0.8,
   },
 
   onTeamBadge: {

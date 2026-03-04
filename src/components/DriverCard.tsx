@@ -119,10 +119,17 @@ export const DriverCard = React.memo(function DriverCard({
       ]}
       onPress={onPress || onSelect}
     >
+      {/* On-team banner */}
+      {isOnTeam && !isSelected && (
+        <View style={styles.onTeamBanner}>
+          <Ionicons name="checkmark-circle" size={12} color={COLORS.white} />
+          <Text style={styles.onTeamBannerText}>{teamName || 'ON YOUR TEAM'}</Text>
+        </View>
+      )}
       {/* Team color accent */}
       <View style={[styles.teamColorBar, { backgroundColor: teamColor }]} />
 
-      <View style={styles.content}>
+      <View style={[styles.content, isOnTeam && !isSelected && { paddingTop: SPACING.md + 4 }]}>
         {/* Main row: number + info left, stats right */}
         <View style={styles.mainRow}>
           {/* Left: number badge + name */}
@@ -238,11 +245,6 @@ export const DriverCard = React.memo(function DriverCard({
             <View style={styles.fantasyBadge}>
               <Ionicons name="trophy-outline" size={10} color={theme.primary} />
               <TooltipText term={`${driver.fantasyPoints} FP`} definition={GLOSSARY.fp} style={[styles.fantasyText, { color: theme.primary }]} />
-            </View>
-          )}
-          {isOnTeam && (
-            <View style={styles.onTeamBadge}>
-              <Text style={styles.onTeamText} numberOfLines={1}>{teamName || 'ON TEAM'}</Text>
             </View>
           )}
           <Text style={styles.shortCode}>{driver.shortName}</Text>
@@ -512,22 +514,32 @@ const styles = StyleSheet.create({
   },
 
   onTeamContainer: {
-    borderColor: COLORS.success + '60',
+    opacity: 0.5,
+    borderColor: COLORS.success,
+    borderWidth: 1.5,
   },
 
-  onTeamBadge: {
-    backgroundColor: COLORS.success + '20',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.full,
-    maxWidth: 80,
+  onTeamBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 3,
+    zIndex: 1,
+    borderTopLeftRadius: BORDER_RADIUS.md,
+    borderTopRightRadius: BORDER_RADIUS.md,
   },
 
-  onTeamText: {
-    fontSize: 9,
+  onTeamBannerText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: COLORS.success,
-    letterSpacing: 0.5,
+    color: COLORS.white,
+    letterSpacing: 0.8,
   },
 
   // Compact (unchanged)

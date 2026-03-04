@@ -785,6 +785,17 @@ export default function MyTeamScreen() {
               )}
             </View>
           </TouchableOpacity>
+          {teamStats.leagueId && teamStats.leagueName && (
+            <TouchableOpacity
+              style={styles.teamLeagueBadge}
+              onPress={() => router.push(`/leagues/${teamStats.leagueId}`)}
+            >
+              <Ionicons name="trophy" size={12} color={COLORS.accent} />
+              <Text style={styles.teamLeagueBadgeText} numberOfLines={1}>
+                {teamStats.leagueRank ? `#${teamStats.leagueRank} ` : ''}{teamStats.leagueName}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* V5: Lockout Banner */}
@@ -1316,7 +1327,24 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   teamNameContent: {
-    flex: 1,
+    flexShrink: 1,
+  },
+  teamLeagueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accent + '15',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
+    gap: 4,
+    maxWidth: 140,
+    marginLeft: 'auto',
+  },
+  teamLeagueBadgeText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.accent,
+    flexShrink: 1,
   },
   teamNameLine: {
     flexDirection: 'row',

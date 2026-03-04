@@ -1836,6 +1836,7 @@ export const useTeamStore = create<TeamState>()(
       // Update driver points, sync current prices, and update racesHeld
       let updatedDrivers: FantasyDriver[] = team.drivers.map(driver => {
         const priceUpdate = driverPrices[driver.driverId];
+        const basePrice = demoDrivers.find(d => d.id === driver.driverId)?.price;
         // racesHeld = completed races since this driver was added
         // If addedAtRace is missing (legacy data), treat as added now to prevent premature expiry
         const driverAddedAt = driver.addedAtRace ?? completedRaceCount;
@@ -1843,7 +1844,7 @@ export const useTeamStore = create<TeamState>()(
         return {
           ...driver,
           pointsScored: driverPoints[driver.driverId] || 0,
-          currentPrice: priceUpdate?.currentPrice ?? driver.currentPrice,
+          currentPrice: priceUpdate?.currentPrice ?? basePrice ?? driver.currentPrice,
           racesHeld: driverRacesHeld,
           // Backfill addedAtRace for legacy drivers so it persists
           addedAtRace: driver.addedAtRace ?? completedRaceCount,
@@ -1859,7 +1860,7 @@ export const useTeamStore = create<TeamState>()(
         return {
           ...team.constructor!,
           pointsScored: constructorPoints,
-          currentPrice: constructorPrices[team.constructor!.constructorId]?.currentPrice ?? team.constructor!.currentPrice,
+          currentPrice: constructorPrices[team.constructor!.constructorId]?.currentPrice ?? demoConstructors.find(c => c.id === team.constructor!.constructorId)?.price ?? team.constructor!.currentPrice,
           racesHeld: cRacesHeld,
           addedAtRace: team.constructor!.addedAtRace ?? completedRaceCount,
         };

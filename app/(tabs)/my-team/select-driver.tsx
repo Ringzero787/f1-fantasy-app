@@ -14,15 +14,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDrivers, useLockoutStatus } from '../../../src/hooks';
 import { useTeamStore, getLockedOutDriverIds, isDriverLockedOut, calculateEarlyTerminationFee } from '../../../src/store/team.store';
 import { useAdminStore } from '../../../src/store/admin.store';
-import { Loading, DriverCard, Button, SmartRecommendations } from '../../../src/components';
+import { Loading, DriverCard, Button } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, BUDGET, TEAM_SIZE, TEAM_COLORS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { PRICING_CONFIG } from '../../../src/config/pricing.config';
 import { useLayout } from '../../../src/hooks/useLayout';
 import type { Driver, FantasyDriver, FantasyTeam } from '../../../src/types';
-
-const CART_HORIZONTAL_PADDING = SPACING.md * 2;
-const SLOT_GAP = 6;
 
 export default function SelectDriverScreen() {
   const { swapDriverId, swapDriverPrice } = useLocalSearchParams<{
@@ -31,8 +28,7 @@ export default function SelectDriverScreen() {
   }>();
 
   const theme = useTheme();
-  const { contentWidth, numColumns } = useLayout();
-  const slotWidth = (contentWidth - CART_HORIZONTAL_PADDING - SLOT_GAP * 4) / 5;
+  const { numColumns } = useLayout();
   const { data: allDrivers, isLoading } = useDrivers();
   const currentTeam = useTeamStore(s => s.currentTeam);
   const lockoutInfo = useLockoutStatus();
@@ -168,23 +164,30 @@ export default function SelectDriverScreen() {
   const effectiveBudget = baseBudget - selectedTotal;
   const slotsLeft = maxSelectableDrivers - selectedDrivers.length;
 
-  const availableDrivers = useMemo(() => {
+  // All drivers in one list: on-team first, then available sorted by price
+  const displayDrivers = useMemo(() => {
     if (!allDrivers) return [];
 
-    return allDrivers
-      .filter((driver) => {
-        if (currentDriverIds.includes(driver.id)) return false;
-        if (selectedDrivers.some((d) => d.id === driver.id)) return false;
-        return true;
-      })
-      // Sort affordable first (by price desc), then unaffordable (by price desc)
+    const selectedIds = new Set(selectedDrivers.map(d => d.id));
+
+    // In swap mode, exclude the driver being swapped from on-team display
+    const onTeam = allDrivers.filter(d => currentDriverIds.includes(d.id));
+    const rest = allDrivers
+      .filter(d => !currentDriverIds.includes(d.id))
       .sort((a, b) => {
-        const aAffordable = a.price <= effectiveBudget;
-        const bAffordable = b.price <= effectiveBudget;
+        // Selected first, then affordable by price desc, then unaffordable
+        const aSelected = selectedIds.has(a.id);
+        const bSelected = selectedIds.has(b.id);
+        if (aSelected && !bSelected) return -1;
+        if (!aSelected && bSelected) return 1;
+        const aAffordable = a.price <= effectiveBudget || aSelected;
+        const bAffordable = b.price <= effectiveBudget || bSelected;
         if (aAffordable && !bAffordable) return -1;
         if (!aAffordable && bAffordable) return 1;
         return b.price - a.price;
       });
+
+    return [...onTeam, ...rest];
   }, [allDrivers, currentDriverIds, selectedDrivers, effectiveBudget]);
 
   const handleToggleDriver = (driver: Driver) => {
@@ -225,12 +228,6 @@ export default function SelectDriverScreen() {
     setPendingDriver(null);
   };
 
-  const handleRemoveSelected = (driverId: string) => {
-    setSelectedDrivers(selectedDrivers.filter((d) => d.id !== driverId));
-    const { [driverId]: _, ...rest } = contractLengths;
-    setContractLengths(rest);
-  };
-
   const handleConfirm = () => {
     if (selectedDrivers.length === 0) return;
 
@@ -261,24 +258,11 @@ export default function SelectDriverScreen() {
     ? currentTeam?.drivers.find(d => d.driverId === swapDriverId)?.name
     : null;
 
-  // Build array of 5 slots for the cart (only used in non-swap mode)
-  const cartSlots: (Driver | null)[] = [];
-  for (let i = 0; i < maxSelectableDrivers; i++) {
-    cartSlots.push(selectedDrivers[i] || null);
-  }
+  const affordableCount = displayDrivers.filter(d =>
+    !currentDriverIds.includes(d.id) && d.price <= effectiveBudget
+  ).length;
 
-  const affordableCount = availableDrivers.filter(d => d.price <= effectiveBudget).length;
-
-  // Current team drivers with full data for display
-  const currentTeamDriversWithData = useMemo(() => {
-    if (!currentTeam?.drivers || !allDrivers) return [];
-    return currentTeam.drivers
-      .filter(d => d.driverId !== swapDriverId) // exclude the driver being swapped
-      .map(td => {
-        const fullDriver = allDrivers.find(d => d.id === td.driverId);
-        return { ...td, teamColor: fullDriver ? TEAM_COLORS[fullDriver.constructorId]?.primary : '#4B5563' };
-      });
-  }, [currentTeam?.drivers, allDrivers, swapDriverId]);
+  const selectedIds = new Set(selectedDrivers.map(d => d.id));
 
   const listHeader = (
     <>
@@ -292,42 +276,14 @@ export default function SelectDriverScreen() {
         </View>
       )}
 
-      {/* Current Team Roster */}
-      {currentTeamDriversWithData.length > 0 && (
-        <View style={styles.currentTeamSection}>
-          <Text style={styles.currentTeamLabel}>On Your Team</Text>
-          <View style={styles.currentTeamRow}>
-            {currentTeamDriversWithData.map((td) => (
-              <View key={td.driverId} style={[styles.currentTeamChip, { borderColor: td.teamColor }]}>
-                <View style={[styles.currentTeamDot, { backgroundColor: td.teamColor }]} />
-                <Text style={styles.currentTeamName} numberOfLines={1}>{td.shortName || td.name}</Text>
-                <Text style={styles.currentTeamPrice}>${td.currentPrice}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
       {/* No budget warning */}
-      {affordableCount === 0 && availableDrivers.length > 0 && (
+      {affordableCount === 0 && slotsLeft > 0 && displayDrivers.length > 0 && (
         <View style={styles.noBudgetBanner}>
           <Ionicons name="wallet-outline" size={16} color={COLORS.warning} />
           <Text style={styles.noBudgetText}>
             You can't afford any drivers with ${effectiveBudget} remaining
           </Text>
         </View>
-      )}
-
-      {/* Smart Recommendations */}
-      {allDrivers && slotsLeft > 0 && affordableCount > 0 && (
-        <SmartRecommendations
-          availableDrivers={allDrivers.filter(d => !lockedOutIds.has(d.id))}
-          selectedDrivers={selectedDrivers}
-          currentTeamDrivers={currentTeam?.drivers.map(d => ({ driverId: d.driverId })) || []}
-          budget={effectiveBudget}
-          slotsRemaining={slotsLeft}
-          onSelectDriver={handleToggleDriver}
-        />
       )}
     </>
   );
@@ -342,29 +298,35 @@ export default function SelectDriverScreen() {
         </Text>
       </View>
 
-      {/* Driver list with header */}
+      {/* Single driver list — everything inline */}
       <FlatList
         key={`select-drivers-${numColumns}`}
-        data={availableDrivers}
+        data={displayDrivers}
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
         ListHeaderComponent={listHeader}
         renderItem={({ item }) => {
+          const isOnTeam = currentDriverIds.includes(item.id);
+          const isSelected = selectedIds.has(item.id);
           const isLockedOut = lockedOutIds.has(item.id);
-          const isAffordable = item.price <= effectiveBudget;
-          const canSelect = !isLockedOut && isAffordable && selectedDrivers.length < maxSelectableDrivers;
+          const isAffordable = item.price <= effectiveBudget || isSelected;
+          const canSelect = !isOnTeam && !isLockedOut && isAffordable && (isSelected || slotsLeft > 0);
 
           return (
-            <View style={[styles.driverItem, (isLockedOut || !isAffordable) && styles.lockedOutItem, numColumns > 1 && { flex: 1 }]}>
+            <View style={[
+              styles.driverItem,
+              (isLockedOut || (!isAffordable && !isOnTeam)) && styles.lockedOutItem,
+              numColumns > 1 && { flex: 1 },
+            ]}>
               <DriverCard
                 driver={item}
-                compact
                 showPrice
                 showPoints
-                isSelected={false}
+                isSelected={isSelected}
+                isOnTeam={isOnTeam}
                 isTopTen={topTenDriverIds.has(item.id)}
-                onSelect={() => canSelect && handleToggleDriver(item)}
+                onSelect={canSelect ? () => handleToggleDriver(item) : undefined}
               />
               {isLockedOut && (
                 <View style={styles.lockedOutBadge}>
@@ -434,63 +396,17 @@ export default function SelectDriverScreen() {
         </View>
       )}
 
-      {/* Bottom Cart Panel (non-swap mode) */}
-      {!isSwapMode && !pendingDriver && (
-        <View style={[styles.cartPanel, { backgroundColor: theme.card }]}>
-          {/* Budget row */}
-          <View style={styles.cartBudgetRow}>
-            <Text style={styles.cartBudgetLabel}>
-              <Text style={styles.cartBudgetValue}>${effectiveBudget}</Text> remaining
-            </Text>
-            <Text style={styles.cartSlotsLeftText}>
-              {slotsLeft} slot{slotsLeft !== 1 ? 's' : ''} left
-            </Text>
-          </View>
-
-          {/* 5 mini slots */}
-          <View style={styles.cartSlotsRow}>
-            {cartSlots.map((driver, index) => {
-              if (driver) {
-                const teamColor = TEAM_COLORS[driver.constructorId]?.primary || '#4B5563';
-                const contractLen = contractLengths[driver.id] || PRICING_CONFIG.CONTRACT_LENGTH;
-                return (
-                  <TouchableOpacity
-                    key={driver.id}
-                    style={[styles.cartSlotFilled, { width: slotWidth, backgroundColor: theme.card }]}
-                    onPress={() => handleRemoveSelected(driver.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.cartSlotTeamStripe, { backgroundColor: teamColor }]} />
-                    <Text style={styles.cartSlotName} numberOfLines={1}>{driver.shortName}</Text>
-                    <Text style={styles.cartSlotPrice}>${driver.price}</Text>
-                    <Text style={[styles.cartSlotContract, { color: theme.primary }]}>{contractLen}R</Text>
-                    <View style={styles.cartSlotRemoveHint}>
-                      <Ionicons name="close" size={10} color={COLORS.text.muted} />
-                    </View>
-                  </TouchableOpacity>
-                );
-              }
-              return (
-                <View key={`empty-${index}`} style={[styles.cartSlotEmpty, { width: slotWidth, backgroundColor: theme.surface }]}>
-                  <Ionicons name="add" size={18} color={COLORS.text.muted} />
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Confirm button */}
-          {selectedDrivers.length > 0 && (
-            <View style={styles.cartConfirmRow}>
-              <Button
-                title={`Add ${selectedDrivers.length} Driver${selectedDrivers.length > 1 ? 's' : ''}`}
-                onPress={handleConfirm}
-              />
-            </View>
-          )}
+      {/* Sticky Confirm Button (non-swap mode) */}
+      {!isSwapMode && selectedDrivers.length > 0 && !pendingDriver && (
+        <View style={[styles.stickyConfirm, { backgroundColor: theme.card }]}>
+          <Button
+            title={`Add ${selectedDrivers.length} Driver${selectedDrivers.length > 1 ? 's' : ''}`}
+            onPress={handleConfirm}
+          />
         </View>
       )}
 
-      {/* Swap mode confirm (original behavior) */}
+      {/* Swap mode confirm */}
       {isSwapMode && selectedDrivers.length > 0 && !pendingDriver && (
         <View style={[styles.confirmContainer, { backgroundColor: theme.card }]}>
           <View style={styles.selectedInfo}>
@@ -574,48 +490,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  currentTeamSection: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    marginBottom: SPACING.xs,
-  },
-  currentTeamLabel: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: SPACING.sm,
-  },
-  currentTeamRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
-  },
-  currentTeamChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: BORDER_RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-  },
-  currentTeamDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  currentTeamName: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-  currentTeamPrice: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
-  },
-
   driverItem: {
     marginHorizontal: SPACING.md,
   },
@@ -641,7 +515,7 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingBottom: 200,
+    paddingBottom: 80,
   },
 
   lockedContainer: {
@@ -675,115 +549,16 @@ const styles = StyleSheet.create({
     color: COLORS.text.muted,
   },
 
-  // ==============================
-  // Bottom Cart Panel
-  // ==============================
-  cartPanel: {
+  stickyConfirm: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    padding: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border.default,
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.md,
   },
 
-  cartBudgetRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-
-  cartBudgetLabel: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.muted,
-  },
-
-  cartBudgetValue: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '700',
-    color: COLORS.success,
-  },
-
-  cartSlotsLeftText: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.muted,
-  },
-
-  cartSlotsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: SLOT_GAP,
-  },
-
-  cartSlotFilled: {
-    height: 58,
-    borderRadius: BORDER_RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 5,
-    paddingHorizontal: 2,
-    overflow: 'hidden',
-  },
-
-  cartSlotTeamStripe: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    borderTopLeftRadius: BORDER_RADIUS.sm,
-    borderTopRightRadius: BORDER_RADIUS.sm,
-  },
-
-  cartSlotName: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-    textAlign: 'center',
-  },
-
-  cartSlotPrice: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.text.muted,
-    marginTop: 1,
-  },
-
-  cartSlotContract: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.primary,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-
-  cartSlotRemoveHint: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-  },
-
-  cartSlotEmpty: {
-    height: 58,
-    borderRadius: BORDER_RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  cartConfirmRow: {
-    marginTop: SPACING.sm,
-  },
-
-  // ==============================
-  // Swap mode confirm (kept for swap)
-  // ==============================
   confirmContainer: {
     position: 'absolute',
     bottom: 0,
