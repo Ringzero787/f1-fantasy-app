@@ -26,7 +26,8 @@ import { useChatStore } from '../store/chat.store';
 import { raceService } from '../services/race.service';
 import { openF1Service } from '../services/openf1.service';
 import { useAutoSyncOpenF1 } from '../hooks';
-import { functions, httpsCallable } from '../config/firebase';
+import { functions, httpsCallable, db } from '../config/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { RaceResults, RaceResult as CloudRaceResult, SprintResult as CloudSprintResult } from '../types';
 
 // Filter to only active drivers (should be 22 for full grid)
@@ -148,13 +149,76 @@ export default function AdminContent() {
   const [unreviewedCount, setUnreviewedCount] = useState(0);
   const [draftArticleCount, setDraftArticleCount] = useState(0);
   const chatTotalUnread = useChatStore((s) => s.totalUnread);
+  const [pendingResults, setPendingResults] = useState<Array<{
+    raceId: string;
+    raceName: string;
+    round: number;
+    warnings: string[];
+    results: { raceResults: any[]; sprintResults?: any[]; fastestLap?: string };
+    fetchedAt: any;
+  }>>([]);
+  const [isApprovingRace, setIsApprovingRace] = useState<string | null>(null);
+
+  const loadPendingResults = useCallback(async () => {
+    try {
+      const q = query(
+        collection(db, 'pendingResults'),
+        where('status', '==', 'pending'),
+      );
+      const snap = await getDocs(q);
+      const results = snap.docs.map(d => ({ ...d.data(), raceId: d.id } as any));
+      results.sort((a: any, b: any) => (a.round || 0) - (b.round || 0));
+      setPendingResults(results);
+    } catch (e) {
+      console.error('[Admin] Failed to load pending results:', e);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       errorLogService.getUnreviewedCount().then(setUnreviewedCount);
       articleService.getDraftCount().then(setDraftArticleCount);
-    }, [])
+      loadPendingResults();
+    }, [loadPendingResults])
   );
+
+  const handleApproveResults = async (raceId: string) => {
+    setIsApprovingRace(raceId);
+    try {
+      const approve = httpsCallable(functions, 'approveRaceResults');
+      await approve({ raceId });
+      Alert.alert('Approved', 'Race results approved and scoring triggered.');
+      loadPendingResults();
+    } catch (error: any) {
+      console.error('[Admin] Approve failed:', error);
+      Alert.alert('Error', error.message || 'Failed to approve results');
+    } finally {
+      setIsApprovingRace(null);
+    }
+  };
+
+  const handleRejectResults = async (raceId: string) => {
+    Alert.alert(
+      'Reject Results',
+      'Reject these results? The scheduler will re-fetch next cycle.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const reject = httpsCallable(functions, 'rejectRaceResults');
+              await reject({ raceId });
+              loadPendingResults();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to reject results');
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const selectedRace = selectedRaceId
     ? demoRaces.find(r => r.id === selectedRaceId)
@@ -1034,6 +1098,70 @@ export default function AdminContent() {
         </Text>
         <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
       </TouchableOpacity>
+
+      {/* Pending Results from OpenF1 */}
+      {pendingResults.length > 0 && (
+        <View style={[styles.pendingSection, { backgroundColor: theme.card }]}>
+          <View style={styles.pendingSectionHeader}>
+            <Ionicons name="hourglass-outline" size={18} color={COLORS.warning} />
+            <Text style={[styles.pendingSectionTitle, { color: theme.text }]}>
+              Pending Results ({pendingResults.length})
+            </Text>
+          </View>
+          {pendingResults.map(pr => (
+            <View key={pr.raceId} style={[styles.pendingCard, { borderColor: COLORS.border.default }]}>
+              <View style={styles.pendingCardHeader}>
+                <Text style={[styles.pendingRaceName, { color: theme.text }]}>
+                  R{pr.round} {pr.raceName}
+                </Text>
+                <Text style={styles.pendingDriverCount}>
+                  {pr.results.raceResults.length} drivers
+                  {pr.results.sprintResults ? ` + sprint` : ''}
+                </Text>
+              </View>
+              {/* Top 3 positions */}
+              <Text style={styles.pendingPositions}>
+                {pr.results.raceResults
+                  .filter((r: any) => r.status === 'finished')
+                  .slice(0, 3)
+                  .map((r: any, i: number) => `P${r.position} ${r.driverId}`)
+                  .join(', ')}
+              </Text>
+              {pr.warnings.length > 0 && (
+                <View style={styles.pendingWarnings}>
+                  <Ionicons name="warning-outline" size={12} color={COLORS.warning} />
+                  <Text style={styles.pendingWarningText}>
+                    {pr.warnings.length} warning{pr.warnings.length > 1 ? 's' : ''}: {pr.warnings[0]}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.pendingActions}>
+                <TouchableOpacity
+                  style={[styles.pendingApproveBtn, { backgroundColor: COLORS.success }]}
+                  onPress={() => handleApproveResults(pr.raceId)}
+                  disabled={isApprovingRace === pr.raceId}
+                >
+                  {isApprovingRace === pr.raceId ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={16} color={COLORS.white} />
+                      <Text style={styles.pendingBtnText}>Approve</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pendingRejectBtn, { borderColor: COLORS.error }]}
+                  onPress={() => handleRejectResults(pr.raceId)}
+                >
+                  <Ionicons name="close" size={16} color={COLORS.error} />
+                  <Text style={[styles.pendingBtnText, { color: COLORS.error }]}>Reject</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Manage News Feed Button */}
       <TouchableOpacity
@@ -2310,6 +2438,87 @@ const styles = StyleSheet.create({
 
   republishButtonText: {
     fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+
+  pendingSection: {
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  pendingSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  pendingSectionTitle: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+  },
+  pendingCard: {
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  pendingCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  pendingRaceName: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+  },
+  pendingDriverCount: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
+  },
+  pendingPositions: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.secondary,
+    marginBottom: 4,
+  },
+  pendingWarnings: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: SPACING.xs,
+  },
+  pendingWarningText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.warning,
+    flex: 1,
+  },
+  pendingActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  pendingApproveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+  pendingRejectBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+  },
+  pendingBtnText: {
+    fontSize: FONTS.sizes.xs,
     fontWeight: '600',
     color: COLORS.white,
   },
