@@ -300,14 +300,25 @@ export async function convertToSprintResults(
 
 /**
  * Group sessions by meeting_key and derive round numbers from date ordering.
+ * Only counts meetings that have a Race or Sprint session (excludes pre-season
+ * testing, which OpenF1 lists as separate meetings with no Race session).
  * Returns meeting_key → round number map.
  */
 export function deriveRoundNumbers(
   sessions: OpenF1Session[],
 ): Map<number, number> {
-  // Get unique meetings sorted by date
+  // Find meetings that have an actual Race or Sprint session
+  const raceMeetingKeys = new Set<number>();
+  for (const s of sessions) {
+    if (s.session_name === 'Race' || s.session_name === 'Sprint') {
+      raceMeetingKeys.add(s.meeting_key);
+    }
+  }
+
+  // Get earliest date per race meeting
   const meetingDates = new Map<number, string>();
   for (const s of sessions) {
+    if (!raceMeetingKeys.has(s.meeting_key)) continue;
     if (!meetingDates.has(s.meeting_key) || s.date_start < meetingDates.get(s.meeting_key)!) {
       meetingDates.set(s.meeting_key, s.date_start);
     }
