@@ -9,7 +9,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useDrivers, useConstructors, useLockoutStatus } from '../../../src/hooks';
 import { Loading, DriverCard, ConstructorCard, EmptyState } from '../../../src/components';
@@ -30,7 +30,8 @@ export default function MarketScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const theme = useTheme();
   const { numColumns } = useLayout();
-  const [activeTab, setActiveTab] = useState<Tab>('drivers');
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const [activeTab, setActiveTab] = useState<Tab>(tab === 'constructors' ? 'constructors' : 'drivers');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('price');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -40,6 +41,13 @@ export default function MarketScreen() {
   const [pendingDriver, setPendingDriver] = useState<Driver | null>(null);
   const [pendingConstructor, setPendingConstructor] = useState<Constructor | null>(null);
   const [pendingContractLength, setPendingContractLength] = useState<number>(PRICING_CONFIG.CONTRACT_LENGTH);
+
+  // Sync activeTab when navigated with ?tab= param
+  useEffect(() => {
+    if (tab === 'constructors' || tab === 'drivers') {
+      setActiveTab(tab);
+    }
+  }, [tab]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -112,17 +120,36 @@ export default function MarketScreen() {
     return new Set(sorted.slice(0, 10).map(d => d.id));
   }, [drivers]);
 
-  // Sort drivers by team membership when "team" sort is selected
+  // Detect "adding mode": team has open slots for this tab
+  const isAddingDrivers = !!(currentTeam && currentTeam.drivers.length < TEAM_SIZE && activeTab === 'drivers');
+  const isAddingConstructor = !!(currentTeam && !currentTeam.constructor && activeTab === 'constructors');
+
+  // Sort drivers by team membership when "team" sort is selected,
+  // and push unaffordable drivers to bottom when adding
   const sortedDrivers = useMemo(() => {
-    if (!drivers || sortBy !== 'team') return drivers;
-    const sorted = [...drivers].sort((a, b) => {
-      const aOnTeam = driverTeamMap.has(a.id) ? 1 : 0;
-      const bOnTeam = driverTeamMap.has(b.id) ? 1 : 0;
-      const comparison = aOnTeam - bOnTeam;
-      return sortOrder === 'desc' ? -comparison : comparison;
-    });
+    if (!drivers) return drivers;
+    const sorted = [...drivers];
+
+    if (sortBy === 'team') {
+      sorted.sort((a, b) => {
+        const aOnTeam = driverTeamMap.has(a.id) ? 1 : 0;
+        const bOnTeam = driverTeamMap.has(b.id) ? 1 : 0;
+        const comparison = aOnTeam - bOnTeam;
+        return sortOrder === 'desc' ? -comparison : comparison;
+      });
+    }
+
+    if (isAddingDrivers) {
+      // Stable sort: affordable first, unaffordable last
+      sorted.sort((a, b) => {
+        const aAffordable = a.price <= teamBudget ? 0 : 1;
+        const bAffordable = b.price <= teamBudget ? 0 : 1;
+        return aAffordable - bAffordable;
+      });
+    }
+
     return sorted;
-  }, [drivers, sortBy, sortOrder, driverTeamMap]);
+  }, [drivers, sortBy, sortOrder, driverTeamMap, isAddingDrivers, teamBudget]);
 
   const toggleSort = (option: SortOption) => {
     if (sortBy === option) {
@@ -194,6 +221,7 @@ export default function MarketScreen() {
       updatedAt: new Date(),
     };
     useTeamStore.getState().setCurrentTeam(updatedTeam);
+    useTeamStore.getState().syncToFirebase();
     setPendingDriver(null);
   };
 
@@ -260,6 +288,7 @@ export default function MarketScreen() {
       updatedAt: new Date(),
     };
     useTeamStore.getState().setCurrentTeam(updatedTeam);
+    useTeamStore.getState().syncToFirebase();
     setPendingConstructor(null);
   };
 
@@ -408,6 +437,18 @@ export default function MarketScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Back button when navigated from my-team */}
+      {tab && (
+        <TouchableOpacity
+          style={[styles.backButton, { backgroundColor: theme.card }]}
+          onPress={() => router.push('/my-team')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={20} color={COLORS.text.primary} />
+          <Text style={styles.backButtonText}>Back to My Team</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Tab Selector */}
       <View style={[styles.tabContainer, { backgroundColor: theme.card }]}>
         <TouchableOpacity
@@ -512,9 +553,25 @@ export default function MarketScreen() {
           <Ionicons name="wallet-outline" size={14} color={theme.primary} />
           <Text style={[styles.budgetBadgeText, { color: theme.primary }]}>
             {formatDollars(teamBudget)}
+            {currentTeam && activeTab === 'drivers' && currentTeam.drivers.length < TEAM_SIZE
+              ? ` · ${TEAM_SIZE - currentTeam.drivers.length} slot${TEAM_SIZE - currentTeam.drivers.length !== 1 ? 's' : ''}`
+              : ''}
+            {currentTeam && activeTab === 'constructors' && !currentTeam.constructor
+              ? ' · 0/1'
+              : ''}
           </Text>
         </View>
       </View>
+
+      {/* Adding Mode Banner */}
+      {(isAddingDrivers || isAddingConstructor) && currentTeam && (
+        <View style={[styles.addingBanner, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '40' }]}>
+          <Ionicons name="person-add-outline" size={16} color={theme.primary} />
+          <Text style={[styles.addingBannerText, { color: theme.primary }]}>
+            Adding to {currentTeam.name}
+          </Text>
+        </View>
+      )}
 
       {/* Content */}
       {isLoading ? (
@@ -528,10 +585,15 @@ export default function MarketScreen() {
             numColumns={numColumns}
             columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
             renderItem={({ item }) => {
-              const isOnTeam = onTeamDriverIds.has(item.id);
+              const isOnCurrentTeam = onTeamDriverIds.has(item.id);
               const isOnAnyTeam = driverTeamMap.has(item.id);
               const teams = driverTeamMap.get(item.id);
               const driverTeamName = teams && teams.length > 0 ? teams[0].teamName : undefined;
+              const canAfford = item.price <= teamBudget;
+              const isDimmed = isAddingDrivers && !isOnCurrentTeam && !canAfford;
+              // When adding: only highlight current team's drivers. When browsing: show all teams.
+              const showOnTeam = isAddingDrivers ? isOnCurrentTeam : (isOnCurrentTeam || isOnAnyTeam);
+              const showTeamName = isAddingDrivers ? currentTeam?.name : driverTeamName;
               return (
                 <View style={numColumns > 1 ? { flex: 1 } : undefined}>
                 <DriverCard
@@ -540,11 +602,12 @@ export default function MarketScreen() {
                   showPoints
                   showPriceChange
                   isTopTen={topTenDriverIds.has(item.id)}
-                  isOnTeam={isOnTeam || isOnAnyTeam}
-                  teamName={driverTeamName}
+                  isOnTeam={showOnTeam}
+                  teamName={showOnTeam ? showTeamName : undefined}
+                  dimmed={isDimmed}
                   onPress={() => router.push(`/market/driver/${item.id}`)}
-                  onAdd={!isOnTeam && currentTeam ? () => handleAddDriver(item) : undefined}
-                  onSell={isOnAnyTeam ? () => handleSellDriver(item) : undefined}
+                  onAdd={!isOnCurrentTeam && currentTeam && canAfford ? () => handleAddDriver(item) : undefined}
+                  onSell={isOnAnyTeam && !isAddingDrivers ? () => handleSellDriver(item) : undefined}
                 />
                 </View>
               );
@@ -571,10 +634,14 @@ export default function MarketScreen() {
           numColumns={numColumns}
           columnWrapperStyle={numColumns > 1 ? { gap: SPACING.sm } : undefined}
           renderItem={({ item }) => {
-            const isOnTeam = onTeamConstructorId === item.id;
+            const isOnCurrentTeam = onTeamConstructorId === item.id;
             const isOnAnyTeam = constructorTeamMap.has(item.id);
             const teams = constructorTeamMap.get(item.id);
             const cTeamName = teams && teams.length > 0 ? teams[0].teamName : undefined;
+            const cCanAfford = item.price <= teamBudget;
+            const cIsDimmed = isAddingConstructor && !isOnCurrentTeam && !cCanAfford;
+            const cShowOnTeam = isAddingConstructor ? isOnCurrentTeam : (isOnCurrentTeam || isOnAnyTeam);
+            const cShowTeamName = isAddingConstructor ? currentTeam?.name : cTeamName;
             return (
               <View style={numColumns > 1 ? { flex: 1 } : undefined}>
               <ConstructorCard
@@ -582,11 +649,12 @@ export default function MarketScreen() {
                 showPrice
                 showPoints
                 showPriceChange
-                isOnTeam={isOnTeam || isOnAnyTeam}
-                teamName={cTeamName}
+                isOnTeam={cShowOnTeam}
+                teamName={cShowOnTeam ? cShowTeamName : undefined}
+                dimmed={cIsDimmed}
                 onPress={() => router.push(`/market/constructor/${item.id}`)}
-                onAdd={!isOnTeam && currentTeam ? () => handleAddConstructor(item) : undefined}
-                onSell={isOnAnyTeam ? () => handleSellConstructor(item) : undefined}
+                onAdd={!isOnCurrentTeam && currentTeam && cCanAfford ? () => handleAddConstructor(item) : undefined}
+                onSell={isOnAnyTeam && !isAddingConstructor ? () => handleSellConstructor(item) : undefined}
               />
               </View>
             );
@@ -805,7 +873,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
 
-  // Contract length picker (matches select-driver.tsx)
+  // Contract length picker
   contractOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -903,5 +971,39 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     color: COLORS.white,
     fontWeight: '600',
+  },
+
+  addingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+  },
+  addingBannerText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+  },
+
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border.default,
+  },
+  backButtonText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.text.primary,
   },
 });

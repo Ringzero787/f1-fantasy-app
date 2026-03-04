@@ -152,13 +152,19 @@ function TeamCard({
         {!isTeamComplete && (
           <View style={styles.incompleteTeamBanner}>
             <Ionicons name="alert-circle" size={16} color={COLORS.warning} />
-            <Text style={styles.incompleteTeamText}>
-              {teamDriverCount < TEAM_SIZE && !hasConstructor
-                ? `Add ${TEAM_SIZE - teamDriverCount} driver${TEAM_SIZE - teamDriverCount > 1 ? 's' : ''} and a constructor`
-                : teamDriverCount < TEAM_SIZE
-                ? `Add ${TEAM_SIZE - teamDriverCount} more driver${TEAM_SIZE - teamDriverCount > 1 ? 's' : ''}`
-                : 'Select a constructor'}
-            </Text>
+            <View style={styles.incompleteTeamLines}>
+              {teamDriverCount < TEAM_SIZE && (
+                <Text style={styles.incompleteTeamText}>
+                  {`${TEAM_SIZE - teamDriverCount} driver${TEAM_SIZE - teamDriverCount > 1 ? 's' : ''} needed`}
+                </Text>
+              )}
+              {!hasConstructor && (
+                <Text style={styles.incompleteTeamText}>1 constructor needed</Text>
+              )}
+              {teamDriverCount === TEAM_SIZE && hasConstructor && !aceDriver && (
+                <Text style={styles.incompleteTeamText}>No ace selected</Text>
+              )}
+            </View>
           </View>
         )}
 
@@ -316,7 +322,7 @@ export default function HomeScreen() {
 
   // Check all teams for warnings
   const teamWarnings = useMemo(() => {
-    const warnings: { teamName: string; issues: string[] }[] = [];
+    const warnings: { teamId: string; teamName: string; issues: string[] }[] = [];
     for (const team of userTeams) {
       const issues: string[] = [];
       const driverCount = team.drivers.length;
@@ -330,7 +336,7 @@ export default function HomeScreen() {
         issues.push('no ace driver set');
       }
       if (issues.length > 0) {
-        warnings.push({ teamName: team.name, issues });
+        warnings.push({ teamId: team.id, teamName: team.name, issues });
       }
     }
     return warnings;
@@ -404,24 +410,29 @@ export default function HomeScreen() {
 
       {/* Team Warnings */}
       {teamWarnings.length > 0 && (
-        <TouchableOpacity
-          style={styles.warningBanner}
-          onPress={() => router.push('/my-team')}
-          activeOpacity={0.8}
-        >
+        <View style={styles.warningBanner}>
           <View style={styles.warningIconContainer}>
             <Ionicons name="warning" size={20} color={COLORS.warning} />
           </View>
           <View style={styles.warningContent}>
             {teamWarnings.map((w, i) => (
-              <Text key={i} style={styles.warningText} numberOfLines={1}>
-                <Text style={styles.warningTeamName}>{w.teamName}</Text>
-                {' — '}{w.issues.join(', ')}
-              </Text>
+              <TouchableOpacity
+                key={i}
+                activeOpacity={0.7}
+                onPress={() => {
+                  selectTeam(w.teamId);
+                  router.push('/my-team');
+                }}
+              >
+                <Text style={styles.warningText} numberOfLines={1}>
+                  <Text style={styles.warningTeamName}>{w.teamName}</Text>
+                  {' — '}{w.issues.join(', ')}
+                </Text>
+              </TouchableOpacity>
             ))}
           </View>
           <Ionicons name="chevron-forward" size={16} color={COLORS.warning} />
-        </TouchableOpacity>
+        </View>
       )}
 
       {/* Pending Approvals Banner */}
@@ -469,49 +480,6 @@ export default function HomeScreen() {
           <Text style={[styles.statValue, { fontSize: scaledFonts.xxl }]}>${formatPoints(currentTeam?.budget || 0)}</Text>
           <TooltipText term="Bank" definition={GLOSSARY.bank} style={[styles.statLabel, { fontSize: scaledFonts.sm }]} />
         </Card>
-      </View>
-
-      {/* Upcoming Races */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg, marginBottom: SPACING.md }]}>Upcoming Races</Text>
-        {raceLoading ? (
-          <Loading />
-        ) : upcomingRaces && upcomingRaces.length > 0 ? (
-          <>
-            {(racesExpanded ? upcomingRaces : upcomingRaces.slice(0, 1)).map((race, index) => (
-              <View key={race.id} style={index > 0 ? { marginTop: SPACING.sm } : undefined}>
-                <RaceCard
-                  race={race}
-                  onPress={() => router.push(`/calendar/${race.id}`)}
-                  showCountdown={index === 0}
-                />
-              </View>
-            ))}
-            {upcomingRaces.length > 1 && (
-              <TouchableOpacity
-                style={[styles.expandTeamsButton, { backgroundColor: theme.card, borderColor: COLORS.border.default }]}
-                onPress={() => {
-                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                  setRacesExpanded(prev => !prev);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={racesExpanded ? 'chevron-up' : 'ellipsis-horizontal'}
-                  size={racesExpanded ? 18 : 20}
-                  color={theme.primary}
-                />
-                <Text style={[styles.expandTeamsText, { color: theme.primary }]}>
-                  {racesExpanded ? 'Show less' : `${upcomingRaces.length - 1} more race${upcomingRaces.length - 1 > 1 ? 's' : ''}`}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </>
-        ) : (
-          <Card variant="outlined" padding="large">
-            <Text style={styles.emptyText}>No upcoming races</Text>
-          </Card>
-        )}
       </View>
 
       {/* My Teams Summary */}
@@ -611,6 +579,49 @@ export default function HomeScreen() {
                 <Text style={styles.createTeamButtonText}>Create Team</Text>
               </View>
             </TouchableOpacity>
+          </Card>
+        )}
+      </View>
+
+      {/* Upcoming Races */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { fontSize: scaledFonts.lg, marginBottom: SPACING.md }]}>Upcoming Races</Text>
+        {raceLoading ? (
+          <Loading />
+        ) : upcomingRaces && upcomingRaces.length > 0 ? (
+          <>
+            {(racesExpanded ? upcomingRaces : upcomingRaces.slice(0, 1)).map((race, index) => (
+              <View key={race.id} style={index > 0 ? { marginTop: SPACING.sm } : undefined}>
+                <RaceCard
+                  race={race}
+                  onPress={() => router.push(`/calendar/${race.id}`)}
+                  showCountdown={index === 0}
+                />
+              </View>
+            ))}
+            {upcomingRaces.length > 1 && (
+              <TouchableOpacity
+                style={[styles.expandTeamsButton, { backgroundColor: theme.card, borderColor: COLORS.border.default }]}
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setRacesExpanded(prev => !prev);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={racesExpanded ? 'chevron-up' : 'ellipsis-horizontal'}
+                  size={racesExpanded ? 18 : 20}
+                  color={theme.primary}
+                />
+                <Text style={[styles.expandTeamsText, { color: theme.primary }]}>
+                  {racesExpanded ? 'Show less' : `${upcomingRaces.length - 1} more race${upcomingRaces.length - 1 > 1 ? 's' : ''}`}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        ) : (
+          <Card variant="outlined" padding="large">
+            <Text style={styles.emptyText}>No upcoming races</Text>
           </Card>
         )}
       </View>
@@ -946,11 +957,15 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
 
+  incompleteTeamLines: {
+    flex: 1,
+    gap: 2,
+  },
+
   incompleteTeamText: {
     fontSize: FONTS.sizes.sm,
     color: COLORS.warning,
     fontWeight: '500',
-    flex: 1,
   },
 
   incompleteValue: {

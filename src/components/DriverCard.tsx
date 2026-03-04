@@ -23,6 +23,7 @@ interface DriverCardProps {
   showPriceChange?: boolean;
   compact?: boolean;
   isTopTen?: boolean;
+  dimmed?: boolean;
 }
 
 export const DriverCard = React.memo(function DriverCard({
@@ -39,6 +40,7 @@ export const DriverCard = React.memo(function DriverCard({
   showPriceChange = false,
   compact = false,
   isTopTen = false,
+  dimmed = false,
 }: DriverCardProps) {
   const theme = useTheme();
   const priceChange = driver.price - driver.previousPrice;
@@ -115,6 +117,7 @@ export const DriverCard = React.memo(function DriverCard({
         styles.container, { backgroundColor: theme.card },
         isSelected && [styles.selected, { borderColor: theme.primary, ...theme.shadows.glow }],
         isOnTeam && !isSelected && styles.onTeamContainer,
+        dimmed && { opacity: 0.4 },
         { transform: [{ scale: pressed ? 0.985 : 1 }] },
       ]}
       onPress={onPress || onSelect}
@@ -123,7 +126,7 @@ export const DriverCard = React.memo(function DriverCard({
       {isOnTeam && !isSelected && (
         <View style={styles.onTeamBanner}>
           <Ionicons name="checkmark-circle" size={12} color={COLORS.white} />
-          <Text style={styles.onTeamBannerText}>{teamName || 'ON YOUR TEAM'}</Text>
+          <Text style={styles.onTeamBannerText}>{teamName ? teamName.toUpperCase() : 'ON YOUR TEAM'}</Text>
         </View>
       )}
       {/* Team color accent */}
@@ -514,7 +517,6 @@ const styles = StyleSheet.create({
   },
 
   onTeamContainer: {
-    opacity: 0.5,
     borderColor: COLORS.success,
     borderWidth: 1.5,
   },
@@ -536,10 +538,10 @@ const styles = StyleSheet.create({
   },
 
   onTeamBannerText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     color: COLORS.white,
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
 
   // Compact (unchanged)

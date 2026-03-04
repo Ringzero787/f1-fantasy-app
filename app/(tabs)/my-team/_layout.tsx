@@ -33,20 +33,6 @@ export default function MyTeamLayout() {
         }}
       />
       <Stack.Screen
-        name="select-driver"
-        options={{
-          title: 'Select Driver',
-          presentation: 'modal',
-        }}
-      />
-      <Stack.Screen
-        name="select-constructor"
-        options={{
-          title: 'Select Constructor',
-          presentation: 'modal',
-        }}
-      />
-      <Stack.Screen
         name="build"
         options={{
           title: 'Build Team',

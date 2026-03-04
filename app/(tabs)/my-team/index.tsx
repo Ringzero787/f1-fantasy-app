@@ -871,7 +871,7 @@ export default function MyTeamScreen() {
         {currentTeam && driversCount < TEAM_SIZE && canModify && (
           <TouchableOpacity
             style={[styles.teamAlert, { backgroundColor: COLORS.warning + '15', borderColor: COLORS.warning + '30' }]}
-            onPress={() => router.push('/my-team/select-driver')}
+            onPress={() => router.push('/(tabs)/market?tab=drivers')}
             activeOpacity={0.7}
           >
             <Ionicons name="alert-circle" size={16} color={COLORS.warning} />
@@ -884,7 +884,7 @@ export default function MyTeamScreen() {
         {currentTeam && !currentTeam.constructor && canModify && (
           <TouchableOpacity
             style={[styles.teamAlert, { backgroundColor: COLORS.warning + '15', borderColor: COLORS.warning + '30' }]}
-            onPress={() => router.push('/my-team/select-constructor')}
+            onPress={() => router.push('/(tabs)/market?tab=constructors')}
             activeOpacity={0.7}
           >
             <Ionicons name="construct" size={16} color={COLORS.warning} />
@@ -943,7 +943,7 @@ export default function MyTeamScreen() {
           <TouchableOpacity
             testID="add-driver-btn"
             style={[styles.addSlotButton, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '06' }]}
-            onPress={() => router.push('/my-team/select-driver')}
+            onPress={() => router.push('/(tabs)/market?tab=drivers')}
           >
             <Ionicons name="add" size={18} color={theme.primary} />
             <Text style={[styles.addSlotText, { fontSize: scaledFonts.md, color: theme.primary }]}>Add Driver ({TEAM_SIZE - driversCount} remaining)</Text>
@@ -1082,7 +1082,7 @@ export default function MyTeamScreen() {
           <TouchableOpacity
             testID="add-constructor-btn"
             style={[styles.addSlotButton, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '06' }]}
-            onPress={() => router.push('/my-team/select-constructor')}
+            onPress={() => router.push('/(tabs)/market?tab=constructors')}
           >
             <Ionicons name="add" size={18} color={theme.primary} />
             <Text style={[styles.addSlotText, { fontSize: scaledFonts.md, color: theme.primary }]}>Add Constructor (0/1)</Text>
