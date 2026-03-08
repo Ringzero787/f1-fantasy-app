@@ -612,7 +612,16 @@ export const teamService = {
 
     // Convert to Firebase-compatible format (remove id, use serverTimestamp)
     // Firebase doesn't accept undefined values, so convert them to null
-    const { id, createdAt, updatedAt, ...teamData } = team;
+    const { id, createdAt, updatedAt, totalPoints, lockedPoints, ...teamData } = team;
+
+    // Strip pointsScored from drivers and constructor — server is source of truth
+    if (teamData.drivers) {
+      teamData.drivers = teamData.drivers.map(({ pointsScored, ...d }: any) => d);
+    }
+    if (teamData.constructor) {
+      const { pointsScored, ...c } = teamData.constructor as any;
+      teamData.constructor = c;
+    }
 
     // Helper to convert undefined to null recursively
     const sanitizeForFirebase = (obj: any): any => {
