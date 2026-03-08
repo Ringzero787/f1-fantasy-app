@@ -16,3 +16,5 @@ export * from './avatars/generateAvatar';
 export * from './users/deleteUserData';
 export * from './notifications/sendBroadcast';
 export * from './ingestion/checkResults';
+export * from './ingestion/syncSchedule';
+export * from './cache/marketCache';

@@ -10,10 +10,18 @@ import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useConstructor, useDriversByConstructor, useDrivers } from '../../../../src/hooks';
 import { Card, Loading, EmptyState, DriverCard } from '../../../../src/components';
-import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
+import { COLORS, SPACING, FONTS, BORDER_RADIUS, TIER_A_THRESHOLD, TIER_B_THRESHOLD } from '../../../../src/config/constants';
+import { useTheme } from '../../../../src/hooks/useTheme';
 import { formatPoints, formatPriceChange } from '../../../../src/utils/formatters';
 
+function getConstructorTier(price: number): 'A' | 'B' | 'C' {
+  if (price > TIER_A_THRESHOLD) return 'A';
+  if (price > TIER_B_THRESHOLD) return 'B';
+  return 'C';
+}
+
 export default function ConstructorDetailScreen() {
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: constructor, isLoading, refetch } = useConstructor(id || '');
   const { data: drivers } = useDriversByConstructor(id || '');
@@ -49,10 +57,11 @@ export default function ConstructorDetailScreen() {
 
   const priceChange = constructor.price - constructor.previousPrice;
   const priceDirection = priceChange > 0 ? 'up' : priceChange < 0 ? 'down' : 'neutral';
+  const tier = getConstructorTier(constructor.price);
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -64,80 +73,71 @@ export default function ConstructorDetailScreen() {
 
         <View style={styles.headerContent}>
           <Text style={styles.constructorName}>{constructor.name}</Text>
-          <Text style={styles.shortName}>{constructor.shortName}</Text>
 
-          <View style={styles.nationalityRow}>
-            <Ionicons name="flag-outline" size={16} color={COLORS.gray[500]} />
-            <Text style={styles.nationality}>{constructor.nationality}</Text>
-          </View>
-
-          {constructor.teamPrincipal && (
-            <View style={styles.principalRow}>
-              <Ionicons name="person-outline" size={16} color={COLORS.gray[500]} />
-              <Text style={styles.principalText}>{constructor.teamPrincipal}</Text>
-            </View>
-          )}
-        </View>
-      </Card>
-
-      {/* Price Card */}
-      <Card variant="outlined" style={styles.priceCard}>
-        <View style={styles.priceHeader}>
-          <Text style={styles.priceLabel}>Current Price</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceValue}>{formatPoints(constructor.price)}</Text>
-            {priceDirection !== 'neutral' && (
-              <View style={[
-                styles.changeBadge,
-                priceDirection === 'up' ? styles.priceUp : styles.priceDown,
-              ]}>
-                <Ionicons
-                  name={priceDirection === 'up' ? 'arrow-up' : 'arrow-down'}
-                  size={14}
-                  color={COLORS.white}
-                />
-                <Text style={styles.changeText}>{Math.abs(priceChange)}</Text>
+          <View style={styles.headerMeta}>
+            {constructor.nationality && (
+              <View style={styles.metaChip}>
+                <Ionicons name="flag-outline" size={14} color={COLORS.text.muted} />
+                <Text style={styles.metaText}>{constructor.nationality}</Text>
+              </View>
+            )}
+            {constructor.teamPrincipal && (
+              <View style={styles.metaChip}>
+                <Ionicons name="person-outline" size={14} color={COLORS.text.muted} />
+                <Text style={styles.metaText}>{constructor.teamPrincipal}</Text>
               </View>
             )}
           </View>
-        </View>
 
-        <View style={styles.priceDivider} />
-
-        <View style={styles.priceStats}>
-          <View style={styles.priceStat}>
-            <Text style={styles.priceStatLabel}>Previous</Text>
-            <Text style={styles.priceStatValue}>
-              {formatPoints(constructor.previousPrice)}
-            </Text>
-          </View>
-          <View style={styles.priceStat}>
-            <Text style={styles.priceStatLabel}>Change</Text>
-            <Text style={[
-              styles.priceStatValue,
-              priceDirection === 'up' && styles.textUp,
-              priceDirection === 'down' && styles.textDown,
-            ]}>
-              {formatPriceChange(constructor.price, constructor.previousPrice)}
-            </Text>
+          <View style={[styles.tierBadge, { backgroundColor: theme.primary + '20' }]}>
+            <Text style={[styles.tierText, { color: theme.primary }]}>Tier {tier}</Text>
           </View>
         </View>
       </Card>
 
-      {/* Stats Card */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Statistics</Text>
-        <Card variant="outlined">
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>2026 Season Points</Text>
-            <Text style={styles.statValue}>
-              {formatPoints(constructor.currentSeasonPoints || 0)}
-            </Text>
-          </View>
+      {/* Price + Stats Row */}
+      <View style={styles.statsRow}>
+        <Card variant="outlined" style={styles.priceStatCard}>
+          <Text style={styles.statCardLabel}>Price</Text>
+          <Text style={styles.statCardValue}>{formatPoints(constructor.price)}</Text>
+          {priceDirection !== 'neutral' && (
+            <View style={[
+              styles.changeBadge,
+              priceDirection === 'up' ? styles.priceUp : styles.priceDown,
+            ]}>
+              <Ionicons
+                name={priceDirection === 'up' ? 'arrow-up' : 'arrow-down'}
+                size={12}
+                color={COLORS.white}
+              />
+              <Text style={styles.changeText}>{Math.abs(priceChange)}</Text>
+            </View>
+          )}
+        </Card>
+
+        <Card variant="outlined" style={styles.priceStatCard}>
+          <Text style={styles.statCardLabel}>Season Pts</Text>
+          <Text style={[styles.statCardValue, { color: theme.primary }]}>
+            {formatPoints(constructor.currentSeasonPoints || 0)}
+          </Text>
+        </Card>
+
+        <Card variant="outlined" style={styles.priceStatCard}>
+          <Text style={styles.statCardLabel}>Previous</Text>
+          <Text style={styles.statCardValue}>
+            {formatPoints(constructor.previousPrice)}
+          </Text>
+          <Text style={[
+            styles.changeSmall,
+            priceDirection === 'up' && styles.textUp,
+            priceDirection === 'down' && styles.textDown,
+          ]}>
+            {formatPriceChange(constructor.price, constructor.previousPrice)}
+          </Text>
         </Card>
       </View>
 
-      {/* Drivers */}
+      {/* Drivers Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Drivers</Text>
         {drivers && drivers.length > 0 ? (
@@ -147,6 +147,7 @@ export default function ConstructorDetailScreen() {
               driver={driver}
               compact
               showPrice
+              showPoints
               isTopTen={topTenDriverIds.has(driver.id)}
             />
           ))
@@ -157,21 +158,31 @@ export default function ConstructorDetailScreen() {
         )}
       </View>
 
-      {/* Constructor Info */}
+      {/* Value Tier Info */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About Constructor Points</Text>
+        <Text style={styles.sectionTitle}>Value Tier</Text>
         <Card variant="outlined">
-          <Text style={styles.infoText}>
-            Constructor points are calculated based on the combined performance
-            of both team drivers. When you select a constructor, you earn fantasy
-            points from both drivers' race and sprint results.
+          <Text style={styles.tierInfoText}>
+            {tier === 'A' ? (
+              <>
+                <Text style={styles.bold}>Tier A — Premium constructor.</Text> One of the most
+                expensive picks. High points ceiling from both drivers' combined race and sprint
+                results.
+              </>
+            ) : tier === 'B' ? (
+              <>
+                <Text style={styles.bold}>Tier B — Mid-range constructor.</Text> Solid combined
+                output from both drivers at a reasonable price. Good balance of cost and
+                performance.
+              </>
+            ) : (
+              <>
+                <Text style={styles.bold}>Tier C — Budget constructor.</Text> Lower combined
+                output but frees up budget for premium drivers. Consider if you need to balance
+                your team's spending.
+              </>
+            )}
           </Text>
-          <View style={styles.colorRow}>
-            <Text style={styles.colorLabel}>Team Color:</Text>
-            <View
-              style={[styles.colorSwatch, { backgroundColor: constructor.primaryColor }]}
-            />
-          </View>
         </Card>
       </View>
     </ScrollView>
@@ -181,7 +192,6 @@ export default function ConstructorDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray[50],
   },
 
   content: {
@@ -209,74 +219,77 @@ const styles = StyleSheet.create({
   constructorName: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     textAlign: 'center',
   },
 
-  shortName: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
-    marginTop: SPACING.xs,
-  },
-
-  nationalityRow: {
+  headerMeta: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: SPACING.sm,
     marginTop: SPACING.sm,
-    gap: SPACING.xs,
   },
 
-  nationality: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
-  },
-
-  principalRow: {
+  metaChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: SPACING.xs,
-    gap: SPACING.xs,
+    gap: 4,
+    backgroundColor: COLORS.glass.white,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
   },
 
-  principalText: {
+  metaText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+    color: COLORS.text.secondary,
   },
 
-  priceCard: {
+  tierBadge: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
+    marginTop: SPACING.md,
+  },
+
+  tierText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+  },
+
+  statsRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
     marginBottom: SPACING.lg,
   },
 
-  priceHeader: {
+  priceStatCard: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    paddingVertical: SPACING.md,
   },
 
-  priceLabel: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.gray[500],
+  statCardLabel: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.text.muted,
     marginBottom: SPACING.xs,
   },
 
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-
-  priceValue: {
-    fontSize: FONTS.sizes.xxxl,
+  statCardValue: {
+    fontSize: FONTS.sizes.lg,
     fontWeight: 'bold',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
   },
 
   changeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
+    paddingVertical: 2,
     borderRadius: BORDER_RADIUS.full,
     gap: 2,
+    marginTop: SPACING.xs,
   },
 
   priceUp: {
@@ -288,36 +301,16 @@ const styles = StyleSheet.create({
   },
 
   changeText: {
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.xs,
     fontWeight: '600',
     color: COLORS.white,
   },
 
-  priceDivider: {
-    height: 1,
-    backgroundColor: COLORS.gray[200],
-    marginVertical: SPACING.md,
-  },
-
-  priceStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-
-  priceStat: {
-    alignItems: 'center',
-  },
-
-  priceStatLabel: {
+  changeSmall: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.gray[500],
-  },
-
-  priceStatValue: {
-    fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
-    marginTop: 2,
+    color: COLORS.text.muted,
+    marginTop: SPACING.xs,
   },
 
   textUp: {
@@ -335,61 +328,24 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.text.primary,
     marginBottom: SPACING.md,
-  },
-
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.sm,
-  },
-
-  statBorder: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
-  },
-
-  statLabel: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
-  },
-
-  statValue: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
-    color: COLORS.gray[900],
   },
 
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[500],
+    color: COLORS.text.muted,
     textAlign: 'center',
   },
 
-  infoText: {
+  tierInfoText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
+    color: COLORS.text.secondary,
     lineHeight: 22,
-    marginBottom: SPACING.md,
   },
 
-  colorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-
-  colorLabel: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
-  },
-
-  colorSwatch: {
-    width: 24,
-    height: 24,
-    borderRadius: BORDER_RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.gray[300],
+  bold: {
+    fontWeight: '600',
+    color: COLORS.text.primary,
   },
 });

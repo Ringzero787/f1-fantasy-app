@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
+import { rebuildMarketCache } from '../cache/marketCache';
 
 const db = admin.firestore();
 
@@ -68,6 +69,12 @@ interface SprintResult {
   position: number;
   driverId: string;
   status: 'finished' | 'dnf' | 'dsq';
+}
+
+interface QualifyingResult {
+  position: number;
+  driverId: string;
+  constructorId: string;
 }
 
 interface FantasyDriver {
@@ -256,6 +263,150 @@ async function commitInBatches(
   }
 }
 
+// ─── Qualifying scoring (standalone) ───
+
+/**
+ * Score qualifying results independently of race completion.
+ * Awards half-rate position bonus: floor((GRID_SIZE + 1 - pos) / 2)
+ * Skipped on sprint weekends.
+ */
+export async function handleQualifyingScoring(
+  raceId: string,
+  raceData: FirebaseFirestore.DocumentData,
+): Promise<null> {
+  const qualifyingResults: QualifyingResult[] = raceData.results?.qualifyingResults;
+  if (!qualifyingResults || qualifyingResults.length === 0) {
+    console.log(`[Qualifying] No qualifying results for ${raceId}`);
+    return null;
+  }
+
+  console.log(`[Qualifying] Scoring qualifying for ${raceId} (${qualifyingResults.length} drivers)`);
+
+  const qualifyingResultsMap = new Map<string, QualifyingResult>();
+  qualifyingResults.forEach((r) => qualifyingResultsMap.set(r.driverId, r));
+
+  // Pre-fetch driver/constructor prices for ace validation
+  const [driverPriceSnap, ctorPriceSnap] = await Promise.all([
+    db.collection('drivers').get(),
+    db.collection('constructors').get(),
+  ]);
+  const driverPriceMap = new Map<string, number>();
+  driverPriceSnap.docs.forEach((d) => driverPriceMap.set(d.id, d.data().price || 0));
+  const ctorPriceMap = new Map<string, number>();
+  ctorPriceSnap.docs.forEach((d) => ctorPriceMap.set(d.id, d.data().price || 0));
+
+  const teamsSnapshot = await db.collection('fantasyTeams').get();
+  const pointsUpdates: { leagueId: string; userId: string; points: number }[] = [];
+
+  for (const teamDoc of teamsSnapshot.docs) {
+    const team = teamDoc.data() as FantasyTeam;
+    let teamPoints = 0;
+    const aceDriverId = team.aceDriverId;
+
+    // Score driver qualifying points
+    const updatedDrivers = team.drivers.map((driver) => {
+      let isAce = driver.driverId === aceDriverId;
+      if (isAce) {
+        const price = driverPriceMap.get(driver.driverId) || 0;
+        if (price > ACE_MAX_PRICE) isAce = false;
+      }
+
+      const qualiResult = qualifyingResultsMap.get(driver.driverId);
+      let qualiPoints = 0;
+      if (qualiResult && qualiResult.position >= 1 && qualiResult.position <= 16) {
+        qualiPoints = Math.floor((GRID_SIZE + 1 - qualiResult.position) / 4);
+        if (isAce) qualiPoints *= 2;
+      }
+
+      teamPoints += qualiPoints;
+      return {
+        ...driver,
+        pointsScored: driver.pointsScored + qualiPoints,
+      };
+    });
+
+    // Score constructor qualifying points
+    // Access via bracket notation to avoid Object.prototype.constructor
+    const teamCtor = (team as Record<string, any>)['constructor'] as FantasyConstructor | null;
+    let updatedConstructor = teamCtor;
+    if (teamCtor) {
+      const ctor = teamCtor;
+      let isAceConstructor = team.aceConstructorId === ctor.constructorId;
+      if (isAceConstructor) {
+        const price = ctorPriceMap.get(ctor.constructorId) || 0;
+        if (price > ACE_MAX_PRICE) isAceConstructor = false;
+      }
+
+      let ctorQualiPoints = 0;
+      const ctorQualiResults = qualifyingResults.filter(
+        (r) => r.constructorId === ctor.constructorId,
+      );
+      for (const qr of ctorQualiResults) {
+        if (qr.position >= 1 && qr.position <= 16) {
+          ctorQualiPoints += Math.floor((GRID_SIZE + 1 - qr.position) / 4);
+        }
+      }
+      if (isAceConstructor) ctorQualiPoints *= 2;
+
+      teamPoints += ctorQualiPoints;
+      updatedConstructor = {
+        ...ctor,
+        pointsScored: ctor.pointsScored + ctorQualiPoints,
+      };
+    }
+
+    if (teamPoints !== 0) {
+      const updateData: Record<string, any> = {
+        drivers: updatedDrivers,
+        totalPoints: admin.firestore.FieldValue.increment(teamPoints),
+      };
+      if (updatedConstructor) {
+        updateData['constructor'] = updatedConstructor;
+      }
+
+      try {
+        await teamDoc.ref.set(updateData, { merge: true });
+      } catch (err) {
+        console.error(`[Qualifying] Failed to update team ${teamDoc.id}:`, err);
+        continue;
+      }
+
+      pointsUpdates.push({
+        leagueId: team.leagueId,
+        userId: team.userId,
+        points: teamPoints,
+      });
+    }
+  }
+
+  console.log(`[Qualifying] Scored ${pointsUpdates.length} teams for ${raceId}`);
+
+  // Update league rankings
+  const leagueMemberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+  for (const update of pointsUpdates) {
+    leagueMemberOps.push({
+      ref: db.collection('leagues').doc(update.leagueId).collection('members').doc(update.userId),
+      data: { totalPoints: admin.firestore.FieldValue.increment(update.points) },
+    });
+  }
+  await commitInBatches(leagueMemberOps);
+
+  const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId))];
+  for (const leagueId of affectedLeagues) {
+    const membersSnapshot = await db
+      .collection('leagues').doc(leagueId).collection('members')
+      .orderBy('totalPoints', 'desc').get();
+    const rankOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+    membersSnapshot.docs.forEach((d, index) => {
+      rankOps.push({ ref: d.ref, data: { rank: index + 1 } });
+    });
+    await commitInBatches(rankOps);
+  }
+
+  console.log(`[Qualifying] Updated rankings for ${affectedLeagues.length} leagues`);
+  return null;
+}
+
 // ─── Main trigger ───
 
 /**
@@ -275,6 +426,12 @@ export const onRaceCompleted = functions
     const beforeData = change.before.data();
     const afterData = change.after.data();
 
+    // Handle qualifying scored event (separate from race completion)
+    if (!beforeData.qualifyingScored && afterData.qualifyingScored === true
+        && afterData.status !== 'completed') {
+      return handleQualifyingScoring(raceId, afterData);
+    }
+
     // Only process when race just completed
     if (beforeData.status === 'completed' || afterData.status !== 'completed') {
       return null;
@@ -288,6 +445,13 @@ export const onRaceCompleted = functions
 
     const raceResults: RaceResult[] = results.raceResults;
     const sprintResults: SprintResult[] | null = results.sprintResults || null;
+    const qualifyingResults: QualifyingResult[] | null = results.qualifyingResults || null;
+
+    // Skip qualifying if already scored independently, or on sprint weekends
+    const hasSprintWeekend = !!sprintResults;
+    const qualifyingAlreadyScored = afterData.qualifyingScored === true && beforeData.qualifyingScored === true;
+    const scoreQualifying = !hasSprintWeekend && !qualifyingAlreadyScored
+      && !!qualifyingResults && qualifyingResults.length > 0;
 
     // Build lookup maps
     const raceResultsMap = new Map<string, RaceResult>();
@@ -297,6 +461,20 @@ export const onRaceCompleted = functions
     if (sprintResults) {
       sprintResults.forEach((r) => sprintResultsMap.set(r.driverId, r));
     }
+
+    const qualifyingResultsMap = new Map<string, QualifyingResult>();
+    if (scoreQualifying && qualifyingResults) {
+      qualifyingResults.forEach((r) => qualifyingResultsMap.set(r.driverId, r));
+    }
+
+    // Pre-fetch all driver and constructor prices for ace validation
+    const driverPriceSnap = await db.collection('drivers').get();
+    const driverPriceMap = new Map<string, number>();
+    driverPriceSnap.docs.forEach((d) => driverPriceMap.set(d.id, d.data().price || 0));
+
+    const ctorPriceSnap = await db.collection('constructors').get();
+    const ctorPriceMap = new Map<string, number>();
+    ctorPriceSnap.docs.forEach((d) => ctorPriceMap.set(d.id, d.data().price || 0));
 
     // ─── PHASE 1: Score fantasy teams ───
     console.log(`[Phase 1] Scoring teams for race ${raceId}`);
@@ -319,8 +497,7 @@ export const onRaceCompleted = functions
 
         // Server-side ace price validation: drivers over $200 cannot be ace
         if (isAce) {
-          const driverDoc = await db.collection('drivers').doc(driver.driverId).get();
-          const driverPrice = driverDoc.exists ? (driverDoc.data()?.price || 0) : 0;
+          const driverPrice = driverPriceMap.get(driver.driverId) || 0;
           if (driverPrice > ACE_MAX_PRICE) {
             console.warn(`Invalid ace: driver ${driver.driverId} price $${driverPrice} > $${ACE_MAX_PRICE}`);
             isAce = false;
@@ -330,6 +507,16 @@ export const onRaceCompleted = functions
         let driverPoints = 0;
         if (raceResult) {
           driverPoints = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce);
+        }
+
+        // Qualifying points: half-rate position bonus (non-sprint weekends only)
+        if (scoreQualifying) {
+          const qualiResult = qualifyingResultsMap.get(driver.driverId);
+          if (qualiResult && qualiResult.position >= 1 && qualiResult.position <= GRID_SIZE) {
+            let qualiPoints = Math.floor((GRID_SIZE + 1 - qualiResult.position) / 2);
+            if (isAce) qualiPoints *= 2;
+            driverPoints += qualiPoints;
+          }
         }
 
         teamPoints += driverPoints;
@@ -348,8 +535,7 @@ export const onRaceCompleted = functions
 
         // Server-side ace constructor price validation: constructors over $200 cannot be ace
         if (isAceConstructor) {
-          const ctorDoc = await db.collection('constructors').doc(ctor.constructorId).get();
-          const ctorPrice = ctorDoc.exists ? (ctorDoc.data()?.price || 0) : 0;
+          const ctorPrice = ctorPriceMap.get(ctor.constructorId) || 0;
           if (ctorPrice > ACE_MAX_PRICE) {
             console.warn(`Invalid ace constructor: ${ctor.constructorId} price $${ctorPrice} > $${ACE_MAX_PRICE}`);
             isAceConstructor = false;
@@ -372,6 +558,18 @@ export const onRaceCompleted = functions
             }
           }
         }
+        // Qualifying points for constructor: sum both drivers' half-rate qualifying bonus
+        if (scoreQualifying && qualifyingResults) {
+          const ctorQualiResults = qualifyingResults.filter(
+            (r) => r.constructorId === ctor.constructorId
+          );
+          for (const qr of ctorQualiResults) {
+            if (qr.position >= 1 && qr.position <= GRID_SIZE) {
+              constructorPoints += Math.floor((GRID_SIZE + 1 - qr.position) / 2);
+            }
+          }
+        }
+
         constructorPoints += calculateLockBonus(ctor.racesHeld);
         if (isAceConstructor) {
           constructorPoints *= 2;
@@ -471,8 +669,12 @@ export const onRaceCompleted = functions
     }
 
     // Update driver prices
-    const driversSnapshot = await db.collection('drivers').where('isActive', '==', true).get();
+    // Reuse pre-fetched driver data, filter to active only
+    const driversSnapshot = { docs: driverPriceSnap.docs.filter(d => d.data().isActive === true), size: 0 };
+    driversSnapshot.size = driversSnapshot.docs.length;
     const driverPriceOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+
+    const priceHistoryOps: Array<{ data: Record<string, any> }> = [];
 
     for (const driverDoc of driversSnapshot.docs) {
       const driver = driverDoc.data();
@@ -492,8 +694,7 @@ export const onRaceCompleted = functions
         },
       });
 
-      // Record price history (not batched — individual adds)
-      await db.collection('priceHistory').add({
+      priceHistoryOps.push({ data: {
         entityId: driverDoc.id,
         entityType: 'driver',
         price: newPrice,
@@ -504,13 +705,14 @@ export const onRaceCompleted = functions
         points,
         raceId,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      } });
     }
 
     await commitInBatches(driverPriceOps);
 
     // Update constructor prices
-    const constructorsSnapshot = await db.collection('constructors').where('isActive', '==', true).get();
+    const constructorsSnapshot = { docs: ctorPriceSnap.docs.filter(d => d.data().isActive === true), size: 0 };
+    constructorsSnapshot.size = constructorsSnapshot.docs.length;
     const ctorPriceOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
 
     for (const ctorDoc of constructorsSnapshot.docs) {
@@ -530,7 +732,7 @@ export const onRaceCompleted = functions
         },
       });
 
-      await db.collection('priceHistory').add({
+      priceHistoryOps.push({ data: {
         entityId: ctorDoc.id,
         entityType: 'constructor',
         price: newPrice,
@@ -541,23 +743,46 @@ export const onRaceCompleted = functions
         points,
         raceId,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      } });
     }
 
     await commitInBatches(ctorPriceOps);
+
+    // Batch write price history
+    for (let i = 0; i < priceHistoryOps.length; i += BATCH_OP_LIMIT) {
+      const batch = db.batch();
+      const chunk = priceHistoryOps.slice(i, i + BATCH_OP_LIMIT);
+      for (const op of chunk) {
+        batch.set(db.collection('priceHistory').doc(), op.data);
+      }
+      await batch.commit();
+    }
+
     console.log(`[Phase 2] Updated ${driversSnapshot.size} driver + ${constructorsSnapshot.size} constructor prices`);
+
+    // Rebuild market cache after price updates (non-blocking)
+    rebuildMarketCache().catch((e) => console.warn('Market cache rebuild failed:', e));
 
     // ─── PHASE 3: Update currentPrices in fantasy teams + recalc budgets ───
     console.log(`[Phase 3] Refreshing team currentPrices`);
 
-    // Re-read latest prices
-    const updatedDriversSnap = await db.collection('drivers').get();
+    // Build updated price maps from Phase 2 results (no re-query needed)
     const driverPrices = new Map<string, number>();
-    updatedDriversSnap.docs.forEach((d) => driverPrices.set(d.id, d.data().price));
+    for (const op of driverPriceOps) {
+      driverPrices.set(op.ref.id, op.data.price);
+    }
+    // Include inactive drivers that weren't in driverPriceOps
+    driverPriceSnap.docs.forEach((d) => {
+      if (!driverPrices.has(d.id)) driverPrices.set(d.id, d.data().price || 0);
+    });
 
-    const updatedCtorsSnap = await db.collection('constructors').get();
     const ctorPrices = new Map<string, number>();
-    updatedCtorsSnap.docs.forEach((d) => ctorPrices.set(d.id, d.data().price));
+    for (const op of ctorPriceOps) {
+      ctorPrices.set(op.ref.id, op.data.price);
+    }
+    ctorPriceSnap.docs.forEach((d) => {
+      if (!ctorPrices.has(d.id)) ctorPrices.set(d.id, d.data().price || 0);
+    });
 
     // Re-read teams (they were updated in phase 1)
     const freshTeamsSnap = await db.collection('fantasyTeams').get();
@@ -608,30 +833,29 @@ export const onRaceCompleted = functions
     const completedRacesSnap = await db.collection('races').where('status', '==', 'completed').get();
     const completedRaceCount = completedRacesSnap.size;
 
-    // Re-read teams again (fresh after Phase 3 price updates)
-    const contractTeamsSnap = await db.collection('fantasyTeams').get();
+    // Reuse freshTeamsSnap from Phase 3 (no re-query needed)
     const contractOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
 
-    // Build driver/constructor maps for auto-fill candidates
-    const allDriversSnap = await db.collection('drivers').where('isActive', '==', true).get();
+    // Reuse pre-fetched snapshots with updated prices from Phase 2
     const allDriversList: Array<{ id: string; name: string; shortName: string; constructorId: string; price: number }> = [];
-    for (const d of allDriversSnap.docs) {
+    for (const d of driverPriceSnap.docs) {
       const data = d.data();
+      if (!data.isActive) continue;
       allDriversList.push({
         id: d.id,
         name: data.name || '',
         shortName: data.shortName || '',
         constructorId: data.constructorId || '',
-        price: data.price || 0,
+        price: driverPrices.get(d.id) || data.price || 0,
       });
     }
     allDriversList.sort((a, b) => a.price - b.price);
 
-    const allCtorsSnap = await db.collection('constructors').where('isActive', '==', true).get();
     const allCtorsList: Array<{ id: string; name: string; price: number }> = [];
-    for (const c of allCtorsSnap.docs) {
+    for (const c of ctorPriceSnap.docs) {
       const data = c.data();
-      allCtorsList.push({ id: c.id, name: data.name || '', price: data.price || 0 });
+      if (!data.isActive) continue;
+      allCtorsList.push({ id: c.id, name: data.name || '', price: ctorPrices.get(c.id) || data.price || 0 });
     }
     allCtorsList.sort((a, b) => a.price - b.price);
 
@@ -639,7 +863,7 @@ export const onRaceCompleted = functions
     let totalExpiredConstructors = 0;
     let totalAutoFilled = 0;
 
-    for (const teamDoc of contractTeamsSnap.docs) {
+    for (const teamDoc of freshTeamsSnap.docs) {
       const team = teamDoc.data() as FantasyTeam & Record<string, unknown>;
       let drivers = [...(team.drivers || [])] as FantasyDriver[];
       let teamCtor = (team['constructor'] as FantasyConstructor | null);
@@ -846,8 +1070,10 @@ export const onRaceCompleted = functions
 
     console.log(`[Phase 4] Updated rankings for ${affectedLeagues.length} leagues`);
 
-    // ─── PHASE 5: Unlock non-season-locked teams ───
-    console.log(`[Phase 5] Unlocking teams`);
+    // ─── PHASE 5: Schedule delayed unlock (3 hours after race completion) ───
+    const UNLOCK_DELAY_MS = 3 * 60 * 60 * 1000; // 3 hours
+    const unlockTime = admin.firestore.Timestamp.fromMillis(Date.now() + UNLOCK_DELAY_MS);
+    console.log(`[Phase 5] Scheduling team unlock for ${unlockTime.toDate().toISOString()}`);
 
     const lockedTeamsSnap = await db
       .collection('fantasyTeams')
@@ -858,22 +1084,19 @@ export const onRaceCompleted = functions
 
     for (const teamDoc of lockedTeamsSnap.docs) {
       const team = teamDoc.data();
-      // Skip season-locked teams
       if (team.lockStatus?.isSeasonLocked) continue;
 
       unlockOps.push({
         ref: teamDoc.ref,
         data: {
-          isLocked: false,
-          'lockStatus.canModify': true,
-          'lockStatus.lockReason': null,
-          'lockStatus.nextUnlockTime': null,
+          'lockStatus.nextUnlockTime': unlockTime,
+          'lockStatus.lockReason': 'Results processed — unlocking soon',
         },
       });
     }
 
     await commitInBatches(unlockOps);
-    console.log(`[Phase 5] Unlocked ${unlockOps.length} teams`);
+    console.log(`[Phase 5] Scheduled unlock for ${unlockOps.length} teams`);
 
     console.log(`Race ${raceId} fully processed: scored, priced, ranked, unlocked`);
     return null;

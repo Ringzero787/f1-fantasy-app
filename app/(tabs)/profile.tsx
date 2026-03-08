@@ -655,7 +655,7 @@ export default function ProfileScreen() {
       <Card style={styles.menuCard}>
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => Linking.openURL('https://f1-app-18077.web.app/privacy.html')}
+          onPress={() => Linking.openURL('https://undercut.humannpc.com/privacy')}
         >
           <View style={styles.menuItemLeft}>
             <IconBox icon="shield-checkmark-outline" color="#6366F1" bg="#6366F115" />
@@ -668,7 +668,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => Linking.openURL('https://f1-app-18077.web.app/terms.html')}
+          onPress={() => Linking.openURL('https://undercut.humannpc.com/terms')}
         >
           <View style={styles.menuItemLeft}>
             <IconBox icon="document-text-outline" color={theme.primary} bg={theme.primary + '15'} />

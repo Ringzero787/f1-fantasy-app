@@ -127,7 +127,7 @@ export function ChatScreen({ leagueId }: ChatScreenProps) {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: theme.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       {sendError && (

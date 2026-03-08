@@ -9,7 +9,7 @@ const db = admin.firestore();
 const gmailAppPassword = defineSecret('GMAIL_APP_PASSWORD');
 
 const SENDER_EMAIL = 'theundercutapp@gmail.com';
-const BASE_URL = 'https://f1-app-18077.web.app';
+const BASE_URL = 'https://undercut.humannpc.com';
 
 // Rate limits: invites per league
 const BASE_INVITE_LIMIT = 100;

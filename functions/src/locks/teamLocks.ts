@@ -103,7 +103,58 @@ export const autoLockTeams = functions.pubsub
     return null;
   });
 
-// autoUnlockTeams removed — unlocking is now handled by onRaceCompleted in calculatePoints.ts
+/**
+ * Scheduled: unlock teams whose nextUnlockTime has passed.
+ * Runs every 30 minutes. Phase 5 of onRaceCompleted sets nextUnlockTime
+ * to 3 hours after race completion to buffer for delays/corrections.
+ */
+export const autoUnlockTeams = functions.pubsub
+  .schedule('every 30 minutes')
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+
+    const lockedTeamsSnap = await db
+      .collection('fantasyTeams')
+      .where('isLocked', '==', true)
+      .where('lockStatus.nextUnlockTime', '<=', now)
+      .get();
+
+    if (lockedTeamsSnap.empty) {
+      console.log('[Unlock] No teams ready to unlock');
+      return null;
+    }
+
+    let batch = db.batch();
+    let count = 0;
+    let opsInBatch = 0;
+
+    for (const teamDoc of lockedTeamsSnap.docs) {
+      const team = teamDoc.data();
+      if (team.lockStatus?.isSeasonLocked) continue;
+
+      batch.update(teamDoc.ref, {
+        isLocked: false,
+        'lockStatus.canModify': true,
+        'lockStatus.lockReason': null,
+        'lockStatus.nextUnlockTime': null,
+      });
+      count++;
+      opsInBatch++;
+
+      if (opsInBatch >= BATCH_OP_LIMIT) {
+        await batch.commit();
+        batch = db.batch();
+        opsInBatch = 0;
+      }
+    }
+
+    if (opsInBatch > 0) {
+      await batch.commit();
+    }
+
+    console.log(`[Unlock] Unlocked ${count} teams`);
+    return null;
+  });
 
 /**
  * HTTP function to manually lock a team (for testing/admin)

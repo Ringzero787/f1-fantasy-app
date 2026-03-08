@@ -74,11 +74,17 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
               {driver.name}
             </Text>
             {driver.isAce && (
-              <TouchableOpacity testID="ace-active-badge" onPress={onClearAce} hitSlop={8}>
+              canChangeAce ? (
+                <TouchableOpacity testID="ace-active-badge" onPress={onClearAce} hitSlop={8}>
+                  <View style={styles.aceActive}>
+                    <Ionicons name="diamond" size={12} color={COLORS.white} />
+                  </View>
+                </TouchableOpacity>
+              ) : (
                 <View style={styles.aceActive}>
                   <Ionicons name="diamond" size={12} color={COLORS.white} />
                 </View>
-              </TouchableOpacity>
+              )
             )}
             {!driver.isAce && !driver.isReserve && driver.canBeAce && canChangeAce && (
               <TouchableOpacity testID="set-ace-btn" onPress={() => onSetAce(driver.driverId)} hitSlop={8}>

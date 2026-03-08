@@ -122,7 +122,7 @@ export const useChatStore = create<ChatState>()(
 
         const unsubscribe = chatService.subscribeToMessages(
           leagueId,
-          50,
+          25,
           (messages) => {
             const { lastReadTimestamps } = get();
             const lastRead = lastReadTimestamps[leagueId] || 0;
@@ -150,7 +150,7 @@ export const useChatStore = create<ChatState>()(
               totalUnread: newTotalUnread,
               hasMoreOlderMessages: {
                 ...get().hasMoreOlderMessages,
-                [leagueId]: messages.length >= 50,
+                [leagueId]: messages.length >= 25,
               },
               isLoadingMessages: false,
             });

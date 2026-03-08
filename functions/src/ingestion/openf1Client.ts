@@ -70,6 +70,12 @@ export interface SprintResult {
   status: 'finished' | 'dnf' | 'dsq';
 }
 
+export interface QualifyingResult {
+  position: number;
+  driverId: string;
+  constructorId: string;
+}
+
 async function fetchApi<T>(endpoint: string, params?: Record<string, string | number>): Promise<T[]> {
   const now = Date.now();
   const timeSince = now - lastRequestTime;
@@ -295,6 +301,57 @@ export async function convertToSprintResults(
     return a.position - b.position;
   });
 
+  return { results, warnings };
+}
+
+/**
+ * Convert OpenF1 qualifying session data to our app's QualifyingResult[] format.
+ */
+export async function convertToQualifyingResults(
+  sessionKey: number,
+): Promise<{ results: QualifyingResult[]; warnings: string[] }> {
+  const warnings: string[] = [];
+  const [sessionResults, drivers] = await Promise.all([
+    fetchSessionResults(sessionKey),
+    fetchDrivers(sessionKey),
+  ]);
+
+  if (!sessionResults || sessionResults.length === 0) {
+    return { results: [], warnings: ['No qualifying results returned from OpenF1'] };
+  }
+
+  // Build driver → team mapping
+  const driverTeams: Record<number, string> = {};
+  for (const d of drivers) {
+    if (d.team_name) {
+      const teamId = TEAM_NAME_TO_ID[d.team_name];
+      if (teamId) {
+        driverTeams[d.driver_number] = teamId;
+      }
+    }
+  }
+
+  const results: QualifyingResult[] = [];
+
+  for (const r of sessionResults) {
+    if (r.driver_number == null || r.position == null || r.position <= 0) continue;
+
+    const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
+    if (!driverId) {
+      warnings.push(`Unknown driver number in qualifying: ${r.driver_number}`);
+      continue;
+    }
+
+    const constructorId = driverTeams[r.driver_number];
+    if (!constructorId) {
+      warnings.push(`No team mapping for qualifying driver ${r.driver_number} (${driverId})`);
+      continue;
+    }
+
+    results.push({ position: r.position, driverId, constructorId });
+  }
+
+  results.sort((a, b) => a.position - b.position);
   return { results, warnings };
 }
 

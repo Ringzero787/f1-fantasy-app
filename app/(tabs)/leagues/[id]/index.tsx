@@ -251,7 +251,7 @@ export default function LeagueDetailScreen() {
 
     try {
       await Share.share({
-        message: `Join my league "${currentLeague.name}" on Undercut!\n\nhttps://f1-app-18077.web.app/join?code=${currentLeague.inviteCode}\n\nOr enter code: ${currentLeague.inviteCode}`,
+        message: `Join my league "${currentLeague.name}" on Undercut!\n\nhttps://undercut.humannpc.com/join?code=${currentLeague.inviteCode}\n\nOr enter code: ${currentLeague.inviteCode}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);

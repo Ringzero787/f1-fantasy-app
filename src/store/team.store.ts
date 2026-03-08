@@ -562,29 +562,82 @@ export const useTeamStore = create<TeamState>()(
         set({ isLoading: false });
       }
 
-      // Always check Firebase for teams (recover missing or merge new ones)
+      // Always check Firebase for teams (recover missing or merge server-scored points)
       const isDemoMode2 = useAuthStore.getState().isDemoMode;
       if (!isDemoMode2) {
         try {
           const firebaseTeams = await teamService.getUserTeams(userId);
           if (firebaseTeams.length > 0) {
             const { userTeams: currentLocal } = get();
-            const localIds = new Set(currentLocal.map(t => t.id));
-            const newFromFirebase = firebaseTeams.filter(t => !localIds.has(t.id));
+            const localMap = new Map(currentLocal.map(t => [t.id, t]));
+            const newFromFirebase = firebaseTeams.filter(t => !localMap.has(t.id));
+
+            // Merge server-scored points into existing local teams
+            const mergedLocal = currentLocal.map(localTeam => {
+              const fbTeam = firebaseTeams.find(t => t.id === localTeam.id);
+              if (!fbTeam) return localTeam;
+
+              // Take the higher totalPoints (server scores via FieldValue.increment)
+              const serverPoints = typeof fbTeam.totalPoints === 'number' ? fbTeam.totalPoints : 0;
+              const localPoints = typeof localTeam.totalPoints === 'number' ? localTeam.totalPoints : 0;
+              const useServerPoints = serverPoints > localPoints;
+
+              if (!useServerPoints) return localTeam;
+
+              // Merge server-scored per-driver pointsScored
+              const mergedDrivers = localTeam.drivers.map(driver => {
+                const fbDriver = fbTeam.drivers?.find((d: FantasyDriver) => d.driverId === driver.driverId);
+                if (fbDriver && typeof fbDriver.pointsScored === 'number' && fbDriver.pointsScored > (driver.pointsScored || 0)) {
+                  return { ...driver, pointsScored: fbDriver.pointsScored };
+                }
+                return driver;
+              });
+
+              // Merge server-scored constructor pointsScored
+              const mergedConstructor = localTeam.constructor && fbTeam.constructor
+                ? {
+                    ...localTeam.constructor,
+                    pointsScored: typeof fbTeam.constructor.pointsScored === 'number' && fbTeam.constructor.pointsScored > (localTeam.constructor.pointsScored || 0)
+                      ? fbTeam.constructor.pointsScored
+                      : localTeam.constructor.pointsScored || 0,
+                  }
+                : localTeam.constructor;
+
+              // Also merge lockedPoints and server-managed fields
+              return {
+                ...localTeam,
+                totalPoints: serverPoints,
+                drivers: mergedDrivers,
+                constructor: mergedConstructor,
+                lockedPoints: typeof fbTeam.lockedPoints === 'number' ? fbTeam.lockedPoints : localTeam.lockedPoints,
+                isLocked: fbTeam.isLocked ?? localTeam.isLocked,
+                lockStatus: fbTeam.lockStatus ?? localTeam.lockStatus,
+              };
+            });
+
             if (newFromFirebase.length > 0) {
-              const merged = [...currentLocal, ...newFromFirebase];
-              console.log(`loadUserTeams: Merged ${newFromFirebase.length} team(s) from Firebase`);
+              const merged = [...mergedLocal, ...newFromFirebase];
+              console.log(`loadUserTeams: Merged ${newFromFirebase.length} new team(s) + server points from Firebase`);
               set({ userTeams: merged });
-              // If no current team was set, pick the first
               if (!get().currentTeam) {
                 set({ currentTeam: merged[0] });
               }
+            } else if (mergedLocal.length > 0) {
+              // Update with server-scored points
+              set({ userTeams: mergedLocal });
+              // Also update currentTeam if it was updated
+              const { currentTeam: ct } = get();
+              if (ct) {
+                const updatedCt = mergedLocal.find(t => t.id === ct.id);
+                if (updatedCt) set({ currentTeam: updatedCt });
+              }
+              console.log('loadUserTeams: Merged server-scored points from Firebase');
             } else if (currentLocal.length === 0 && firebaseTeams.length > 0) {
               console.log(`loadUserTeams: Recovered ${firebaseTeams.length} team(s) from Firebase`);
               set({ userTeams: firebaseTeams, currentTeam: firebaseTeams[0] });
             }
           }
-          // Sync local teams to Firebase
+          // Sync local teams to Firebase (now with merged points, won't overwrite)
           const { userTeams: latestLocal } = get();
           if (latestLocal.length > 0) {
             teamService.syncTeams(latestLocal).then(() => {
@@ -1766,11 +1819,14 @@ export const useTeamStore = create<TeamState>()(
     const { totalPoints, driverPoints, constructorPoints } = calculateTeamPointsFromRaces(currentTeam);
 
     // Update driver points scored and sync current prices
+    // Preserve server-scored points if local calculation returns less
     const updatedDrivers = currentTeam.drivers.map(driver => {
       const priceUpdate = driverPrices[driver.driverId];
+      const localPts = driverPoints[driver.driverId] || 0;
+      const serverPts = driver.pointsScored || 0;
       return {
         ...driver,
-        pointsScored: driverPoints[driver.driverId] || 0,
+        pointsScored: Math.max(localPts, serverPts),
         currentPrice: priceUpdate?.currentPrice ?? driver.currentPrice,
       };
     });
@@ -1778,7 +1834,7 @@ export const useTeamStore = create<TeamState>()(
     // Update constructor points scored and sync current price
     const updatedConstructor = currentTeam.constructor ? {
       ...currentTeam.constructor,
-      pointsScored: constructorPoints,
+      pointsScored: Math.max(constructorPoints, currentTeam.constructor.pointsScored || 0),
       currentPrice: constructorPrices[currentTeam.constructor.constructorId]?.currentPrice ?? currentTeam.constructor.currentPrice,
     } : null;
 
@@ -1799,13 +1855,16 @@ export const useTeamStore = create<TeamState>()(
       }
     }
 
+    // Preserve server-scored totalPoints if local calculation returns less
+    const finalPoints = Math.max(totalPoints, currentTeam.totalPoints || 0);
+
     const updatedTeam: FantasyTeam = {
       ...currentTeam,
       drivers: updatedDrivers,
       constructor: updatedConstructor,
       aceDriverId,
       aceConstructorId,
-      totalPoints,
+      totalPoints: finalPoints,
       updatedAt: new Date(),
     };
 
@@ -1834,6 +1893,7 @@ export const useTeamStore = create<TeamState>()(
       perRaceCache.set(team.id, perRacePoints);
 
       // Update driver points, sync current prices, and update racesHeld
+      // Preserve server-scored points if local calculation returns less
       let updatedDrivers: FantasyDriver[] = team.drivers.map(driver => {
         const priceUpdate = driverPrices[driver.driverId];
         const basePrice = demoDrivers.find(d => d.id === driver.driverId)?.price;
@@ -1841,9 +1901,11 @@ export const useTeamStore = create<TeamState>()(
         // If addedAtRace is missing (legacy data), treat as added now to prevent premature expiry
         const driverAddedAt = driver.addedAtRace ?? completedRaceCount;
         const driverRacesHeld = Math.max(0, completedRaceCount - driverAddedAt);
+        const localPts = driverPoints[driver.driverId] || 0;
+        const serverPts = driver.pointsScored || 0;
         return {
           ...driver,
-          pointsScored: driverPoints[driver.driverId] || 0,
+          pointsScored: Math.max(localPts, serverPts),
           currentPrice: priceUpdate?.currentPrice ?? basePrice ?? driver.currentPrice,
           racesHeld: driverRacesHeld,
           // Backfill addedAtRace for legacy drivers so it persists
@@ -1859,7 +1921,7 @@ export const useTeamStore = create<TeamState>()(
         const cRacesHeld = Math.max(0, completedRaceCount - cAddedAt);
         return {
           ...team.constructor!,
-          pointsScored: constructorPoints,
+          pointsScored: Math.max(constructorPoints, team.constructor!.pointsScored || 0),
           currentPrice: constructorPrices[team.constructor!.constructorId]?.currentPrice ?? demoConstructors.find(c => c.id === team.constructor!.constructorId)?.price ?? team.constructor!.currentPrice,
           racesHeld: cRacesHeld,
           addedAtRace: team.constructor!.addedAtRace ?? completedRaceCount,
@@ -1883,11 +1945,14 @@ export const useTeamStore = create<TeamState>()(
         }
       }
 
+      // Preserve server-scored totalPoints if local calculation returns less
+      const finalPoints = Math.max(totalPoints, team.totalPoints || 0);
+
       return {
         ...team,
         drivers: updatedDrivers,
         constructor: updatedConstructor,
-        totalPoints,
+        totalPoints: finalPoints,
         aceDriverId: aceId,
         aceConstructorId,
         racesPlayed: perRacePoints.length,

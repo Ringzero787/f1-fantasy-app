@@ -53,14 +53,20 @@ const SLIDES: Slide[] = [
   },
   {
     id: '5',
+    title: 'Earn Points Automatically',
+    body: 'Your team earns fantasy points from every real F1 race and sprint \u2014 no sign-up needed per race. Just build your team and the points roll in.',
+    icon: 'flash',
+  },
+  {
+    id: '6',
     title: 'Join a League',
     body: 'Create or join a league with friends. Share an invite code and battle it out on the leaderboard all season.',
     icon: 'trophy',
   },
   {
-    id: '6',
+    id: '7',
     title: "You're Ready",
-    body: 'Head to the Market to scout drivers, check the Calendar for upcoming races, and build your team. Let\u2019s go!',
+    body: 'Head to the Market to build your team, then check the Calendar for the next race. Your home screen will show when you\u2019re entered. Let\u2019s go!',
     icon: 'rocket',
   },
 ];

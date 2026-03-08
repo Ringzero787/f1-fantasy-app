@@ -17,6 +17,7 @@ import {
   SEASON_YEAR,
   AUTO_APPROVE,
   SPRINT_ROUNDS,
+  ROUND_TO_RACE_ID,
 } from './config';
 import {
   fetchSessions,
@@ -24,8 +25,10 @@ import {
   findFastestLap,
   convertToRaceResults,
   convertToSprintResults,
+  convertToQualifyingResults,
   deriveRoundNumbers,
 } from './openf1Client';
+import { handleQualifyingScoring } from '../scoring/calculatePoints';
 
 const db = admin.firestore();
 
@@ -190,6 +193,16 @@ async function processRace(race: {
       }
     }
 
+    // Fetch qualifying results
+    let qualifyingData: { results: Array<{ position: number; driverId: string; constructorId: string }>; warnings: string[] } | null = null;
+    const qualiSession = meetingSessions.find(s => s.session_name === 'Qualifying');
+    if (qualiSession) {
+      qualifyingData = await convertToQualifyingResults(qualiSession.session_key);
+      warnings.push(...qualifyingData.warnings);
+    } else {
+      warnings.push('No qualifying session found');
+    }
+
     // Build pending result document
     const pendingResult: Record<string, unknown> = {
       raceId: race.raceId,
@@ -201,6 +214,9 @@ async function processRace(race: {
         raceResults: raceData.results,
         ...(sprintData && sprintData.results.length > 0
           ? { sprintResults: sprintData.results }
+          : {}),
+        ...(qualifyingData && qualifyingData.results.length > 0
+          ? { qualifyingResults: qualifyingData.results }
           : {}),
         ...(fastestLapDriverId ? { fastestLap: fastestLapDriverId } : {}),
       },
@@ -295,6 +311,77 @@ export const rejectRaceResults = onCall(
   },
 );
 
+/**
+ * Scheduled: Check for completed qualifying sessions and score immediately.
+ * Runs every 30 minutes alongside race result checks.
+ */
+export const checkQualifyingResults = onSchedule(
+  { schedule: 'every 30 minutes', timeoutSeconds: 120 },
+  async () => {
+    console.log('[QualiIngestion] Checking for completed qualifying...');
+
+    try {
+      const allSessions = await fetchSessions(SEASON_YEAR);
+      const yearSessions = allSessions.filter(s => s.year === SEASON_YEAR);
+      if (yearSessions.length === 0) return;
+
+      const roundMap = deriveRoundNumbers(yearSessions);
+      const now = new Date();
+
+      for (const [meetingKey, round] of roundMap.entries()) {
+        const raceId = ROUND_TO_RACE_ID[round];
+        if (!raceId) continue;
+
+        // Skip sprint weekends (sprint already adds midweek points)
+        if (SPRINT_ROUNDS.has(round)) continue;
+
+        const meetingSessions = yearSessions.filter(s => s.meeting_key === meetingKey);
+        const qualiSession = meetingSessions.find(s => s.session_name === 'Qualifying');
+        if (!qualiSession) continue;
+
+        // Check if qualifying has ended
+        if (!qualiSession.date_end || new Date(qualiSession.date_end) > now) continue;
+
+        // Check if race is still upcoming/in_progress (not yet completed)
+        const raceDoc = await db.collection('races').doc(raceId).get();
+        if (!raceDoc.exists) continue;
+        const raceData = raceDoc.data()!;
+        if (raceData.status === 'completed') continue;
+
+        // Check if qualifying already scored
+        if (raceData.qualifyingScored === true) {
+          continue;
+        }
+
+        // Fetch and convert qualifying results
+        const qualiData = await convertToQualifyingResults(qualiSession.session_key);
+        if (qualiData.results.length === 0) {
+          console.log(`[QualiIngestion] No qualifying results yet for round ${round}`);
+          continue;
+        }
+
+        if (qualiData.warnings.length > 0) {
+          console.log(`[QualiIngestion] Warnings for round ${round}:`, qualiData.warnings);
+        }
+
+        // Write qualifying results to race doc
+        await raceDoc.ref.update({
+          'results.qualifyingResults': qualiData.results,
+          qualifyingScored: true,
+        });
+
+        // Score qualifying directly (don't rely on Firestore trigger)
+        const updatedRaceDoc = await raceDoc.ref.get();
+        await handleQualifyingScoring(raceId, updatedRaceDoc.data()!);
+
+        console.log(`[QualiIngestion] Scored qualifying for ${raceId} (${qualiData.results.length} drivers)`);
+      }
+    } catch (error) {
+      console.error('[QualiIngestion] Error:', error);
+    }
+  },
+);
+
 async function doApprove(raceId: string, approvedBy: string) {
   const pendingRef = db.collection('pendingResults').doc(raceId);
   const pendingDoc = await pendingRef.get();
@@ -320,6 +407,10 @@ async function doApprove(raceId: string, approvedBy: string) {
 
   if (pending.results.sprintResults) {
     updateData['results.sprintResults'] = pending.results.sprintResults;
+  }
+
+  if (pending.results.qualifyingResults) {
+    updateData['results.qualifyingResults'] = pending.results.qualifyingResults;
   }
 
   if (pending.results.fastestLap) {

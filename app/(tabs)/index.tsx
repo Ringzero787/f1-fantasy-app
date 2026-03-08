@@ -21,6 +21,8 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useNextRace, useUpcomingRaces } from '../../src/hooks';
+import { useLockoutStatus } from '../../src/hooks/useLockoutStatus';
+import { SpoilerFreeOverlay } from '../../src/components/SpoilerFreeOverlay';
 import { useTeamStore } from '../../src/store/team.store';
 import { useLeagueStore } from '../../src/store/league.store';
 import { useAdminStore } from '../../src/store/admin.store';
@@ -50,6 +52,7 @@ function TeamCard({
   theme,
   raceResults,
   userTeams,
+  nextRaceName,
 }: {
   team: FantasyTeam;
   isCollapsed: boolean;
@@ -62,6 +65,7 @@ function TeamCard({
   theme: any;
   raceResults: any;
   userTeams: FantasyTeam[];
+  nextRaceName?: string | null;
 }) {
   const teamDriverCount = team.drivers.length;
   const hasConstructor = !!team.constructor;
@@ -149,7 +153,7 @@ function TeamCard({
         </View>
 
         {/* Team Status Banner */}
-        {!isTeamComplete && (
+        {!isTeamComplete ? (
           <View style={styles.incompleteTeamBanner}>
             <Ionicons name="alert-circle" size={16} color={COLORS.warning} />
             <View style={styles.incompleteTeamLines}>
@@ -166,7 +170,14 @@ function TeamCard({
               )}
             </View>
           </View>
-        )}
+        ) : nextRaceName ? (
+          <View style={[styles.readyTeamBanner, { backgroundColor: COLORS.success + '15', borderColor: COLORS.success + '30' }]}>
+            <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+            <Text style={styles.readyTeamText}>
+              Entered in {nextRaceName}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Drivers Row */}
         <View style={[styles.teamRow, { paddingVertical: scaledSpacing.sm }]}>
@@ -245,6 +256,8 @@ export default function HomeScreen() {
   const registerToken = useNotificationStore(s => s.registerToken);
   const loadNotifications = useNotificationStore(s => s.loadNotifications);
 
+  const lockoutInfo = useLockoutStatus();
+  const [spoilerDismissed, setSpoilerDismissed] = useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [teamsExpanded, setTeamsExpanded] = useState(false);
   const [teamCollapsed, setTeamCollapsed] = useState<Record<string, boolean>>({});
@@ -362,7 +375,18 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  // Show spoiler-free overlay on race weekend (locked) with a primary team
+  const showSpoilerFree = lockoutInfo.isLocked && !spoilerDismissed && !!currentTeam && currentTeam.drivers.length > 0;
+
   return (
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+    {showSpoilerFree && (
+      <SpoilerFreeOverlay
+        team={currentTeam!}
+        raceName={lockoutInfo.nextRace?.name || 'Race Weekend'}
+        onDismiss={() => setSpoilerDismissed(true)}
+      />
+    )}
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}
@@ -516,6 +540,7 @@ export default function HomeScreen() {
               theme={theme}
               raceResults={raceResults}
               userTeams={userTeams}
+              nextRaceName={nextRace?.name || null}
             />
 
             {/* Other teams (expandable) */}
@@ -543,6 +568,7 @@ export default function HomeScreen() {
                       theme={theme}
                       raceResults={raceResults}
                       userTeams={userTeams}
+                      nextRaceName={nextRace?.name || null}
                     />
                   ))
                 }
@@ -629,6 +655,7 @@ export default function HomeScreen() {
       {/* F1 News Feed */}
       <NewsFeed />
     </ScrollView>
+    </View>
   );
 }
 
@@ -970,6 +997,24 @@ const styles = StyleSheet.create({
 
   incompleteValue: {
     color: COLORS.warning,
+  },
+
+  readyTeamBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    marginBottom: SPACING.md,
+    gap: SPACING.xs,
+  },
+
+  readyTeamText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.success,
+    fontWeight: '600',
+    flex: 1,
   },
 
   approvalBanner: {

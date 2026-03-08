@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
 // Note: useTeamStore is imported dynamically to avoid circular dependency
 import { pricingService } from '../services/pricing.service';
+import { getMarketSnapshot } from '../services/marketCache.service';
 
 // Price update tracking for demo mode
 export interface PriceUpdate {
@@ -106,6 +107,9 @@ interface AdminState {
 
   // Reset all race results only (keeps prices and teams)
   resetAllRaceResults: () => void;
+
+  // Load prices from server-side market cache (single doc read)
+  loadMarketCache: () => Promise<boolean>;
 
   // Reset all cached data
   resetAllData: () => void;
@@ -512,6 +516,44 @@ export const useAdminStore = create<AdminState>()(
             },
           },
         });
+      },
+
+      // Load prices from server-side market cache (single doc read instead of 20+ individual reads).
+      // Falls back to false if cache doesn't exist yet — caller should use existing individual-read methods.
+      loadMarketCache: async () => {
+        try {
+          const snapshot = await getMarketSnapshot();
+          if (!snapshot) return false;
+
+          const newDriverPrices: Record<string, PriceUpdate> = {};
+          for (const d of snapshot.drivers) {
+            newDriverPrices[d.id] = {
+              previousPrice: d.previousPrice,
+              currentPrice: d.price,
+              lastRaceId: '',
+              totalPoints: d.fantasyPoints,
+            };
+          }
+
+          const newConstructorPrices: Record<string, PriceUpdate> = {};
+          for (const c of snapshot.constructors) {
+            newConstructorPrices[c.id] = {
+              previousPrice: c.previousPrice,
+              currentPrice: c.price,
+              lastRaceId: '',
+              totalPoints: c.fantasyPoints,
+            };
+          }
+
+          set({
+            driverPrices: newDriverPrices,
+            constructorPrices: newConstructorPrices,
+          });
+          return true;
+        } catch (e) {
+          console.warn('Failed to load market cache, falling back to individual reads:', e);
+          return false;
+        }
       },
 
       // Reset prices only, keeping race results intact

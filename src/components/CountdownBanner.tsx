@@ -28,7 +28,7 @@ export const CountdownBanner = React.memo(function CountdownBanner({ race, accen
   const lockoutInfo = useLockoutStatus();
 
   useEffect(() => {
-    if (race.status !== 'upcoming') return;
+    if (race.status === 'completed') return;
 
     const tick = () => {
       const info = raceService.getRaceCountdown(race);
@@ -68,7 +68,7 @@ export const CountdownBanner = React.memo(function CountdownBanner({ race, accen
     return () => clearInterval(interval);
   }, [race, lockoutInfo.lockTime, lockoutInfo.isLocked]);
 
-  if (race.status !== 'upcoming' || !sessionName) return null;
+  if (race.status === 'completed' || !sessionName) return null;
 
   // Only show banner within 5 days of lockout (or if already locked)
   if (!lockoutInfo.isLocked && lockoutInfo.lockTime) {

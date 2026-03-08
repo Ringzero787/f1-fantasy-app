@@ -607,7 +607,7 @@ export default function MarketScreen() {
                   dimmed={isDimmed}
                   onPress={() => router.push(`/market/driver/${item.id}`)}
                   onAdd={!isOnCurrentTeam && currentTeam && canAfford ? () => handleAddDriver(item) : undefined}
-                  onSell={isOnAnyTeam && !isAddingDrivers ? () => handleSellDriver(item) : undefined}
+                  onSell={isOnAnyTeam ? () => handleSellDriver(item) : undefined}
                 />
                 </View>
               );
@@ -654,7 +654,7 @@ export default function MarketScreen() {
                 dimmed={cIsDimmed}
                 onPress={() => router.push(`/market/constructor/${item.id}`)}
                 onAdd={!isOnCurrentTeam && currentTeam && cCanAfford ? () => handleAddConstructor(item) : undefined}
-                onSell={isOnAnyTeam && !isAddingConstructor ? () => handleSellConstructor(item) : undefined}
+                onSell={isOnAnyTeam ? () => handleSellConstructor(item) : undefined}
               />
               </View>
             );

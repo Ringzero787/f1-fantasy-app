@@ -5,7 +5,7 @@
  */
 
 export const SEASON_YEAR = 2026;
-export const AUTO_APPROVE = false;
+export const AUTO_APPROVE = true;
 export const CHECK_INTERVAL = 'every 30 minutes';
 
 /**

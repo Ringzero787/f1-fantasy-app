@@ -551,14 +551,29 @@ export default function MyTeamScreen() {
         addedAtRace: completedRaceCount,
       } : currentTeam.constructor;
 
-      setCurrentTeam({
+      const updatedTeam = {
         ...currentTeam,
         drivers: [...currentTeam.drivers, ...newDrivers],
         constructor: newConstructor,
         totalSpent: currentTeam.totalSpent + addedCost,
         budget: currentTeam.budget - addedCost,
         updatedAt: new Date(),
-      });
+      };
+
+      // Auto-select ace if none is set
+      if (!updatedTeam.aceDriverId && !updatedTeam.aceConstructorId) {
+        // Prefer cheapest eligible driver, then constructor
+        const aceEligibleDrivers = updatedTeam.drivers
+          .filter(d => d.currentPrice <= PRICING_CONFIG.ACE_MAX_PRICE)
+          .sort((a, b) => a.currentPrice - b.currentPrice);
+        if (aceEligibleDrivers.length > 0) {
+          updatedTeam.aceDriverId = aceEligibleDrivers[0].driverId;
+        } else if (updatedTeam.constructor && updatedTeam.constructor.currentPrice <= PRICING_CONFIG.ACE_MAX_PRICE) {
+          updatedTeam.aceConstructorId = updatedTeam.constructor.constructorId;
+        }
+      }
+
+      setCurrentTeam(updatedTeam);
     } finally {
       setIsAutoFilling(false);
     }
@@ -814,7 +829,7 @@ export default function MyTeamScreen() {
         )}
 
         {/* Live Countdown Banner */}
-        {lockoutInfo.nextRace && !lockoutInfo.isLocked && (
+        {lockoutInfo.nextRace && (
           <CountdownBanner race={lockoutInfo.nextRace} accentColor="#7c3aed" />
         )}
 
@@ -909,6 +924,16 @@ export default function MyTeamScreen() {
           </View>
         )}
 
+        {/* Team Ready Banner */}
+        {currentTeam && driversCount === TEAM_SIZE && !!currentTeam.constructor && lockoutInfo.nextRace && (
+          <View style={[styles.teamAlert, { backgroundColor: COLORS.success + '15', borderColor: COLORS.success + '30' }]}>
+            <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+            <Text style={[styles.teamAlertText, { color: COLORS.success, fontSize: scaledFonts.md }]}>
+              Team set for {lockoutInfo.nextRace.name} — points are scored automatically
+            </Text>
+          </View>
+        )}
+
         {/* V5: Driver lockout notice */}
         {lockedOutDriverNames.length > 0 && (
           <View style={styles.lockoutNotice}>
@@ -981,11 +1006,17 @@ export default function MyTeamScreen() {
                     <Ionicons name="construct" size={14} color={cAccent} />
                     <Text style={[styles.cardName, { fontSize: scaledFonts.lg }]} numberOfLines={1}>{c.name}</Text>
                     {isAceConstructor && (
-                      <TouchableOpacity onPress={() => handleClearAce()} hitSlop={8}>
+                      canChangeAce ? (
+                        <TouchableOpacity onPress={() => handleClearAce()} hitSlop={8}>
+                          <View style={styles.aceActive}>
+                            <Ionicons name="diamond" size={12} color={COLORS.white} />
+                          </View>
+                        </TouchableOpacity>
+                      ) : (
                         <View style={styles.aceActive}>
                           <Ionicons name="diamond" size={12} color={COLORS.white} />
                         </View>
-                      </TouchableOpacity>
+                      )
                     )}
                     {!isAceConstructor && canBeAceConstructor && canChangeAce && (
                       <TouchableOpacity onPress={() => handleSetAceConstructor(c.constructorId)} hitSlop={8}>
