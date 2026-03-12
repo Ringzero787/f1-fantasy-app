@@ -23,7 +23,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "21",
+      buildNumber: "22",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -36,7 +36,7 @@ module.exports = {
         backgroundColor: "#0D1117"
       },
       package: "com.undercut.app",
-      versionCode: 28,
+      versionCode: 29,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",
