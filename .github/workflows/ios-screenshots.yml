@@ -75,12 +75,6 @@ jobs:
       - name: Prebuild iOS
         run: npx expo prebuild --platform ios --clean
 
-      - name: Select Xcode 16.2
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-
-      - name: List available runtimes
-        run: xcrun simctl list runtimes
-
       - name: Build for Simulator
         run: |
           cd ios
@@ -93,7 +87,7 @@ jobs:
             -derivedDataPath build \
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
-            | tail -20
+            2>&1 | tail -30
 
       - name: Find .app bundle
         id: app
@@ -101,22 +95,16 @@ jobs:
           APP_PATH=$(find ios/build -name "*.app" -type d | head -1)
           echo "path=$APP_PATH" >> $GITHUB_OUTPUT
           echo "Found app at: $APP_PATH"
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app bundle found!"
+            find ios/build -type d -maxdepth 5 2>/dev/null || true
+            exit 1
+          fi
 
       - name: Boot Simulator
         run: |
           DEVICE_NAME="${{ matrix.device.name }}"
-
-          # Find the iOS 18 runtime that matches Xcode 16.2
-          RUNTIME=$(xcrun simctl list runtimes | grep "iOS 18" | tail -1 | awk -F'- ' '{print $NF}' | xargs)
-          echo "Using runtime: $RUNTIME"
-
-          if [ -z "$RUNTIME" ]; then
-            echo "No iOS 18 runtime found, using default"
-            DEVICE_UDID=$(xcrun simctl create "ScreenshotDevice" "$DEVICE_NAME")
-          else
-            DEVICE_UDID=$(xcrun simctl create "ScreenshotDevice" "$DEVICE_NAME" "$RUNTIME")
-          fi
-
+          DEVICE_UDID=$(xcrun simctl create "ScreenshotDevice" "$DEVICE_NAME")
           echo "Created simulator: $DEVICE_UDID"
           xcrun simctl boot "$DEVICE_UDID"
           echo "DEVICE_UDID=$DEVICE_UDID" >> $GITHUB_ENV
@@ -167,8 +155,6 @@ jobs:
           # Screenshot whatever is on screen (likely home/login)
           xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_01.png
 
-          # Try navigating via deep links if the app supports them
-          # These use expo-router deep linking
           sleep 2
           xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_02.png
 
