@@ -619,14 +619,10 @@ export const teamService = {
     // Firebase doesn't accept undefined values, so convert them to null
     const { id, createdAt, updatedAt, totalPoints, lockedPoints, ...teamData } = team;
 
-    // Strip pointsScored from drivers and constructor — server is source of truth
-    if (teamData.drivers) {
-      teamData.drivers = teamData.drivers.map(({ pointsScored, ...d }: any) => d);
-    }
-    if (teamData.constructor) {
-      const { pointsScored, ...c } = teamData.constructor as any;
-      teamData.constructor = c;
-    }
+    // Keep pointsScored on drivers/constructor — stripping it causes { merge: true }
+    // to replace the entire drivers array without pointsScored, wiping server-scored
+    // values. The client already preserves server values via Math.max(local, server)
+    // in recalculateAllTeamsPoints, so syncing them back is safe.
 
     // Helper to convert undefined to null recursively
     const sanitizeForFirebase = (obj: any): any => {

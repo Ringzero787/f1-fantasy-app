@@ -158,6 +158,7 @@ export default function AdminContent() {
     fetchedAt: any;
   }>>([]);
   const [isApprovingRace, setIsApprovingRace] = useState<string | null>(null);
+  const [isRepairing, setIsRepairing] = useState(false);
 
   const loadPendingResults = useCallback(async () => {
     try {
@@ -1272,6 +1273,68 @@ export default function AdminContent() {
            adminLockOverride === 'unlocked' ? 'Teams Unlocked (override)' :
            'Following schedule'}
         </Text>
+      </View>
+
+      {/* Repair Scoring */}
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={[styles.importApiButton, isRepairing && styles.buttonDisabled]}
+          onPress={() => {
+            Alert.alert(
+              'Repair Team Scoring',
+              'Recalculate all team points from scratch using race results. This fixes corrupted pointsScored data.\n\nRun dry-run first?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Dry Run',
+                  onPress: async () => {
+                    setIsRepairing(true);
+                    try {
+                      const repair = httpsCallable(functions, 'repairTeamScoring');
+                      const result = await repair({ dryRun: true });
+                      const data = result.data as any;
+                      const details = (data.details || []).map((d: any) =>
+                        `${d.name}: ${d.oldTotal}→${d.newTotal}`
+                      ).join('\n');
+                      Alert.alert('Dry Run Complete', `${data.teamsFixed} teams would be fixed:\n\n${details || 'No changes needed'}`);
+                    } catch (error: any) {
+                      Alert.alert('Error', error.message || 'Repair failed');
+                    } finally {
+                      setIsRepairing(false);
+                    }
+                  },
+                },
+                {
+                  text: 'Fix Now',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setIsRepairing(true);
+                    try {
+                      const repair = httpsCallable(functions, 'repairTeamScoring');
+                      const result = await repair({ dryRun: false });
+                      const data = result.data as any;
+                      Alert.alert('Repair Complete', `Fixed ${data.teamsFixed} teams, ${data.leagueMembersFixed} league members.`);
+                    } catch (error: any) {
+                      Alert.alert('Error', error.message || 'Repair failed');
+                    } finally {
+                      setIsRepairing(false);
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+          disabled={isRepairing}
+        >
+          {isRepairing ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <Ionicons name="hammer-outline" size={16} color={COLORS.white} />
+          )}
+          <Text style={styles.importApiButtonText}>
+            {isRepairing ? 'Repairing...' : 'Repair Team Scoring'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Race Selector */}

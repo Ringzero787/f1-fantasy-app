@@ -1283,3 +1283,527 @@ export const calculatePointsManually = functions.https.onCall(async (data, conte
 
   return { success: true, message: 'Points calculation triggered' };
 });
+
+/**
+ * One-time repair function: recalculates all team scoring from scratch.
+ *
+ * Fixes data corruption caused by client syncing driver arrays without
+ * pointsScored, which overwrote server-scored values in Firestore.
+ *
+ * What it does:
+ *  1. Reads all completed races (race + qualifying results)
+ *  2. For each fantasy team, recalculates driver/constructor points from scratch
+ *  3. Re-applies contract expiry (removes expired drivers, banks lockedPoints)
+ *  4. Auto-fills empty slots with cheapest available drivers/constructors
+ *  5. Fixes league member totalPoints to match team totalPoints
+ *
+ * Admin-only, callable. Invoke from admin panel or Firebase console.
+ */
+export const repairTeamScoring = functions
+  .runWith({ timeoutSeconds: 300, memory: '512MB' })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+    }
+    if (!context.auth.token.admin) {
+      throw new functions.https.HttpsError('permission-denied', 'Admin access required');
+    }
+
+    const dryRun = data?.dryRun === true;
+    console.log(`[Repair] Starting team scoring repair (dryRun=${dryRun})`);
+
+    // ─── Load all completed races ───
+    const racesSnap = await db.collection('races')
+      .where('status', '==', 'completed')
+      .get();
+
+    if (racesSnap.empty) {
+      return { success: true, message: 'No completed races found', teamsFixed: 0 };
+    }
+
+    // Sort by round locally to avoid needing a composite index
+    const sortedRaceDocs = racesSnap.docs.sort(
+      (a, b) => (a.data().round || 0) - (b.data().round || 0)
+    );
+
+    const completedRaces: Array<{
+      raceId: string;
+      round: number;
+      hasSprint: boolean;
+      qualifyingScored: boolean;
+      raceResults: RaceResult[];
+      sprintResults: SprintResult[] | null;
+      qualifyingResults: QualifyingResult[] | null;
+      fastestLap: string | null;
+    }> = [];
+
+    for (const raceDoc of sortedRaceDocs) {
+      const rd = raceDoc.data();
+      completedRaces.push({
+        raceId: raceDoc.id,
+        round: rd.round,
+        hasSprint: rd.hasSprint === true,
+        qualifyingScored: rd.qualifyingScored === true,
+        raceResults: rd.results?.raceResults || [],
+        sprintResults: rd.results?.sprintResults || null,
+        qualifyingResults: rd.results?.qualifyingResults || null,
+        fastestLap: rd.results?.fastestLap || null,
+      });
+    }
+
+    const completedRaceCount = completedRaces.length;
+    console.log(`[Repair] Found ${completedRaceCount} completed race(s)`);
+
+    // ─── Load driver/constructor prices for ace validation ───
+    const [driverPriceSnap, ctorPriceSnap] = await Promise.all([
+      db.collection('drivers').get(),
+      db.collection('constructors').get(),
+    ]);
+    const driverPriceMap = new Map<string, number>();
+    driverPriceSnap.docs.forEach((d) => driverPriceMap.set(d.id, d.data().price || 0));
+    const ctorPriceMap = new Map<string, number>();
+    ctorPriceSnap.docs.forEach((d) => ctorPriceMap.set(d.id, d.data().price || 0));
+
+    // Build sorted driver/constructor lists for auto-fill
+    const allDriversList: Array<{ id: string; name: string; shortName: string; constructorId: string; price: number }> = [];
+    for (const d of driverPriceSnap.docs) {
+      const dd = d.data();
+      if (!dd.isActive) continue;
+      allDriversList.push({
+        id: d.id,
+        name: dd.name || '',
+        shortName: dd.shortName || '',
+        constructorId: dd.constructorId || '',
+        price: driverPriceMap.get(d.id) || dd.price || 0,
+      });
+    }
+    allDriversList.sort((a, b) => a.price - b.price);
+
+    const allCtorsList: Array<{ id: string; name: string; price: number }> = [];
+    for (const c of ctorPriceSnap.docs) {
+      const cd = c.data();
+      if (!cd.isActive) continue;
+      allCtorsList.push({ id: c.id, name: cd.name || '', price: ctorPriceMap.get(c.id) || cd.price || 0 });
+    }
+    allCtorsList.sort((a, b) => a.price - b.price);
+
+    // ─── Process each team ───
+    const teamsSnap = await db.collection('fantasyTeams').get();
+    const teamOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+    const leagueMemberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+    const repairLog: Array<{ teamId: string; name: string; oldTotal: number; newTotal: number; changes: string[] }> = [];
+
+    for (const teamDoc of teamsSnap.docs) {
+      const team = teamDoc.data() as FantasyTeam & Record<string, unknown>;
+      const changes: string[] = [];
+
+      // Start from the team's original roster (before any scoring)
+      // We'll reconstruct what the drivers array looked like at team creation
+      let drivers = [...(team.drivers || [])] as FantasyDriver[];
+      let teamCtor = (team as Record<string, any>)['constructor'] as FantasyConstructor | null;
+
+      // Reset all pointsScored and racesHeld to recalculate from scratch
+      drivers = drivers.map(d => ({ ...d, pointsScored: 0, racesHeld: 0 }));
+      if (teamCtor) {
+        teamCtor = { ...teamCtor, pointsScored: 0, racesHeld: 0 };
+      }
+
+      let totalPoints = 0;
+      let aceDriverId = team.aceDriverId;
+      let aceConstructorId = team.aceConstructorId;
+      const scoredRaceIds: string[] = [];
+
+      // ─── Score each completed race ───
+      for (const race of completedRaces) {
+        const raceResultsMap = new Map<string, RaceResult>();
+        race.raceResults.forEach((r) => raceResultsMap.set(r.driverId, r));
+
+        const sprintResultsMap = new Map<string, SprintResult>();
+        if (race.sprintResults) {
+          race.sprintResults.forEach((r) => sprintResultsMap.set(r.driverId, r));
+        }
+
+        const qualifyingResultsMap = new Map<string, QualifyingResult>();
+        if (race.qualifyingResults) {
+          race.qualifyingResults.forEach((r) => qualifyingResultsMap.set(r.driverId, r));
+        }
+
+        // ── Qualifying scoring (quarter-rate, standalone) ──
+        if (race.qualifyingScored && race.qualifyingResults && !race.hasSprint) {
+          let qualiTeamPts = 0;
+
+          drivers = drivers.map(driver => {
+            let isAce = driver.driverId === aceDriverId;
+            // Use purchasePrice for ace validation — reflects pre-race price
+            if (isAce && (driver.purchasePrice || 0) > ACE_MAX_PRICE) {
+              isAce = false;
+            }
+
+            const qr = qualifyingResultsMap.get(driver.driverId);
+            let qualiPts = 0;
+            if (qr && qr.position >= 1 && qr.position <= 16) {
+              qualiPts = Math.floor((GRID_SIZE + 1 - qr.position) / 4);
+              if (isAce) qualiPts *= 2;
+            }
+
+            qualiTeamPts += qualiPts;
+            return { ...driver, pointsScored: driver.pointsScored + qualiPts };
+          });
+
+          if (teamCtor) {
+            let isAceCtor = aceConstructorId === teamCtor.constructorId;
+            if (isAceCtor && (teamCtor.purchasePrice || 0) > ACE_MAX_PRICE) {
+              isAceCtor = false;
+            }
+
+            let ctorQualiPts = 0;
+            const ctorQualiResults = race.qualifyingResults.filter(
+              (r) => r.constructorId === teamCtor!.constructorId
+            );
+            for (const qr of ctorQualiResults) {
+              if (qr.position >= 1 && qr.position <= 16) {
+                ctorQualiPts += Math.floor((GRID_SIZE + 1 - qr.position) / 4);
+              }
+            }
+            if (isAceCtor) ctorQualiPts *= 2;
+            qualiTeamPts += ctorQualiPts;
+            teamCtor = { ...teamCtor, pointsScored: teamCtor.pointsScored + ctorQualiPts };
+          }
+
+          totalPoints += qualiTeamPts;
+          scoredRaceIds.push(`quali_${race.raceId}`);
+        }
+
+        // ── Race scoring ──
+        let raceTeamPts = 0;
+
+        drivers = drivers.map(driver => {
+          const raceResult = raceResultsMap.get(driver.driverId);
+          const sprintResult = sprintResultsMap.get(driver.driverId) || null;
+          let isAce = driver.driverId === aceDriverId;
+          // Use purchasePrice for ace validation — reflects pre-race price
+          if (isAce && (driver.purchasePrice || 0) > ACE_MAX_PRICE) {
+            isAce = false;
+          }
+
+          let driverPts = 0;
+          if (raceResult) {
+            driverPts = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce);
+          }
+
+          raceTeamPts += driverPts;
+          return {
+            ...driver,
+            pointsScored: driver.pointsScored + driverPts,
+            racesHeld: driver.racesHeld + 1,
+          };
+        });
+
+        // Constructor race scoring
+        if (teamCtor) {
+          let isAceCtor = aceConstructorId === teamCtor.constructorId;
+          if (isAceCtor && (teamCtor.purchasePrice || 0) > ACE_MAX_PRICE) {
+            isAceCtor = false;
+          }
+
+          let ctorPts = 0;
+          const ctorDriverResults = race.raceResults.filter(
+            (r) => r.constructorId === teamCtor!.constructorId
+          );
+          for (const result of ctorDriverResults) {
+            if (result.status === 'finished') {
+              if (result.position <= RACE_POINTS.length) {
+                ctorPts += RACE_POINTS[result.position - 1];
+              }
+              if (result.position >= 1 && result.position <= GRID_SIZE) {
+                ctorPts += GRID_SIZE + 1 - result.position;
+              }
+            }
+          }
+
+          // Sprint constructor scoring
+          if (race.sprintResults) {
+            const ctorSprintResults = race.sprintResults.filter(
+              (r: any) => {
+                const rr = race.raceResults.find(rr2 => rr2.driverId === r.driverId);
+                return rr && rr.constructorId === teamCtor!.constructorId;
+              }
+            );
+            for (const sr of ctorSprintResults) {
+              if (sr.status === 'finished' && sr.position <= SPRINT_POINTS.length) {
+                ctorPts += SPRINT_POINTS[sr.position - 1];
+              }
+            }
+          }
+
+          ctorPts += calculateLockBonus(teamCtor.racesHeld);
+          if (isAceCtor) ctorPts *= 2;
+
+          raceTeamPts += ctorPts;
+          teamCtor = {
+            ...teamCtor,
+            pointsScored: teamCtor.pointsScored + ctorPts,
+            racesHeld: teamCtor.racesHeld + 1,
+          };
+        }
+
+        // Stale roster penalty
+        const racesSinceTransfer = team.racesSinceTransfer || 0;
+        if (racesSinceTransfer > 5) {
+          const stalePenalty = (racesSinceTransfer - 5) * 5;
+          raceTeamPts -= stalePenalty;
+        }
+
+        totalPoints += raceTeamPts;
+        scoredRaceIds.push(race.raceId);
+      }
+
+      // ─── Contract expiry (Phase 3.5 equivalent) ───
+      let lockedPoints = 0;
+      const lockouts: Record<string, number> = {};
+      let budget = (team.budget as number) ?? 0;
+
+      // First, undo the budget changes from the corrupted state
+      // We need the original budget. Approximate: current budget + (expired driver sale returns already applied)
+      // Actually, just recalculate budget from totalSpent
+      const totalSpent = (team.totalSpent as number) ?? 0;
+      budget = 1000 - totalSpent; // Reset to original budget (BUDGET = 1000)
+
+      let saleReturns = 0;
+      let autoFillCosts = 0;
+      const expiredDriverIds: string[] = [];
+      let constructorExpired = false;
+
+      const remainingDrivers: FantasyDriver[] = [];
+      for (const driver of drivers) {
+        const contractLen = driver.contractLength || CONTRACT_LENGTH_DEFAULT;
+        if (driver.racesHeld >= contractLen) {
+          // Expired
+          const currentPrice = driverPriceMap.get(driver.driverId) || driver.currentPrice;
+          saleReturns += currentPrice;
+          lockedPoints += driver.pointsScored;
+          lockouts[driver.driverId] = completedRaceCount + CONTRACT_LOCKOUT_RACES;
+          expiredDriverIds.push(driver.driverId);
+          if (aceDriverId === driver.driverId) aceDriverId = undefined;
+          changes.push(`Expired driver ${driver.shortName} (pts=${driver.pointsScored}, price=$${currentPrice})`);
+        } else {
+          // Update price to current market price
+          remainingDrivers.push({
+            ...driver,
+            currentPrice: driverPriceMap.get(driver.driverId) || driver.currentPrice,
+          });
+        }
+      }
+      drivers = remainingDrivers;
+
+      let expiredConstructorId: string | undefined;
+      if (teamCtor) {
+        const cContractLen = teamCtor.contractLength || CONTRACT_LENGTH_DEFAULT;
+        if (teamCtor.racesHeld >= cContractLen) {
+          const currentPrice = ctorPriceMap.get(teamCtor.constructorId) || teamCtor.currentPrice;
+          saleReturns += currentPrice;
+          lockedPoints += teamCtor.pointsScored;
+          expiredConstructorId = teamCtor.constructorId;
+          if (aceConstructorId === teamCtor.constructorId) aceConstructorId = undefined;
+          changes.push(`Expired constructor ${teamCtor.name} (pts=${teamCtor.pointsScored}, price=$${currentPrice})`);
+          teamCtor = null;
+          constructorExpired = true;
+        } else if (teamCtor) {
+          teamCtor = {
+            ...teamCtor,
+            currentPrice: ctorPriceMap.get(teamCtor.constructorId) || teamCtor.currentPrice,
+          };
+        }
+      }
+
+      // Auto-fill expired driver slots
+      if (expiredDriverIds.length > 0) {
+        const teamDriverIds = new Set(drivers.map(d => d.driverId));
+        const expiredSet = new Set(expiredDriverIds);
+        let fillBudget = budget + saleReturns - autoFillCosts;
+
+        for (const candidate of allDriversList) {
+          if (drivers.length >= TEAM_SIZE) break;
+          if (candidate.price > fillBudget) break;
+          if (teamDriverIds.has(candidate.id)) continue;
+          if (expiredSet.has(candidate.id)) continue;
+          const lockExpiry = lockouts[candidate.id];
+          if (lockExpiry !== undefined && completedRaceCount < lockExpiry) continue;
+
+          drivers.push({
+            driverId: candidate.id,
+            name: candidate.name,
+            shortName: candidate.shortName,
+            constructorId: candidate.constructorId,
+            purchasePrice: candidate.price,
+            currentPrice: candidate.price,
+            pointsScored: 0,
+            racesHeld: 0,
+            contractLength: CONTRACT_LENGTH_DEFAULT,
+            isReservePick: true,
+            addedAtRace: completedRaceCount,
+          });
+          teamDriverIds.add(candidate.id);
+          autoFillCosts += candidate.price;
+          fillBudget -= candidate.price;
+          changes.push(`Auto-filled driver ${candidate.shortName} ($${candidate.price})`);
+        }
+      }
+
+      // Auto-fill expired constructor slot
+      if (constructorExpired) {
+        let fillBudget = budget + saleReturns - autoFillCosts;
+        for (const candidate of allCtorsList) {
+          if (candidate.price > fillBudget) break;
+          if (candidate.id === expiredConstructorId) continue;
+
+          teamCtor = {
+            constructorId: candidate.id,
+            name: candidate.name,
+            purchasePrice: candidate.price,
+            currentPrice: candidate.price,
+            pointsScored: 0,
+            racesHeld: 0,
+            contractLength: CONTRACT_LENGTH_DEFAULT,
+            isReservePick: true,
+            addedAtRace: completedRaceCount,
+          };
+          autoFillCosts += candidate.price;
+          changes.push(`Auto-filled constructor ${candidate.name} ($${candidate.price})`);
+          break;
+        }
+      }
+
+      const newBudget = budget + saleReturns - autoFillCosts;
+
+      // Ace auto-clear if price exceeded
+      if (aceDriverId) {
+        const aceDriver = drivers.find(d => d.driverId === aceDriverId);
+        if (aceDriver && aceDriver.currentPrice > ACE_MAX_PRICE) {
+          changes.push(`Cleared ace ${aceDriverId} (price $${aceDriver.currentPrice} > $${ACE_MAX_PRICE})`);
+          aceDriverId = undefined;
+        }
+      }
+      if (aceConstructorId && teamCtor) {
+        if (teamCtor.currentPrice > ACE_MAX_PRICE) {
+          changes.push(`Cleared ace constructor ${aceConstructorId}`);
+          aceConstructorId = undefined;
+        }
+      }
+
+      // Prune expired lockouts
+      const existingLockouts = { ...(team.driverLockouts || {}), ...lockouts };
+      for (const [dId, expiresAt] of Object.entries(existingLockouts)) {
+        if (completedRaceCount >= expiresAt) {
+          delete existingLockouts[dId];
+        }
+      }
+
+      // ─── Compare with current state and build update ───
+      const oldTotal = team.totalPoints || 0;
+      const oldLocked = (team.lockedPoints as number) || 0;
+
+      if (totalPoints !== oldTotal) {
+        changes.push(`totalPoints: ${oldTotal} → ${totalPoints}`);
+      }
+      if (lockedPoints !== oldLocked) {
+        changes.push(`lockedPoints: ${oldLocked} → ${lockedPoints}`);
+      }
+
+      // Check if any driver pointsScored differ
+      for (const driver of drivers) {
+        const oldDriver = (team.drivers || []).find((d: FantasyDriver) => d.driverId === driver.driverId);
+        if (oldDriver && (oldDriver.pointsScored || 0) !== driver.pointsScored) {
+          changes.push(`${driver.shortName} pointsScored: ${oldDriver.pointsScored || 0} → ${driver.pointsScored}`);
+        }
+      }
+
+      repairLog.push({
+        teamId: teamDoc.id,
+        name: (team as any).name || 'Unknown',
+        oldTotal,
+        newTotal: totalPoints,
+        changes,
+      });
+
+      if (changes.length === 0) continue; // No changes needed
+
+      // Build update data
+      const updateData: Record<string, any> = {
+        drivers,
+        totalPoints,
+        budget: Math.round(newBudget),
+        scoredRaces: scoredRaceIds,
+        racesSinceTransfer: (team.racesSinceTransfer || 0),
+      };
+
+      if (teamCtor) {
+        updateData['constructor'] = teamCtor;
+      }
+
+      if (lockedPoints > 0) {
+        updateData.lockedPoints = lockedPoints;
+      } else {
+        updateData.lockedPoints = admin.firestore.FieldValue.delete();
+      }
+
+      if (aceDriverId) {
+        updateData.aceDriverId = aceDriverId;
+      } else {
+        updateData.aceDriverId = admin.firestore.FieldValue.delete();
+      }
+
+      if (aceConstructorId) {
+        updateData.aceConstructorId = aceConstructorId;
+      } else {
+        updateData.aceConstructorId = admin.firestore.FieldValue.delete();
+      }
+
+      if (Object.keys(existingLockouts).length > 0) {
+        updateData.driverLockouts = existingLockouts;
+      } else {
+        updateData.driverLockouts = admin.firestore.FieldValue.delete();
+      }
+
+      teamOps.push({ ref: teamDoc.ref, data: updateData });
+
+      // Fix league member totalPoints
+      if (team.leagueId && team.userId) {
+        const memberRef = db
+          .collection('leagues')
+          .doc(team.leagueId)
+          .collection('members')
+          .doc(team.userId);
+        leagueMemberOps.push({
+          ref: memberRef,
+          data: { totalPoints },
+        });
+      }
+    }
+
+    console.log(`[Repair] ${teamOps.length} teams need fixing out of ${teamsSnap.size}`);
+    for (const log of repairLog) {
+      if (log.changes.length > 0) {
+        console.log(`[Repair] ${log.name} (${log.teamId}): ${log.changes.join(', ')}`);
+      }
+    }
+
+    if (!dryRun) {
+      await commitInBatches(teamOps);
+      await commitInBatches(leagueMemberOps);
+      console.log(`[Repair] Committed ${teamOps.length} team updates + ${leagueMemberOps.length} league member updates`);
+    }
+
+    return {
+      success: true,
+      dryRun,
+      teamsFixed: teamOps.length,
+      leagueMembersFixed: leagueMemberOps.length,
+      details: repairLog.filter(l => l.changes.length > 0).map(l => ({
+        name: l.name,
+        oldTotal: l.oldTotal,
+        newTotal: l.newTotal,
+        changes: l.changes,
+      })),
+    };
+  });
