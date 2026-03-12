@@ -133,46 +133,47 @@ jobs:
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
-      - name: Take Screenshots with Maestro
+      - name: Take Screenshots
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
           mkdir -p screenshots/${{ matrix.device.folder }}
+          OUTDIR="screenshots/${{ matrix.device.folder }}"
 
           # Launch the app
           xcrun simctl launch "$DEVICE_UDID" com.undercut.app
           sleep 5
 
-          # Run Maestro flow with output directory
+          # Screenshot 1: Login screen
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/01_login.png"
+
+          # Use Maestro to tap Demo Mode and enter the app
           maestro --udid "$DEVICE_UDID" test \
-            --output screenshots/${{ matrix.device.folder }} \
+            --output "$OUTDIR" \
             .maestro/screenshots/take-screenshots.yaml || true
 
-          # Maestro saves screenshots in various locations — find and copy them all
-          echo "Looking for Maestro screenshots..."
-          find $HOME/.maestro -name "*.png" 2>/dev/null -exec cp {} screenshots/${{ matrix.device.folder }}/ \; || true
-          find . -maxdepth 1 -name "*.png" -exec cp {} screenshots/${{ matrix.device.folder }}/ \; 2>/dev/null || true
+          # Screenshot 2: Home (Maestro should have navigated here)
+          sleep 3
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/02_home.png"
 
-          # List what we found
-          echo "Maestro screenshots found:"
-          ls -la screenshots/${{ matrix.device.folder }}/ 2>/dev/null || true
+          # Navigate via deep links and take screenshots
+          xcrun simctl openurl "$DEVICE_UDID" "theundercut://my-team"
+          sleep 5
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/03_myteam.png"
 
-      - name: Fallback - simctl Screenshots
-        if: always()
-        run: |
-          mkdir -p screenshots/${{ matrix.device.folder }}
+          xcrun simctl openurl "$DEVICE_UDID" "theundercut://market"
+          sleep 5
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/04_market.png"
 
-          # Only take fallback if Maestro didn't produce screenshots
-          EXISTING=$(find screenshots/${{ matrix.device.folder }} -name "*.png" 2>/dev/null | wc -l)
-          if [ "$EXISTING" -lt 3 ]; then
-            echo "Maestro produced fewer than 3 screenshots, taking fallback screenshots..."
-            xcrun simctl launch "$DEVICE_UDID" com.undercut.app 2>/dev/null || true
-            sleep 8
-            xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_01.png
-            sleep 2
-            xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_02.png
-          else
-            echo "Maestro produced $EXISTING screenshots, skipping fallback"
-          fi
+          xcrun simctl openurl "$DEVICE_UDID" "theundercut://calendar"
+          sleep 5
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/05_calendar.png"
+
+          xcrun simctl openurl "$DEVICE_UDID" "theundercut://leagues"
+          sleep 5
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/06_leagues.png"
+
+          echo "Screenshots taken:"
+          ls -la "$OUTDIR/"
 
       - name: List screenshots
         if: always()
