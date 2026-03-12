@@ -117,6 +117,7 @@ export default function CalendarScreen() {
                     <View key={race.id} style={{ flex: 1 }}>
                       <RaceCard
                         race={race}
+                        results={race.results}
                         onPress={() => router.push(`/calendar/${race.id}`)}
                         showCountdown={race.status === 'upcoming'}
                       />
@@ -129,6 +130,7 @@ export default function CalendarScreen() {
             return (
               <RaceCard
                 race={item}
+                results={item.results}
                 onPress={() => router.push(`/calendar/${item.id}`)}
                 showCountdown={item.status === 'upcoming'}
               />

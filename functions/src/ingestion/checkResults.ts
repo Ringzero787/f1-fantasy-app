@@ -28,7 +28,7 @@ import {
   convertToQualifyingResults,
   deriveRoundNumbers,
 } from './openf1Client';
-import { handleQualifyingScoring } from '../scoring/calculatePoints';
+import { handleQualifyingScoring, handleSprintScoring } from '../scoring/calculatePoints';
 
 const db = admin.firestore();
 
@@ -234,10 +234,15 @@ async function processRace(race: {
     await db.collection('pendingResults').doc(race.raceId).set(pendingResult);
     console.log(`[Ingestion] Stored pending results for ${race.raceId} (${raceData.results.length} drivers, ${warnings.length} warnings)`);
 
-    // Auto-approve if configured
-    if (AUTO_APPROVE) {
+    // Auto-approve if configured — but only if we have enough results
+    const MIN_RESULTS_FOR_AUTO = 15;
+    if (AUTO_APPROVE && raceData.results.length >= MIN_RESULTS_FOR_AUTO) {
       console.log(`[Ingestion] Auto-approving ${race.raceId}...`);
       await doApprove(race.raceId, 'auto');
+    } else if (AUTO_APPROVE && raceData.results.length < MIN_RESULTS_FOR_AUTO) {
+      console.log(`[Ingestion] Only ${raceData.results.length} results for ${race.raceId} — skipping auto-approve (need ${MIN_RESULTS_FOR_AUTO}+). Will retry next cycle.`);
+      // Set status to 'rejected' so it re-fetches next cycle
+      await db.collection('pendingResults').doc(race.raceId).update({ status: 'rejected' });
     }
   } catch (error) {
     console.error(`[Ingestion] Error processing ${race.raceId}:`, error);
@@ -332,9 +337,6 @@ export const checkQualifyingResults = onSchedule(
         const raceId = ROUND_TO_RACE_ID[round];
         if (!raceId) continue;
 
-        // Skip sprint weekends (sprint already adds midweek points)
-        if (SPRINT_ROUNDS.has(round)) continue;
-
         const meetingSessions = yearSessions.filter(s => s.meeting_key === meetingKey);
         const qualiSession = meetingSessions.find(s => s.session_name === 'Qualifying');
         if (!qualiSession) continue;
@@ -378,6 +380,74 @@ export const checkQualifyingResults = onSchedule(
       }
     } catch (error) {
       console.error('[QualiIngestion] Error:', error);
+    }
+  },
+);
+
+/**
+ * Scheduled: Check for completed sprint sessions and score independently.
+ * Runs every 30 minutes on sprint weekends (Saturday).
+ */
+export const checkSprintResults = onSchedule(
+  { schedule: 'every 30 minutes', timeoutSeconds: 120 },
+  async () => {
+    console.log('[SprintIngestion] Checking for completed sprints...');
+
+    try {
+      const allSessions = await fetchSessions(SEASON_YEAR);
+      const yearSessions = allSessions.filter(s => s.year === SEASON_YEAR);
+      if (yearSessions.length === 0) return;
+
+      const roundMap = deriveRoundNumbers(yearSessions);
+      const now = new Date();
+
+      for (const [meetingKey, round] of roundMap.entries()) {
+        // Only process sprint rounds
+        if (!SPRINT_ROUNDS.has(round)) continue;
+
+        const raceId = ROUND_TO_RACE_ID[round];
+        if (!raceId) continue;
+
+        const meetingSessions = yearSessions.filter(s => s.meeting_key === meetingKey);
+        const sprintSession = meetingSessions.find(s => s.session_name === 'Sprint');
+        if (!sprintSession) continue;
+
+        // Check if sprint has ended
+        if (!sprintSession.date_end || new Date(sprintSession.date_end) > now) continue;
+
+        // Check if race is still upcoming/in_progress (not yet completed)
+        const raceDoc = await db.collection('races').doc(raceId).get();
+        if (!raceDoc.exists) continue;
+        const raceData = raceDoc.data()!;
+        if (raceData.status === 'completed') continue;
+
+        // Check if sprint already scored
+        if (raceData.sprintScored === true) continue;
+
+        // Fetch and convert sprint results
+        const sprintData = await convertToSprintResults(sprintSession.session_key);
+        if (sprintData.results.length === 0) {
+          console.log(`[SprintIngestion] No sprint results yet for round ${round}`);
+          continue;
+        }
+
+        if (sprintData.warnings.length > 0) {
+          console.log(`[SprintIngestion] Warnings for round ${round}:`, sprintData.warnings);
+        }
+
+        // Write sprint results to race doc and mark as scored
+        await raceDoc.ref.update({
+          'results.sprintResults': sprintData.results,
+          sprintScored: true,
+        });
+
+        // Score sprint directly
+        await handleSprintScoring(raceId, sprintData.results);
+
+        console.log(`[SprintIngestion] Scored sprint for ${raceId} (${sprintData.results.length} drivers)`);
+      }
+    } catch (error) {
+      console.error('[SprintIngestion] Error:', error);
     }
   },
 );

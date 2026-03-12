@@ -141,6 +141,7 @@ export default function MyTeamScreen() {
   const leagues = useLeagueStore(s => s.leagues);
   const loadUserLeagues = useLeagueStore(s => s.loadUserLeagues);
   const raceResults = useAdminStore(s => s.raceResults);
+  const syncCompletedRaces = useAdminStore(s => s.syncCompletedRaces);
   const { data: allDrivers } = useDrivers();
   const { data: allConstructors } = useConstructors();
   const lockoutInfo = useLockoutStatus();
@@ -173,6 +174,7 @@ export default function MyTeamScreen() {
       }
       loadUserLeagues(user.id);
       recalculateAllTeamsPoints();
+      syncCompletedRaces();
     }
   }, [user]);
 
@@ -1025,14 +1027,23 @@ export default function MyTeamScreen() {
                     )}
                   </View>
                   {!cIsReserve ? (
-                    <View style={styles.cardPriceBlock}>
-                      <Text style={[styles.cardPrice, { fontSize: scaledFonts.lg }]}>${livePrice}</Text>
-                      {cPriceDiff !== 0 && !cInGracePeriod && (
-                        <View style={[styles.cardPriceDiff, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                          <Ionicons name={cPriceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
-                          <Text style={styles.cardPriceDiffText}>${Math.abs(cPriceDiff)}</Text>
+                    <View style={styles.cardStatsBlock}>
+                      {c.pointsScored > 0 && (
+                        <View style={styles.cardPointsRow}>
+                          <Ionicons name="trophy" size={12} color={COLORS.primary} />
+                          <Text style={[styles.cardPointsText, { fontSize: scaledFonts.lg }]}>{formatPoints(c.pointsScored)}</Text>
+                          <Text style={styles.cardPointsLabel}>pts</Text>
                         </View>
                       )}
+                      <View style={styles.cardPriceBlock}>
+                        <Text style={[styles.cardPrice, { fontSize: scaledFonts.lg }]}>${livePrice}</Text>
+                        {cPriceDiff !== 0 && !cInGracePeriod && (
+                          <View style={[styles.cardPriceDiff, cPriceDiff > 0 ? styles.priceUp : styles.priceDown]}>
+                            <Ionicons name={cPriceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
+                            <Text style={styles.cardPriceDiffText}>${Math.abs(cPriceDiff)}</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   ) : (
                     <View style={styles.reserveTag}>
@@ -1046,9 +1057,6 @@ export default function MyTeamScreen() {
                       <Text style={[styles.metaChipText, { color: cAccent }]}>{cInfo.shortName}</Text>
                     </View>
                   )}
-                  <View style={[styles.metaChip, { backgroundColor: theme.background }]}>
-                    <Text style={styles.metaChipText}>{formatPoints(c.pointsScored)} pts</Text>
-                  </View>
                   {lastRaceBreakdown[c.constructorId] != null && (
                     <View style={[styles.metaChip, { backgroundColor: lastRaceBreakdown[c.constructorId].base > 0 ? '#16a34a18' : theme.background }]}>
                       <Text style={[styles.metaChipText, lastRaceBreakdown[c.constructorId].base > 0 && { color: '#16a34a' }]}>
@@ -1450,6 +1458,24 @@ const styles = StyleSheet.create({
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardStatsBlock: {
+    alignItems: 'flex-end',
+  },
+  cardPointsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  cardPointsText: {
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  cardPointsLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.text.muted,
   },
   cardPriceBlock: {
     flexDirection: 'row',

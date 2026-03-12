@@ -61,6 +61,25 @@ export const raceService = {
    * Get next upcoming race
    */
   async getNextRace(seasonId: string): Promise<Race | null> {
+    // First check for in_progress race (active race weekend)
+    const inProgressQ = query(
+      racesCollection,
+      where('seasonId', '==', seasonId),
+      where('status', '==', 'in_progress'),
+      limit(1)
+    );
+    const inProgressSnap = await getDocs(inProgressQ);
+
+    if (!inProgressSnap.empty) {
+      const docSnap = inProgressSnap.docs[0];
+      return {
+        id: docSnap.id,
+        ...docSnap.data(),
+        schedule: this.parseScheduleDates(docSnap.data().schedule),
+      } as Race;
+    }
+
+    // Fall back to next upcoming race
     const q = query(
       racesCollection,
       where('seasonId', '==', seasonId),

@@ -582,7 +582,15 @@ export const useTeamStore = create<TeamState>()(
               const localPoints = typeof localTeam.totalPoints === 'number' ? localTeam.totalPoints : 0;
               const useServerPoints = serverPoints > localPoints;
 
-              if (!useServerPoints) return localTeam;
+              // Always merge lock status from server (server is source of truth for locks)
+              const lockMerged = {
+                ...localTeam,
+                isLocked: fbTeam.isLocked ?? localTeam.isLocked,
+                lockStatus: fbTeam.lockStatus ?? localTeam.lockStatus,
+                lockedPoints: typeof fbTeam.lockedPoints === 'number' ? fbTeam.lockedPoints : localTeam.lockedPoints,
+              };
+
+              if (!useServerPoints) return lockMerged;
 
               // Merge server-scored per-driver pointsScored
               const mergedDrivers = localTeam.drivers.map(driver => {

@@ -19,13 +19,25 @@ export interface LockoutInfo {
 
 /**
  * Find the next incomplete race (lowest round not in completedRaceIds).
+ * Races whose scheduled race time is more than 4 hours in the past are
+ * treated as implicitly complete — this prevents stale locks when
+ * syncCompletedRaces hasn't run or failed silently.
  */
 export function getNextIncompleteRace(
   races: Race[],
   completedRaceIds: Set<string>,
+  now?: Date,
 ): Race | null {
   const sorted = [...races].sort((a, b) => a.round - b.round);
-  return sorted.find((r) => !completedRaceIds.has(r.id)) ?? null;
+  const nowMs = (now ?? new Date()).getTime();
+  const IMPLICIT_COMPLETE_MS = 4 * 60 * 60 * 1000; // 4 hours after race start
+  return sorted.find((r) => {
+    if (completedRaceIds.has(r.id)) return false;
+    // If race start time is well past, treat as implicitly complete
+    const raceTime = new Date(r.schedule.race).getTime();
+    if (nowMs > raceTime + IMPLICIT_COMPLETE_MS) return false;
+    return true;
+  }) ?? null;
 }
 
 /**
@@ -68,7 +80,7 @@ export function computeLockoutStatus(
     aceLocked: true,
   };
 
-  const nextRace = getNextIncompleteRace(races, completedRaceIds);
+  const nextRace = getNextIncompleteRace(races, completedRaceIds, now);
   if (!nextRace) {
     // Admin override can unlock even when season is "complete" (for testing)
     if (adminOverride === 'unlocked') {

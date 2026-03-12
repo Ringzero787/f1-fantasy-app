@@ -262,6 +262,8 @@ export default function HomeScreen() {
   const [teamsExpanded, setTeamsExpanded] = useState(false);
   const [teamCollapsed, setTeamCollapsed] = useState<Record<string, boolean>>({});
 
+  const syncCompletedRaces = useAdminStore(s => s.syncCompletedRaces);
+
   // Load user's leagues, teams, and news on mount
   React.useEffect(() => {
     if (user) {
@@ -270,6 +272,7 @@ export default function HomeScreen() {
       loadArticles();
       registerToken(user.id);
       loadNotifications(user.id);
+      syncCompletedRaces();
     }
   }, [user]);
 
@@ -371,12 +374,16 @@ export default function HomeScreen() {
       leagueIds.length > 0 ? loadActiveAnnouncements(leagueIds) : Promise.resolve(),
       user ? loadPendingCountsForOwnedLeagues(user.id) : Promise.resolve(),
       user ? loadUserTeams(user.id) : Promise.resolve(),
+      syncCompletedRaces(),
     ]);
     setRefreshing(false);
   };
 
   // Show spoiler-free overlay on race weekend (locked) with a primary team
-  const showSpoilerFree = lockoutInfo.isLocked && !spoilerDismissed && !!currentTeam && currentTeam.drivers.length > 0;
+  // Auto-suppress 1 day after race day so Monday openers don't see it
+  const raceTime = lockoutInfo.nextRace?.schedule?.race;
+  const spoilerExpired = raceTime ? Date.now() > new Date(raceTime).getTime() + 24 * 60 * 60 * 1000 : false;
+  const showSpoilerFree = lockoutInfo.isLocked && !spoilerDismissed && !spoilerExpired && !!currentTeam && currentTeam.drivers.length > 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>

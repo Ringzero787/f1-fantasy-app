@@ -133,7 +133,12 @@ export const teamService = {
     }
 
     const docSnap = snapshot.docs[0];
-    return { id: docSnap.id, ...docSnap.data() } as FantasyTeam;
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      constructor: (data as Record<string, any>)['constructor'] ?? null,
+    } as FantasyTeam;
   },
 
   /**

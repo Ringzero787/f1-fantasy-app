@@ -111,6 +111,9 @@ interface AdminState {
   // Load prices from server-side market cache (single doc read)
   loadMarketCache: () => Promise<boolean>;
 
+  // Sync completed race IDs from Firestore so client lockout stays accurate
+  syncCompletedRaces: () => Promise<void>;
+
   // Reset all cached data
   resetAllData: () => void;
 }
@@ -553,6 +556,39 @@ export const useAdminStore = create<AdminState>()(
         } catch (e) {
           console.warn('Failed to load market cache, falling back to individual reads:', e);
           return false;
+        }
+      },
+
+      // Sync completed race IDs from Firestore so client lockout logic stays accurate
+      syncCompletedRaces: async () => {
+        try {
+          const { collection, query, where, getDocs } = await import('firebase/firestore');
+          const { db } = await import('../config/firebase');
+          const racesRef = collection(db, 'races');
+          const q = query(racesRef, where('status', '==', 'completed'));
+          const snap = await getDocs(q);
+
+          const { raceResults } = get();
+          let updated = false;
+          const newResults = { ...raceResults };
+
+          for (const doc of snap.docs) {
+            const raceId = doc.id;
+            if (!newResults[raceId] || !newResults[raceId].isComplete) {
+              // Mark as complete with a minimal stub (enough for lockout logic)
+              newResults[raceId] = newResults[raceId]
+                ? { ...newResults[raceId], isComplete: true, completedAt: new Date() }
+                : { ...createEmptyRaceResult(raceId), isComplete: true, completedAt: new Date() };
+              updated = true;
+            }
+          }
+
+          if (updated) {
+            set({ raceResults: newResults });
+            console.log('[syncCompletedRaces] Synced completed races from Firestore');
+          }
+        } catch (e) {
+          console.warn('[syncCompletedRaces] Failed:', e);
         }
       },
 

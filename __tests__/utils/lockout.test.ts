@@ -41,30 +41,51 @@ describe('getNextIncompleteRace', () => {
     makeRace({ id: 'r2', round: 2 }),
     makeRace({ id: 'r3', round: 3 }),
   ];
+  // Use a time before race start so races aren't implicitly complete
+  const beforeRace = new Date('2026-03-06T00:00:00Z');
 
   it('returns the first race when none are completed', () => {
-    const result = getNextIncompleteRace(races, new Set());
+    const result = getNextIncompleteRace(races, new Set(), beforeRace);
     expect(result?.id).toBe('r1');
   });
 
   it('returns the second race when first is completed', () => {
-    const result = getNextIncompleteRace(races, new Set(['r1']));
+    const result = getNextIncompleteRace(races, new Set(['r1']), beforeRace);
     expect(result?.id).toBe('r2');
   });
 
   it('returns the third race when first two are completed', () => {
-    const result = getNextIncompleteRace(races, new Set(['r1', 'r2']));
+    const result = getNextIncompleteRace(races, new Set(['r1', 'r2']), beforeRace);
     expect(result?.id).toBe('r3');
   });
 
   it('returns null when all races are completed', () => {
-    const result = getNextIncompleteRace(races, new Set(['r1', 'r2', 'r3']));
+    const result = getNextIncompleteRace(races, new Set(['r1', 'r2', 'r3']), beforeRace);
     expect(result).toBeNull();
   });
 
   it('handles unsorted races correctly', () => {
     const unsorted = [races[2], races[0], races[1]];
-    const result = getNextIncompleteRace(unsorted, new Set(['r1']));
+    const result = getNextIncompleteRace(unsorted, new Set(['r1']), beforeRace);
+    expect(result?.id).toBe('r2');
+  });
+
+  it('skips races whose race time is more than 4 hours in the past (implicit complete)', () => {
+    const racesWithDates = [
+      makeRace({ id: 'r1', round: 1, schedule: {
+        fp1: new Date('2026-03-06T01:30:00Z'), fp2: new Date('2026-03-06T05:00:00Z'),
+        fp3: new Date('2026-03-07T01:30:00Z'), qualifying: new Date('2026-03-07T05:00:00Z'),
+        race: new Date('2026-03-08T04:00:00Z'),
+      }}),
+      makeRace({ id: 'r2', round: 2, schedule: {
+        fp1: new Date('2026-03-20T01:30:00Z'), fp2: new Date('2026-03-20T05:00:00Z'),
+        fp3: new Date('2026-03-21T01:30:00Z'), qualifying: new Date('2026-03-21T05:00:00Z'),
+        race: new Date('2026-03-22T04:00:00Z'),
+      }}),
+    ];
+    // 5 hours after r1 race start — r1 implicitly complete, r2 still upcoming
+    const wellAfterR1 = new Date('2026-03-08T09:00:00Z');
+    const result = getNextIncompleteRace(racesWithDates, new Set(), wellAfterR1);
     expect(result?.id).toBe('r2');
   });
 });

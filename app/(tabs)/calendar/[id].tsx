@@ -15,7 +15,7 @@ import { useRace, useRaceResults, useSeasonRaces } from '../../../src/hooks';
 import { Card, Loading, EmptyState, TrackIcon } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
-import { formatCountdown, formatTimeWithZone, formatDateWithZone } from '../../../src/utils/formatters';
+import { formatCountdown, formatTimeWithZone, formatDateWithZone, getDriverDisplayName } from '../../../src/utils/formatters';
 import { usePrefsStore } from '../../../src/store/prefs.store';
 
 const CURRENT_SEASON_ID = '2026';
@@ -190,12 +190,12 @@ export default function RaceDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Race Results</Text>
           <Card variant="outlined" padding="none">
-            {results.raceResults.slice(0, 10).map((result, index) => (
+            {results.raceResults.map((result, index) => (
               <View
                 key={result.driverId}
                 style={[
                   styles.resultRow,
-                  index < 9 && styles.resultBorder,
+                  index < results.raceResults.length - 1 && styles.resultBorder,
                 ]}
               >
                 <View style={[
@@ -208,14 +208,23 @@ export default function RaceDetailScreen() {
                   <Text style={styles.positionText}>{result.position}</Text>
                 </View>
                 <View style={styles.resultInfo}>
-                  <Text style={styles.resultDriver}>{result.driverId}</Text>
+                  <Text style={styles.resultDriver}>{getDriverDisplayName(result.driverId)}</Text>
                   <Text style={styles.resultStatus}>
                     {result.status === 'finished'
-                      ? `+${result.positionsGained > 0 ? result.positionsGained : 0} positions`
+                      ? result.positionsGained > 0
+                        ? `+${result.positionsGained} positions gained`
+                        : result.positionsGained < 0
+                        ? `${result.positionsGained} positions`
+                        : 'No change'
                       : result.status.toUpperCase()}
                   </Text>
                 </View>
-                <Text style={[styles.resultPoints, { color: theme.primary }]}>{result.points} pts</Text>
+                <View style={styles.resultRight}>
+                  {results.fastestLap === result.driverId && (
+                    <Ionicons name="stopwatch" size={14} color={COLORS.purple[400]} style={{ marginRight: 4 }} />
+                  )}
+                  <Text style={[styles.resultPoints, { color: theme.primary }]}>{result.points} pts</Text>
+                </View>
               </View>
             ))}
           </Card>
@@ -503,6 +512,11 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.text.secondary,
     marginTop: 2,
+  },
+
+  resultRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   resultPoints: {

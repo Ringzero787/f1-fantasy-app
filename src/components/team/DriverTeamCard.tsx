@@ -94,14 +94,23 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
             <View style={{ flex: 1 }} />
           </View>
           {!driver.isReserve ? (
-            <View style={styles.cardPriceBlock}>
-              <Text style={[styles.cardPrice, { fontSize: scaledFonts.lg }]}>${driver.livePrice}</Text>
-              {driver.priceDiff !== 0 && !driver.inGracePeriod && (
-                <View style={[styles.cardPriceDiff, driver.priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
-                  <Ionicons name={driver.priceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
-                  <Text style={styles.cardPriceDiffText}>${Math.abs(driver.priceDiff)}</Text>
+            <View style={styles.cardStatsBlock}>
+              {driver.pointsScored > 0 && (
+                <View style={styles.cardPointsRow}>
+                  <Ionicons name="trophy" size={12} color={COLORS.primary} />
+                  <Text style={[styles.cardPointsText, { fontSize: scaledFonts.lg }]}>{formatPoints(driver.pointsScored)}</Text>
+                  <Text style={styles.cardPointsLabel}>pts</Text>
                 </View>
               )}
+              <View style={styles.cardPriceBlock}>
+                <Text style={[styles.cardPrice, { fontSize: scaledFonts.lg }]}>${driver.livePrice}</Text>
+                {driver.priceDiff !== 0 && !driver.inGracePeriod && (
+                  <View style={[styles.cardPriceDiff, driver.priceDiff > 0 ? styles.priceUp : styles.priceDown]}>
+                    <Ionicons name={driver.priceDiff > 0 ? 'caret-up' : 'caret-down'} size={10} color={COLORS.white} />
+                    <Text style={styles.cardPriceDiffText}>${Math.abs(driver.priceDiff)}</Text>
+                  </View>
+                )}
+              </View>
             </View>
           ) : (
             <View style={styles.reserveTag}>
@@ -116,9 +125,6 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
               <Text style={[styles.metaChipText, { color: driver.accentColor }]}>{driver.cInfo.shortName}</Text>
             </View>
           )}
-          <View style={[styles.metaChip, { backgroundColor: theme.surface }]}>
-            <Text style={styles.metaChipText}>{formatPoints(driver.pointsScored)} pts</Text>
-          </View>
           {lastRaceEntry != null && (
             <View style={[styles.metaChip, { backgroundColor: lastRaceEntry.base > 0 ? '#16a34a18' : theme.surface }]}>
               <Text style={[styles.metaChipText, lastRaceEntry.base > 0 && { color: '#16a34a' }]}>
@@ -232,6 +238,24 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.gold,
     borderRadius: BORDER_RADIUS.full,
     padding: 3,
+  },
+  cardStatsBlock: {
+    alignItems: 'flex-end',
+  },
+  cardPointsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  cardPointsText: {
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  cardPointsLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.text.muted,
   },
   cardPriceBlock: {
     alignItems: 'flex-end',

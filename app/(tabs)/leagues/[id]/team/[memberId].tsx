@@ -67,10 +67,14 @@ export default function ViewTeamScreen() {
     );
   }
 
+  // Read constructor safely — Object.prototype.constructor fallback is a function, not team data
+  const teamConstructor = typeof (team as Record<string, any>)['constructor'] === 'object'
+    ? (team as Record<string, any>)['constructor'] as FantasyTeam['constructor']
+    : null;
   const driversCount = team.drivers?.length || 0;
-  const hasConstructor = !!team.constructor;
-  const totalValue = (team.drivers?.reduce((sum, d) => sum + d.currentPrice, 0) || 0) +
-                     (team.constructor?.currentPrice || 0);
+  const hasConstructor = !!teamConstructor;
+  const totalValue = (team.drivers?.reduce((sum, d) => sum + (d.currentPrice || 0), 0) || 0) +
+                     (teamConstructor?.currentPrice || 0);
 
   return (
     <>
@@ -120,7 +124,7 @@ export default function ViewTeamScreen() {
               </View>
               <View style={styles.budgetItem}>
                 <Text style={[styles.budgetLabel, { color: COLORS.text.muted }]}>Remaining</Text>
-                <Text style={[styles.budgetValue, { color: COLORS.text.primary }]}>{formatPoints(team.budget)}</Text>
+                <Text style={[styles.budgetValue, { color: COLORS.text.primary }]}>{formatPoints(team.budget ?? 0)}</Text>
               </View>
             </View>
           </View>
@@ -179,10 +183,10 @@ export default function ViewTeamScreen() {
                   </View>
                   <View style={styles.driverStats}>
                     <Text style={[styles.driverPoints, { color: theme.primary }]}>
-                      {formatPoints(driver.pointsScored)} pts
+                      {formatPoints(driver.pointsScored || 0)} pts
                     </Text>
                     <Text style={[styles.driverPrice, { color: COLORS.text.muted }]}>
-                      {formatPoints(driver.currentPrice)}
+                      {formatPoints(driver.currentPrice || 0)}
                     </Text>
                   </View>
                 </View>
@@ -213,22 +217,22 @@ export default function ViewTeamScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: COLORS.text.primary, fontSize: scaledFonts.lg }]}>Constructor</Text>
 
-          {team.constructor ? (
+          {teamConstructor ? (
             <Card variant="outlined" padding="medium" style={styles.constructorItem}>
               <View style={styles.constructorInfo}>
                 <Text style={[styles.constructorName, { color: COLORS.text.primary }]}>
-                  {team.constructor.name}
+                  {teamConstructor.name}
                 </Text>
                 <View style={styles.constructorStats}>
                   <Text style={[styles.constructorPoints, { color: theme.primary }]}>
-                    {formatPoints(team.constructor.pointsScored)} pts
+                    {formatPoints(teamConstructor.pointsScored || 0)} pts
                   </Text>
                   <Text style={[styles.constructorPrice, { color: COLORS.text.muted }]}>
-                    {formatPoints(team.constructor.currentPrice)}
+                    {formatPoints(teamConstructor.currentPrice || 0)}
                   </Text>
                 </View>
               </View>
-              {team.aceConstructorId === team.constructor.constructorId && (
+              {team.aceConstructorId === teamConstructor.constructorId && (
                 <View style={[styles.aceBadge, { backgroundColor: theme.primary + '20' }]}>
                   <Ionicons name="diamond" size={12} color={theme.primary} />
                   <Text style={[styles.aceBadgeText, { color: theme.primary }]}>Ace (2x)</Text>

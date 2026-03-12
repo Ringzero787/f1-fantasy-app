@@ -92,15 +92,44 @@ const SECTIONS: RuleSection[] = [
           ['22nd', '0', '+1', '1'],
         ],
       },
-      { type: 'heading', text: 'Sprint Points (Top 8)' },
+      { type: 'heading', text: 'Qualifying Points' },
+      {
+        type: 'paragraph',
+        text: 'After qualifying ends, all drivers earn half-rate position bonus points. Scored on ALL weekends (including sprint weekends).',
+      },
       {
         type: 'table',
         headers: ['Pos', 'Pts', 'Pos', 'Pts'],
         rows: [
-          ['1st', '8', '5th', '4'],
-          ['2nd', '7', '6th', '3'],
-          ['3rd', '6', '7th', '2'],
-          ['4th', '5', '8th', '1'],
+          ['P1', '5', 'P7', '4'],
+          ['P2', '5', 'P8', '3'],
+          ['P3', '5', 'P9', '3'],
+          ['P4', '4', 'P10', '3'],
+          ['P5', '4', 'P11\u201316', '1\u20132'],
+          ['P6', '4', 'P17+', '0'],
+        ],
+      },
+      { type: 'heading', text: 'Sprint Points (Top 8)' },
+      {
+        type: 'paragraph',
+        text: 'Sprint races are scored independently after the sprint ends on Saturday. A shorter race with smaller rewards.',
+      },
+      {
+        type: 'table',
+        headers: ['Pos', 'Pts', 'Pos', 'Pts'],
+        rows: [
+          ['1st', '5', '5th', '2'],
+          ['2nd', '4', '6th', '2'],
+          ['3rd', '3', '7th', '1'],
+          ['4th', '3', '8th', '1'],
+        ],
+      },
+      {
+        type: 'bullets',
+        items: [
+          'Sprint DNF/DSQ: \u22123 pts (less than race DNF)',
+          'Ace 2\u00D7 applies to sprint points',
+          '6 sprint weekends per season',
         ],
       },
       { type: 'heading', text: 'Bonuses & Penalties' },
@@ -117,7 +146,7 @@ const SECTIONS: RuleSection[] = [
       },
       {
         type: 'paragraph',
-        text: 'Constructor points = average of both drivers\u2019 scores (rounded down).',
+        text: 'Constructor scoring: sum of both drivers\u2019 race finish points and position bonuses, plus qualifying and sprint points for both drivers.',
       },
     ],
   },
@@ -128,16 +157,16 @@ const SECTIONS: RuleSection[] = [
     content: [
       {
         type: 'paragraph',
-        text: 'Select one driver as your Ace before each race weekend. Your Ace scores 2\u00D7 points from race and sprint results.',
+        text: 'Select one driver or constructor as your Ace before each race weekend. Your Ace scores 2\u00D7 points from qualifying, sprint, and race results.',
       },
       { type: 'heading', text: 'Rules' },
       {
         type: 'bullets',
         items: [
-          'Only drivers priced $200 or under can be Ace',
-          'Ace doubles race + sprint points (not loyalty bonus)',
+          'Only drivers/constructors priced $200 or under can be Ace',
+          'Ace doubles qualifying + sprint + race points (not loyalty bonus)',
           'If your Ace\u2019s price rises above $200, they lose Ace status',
-          'You can also set your constructor as Ace for 2\u00D7 constructor points',
+          'One Ace total per team (driver OR constructor)',
         ],
       },
     ],

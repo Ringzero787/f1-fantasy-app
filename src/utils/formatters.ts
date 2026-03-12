@@ -195,6 +195,49 @@ export function formatDateWithZone(date: Date | string, trackTimezone: string, u
 }
 
 /**
+ * Driver ID → display name map (used for race results display)
+ */
+const DRIVER_NAMES: Record<string, string> = {
+  norris: 'Lando Norris',
+  verstappen: 'Max Verstappen',
+  piastri: 'Oscar Piastri',
+  leclerc: 'Charles Leclerc',
+  russell: 'George Russell',
+  hamilton: 'Lewis Hamilton',
+  sainz: 'Carlos Sainz Jr.',
+  alonso: 'Fernando Alonso',
+  antonelli: 'Kimi Antonelli',
+  albon: 'Alexander Albon',
+  stroll: 'Lance Stroll',
+  hulkenberg: 'Nico Hulkenberg',
+  gasly: 'Pierre Gasly',
+  ocon: 'Esteban Ocon',
+  hadjar: 'Isack Hadjar',
+  bearman: 'Oliver Bearman',
+  lawson: 'Liam Lawson',
+  bortoleto: 'Gabriel Bortoleto',
+  colapinto: 'Franco Colapinto',
+  lindblad: 'Arvid Lindblad',
+  bottas: 'Valtteri Bottas',
+  perez: 'Sergio Perez',
+};
+
+/**
+ * Get display name for a driver ID, with fallback to capitalized ID
+ */
+export function getDriverDisplayName(driverId: string, short?: boolean): string {
+  const fullName = DRIVER_NAMES[driverId];
+  if (!fullName) {
+    // Fallback: capitalize the raw ID
+    return driverId.charAt(0).toUpperCase() + driverId.slice(1);
+  }
+  if (short) {
+    return formatDriverName(fullName);
+  }
+  return fullName;
+}
+
+/**
  * Truncate text with ellipsis
  */
 export function truncate(text: string, maxLength: number): string {

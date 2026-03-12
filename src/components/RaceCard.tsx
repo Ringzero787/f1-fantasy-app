@@ -4,13 +4,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, SHADOWS } from '../config/constants';
 import { useTheme } from '../hooks/useTheme';
-import { formatDate, formatCountdown, formatCountdownWords } from '../utils/formatters';
+import { formatDate, formatCountdown, formatCountdownWords, getDriverDisplayName } from '../utils/formatters';
 import { raceService } from '../services/race.service';
 import { TrackIcon } from './TrackIcon';
-import type { Race } from '../types';
+import type { Race, RaceResults } from '../types';
 
 interface RaceCardProps {
   race: Race;
+  results?: RaceResults | null;
   onPress?: () => void;
   showCountdown?: boolean;
   compact?: boolean;
@@ -18,6 +19,7 @@ interface RaceCardProps {
 
 export const RaceCard = React.memo(function RaceCard({
   race,
+  results,
   onPress,
   showCountdown = true,
   compact = false,
@@ -150,9 +152,31 @@ export const RaceCard = React.memo(function RaceCard({
         )}
 
         {race.status === 'completed' && (
-          <View style={styles.completedBadge}>
-            <Ionicons name="checkmark-circle" size={16} color={COLORS.text.muted} />
-            <Text style={styles.completedText}>Completed</Text>
+          <View style={styles.completedSection}>
+            {results?.raceResults && results.raceResults.length >= 3 ? (
+              <View style={styles.podiumPreview}>
+                {results.raceResults.slice(0, 3).map((r, i) => (
+                  <View key={r.driverId} style={styles.podiumRow}>
+                    <View style={[
+                      styles.podiumBadge,
+                      i === 0 && styles.gold,
+                      i === 1 && styles.silver,
+                      i === 2 && styles.bronze,
+                    ]}>
+                      <Text style={styles.podiumPosition}>{i + 1}</Text>
+                    </View>
+                    <Text style={styles.podiumName} numberOfLines={1}>
+                      {getDriverDisplayName(r.driverId, true)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.completedBadge}>
+                <Ionicons name="checkmark-circle" size={16} color={COLORS.text.muted} />
+                <Text style={styles.completedText}>Completed</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -401,6 +425,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+  completedSection: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+
   completedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -411,5 +440,49 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.text.muted,
     fontWeight: '500',
+  },
+
+  podiumPreview: {
+    gap: 3,
+  },
+
+  podiumRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  podiumBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surface,
+  },
+
+  podiumPosition: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+
+  podiumName: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    maxWidth: 100,
+  },
+
+  gold: {
+    backgroundColor: COLORS.gold,
+  },
+
+  silver: {
+    backgroundColor: COLORS.silver,
+  },
+
+  bronze: {
+    backgroundColor: COLORS.bronze,
   },
 });

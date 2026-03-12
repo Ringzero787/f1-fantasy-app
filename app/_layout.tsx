@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import * as Updates from 'expo-updates';
 // import crashlytics from '@react-native-firebase/crashlytics';
 import { usePurchaseStore } from '../src/store/purchase.store';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
@@ -68,6 +69,17 @@ export default function RootLayout() {
 
     // Initialize in-app purchases
     usePurchaseStore.getState().initializeIAP();
+
+    // Check for OTA updates and reload immediately if available
+    if (!__DEV__) {
+      Updates.checkForUpdateAsync()
+        .then(({ isAvailable }) => {
+          if (isAvailable) {
+            return Updates.fetchUpdateAsync().then(() => Updates.reloadAsync());
+          }
+        })
+        .catch(() => {}); // Silently ignore update errors
+    }
 
     return () => {
       subscription.remove();

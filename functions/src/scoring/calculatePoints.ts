@@ -7,7 +7,8 @@ const db = admin.firestore();
 
 // Points allocation
 const RACE_POINTS = [45, 37, 33, 29, 26, 23, 20, 17, 14, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1];
+const SPRINT_POINTS = [5, 4, 3, 3, 2, 2, 1, 1];
+const SPRINT_DNF_PENALTY = -3;
 const FASTEST_LAP_BONUS = 1;
 const POSITION_GAINED_BONUS = 1;
 const GRID_SIZE = 22;
@@ -126,6 +127,7 @@ interface FantasyTeam {
   driverLockouts?: Record<string, number>;
   lockedPoints?: number;
   totalSpent?: number;
+  scoredRaces?: string[];
 }
 
 type PerformanceTier = 'great' | 'good' | 'poor' | 'terrible';
@@ -194,9 +196,9 @@ function calculateDriverPoints(
     if (sprintResult.status === 'finished' && sprintResult.position <= SPRINT_POINTS.length) {
       sprintPoints += SPRINT_POINTS[sprintResult.position - 1];
     } else if (sprintResult.status === 'dnf') {
-      sprintPoints = -5;
+      sprintPoints = SPRINT_DNF_PENALTY;
     } else if (sprintResult.status === 'dsq') {
-      sprintPoints = -5;
+      sprintPoints = SPRINT_DNF_PENALTY;
     }
   }
 
@@ -257,7 +259,7 @@ async function commitInBatches(
     const batch = db.batch();
     const chunk = ops.slice(i, i + BATCH_OP_LIMIT);
     for (const op of chunk) {
-      batch.update(op.ref, op.data);
+      batch.set(op.ref, op.data, { merge: true });
     }
     await batch.commit();
   }
@@ -295,11 +297,19 @@ export async function handleQualifyingScoring(
   const ctorPriceMap = new Map<string, number>();
   ctorPriceSnap.docs.forEach((d) => ctorPriceMap.set(d.id, d.data().price || 0));
 
+  const qualiScoredKey = `quali_${raceId}`;
   const teamsSnapshot = await db.collection('fantasyTeams').get();
   const pointsUpdates: { leagueId: string; userId: string; points: number }[] = [];
 
   for (const teamDoc of teamsSnapshot.docs) {
     const team = teamDoc.data() as FantasyTeam;
+
+    // Idempotency guard: skip teams already scored for this qualifying
+    if (team.scoredRaces && team.scoredRaces.includes(qualiScoredKey)) {
+      console.log(`[Qualifying] Skipping team ${teamDoc.id} — already scored for ${qualiScoredKey}`);
+      continue;
+    }
+
     let teamPoints = 0;
     const aceDriverId = team.aceDriverId;
 
@@ -358,7 +368,8 @@ export async function handleQualifyingScoring(
     if (teamPoints !== 0) {
       const updateData: Record<string, any> = {
         drivers: updatedDrivers,
-        totalPoints: admin.firestore.FieldValue.increment(teamPoints),
+        totalPoints: (team.totalPoints || 0) + teamPoints,
+        scoredRaces: admin.firestore.FieldValue.arrayUnion(qualiScoredKey),
       };
       if (updatedConstructor) {
         updateData['constructor'] = updatedConstructor;
@@ -384,6 +395,10 @@ export async function handleQualifyingScoring(
   // Update league rankings
   const leagueMemberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
   for (const update of pointsUpdates) {
+    if (!update.leagueId || !update.userId) {
+      console.log(`[Qualifying] Skipping league update with missing leagueId or userId`);
+      continue;
+    }
     leagueMemberOps.push({
       ref: db.collection('leagues').doc(update.leagueId).collection('members').doc(update.userId),
       data: { totalPoints: admin.firestore.FieldValue.increment(update.points) },
@@ -391,7 +406,7 @@ export async function handleQualifyingScoring(
   }
   await commitInBatches(leagueMemberOps);
 
-  const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId))];
+  const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))];
   for (const leagueId of affectedLeagues) {
     const membersSnapshot = await db
       .collection('leagues').doc(leagueId).collection('members')
@@ -404,6 +419,125 @@ export async function handleQualifyingScoring(
   }
 
   console.log(`[Qualifying] Updated rankings for ${affectedLeagues.length} leagues`);
+  return null;
+}
+
+// ─── Sprint scoring (standalone, scored after sprint ends on Saturday) ───
+
+/**
+ * Score sprint results independently before the main race.
+ * Awards sprint points: [5, 4, 3, 3, 2, 2, 1, 1] for top 8.
+ * DNF/DSQ: -3 points. Ace 2x applies.
+ */
+export async function handleSprintScoring(
+  raceId: string,
+  sprintResults: SprintResult[],
+): Promise<null> {
+  if (!sprintResults || sprintResults.length === 0) {
+    console.log(`[Sprint] No sprint results for ${raceId}`);
+    return null;
+  }
+
+  console.log(`[Sprint] Scoring sprint for ${raceId} (${sprintResults.length} drivers)`);
+
+  const sprintResultsMap = new Map<string, SprintResult>();
+  sprintResults.forEach((r) => sprintResultsMap.set(r.driverId, r));
+
+  // Pre-fetch driver prices for ace validation
+  const driverPriceSnap = await db.collection('drivers').get();
+  const driverPriceMap = new Map<string, number>();
+  driverPriceSnap.docs.forEach((d) => driverPriceMap.set(d.id, d.data().price || 0));
+
+  const sprintScoredKey = `sprint_${raceId}`;
+  const teamsSnapshot = await db.collection('fantasyTeams').get();
+  const pointsUpdates: { leagueId: string; userId: string; points: number }[] = [];
+
+  for (const teamDoc of teamsSnapshot.docs) {
+    const team = teamDoc.data() as FantasyTeam;
+
+    // Idempotency guard
+    if (team.scoredRaces && team.scoredRaces.includes(sprintScoredKey)) {
+      console.log(`[Sprint] Skipping team ${teamDoc.id} — already scored for ${sprintScoredKey}`);
+      continue;
+    }
+
+    let teamPoints = 0;
+    const aceDriverId = team.aceDriverId;
+
+    // Score each driver's sprint result
+    const updatedDrivers = team.drivers.map((driver) => {
+      let isAce = driver.driverId === aceDriverId;
+      if (isAce) {
+        const price = driverPriceMap.get(driver.driverId) || 0;
+        if (price > ACE_MAX_PRICE) isAce = false;
+      }
+
+      const sr = sprintResultsMap.get(driver.driverId);
+      let sprintPts = 0;
+      if (sr) {
+        if (sr.status === 'finished' && sr.position <= SPRINT_POINTS.length) {
+          sprintPts = SPRINT_POINTS[sr.position - 1];
+        } else if (sr.status === 'dnf' || sr.status === 'dsq') {
+          sprintPts = SPRINT_DNF_PENALTY;
+        }
+      }
+      if (isAce) sprintPts *= 2;
+
+      teamPoints += sprintPts;
+      return {
+        ...driver,
+        pointsScored: driver.pointsScored + sprintPts,
+      };
+    });
+
+    if (teamPoints !== 0) {
+      const updateData: Record<string, any> = {
+        drivers: updatedDrivers,
+        totalPoints: (team.totalPoints || 0) + teamPoints,
+        scoredRaces: admin.firestore.FieldValue.arrayUnion(sprintScoredKey),
+      };
+
+      try {
+        await teamDoc.ref.set(updateData, { merge: true });
+      } catch (err) {
+        console.error(`[Sprint] Failed to update team ${teamDoc.id}:`, err);
+        continue;
+      }
+
+      pointsUpdates.push({
+        leagueId: team.leagueId,
+        userId: team.userId,
+        points: teamPoints,
+      });
+    }
+  }
+
+  console.log(`[Sprint] Scored ${pointsUpdates.length} teams for ${raceId}`);
+
+  // Update league rankings
+  const leagueMemberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+  for (const update of pointsUpdates) {
+    if (!update.leagueId || !update.userId) continue;
+    leagueMemberOps.push({
+      ref: db.collection('leagues').doc(update.leagueId).collection('members').doc(update.userId),
+      data: { totalPoints: admin.firestore.FieldValue.increment(update.points) },
+    });
+  }
+  await commitInBatches(leagueMemberOps);
+
+  const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))];
+  for (const leagueId of affectedLeagues) {
+    const membersSnapshot = await db
+      .collection('leagues').doc(leagueId).collection('members')
+      .orderBy('totalPoints', 'desc').get();
+    const rankOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+    membersSnapshot.docs.forEach((d, index) => {
+      rankOps.push({ ref: d.ref, data: { rank: index + 1 } });
+    });
+    await commitInBatches(rankOps);
+  }
+
+  console.log(`[Sprint] Updated rankings for ${affectedLeagues.length} leagues`);
   return null;
 }
 
@@ -447,10 +581,9 @@ export const onRaceCompleted = functions
     const sprintResults: SprintResult[] | null = results.sprintResults || null;
     const qualifyingResults: QualifyingResult[] | null = results.qualifyingResults || null;
 
-    // Skip qualifying if already scored independently, or on sprint weekends
-    const hasSprintWeekend = !!sprintResults;
+    // Skip qualifying if already scored independently (via checkQualifyingResults)
     const qualifyingAlreadyScored = afterData.qualifyingScored === true && beforeData.qualifyingScored === true;
-    const scoreQualifying = !hasSprintWeekend && !qualifyingAlreadyScored
+    const scoreQualifying = !qualifyingAlreadyScored
       && !!qualifyingResults && qualifyingResults.length > 0;
 
     // Build lookup maps
@@ -485,14 +618,24 @@ export const onRaceCompleted = functions
 
     for (const teamDoc of teamsSnapshot.docs) {
       const team = teamDoc.data() as FantasyTeam;
+
+      // Idempotency guard: skip teams already scored for this race
+      if (team.scoredRaces && team.scoredRaces.includes(raceId)) {
+        console.log(`[Phase 1] Skipping team ${teamDoc.id} — already scored for ${raceId}`);
+        continue;
+      }
+
       let teamPoints = 0;
       const aceDriverId = team.aceDriverId;
+
+      // Skip sprint in race scoring if already scored independently
+      const sprintAlreadyScored = team.scoredRaces?.includes(`sprint_${raceId}`) ?? false;
 
       // Calculate driver points
       const updatedDrivers: FantasyDriver[] = [];
       for (const driver of team.drivers) {
         const raceResult = raceResultsMap.get(driver.driverId);
-        const sprintResult = sprintResultsMap.get(driver.driverId) || null;
+        const sprintResult = sprintAlreadyScored ? null : (sprintResultsMap.get(driver.driverId) || null);
         let isAce = driver.driverId === aceDriverId;
 
         // Server-side ace price validation: drivers over $200 cannot be ace
@@ -595,8 +738,9 @@ export const onRaceCompleted = functions
         data: {
           drivers: updatedDrivers,
           constructor: updatedConstructor,
-          totalPoints: admin.firestore.FieldValue.increment(teamPoints),
-          racesSinceTransfer: admin.firestore.FieldValue.increment(1),
+          totalPoints: (team.totalPoints || 0) + teamPoints,
+          racesSinceTransfer: (team.racesSinceTransfer || 0) + 1,
+          scoredRaces: admin.firestore.FieldValue.arrayUnion(raceId),
         },
       });
 
@@ -1037,6 +1181,10 @@ export const onRaceCompleted = functions
     const leagueMemberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
 
     for (const update of pointsUpdates) {
+      if (!update.leagueId || !update.userId) {
+        console.log(`[Phase 4] Skipping update with missing leagueId or userId: leagueId=${update.leagueId}, userId=${update.userId}`);
+        continue;
+      }
       const memberRef = db
         .collection('leagues')
         .doc(update.leagueId)
@@ -1052,7 +1200,7 @@ export const onRaceCompleted = functions
     await commitInBatches(leagueMemberOps);
 
     // Recalculate rankings per league
-    const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId))];
+    const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))];
     for (const leagueId of affectedLeagues) {
       const membersSnapshot = await db
         .collection('leagues')

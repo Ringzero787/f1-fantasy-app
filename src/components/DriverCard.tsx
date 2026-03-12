@@ -165,6 +165,13 @@ export const DriverCard = React.memo(function DriverCard({
 
           {/* Right: price + points stacked */}
           <View style={styles.statsBlock}>
+            {showPoints && (driver.currentSeasonPoints || 0) > 0 && (
+              <View style={styles.pointsRow}>
+                <Ionicons name="trophy" size={12} color={theme.primary} />
+                <Text style={[styles.pointsValue, { color: theme.primary }]}>{formatPoints(driver.currentSeasonPoints || 0)}</Text>
+                <Text style={styles.pointsLabel}>pts</Text>
+              </View>
+            )}
             {showPrice && (
               <View style={styles.priceRow}>
                 <Text style={styles.priceValue}>{formatDollars(driver.price)}</Text>
@@ -178,12 +185,6 @@ export const DriverCard = React.memo(function DriverCard({
                     <Text style={styles.priceChangeText}>{Math.abs(priceChange)}</Text>
                   </View>
                 )}
-              </View>
-            )}
-            {showPoints && (
-              <View style={styles.pointsRow}>
-                <Text style={[styles.pointsValue, { color: theme.primary }]}>{formatPoints(driver.currentSeasonPoints || 0)}</Text>
-                <Text style={styles.pointsLabel}>pts</Text>
               </View>
             )}
           </View>
@@ -391,21 +392,21 @@ const styles = StyleSheet.create({
 
   pointsRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 2,
-    marginTop: 1,
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
   },
 
   pointsValue: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '600',
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '800',
     color: COLORS.primary,
   },
 
   pointsLabel: {
-    fontSize: 9,
+    fontSize: 10,
     color: COLORS.text.muted,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 
   badgesRow: {

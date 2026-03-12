@@ -122,6 +122,13 @@ export const ConstructorCard = React.memo(function ConstructorCard({
 
           {/* Right: price + points stacked */}
           <View style={styles.statsBlock}>
+            {showPoints && (constructor.currentSeasonPoints || 0) > 0 && (
+              <View style={styles.pointsRow}>
+                <Ionicons name="trophy" size={12} color={theme.primary} />
+                <Text style={[styles.pointsValue, { color: theme.primary }]}>{formatPoints(constructor.currentSeasonPoints || 0)}</Text>
+                <Text style={styles.pointsLabel}>pts</Text>
+              </View>
+            )}
             {showPrice && (
               <View style={styles.priceRow}>
                 <Text style={styles.priceValue}>{formatDollars(constructor.price)}</Text>
@@ -135,12 +142,6 @@ export const ConstructorCard = React.memo(function ConstructorCard({
                     <Text style={styles.priceChangeText}>{Math.abs(priceChange)}</Text>
                   </View>
                 )}
-              </View>
-            )}
-            {showPoints && (
-              <View style={styles.pointsRow}>
-                <Text style={[styles.pointsValue, { color: theme.primary }]}>{formatPoints(constructor.currentSeasonPoints || 0)}</Text>
-                <Text style={styles.pointsLabel}>pts</Text>
               </View>
             )}
           </View>
@@ -345,21 +346,21 @@ const styles = StyleSheet.create({
 
   pointsRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 2,
-    marginTop: 1,
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
   },
 
   pointsValue: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '800',
     color: COLORS.primary,
   },
 
   pointsLabel: {
-    fontSize: 9,
+    fontSize: 10,
     color: COLORS.text.muted,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 
   badgesRow: {

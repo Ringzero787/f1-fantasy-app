@@ -1,0 +1,144 @@
+name: iOS App Store Screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      devices:
+        description: 'Devices to screenshot (comma-separated)'
+        required: false
+        default: 'iPhone 15 Pro Max,iPad Pro 13-inch (M4)'
+
+jobs:
+  screenshots:
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        device:
+          - name: "iPhone 15 Pro Max"
+            folder: "iphone_6.7"
+          - name: "iPad Pro 13-inch (M4)"
+            folder: "ipad_12.9"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Write .env file
+        run: echo "${{ secrets.MACTESTING }}" > .env
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prebuild iOS
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: Build for Simulator
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace Undercut.xcworkspace \
+            -scheme Undercut \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -20
+
+      - name: Find .app bundle
+        id: app
+        run: |
+          APP_PATH=$(find ios/build -name "*.app" -type d | head -1)
+          echo "path=$APP_PATH" >> $GITHUB_OUTPUT
+          echo "Found app at: $APP_PATH"
+
+      - name: Boot Simulator
+        run: |
+          DEVICE_NAME="${{ matrix.device.name }}"
+          # Create and boot the simulator
+          DEVICE_UDID=$(xcrun simctl create "ScreenshotDevice" "$DEVICE_NAME")
+          echo "Created simulator: $DEVICE_UDID"
+          xcrun simctl boot "$DEVICE_UDID"
+          echo "DEVICE_UDID=$DEVICE_UDID" >> $GITHUB_ENV
+
+          # Wait for simulator to be ready
+          sleep 10
+          xcrun simctl status_bar "$DEVICE_UDID" override \
+            --time "9:41" \
+            --batteryState charged \
+            --batteryLevel 100 \
+            --wifiBars 3 \
+            --cellularBars 4
+
+      - name: Install app on Simulator
+        run: |
+          xcrun simctl install "$DEVICE_UDID" "${{ steps.app.outputs.path }}"
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Take Screenshots with Maestro
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          mkdir -p screenshots/${{ matrix.device.folder }}
+
+          # Launch the app
+          xcrun simctl launch "$DEVICE_UDID" com.undercut.app
+          sleep 5
+
+          # Run Maestro flow
+          maestro --udid "$DEVICE_UDID" test .maestro/screenshots/take-screenshots.yaml || true
+
+          # Move Maestro screenshots to output folder
+          find /tmp -name "*.png" -newer ios/build -exec cp {} screenshots/${{ matrix.device.folder }}/ \; 2>/dev/null || true
+
+      - name: Fallback - Manual Screenshots
+        if: always()
+        run: |
+          # Take screenshots directly if Maestro didn't work
+          mkdir -p screenshots/${{ matrix.device.folder }}
+
+          # Launch the app if not running
+          xcrun simctl launch "$DEVICE_UDID" com.undercut.app 2>/dev/null || true
+          sleep 8
+
+          # Screenshot whatever is on screen (likely home/login)
+          xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_01.png
+
+          # Try navigating via deep links if the app supports them
+          # These use expo-router deep linking
+          sleep 2
+          xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_02.png
+
+      - name: List screenshots
+        if: always()
+        run: |
+          echo "Screenshots taken:"
+          find screenshots -name "*.png" -exec ls -la {} \;
+
+      - name: Upload Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.device.folder }}
+          path: screenshots/
+          retention-days: 30
+
+      - name: Cleanup Simulator
+        if: always()
+        run: |
+          xcrun simctl shutdown "$DEVICE_UDID" 2>/dev/null || true
+          xcrun simctl delete "$DEVICE_UDID" 2>/dev/null || true
