@@ -155,22 +155,30 @@ jobs:
           sleep 3
           xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/02_home.png"
 
-          # Navigate via deep links and take screenshots
-          xcrun simctl openurl "$DEVICE_UDID" "theundercut://my-team"
-          sleep 5
-          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/03_myteam.png"
+          # Create a Maestro flow to dismiss "Open in Undercut?" dialog
+          cat > /tmp/dismiss-dialog.yaml << 'DISMISS'
+          appId: com.undercut.app
+          ---
+          - tapOn:
+              text: "Open"
+              optional: true
+          - waitForAnimationToEnd:
+              timeout: 5000
+          DISMISS
 
-          xcrun simctl openurl "$DEVICE_UDID" "theundercut://market"
-          sleep 5
-          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/04_market.png"
+          # Navigate via deep links and dismiss confirmation dialogs
+          SCREENS=("my-team:03_myteam" "market:04_market" "calendar:05_calendar" "leagues:06_leagues")
+          for entry in "${SCREENS[@]}"; do
+            ROUTE="${entry%%:*}"
+            FILENAME="${entry##*:}"
 
-          xcrun simctl openurl "$DEVICE_UDID" "theundercut://calendar"
-          sleep 5
-          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/05_calendar.png"
-
-          xcrun simctl openurl "$DEVICE_UDID" "theundercut://leagues"
-          sleep 5
-          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/06_leagues.png"
+            xcrun simctl openurl "$DEVICE_UDID" "theundercut://$ROUTE"
+            sleep 2
+            maestro --udid "$DEVICE_UDID" test /tmp/dismiss-dialog.yaml || true
+            sleep 3
+            xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/${FILENAME}.png"
+            echo "Captured ${FILENAME}.png"
+          done
 
           echo "Screenshots taken:"
           ls -la "$OUTDIR/"
