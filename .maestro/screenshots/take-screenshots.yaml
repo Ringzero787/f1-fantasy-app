@@ -8,19 +8,12 @@ appId: com.undercut.app
 # Screenshot 1: Login / Auth screen
 - takeScreenshot: 01_login
 
-# Tap "Continue as Guest" or demo mode to get into the app
+# Tap "Try Demo Mode" to enter the app without auth
 - tapOn:
-    text: "Demo Mode"
+    text: "Try Demo Mode"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 5000
-
-# If we see "Continue as Guest", tap it
-- tapOn:
-    text: "Continue as Guest"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 5000
+    timeout: 8000
 
 # Screenshot 2: Home screen
 - takeScreenshot: 02_home
@@ -56,11 +49,3 @@ appId: com.undercut.app
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 06_leagues
-
-# Navigate to Chat tab (if visible)
-- tapOn:
-    text: "Chat"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 3000
-- takeScreenshot: 07_chat

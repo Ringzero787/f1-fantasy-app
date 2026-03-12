@@ -67,7 +67,7 @@ export default function LoginScreen() {
             disabled={isLoading}
           />
 
-          {/* Demo Mode - hidden in production, enable for testing/demos
+          {/* Demo Mode - used for CI screenshots and testing */}
           <TouchableOpacity
             testID="demo-mode-button"
             style={styles.demoButton}
@@ -79,7 +79,6 @@ export default function LoginScreen() {
           >
             <Text style={styles.demoButtonText}>Try Demo Mode</Text>
           </TouchableOpacity>
-          */}
         </View>
       </ScrollView>
     </SafeAreaView>
