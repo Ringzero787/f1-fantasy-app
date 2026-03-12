@@ -11,7 +11,7 @@ on:
 jobs:
   screenshots:
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -75,6 +75,12 @@ jobs:
       - name: Prebuild iOS
         run: npx expo prebuild --platform ios --clean
 
+      - name: Select Xcode 16.2
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: List available runtimes
+        run: xcrun simctl list runtimes
+
       - name: Build for Simulator
         run: |
           cd ios
@@ -99,8 +105,18 @@ jobs:
       - name: Boot Simulator
         run: |
           DEVICE_NAME="${{ matrix.device.name }}"
-          # Create and boot the simulator
-          DEVICE_UDID=$(xcrun simctl create "ScreenshotDevice" "$DEVICE_NAME")
+
+          # Find the iOS 18 runtime that matches Xcode 16.2
+          RUNTIME=$(xcrun simctl list runtimes | grep "iOS 18" | tail -1 | awk -F'- ' '{print $NF}' | xargs)
+          echo "Using runtime: $RUNTIME"
+
+          if [ -z "$RUNTIME" ]; then
+            echo "No iOS 18 runtime found, using default"
+            DEVICE_UDID=$(xcrun simctl create "ScreenshotDevice" "$DEVICE_NAME")
+          else
+            DEVICE_UDID=$(xcrun simctl create "ScreenshotDevice" "$DEVICE_NAME" "$RUNTIME")
+          fi
+
           echo "Created simulator: $DEVICE_UDID"
           xcrun simctl boot "$DEVICE_UDID"
           echo "DEVICE_UDID=$DEVICE_UDID" >> $GITHUB_ENV
