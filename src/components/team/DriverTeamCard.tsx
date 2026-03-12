@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../config/constants';
 import { useTheme } from '../../hooks/useTheme';
@@ -39,6 +39,7 @@ interface DriverTeamCardProps {
   lastRaceEntry?: LastRaceBreakdownEntry | null;
   canModify: boolean;
   canChangeAce: boolean;
+  onPress?: () => void;
   onSetAce: (driverId: string) => void;
   onClearAce: () => void;
   onRemoveDriver: (driverId: string, name: string) => void;
@@ -49,6 +50,7 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
   lastRaceEntry,
   canModify,
   canChangeAce,
+  onPress,
   onSetAce,
   onClearAce,
   onRemoveDriver,
@@ -57,7 +59,10 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
   const { scaledFonts } = useScale();
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.card }, driver.isReserve && styles.cardReserve]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, { backgroundColor: theme.card }, driver.isReserve && styles.cardReserve, pressed && onPress && { opacity: 0.85 }]}
+    >
       <View style={[styles.cardAccent, { backgroundColor: driver.accentColor }]} />
       <View style={styles.cardBody}>
         {/* Row 1: Identity + Price */}
@@ -95,10 +100,10 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
           </View>
           {!driver.isReserve ? (
             <View style={styles.cardStatsBlock}>
-              {driver.pointsScored > 0 && (
+              {typeof driver.pointsScored === 'number' && driver.pointsScored !== 0 && (
                 <View style={styles.cardPointsRow}>
-                  <Ionicons name="trophy" size={12} color={COLORS.primary} />
-                  <Text style={[styles.cardPointsText, { fontSize: scaledFonts.lg }]}>{formatPoints(driver.pointsScored)}</Text>
+                  <Ionicons name="trophy" size={12} color={driver.pointsScored > 0 ? COLORS.primary : COLORS.error} />
+                  <Text style={[styles.cardPointsText, { fontSize: scaledFonts.lg, color: driver.pointsScored > 0 ? COLORS.primary : COLORS.error }]}>{formatPoints(driver.pointsScored)}</Text>
                   <Text style={styles.cardPointsLabel}>pts</Text>
                 </View>
               )}
@@ -139,7 +144,7 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
               <View style={[styles.metaChip, { backgroundColor: driver.isLastRace ? COLORS.warning + '18' : theme.surface }]}>
                 <Ionicons name="document-text-outline" size={10} color={driver.isLastRace ? COLORS.warning : COLORS.text.muted} />
                 <TooltipText
-                  term={driver.isLastRace ? 'LAST' : `${driver.racesHeld || 0}/${driver.contractLen}`}
+                  term={driver.isLastRace ? 'LAST' : `${driver.contractRemaining} left`}
                   definition={driver.isLastRace ? GLOSSARY.last : GLOSSARY.contractLength}
                   style={[styles.metaChipText, driver.isLastRace && { color: COLORS.warning, fontWeight: '700' }]}
                 />
@@ -181,7 +186,7 @@ export const DriverTeamCard = React.memo(function DriverTeamCard({
           )}
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 });
 

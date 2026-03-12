@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Pressable,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -956,6 +957,7 @@ export default function MyTeamScreen() {
               lastRaceEntry={lastRaceBreakdown[driver.driverId]}
               canModify={canModify}
               canChangeAce={canChangeAce}
+              onPress={() => router.push(`/market/driver/${driver.driverId}`)}
               onSetAce={handleSetAce}
               onClearAce={handleClearAce}
               onRemoveDriver={handleRemoveDriver}
@@ -1000,7 +1002,10 @@ export default function MyTeamScreen() {
 
 
           return (
-            <View style={[styles.card, { backgroundColor: theme.card }]}>
+            <Pressable
+              onPress={() => router.push(`/market/constructor/${c.constructorId}`)}
+              style={({ pressed }) => [styles.card, { backgroundColor: theme.card }, pressed && { opacity: 0.85 }]}
+            >
               <View style={[styles.cardAccent, { backgroundColor: cAccent }]} />
               <View style={styles.cardBody}>
                 <View style={styles.cardTopRow}>
@@ -1028,10 +1033,10 @@ export default function MyTeamScreen() {
                   </View>
                   {!cIsReserve ? (
                     <View style={styles.cardStatsBlock}>
-                      {c.pointsScored > 0 && (
+                      {typeof c.pointsScored === 'number' && c.pointsScored !== 0 && (
                         <View style={styles.cardPointsRow}>
-                          <Ionicons name="trophy" size={12} color={COLORS.primary} />
-                          <Text style={[styles.cardPointsText, { fontSize: scaledFonts.lg }]}>{formatPoints(c.pointsScored)}</Text>
+                          <Ionicons name="trophy" size={12} color={c.pointsScored > 0 ? COLORS.primary : COLORS.error} />
+                          <Text style={[styles.cardPointsText, { fontSize: scaledFonts.lg, color: c.pointsScored > 0 ? COLORS.primary : COLORS.error }]}>{formatPoints(c.pointsScored)}</Text>
                           <Text style={styles.cardPointsLabel}>pts</Text>
                         </View>
                       )}
@@ -1071,7 +1076,7 @@ export default function MyTeamScreen() {
                       <View style={[styles.metaChip, { backgroundColor: cIsLastRace ? COLORS.warning + '18' : theme.background }]}>
                         <Ionicons name="document-text-outline" size={10} color={cIsLastRace ? COLORS.warning : COLORS.text.muted} />
                         <TooltipText
-                          term={cIsLastRace ? 'LAST' : `${c.racesHeld || 0}/${cContractLen}`}
+                          term={cIsLastRace ? 'LAST' : `${cContractRemaining} left`}
                           definition={cIsLastRace ? GLOSSARY.last : GLOSSARY.contractLength}
                           style={[styles.metaChipText, cIsLastRace && { color: COLORS.warning, fontWeight: '700' }]}
                         />
@@ -1112,7 +1117,7 @@ export default function MyTeamScreen() {
                   )}
                 </View>
               </View>
-            </View>
+            </Pressable>
           );
         })() : null}
 
