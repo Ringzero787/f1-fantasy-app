@@ -592,40 +592,32 @@ export const useTeamStore = create<TeamState>()(
 
               if (!useServerPoints) return lockMerged;
 
-              // Server scored — use server's driver list as base (respects contract expiry removals).
-              // Merge pointsScored from whichever source is higher.
-              const serverDrivers = fbTeam.drivers || [];
-              const mergedDrivers = serverDrivers.map((fbDriver: FantasyDriver) => {
-                const localDriver = localTeam.drivers.find(d => d.driverId === fbDriver.driverId);
-                if (localDriver && typeof localDriver.pointsScored === 'number' && localDriver.pointsScored > (fbDriver.pointsScored || 0)) {
-                  return { ...fbDriver, pointsScored: localDriver.pointsScored };
+              // Merge server-scored per-driver pointsScored
+              const mergedDrivers = localTeam.drivers.map(driver => {
+                const fbDriver = fbTeam.drivers?.find((d: FantasyDriver) => d.driverId === driver.driverId);
+                if (fbDriver && typeof fbDriver.pointsScored === 'number' && fbDriver.pointsScored > (driver.pointsScored || 0)) {
+                  return { ...driver, pointsScored: fbDriver.pointsScored };
                 }
-                return fbDriver;
+                return driver;
               });
 
-              // Use server constructor (respects contract expiry), merge pointsScored
-              const mergedConstructor = fbTeam.constructor
+              // Merge server-scored constructor pointsScored
+              const mergedConstructor = localTeam.constructor && fbTeam.constructor
                 ? {
-                    ...fbTeam.constructor,
-                    pointsScored: Math.max(
-                      fbTeam.constructor.pointsScored || 0,
-                      localTeam.constructor?.pointsScored || 0,
-                    ),
+                    ...localTeam.constructor,
+                    pointsScored: typeof fbTeam.constructor.pointsScored === 'number' && fbTeam.constructor.pointsScored > (localTeam.constructor.pointsScored || 0)
+                      ? fbTeam.constructor.pointsScored
+                      : localTeam.constructor.pointsScored || 0,
                   }
                 : localTeam.constructor;
 
-              // Server is source of truth for scored state — take server's budget,
-              // driverLockouts, and other scoring-managed fields
+              // Also merge lockedPoints and server-managed fields
               return {
                 ...localTeam,
                 totalPoints: serverPoints,
                 drivers: mergedDrivers,
                 constructor: mergedConstructor,
-                budget: typeof fbTeam.budget === 'number' ? fbTeam.budget : localTeam.budget,
-                driverLockouts: fbTeam.driverLockouts ?? localTeam.driverLockouts,
                 lockedPoints: typeof fbTeam.lockedPoints === 'number' ? fbTeam.lockedPoints : localTeam.lockedPoints,
-                aceDriverId: fbTeam.aceDriverId ?? localTeam.aceDriverId,
-                aceConstructorId: fbTeam.aceConstructorId ?? localTeam.aceConstructorId,
                 isLocked: fbTeam.isLocked ?? localTeam.isLocked,
                 lockStatus: fbTeam.lockStatus ?? localTeam.lockStatus,
               };
