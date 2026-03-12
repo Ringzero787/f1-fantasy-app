@@ -34,8 +34,11 @@ export function getNextIncompleteRace(
   return sorted.find((r) => {
     if (completedRaceIds.has(r.id)) return false;
     // If race start time is well past, treat as implicitly complete
-    const raceTime = new Date(r.schedule.race).getTime();
-    if (nowMs > raceTime + IMPLICIT_COMPLETE_MS) return false;
+    const raceTimeRaw = r.schedule?.race;
+    if (raceTimeRaw) {
+      const raceTime = new Date(raceTimeRaw).getTime();
+      if (!isNaN(raceTime) && nowMs > raceTime + IMPLICIT_COMPLETE_MS) return false;
+    }
     return true;
   }) ?? null;
 }
