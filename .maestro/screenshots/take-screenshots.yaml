@@ -3,7 +3,7 @@ appId: com.undercut.app
 
 # Wait for app to fully load
 - waitForAnimationToEnd:
-    timeout: 10000
+    timeout: 15000
 
 # Screenshot 1: Login / Auth screen
 - takeScreenshot: 01_login
@@ -11,23 +11,49 @@ appId: com.undercut.app
 # Tap "Try Demo Mode" to enter the app without auth
 - tapOn:
     text: "Try Demo Mode"
-    optional: true
+
+# Give the app plenty of time to navigate and show any dialogs
 - waitForAnimationToEnd:
-    timeout: 8000
+    timeout: 15000
 
 # Dismiss notification permission dialog if it appears
 - tapOn:
     text: "Allow"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 3000
+    timeout: 5000
 
 # Skip tutorial if present
 - tapOn:
     text: "Skip Tutorial"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 3000
+    timeout: 5000
+
+# Tap Next if onboarding has pages
+- tapOn:
+    text: "Next"
+    optional: true
+- tapOn:
+    text: "Next"
+    optional: true
+- tapOn:
+    text: "Next"
+    optional: true
+- tapOn:
+    text: "Next"
+    optional: true
+- tapOn:
+    text: "Next"
+    optional: true
+- tapOn:
+    text: "Skip Tutorial"
+    optional: true
+- tapOn:
+    text: "Get Started"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 5000
 
 # Screenshot 2: Home screen
 - takeScreenshot: 02_home
@@ -37,7 +63,7 @@ appId: com.undercut.app
     text: "My Team"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 3000
+    timeout: 5000
 - takeScreenshot: 03_myteam
 
 # Navigate to Market tab
@@ -45,7 +71,7 @@ appId: com.undercut.app
     text: "Market"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 3000
+    timeout: 5000
 - takeScreenshot: 04_market
 
 # Navigate to Calendar tab
@@ -53,7 +79,7 @@ appId: com.undercut.app
     text: "Calendar"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 3000
+    timeout: 5000
 - takeScreenshot: 05_calendar
 
 # Navigate to Leagues tab
@@ -61,5 +87,5 @@ appId: com.undercut.app
     text: "Leagues"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 3000
+    timeout: 5000
 - takeScreenshot: 06_leagues

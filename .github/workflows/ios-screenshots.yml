@@ -122,6 +122,12 @@ jobs:
         run: |
           xcrun simctl install "$DEVICE_UDID" "${{ steps.app.outputs.path }}"
 
+      - name: Grant permissions
+        run: |
+          # Pre-grant notification permission to avoid system dialog blocking Maestro
+          xcrun simctl privacy "$DEVICE_UDID" grant notifications com.undercut.app 2>/dev/null || true
+          xcrun simctl privacy "$DEVICE_UDID" grant photos com.undercut.app 2>/dev/null || true
+
       - name: Install Maestro
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
