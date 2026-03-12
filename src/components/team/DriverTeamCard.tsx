@@ -201,7 +201,8 @@ const styles = StyleSheet.create({
   },
   cardReserve: {
     opacity: 0.7,
-    borderStyle: 'dashed',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.text.muted,
   },
   cardAccent: {
     width: 4,
