@@ -136,27 +136,37 @@ jobs:
           xcrun simctl launch "$DEVICE_UDID" com.undercut.app
           sleep 5
 
-          # Run Maestro flow
-          maestro --udid "$DEVICE_UDID" test .maestro/screenshots/take-screenshots.yaml || true
+          # Run Maestro flow with output directory
+          maestro --udid "$DEVICE_UDID" test \
+            --output screenshots/${{ matrix.device.folder }} \
+            .maestro/screenshots/take-screenshots.yaml || true
 
-          # Move Maestro screenshots to output folder
-          find /tmp -name "*.png" -newer ios/build -exec cp {} screenshots/${{ matrix.device.folder }}/ \; 2>/dev/null || true
+          # Maestro saves screenshots in various locations — find and copy them all
+          echo "Looking for Maestro screenshots..."
+          find $HOME/.maestro -name "*.png" 2>/dev/null -exec cp {} screenshots/${{ matrix.device.folder }}/ \; || true
+          find . -maxdepth 1 -name "*.png" -exec cp {} screenshots/${{ matrix.device.folder }}/ \; 2>/dev/null || true
 
-      - name: Fallback - Manual Screenshots
+          # List what we found
+          echo "Maestro screenshots found:"
+          ls -la screenshots/${{ matrix.device.folder }}/ 2>/dev/null || true
+
+      - name: Fallback - simctl Screenshots
         if: always()
         run: |
-          # Take screenshots directly if Maestro didn't work
           mkdir -p screenshots/${{ matrix.device.folder }}
 
-          # Launch the app if not running
-          xcrun simctl launch "$DEVICE_UDID" com.undercut.app 2>/dev/null || true
-          sleep 8
-
-          # Screenshot whatever is on screen (likely home/login)
-          xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_01.png
-
-          sleep 2
-          xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_02.png
+          # Only take fallback if Maestro didn't produce screenshots
+          EXISTING=$(find screenshots/${{ matrix.device.folder }} -name "*.png" 2>/dev/null | wc -l)
+          if [ "$EXISTING" -lt 3 ]; then
+            echo "Maestro produced fewer than 3 screenshots, taking fallback screenshots..."
+            xcrun simctl launch "$DEVICE_UDID" com.undercut.app 2>/dev/null || true
+            sleep 8
+            xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_01.png
+            sleep 2
+            xcrun simctl io "$DEVICE_UDID" screenshot screenshots/${{ matrix.device.folder }}/screen_02.png
+          else
+            echo "Maestro produced $EXISTING screenshots, skipping fallback"
+          fi
 
       - name: List screenshots
         if: always()
