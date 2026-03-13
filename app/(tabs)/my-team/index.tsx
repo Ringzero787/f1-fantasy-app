@@ -646,6 +646,25 @@ export default function MyTeamScreen() {
     );
   };
 
+  // Auto-clear ace if live market price now exceeds threshold
+  useEffect(() => {
+    if (!currentTeam || !allDrivers?.length) return;
+    if (currentTeam.aceDriverId) {
+      const md = allDrivers.find(d => d.id === currentTeam.aceDriverId);
+      if (md && md.price > PRICING_CONFIG.ACE_MAX_PRICE) {
+        console.log(`Auto-clearing ace: ${currentTeam.aceDriverId} price $${md.price} exceeds $${PRICING_CONFIG.ACE_MAX_PRICE}`);
+        clearAce();
+      }
+    }
+    if (currentTeam.aceConstructorId && allConstructors?.length) {
+      const mc = allConstructors.find(c => c.id === currentTeam.aceConstructorId);
+      if (mc && mc.price > PRICING_CONFIG.ACE_MAX_PRICE) {
+        console.log(`Auto-clearing ace constructor: ${currentTeam.aceConstructorId} price $${mc.price} exceeds $${PRICING_CONFIG.ACE_MAX_PRICE}`);
+        clearAce();
+      }
+    }
+  }, [currentTeam?.aceDriverId, currentTeam?.aceConstructorId, allDrivers, allConstructors]);
+
   // Memoize enriched driver data to avoid recomputing on every render
   const enrichedDrivers = useMemo(() => {
     if (!currentTeam?.drivers) return [];
