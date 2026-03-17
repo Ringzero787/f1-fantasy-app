@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, TouchableOpacity, StyleSheet } from 'react-native';
 
 // Single image with both states side by side — we crop to show only the active half
-const toggleImage = require('../../../pics/app graphics/toggle-switch.png');
+const toggleImage = require('../../../assets/toggle-switch.png');
 
 interface Props {
   activeIndex: number;
