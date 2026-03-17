@@ -951,7 +951,7 @@ export default function MyTeamScreen() {
           <View style={[styles.teamAlert, { backgroundColor: COLORS.success + '15', borderColor: COLORS.success + '30' }]}>
             <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
             <Text style={[styles.teamAlertText, { color: COLORS.success, fontSize: scaledFonts.md }]}>
-              Team set for {lockoutInfo.nextRace.name} — points are scored automatically
+              Your team is full and ready for {lockoutInfo.nextRace.name}!
             </Text>
           </View>
         )}

@@ -162,3 +162,35 @@ function logAndIgnore(label: string) {
     console.log(`Failed to delete ${label} (may not exist):`, err.message);
   };
 }
+
+/**
+ * Admin-only callable: delete a user by UID.
+ * Deletes the Firebase Auth account, which triggers onUserDeleted for cascade cleanup.
+ */
+export const adminDeleteUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth?.token.admin) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin access required');
+  }
+
+  const { uid } = data;
+  if (!uid || typeof uid !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'UID is required');
+  }
+
+  // Don't allow deleting yourself
+  if (uid === context.auth.uid) {
+    throw new functions.https.HttpsError('failed-precondition', 'Cannot delete your own account');
+  }
+
+  try {
+    const userRecord = await admin.auth().getUser(uid);
+    await admin.auth().deleteUser(uid);
+    console.log(`Admin deleted user: ${uid} (${userRecord.email || 'no email'})`);
+    return { success: true, deletedEmail: userRecord.email || null };
+  } catch (err: any) {
+    if (err.code === 'auth/user-not-found') {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+    throw new functions.https.HttpsError('internal', err.message);
+  }
+});

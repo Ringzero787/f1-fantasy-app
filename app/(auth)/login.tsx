@@ -21,7 +21,7 @@ export default function LoginScreen() {
     clearError();
     try {
       await signInWithGoogle(idToken);
-      router.replace('/(tabs)');
+      router.replace('/');
     } catch (err) {
       // Error is handled by the store
     }
@@ -31,7 +31,7 @@ export default function LoginScreen() {
     clearError();
     try {
       await signInWithApple(identityToken, nonce);
-      router.replace('/(tabs)');
+      router.replace('/');
     } catch (err) {
       // Error is handled by the store
     }
@@ -45,7 +45,10 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.tagline}>Leave it to me.</Text>
-          <Text style={[styles.logo, { color: theme.primary }]}>Undercut</Text>
+          <Text
+            style={[styles.logo, { color: '#14B8A6' }]}
+            onLongPress={() => { enterDemoMode(); router.replace('/'); }}
+          >Undercut</Text>
         </View>
 
         <View style={styles.form}>
@@ -67,18 +70,6 @@ export default function LoginScreen() {
             disabled={isLoading}
           />
 
-          {/* Demo Mode - used for CI screenshots and testing */}
-          <TouchableOpacity
-            testID="demo-mode-button"
-            style={styles.demoButton}
-            onPress={() => {
-              enterDemoMode();
-              router.replace('/(tabs)');
-            }}
-            disabled={isLoading}
-          >
-            <Text style={styles.demoButtonText}>Try Demo Mode</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -149,7 +140,11 @@ const styles = StyleSheet.create({
   demoButton: {
     marginTop: SPACING.xl,
     paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#9CA3AF',
+    borderRadius: 8,
   },
 
   demoButtonText: {

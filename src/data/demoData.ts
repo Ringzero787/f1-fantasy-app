@@ -479,7 +479,7 @@ export const demoConstructors: Constructor[] = [
   {
     id: 'haas',
     name: 'MoneyGram Haas F1 Team',
-    shortName: 'HAA',
+    shortName: 'HAS',
     nationality: 'American',
     teamPrincipal: 'Ayao Komatsu',
     primaryColor: '#DEE1E2',

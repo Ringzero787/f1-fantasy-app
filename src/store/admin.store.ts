@@ -560,10 +560,15 @@ export const useAdminStore = create<AdminState>()(
       },
 
       // Sync completed race IDs from Firestore so client lockout logic stays accurate
+      // Also populates per-driver/constructor point breakdowns for "last race" display
       syncCompletedRaces: async () => {
         try {
           const { collection, query, where, getDocs } = await import('firebase/firestore');
           const { db } = await import('../config/firebase');
+          const {
+            RACE_POINTS, SPRINT_POINTS, GRID_SIZE, FASTEST_LAP_BONUS,
+            POSITION_GAINED_BONUS, DNF_PENALTY, SPRINT_DNF_PENALTY,
+          } = await import('../config/constants');
           const racesRef = collection(db, 'races');
           const q = query(racesRef, where('status', '==', 'completed'));
           const snap = await getDocs(q);
@@ -574,18 +579,98 @@ export const useAdminStore = create<AdminState>()(
 
           for (const doc of snap.docs) {
             const raceId = doc.id;
-            if (!newResults[raceId] || !newResults[raceId].isComplete) {
-              // Mark as complete with a minimal stub (enough for lockout logic)
-              newResults[raceId] = newResults[raceId]
-                ? { ...newResults[raceId], isComplete: true, completedAt: new Date() }
-                : { ...createEmptyRaceResult(raceId), isComplete: true, completedAt: new Date() };
-              updated = true;
+            const data = doc.data();
+            const results = data.results;
+
+            // Skip if already fully populated (has non-zero driver points)
+            const existing = newResults[raceId];
+            if (existing?.isComplete && existing.driverResults.some(dr => dr.points !== 0)) {
+              continue;
             }
+
+            // Compute per-driver race points from results
+            const driverResults: DriverRaceResult[] = demoDrivers.map(driver => {
+              const rr = results?.raceResults?.find((r: any) => r.driverId === driver.id);
+              if (!rr) return { driverId: driver.id, points: 0, position: null, fastestLap: false };
+
+              if (rr.status === 'dnf' || rr.status === 'dsq') {
+                return { driverId: driver.id, points: DNF_PENALTY, position: null, fastestLap: false, dnf: true };
+              }
+
+              let pts = 0;
+              // Position points
+              if (rr.position >= 1 && rr.position <= RACE_POINTS.length) {
+                pts += RACE_POINTS[rr.position - 1];
+              }
+              // Position bonus (reverse-grid)
+              if (rr.position >= 1 && rr.position <= GRID_SIZE) {
+                pts += GRID_SIZE + 1 - rr.position;
+              }
+              // Positions gained/lost
+              const posGained = (rr.gridPosition || rr.position) - rr.position;
+              if (posGained > 0) pts += posGained * POSITION_GAINED_BONUS;
+              if (posGained < 0) pts += posGained; // penalty
+              // Fastest lap
+              if (rr.fastestLap && rr.position <= 10) pts += FASTEST_LAP_BONUS;
+
+              return { driverId: driver.id, points: pts, position: rr.position, fastestLap: !!rr.fastestLap };
+            });
+
+            // Compute per-driver sprint points
+            let sprintResults: DriverSprintResult[] | undefined;
+            if (results?.sprintResults?.length > 0) {
+              sprintResults = demoDrivers.map(driver => {
+                const sr = results.sprintResults.find((r: any) => r.driverId === driver.id);
+                if (!sr) return { driverId: driver.id, points: 0, position: null };
+
+                if (sr.status === 'dnf' || sr.status === 'dsq') {
+                  return { driverId: driver.id, points: SPRINT_DNF_PENALTY, position: null, dnf: true };
+                }
+
+                let pts = 0;
+                if (sr.position >= 1 && sr.position <= SPRINT_POINTS.length) {
+                  pts += SPRINT_POINTS[sr.position - 1];
+                }
+                return { driverId: driver.id, points: pts, position: sr.position };
+              });
+            }
+
+            // Compute constructor points (sum of both drivers' points)
+            const constructorResults: ConstructorRaceResult[] = demoConstructors.map(c => {
+              const cDrivers = driverResults.filter(dr => {
+                const rr = results?.raceResults?.find((r: any) => r.driverId === dr.driverId);
+                return rr?.constructorId === c.id;
+              });
+              return { constructorId: c.id, points: cDrivers.reduce((sum, d) => sum + d.points, 0) };
+            });
+
+            let sprintConstructorResults: ConstructorSprintResult[] | undefined;
+            if (sprintResults) {
+              sprintConstructorResults = demoConstructors.map(c => {
+                // For sprint we need to match drivers to constructors via raceResults (sprint doesn't have constructorId)
+                const cDriverIds = results?.raceResults
+                  ?.filter((r: any) => r.constructorId === c.id)
+                  .map((r: any) => r.driverId) || [];
+                const cSprints = sprintResults!.filter(sr => cDriverIds.includes(sr.driverId));
+                return { constructorId: c.id, points: cSprints.reduce((sum, s) => sum + s.points, 0) };
+              });
+            }
+
+            newResults[raceId] = {
+              raceId,
+              isComplete: true,
+              driverResults,
+              constructorResults,
+              sprintResults,
+              sprintConstructorResults,
+              completedAt: new Date(),
+            };
+            updated = true;
           }
 
           if (updated) {
             set({ raceResults: newResults });
-            console.log('[syncCompletedRaces] Synced completed races from Firestore');
+            console.log('[syncCompletedRaces] Synced completed races with point breakdowns');
           }
         } catch (e) {
           console.warn('[syncCompletedRaces] Failed:', e);

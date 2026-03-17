@@ -16,8 +16,9 @@ export const SALE_COMMISSION_RATE = 0; // No commission - sell at current market
 // Scoring Points
 // ============================================
 
-export const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
-export const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1];
+export const RACE_POINTS = [45, 37, 33, 29, 26, 23, 20, 17, 14, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+export const SPRINT_POINTS = [5, 4, 3, 3, 2, 2, 1, 1];
+export const SPRINT_DNF_PENALTY = -3;
 export const GRID_SIZE = 22; // Total grid positions for position bonus
 // Position bonus: every classified finisher gets (GRID_SIZE + 1 - position) bonus pts
 // P1 = +22, P2 = +21, ... P22 = +1
@@ -121,10 +122,11 @@ export const TEAM_COLORS: Record<string, { primary: string; secondary: string }>
   aston_martin: { primary: '#006F62', secondary: '#00483B' },
   alpine: { primary: '#0090FF', secondary: '#FF87BC' },
   williams: { primary: '#005AFF', secondary: '#00A3E0' },
-  rb: { primary: '#FFFFFF', secondary: '#1634B5' },
-  haas: { primary: '#FFFFFF', secondary: '#E10600' },
-  audi: { primary: '#8C8C8C', secondary: '#BB0A30' },
-  cadillac: { primary: '#C0C0C0', secondary: '#1C1C1C' },
+  rb: { primary: '#1634B5', secondary: '#E10600' },
+  racing_bulls: { primary: '#1634B5', secondary: '#E10600' },
+  haas: { primary: '#E10600', secondary: '#FFFFFF' },
+  audi: { primary: '#BB0A30', secondary: '#8C8C8C' },
+  cadillac: { primary: '#1C1C1C', secondary: '#C0C0C0' },
 };
 
 // ============================================

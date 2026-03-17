@@ -141,46 +141,95 @@ jobs:
 
           # Launch the app
           xcrun simctl launch "$DEVICE_UDID" com.undercut.app
-          sleep 5
+          sleep 8
 
           # Screenshot 1: Login screen
           xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/01_login.png"
+          echo "Captured 01_login.png"
 
-          # Use Maestro to tap Demo Mode and enter the app
-          maestro --udid "$DEVICE_UDID" test \
-            --output "$OUTDIR" \
-            .maestro/screenshots/take-screenshots.yaml || true
-
-          # Screenshot 2: Home (Maestro should have navigated here)
-          sleep 3
-          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/02_home.png"
-
-          # Create a Maestro flow to dismiss "Open in Undercut?" dialog
-          cat > /tmp/dismiss-dialog.yaml << 'DISMISS'
+          # Enter demo mode via Maestro (long-press "Undercut" text)
+          cat > /tmp/enter-demo.yaml << 'DEMO'
           appId: com.undercut.app
           ---
-          - tapOn:
-              text: "Open"
-              optional: true
+          - longPressOn:
+              text: "Undercut"
+          - waitForAnimationToEnd:
+              timeout: 8000
+          DEMO
+          maestro --udid "$DEVICE_UDID" test /tmp/enter-demo.yaml || true
+          sleep 5
+
+          # Screenshot 2: My Team (create team empty state)
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/02_create_team.png"
+          echo "Captured 02_create_team.png"
+
+          # Create a team via Maestro
+          cat > /tmp/create-team.yaml << 'CREATE'
+          appId: com.undercut.app
+          ---
+          - tapOn: "Team name"
+          - inputText: "Demo Racing"
+          - hideKeyboard
+          - tapOn: "Create Team"
           - waitForAnimationToEnd:
               timeout: 5000
-          DISMISS
+          CREATE
+          maestro --udid "$DEVICE_UDID" test /tmp/create-team.yaml || true
+          sleep 3
 
-          # Navigate via deep links and dismiss confirmation dialogs
-          SCREENS=("my-team:03_myteam" "market:04_market" "calendar:05_calendar" "leagues:06_leagues")
-          for entry in "${SCREENS[@]}"; do
-            ROUTE="${entry%%:*}"
-            FILENAME="${entry##*:}"
+          # Screenshot 3: My Team (empty team with slots)
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/03_myteam_empty.png"
+          echo "Captured 03_myteam_empty.png"
 
-            xcrun simctl openurl "$DEVICE_UDID" "theundercut://$ROUTE"
-            sleep 2
-            maestro --udid "$DEVICE_UDID" test /tmp/dismiss-dialog.yaml || true
-            sleep 3
-            xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/${FILENAME}.png"
-            echo "Captured ${FILENAME}.png"
-          done
+          # Tap Market toggle
+          cat > /tmp/goto-market.yaml << 'MARKET'
+          appId: com.undercut.app
+          ---
+          - tapOn: "Market"
+          - waitForAnimationToEnd:
+              timeout: 3000
+          MARKET
+          maestro --udid "$DEVICE_UDID" test /tmp/goto-market.yaml || true
+          sleep 3
 
-          echo "Screenshots taken:"
+          # Screenshot 4: Market
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/04_market.png"
+          echo "Captured 04_market.png"
+
+          # Tap Standings toggle
+          cat > /tmp/goto-standings.yaml << 'STANDINGS'
+          appId: com.undercut.app
+          ---
+          - tapOn: "Standings"
+          - waitForAnimationToEnd:
+              timeout: 3000
+          STANDINGS
+          maestro --udid "$DEVICE_UDID" test /tmp/goto-standings.yaml || true
+          sleep 3
+
+          # Screenshot 5: Standings (no league / create league)
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/05_standings.png"
+          echo "Captured 05_standings.png"
+
+          # Go back to My Team and tap Profile pill
+          cat > /tmp/goto-profile.yaml << 'PROFILE'
+          appId: com.undercut.app
+          ---
+          - tapOn: "My Team"
+          - waitForAnimationToEnd:
+              timeout: 2000
+          - tapOn: "Profile"
+          - waitForAnimationToEnd:
+              timeout: 3000
+          PROFILE
+          maestro --udid "$DEVICE_UDID" test /tmp/goto-profile.yaml || true
+          sleep 3
+
+          # Screenshot 6: Profile sheet
+          xcrun simctl io "$DEVICE_UDID" screenshot "$OUTDIR/06_profile.png"
+          echo "Captured 06_profile.png"
+
+          echo "All screenshots taken:"
           ls -la "$OUTDIR/"
 
       - name: List screenshots

@@ -53,7 +53,15 @@ export default function RootLayout() {
     function handleUrl(url: string) {
       const code = extractInviteCode(url);
       if (code) {
-        router.replace({ pathname: '/leagues', params: { join: 'true', code } });
+        // Route based on UI mode
+        const { usePrefsStore } = require('../src/store/prefs.store');
+        const uiMode = usePrefsStore.getState().uiMode;
+        if (uiMode === 'simple' || !uiMode) {
+          // In Simple mode, store the code and let the league panel handle it
+          router.replace({ pathname: '/(simple)', params: { join: 'true', code } });
+        } else {
+          router.replace({ pathname: '/leagues', params: { join: 'true', code } });
+        }
       }
     }
 
@@ -72,13 +80,22 @@ export default function RootLayout() {
 
     // Check for OTA updates and reload immediately if available
     if (!__DEV__) {
+      console.log('[OTA] Checking for updates...');
       Updates.checkForUpdateAsync()
         .then(({ isAvailable }) => {
+          console.log('[OTA] Update available:', isAvailable);
           if (isAvailable) {
-            return Updates.fetchUpdateAsync().then(() => Updates.reloadAsync());
+            return Updates.fetchUpdateAsync().then(() => {
+              console.log('[OTA] Update fetched, reloading...');
+              Updates.reloadAsync();
+            });
           }
         })
-        .catch(() => {}); // Silently ignore update errors
+        .catch((err) => {
+          console.warn('[OTA] Update check failed:', err?.message || err);
+        });
+    } else {
+      console.log('[OTA] Skipped — dev mode');
     }
 
     return () => {

@@ -59,7 +59,7 @@ async function rebuildMarketCache(): Promise<void> {
       fantasyPoints: data.fantasyPoints || 0,
       tier: data.tier || 'C',
       isActive: true,
-      driverNumber: data.driverNumber,
+      ...(data.number != null ? { driverNumber: data.number } : {}),
     };
   });
 

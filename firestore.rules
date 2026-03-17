@@ -193,5 +193,17 @@ service cloud.firestore {
     match /avatarRateLimits/{userId} {
       allow read, write: if false;
     }
+
+    // Pending results — admin only (used by web admin panel + app admin)
+    match /pendingResults/{resultId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions write
+    }
+
+    // Cache — authenticated users can read, only Cloud Functions write
+    match /cache/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
   }
 }

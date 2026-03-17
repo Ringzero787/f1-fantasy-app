@@ -252,6 +252,27 @@ function calculateDnfPricePenalty(dnfLap: number, totalLaps: number): number {
 /**
  * Commit writes in batches respecting the 500-op Firestore limit.
  */
+/**
+ * Recursively sanitize data before writing to Firestore.
+ * Replaces NaN with 0 and undefined with null to prevent Firestore write failures.
+ */
+function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (typeof obj === 'number' && isNaN(obj)) {
+    console.warn('[sanitize] Replaced NaN with 0 in Firestore data');
+    return 0;
+  }
+  if (obj === null || typeof obj !== 'object') return obj;
+  // Preserve FieldValue sentinels (increment, arrayUnion, serverTimestamp, etc.)
+  if (obj.constructor && obj.constructor.name !== 'Object' && !Array.isArray(obj)) return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    result[key] = sanitizeForFirestore(value);
+  }
+  return result;
+}
+
 async function commitInBatches(
   ops: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }>
 ): Promise<void> {
@@ -259,7 +280,7 @@ async function commitInBatches(
     const batch = db.batch();
     const chunk = ops.slice(i, i + BATCH_OP_LIMIT);
     for (const op of chunk) {
-      batch.set(op.ref, op.data, { merge: true });
+      batch.set(op.ref, sanitizeForFirestore(op.data), { merge: true });
     }
     await batch.commit();
   }
@@ -331,7 +352,7 @@ export async function handleQualifyingScoring(
       teamPoints += qualiPoints;
       return {
         ...driver,
-        pointsScored: driver.pointsScored + qualiPoints,
+        pointsScored: (driver.pointsScored || 0) + qualiPoints,
       };
     });
 
@@ -361,7 +382,7 @@ export async function handleQualifyingScoring(
       teamPoints += ctorQualiPoints;
       updatedConstructor = {
         ...ctor,
-        pointsScored: ctor.pointsScored + ctorQualiPoints,
+        pointsScored: (ctor.pointsScored || 0) + ctorQualiPoints,
       };
     }
 
@@ -486,7 +507,7 @@ export async function handleSprintScoring(
       teamPoints += sprintPts;
       return {
         ...driver,
-        pointsScored: driver.pointsScored + sprintPts,
+        pointsScored: (driver.pointsScored || 0) + sprintPts,
       };
     });
 
@@ -665,8 +686,8 @@ export const onRaceCompleted = functions
         teamPoints += driverPoints;
         updatedDrivers.push({
           ...driver,
-          pointsScored: driver.pointsScored + driverPoints,
-          racesHeld: driver.racesHeld + 1,
+          pointsScored: (driver.pointsScored || 0) + driverPoints,
+          racesHeld: (driver.racesHeld || 0) + 1,
         });
       }
 
@@ -721,8 +742,8 @@ export const onRaceCompleted = functions
         teamPoints += constructorPoints;
         updatedConstructor = {
           ...ctor,
-          pointsScored: ctor.pointsScored + constructorPoints,
-          racesHeld: ctor.racesHeld + 1,
+          pointsScored: (ctor.pointsScored || 0) + constructorPoints,
+          racesHeld: (ctor.racesHeld || 0) + 1,
         };
       }
 
@@ -1193,7 +1214,11 @@ export const onRaceCompleted = functions
 
       leagueMemberOps.push({
         ref: memberRef,
-        data: { totalPoints: admin.firestore.FieldValue.increment(update.points) },
+        data: {
+          totalPoints: admin.firestore.FieldValue.increment(update.points),
+          lastRacePoints: update.points,
+          lastRaceId: raceId,
+        },
       });
     }
 
@@ -1447,7 +1472,7 @@ export const repairTeamScoring = functions
             }
 
             qualiTeamPts += qualiPts;
-            return { ...driver, pointsScored: driver.pointsScored + qualiPts };
+            return { ...driver, pointsScored: (driver.pointsScored || 0) + qualiPts };
           });
 
           if (teamCtor) {
@@ -1467,7 +1492,7 @@ export const repairTeamScoring = functions
             }
             if (isAceCtor) ctorQualiPts *= 2;
             qualiTeamPts += ctorQualiPts;
-            teamCtor = { ...teamCtor, pointsScored: teamCtor.pointsScored + ctorQualiPts };
+            teamCtor = { ...teamCtor, pointsScored: (teamCtor.pointsScored || 0) + ctorQualiPts };
           }
 
           totalPoints += qualiTeamPts;
@@ -1494,8 +1519,8 @@ export const repairTeamScoring = functions
           raceTeamPts += driverPts;
           return {
             ...driver,
-            pointsScored: driver.pointsScored + driverPts,
-            racesHeld: driver.racesHeld + 1,
+            pointsScored: (driver.pointsScored || 0) + driverPts,
+            racesHeld: (driver.racesHeld || 0) + 1,
           };
         });
 
@@ -1542,8 +1567,8 @@ export const repairTeamScoring = functions
           raceTeamPts += ctorPts;
           teamCtor = {
             ...teamCtor,
-            pointsScored: teamCtor.pointsScored + ctorPts,
-            racesHeld: teamCtor.racesHeld + 1,
+            pointsScored: (teamCtor.pointsScored || 0) + ctorPts,
+            racesHeld: (teamCtor.racesHeld || 0) + 1,
           };
         }
 

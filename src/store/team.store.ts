@@ -578,8 +578,9 @@ export const useTeamStore = create<TeamState>()(
               if (!fbTeam) return localTeam;
 
               // Take the higher totalPoints (server scores via FieldValue.increment)
-              const serverPoints = typeof fbTeam.totalPoints === 'number' ? fbTeam.totalPoints : 0;
-              const localPoints = typeof localTeam.totalPoints === 'number' ? localTeam.totalPoints : 0;
+              // NaN guard: typeof NaN === 'number' but NaN > x is always false, breaking the merge
+              const serverPoints = typeof fbTeam.totalPoints === 'number' && !isNaN(fbTeam.totalPoints) ? fbTeam.totalPoints : 0;
+              const localPoints = typeof localTeam.totalPoints === 'number' && !isNaN(localTeam.totalPoints) ? localTeam.totalPoints : 0;
               const useServerPoints = serverPoints > localPoints;
 
               // Always merge lock status from server (server is source of truth for locks)
@@ -590,22 +591,26 @@ export const useTeamStore = create<TeamState>()(
                 lockedPoints: typeof fbTeam.lockedPoints === 'number' ? fbTeam.lockedPoints : localTeam.lockedPoints,
               };
 
-              if (!useServerPoints) return lockMerged;
-
-              // Merge server-scored per-driver pointsScored
+              // Always merge driver/constructor points from server (even if totalPoints hasn't changed)
+              // Previously gated by useServerPoints which blocked merge when local had NaN
+              // Server is ALWAYS the source of truth for pointsScored and racesHeld
               const mergedDrivers = localTeam.drivers.map(driver => {
                 const fbDriver = fbTeam.drivers?.find((d: FantasyDriver) => d.driverId === driver.driverId);
-                if (fbDriver && typeof fbDriver.pointsScored === 'number' && fbDriver.pointsScored > (driver.pointsScored || 0)) {
-                  return { ...driver, pointsScored: fbDriver.pointsScored };
-                }
-                return driver;
+                if (!fbDriver) return driver;
+                return {
+                  ...driver,
+                  pointsScored: typeof fbDriver.pointsScored === 'number' && !isNaN(fbDriver.pointsScored)
+                    ? fbDriver.pointsScored : (driver.pointsScored || 0),
+                  racesHeld: fbDriver.racesHeld ?? driver.racesHeld,
+                  currentPrice: fbDriver.currentPrice ?? driver.currentPrice,
+                };
               });
 
               // Merge server-scored constructor pointsScored
               const mergedConstructor = localTeam.constructor && fbTeam.constructor
                 ? {
                     ...localTeam.constructor,
-                    pointsScored: typeof fbTeam.constructor.pointsScored === 'number' && fbTeam.constructor.pointsScored > (localTeam.constructor.pointsScored || 0)
+                    pointsScored: (typeof fbTeam.constructor.pointsScored === 'number' && !isNaN(fbTeam.constructor.pointsScored) && fbTeam.constructor.pointsScored > (localTeam.constructor.pointsScored || 0))
                       ? fbTeam.constructor.pointsScored
                       : localTeam.constructor.pointsScored || 0,
                   }
