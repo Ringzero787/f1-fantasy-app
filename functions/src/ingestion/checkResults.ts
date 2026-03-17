@@ -261,10 +261,8 @@ export const approveRaceResults = onCall(
       throw new HttpsError('unauthenticated', 'Must be logged in');
     }
 
-    // Admin check
-    const userDoc = await db.collection('users').doc(request.auth.uid).get();
-    const isAdmin = userDoc.data()?.isAdmin === true || request.auth.token.admin === true;
-    if (!isAdmin) {
+    // Admin check — only trust custom claims, not Firestore fields (users can write their own doc)
+    if (!request.auth.token.admin) {
       throw new HttpsError('permission-denied', 'Admin access required');
     }
 
@@ -288,9 +286,8 @@ export const rejectRaceResults = onCall(
       throw new HttpsError('unauthenticated', 'Must be logged in');
     }
 
-    const userDoc = await db.collection('users').doc(request.auth.uid).get();
-    const isAdmin = userDoc.data()?.isAdmin === true || request.auth.token.admin === true;
-    if (!isAdmin) {
+    // Admin check — only trust custom claims
+    if (!request.auth.token.admin) {
       throw new HttpsError('permission-denied', 'Admin access required');
     }
 

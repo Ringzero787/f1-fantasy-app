@@ -617,12 +617,16 @@ export const teamService = {
 
     // Convert to Firebase-compatible format (remove id, use serverTimestamp)
     // Firebase doesn't accept undefined values, so convert them to null
-    const { id, createdAt, updatedAt, totalPoints, lockedPoints, ...teamData } = team;
-
-    // Preserve pointsScored in drivers and constructor — stripping it causes
-    // merge: true to overwrite the entire drivers array without the server-scored values.
-    // Instead, keep whatever the local store has (which should be merged from server on load).
-    // The server scoring pipeline always uses its own fresh calculation, not client values.
+    // Strip server-authoritative fields — these must never be written by the client
+    // Security: a modified client could manipulate budget, lock status, or points
+    const {
+      id, createdAt, updatedAt,
+      totalPoints, lockedPoints,       // Scoring pipeline owns these
+      isLocked, lockStatus,            // Server lock system owns these
+      budget, totalSpent,              // Server calculates from transactions
+      scoredRaces,                     // Server scoring owns this
+      ...teamData
+    } = team as any;
 
     // Helper to convert undefined to null recursively
     const sanitizeForFirebase = (obj: any): any => {
