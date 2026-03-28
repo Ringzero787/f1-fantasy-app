@@ -6,6 +6,7 @@ import {
   updateProfile,
   onAuthStateChanged,
   signInWithCredential,
+  signInWithCustomToken,
   linkWithCredential,
   unlink,
   GoogleAuthProvider,
@@ -100,6 +101,31 @@ export const authService = {
       return this.createUserProfile(result.user.uid, {
         email: result.user.email || '',
         displayName: result.user.displayName || 'Apple User',
+      });
+    }
+
+    return { id: userDoc.id, ...userDoc.data() } as User;
+  },
+
+  /**
+   * Sign in with Amazon (custom token from Cloud Function)
+   */
+  async signInWithAmazon(
+    customToken: string,
+    profile: { email: string; displayName: string }
+  ): Promise<User> {
+    const result = await signInWithCustomToken(firebaseAuth, customToken);
+
+    if (!result.user) {
+      throw new Error('Amazon authentication failed');
+    }
+
+    const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+
+    if (!userDoc.exists()) {
+      return this.createUserProfile(result.user.uid, {
+        email: profile.email,
+        displayName: profile.displayName || 'Amazon User',
       });
     }
 

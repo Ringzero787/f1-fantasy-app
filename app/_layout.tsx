@@ -7,9 +7,9 @@ import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as Updates from 'expo-updates';
 // import crashlytics from '@react-native-firebase/crashlytics';
-import { usePurchaseStore } from '../src/store/purchase.store';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { useLayout } from '../src/hooks/useLayout';
+import { handleAmazonDeepLink } from '../src/utils/amazonSignIn';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +51,12 @@ export default function RootLayout() {
 
   useEffect(() => {
     function handleUrl(url: string) {
+      // Handle Amazon auth callback deep link
+      if (url.includes('auth/amazon')) {
+        handleAmazonDeepLink(url);
+        return;
+      }
+
       const code = extractInviteCode(url);
       if (code) {
         // Route based on UI mode
@@ -75,9 +81,6 @@ export default function RootLayout() {
       handleUrl(event.url);
     });
 
-    // Initialize in-app purchases
-    usePurchaseStore.getState().initializeIAP();
-
     // Check for OTA updates and reload immediately if available
     if (!__DEV__) {
       console.log('[OTA] Checking for updates...');
@@ -100,7 +103,6 @@ export default function RootLayout() {
 
     return () => {
       subscription.remove();
-      usePurchaseStore.getState().cleanupIAP();
     };
   }, []);
 
@@ -108,7 +110,7 @@ export default function RootLayout() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="light" />
+          <StatusBar style="auto" />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />

@@ -26,6 +26,14 @@ export async function uploadProfileImage(
   const encodedPath = encodeURIComponent(path);
 
   // Upload using Firebase Storage REST API
+  // React Native fetch doesn't support Uint8Array body — use Blob instead
+  const binaryString = atob(base64Data);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  const blob = new Blob([bytes], { type: contentType });
+
   const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodedPath}`;
 
   const response = await fetch(uploadUrl, {
@@ -33,9 +41,8 @@ export async function uploadProfileImage(
     headers: {
       'Authorization': `Firebase ${token}`,
       'Content-Type': contentType,
-      'Content-Transfer-Encoding': 'base64',
     },
-    body: base64Data,
+    body: blob,
   });
 
   if (!response.ok) {

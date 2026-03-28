@@ -1,0 +1,23 @@
+appId: com.undercut.app
+tags:
+  - simple
+  - league
+---
+# Test league panel when user has no league
+- runFlow: setup-simple-demo.yaml
+
+# Switch to Standings panel
+- tapOn: "Standings"
+- waitForAnimationToEnd
+
+# Should show no-league prompt
+- extendedWaitUntil:
+    visible: "Join a League"
+    timeout: 5000
+
+# Should show create option too
+- assertVisible: "Create League"
+
+# Switch back
+- tapOn: "My Team"
+- waitForAnimationToEnd

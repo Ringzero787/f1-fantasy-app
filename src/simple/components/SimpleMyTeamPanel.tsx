@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, RefreshControl, Alert } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_COLORS, S_FONTS, S_SPACING, S_RADIUS, sCard } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { SimpleDriverRow } from './SimpleDriverRow';
 import { SimpleConstructorRow } from './SimpleConstructorRow';
 import { SimpleCreateTeam } from './SimpleCreateTeam';
@@ -32,6 +33,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
   refreshing,
   onRefresh,
 }: Props) {
+  const { colors, fonts, spacing } = useSimpleTheme();
   const {
     team,
     teamConstructor,
@@ -54,6 +56,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
   } = useSimpleTeam();
   const lockoutInfo = useLockoutStatus();
   const locked = lockoutInfo.isLocked || !(team?.lockStatus?.canModify ?? true);
+  const aceLocked = locked;
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [creatingSecondTeam, setCreatingSecondTeam] = useState(false);
@@ -62,6 +65,134 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
   const driverPrices = useAdminStore((s) => s.driverPrices);
   const constructorPrices = useAdminStore((s) => s.constructorPrices);
   const setCurrentTeam = useTeamStore((s) => s.setCurrentTeam);
+
+  const styles = useMemo(() => ({
+    scroll: {
+      flex: 1,
+    },
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.xxl + 40, // room for profile pill
+    },
+    header: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      marginBottom: spacing.md,
+      gap: spacing.sm,
+    },
+    nameRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+      flex: 1,
+    },
+    teamName: {
+      fontSize: fonts.xxl,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+    },
+    editNameRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      flex: 1,
+      gap: spacing.xs,
+    },
+    editNameInput: {
+      flex: 1,
+      fontSize: fonts.xl,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.primary,
+      borderBottomWidth: 2,
+      borderBottomColor: colors.primary,
+      paddingVertical: spacing.xs,
+    },
+    editNameBtn: {
+      padding: spacing.xs,
+    },
+    lockBadge: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 4,
+      backgroundColor: colors.lockedBg,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: S_RADIUS.pill,
+    },
+    lockText: {
+      fontSize: fonts.xs,
+      color: colors.locked,
+      fontWeight: S_FONTS.weights.medium,
+    },
+    statsRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      backgroundColor: colors.card,
+      borderRadius: S_RADIUS.md,
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.sm,
+      marginBottom: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+    },
+    statItem: {
+      flex: 1,
+      alignItems: 'center' as const,
+    },
+    statDivider: {
+      borderLeftWidth: 1,
+      borderLeftColor: colors.borderLight,
+    },
+    statValue: {
+      fontSize: fonts.hero,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+      marginTop: 2,
+    },
+    sectionTitle: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.muted,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.8,
+      marginBottom: spacing.sm,
+    },
+    emptySlot: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: S_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderStyle: 'dashed' as const,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    emptySlotText: {
+      fontSize: fonts.md,
+      color: colors.primary,
+      fontWeight: S_FONTS.weights.medium,
+    },
+    readyBanner: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.sm,
+      backgroundColor: colors.positiveFaint,
+      borderRadius: S_RADIUS.md,
+      padding: spacing.md,
+      marginTop: spacing.lg,
+    },
+    readyText: {
+      fontSize: fonts.md,
+      color: colors.positive,
+      fontWeight: S_FONTS.weights.medium,
+      flex: 1,
+    },
+  }), [colors, fonts, spacing]);
 
   if (!hasTeam) {
     return <SimpleCreateTeam onCreate={async (name, joinCode) => { await createTeam(name, joinCode); }} />;
@@ -144,7 +275,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
     + (enrichedConstructor?.currentPrice || 0);
 
   const handleToggleAce = async (driverId: string) => {
-    if (locked) return;
+    if (aceLocked) return;
     if (team!.aceDriverId === driverId) {
       await clearAce();
     } else {
@@ -153,7 +284,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
   };
 
   const handleToggleAceConstructor = async () => {
-    if (locked || !teamConstructor) return;
+    if (aceLocked || !teamConstructor) return;
     if (team!.aceConstructorId === teamConstructor.constructorId) {
       await clearAce();
     } else {
@@ -167,7 +298,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={S_COLORS.primary} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
       }
     >
       {/* Team Header */}
@@ -187,22 +318,22 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
               returnKeyType="done"
             />
             <TouchableOpacity onPress={handleSaveName} style={styles.editNameBtn}>
-              <Ionicons name="checkmark" size={18} color={S_COLORS.primary} />
+              <Ionicons name="checkmark" size={18} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setEditingName(false)} style={styles.editNameBtn}>
-              <Ionicons name="close" size={18} color={S_COLORS.text.muted} />
+              <Ionicons name="close" size={18} color={colors.text.muted} />
             </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity onPress={handleEditName} style={styles.nameRow} activeOpacity={0.7}>
             <Text style={styles.teamName}>{team!.name}</Text>
-            <Ionicons name="pencil" size={14} color={S_COLORS.text.muted} />
+            <Ionicons name="pencil" size={14} color={colors.text.muted} />
           </TouchableOpacity>
         )}
         <SimpleCountdownBanner />
         {locked && (
           <View style={styles.lockBadge}>
-            <Ionicons name="lock-closed" size={12} color={S_COLORS.locked} />
+            <Ionicons name="lock-closed" size={12} color={colors.locked} />
             <Text style={styles.lockText}>Locked</Text>
           </View>
         )}
@@ -232,7 +363,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
             );
           }}
         />
-        <View style={[styles.statItem, { marginLeft: S_SPACING.sm }]}>
+        <View style={[styles.statItem, { marginLeft: spacing.sm }]}>
           <Text style={styles.statValue}>
             {(() => {
               // Use league member totalPoints as authoritative (includes qualifying, sprint, expired drivers)
@@ -278,6 +409,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
           driver={driver}
           isAce={team!.aceDriverId === driver.driverId}
           locked={locked}
+          aceLocked={aceLocked}
           onRemove={() => {
             const racesLeft = (driver.contractLength ?? 3) - (driver.racesHeld ?? 0);
             const earlyTermFee = racesLeft > 0 ? Math.round(driver.currentPrice * 0.1 * racesLeft) : 0;
@@ -302,20 +434,21 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
           disabled={locked}
           activeOpacity={0.6}
         >
-          <Ionicons name="add-circle-outline" size={22} color={locked ? S_COLORS.text.muted : S_COLORS.primary} />
-          <Text style={[styles.emptySlotText, locked && { color: S_COLORS.text.muted }]}>
+          <Ionicons name="add-circle-outline" size={22} color={locked ? colors.text.muted : colors.primary} />
+          <Text style={[styles.emptySlotText, locked && { color: colors.text.muted }]}>
             Add driver ({emptyDriverSlots} slot{emptyDriverSlots !== 1 ? 's' : ''} remaining)
           </Text>
         </TouchableOpacity>
       )}
 
       {/* Constructor Section */}
-      <Text style={[styles.sectionTitle, { marginTop: S_SPACING.lg }]}>Constructor</Text>
+      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Constructor</Text>
       {enrichedConstructor ? (
         <SimpleConstructorRow
           constructor={enrichedConstructor}
           isAce={team!.aceConstructorId === teamConstructor.constructorId}
           locked={locked}
+          aceLocked={aceLocked}
           onRemove={() => {
             const racesLeft = (teamConstructor.contractLength ?? 3) - (teamConstructor.racesHeld ?? 0);
             const earlyTermFee = racesLeft > 0 ? Math.round(teamConstructor.currentPrice * 0.1 * racesLeft) : 0;
@@ -337,8 +470,8 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
           disabled={locked}
           activeOpacity={0.6}
         >
-          <Ionicons name="add-circle-outline" size={22} color={locked ? S_COLORS.text.muted : S_COLORS.primary} />
-          <Text style={[styles.emptySlotText, locked && { color: S_COLORS.text.muted }]}>
+          <Ionicons name="add-circle-outline" size={22} color={locked ? colors.text.muted : colors.primary} />
+          <Text style={[styles.emptySlotText, locked && { color: colors.text.muted }]}>
             Add constructor
           </Text>
         </TouchableOpacity>
@@ -347,7 +480,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
       {/* Ready banner */}
       {isFull && !locked && (
         <View style={styles.readyBanner}>
-          <Ionicons name="checkmark-circle" size={16} color={S_COLORS.positive} />
+          <Ionicons name="checkmark-circle" size={16} color={colors.positive} />
           <Text style={styles.readyText}>
             {lockoutInfo.nextRace
               ? `Your team is full and ready for ${lockoutInfo.nextRace.name}!`
@@ -358,132 +491,4 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
       </>)}
     </ScrollView>
   );
-});
-
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: S_SPACING.lg,
-    paddingBottom: S_SPACING.xxl + 40, // room for profile pill
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: S_SPACING.md,
-    gap: S_SPACING.sm,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.xs,
-    flex: 1,
-  },
-  teamName: {
-    fontSize: S_FONTS.sizes.xxl,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-  },
-  editNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: S_SPACING.xs,
-  },
-  editNameInput: {
-    flex: 1,
-    fontSize: S_FONTS.sizes.xl,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.primary,
-    borderBottomWidth: 2,
-    borderBottomColor: S_COLORS.primary,
-    paddingVertical: S_SPACING.xs,
-  },
-  editNameBtn: {
-    padding: S_SPACING.xs,
-  },
-  lockBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: S_COLORS.lockedBg,
-    paddingHorizontal: S_SPACING.sm,
-    paddingVertical: S_SPACING.xs,
-    borderRadius: S_RADIUS.pill,
-  },
-  lockText: {
-    fontSize: S_FONTS.sizes.xs,
-    color: S_COLORS.locked,
-    fontWeight: S_FONTS.weights.medium,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: S_COLORS.card,
-    borderRadius: S_RADIUS.md,
-    paddingVertical: S_SPACING.lg,
-    paddingHorizontal: S_SPACING.sm,
-    marginBottom: S_SPACING.lg,
-    borderWidth: 1,
-    borderColor: S_COLORS.borderLight,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: S_COLORS.borderLight,
-  },
-  statValue: {
-    fontSize: S_FONTS.sizes.hero,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-  },
-  statLabel: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: S_SPACING.sm,
-  },
-  emptySlot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.sm,
-    backgroundColor: S_COLORS.surface,
-    borderRadius: S_RADIUS.md,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    borderStyle: 'dashed',
-    padding: S_SPACING.md,
-    marginBottom: S_SPACING.sm,
-  },
-  emptySlotText: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.primary,
-    fontWeight: S_FONTS.weights.medium,
-  },
-  readyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.sm,
-    backgroundColor: '#E8F5E9',
-    borderRadius: S_RADIUS.md,
-    padding: S_SPACING.md,
-    marginTop: S_SPACING.lg,
-  },
-  readyText: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.positive,
-    fontWeight: S_FONTS.weights.medium,
-    flex: 1,
-  },
 });

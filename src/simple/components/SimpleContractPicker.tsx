@@ -1,15 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   Modal,
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_COLORS, S_FONTS, S_SPACING, S_RADIUS } from '../theme/simpleTheme';
-import { PRICING_CONFIG } from '../../config/pricing.config';
+import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 interface Props {
   visible: boolean;
@@ -36,8 +35,129 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
   onConfirm,
   onCancel,
 }: Props) {
+  const { colors, fonts, spacing } = useSimpleTheme();
   const budgetAfter = budgetRemaining - price;
   const canAfford = budgetAfter >= 0;
+
+  const styles = useMemo(() => ({
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      justifyContent: 'flex-end' as const,
+    },
+    sheet: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: S_RADIUS.lg,
+      borderTopRightRadius: S_RADIUS.lg,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.xxl + 16,
+    },
+    handle: {
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.border,
+      alignSelf: 'center' as const,
+      marginBottom: spacing.lg,
+    },
+    title: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.muted,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.8,
+      marginBottom: spacing.xs,
+    },
+    name: {
+      fontSize: fonts.xl,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+      marginBottom: spacing.lg,
+    },
+    summaryRow: {
+      flexDirection: 'row' as const,
+      backgroundColor: colors.card,
+      borderRadius: S_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+    },
+    summaryItem: {
+      flex: 1,
+      alignItems: 'center' as const,
+    },
+    summaryLabel: {
+      fontSize: fonts.xs,
+      color: colors.text.muted,
+      marginBottom: 2,
+    },
+    summaryValue: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+    },
+    sectionLabel: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.text.secondary,
+      marginBottom: spacing.sm,
+    },
+    contractRow: {
+      flexDirection: 'row' as const,
+      gap: spacing.sm,
+      marginBottom: spacing.xl,
+    },
+    contractBtn: {
+      flex: 1,
+      alignItems: 'center' as const,
+      paddingVertical: spacing.sm,
+      borderRadius: S_RADIUS.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    contractBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    contractBtnText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.secondary,
+    },
+    contractBtnTextActive: {
+      color: colors.text.inverse,
+    },
+    confirmBtn: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: spacing.sm,
+      backgroundColor: colors.primary,
+      borderRadius: S_RADIUS.md,
+      paddingVertical: spacing.md + 2,
+      marginBottom: spacing.sm,
+    },
+    confirmBtnDisabled: {
+      backgroundColor: colors.card,
+    },
+    confirmBtnText: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.inverse,
+    },
+    cancelBtn: {
+      alignItems: 'center' as const,
+      paddingVertical: spacing.md,
+    },
+    cancelBtnText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.text.muted,
+    },
+  }), [colors, fonts, spacing]);
 
   return (
     <Modal
@@ -68,7 +188,7 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
               <Text
                 style={[
                   styles.summaryValue,
-                  !canAfford && { color: S_COLORS.negative },
+                  !canAfford && { color: colors.negative },
                 ]}
               >
                 ${budgetAfter}
@@ -111,12 +231,12 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
             <Ionicons
               name="add-circle"
               size={18}
-              color={canAfford ? S_COLORS.text.inverse : S_COLORS.text.muted}
+              color={canAfford ? colors.text.inverse : colors.text.muted}
             />
             <Text
               style={[
                 styles.confirmBtnText,
-                !canAfford && { color: S_COLORS.text.muted },
+                !canAfford && { color: colors.text.muted },
               ]}
             >
               Add to Team
@@ -134,124 +254,4 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
       </Pressable>
     </Modal>
   );
-});
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: S_COLORS.background,
-    borderTopLeftRadius: S_RADIUS.lg,
-    borderTopRightRadius: S_RADIUS.lg,
-    paddingHorizontal: S_SPACING.xl,
-    paddingTop: S_SPACING.md,
-    paddingBottom: S_SPACING.xxl + 16,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: S_COLORS.border,
-    alignSelf: 'center',
-    marginBottom: S_SPACING.lg,
-  },
-  title: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: S_SPACING.xs,
-  },
-  name: {
-    fontSize: S_FONTS.sizes.xl,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.lg,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    backgroundColor: S_COLORS.card,
-    borderRadius: S_RADIUS.md,
-    borderWidth: 1,
-    borderColor: S_COLORS.borderLight,
-    padding: S_SPACING.md,
-    marginBottom: S_SPACING.lg,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: S_FONTS.sizes.xs,
-    color: S_COLORS.text.muted,
-    marginBottom: 2,
-  },
-  summaryValue: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-  },
-  sectionLabel: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.text.secondary,
-    marginBottom: S_SPACING.sm,
-  },
-  contractRow: {
-    flexDirection: 'row',
-    gap: S_SPACING.sm,
-    marginBottom: S_SPACING.xl,
-  },
-  contractBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: S_SPACING.sm,
-    borderRadius: S_RADIUS.sm,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    backgroundColor: S_COLORS.background,
-  },
-  contractBtnActive: {
-    backgroundColor: S_COLORS.primary,
-    borderColor: S_COLORS.primary,
-  },
-  contractBtnText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.secondary,
-  },
-  contractBtnTextActive: {
-    color: S_COLORS.text.inverse,
-  },
-  confirmBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: S_SPACING.sm,
-    backgroundColor: S_COLORS.primary,
-    borderRadius: S_RADIUS.md,
-    paddingVertical: S_SPACING.md + 2,
-    marginBottom: S_SPACING.sm,
-  },
-  confirmBtnDisabled: {
-    backgroundColor: S_COLORS.card,
-  },
-  confirmBtnText: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.inverse,
-  },
-  cancelBtn: {
-    alignItems: 'center',
-    paddingVertical: S_SPACING.md,
-  },
-  cancelBtnText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.text.muted,
-  },
 });

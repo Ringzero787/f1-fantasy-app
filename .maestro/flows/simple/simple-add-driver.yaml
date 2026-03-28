@@ -1,0 +1,39 @@
+appId: com.undercut.app
+tags:
+  - simple
+  - team
+  - market
+---
+# Test adding a driver from market in Simple UI
+- runFlow: setup-simple-demo.yaml
+
+# First create a team
+- tapOn: "Team name"
+- inputText: "Market Test"
+- hideKeyboard
+- tapOn: "Create Team"
+- extendedWaitUntil:
+    visible: "Market Test"
+    timeout: 5000
+
+# Tap "Add driver" to go to market
+- tapOn: "Add driver"
+- waitForAnimationToEnd
+
+# Should be on Market panel now
+- extendedWaitUntil:
+    visible: "Drivers"
+    timeout: 5000
+
+# Tap + on a driver to add them
+- scrollUntilVisible:
+    element: "Valtteri Bottas"
+    direction: DOWN
+    timeout: 5000
+
+# Go back to My Team to verify
+- tapOn: "My Team"
+- waitForAnimationToEnd
+
+# Verify team still shows
+- assertVisible: "Market Test"

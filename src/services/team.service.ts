@@ -612,21 +612,17 @@ export const teamService = {
    * Sync full team state to Firebase (local-first pattern)
    * Used to push local changes to Firebase in background
    */
-  async syncTeam(team: FantasyTeam): Promise<void> {
+  /**
+   * Sync a team to Firestore.
+   * Two modes:
+   * - Periodic sync (default): writes metadata only (name, avatar, ace).
+   *   Does NOT write drivers/constructor to avoid wiping server-scored pointsScored.
+   * - Full sync (fullWrite=true): writes drivers/constructor too, but strips
+   *   server-owned fields (pointsScored, racesHeld, currentPrice).
+   *   Used after explicit user actions (add/remove driver, set constructor).
+   */
+  async syncTeam(team: FantasyTeam, fullWrite: boolean = false): Promise<void> {
     const teamRef = doc(db, 'fantasyTeams', team.id);
-
-    // Convert to Firebase-compatible format (remove id, use serverTimestamp)
-    // Firebase doesn't accept undefined values, so convert them to null
-    // Strip server-authoritative fields — these must never be written by the client
-    // Security: a modified client could manipulate budget, lock status, or points
-    const {
-      id, createdAt, updatedAt,
-      totalPoints, lockedPoints,       // Scoring pipeline owns these
-      isLocked, lockStatus,            // Server lock system owns these
-      budget, totalSpent,              // Server calculates from transactions
-      scoredRaces,                     // Server scoring owns this
-      ...teamData
-    } = team as any;
 
     // Helper to convert undefined to null recursively
     const sanitizeForFirebase = (obj: any): any => {
@@ -643,7 +639,33 @@ export const teamService = {
       return obj;
     };
 
-    const sanitizedData = sanitizeForFirebase(teamData);
+    // Always strip server-authoritative fields
+    const {
+      id, createdAt, updatedAt,
+      totalPoints, lockedPoints,
+      isLocked, lockStatus,
+      budget, totalSpent,
+      scoredRaces,
+      drivers,
+      constructor: teamCtor,
+      ...metadataOnly
+    } = team as any;
+
+    let dataToWrite: any = { ...metadataOnly };
+
+    // Full write: include drivers/constructor but strip scoring fields
+    if (fullWrite && drivers) {
+      dataToWrite.drivers = drivers.map((d: any) => {
+        const { pointsScored, racesHeld, currentPrice, ...rest } = d;
+        return rest;
+      });
+    }
+    if (fullWrite && teamCtor) {
+      const { pointsScored, racesHeld, currentPrice, ...ctorRest } = teamCtor as any;
+      dataToWrite.constructor = ctorRest;
+    }
+
+    const sanitizedData = sanitizeForFirebase(dataToWrite);
 
     await setDoc(teamRef, {
       ...sanitizedData,

@@ -1,0 +1,29 @@
+appId: com.undercut.app
+tags:
+  - simple
+  - market
+---
+# Test browsing the market in Simple UI
+- runFlow: setup-simple-demo.yaml
+
+# Switch to Market panel
+- tapOn: "Market"
+- waitForAnimationToEnd
+
+# Market should show driver list with known drivers
+- extendedWaitUntil:
+    visible: "Drivers"
+    timeout: 5000
+
+# Should see some driver names (demo data)
+- assertVisible: "Max Verstappen"
+
+# Should see price indicators
+- scrollUntilVisible:
+    element: "Constructors"
+    direction: DOWN
+    timeout: 5000
+
+# Switch back to My Team
+- tapOn: "My Team"
+- waitForAnimationToEnd

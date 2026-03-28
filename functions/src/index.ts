@@ -18,3 +18,5 @@ export * from './notifications/sendBroadcast';
 export * from './ingestion/checkResults';
 export * from './ingestion/syncSchedule';
 export * from './cache/marketCache';
+export * from './teams/teamOperations';
+export * from './auth/signInWithAmazon';

@@ -33,6 +33,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (idToken: string) => Promise<void>;
   signInWithApple: (identityToken: string, nonce: string) => Promise<void>;
+  signInWithAmazon: (customToken: string, profile: { email: string; displayName: string }) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -108,6 +109,19 @@ export const useAuthStore = create<AuthState>()(
           set({ user, isAuthenticated: true, isAdmin, isLoading: false, linkedProviders: authService.getLinkedProviders() });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Apple sign in failed';
+          set({ error: message, isLoading: false });
+          throw error;
+        }
+      },
+
+      signInWithAmazon: async (customToken, profile) => {
+        set({ isLoading: true, error: null });
+        try {
+          const user = await authService.signInWithAmazon(customToken, profile);
+          const isAdmin = await checkIsAdmin();
+          set({ user, isAuthenticated: true, isAdmin, isLoading: false, linkedProviders: authService.getLinkedProviders() });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Amazon sign in failed';
           set({ error: message, isLoading: false });
           throw error;
         }

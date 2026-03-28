@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SimpleDriverRow } from './SimpleDriverRow';
 import { SimpleConstructorRow } from './SimpleConstructorRow';
 import { teamService } from '../../services/team.service';
-import { S_COLORS, S_FONTS, S_SPACING, S_RADIUS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { BUDGET } from '../../config/constants';
 import type { FantasyTeam, LeagueMember } from '../../types';
 
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function SimpleMemberTeamView({ member, leagueId, onBack }: Props) {
+  const { colors, fonts, spacing } = useSimpleTheme();
   const [team, setTeam] = useState<FantasyTeam | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,16 +56,104 @@ export function SimpleMemberTeamView({ member, leagueId, onBack }: Props) {
       + (teamConstructor?.currentPrice ?? teamConstructor?.purchasePrice ?? 0)
     : 0;
 
+  const styles = useMemo(() => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    backButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      padding: spacing.md,
+      paddingBottom: spacing.sm,
+    },
+    backText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.primary,
+      marginLeft: spacing.xs,
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      padding: spacing.xl,
+    },
+    errorText: {
+      fontSize: fonts.md,
+      color: colors.negative,
+      textAlign: 'center' as const,
+    },
+    emptyText: {
+      fontSize: fonts.md,
+      color: colors.text.muted,
+      textAlign: 'center' as const,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: spacing.lg,
+      paddingTop: spacing.sm,
+    },
+    teamName: {
+      fontSize: fonts.xl,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+      marginBottom: spacing.md,
+    },
+    statsRow: {
+      flexDirection: 'row' as const,
+      marginBottom: spacing.lg,
+      gap: spacing.sm,
+    },
+    statBox: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: S_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      padding: spacing.md,
+      alignItems: 'center' as const,
+    },
+    statValue: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: fonts.xs,
+      color: colors.text.muted,
+      marginTop: 2,
+    },
+    sectionTitle: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.muted,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.8,
+      marginBottom: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    emptySlot: {
+      fontSize: fonts.md,
+      color: colors.text.muted,
+      fontStyle: 'italic' as const,
+      padding: spacing.md,
+      textAlign: 'center' as const,
+    },
+  }), [colors, fonts, spacing]);
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
-        <Ionicons name="arrow-back" size={20} color={S_COLORS.primary} />
+        <Ionicons name="arrow-back" size={20} color={colors.primary} />
         <Text style={styles.backText}>Standings</Text>
       </TouchableOpacity>
 
       {loading && (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={S_COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       )}
 
@@ -127,91 +217,3 @@ export function SimpleMemberTeamView({ member, leagueId, onBack }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: S_COLORS.background,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: S_SPACING.md,
-    paddingBottom: S_SPACING.sm,
-  },
-  backText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.primary,
-    marginLeft: S_SPACING.xs,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: S_SPACING.xl,
-  },
-  errorText: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.negative,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.muted,
-    textAlign: 'center',
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: S_SPACING.lg,
-    paddingTop: S_SPACING.sm,
-  },
-  teamName: {
-    fontSize: S_FONTS.sizes.xl,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.md,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    marginBottom: S_SPACING.lg,
-    gap: S_SPACING.sm,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: S_COLORS.surface,
-    borderRadius: S_RADIUS.md,
-    borderWidth: 1,
-    borderColor: S_COLORS.borderLight,
-    padding: S_SPACING.md,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-  },
-  statLabel: {
-    fontSize: S_FONTS.sizes.xs,
-    color: S_COLORS.text.muted,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: S_SPACING.sm,
-    marginTop: S_SPACING.sm,
-  },
-  emptySlot: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.muted,
-    fontStyle: 'italic',
-    padding: S_SPACING.md,
-    textAlign: 'center',
-  },
-});

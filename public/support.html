@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support - The Undercut</title>
+  <style>
+    :root {
+      --bg: #0D1117;
+      --surface: #161B22;
+      --border: #30363D;
+      --text: #E6EDF3;
+      --text-muted: #8B949E;
+      --accent: #14B8A6;
+      --link: #58A6FF;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 600px; margin: 0 auto; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .accent { color: var(--accent); }
+    .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 0.75rem; }
+    .card p { color: var(--text-muted); margin-bottom: 0.5rem; }
+    .card a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .card a:hover { text-decoration: underline; }
+    .faq-item { margin-bottom: 1.25rem; }
+    .faq-item:last-child { margin-bottom: 0; }
+    .faq-item h3 { font-size: 0.95rem; margin-bottom: 0.3rem; }
+    .faq-item p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0; }
+    .footer {
+      margin-top: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .footer a { color: var(--link); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><span class="accent">The Undercut</span></h1>
+    <p class="subtitle">Support</p>
+
+    <div class="card">
+      <h2>Contact Us</h2>
+      <p>For questions, bug reports, or feedback:</p>
+      <a href="mailto:support@humannpc.com">support@humannpc.com</a>
+    </div>
+
+    <div class="card">
+      <h2>Frequently Asked Questions</h2>
+
+      <div class="faq-item">
+        <h3>How do I create a team?</h3>
+        <p>From the home screen, tap "Create Team" and select up to 5 drivers and 1 constructor within the $1,000 budget.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>How do leagues work?</h3>
+        <p>Create a league and share the join code with friends. League standings update automatically after each race.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>What is an Ace?</h3>
+        <p>You can designate one driver or constructor priced $200 or under as your Ace. Your Ace earns double base points.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>How do contracts work?</h3>
+        <p>Each driver is signed to a contract (default 3 races). When a contract expires, the driver leaves your team and you can sign a replacement.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>How do I delete my account?</h3>
+        <p>Go to your Profile tab and tap "Delete Account", or visit our <a href="/delete-account.html">account deletion page</a>.</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <a href="/privacy.html">Privacy Policy</a> &middot;
+      <a href="/terms.html">Terms of Service</a> &middot;
+      <a href="/delete-account.html">Delete Account</a>
+    </div>
+  </div>
+</body>
+</html>

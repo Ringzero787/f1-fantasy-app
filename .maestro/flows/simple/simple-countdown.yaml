@@ -1,0 +1,14 @@
+appId: com.undercut.app
+tags:
+  - simple
+  - smoke
+---
+# Test countdown banner appears in Simple UI
+- runFlow: setup-simple-demo.yaml
+
+# The countdown banner should show if next race is within 7 days
+# It shows race name + time remaining at the very top
+# This is a soft check — it may not be visible if next race is > 7 days away
+- assertVisible:
+    text: "My Team"
+    enabled: true

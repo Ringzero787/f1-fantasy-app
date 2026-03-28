@@ -211,6 +211,7 @@ interface TeamState {
 
   // Sync actions
   syncToFirebase: () => Promise<void>;
+  fullSyncToFirebase: () => Promise<void>;
   startPeriodicSync: () => void;
   stopPeriodicSync: () => void;
 
@@ -346,13 +347,13 @@ export const useTeamStore = create<TeamState>()(
 
   setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
-  // Sync all teams to Firebase
+  // Periodic sync — writes metadata only (name, avatar, ace). Safe for background use.
   syncToFirebase: async () => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
-    if (isDemoMode) return; // No sync in demo mode
+    if (isDemoMode) return;
 
     const { userTeams, isSyncing } = get();
-    if (isSyncing || userTeams.length === 0) return; // Already syncing or no teams
+    if (isSyncing || userTeams.length === 0) return;
 
     set({ isSyncing: true });
     try {
@@ -362,6 +363,23 @@ export const useTeamStore = create<TeamState>()(
     } catch (error) {
       set({ isSyncing: false });
       errorLogService.logError('syncToFirebase', error);
+    }
+  },
+
+  // Full sync — writes drivers/constructor too (strips pointsScored/racesHeld).
+  // Use after explicit user actions: addDriver, removeDriver, setConstructor, etc.
+  fullSyncToFirebase: async () => {
+    const isDemoMode = useAuthStore.getState().isDemoMode;
+    if (isDemoMode) return;
+
+    const { currentTeam } = get();
+    if (!currentTeam) return;
+
+    try {
+      await teamService.syncTeam(currentTeam, true);
+      console.log('fullSyncToFirebase: Full sync for', currentTeam.name);
+    } catch (error) {
+      errorLogService.logError('fullSyncToFirebase', error);
     }
   },
 

@@ -47,9 +47,7 @@ export const useAvatarStore = create<AvatarState>()(
       getRemaining: (userId) => {
         if (isUnlimitedUser()) return 9999;
         const count = (get().histories[userId] || []).length;
-        const { usePurchaseStore } = require('./purchase.store');
-        const bonus = usePurchaseStore.getState().getBonusCredits(userId);
-        return Math.max(0, MAX_FREE_AVATARS - count) + bonus;
+        return Math.max(0, MAX_FREE_AVATARS - count);
       },
 
       canGenerate: (userId) => {
@@ -57,14 +55,8 @@ export const useAvatarStore = create<AvatarState>()(
         return get().getRemaining(userId) > 0;
       },
 
-      consumeCredit: (userId) => {
-        if (isUnlimitedUser()) return;
-        const count = (get().histories[userId] || []).length;
-        // If user has used all free credits, consume a bonus credit
-        if (count >= MAX_FREE_AVATARS) {
-          const { usePurchaseStore } = require('./purchase.store');
-          usePurchaseStore.getState().consumeBonusCredit(userId);
-        }
+      consumeCredit: (_userId) => {
+        // Credits tracked by history count only (no IAP bonus credits)
       },
     }),
     {

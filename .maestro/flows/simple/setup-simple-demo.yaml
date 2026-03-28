@@ -1,0 +1,19 @@
+appId: com.undercut.app
+---
+# Shared setup: launch app in Simple mode via demo
+- launchApp:
+    clearState: true
+
+# Wait for login screen
+- extendedWaitUntil:
+    visible: "Undercut"
+    timeout: 10000
+
+# Enter demo mode (routes to Simple UI since uiMode defaults to 'simple')
+- tapOn:
+    id: "demo-mode-button"
+
+# Wait for Simple UI to load — toggle bar should be visible
+- extendedWaitUntil:
+    visible: "My Team"
+    timeout: 10000

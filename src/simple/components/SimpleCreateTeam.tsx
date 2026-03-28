@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_COLORS, S_FONTS, S_SPACING, S_RADIUS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 interface Props {
   onCreate: (name: string, joinCode?: string) => Promise<void>;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate, isSecondTeam, onCancel }: Props) {
+  const { colors, fonts, spacing } = useSimpleTheme();
   const [name, setName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,16 +31,116 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
     }
   };
 
+  const styles = useMemo(() => ({
+    container: {
+      flex: 1,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+      paddingHorizontal: spacing.xl,
+      paddingTop: 60,
+    },
+    backBtn: {
+      position: 'absolute' as const,
+      top: spacing.sm,
+      left: spacing.xl,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+      padding: spacing.sm,
+      zIndex: 10,
+    },
+    backText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.primary,
+    },
+    iconWrap: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.primaryFaint,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginBottom: spacing.lg,
+    },
+    title: {
+      fontSize: fonts.xxl,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+      marginBottom: spacing.xs,
+    },
+    subtitle: {
+      fontSize: fonts.md,
+      color: colors.text.muted,
+      marginBottom: spacing.xl,
+      textAlign: 'center' as const,
+    },
+    input: {
+      width: '100%' as any,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: S_RADIUS.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md + 2,
+      fontSize: fonts.lg,
+      color: colors.text.primary,
+      marginBottom: spacing.md,
+    },
+    codeInput: {
+      width: '60%' as any,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: S_RADIUS.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      fontSize: fonts.md,
+      color: colors.text.primary,
+      marginBottom: spacing.md,
+      letterSpacing: 1.5,
+    },
+    error: {
+      fontSize: fonts.sm,
+      color: colors.negative,
+      marginBottom: spacing.md,
+    },
+    button: {
+      width: '100%' as any,
+      backgroundColor: colors.primary,
+      borderRadius: S_RADIUS.md,
+      paddingVertical: spacing.md + 2,
+      alignItems: 'center' as const,
+    },
+    buttonDisabled: {
+      opacity: 0.4,
+    },
+    buttonText: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.inverse,
+    },
+    cancelBtn: {
+      marginTop: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    cancelText: {
+      fontSize: fonts.md,
+      color: colors.text.muted,
+      fontWeight: S_FONTS.weights.medium,
+    },
+  }), [colors, fonts, spacing]);
+
   return (
     <View style={styles.container}>
       {isSecondTeam && onCancel && (
         <TouchableOpacity style={styles.backBtn} onPress={onCancel} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={20} color={S_COLORS.primary} />
+          <Ionicons name="arrow-back" size={20} color={colors.primary} />
           <Text style={styles.backText}>Back to Team 1</Text>
         </TouchableOpacity>
       )}
       <View style={styles.iconWrap}>
-        <Ionicons name={isSecondTeam ? 'add-circle-outline' : 'flag-outline'} size={48} color={S_COLORS.primaryLight} />
+        <Ionicons name={isSecondTeam ? 'add-circle-outline' : 'flag-outline'} size={48} color={colors.primaryLight} />
       </View>
       <Text style={styles.title}>{isSecondTeam ? 'Create Team 2' : 'Create Your Team'}</Text>
       <Text style={styles.subtitle}>
@@ -48,7 +150,7 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
       <TextInput
         style={styles.input}
         placeholder="Team name"
-        placeholderTextColor={S_COLORS.text.muted}
+        placeholderTextColor={colors.text.muted}
         value={name}
         onChangeText={setName}
         maxLength={30}
@@ -59,7 +161,7 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
       <TextInput
         style={styles.codeInput}
         placeholder="Invite code (optional)"
-        placeholderTextColor={S_COLORS.text.muted}
+        placeholderTextColor={colors.text.muted}
         value={joinCode}
         onChangeText={setJoinCode}
         maxLength={20}
@@ -78,7 +180,7 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
         activeOpacity={0.7}
       >
         {loading ? (
-          <ActivityIndicator color={S_COLORS.text.inverse} size="small" />
+          <ActivityIndicator color={colors.text.inverse} size="small" />
         ) : (
           <Text style={styles.buttonText}>Create Team</Text>
         )}
@@ -91,104 +193,4 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
       )}
     </View>
   );
-});
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: S_SPACING.xl,
-    paddingTop: 60,
-  },
-  backBtn: {
-    position: 'absolute',
-    top: S_SPACING.sm,
-    left: S_SPACING.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.xs,
-    padding: S_SPACING.sm,
-    zIndex: 10,
-  },
-  backText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.primary,
-  },
-  iconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: S_COLORS.primaryFaint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: S_SPACING.lg,
-  },
-  title: {
-    fontSize: S_FONTS.sizes.xxl,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.xs,
-  },
-  subtitle: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.muted,
-    marginBottom: S_SPACING.xl,
-    textAlign: 'center',
-  },
-  input: {
-    width: '100%',
-    backgroundColor: S_COLORS.surface,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    borderRadius: S_RADIUS.md,
-    paddingHorizontal: S_SPACING.lg,
-    paddingVertical: S_SPACING.md + 2,
-    fontSize: S_FONTS.sizes.lg,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.md,
-  },
-  codeInput: {
-    width: '60%',
-    backgroundColor: S_COLORS.surface,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    borderRadius: S_RADIUS.md,
-    paddingHorizontal: S_SPACING.md,
-    paddingVertical: S_SPACING.sm + 2,
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.md,
-    letterSpacing: 1.5,
-  },
-  error: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.negative,
-    marginBottom: S_SPACING.md,
-  },
-  button: {
-    width: '100%',
-    backgroundColor: S_COLORS.primary,
-    borderRadius: S_RADIUS.md,
-    paddingVertical: S_SPACING.md + 2,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
-  buttonText: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.inverse,
-  },
-  cancelBtn: {
-    marginTop: S_SPACING.md,
-    paddingVertical: S_SPACING.sm,
-  },
-  cancelText: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.muted,
-    fontWeight: S_FONTS.weights.medium,
-  },
 });

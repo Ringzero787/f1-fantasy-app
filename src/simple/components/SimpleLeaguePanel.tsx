@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   Alert,
   Share,
   Modal,
-  StyleSheet,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,10 +25,12 @@ import { useLeagueStore } from '../../store/league.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useAdminStore } from '../../store/admin.store';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
-import { S_COLORS, S_FONTS, S_SPACING, S_RADIUS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import type { LeagueMember } from '../../types';
 
 export function SimpleLeaguePanel() {
+  const { colors, fonts, spacing } = useSimpleTheme();
   const user = useAuthStore((s) => s.user);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const userId = user?.id ?? '';
@@ -62,22 +63,24 @@ export function SimpleLeaguePanel() {
   const [inviteCode, setInviteCode] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   // Find the user's league (use leagueId from team, or first league)
   const activeLeague = leagueId
-    ? leagues.find((l) => l.id === leagueId) ?? currentLeague
+    ? leagues.find((l) => l.id === leagueId) ?? null
     : leagues.length > 0
       ? leagues[0]
       : null;
 
   const hasLeague = !!activeLeague;
 
-  // Load league data on mount
+  // Load league data on mount and when active team changes
   useEffect(() => {
     if (userId) {
       loadUserLeagues(userId);
     }
-  }, [userId]);
+  }, [userId, leagueId]);
 
   // When we have a league, load its members
   useEffect(() => {
@@ -109,13 +112,11 @@ export function SimpleLeaguePanel() {
       setFormError('League name must be at least 3 characters');
       return;
     }
-    // Check for duplicate name
     const existing = leagues.find(l => l.name.toLowerCase() === name.toLowerCase());
     if (existing) {
       setFormError('A league with that name already exists. Choose a different name.');
       return;
     }
-    // Also check if user already has a league (simple mode = 1 league)
     if (leagues.length > 0 && team?.leagueId) {
       setFormError('You are already in a league. Leave your current league first.');
       return;
@@ -127,7 +128,6 @@ export function SimpleLeaguePanel() {
         isPublic: false,
         maxMembers: 20,
       }, '2026');
-      // Assign team to the new league
       if (team && league) {
         await assignTeamToLeague(team.id, league.id);
         await syncToFirebase();
@@ -148,7 +148,6 @@ export function SimpleLeaguePanel() {
     setFormError(null);
     try {
       await joinLeagueByCode(inviteCode.trim(), userId, userName);
-      // Assign team to the joined league
       const joinedLeague = useLeagueStore.getState().currentLeague;
       if (team && joinedLeague) {
         await assignTeamToLeague(team.id, joinedLeague.id);
@@ -160,6 +159,302 @@ export function SimpleLeaguePanel() {
       setFormError(err instanceof Error ? err.message : 'Failed to join league');
     }
   };
+
+  const styles = useMemo(() => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    // -- No league state --
+    noLeagueContent: {
+      flexGrow: 1,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+      padding: spacing.xl,
+    },
+    emptyIcon: {
+      marginBottom: spacing.lg,
+    },
+    emptyTitle: {
+      fontSize: fonts.xxl,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+    },
+    emptySubtitle: {
+      fontSize: fonts.md,
+      color: colors.text.muted,
+      textAlign: 'center' as const,
+      lineHeight: 20,
+      marginBottom: spacing.xl,
+    },
+    buttonGroup: {
+      width: '100%' as any,
+      gap: spacing.sm,
+    },
+    primaryButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: colors.primary,
+      borderRadius: S_RADIUS.md,
+      paddingVertical: spacing.md,
+      gap: spacing.sm,
+    },
+    primaryButtonText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.inverse,
+    },
+    secondaryButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: colors.background,
+      borderRadius: S_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      paddingVertical: spacing.md,
+      gap: spacing.sm,
+    },
+    secondaryButtonText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.primary,
+    },
+    // -- Inline form --
+    formCard: {
+      width: '100%' as any,
+      backgroundColor: colors.surface,
+      borderRadius: S_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      padding: spacing.lg,
+    },
+    formTitle: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.primary,
+      marginBottom: spacing.md,
+    },
+    input: {
+      backgroundColor: colors.background,
+      borderRadius: S_RADIUS.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      fontSize: fonts.md,
+      color: colors.text.primary,
+      marginBottom: spacing.md,
+    },
+    formError: {
+      fontSize: fonts.sm,
+      color: colors.negative,
+      marginBottom: spacing.sm,
+    },
+    formButtons: {
+      flexDirection: 'row' as const,
+      justifyContent: 'flex-end' as const,
+      gap: spacing.sm,
+    },
+    formCancel: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: S_RADIUS.sm,
+    },
+    formCancelText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.text.muted,
+    },
+    formSubmit: {
+      backgroundColor: colors.primary,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.xl,
+      borderRadius: S_RADIUS.sm,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      minWidth: 80,
+    },
+    formSubmitDisabled: {
+      opacity: 0.6,
+    },
+    formSubmitText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.inverse,
+    },
+    // -- Has league state --
+    leagueHeader: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm,
+      gap: spacing.sm,
+    },
+    leagueName: {
+      flex: 1,
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+    },
+    memberCount: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+    },
+    inviteSection: {
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.sm,
+    },
+    codeRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      backgroundColor: colors.surface,
+      borderRadius: S_RADIUS.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    codeLeft: {
+      flex: 1,
+    },
+    codeLabel: {
+      fontSize: fonts.xs,
+      color: colors.text.muted,
+    },
+    codeValue: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.primary,
+      letterSpacing: 1.5,
+    },
+    codeAction: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginLeft: spacing.xs,
+    },
+    // Points toggle: Season vs Last Race
+    pointsToggleWrap: {
+      flexDirection: 'row' as const,
+      alignSelf: 'center' as const,
+      backgroundColor: colors.surface,
+      borderRadius: S_RADIUS.pill,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      padding: 2,
+      marginBottom: spacing.sm,
+    },
+    pointsToggleHalf: {
+      paddingVertical: 5,
+      paddingHorizontal: spacing.md,
+      borderRadius: S_RADIUS.pill,
+    },
+    pointsToggleActive: {
+      backgroundColor: colors.primary,
+    },
+    pointsToggleText: {
+      fontSize: fonts.xs,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.muted,
+    },
+    pointsToggleTextActive: {
+      color: colors.text.inverse,
+    },
+    // Email modal
+    emailModalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+    emailModalSheet: {
+      backgroundColor: colors.background,
+      borderRadius: S_RADIUS.lg,
+      padding: spacing.xl,
+      width: '80%' as any,
+      maxWidth: 320,
+    },
+    emailModalTitle: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+      marginBottom: spacing.md,
+    },
+    emailInput: {
+      width: '100%' as any,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: S_RADIUS.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      fontSize: fonts.lg,
+      color: colors.text.primary,
+    },
+    emailModalButtons: {
+      flexDirection: 'row' as const,
+      justifyContent: 'flex-end' as const,
+      gap: spacing.sm,
+      marginTop: spacing.md,
+    },
+    emailModalCancel: {
+      height: 36,
+      paddingHorizontal: spacing.lg,
+      justifyContent: 'center' as const,
+    },
+    emailModalCancelText: {
+      fontSize: fonts.md,
+      color: colors.text.muted,
+      fontWeight: S_FONTS.weights.medium,
+    },
+    emailSendBtn: {
+      height: 36,
+      paddingHorizontal: spacing.lg,
+      borderRadius: 18,
+      backgroundColor: colors.primary,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    emailSendBtnText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.inverse,
+    },
+    emailSendBtnDisabled: {
+      backgroundColor: colors.border,
+    },
+    standingsList: {
+      flex: 1,
+    },
+    standingsContent: {
+      padding: spacing.lg,
+      paddingTop: spacing.sm,
+    },
+    loadingBox: {
+      padding: spacing.xxl,
+      alignItems: 'center' as const,
+    },
+    snackbar: {
+      position: 'absolute' as const,
+      bottom: spacing.xxl,
+      left: spacing.lg,
+      right: spacing.lg,
+      backgroundColor: colors.text.primary,
+      borderRadius: S_RADIUS.md,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      alignItems: 'center' as const,
+    },
+    snackbarText: {
+      color: colors.background,
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.medium,
+    },
+  }), [colors, fonts, spacing]);
 
   // If viewing a member's team, show that overlay
   if (viewingMember && activeLeague) {
@@ -182,12 +477,12 @@ export function SimpleLeaguePanel() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={S_COLORS.primary}
+            tintColor={colors.primary}
           />
         }
       >
         <View style={styles.emptyIcon}>
-          <Ionicons name="trophy-outline" size={48} color={S_COLORS.text.muted} />
+          <Ionicons name="trophy-outline" size={48} color={colors.text.muted} />
         </View>
         <Text style={styles.emptyTitle}>Join a League</Text>
         <Text style={styles.emptySubtitle}>
@@ -201,7 +496,7 @@ export function SimpleLeaguePanel() {
               onPress={() => { clearError(); setFormError(null); setFormMode('create'); }}
               activeOpacity={0.7}
             >
-              <Ionicons name="add-circle-outline" size={18} color={S_COLORS.text.inverse} />
+              <Ionicons name="add-circle-outline" size={18} color={colors.text.inverse} />
               <Text style={styles.primaryButtonText}>Create League</Text>
             </TouchableOpacity>
 
@@ -210,7 +505,7 @@ export function SimpleLeaguePanel() {
               onPress={() => { clearError(); setFormError(null); setFormMode('join'); }}
               activeOpacity={0.7}
             >
-              <Ionicons name="enter-outline" size={18} color={S_COLORS.primary} />
+              <Ionicons name="enter-outline" size={18} color={colors.primary} />
               <Text style={styles.secondaryButtonText}>Join with Code</Text>
             </TouchableOpacity>
           </View>
@@ -222,7 +517,7 @@ export function SimpleLeaguePanel() {
             <TextInput
               style={styles.input}
               placeholder="League name"
-              placeholderTextColor={S_COLORS.text.muted}
+              placeholderTextColor={colors.text.muted}
               value={leagueName}
               onChangeText={setLeagueName}
               autoFocus
@@ -244,7 +539,7 @@ export function SimpleLeaguePanel() {
                 activeOpacity={0.7}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color={S_COLORS.text.inverse} />
+                  <ActivityIndicator size="small" color={colors.text.inverse} />
                 ) : (
                   <Text style={styles.formSubmitText}>Create</Text>
                 )}
@@ -259,7 +554,7 @@ export function SimpleLeaguePanel() {
             <TextInput
               style={styles.input}
               placeholder="Invite code"
-              placeholderTextColor={S_COLORS.text.muted}
+              placeholderTextColor={colors.text.muted}
               value={inviteCode}
               onChangeText={(t) => setInviteCode(t.toUpperCase())}
               autoFocus
@@ -282,7 +577,7 @@ export function SimpleLeaguePanel() {
                 activeOpacity={0.7}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color={S_COLORS.text.inverse} />
+                  <ActivityIndicator size="small" color={colors.text.inverse} />
                 ) : (
                   <Text style={styles.formSubmitText}>Join</Text>
                 )}
@@ -290,8 +585,6 @@ export function SimpleLeaguePanel() {
             </View>
           </View>
         )}
-
-        {/* Errors handled by form-specific error state */}
       </ScrollView>
     );
   }
@@ -358,7 +651,6 @@ export function SimpleLeaguePanel() {
                 onPress: async () => {
                   try {
                     await leaveLeague(activeLeague.id, userId);
-                    // Clear team's leagueId locally
                     if (team) {
                       const { useTeamStore } = require('../../store/team.store');
                       const currentTeam = useTeamStore.getState().currentTeam;
@@ -400,7 +692,7 @@ export function SimpleLeaguePanel() {
           <Avatar name={activeLeague.name} size={28} variant="team" imageUrl={(activeLeague as any).avatarUrl} />
         </TouchableOpacity>
         <Text style={styles.leagueName} numberOfLines={1}>{activeLeague.name}</Text>
-        <Ionicons name="chevron-down" size={14} color={S_COLORS.text.muted} />
+        <Ionicons name="chevron-down" size={14} color={colors.text.muted} />
         <Text style={styles.memberCount}>
           {activeLeague.memberCount ?? members.length} member{(activeLeague.memberCount ?? members.length) !== 1 ? 's' : ''}
         </Text>
@@ -418,29 +710,37 @@ export function SimpleLeaguePanel() {
               style={styles.codeAction}
               onPress={async () => {
                 await Clipboard.setStringAsync(activeLeague.inviteCode!);
-                Alert.alert('Copied', 'Invite code copied to clipboard');
+                setSnackbar('Invite code copied to clipboard');
+                setTimeout(() => setSnackbar(null), 2500);
               }}
               activeOpacity={0.6}
             >
-              <Ionicons name="copy-outline" size={16} color={S_COLORS.primary} />
+              <Ionicons name="copy-outline" size={16} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.codeAction}
-              onPress={() => {
-                Share.share({
-                  message: `Join my Undercut league "${activeLeague.name}"!\n\nInvite code: ${activeLeague.inviteCode}\n\nDownload: https://undercut.humannpc.com`,
-                });
+              onPress={async () => {
+                if (sharing) return;
+                setSharing(true);
+                try {
+                  await Share.share({
+                    message: `Join my Undercut league "${activeLeague.name}"!\n\nInvite code: ${activeLeague.inviteCode}\n\nDownload: https://undercut.humannpc.com`,
+                  });
+                } finally {
+                  setSharing(false);
+                }
               }}
+              disabled={sharing}
               activeOpacity={0.6}
             >
-              <Ionicons name="share-outline" size={16} color={S_COLORS.primary} />
+              <Ionicons name="share-outline" size={16} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.codeAction}
               onPress={() => setShowEmailModal(true)}
               activeOpacity={0.6}
             >
-              <Ionicons name="mail-outline" size={16} color={S_COLORS.primary} />
+              <Ionicons name="mail-outline" size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -471,13 +771,13 @@ export function SimpleLeaguePanel() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={S_COLORS.primary}
+            tintColor={colors.primary}
           />
         }
       >
         {isLoading && members.length === 0 && (
           <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={S_COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         )}
 
@@ -499,8 +799,6 @@ export function SimpleLeaguePanel() {
         ))}
       </ScrollView>
 
-      {/* Errors handled by form-specific error state */}
-
       {/* Email invite modal (owner only) */}
       <Modal visible={showEmailModal} transparent animationType="fade" onRequestClose={() => setShowEmailModal(false)}>
         <TouchableOpacity style={styles.emailModalBackdrop} onPress={() => setShowEmailModal(false)} activeOpacity={1}>
@@ -509,7 +807,7 @@ export function SimpleLeaguePanel() {
             <TextInput
               style={styles.emailInput}
               placeholder="Email address"
-              placeholderTextColor={S_COLORS.text.muted}
+              placeholderTextColor={colors.text.muted}
               value={inviteEmail}
               onChangeText={setInviteEmail}
               keyboardType="email-address"
@@ -539,7 +837,8 @@ export function SimpleLeaguePanel() {
                     });
                     setInviteEmail('');
                     setShowEmailModal(false);
-                    Alert.alert('Sent', `Invite sent to ${email}`);
+                    setSnackbar(`Invite sent to ${email}`);
+                    setTimeout(() => setSnackbar(null), 3000);
                   } catch (err) {
                     Alert.alert('Error', 'Failed to send invite. Try again.');
                   } finally {
@@ -550,7 +849,7 @@ export function SimpleLeaguePanel() {
                 activeOpacity={0.6}
               >
                 {sendingInvite ? (
-                  <ActivityIndicator size="small" color={S_COLORS.text.inverse} />
+                  <ActivityIndicator size="small" color={colors.text.inverse} />
                 ) : (
                   <Text style={styles.emailSendBtnText}>Send</Text>
                 )}
@@ -559,298 +858,13 @@ export function SimpleLeaguePanel() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Snackbar */}
+      {snackbar && (
+        <View style={styles.snackbar}>
+          <Text style={styles.snackbarText}>{snackbar}</Text>
+        </View>
+      )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: S_COLORS.background,
-  },
-  // -- No league state --
-  noLeagueContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: S_SPACING.xl,
-  },
-  emptyIcon: {
-    marginBottom: S_SPACING.lg,
-  },
-  emptyTitle: {
-    fontSize: S_FONTS.sizes.xxl,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.sm,
-  },
-  emptySubtitle: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.muted,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: S_SPACING.xl,
-  },
-  buttonGroup: {
-    width: '100%',
-    gap: S_SPACING.sm,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: S_COLORS.primary,
-    borderRadius: S_RADIUS.md,
-    paddingVertical: S_SPACING.md,
-    gap: S_SPACING.sm,
-  },
-  primaryButtonText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.inverse,
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: S_COLORS.background,
-    borderRadius: S_RADIUS.md,
-    borderWidth: 1,
-    borderColor: S_COLORS.primary,
-    paddingVertical: S_SPACING.md,
-    gap: S_SPACING.sm,
-  },
-  secondaryButtonText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.primary,
-  },
-  // -- Inline form --
-  formCard: {
-    width: '100%',
-    backgroundColor: S_COLORS.surface,
-    borderRadius: S_RADIUS.md,
-    borderWidth: 1,
-    borderColor: S_COLORS.borderLight,
-    padding: S_SPACING.lg,
-  },
-  formTitle: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.md,
-  },
-  input: {
-    backgroundColor: S_COLORS.background,
-    borderRadius: S_RADIUS.sm,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    paddingHorizontal: S_SPACING.md,
-    paddingVertical: S_SPACING.sm,
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.md,
-  },
-  formError: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.negative,
-    marginBottom: S_SPACING.sm,
-  },
-  formButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: S_SPACING.sm,
-  },
-  formCancel: {
-    paddingVertical: S_SPACING.sm,
-    paddingHorizontal: S_SPACING.lg,
-    borderRadius: S_RADIUS.sm,
-  },
-  formCancelText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.text.muted,
-  },
-  formSubmit: {
-    backgroundColor: S_COLORS.primary,
-    paddingVertical: S_SPACING.sm,
-    paddingHorizontal: S_SPACING.xl,
-    borderRadius: S_RADIUS.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 80,
-  },
-  formSubmitDisabled: {
-    opacity: 0.6,
-  },
-  formSubmitText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.inverse,
-  },
-  storeError: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.negative,
-    textAlign: 'center',
-    padding: S_SPACING.sm,
-  },
-  // -- Has league state --
-  leagueHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: S_SPACING.lg,
-    paddingTop: S_SPACING.md,
-    paddingBottom: S_SPACING.sm,
-    gap: S_SPACING.sm,
-  },
-  leagueName: {
-    flex: 1,
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-  },
-  memberCount: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-  },
-  inviteSection: {
-    marginHorizontal: S_SPACING.lg,
-    marginBottom: S_SPACING.sm,
-  },
-  codeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: S_COLORS.surface,
-    borderRadius: S_RADIUS.sm,
-    paddingHorizontal: S_SPACING.md,
-    paddingVertical: S_SPACING.sm,
-  },
-  codeLeft: {
-    flex: 1,
-  },
-  codeLabel: {
-    fontSize: S_FONTS.sizes.xs,
-    color: S_COLORS.text.muted,
-  },
-  codeValue: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.primary,
-    letterSpacing: 1.5,
-  },
-  codeAction: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: S_SPACING.xs,
-  },
-  emailInviteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.sm,
-    marginTop: S_SPACING.sm,
-  },
-  emailInput: {
-    width: '100%',
-    backgroundColor: S_COLORS.surface,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    borderRadius: S_RADIUS.md,
-    paddingHorizontal: S_SPACING.lg,
-    paddingVertical: S_SPACING.md,
-    fontSize: S_FONTS.sizes.lg,
-    color: S_COLORS.text.primary,
-  },
-  emailSendBtn: {
-    height: 36,
-    paddingHorizontal: S_SPACING.lg,
-    borderRadius: 18,
-    backgroundColor: S_COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emailSendBtnText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.inverse,
-  },
-  emailSendBtnDisabled: {
-    backgroundColor: S_COLORS.border,
-  },
-  // Points toggle: Season vs Last Race
-  pointsToggleWrap: {
-    flexDirection: 'row',
-    alignSelf: 'center',
-    backgroundColor: S_COLORS.surface,
-    borderRadius: S_RADIUS.pill,
-    borderWidth: 1,
-    borderColor: S_COLORS.borderLight,
-    padding: 2,
-    marginBottom: S_SPACING.sm,
-  },
-  pointsToggleHalf: {
-    paddingVertical: 5,
-    paddingHorizontal: S_SPACING.md,
-    borderRadius: S_RADIUS.pill,
-  },
-  pointsToggleActive: {
-    backgroundColor: S_COLORS.primary,
-  },
-  pointsToggleText: {
-    fontSize: S_FONTS.sizes.xs,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.muted,
-  },
-  pointsToggleTextActive: {
-    color: S_COLORS.text.inverse,
-  },
-  // Email modal
-  emailModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emailModalSheet: {
-    backgroundColor: S_COLORS.background,
-    borderRadius: S_RADIUS.lg,
-    padding: S_SPACING.xl,
-    width: '80%',
-    maxWidth: 320,
-  },
-  emailModalTitle: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.md,
-  },
-  emailModalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: S_SPACING.sm,
-    marginTop: S_SPACING.md,
-  },
-  emailModalCancel: {
-    height: 36,
-    paddingHorizontal: S_SPACING.lg,
-    justifyContent: 'center',
-  },
-  emailModalCancelText: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.muted,
-    fontWeight: S_FONTS.weights.medium,
-  },
-  standingsList: {
-    flex: 1,
-  },
-  standingsContent: {
-    padding: S_SPACING.lg,
-    paddingTop: S_SPACING.sm,
-  },
-  loadingBox: {
-    padding: S_SPACING.xxl,
-    alignItems: 'center',
-  },
-});

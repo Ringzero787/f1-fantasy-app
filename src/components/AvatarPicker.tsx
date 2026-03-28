@@ -17,9 +17,6 @@ import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
 import { useTheme } from '../hooks/useTheme';
 import { getAvatarGradient, getInitials } from '../utils/avatarColors';
 import { useAvatarStore } from '../store/avatar.store';
-import { usePurchaseStore } from '../store/purchase.store';
-import { PurchaseModal } from './PurchaseModal';
-import { PRODUCTS, PRODUCT_IDS } from '../config/products';
 import type { AvatarType, AvatarStyle } from '../services/avatarGeneration.service';
 
 // DiceBear styles available for each type
@@ -86,12 +83,7 @@ export function AvatarPicker({
   const [isLoading, setIsLoading] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [wasGenerating, setWasGenerating] = useState(false);
-  const [showAvatarPurchase, setShowAvatarPurchase] = useState(false);
   const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>('detailed');
-
-  // Purchase store
-  const isPurchasing = usePurchaseStore(s => s.isPurchasing);
-  const purchaseAvatarPack = usePurchaseStore(s => s.purchaseAvatarPack);
 
   // Avatar history & generation limits
   const avatarHistory = useAvatarStore(s => userId ? s.getHistory(userId) : []);
@@ -135,10 +127,6 @@ export function AvatarPicker({
   };
 
   const handleGenerateAI = () => {
-    if (userId && !canGenerateMore) {
-      setShowAvatarPurchase(true);
-      return;
-    }
     if (onGenerateAI) {
       onGenerateAI(avatarStyle);
     }
@@ -323,62 +311,20 @@ export function AvatarPicker({
                   </Text>
                   <Text style={styles.aiGenerateSubtitle}>
                     {userId
-                      ? (avatarRemaining <= (usePurchaseStore.getState().getBonusCredits(userId || '') || 0)
-                          ? `${avatarRemaining} purchased credits remaining`
-                          : `${avatarRemaining} of 10 remaining`)
+                      ? `${avatarRemaining} of 10 remaining`
                       : `${avatarStyle === 'simple' ? 'Clean & minimal' : 'Rich & elaborate'} style`}
                   </Text>
                 </View>
               </View>
-              <View style={styles.aiRightSection}>
-                {userId && !isGeneratingAI && (
-                  <TouchableOpacity
-                    style={styles.buyCreditsChip}
-                    onPress={(e) => {
-                      e.stopPropagation?.();
-                      setShowAvatarPurchase(true);
-                    }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="add-circle" size={14} color={COLORS.success} />
-                    <Text style={styles.buyCreditsChipText}>Buy</Text>
-                  </TouchableOpacity>
-                )}
-                {isGeneratingAI ? (
-                  <ActivityIndicator size="small" color={theme.primary} />
-                ) : userId ? (
-                  <View style={[styles.remainingBadge, { backgroundColor: theme.primary + '20' }]}>
-                    <Text style={[styles.remainingBadgeText, { color: theme.primary }]}>{avatarRemaining}</Text>
-                  </View>
-                ) : (
-                  <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
-                )}
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Buy More Credits Option — shown when free credits exhausted */}
-          {canGenerateAI && !canGenerateMore && userId && (
-            <TouchableOpacity
-              style={[styles.aiGenerateButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
-              onPress={() => setShowAvatarPurchase(true)}
-            >
-              <View style={styles.aiGenerateContent}>
-                <View style={[styles.aiIconContainer, { backgroundColor: COLORS.success }]}>
-                  <Ionicons
-                    name="bag-add"
-                    size={20}
-                    color={COLORS.white}
-                  />
+              {isGeneratingAI ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : userId ? (
+                <View style={[styles.remainingBadge, { backgroundColor: theme.primary + '20' }]}>
+                  <Text style={[styles.remainingBadgeText, { color: theme.primary }]}>{avatarRemaining}</Text>
                 </View>
-                <View style={styles.aiGenerateText}>
-                  <Text style={styles.aiGenerateTitle}>Buy 20 More</Text>
-                  <Text style={styles.aiGenerateSubtitle}>
-                    All free credits used — get 20 more for $1.99
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+              ) : (
+                <Ionicons name="chevron-forward" size={20} color={COLORS.gray[400]} />
+              )}
             </TouchableOpacity>
           )}
 
@@ -518,23 +464,6 @@ export function AvatarPicker({
         </View>
       </View>
 
-      {/* Avatar Pack Purchase Modal */}
-      <PurchaseModal
-        visible={showAvatarPurchase}
-        onClose={() => setShowAvatarPurchase(false)}
-        onPurchase={() => {
-          if (userId) {
-            purchaseAvatarPack(userId);
-            setShowAvatarPurchase(false);
-          }
-        }}
-        isLoading={isPurchasing}
-        title={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].title}
-        description={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].description}
-        price={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].price}
-        icon={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].icon}
-        benefits={PRODUCTS[PRODUCT_IDS.AVATAR_PACK].benefits}
-      />
     </Modal>
   );
 }
@@ -793,28 +722,6 @@ const styles = StyleSheet.create({
 
   aiGenerateButtonDisabled: {
     opacity: 0.45,
-  },
-
-  aiRightSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-
-  buyCreditsChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: COLORS.success + '18',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: BORDER_RADIUS.full,
-  },
-
-  buyCreditsChipText: {
-    fontSize: FONTS.sizes.xs,
-    fontWeight: '600',
-    color: COLORS.success,
   },
 
   remainingBadge: {

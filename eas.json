@@ -20,6 +20,17 @@
         "credentialsSource": "local"
       }
     },
+    "amazon": {
+      "distribution": "internal",
+      "channel": "amazon",
+      "env": {
+        "EXPO_PUBLIC_STORE": "amazon"
+      },
+      "android": {
+        "buildType": "apk",
+        "credentialsSource": "local"
+      }
+    },
     "production": {
       "environment": "production",
       "channel": "production",

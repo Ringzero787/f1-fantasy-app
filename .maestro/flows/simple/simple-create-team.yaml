@@ -1,0 +1,35 @@
+appId: com.undercut.app
+tags:
+  - simple
+  - team
+---
+# Test creating a team in Simple UI
+- runFlow: setup-simple-demo.yaml
+
+# Should show create team prompt
+- assertVisible: "Create Your Team"
+- assertVisible: "Pick a name to get started"
+
+# Type team name
+- tapOn: "Team name"
+- inputText: "Test Simple Team"
+- hideKeyboard
+
+# Create the team
+- tapOn: "Create Team"
+
+# Should now show team view with stats
+- extendedWaitUntil:
+    visible: "Test Simple Team"
+    timeout: 5000
+
+# Verify stats row is visible
+- assertVisible: "Points"
+- assertVisible: "Value"
+- assertVisible: "Budget"
+
+# Verify empty driver slots
+- assertVisible: "Add driver"
+
+# Verify empty constructor slot
+- assertVisible: "Add constructor"

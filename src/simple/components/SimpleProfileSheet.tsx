@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Linking,
   ActivityIndicator,
-  StyleSheet,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -16,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
 import { Avatar } from '../../components/Avatar';
 import { useAuthStore } from '../../store/auth.store';
@@ -29,7 +28,8 @@ import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { demoRaces } from '../../data/demoData';
 import { TEAM_COLORS } from '../../config/constants';
-import { S_COLORS, S_FONTS, S_SPACING, S_RADIUS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 interface Props {
   visible: boolean;
@@ -37,6 +37,7 @@ interface Props {
 }
 
 export function SimpleProfileSheet({ visible, onClose }: Props) {
+  const { colors, fonts, spacing } = useSimpleTheme();
   const user = useAuthStore((s) => s.user);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const signOut = useAuthStore((s) => s.signOut);
@@ -75,7 +76,6 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
 
   const handlePickFromLibrary = async () => {
     setShowAvatarPicker(false);
-    // Small delay to let the picker modal close first
     setTimeout(async () => {
       try {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -108,7 +108,6 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       const result = await generateAvatar(displayName, 'user', user?.id ?? 'demo', 'detailed');
       if (result.success && result.imageUrl) {
         setAvatarUrl(result.imageUrl);
-        // Save to history (max 10)
         setAvatarHistory(prev => {
           const updated = [result.imageUrl!, ...prev.filter(u => u !== result.imageUrl)];
           return updated.slice(0, 10);
@@ -186,7 +185,6 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
     }
   };
 
-  // Check if an invited email matches a league member
   const leagueMembers = useLeagueStore((s) => s.members);
 
   const handleCopyInviteCode = async () => {
@@ -225,7 +223,10 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
   };
 
   const handlePrivacyPolicy = () => {
-    Linking.openURL('https://f1-app-18077.web.app/privacy.html');
+    WebBrowser.openBrowserAsync('https://f1-app-18077.web.app/privacy.html', {
+      controlsColor: '#14B8A6',
+      toolbarColor: colors.background,
+    });
   };
 
   const handleDeleteAccount = () => {
@@ -277,12 +278,484 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
 
   const handleLeagueAction = (action: 'create' | 'join') => {
     onClose();
-    // Navigate to standings tab which has league create/join forms
     Alert.alert(
       action === 'create' ? 'Create a League' : 'Join a League',
       `Switch to the Standings tab to ${action} a league.`,
     );
   };
+
+  const styles = useMemo(() => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    headerTitle: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.primary,
+    },
+    closeButton: {
+      position: 'absolute' as const,
+      right: spacing.lg,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: spacing.xxl,
+    },
+    // Avatar section
+    avatarSection: {
+      alignItems: 'center' as const,
+      paddingVertical: spacing.xl,
+    },
+    displayName: {
+      fontSize: fonts.xl,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+      marginTop: spacing.md,
+    },
+    email: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+      marginTop: spacing.xs,
+    },
+    demoBadge: {
+      marginTop: spacing.sm,
+      backgroundColor: colors.primaryFaint,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: S_RADIUS.pill,
+    },
+    demoBadgeText: {
+      fontSize: fonts.xs,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.primary,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.borderLight,
+      marginHorizontal: spacing.lg,
+    },
+    // Section headers
+    sectionHeader: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    sectionTitleRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.sm,
+    },
+    sectionTitle: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.primary,
+    },
+    // Rules
+    rulesContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+      gap: spacing.sm,
+    },
+    ruleItem: {
+      flexDirection: 'row' as const,
+      alignItems: 'flex-start' as const,
+      gap: spacing.sm,
+    },
+    ruleText: {
+      flex: 1,
+      fontSize: fonts.sm,
+      color: colors.text.secondary,
+      lineHeight: 18,
+    },
+    // League
+    leagueContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+      gap: spacing.sm,
+    },
+    leagueInfoRow: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
+    },
+    leagueLabel: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+    },
+    leagueValue: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.text.primary,
+    },
+    inviteCodeRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+    },
+    inviteCode: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.primary,
+      letterSpacing: 1.5,
+    },
+    leaveButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+      marginTop: spacing.sm,
+      alignSelf: 'flex-start' as const,
+    },
+    leaveButtonText: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.negative,
+    },
+    noLeagueContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+    },
+    noLeagueText: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+      marginBottom: spacing.md,
+    },
+    leagueButtonRow: {
+      flexDirection: 'row' as const,
+      gap: spacing.md,
+    },
+    leagueActionButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+      backgroundColor: colors.primaryFaint,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: S_RADIUS.md,
+    },
+    leagueActionText: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.primary,
+    },
+    // Settings
+    settingsContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+    },
+    scaleRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    scaleButtons: {
+      flexDirection: 'row' as const,
+      gap: spacing.xs,
+    },
+    scaleBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    scaleBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    scaleBtnText: {
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.muted,
+    },
+    scaleBtnTextActive: {
+      color: colors.text.inverse,
+    },
+    settingsRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    settingsRowText: {
+      flex: 1,
+      fontSize: fonts.md,
+      color: colors.text.primary,
+    },
+    dangerRow: {
+      borderBottomWidth: 0,
+    },
+    dangerText: {
+      color: colors.negative,
+    },
+    // Version
+    versionText: {
+      textAlign: 'center' as const,
+      fontSize: fonts.xs,
+      color: colors.text.muted,
+      marginTop: spacing.xl,
+      paddingBottom: spacing.lg,
+    },
+    avatarOverlay: {
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      borderRadius: 36,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    avatarEditBadge: {
+      position: 'absolute' as const,
+      bottom: 0,
+      right: 0,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderWidth: 2,
+      borderColor: colors.background,
+    },
+    apBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'flex-end' as const,
+    },
+    apSheet: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: S_RADIUS.lg,
+      borderTopRightRadius: S_RADIUS.lg,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xxl + 16,
+    },
+    apTitle: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+      marginBottom: spacing.lg,
+    },
+    apOption: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    apOptionInfo: {
+      flex: 1,
+    },
+    apOptionText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.primary,
+    },
+    apOptionHint: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+      marginTop: 1,
+    },
+    apHistoryLabel: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.muted,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.8,
+      marginTop: spacing.lg,
+      marginBottom: spacing.sm,
+    },
+    apHistoryScroll: {
+      marginBottom: spacing.md,
+      gap: spacing.sm,
+    },
+    apCancel: {
+      alignItems: 'center' as const,
+      paddingVertical: spacing.md,
+      marginTop: spacing.sm,
+    },
+    apCancelText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.text.muted,
+    },
+    inviteHistoryBtn: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.sm,
+      paddingVertical: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    inviteHistoryBtnText: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.primary,
+    },
+    ihSheet: {
+      backgroundColor: colors.background,
+      borderTopLeftRadius: S_RADIUS.lg,
+      borderTopRightRadius: S_RADIUS.lg,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xxl + 16,
+      maxHeight: '70%' as any,
+    },
+    ihHeader: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
+      marginBottom: spacing.lg,
+    },
+    ihTitle: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+    },
+    ihEmpty: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+      fontStyle: 'italic' as const,
+      textAlign: 'center' as const,
+      paddingVertical: spacing.xl,
+    },
+    ihList: {
+      flex: 1,
+    },
+    ihRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    ihRowLeft: {
+      flex: 1,
+    },
+    ihEmail: {
+      fontSize: fonts.md,
+      color: colors.text.primary,
+      fontWeight: S_FONTS.weights.medium,
+    },
+    ihStatus: {
+      fontSize: fonts.xs,
+      color: colors.text.muted,
+      marginTop: 2,
+    },
+    ihJoinedBadge: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 4,
+      backgroundColor: colors.positiveFaint,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
+      borderRadius: S_RADIUS.pill,
+    },
+    ihJoinedText: {
+      fontSize: fonts.xs,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.positive,
+    },
+    historyEmpty: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+      fontStyle: 'italic' as const,
+    },
+    historyContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+    },
+    historyRace: {
+      backgroundColor: colors.surface,
+      borderRadius: S_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    historyRaceHeader: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
+      marginBottom: spacing.sm,
+      paddingBottom: spacing.xs,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    historyRaceName: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.primary,
+      flex: 1,
+    },
+    historyRaceTotal: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+    },
+    historyDriverRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingVertical: 2,
+    },
+    historyDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      marginRight: spacing.sm,
+    },
+    historyDriverName: {
+      fontSize: fonts.sm,
+      color: colors.text.secondary,
+      flex: 1,
+    },
+    historyDriverPts: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.text.muted,
+    },
+    historyTotalRow: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    historyTotalLabel: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.text.muted,
+    },
+    historyTotalValue: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.text.primary,
+    },
+  }), [colors, fonts, spacing]);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -291,7 +764,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
-            <Ionicons name="close" size={24} color={S_COLORS.text.primary} />
+            <Ionicons name="close" size={24} color={colors.text.primary} />
           </TouchableOpacity>
         </View>
 
@@ -311,11 +784,11 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
               />
               {isUploading ? (
                 <View style={styles.avatarOverlay}>
-                  <ActivityIndicator size="small" color={S_COLORS.text.inverse} />
+                  <ActivityIndicator size="small" color={colors.text.inverse} />
                 </View>
               ) : (
                 <View style={styles.avatarEditBadge}>
-                  <Ionicons name="camera" size={12} color={S_COLORS.text.inverse} />
+                  <Ionicons name="camera" size={12} color={colors.text.inverse} />
                 </View>
               )}
             </TouchableOpacity>
@@ -339,23 +812,23 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             activeOpacity={0.7}
           >
             <View style={styles.sectionTitleRow}>
-              <Ionicons name="book-outline" size={18} color={S_COLORS.primary} />
+              <Ionicons name="book-outline" size={18} color={colors.primary} />
               <Text style={styles.sectionTitle}>Game Rules</Text>
             </View>
             <Ionicons
               name={rulesExpanded ? 'chevron-up' : 'chevron-down'}
               size={18}
-              color={S_COLORS.text.muted}
+              color={colors.text.muted}
             />
           </TouchableOpacity>
 
           {rulesExpanded && (
             <View style={styles.rulesContent}>
-              <RuleItem icon="wallet-outline" text="Budget: $1,000 to build your team" />
-              <RuleItem icon="people-outline" text="Team: 5 drivers + 1 constructor" />
-              <RuleItem icon="star-outline" text="Ace: Pick one under $200 for 2x points" />
-              <RuleItem icon="document-text-outline" text="Contracts: Choose 1-6 races per driver, auto-sells on expiry" />
-              <RuleItem icon="trophy-outline" text="Points: Race position, positions gained, fastest lap, position bonus" />
+              <RuleItem icon="wallet-outline" text="Budget: $1,000 to build your team" colors={colors} fonts={fonts} spacing={spacing} />
+              <RuleItem icon="people-outline" text="Team: 5 drivers + 1 constructor" colors={colors} fonts={fonts} spacing={spacing} />
+              <RuleItem icon="star-outline" text="Ace: Pick one under $200 for 2x points" colors={colors} fonts={fonts} spacing={spacing} />
+              <RuleItem icon="document-text-outline" text="Contracts: Choose 1-6 races per driver, auto-sells on expiry" colors={colors} fonts={fonts} spacing={spacing} />
+              <RuleItem icon="trophy-outline" text="Points: Race position, positions gained, fastest lap, position bonus" colors={colors} fonts={fonts} spacing={spacing} />
             </View>
           )}
 
@@ -368,18 +841,18 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             activeOpacity={0.7}
           >
             <View style={styles.sectionTitleRow}>
-              <Ionicons name="time-outline" size={18} color={S_COLORS.primary} />
+              <Ionicons name="time-outline" size={18} color={colors.primary} />
               <Text style={styles.sectionTitle}>Race History</Text>
             </View>
             <Ionicons
               name={historyExpanded ? 'chevron-up' : 'chevron-down'}
               size={18}
-              color={S_COLORS.text.muted}
+              color={colors.text.muted}
             />
           </TouchableOpacity>
 
           {historyExpanded && (
-            <RaceHistory team={team} raceResults={raceResults} />
+            <RaceHistory team={team} raceResults={raceResults} colors={colors} fonts={fonts} spacing={spacing} styles={styles} />
           )}
 
           <View style={styles.divider} />
@@ -387,7 +860,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
           {/* League Section */}
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <Ionicons name="shield-outline" size={18} color={S_COLORS.primary} />
+              <Ionicons name="shield-outline" size={18} color={colors.primary} />
               <Text style={styles.sectionTitle}>League</Text>
             </View>
           </View>
@@ -406,7 +879,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.inviteCode}>{activeLeague.inviteCode}</Text>
-                  <Ionicons name="copy-outline" size={14} color={S_COLORS.primary} />
+                  <Ionicons name="copy-outline" size={14} color={colors.primary} />
                 </TouchableOpacity>
               </View>
               <View style={styles.leagueInfoRow}>
@@ -421,7 +894,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
                   onPress={handleLeaveLeague}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="exit-outline" size={16} color={S_COLORS.negative} />
+                  <Ionicons name="exit-outline" size={16} color={colors.negative} />
                   <Text style={styles.leaveButtonText}>Leave League</Text>
                 </TouchableOpacity>
               )}
@@ -431,7 +904,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
                   onPress={() => { loadInviteHistory(); setShowInviteHistory(true); }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="mail-outline" size={16} color={S_COLORS.primary} />
+                  <Ionicons name="mail-outline" size={16} color={colors.primary} />
                   <Text style={styles.inviteHistoryBtnText}>Invite History</Text>
                 </TouchableOpacity>
               )}
@@ -447,7 +920,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
                   onPress={() => handleLeagueAction('create')}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="add-circle-outline" size={16} color={S_COLORS.primary} />
+                  <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
                   <Text style={styles.leagueActionText}>Create</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -455,7 +928,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
                   onPress={() => handleLeagueAction('join')}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="enter-outline" size={16} color={S_COLORS.primary} />
+                  <Ionicons name="enter-outline" size={16} color={colors.primary} />
                   <Text style={styles.leagueActionText}>Join</Text>
                 </TouchableOpacity>
               </View>
@@ -467,7 +940,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
           {/* Settings Section */}
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <Ionicons name="settings-outline" size={18} color={S_COLORS.primary} />
+              <Ionicons name="settings-outline" size={18} color={colors.primary} />
               <Text style={styles.sectionTitle}>Settings</Text>
             </View>
           </View>
@@ -475,7 +948,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
           <View style={styles.settingsContent}>
             {/* Display Scale */}
             <View style={styles.scaleRow}>
-              <Ionicons name="resize-outline" size={18} color={S_COLORS.text.secondary} />
+              <Ionicons name="resize-outline" size={18} color={colors.text.secondary} />
               <Text style={styles.settingsRowText}>Display Size</Text>
               <View style={styles.scaleButtons}>
                 {[{ scale: 0.85, size: 11 }, { scale: 1.0, size: 13 }, { scale: 1.15, size: 15 }, { scale: 1.3, size: 17 }].map((s) => (
@@ -498,9 +971,9 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
               onPress={handlePrivacyPolicy}
               activeOpacity={0.7}
             >
-              <Ionicons name="lock-closed-outline" size={18} color={S_COLORS.text.secondary} />
+              <Ionicons name="lock-closed-outline" size={18} color={colors.text.secondary} />
               <Text style={styles.settingsRowText}>Privacy Policy</Text>
-              <Ionicons name="open-outline" size={14} color={S_COLORS.text.muted} />
+              <Ionicons name="open-outline" size={14} color={colors.text.muted} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -508,7 +981,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
               onPress={handleDeleteAccount}
               activeOpacity={0.7}
             >
-              <Ionicons name="trash-outline" size={18} color={S_COLORS.negative} />
+              <Ionicons name="trash-outline" size={18} color={colors.negative} />
               <Text style={[styles.settingsRowText, styles.dangerText]}>Delete Account</Text>
             </TouchableOpacity>
 
@@ -517,7 +990,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
               onPress={handleSignOut}
               activeOpacity={0.7}
             >
-              <Ionicons name="log-out-outline" size={18} color={S_COLORS.negative} />
+              <Ionicons name="log-out-outline" size={18} color={colors.negative} />
               <Text style={[styles.settingsRowText, styles.dangerText]}>Sign Out</Text>
             </TouchableOpacity>
           </View>
@@ -534,7 +1007,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             <Text style={styles.apTitle}>Change Profile Picture</Text>
 
             <TouchableOpacity style={styles.apOption} onPress={handleGenerateAI} activeOpacity={0.7}>
-              <Ionicons name="sparkles" size={20} color={S_COLORS.primary} />
+              <Ionicons name="sparkles" size={20} color={colors.primary} />
               <View style={styles.apOptionInfo}>
                 <Text style={styles.apOptionText}>Generate with AI</Text>
                 <Text style={styles.apOptionHint}>Create a unique avatar</Text>
@@ -542,7 +1015,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.apOption} onPress={handlePickFromLibrary} activeOpacity={0.7}>
-              <Ionicons name="image-outline" size={20} color={S_COLORS.primary} />
+              <Ionicons name="image-outline" size={20} color={colors.primary} />
               <View style={styles.apOptionInfo}>
                 <Text style={styles.apOptionText}>Choose from Library</Text>
                 <Text style={styles.apOptionHint}>Pick a photo from your device</Text>
@@ -576,18 +1049,17 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             <View style={styles.ihHeader}>
               <Text style={styles.ihTitle}>Invite History</Text>
               <TouchableOpacity onPress={() => setShowInviteHistory(false)} hitSlop={8}>
-                <Ionicons name="close" size={22} color={S_COLORS.text.primary} />
+                <Ionicons name="close" size={22} color={colors.text.primary} />
               </TouchableOpacity>
             </View>
 
             {inviteHistoryLoading ? (
-              <ActivityIndicator size="large" color={S_COLORS.primary} style={{ paddingVertical: S_SPACING.xl }} />
+              <ActivityIndicator size="large" color={colors.primary} style={{ paddingVertical: spacing.xl }} />
             ) : inviteHistoryData.length === 0 ? (
               <Text style={styles.ihEmpty}>No invites sent yet.</Text>
             ) : (
               <ScrollView style={styles.ihList} showsVerticalScrollIndicator={false}>
                 {inviteHistoryData.map((inv, idx) => {
-                  // Check if this email is now a league member
                   const isMember = leagueMembers.some(
                     m => m.displayName?.toLowerCase() === inv.email.toLowerCase() ||
                          (m as any).email?.toLowerCase() === inv.email.toLowerCase()
@@ -598,15 +1070,15 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
                         <Text style={styles.ihEmail} numberOfLines={1}>{inv.email}</Text>
                         <Text style={[
                           styles.ihStatus,
-                          inv.status === 'sent' && { color: S_COLORS.positive },
-                          inv.status === 'failed' && { color: S_COLORS.negative },
+                          inv.status === 'sent' && { color: colors.positive },
+                          inv.status === 'failed' && { color: colors.negative },
                         ]}>
                           {inv.status === 'sent' ? 'Sent' : inv.status === 'failed' ? 'Failed' : 'Pending'}
                         </Text>
                       </View>
                       {isMember && (
                         <View style={styles.ihJoinedBadge}>
-                          <Ionicons name="checkmark-circle" size={16} color={S_COLORS.positive} />
+                          <Ionicons name="checkmark-circle" size={16} color={colors.positive} />
                           <Text style={styles.ihJoinedText}>Joined</Text>
                         </View>
                       )}
@@ -623,21 +1095,26 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
 }
 
 /** Race history showing per-race performance */
-function RaceHistory({ team, raceResults }: { team: any; raceResults: Record<string, any> }) {
+function RaceHistory({ team, raceResults, colors, fonts, spacing, styles }: {
+  team: any;
+  raceResults: Record<string, any>;
+  colors: any;
+  fonts: any;
+  spacing: any;
+  styles: any;
+}) {
   if (!team) {
     return <Text style={styles.historyEmpty}>Create a team to start tracking history.</Text>;
   }
 
-  // Build race history from completed races
   const completedRaces = Object.entries(raceResults)
     .filter(([_, r]) => r.isComplete)
-    .sort((a, b) => a[0].localeCompare(b[0])); // chronological
+    .sort((a, b) => a[0].localeCompare(b[0]));
 
   if (completedRaces.length === 0) {
     return <Text style={styles.historyEmpty}>No races completed yet.</Text>;
   }
 
-  // Get race name from demoRaces
   const raceNameMap = new Map(demoRaces.map(r => [r.id, r.name]));
 
   return (
@@ -645,7 +1122,6 @@ function RaceHistory({ team, raceResults }: { team: any; raceResults: Record<str
       {completedRaces.map(([raceId, result]) => {
         const raceName = raceNameMap.get(raceId) ?? raceId.replace(/_/g, ' ');
 
-        // Sum driver points for this race from the team's drivers
         let raceTotal = 0;
         const driverBreakdown: { name: string; shortName: string; constructorId: string; pts: number }[] = [];
 
@@ -662,7 +1138,6 @@ function RaceHistory({ team, raceResults }: { team: any; raceResults: Record<str
           });
         });
 
-        // Constructor points
         const ctor = (team as Record<string, any>)['constructor'];
         let ctorPts = 0;
         if (ctor) {
@@ -676,20 +1151,20 @@ function RaceHistory({ team, raceResults }: { team: any; raceResults: Record<str
           <View key={raceId} style={styles.historyRace}>
             <View style={styles.historyRaceHeader}>
               <Text style={styles.historyRaceName}>{raceName}</Text>
-              <Text style={[styles.historyRaceTotal, raceTotal > 0 && { color: S_COLORS.positive }]}>
+              <Text style={[styles.historyRaceTotal, raceTotal > 0 && { color: colors.positive }]}>
                 {raceTotal > 0 ? '+' : ''}{raceTotal} pts
               </Text>
             </View>
             {driverBreakdown.map((d) => {
-              const color = TEAM_COLORS[d.constructorId]?.primary ?? S_COLORS.text.muted;
+              const color = TEAM_COLORS[d.constructorId]?.primary ?? colors.text.muted;
               return (
                 <View key={d.shortName} style={styles.historyDriverRow}>
                   <View style={[styles.historyDot, { backgroundColor: color }]} />
                   <Text style={styles.historyDriverName}>{d.shortName}</Text>
                   <Text style={[
                     styles.historyDriverPts,
-                    d.pts > 0 && { color: S_COLORS.positive },
-                    d.pts < 0 && { color: S_COLORS.negative },
+                    d.pts > 0 && { color: colors.positive },
+                    d.pts < 0 && { color: colors.negative },
                   ]}>
                     {d.pts > 0 ? '+' : ''}{d.pts}
                   </Text>
@@ -698,12 +1173,12 @@ function RaceHistory({ team, raceResults }: { team: any; raceResults: Record<str
             })}
             {ctor && (
               <View style={styles.historyDriverRow}>
-                <View style={[styles.historyDot, { backgroundColor: TEAM_COLORS[ctor.constructorId]?.primary ?? S_COLORS.text.muted }]} />
+                <View style={[styles.historyDot, { backgroundColor: TEAM_COLORS[ctor.constructorId]?.primary ?? colors.text.muted }]} />
                 <Text style={styles.historyDriverName}>{ctor.name?.split(' ')[0] ?? 'CTOR'}</Text>
                 <Text style={[
                   styles.historyDriverPts,
-                  ctorPts > 0 && { color: S_COLORS.positive },
-                  ctorPts < 0 && { color: S_COLORS.negative },
+                  ctorPts > 0 && { color: colors.positive },
+                  ctorPts < 0 && { color: colors.negative },
                 ]}>
                   {ctorPts > 0 ? '+' : ''}{ctorPts}
                 </Text>
@@ -730,492 +1205,11 @@ function RaceHistory({ team, raceResults }: { team: any; raceResults: Record<str
 }
 
 /** Small helper component for rule items */
-function RuleItem({ icon, text }: { icon: string; text: string }) {
+function RuleItem({ icon, text, colors, fonts, spacing }: { icon: string; text: string; colors: any; fonts: any; spacing: any }) {
   return (
-    <View style={styles.ruleItem}>
-      <Ionicons name={icon as any} size={15} color={S_COLORS.primary} />
-      <Text style={styles.ruleText}>{text}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+      <Ionicons name={icon as any} size={15} color={colors.primary} />
+      <Text style={{ flex: 1, fontSize: fonts.sm, color: colors.text.secondary, lineHeight: 18 }}>{text}</Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: S_COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: S_SPACING.lg,
-    paddingVertical: S_SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: S_COLORS.borderLight,
-  },
-  headerTitle: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.primary,
-  },
-  closeButton: {
-    position: 'absolute',
-    right: S_SPACING.lg,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: S_SPACING.xxl,
-  },
-
-  // Avatar section
-  avatarSection: {
-    alignItems: 'center',
-    paddingVertical: S_SPACING.xl,
-  },
-  displayName: {
-    fontSize: S_FONTS.sizes.xl,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-    marginTop: S_SPACING.md,
-  },
-  email: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-    marginTop: S_SPACING.xs,
-  },
-  demoBadge: {
-    marginTop: S_SPACING.sm,
-    backgroundColor: S_COLORS.primaryFaint,
-    paddingHorizontal: S_SPACING.md,
-    paddingVertical: S_SPACING.xs,
-    borderRadius: S_RADIUS.pill,
-  },
-  demoBadgeText: {
-    fontSize: S_FONTS.sizes.xs,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.primary,
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: S_COLORS.borderLight,
-    marginHorizontal: S_SPACING.lg,
-  },
-
-  // Section headers
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: S_SPACING.lg,
-    paddingVertical: S_SPACING.md,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.sm,
-  },
-  sectionTitle: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.primary,
-  },
-
-  // Rules
-  rulesContent: {
-    paddingHorizontal: S_SPACING.lg,
-    paddingBottom: S_SPACING.md,
-    gap: S_SPACING.sm,
-  },
-  ruleItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: S_SPACING.sm,
-  },
-  ruleText: {
-    flex: 1,
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.secondary,
-    lineHeight: 18,
-  },
-
-  // League
-  leagueContent: {
-    paddingHorizontal: S_SPACING.lg,
-    paddingBottom: S_SPACING.md,
-    gap: S_SPACING.sm,
-  },
-  leagueInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  leagueLabel: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-  },
-  leagueValue: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.text.primary,
-  },
-  inviteCodeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.xs,
-  },
-  inviteCode: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.primary,
-    letterSpacing: 1.5,
-  },
-  leaveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.xs,
-    marginTop: S_SPACING.sm,
-    alignSelf: 'flex-start',
-  },
-  leaveButtonText: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.negative,
-  },
-
-  noLeagueContent: {
-    paddingHorizontal: S_SPACING.lg,
-    paddingBottom: S_SPACING.md,
-  },
-  noLeagueText: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-    marginBottom: S_SPACING.md,
-  },
-  leagueButtonRow: {
-    flexDirection: 'row',
-    gap: S_SPACING.md,
-  },
-  leagueActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.xs,
-    backgroundColor: S_COLORS.primaryFaint,
-    paddingHorizontal: S_SPACING.md,
-    paddingVertical: S_SPACING.sm,
-    borderRadius: S_RADIUS.md,
-  },
-  leagueActionText: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.primary,
-  },
-
-  // Settings
-  settingsContent: {
-    paddingHorizontal: S_SPACING.lg,
-    paddingBottom: S_SPACING.md,
-  },
-  scaleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.md,
-    paddingVertical: S_SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: S_COLORS.borderLight,
-  },
-  scaleButtons: {
-    flexDirection: 'row',
-    gap: S_SPACING.xs,
-  },
-  scaleBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scaleBtnActive: {
-    backgroundColor: S_COLORS.primary,
-    borderColor: S_COLORS.primary,
-  },
-  scaleBtnText: {
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.muted,
-  },
-  scaleBtnTextActive: {
-    color: S_COLORS.text.inverse,
-  },
-  settingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.md,
-    paddingVertical: S_SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: S_COLORS.borderLight,
-  },
-  settingsRowText: {
-    flex: 1,
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.primary,
-  },
-  dangerRow: {
-    borderBottomWidth: 0,
-  },
-  dangerText: {
-    color: S_COLORS.negative,
-  },
-
-  // Version
-  versionText: {
-    textAlign: 'center',
-    fontSize: S_FONTS.sizes.xs,
-    color: S_COLORS.text.muted,
-    marginTop: S_SPACING.xl,
-    paddingBottom: S_SPACING.lg,
-  },
-  avatarOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 36,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarEditBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: S_COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: S_COLORS.background,
-  },
-  apBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  apSheet: {
-    backgroundColor: S_COLORS.background,
-    borderTopLeftRadius: S_RADIUS.lg,
-    borderTopRightRadius: S_RADIUS.lg,
-    paddingHorizontal: S_SPACING.xl,
-    paddingTop: S_SPACING.lg,
-    paddingBottom: S_SPACING.xxl + 16,
-  },
-  apTitle: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-    marginBottom: S_SPACING.lg,
-  },
-  apOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.md,
-    paddingVertical: S_SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: S_COLORS.borderLight,
-  },
-  apOptionInfo: {
-    flex: 1,
-  },
-  apOptionText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.primary,
-  },
-  apOptionHint: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-    marginTop: 1,
-  },
-  apHistoryLabel: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginTop: S_SPACING.lg,
-    marginBottom: S_SPACING.sm,
-  },
-  apHistoryScroll: {
-    marginBottom: S_SPACING.md,
-    gap: S_SPACING.sm,
-  },
-  apCancel: {
-    alignItems: 'center',
-    paddingVertical: S_SPACING.md,
-    marginTop: S_SPACING.sm,
-  },
-  apCancelText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.text.muted,
-  },
-  inviteHistoryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S_SPACING.sm,
-    paddingVertical: S_SPACING.sm,
-    marginTop: S_SPACING.xs,
-  },
-  inviteHistoryBtnText: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.primary,
-  },
-  ihSheet: {
-    backgroundColor: S_COLORS.background,
-    borderTopLeftRadius: S_RADIUS.lg,
-    borderTopRightRadius: S_RADIUS.lg,
-    paddingHorizontal: S_SPACING.xl,
-    paddingTop: S_SPACING.lg,
-    paddingBottom: S_SPACING.xxl + 16,
-    maxHeight: '70%',
-  },
-  ihHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: S_SPACING.lg,
-  },
-  ihTitle: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-  },
-  ihEmpty: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: S_SPACING.xl,
-  },
-  ihList: {
-    flex: 1,
-  },
-  ihRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: S_SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: S_COLORS.borderLight,
-  },
-  ihRowLeft: {
-    flex: 1,
-  },
-  ihEmail: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.primary,
-    fontWeight: S_FONTS.weights.medium,
-  },
-  ihStatus: {
-    fontSize: S_FONTS.sizes.xs,
-    color: S_COLORS.text.muted,
-    marginTop: 2,
-  },
-  ihJoinedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: S_SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: S_RADIUS.pill,
-  },
-  ihJoinedText: {
-    fontSize: S_FONTS.sizes.xs,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.positive,
-  },
-  historyEmpty: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-    paddingHorizontal: S_SPACING.lg,
-    paddingBottom: S_SPACING.md,
-    fontStyle: 'italic',
-  },
-  historyContent: {
-    paddingHorizontal: S_SPACING.lg,
-    paddingBottom: S_SPACING.md,
-  },
-  historyRace: {
-    backgroundColor: S_COLORS.surface,
-    borderRadius: S_RADIUS.md,
-    borderWidth: 1,
-    borderColor: S_COLORS.borderLight,
-    padding: S_SPACING.md,
-    marginBottom: S_SPACING.sm,
-  },
-  historyRaceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: S_SPACING.sm,
-    paddingBottom: S_SPACING.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: S_COLORS.borderLight,
-  },
-  historyRaceName: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.primary,
-    flex: 1,
-  },
-  historyRaceTotal: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-  },
-  historyDriverRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  historyDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: S_SPACING.sm,
-  },
-  historyDriverName: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.secondary,
-    flex: 1,
-  },
-  historyDriverPts: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.text.muted,
-  },
-  historyTotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: S_SPACING.xs,
-    paddingHorizontal: S_SPACING.sm,
-    marginTop: S_SPACING.xs,
-  },
-  historyTotalLabel: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.text.muted,
-  },
-  historyTotalValue: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.text.primary,
-  },
-});

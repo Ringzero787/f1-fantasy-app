@@ -5,12 +5,12 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   RefreshControl,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_COLORS, S_FONTS, S_SPACING, S_RADIUS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { SimpleMarketRow } from './SimpleMarketRow';
 import { SimpleContractPicker } from './SimpleContractPicker';
 import { useDrivers } from '../../hooks/useDrivers';
@@ -35,9 +35,10 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
   refreshing,
   onRefresh,
 }: Props) {
+  const { colors, fonts, spacing } = useSimpleTheme();
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
-  const { team, teamConstructor, budget, driversCount, removeDriver, removeConstructor, syncToFirebase } = useSimpleTeam();
+  const { team, teamConstructor, budget, driversCount, removeDriver, removeConstructor, fullSyncToFirebase } = useSimpleTeam();
   const lockoutInfo = useLockoutStatus();
   const locked = lockoutInfo.isLocked || !(team?.lockStatus?.canModify ?? true);
 
@@ -195,9 +196,9 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
     };
 
     useTeamStore.getState().setCurrentTeam(updatedTeam);
-    syncToFirebase();
+    fullSyncToFirebase();
     setPendingDriver(null);
-  }, [pendingDriver, team, contractLength, syncToFirebase]);
+  }, [pendingDriver, team, contractLength, fullSyncToFirebase]);
 
   const handleTapAddConstructor = useCallback(
     (item: Constructor) => {
@@ -264,9 +265,9 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
     };
 
     useTeamStore.getState().setCurrentTeam(updatedTeam);
-    syncToFirebase();
+    fullSyncToFirebase();
     setPendingConstructor(null);
-  }, [pendingConstructor, team, contractLength, syncToFirebase]);
+  }, [pendingConstructor, team, contractLength, fullSyncToFirebase]);
 
   // --- Render helpers ---
 
@@ -327,12 +328,153 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
     ? budget
     : getConstructorEffectiveBudget();
 
+  const styles = useMemo(() => ({
+    root: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    teamFullBanner: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: spacing.sm,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.positiveFaint,
+    },
+    teamFullText: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.semibold,
+      color: colors.positive,
+    },
+    budgetBar: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    budgetLabel: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+      marginRight: spacing.xs,
+    },
+    budgetValue: {
+      fontSize: fonts.lg,
+      fontWeight: S_FONTS.weights.bold,
+      color: colors.primary,
+    },
+    budgetRight: {
+      flex: 1,
+      flexDirection: 'row' as const,
+      justifyContent: 'flex-end' as const,
+      alignItems: 'center' as const,
+    },
+    slotsText: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+    },
+    slotSep: {
+      fontSize: fonts.sm,
+      color: colors.text.muted,
+    },
+    tabRow: {
+      flexDirection: 'row' as const,
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.md,
+      marginBottom: spacing.sm,
+      borderRadius: S_RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden' as const,
+    },
+    tabBtn: {
+      flex: 1,
+      alignItems: 'center' as const,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.background,
+    },
+    tabBtnActive: {
+      backgroundColor: colors.primary,
+    },
+    tabText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.text.secondary,
+    },
+    tabTextActive: {
+      color: colors.text.inverse,
+      fontWeight: S_FONTS.weights.semibold,
+    },
+    searchWrap: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: S_RADIUS.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      backgroundColor: colors.background,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: fonts.md,
+      color: colors.text.primary,
+      marginLeft: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    sortRow: {
+      flexDirection: 'row' as const,
+      paddingHorizontal: spacing.lg,
+      marginBottom: spacing.sm,
+      gap: spacing.sm,
+    },
+    sortChip: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: S_RADIUS.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    sortChipActive: {
+      backgroundColor: colors.primaryFaint,
+      borderColor: colors.primary,
+    },
+    sortChipText: {
+      fontSize: fonts.sm,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.text.muted,
+    },
+    sortChipTextActive: {
+      color: colors.primary,
+      fontWeight: S_FONTS.weights.semibold,
+    },
+    list: {
+      flex: 1,
+    },
+    listContent: {
+      paddingBottom: spacing.xxl + 40,
+    },
+    emptyWrap: {
+      paddingVertical: spacing.xxl,
+      alignItems: 'center' as const,
+    },
+    emptyText: {
+      fontSize: fonts.md,
+      color: colors.text.muted,
+    },
+  }), [colors, fonts, spacing]);
+
   return (
     <View style={styles.root}>
       {/* Team full banner */}
       {driversFull && !!teamConstructor && (
         <View style={styles.teamFullBanner}>
-          <Ionicons name="checkmark-circle" size={16} color={S_COLORS.positive} />
+          <Ionicons name="checkmark-circle" size={16} color={colors.positive} />
           <Text style={styles.teamFullText}>Your team is complete!</Text>
         </View>
       )}
@@ -342,11 +484,11 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
         <Text style={styles.budgetLabel}>Budget</Text>
         <Text style={styles.budgetValue}>${budget}</Text>
         <View style={styles.budgetRight}>
-          <Text style={[styles.slotsText, driversFull && { color: S_COLORS.positive }]}>
+          <Text style={[styles.slotsText, driversFull && { color: colors.positive }]}>
             {driversCount}/{TEAM_SIZE} drivers
           </Text>
           <Text style={styles.slotSep}> · </Text>
-          <Text style={[styles.slotsText, !!teamConstructor && { color: S_COLORS.positive }]}>
+          <Text style={[styles.slotsText, !!teamConstructor && { color: colors.positive }]}>
             {teamConstructor ? '1' : '0'}/1 constructor
           </Text>
         </View>
@@ -378,11 +520,11 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
 
       {/* Search bar */}
       <View style={styles.searchWrap}>
-        <Ionicons name="search" size={16} color={S_COLORS.text.muted} />
+        <Ionicons name="search" size={16} color={colors.text.muted} />
         <TextInput
           style={styles.searchInput}
           placeholder={tab === 'drivers' ? 'Search drivers...' : 'Search constructors...'}
-          placeholderTextColor={S_COLORS.text.muted}
+          placeholderTextColor={colors.text.muted}
           value={search}
           onChangeText={setSearch}
           autoCorrect={false}
@@ -391,7 +533,7 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.6}>
-            <Ionicons name="close-circle" size={16} color={S_COLORS.text.muted} />
+            <Ionicons name="close-circle" size={16} color={colors.text.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -425,7 +567,7 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={S_COLORS.primary}
+              tintColor={colors.primary}
             />
           }
           ListEmptyComponent={
@@ -448,7 +590,7 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={S_COLORS.primary}
+              tintColor={colors.primary}
             />
           }
           ListEmptyComponent={
@@ -478,145 +620,4 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
       />
     </View>
   );
-});
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: S_COLORS.background,
-  },
-  teamFullBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: S_SPACING.sm,
-    paddingVertical: S_SPACING.sm,
-    backgroundColor: '#E8F5E9',
-  },
-  teamFullText: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.semibold,
-    color: S_COLORS.positive,
-  },
-  budgetBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: S_SPACING.lg,
-    paddingVertical: S_SPACING.sm,
-    backgroundColor: S_COLORS.card,
-    borderBottomWidth: 1,
-    borderBottomColor: S_COLORS.borderLight,
-  },
-  budgetLabel: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-    marginRight: S_SPACING.xs,
-  },
-  budgetValue: {
-    fontSize: S_FONTS.sizes.lg,
-    fontWeight: S_FONTS.weights.bold,
-    color: S_COLORS.primary,
-  },
-  budgetRight: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  slotsText: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-  },
-  slotSep: {
-    fontSize: S_FONTS.sizes.sm,
-    color: S_COLORS.text.muted,
-  },
-  tabRow: {
-    flexDirection: 'row',
-    marginHorizontal: S_SPACING.lg,
-    marginTop: S_SPACING.md,
-    marginBottom: S_SPACING.sm,
-    borderRadius: S_RADIUS.md,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    overflow: 'hidden',
-  },
-  tabBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: S_SPACING.sm,
-    backgroundColor: S_COLORS.background,
-  },
-  tabBtnActive: {
-    backgroundColor: S_COLORS.primary,
-  },
-  tabText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.text.secondary,
-  },
-  tabTextActive: {
-    color: S_COLORS.text.inverse,
-    fontWeight: S_FONTS.weights.semibold,
-  },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: S_SPACING.lg,
-    marginBottom: S_SPACING.sm,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    borderRadius: S_RADIUS.md,
-    paddingHorizontal: S_SPACING.md,
-    paddingVertical: S_SPACING.xs,
-    backgroundColor: S_COLORS.background,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.primary,
-    marginLeft: S_SPACING.sm,
-    paddingVertical: S_SPACING.xs,
-  },
-  sortRow: {
-    flexDirection: 'row',
-    paddingHorizontal: S_SPACING.lg,
-    marginBottom: S_SPACING.sm,
-    gap: S_SPACING.sm,
-  },
-  sortChip: {
-    paddingHorizontal: S_SPACING.md,
-    paddingVertical: S_SPACING.xs,
-    borderRadius: S_RADIUS.pill,
-    borderWidth: 1,
-    borderColor: S_COLORS.border,
-    backgroundColor: S_COLORS.background,
-  },
-  sortChipActive: {
-    backgroundColor: S_COLORS.primaryFaint,
-    borderColor: S_COLORS.primary,
-  },
-  sortChipText: {
-    fontSize: S_FONTS.sizes.sm,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.text.muted,
-  },
-  sortChipTextActive: {
-    color: S_COLORS.primary,
-    fontWeight: S_FONTS.weights.semibold,
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    paddingBottom: S_SPACING.xxl + 40,
-  },
-  emptyWrap: {
-    paddingVertical: S_SPACING.xxl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: S_FONTS.sizes.md,
-    color: S_COLORS.text.muted,
-  },
 });

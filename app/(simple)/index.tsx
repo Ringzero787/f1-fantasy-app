@@ -9,10 +9,11 @@ import { SimpleMarketPanel } from '../../src/simple/components/SimpleMarketPanel
 import { SimpleProfilePill } from '../../src/simple/components/SimpleProfilePill';
 import { SimpleProfileSheet } from '../../src/simple/components/SimpleProfileSheet';
 import { useSimpleTeam } from '../../src/simple/hooks/useSimpleTeam';
+import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
 import { useAdminStore } from '../../src/store/admin.store';
-import { S_COLORS } from '../../src/simple/theme/simpleTheme';
 
 export default function SimpleMainScreen() {
+  const { colors, isDark } = useSimpleTheme();
   const [activePanel, setActivePanel] = useState<SimplePanel>('team');
   const [refreshing, setRefreshing] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -64,8 +65,8 @@ export default function SimpleMainScreen() {
   ).current;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={S_COLORS.background} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <SimpleToggleBar active={activePanel} onChange={setActivePanel} hasLeague={hasLeague} />
 
       <View style={[styles.panelContainer, isTablet && { alignItems: 'center' }]} {...panResponder.panHandlers}>
@@ -95,7 +96,6 @@ export default function SimpleMainScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: S_COLORS.background,
   },
   panelContainer: {
     flex: 1,

@@ -570,7 +570,7 @@ export const useAdminStore = create<AdminState>()(
             POSITION_GAINED_BONUS, DNF_PENALTY, SPRINT_DNF_PENALTY,
           } = await import('../config/constants');
           const racesRef = collection(db, 'races');
-          const q = query(racesRef, where('status', '==', 'completed'));
+          const q = query(racesRef, where('status', 'in', ['completed', 'in_progress']));
           const snap = await getDocs(q);
 
           const { raceResults } = get();
@@ -582,9 +582,9 @@ export const useAdminStore = create<AdminState>()(
             const data = doc.data();
             const results = data.results;
 
-            // Skip if already fully populated (has non-zero driver points)
+            // Skip if already fully synced and race is complete
             const existing = newResults[raceId];
-            if (existing?.isComplete && existing.driverResults.some(dr => dr.points !== 0)) {
+            if (existing?.isComplete && data.status === 'completed' && existing.driverResults.some(dr => dr.points !== 0)) {
               continue;
             }
 
@@ -658,12 +658,12 @@ export const useAdminStore = create<AdminState>()(
 
             newResults[raceId] = {
               raceId,
-              isComplete: true,
+              isComplete: data.status === 'completed',
               driverResults,
               constructorResults,
               sprintResults,
               sprintConstructorResults,
-              completedAt: new Date(),
+              completedAt: data.status === 'completed' ? new Date() : null,
             };
             updated = true;
           }

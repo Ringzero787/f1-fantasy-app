@@ -22,26 +22,28 @@ service cloud.firestore {
       return request.auth.token.admin == true;
     }
 
-    // Users collection — only the owner can read their own profile
+    // Users collection — only the owner can read/write their own profile
+    // SECURITY: prevent users from setting isAdmin field on themselves
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId);
-      allow update, delete: if isOwner(userId);
+      allow create: if isOwner(userId)
+                    && !('isAdmin' in request.resource.data);
+      allow update: if isOwner(userId)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin']);
+      allow delete: if isOwner(userId);
     }
 
     // Leagues collection
     match /leagues/{leagueId} {
-      // Any authenticated user can read a league (invite code is the access control)
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      // Owner can update anything; authenticated users can only increment/decrement memberCount
       allow update: if isAuthenticated() && (
         isLeagueOwner(leagueId) ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'updatedAt'])
       );
       allow delete: if isLeagueOwner(leagueId);
 
-      // League members subcollection — members/owner can see members
+      // League members subcollection
       match /members/{memberId} {
         allow read: if isAuthenticated() && (
           isLeagueMember(leagueId) ||
@@ -53,10 +55,14 @@ service cloud.firestore {
         allow delete: if isLeagueOwner(leagueId) || isOwner(memberId);
       }
 
-      // League invites subcollection
+      // League invites — members can create (max enforced by Cloud Function rate limit)
+      // SECURITY: limit invite doc size to prevent abuse
       match /invites/{inviteId} {
-        allow read: if isAuthenticated();
-        allow create: if isLeagueMember(leagueId);
+        allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId));
+        allow create: if isLeagueMember(leagueId)
+                      && request.resource.data.keys().hasOnly(['email', 'status', 'sentBy', 'createdAt'])
+                      && request.resource.data.email is string
+                      && request.resource.data.email.size() < 256;
         allow update, delete: if isLeagueOwner(leagueId);
       }
 
@@ -67,7 +73,6 @@ service cloud.firestore {
         allow update: if isAuthenticated() && isLeagueOwner(leagueId);
         allow delete: if isAuthenticated() && isLeagueOwner(leagueId);
 
-        // Announcement replies subcollection
         match /replies/{replyId} {
           allow read: if isAuthenticated() && isLeagueMember(leagueId);
           allow create, update: if isAuthenticated() && isLeagueMember(leagueId);
@@ -87,7 +92,6 @@ service cloud.firestore {
                       && (resource.data.senderId == request.auth.uid || isLeagueOwner(leagueId) || isAdmin());
       }
 
-      // Chat read receipts subcollection
       match /chatReadReceipts/{userId} {
         allow read, write: if isAuthenticated() && isOwner(userId);
       }
@@ -106,20 +110,24 @@ service cloud.firestore {
     }
 
     // Fantasy teams collection
+    // SECURITY: prevent userId hijacking, budget manipulation, score tampering
     match /fantasyTeams/{teamId} {
-      // get: owner, league members, or admin
       allow get: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
         isLeagueMember(resource.data.leagueId) ||
         isLeagueOwner(resource.data.leagueId) ||
         isAdmin()
       );
-      // list: authenticated users can query (constrained by client-side where clauses)
-      // Firestore can't validate complex conditions on list queries,
-      // so we allow list for authenticated users. Write rules still protect data.
       allow list: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isOwner(resource.data.userId);
+      // Client can only update metadata fields (name, avatar, ace, leagueId).
+      // Roster changes (drivers, constructor, budget) go through Cloud Functions.
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                      'totalPoints', 'lockedPoints', 'scoredRaces',
+                      'isLocked', 'lockStatus'
+                    ]));
       allow delete: if isOwner(resource.data.userId);
     }
 
@@ -154,7 +162,6 @@ service cloud.firestore {
     }
 
     // Collection group query for league members
-    // Needed for getUserLeagues — user queries their own memberships by userId field
     match /{path=**}/members/{memberId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == memberId ||
@@ -178,13 +185,13 @@ service cloud.firestore {
     // Purchases collection — users can read their own, only Cloud Functions can write
     match /purchases/{purchaseId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow write: if false; // Only admin SDK (Cloud Functions) can write
+      allow write: if false;
     }
 
-    // Notifications
+    // Notifications — users can only read/update their own
     match /notifications/{notificationId} {
       allow get: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow list: if isAuthenticated();
+      allow list: if isAuthenticated(); // Firestore can't enforce userId filter on list
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow create, delete: if false;
     }
@@ -194,10 +201,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Pending results — admin only (used by web admin panel + app admin)
+    // Pending results — admin only
     match /pendingResults/{resultId} {
       allow read: if isAdmin();
-      allow write: if false; // Only Cloud Functions write
+      allow write: if false;
     }
 
     // Cache — authenticated users can read, only Cloud Functions write

@@ -25,6 +25,7 @@ export function useSimpleTeam() {
   const clearAce = useTeamStore((s) => s.clearAce);
   const loadUserTeams = useTeamStore((s) => s.loadUserTeams);
   const syncToFirebase = useTeamStore((s) => s.syncToFirebase);
+  const fullSyncToFirebase = useTeamStore((s) => s.fullSyncToFirebase);
   const assignTeamToLeague = useTeamStore((s) => s.assignTeamToLeague);
   const updateTeamName = useTeamStore((s) => s.updateTeamName);
 
@@ -48,14 +49,27 @@ export function useSimpleTeam() {
   const isFull = driversCount === TEAM_SIZE && !!teamConstructor;
   const budget = team?.budget ?? BUDGET;
 
-  // Multi-team support (max 2)
-  const teamCount = userTeams.length;
-  const canCreateSecondTeam = teamCount < MAX_TEAMS;
+  // Multi-team support (max 2) — deduplicate by league so toggle switches between leagues
+  const leagueTeams = useMemo(() => {
+    const seen = new Set<string>();
+    const result: typeof userTeams = [];
+    for (const t of userTeams) {
+      const key = t.leagueId || t.id; // solo teams use their own id as key
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(t);
+      }
+    }
+    return result.slice(0, MAX_TEAMS);
+  }, [userTeams]);
+
+  const teamCount = leagueTeams.length;
+  const canCreateSecondTeam = leagueTeams.length < MAX_TEAMS;
   const activeTeamIndex = useMemo(() => {
     if (!team) return 0;
-    const idx = userTeams.findIndex(t => t.id === team.id);
+    const idx = leagueTeams.findIndex(t => t.id === team.id);
     return idx >= 0 ? idx : 0;
-  }, [team, userTeams]);
+  }, [team, leagueTeams]);
 
   return {
     team,
@@ -72,8 +86,8 @@ export function useSimpleTeam() {
     canCreateSecondTeam,
     maxTeams: MAX_TEAMS,
     switchTeam: (index: number) => {
-      if (index >= 0 && index < userTeams.length) {
-        selectTeam(userTeams[index].id);
+      if (index >= 0 && index < leagueTeams.length) {
+        selectTeam(leagueTeams[index].id);
       }
     },
 
@@ -106,5 +120,6 @@ export function useSimpleTeam() {
     // Sync
     loadUserTeams: () => user ? loadUserTeams(user.id) : Promise.resolve(),
     syncToFirebase,
+    fullSyncToFirebase,
   };
 }

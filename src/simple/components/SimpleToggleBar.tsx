@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { S_COLORS, S_FONTS, S_SPACING, S_RADIUS } from '../theme/simpleTheme';
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 export type SimplePanel = 'standings' | 'team' | 'market';
 
@@ -17,6 +18,46 @@ const TABS: { key: SimplePanel; label: string }[] = [
 ];
 
 export const SimpleToggleBar = React.memo(function SimpleToggleBar({ active, onChange, hasLeague }: Props) {
+  const { colors, fonts, spacing } = useSimpleTheme();
+
+  const styles = useMemo(() => ({
+    container: {
+      flexDirection: 'row' as const,
+      backgroundColor: colors.surface,
+      borderRadius: S_RADIUS.lg,
+      padding: 3,
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.md,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: spacing.sm + 2,
+      alignItems: 'center' as const,
+      borderRadius: S_RADIUS.md,
+      flexDirection: 'row' as const,
+      justifyContent: 'center' as const,
+      gap: 4,
+    },
+    tabActive: {
+      backgroundColor: colors.primary,
+    },
+    tabText: {
+      fontSize: fonts.md,
+      fontWeight: S_FONTS.weights.medium,
+      color: colors.text.muted,
+    },
+    tabTextActive: {
+      color: colors.text.inverse,
+      fontWeight: S_FONTS.weights.semibold,
+    },
+    badge: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.warning,
+    },
+  }), [colors, fonts, spacing]);
+
   return (
     <View style={styles.container}>
       {TABS.map((tab) => {
@@ -39,42 +80,4 @@ export const SimpleToggleBar = React.memo(function SimpleToggleBar({ active, onC
       })}
     </View>
   );
-});
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    backgroundColor: S_COLORS.surface,
-    borderRadius: S_RADIUS.lg,
-    padding: 3,
-    marginHorizontal: S_SPACING.lg,
-    marginBottom: S_SPACING.md,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: S_SPACING.sm + 2,
-    alignItems: 'center',
-    borderRadius: S_RADIUS.md,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  tabActive: {
-    backgroundColor: S_COLORS.primary,
-  },
-  tabText: {
-    fontSize: S_FONTS.sizes.md,
-    fontWeight: S_FONTS.weights.medium,
-    color: S_COLORS.text.muted,
-  },
-  tabTextActive: {
-    color: S_COLORS.text.inverse,
-    fontWeight: S_FONTS.weights.semibold,
-  },
-  badge: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: S_COLORS.warning,
-  },
 });

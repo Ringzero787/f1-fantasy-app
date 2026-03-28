@@ -1,6 +1,11 @@
-import { StyleSheet } from 'react-native';
+import { usePrefsStore } from '../../store/prefs.store';
 
-export const S_COLORS = {
+// Get current display scale — called at render time by components
+export function getDisplayScale(): number {
+  return usePrefsStore.getState().displayScale;
+}
+
+export const S_COLORS_LIGHT = {
   background: '#FFFFFF',
   surface: '#F6FAFA',
   card: '#EDF5F5',
@@ -36,7 +41,56 @@ export const S_COLORS = {
   // Lock state
   locked: '#8A9BA0',
   lockedBg: '#EDF5F5',
+
+  // Success banner background
+  positiveFaint: '#E8F5E9',
 } as const;
+
+export const S_COLORS_DARK = {
+  background: '#0F1A1C',
+  surface: '#162226',
+  card: '#1C2C30',
+  cardPressed: '#253A3F',
+
+  primary: '#14B8A6',     // Teal-500 — same in both themes
+  primaryDark: '#0D9488',
+  primaryLight: '#5EEAD4',
+  primaryFaint: '#0D2E2A',
+
+  text: {
+    primary: '#E8F0F0',
+    secondary: '#A0B4B8',
+    muted: '#6B8085',
+    inverse: '#0F1A1C',
+  },
+
+  positive: '#4CAF50',
+  negative: '#EF5350',
+  warning: '#F0A040',
+
+  border: '#2A3E42',
+  borderLight: '#223236',
+
+  gold: '#D4A520',
+  silver: '#9E9E9E',
+  bronze: '#A1887F',
+
+  // Ace badge
+  ace: '#D4A520',
+  aceBg: '#2A2410',
+
+  // Lock state
+  locked: '#6B8085',
+  lockedBg: '#1C2C30',
+
+  // Success banner background
+  positiveFaint: '#1A2E1A',
+} as const;
+
+// Backwards compatibility — light palette is the default
+export const S_COLORS = S_COLORS_LIGHT;
+
+export type SimpleColors = typeof S_COLORS_LIGHT;
 
 export const S_FONTS = {
   regular: 'System',
@@ -72,19 +126,3 @@ export const S_RADIUS = {
   lg: 12,
   pill: 9999,
 } as const;
-
-// Reusable card style
-export const sCard = StyleSheet.create({
-  base: {
-    backgroundColor: S_COLORS.card,
-    borderRadius: S_RADIUS.md,
-    borderWidth: 1,
-    borderColor: S_COLORS.borderLight,
-    padding: S_SPACING.md,
-  },
-  flat: {
-    backgroundColor: S_COLORS.surface,
-    borderRadius: S_RADIUS.md,
-    padding: S_SPACING.md,
-  },
-});

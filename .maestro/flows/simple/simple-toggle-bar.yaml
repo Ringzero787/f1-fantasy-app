@@ -1,0 +1,28 @@
+appId: com.undercut.app
+tags:
+  - simple
+  - smoke
+---
+# Test the 3-way toggle bar navigation in Simple UI
+- runFlow: setup-simple-demo.yaml
+
+# Verify toggle bar is visible with all three options
+- assertVisible: "Standings"
+- assertVisible: "My Team"
+- assertVisible: "Market"
+
+# Default panel should be My Team — verify create team prompt (demo has no team)
+- assertVisible: "Create Your Team"
+
+# Switch to Market panel
+- tapOn: "Market"
+- waitForAnimationToEnd
+
+# Switch to Standings panel
+- tapOn: "Standings"
+- waitForAnimationToEnd
+
+# Switch back to My Team
+- tapOn: "My Team"
+- waitForAnimationToEnd
+- assertVisible: "Create Your Team"

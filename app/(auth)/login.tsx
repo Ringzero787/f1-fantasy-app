@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  useColorScheme,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,10 +13,16 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { SocialAuthButtons } from '../../src/components';
 import { COLORS, SPACING, FONTS } from '../../src/config/constants';
 import { useTheme } from '../../src/hooks/useTheme';
+import { isAmazonBuild } from '../../src/utils/storeDetection';
+import { amazonSignIn } from '../../src/utils/amazonSignIn';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../src/config/firebase';
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { signInWithGoogle, signInWithApple, enterDemoMode, isLoading, error, clearError } = useAuth();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const { signInWithGoogle, signInWithApple, signInWithAmazon, enterDemoMode, isLoading, error, clearError } = useAuth();
 
   const handleGoogleSignIn = async (idToken: string) => {
     clearError();
@@ -37,14 +44,32 @@ export default function LoginScreen() {
     }
   };
 
+  const handleAmazonSignIn = async () => {
+    clearError();
+    try {
+      const { code, redirectUri } = await amazonSignIn();
+      const signInFn = httpsCallable<
+        { code: string; redirectUri: string },
+        { customToken: string; displayName: string; email: string }
+      >(functions, 'signInWithAmazon');
+      const result = await signInFn({ code, redirectUri });
+      const { customToken, displayName, email } = result.data;
+      await signInWithAmazon(customToken, { displayName, email });
+      router.replace('/');
+    } catch (err) {
+      // Error is handled by the store (or re-thrown for cancel)
+      if (err instanceof Error && err.message === 'Sign in cancelled') throw err;
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0F1A1C' : '#FFFFFF' }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.tagline}>Leave it to me.</Text>
+          <Text style={[styles.tagline, isDark && { color: '#6B8085' }]}>Leave it to me.</Text>
           <Text
             style={[styles.logo, { color: '#14B8A6' }]}
             onLongPress={() => { enterDemoMode(); router.replace('/'); }}
@@ -52,8 +77,8 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.title}>Welcome</Text>
-          <Text style={styles.description}>
+          <Text style={[styles.title, isDark && { color: '#E8F0F0' }]}>Welcome</Text>
+          <Text style={[styles.description, isDark && { color: '#6B8085' }]}>
             Sign in to manage your fantasy team
           </Text>
 
@@ -67,6 +92,7 @@ export default function LoginScreen() {
           <SocialAuthButtons
             onGoogleSignIn={handleGoogleSignIn}
             onAppleSignIn={handleAppleSignIn}
+            onAmazonSignIn={isAmazonBuild ? handleAmazonSignIn : undefined}
             disabled={isLoading}
           />
 

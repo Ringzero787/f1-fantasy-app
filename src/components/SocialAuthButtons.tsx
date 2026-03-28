@@ -5,6 +5,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import Constants from 'expo-constants';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { isAmazonBuild } from '../utils/storeDetection';
 
 // Check if running in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -65,16 +66,19 @@ export async function getAppleCredential(): Promise<{ identityToken: string; non
 interface SocialAuthButtonsProps {
   onGoogleSignIn: (idToken: string) => Promise<void>;
   onAppleSignIn: (identityToken: string, nonce: string) => Promise<void>;
+  onAmazonSignIn?: () => Promise<void>;
   disabled?: boolean;
 }
 
 export function SocialAuthButtons({
   onGoogleSignIn,
   onAppleSignIn,
+  onAmazonSignIn,
   disabled = false,
 }: SocialAuthButtonsProps) {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
+  const [isAmazonLoading, setIsAmazonLoading] = useState(false);
 
   const handleGooglePress = async () => {
     if (isExpoGo) {
@@ -116,22 +120,52 @@ export function SocialAuthButtons({
     }
   };
 
+  const handleAmazonPress = async () => {
+    if (!onAmazonSignIn) return;
+    setIsAmazonLoading(true);
+    try {
+      await onAmazonSignIn();
+    } catch (error: any) {
+      if (error.message === 'Sign in cancelled') return;
+      const message = error instanceof Error ? error.message : 'Amazon sign in failed';
+      Alert.alert('Sign In Error', message);
+    } finally {
+      setIsAmazonLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* Google Sign In */}
-      <TouchableOpacity
-        style={[styles.button, styles.googleButton, disabled && styles.disabled]}
-        onPress={handleGooglePress}
-        disabled={disabled || isGoogleLoading}
-      >
-        <Ionicons name="logo-google" size={20} color="#374151" />
-        <Text style={[styles.buttonText, styles.googleText]}>
-          {isGoogleLoading ? 'Signing in...' : 'Continue with Google'}
-        </Text>
-      </TouchableOpacity>
+      {/* Amazon Sign In - Only show on Amazon builds */}
+      {isAmazonBuild && onAmazonSignIn && (
+        <TouchableOpacity
+          style={[styles.button, styles.amazonButton, disabled && styles.disabled]}
+          onPress={handleAmazonPress}
+          disabled={disabled || isAmazonLoading}
+        >
+          <Ionicons name="cart" size={20} color="#111111" />
+          <Text style={[styles.buttonText, styles.amazonText]}>
+            {isAmazonLoading ? 'Signing in...' : 'Continue with Amazon'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
-      {/* Apple Sign In - Only show on iOS */}
-      {Platform.OS === 'ios' && (
+      {/* Google Sign In - Hide on Amazon builds */}
+      {!isAmazonBuild && (
+        <TouchableOpacity
+          style={[styles.button, styles.googleButton, disabled && styles.disabled]}
+          onPress={handleGooglePress}
+          disabled={disabled || isGoogleLoading}
+        >
+          <Ionicons name="logo-google" size={20} color="#374151" />
+          <Text style={[styles.buttonText, styles.googleText]}>
+            {isGoogleLoading ? 'Signing in...' : 'Continue with Google'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Apple Sign In - Only show on iOS (never on Amazon) */}
+      {!isAmazonBuild && Platform.OS === 'ios' && (
         <TouchableOpacity
           style={[styles.button, styles.appleButton, disabled && styles.disabled]}
           onPress={handleApplePress}
@@ -190,6 +224,14 @@ const styles = StyleSheet.create({
 
   appleText: {
     color: COLORS.white,
+  },
+
+  amazonButton: {
+    backgroundColor: '#FF9900',
+  },
+
+  amazonText: {
+    color: '#111111',
   },
 
   disabled: {

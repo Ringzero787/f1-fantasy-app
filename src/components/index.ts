@@ -18,6 +18,6 @@ export * from './AvatarPicker';
 export * from './CountdownBanner';
 export * from './NewsFeed';
 export * from './AnnouncementBanner';
-export * from './PurchaseModal';
+
 export * from './RulesGuide';
 export * from './NotificationBell';

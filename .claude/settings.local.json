@@ -142,7 +142,18 @@
       "Bash(cmd.exe /c \"dir /s /b C:\\\\Users\\\\natha\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\")",
       "Bash(cmd.exe:*)",
       "Bash(find:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(for f in /c/Users/natha/AppData/Local/Temp/claude/C--Users-natha-f1-app/tasks/a0fd27cebbe694366.output /c/Users/natha/AppData/Local/Temp/claude/C--Users-natha-f1-app/tasks/a96e7bb2f6c998bf4.output /c/Users/natha/AppData/Local/Temp/claude/C--Users-natha-f1-app/tasks/a18796f1861be81d9.output)",
+      "Bash(do echo \"=== $f ===\")",
+      "Read(//c/Users/natha/f1-app/**)",
+      "Bash(done)",
+      "WebFetch(domain:api.openf1.org)",
+      "Bash(npx firebase:*)",
+      "mcp__plugin_firebase_firebase__functions_get_logs",
+      "mcp__plugin_firebase_firebase__firestore_get_document",
+      "Bash(node:*)",
+      "mcp__plugin_firebase_firebase__firestore_query_collection",
+      "Bash(git status:*)"
     ]
   }
 }
