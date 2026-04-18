@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ConstructorThemeId } from '../config/themes';
 
 export type UiMode = 'complex' | 'simple';
+export type ThemeMode = 'system' | 'light' | 'dark';
 
 interface PrefsState {
   showLocalTime: boolean;
@@ -14,6 +15,8 @@ interface PrefsState {
   setConstructorTheme: (id: ConstructorThemeId) => void;
   uiMode: UiMode;
   setUiMode: (mode: UiMode) => void;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
 
   // Review prompt tracking
   hasPromptedReview: boolean;
@@ -34,6 +37,8 @@ export const usePrefsStore = create<PrefsState>()(
       setConstructorTheme: (id: ConstructorThemeId) => set({ constructorTheme: id }),
       uiMode: 'simple' as UiMode,
       setUiMode: (mode: UiMode) => set({ uiMode: mode }),
+      themeMode: 'system' as ThemeMode,
+      setThemeMode: (mode: ThemeMode) => set({ themeMode: mode }),
 
       // Review prompt
       hasPromptedReview: false,

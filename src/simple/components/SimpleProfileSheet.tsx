@@ -47,6 +47,8 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
   const setUser = useAuthStore((s) => s.setUser);
   const displayScale = usePrefsStore((s) => s.displayScale);
   const setDisplayScale = usePrefsStore((s) => s.setDisplayScale);
+  const themeMode = usePrefsStore((s) => s.themeMode);
+  const setThemeMode = usePrefsStore((s) => s.setThemeMode);
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -961,6 +963,32 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
                     <Text style={[styles.scaleBtnText, { fontSize: s.size }, displayScale === s.scale && styles.scaleBtnTextActive]}>
                       A
                     </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Theme Mode */}
+            <View style={styles.scaleRow}>
+              <Ionicons name="contrast-outline" size={18} color={colors.text.secondary} />
+              <Text style={styles.settingsRowText}>Theme</Text>
+              <View style={styles.scaleButtons}>
+                {([
+                  { mode: 'light' as const, icon: 'sunny-outline' as const, label: 'Light' },
+                  { mode: 'system' as const, icon: 'phone-portrait-outline' as const, label: 'Auto' },
+                  { mode: 'dark' as const, icon: 'moon-outline' as const, label: 'Dark' },
+                ] as const).map((t) => (
+                  <TouchableOpacity
+                    key={t.mode}
+                    style={[styles.scaleBtn, themeMode === t.mode && styles.scaleBtnActive]}
+                    onPress={() => setThemeMode(t.mode)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={t.icon}
+                      size={14}
+                      color={themeMode === t.mode ? '#fff' : colors.text.muted}
+                    />
                   </TouchableOpacity>
                 ))}
               </View>

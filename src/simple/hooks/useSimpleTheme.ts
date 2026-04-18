@@ -4,10 +4,13 @@ import { usePrefsStore } from '../../store/prefs.store';
 import { S_COLORS_LIGHT, S_COLORS_DARK, S_FONTS, S_SPACING, S_RADIUS } from '../theme/simpleTheme';
 
 export function useSimpleTheme() {
-  const colorScheme = useColorScheme();
+  const systemScheme = useColorScheme();
   const displayScale = usePrefsStore((s) => s.displayScale);
+  const themeMode = usePrefsStore((s) => s.themeMode);
 
-  const isDark = (colorScheme ?? 'light') === 'dark';
+  const isDark = themeMode === 'system'
+    ? (systemScheme ?? 'light') === 'dark'
+    : themeMode === 'dark';
   const colors = isDark ? S_COLORS_DARK : S_COLORS_LIGHT;
 
   return useMemo(() => {
