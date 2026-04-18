@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
+import { maybeRequestReview } from '../../../../src/utils/reviewPrompt';
 import {
   View,
   Text,
@@ -314,6 +315,15 @@ export default function LeagueDetailScreen() {
   const isOwner = currentLeague.ownerId === user?.id;
   const isPendingApproval = id ? pendingLeagueIds.includes(id) : false;
   const currentUserMember = members.find((m) => m.userId === user?.id);
+
+  // Prompt for review when standings load and user has scored points
+  const reviewTriggered = useRef(false);
+  useEffect(() => {
+    if (currentUserMember && currentUserMember.totalPoints > 0 && !reviewTriggered.current) {
+      reviewTriggered.current = true;
+      maybeRequestReview();
+    }
+  }, [currentUserMember?.totalPoints]);
 
   const listHeader = (
     <>

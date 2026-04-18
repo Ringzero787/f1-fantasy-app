@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Undercut",
     slug: "f1-fantasy-app",
-    version: "2.1.0",
+    version: "2.1.3",
     orientation: "default",
     icon: "./assets/icon.png",
     scheme: "theundercut",
@@ -23,7 +23,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "32",
+      buildNumber: "36",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -36,7 +36,7 @@ module.exports = {
         backgroundColor: "#0D1117"
       },
       package: "com.undercut.app",
-      versionCode: 38,
+      versionCode: 43,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",
@@ -55,10 +55,19 @@ module.exports = {
         },
         android: {
           targetSdkVersion: 35,
+          compileSdkVersion: 36,
+          buildToolsVersion: "36.0.0",
+          ndkVersion: "27.1.12297006",
+          useLegacyPackaging: false,
+          edgeToEdgeEnabled: true,
+          extraProguardRules: "-keep class com.facebook.hermes.** { *; }",
         },
       }],
       "expo-router",
       "expo-asset",
+      "expo-font",
+      "expo-web-browser",
+      "expo-image",
       [
         "expo-image-picker",
         {

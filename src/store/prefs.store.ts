@@ -14,6 +14,13 @@ interface PrefsState {
   setConstructorTheme: (id: ConstructorThemeId) => void;
   uiMode: UiMode;
   setUiMode: (mode: UiMode) => void;
+
+  // Review prompt tracking
+  hasPromptedReview: boolean;
+  lastReviewPromptDate: number | null;
+  sessionCount: number;
+  incrementSession: () => void;
+  markReviewPrompted: () => void;
 }
 
 export const usePrefsStore = create<PrefsState>()(
@@ -27,6 +34,13 @@ export const usePrefsStore = create<PrefsState>()(
       setConstructorTheme: (id: ConstructorThemeId) => set({ constructorTheme: id }),
       uiMode: 'simple' as UiMode,
       setUiMode: (mode: UiMode) => set({ uiMode: mode }),
+
+      // Review prompt
+      hasPromptedReview: false,
+      lastReviewPromptDate: null,
+      sessionCount: 0,
+      incrementSession: () => set((s) => ({ sessionCount: s.sessionCount + 1 })),
+      markReviewPrompted: () => set({ hasPromptedReview: true, lastReviewPromptDate: Date.now() }),
     }),
     {
       name: 'prefs-storage',

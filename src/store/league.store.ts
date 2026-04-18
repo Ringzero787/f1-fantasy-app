@@ -49,6 +49,7 @@ interface LeagueState {
   pendingMembers: LeagueMember[]; // Pending members for admin view
   isLoading: boolean;
   error: string | null;
+  membersLastFetched: Record<string, number>; // leagueId -> timestamp of last fetch
 
   // Actions
   setLeagues: (leagues: League[]) => void;
@@ -61,7 +62,7 @@ interface LeagueState {
   // League actions
   loadUserLeagues: (userId: string) => Promise<void>;
   loadLeague: (leagueId: string) => Promise<void>;
-  loadLeagueMembers: (leagueId: string) => Promise<void>;
+  loadLeagueMembers: (leagueId: string, force?: boolean) => Promise<void>;
   subscribeToLeagueMembers: (leagueId: string) => () => void;
   unsubscribeFromLeagueMembers: () => void;
   lookupLeagueByCode: (code: string) => Promise<League | null>;
@@ -112,6 +113,7 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
   pendingLeagueIds: [],
   pendingMembers: [],
   isLoading: false,
+  membersLastFetched: {},
   error: null,
   pendingCountsByLeague: {},
   demoInviteCounts: {},
@@ -235,8 +237,23 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     }
   },
 
-  loadLeagueMembers: async (leagueId) => {
+  loadLeagueMembers: async (leagueId, force) => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
+
+    // Short cache: skip re-fetch if loaded recently
+    // Race weekend (Sat/Sun): 30s cache. Weekday: 60s cache.
+    // Pull-to-refresh or force=true bypasses cache.
+    if (!force) {
+      const lastFetch = get().membersLastFetched[leagueId];
+      const now = Date.now();
+      const day = new Date().getDay();
+      const isRaceWeekend = day === 0 || day === 6;
+      const cacheTTL = isRaceWeekend ? 30_000 : 60_000;
+
+      if (lastFetch && now - lastFetch < cacheTTL && get().members.length > 0) {
+        return; // Use cached data
+      }
+    }
 
     set({ isLoading: true, error: null });
     try {
@@ -329,7 +346,11 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       }
 
       const members = await leagueService.getLeagueMembers(leagueId);
-      set({ members, isLoading: false });
+      set({
+        members,
+        isLoading: false,
+        membersLastFetched: { ...get().membersLastFetched, [leagueId]: Date.now() },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load members';
       errorLogService.logError('loadLeagueMembers', error);

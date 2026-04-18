@@ -52,6 +52,7 @@ export const checkOpenF1Results = onSchedule(
 
       for (const doc of racesSnapshot.docs) {
         const data = doc.data();
+        if (data.status === 'cancelled') continue; // skip cancelled races
         const raceTime = data.schedule?.race;
         if (!raceTime) continue;
 

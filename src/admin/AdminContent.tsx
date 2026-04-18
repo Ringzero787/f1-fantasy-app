@@ -1345,6 +1345,7 @@ export default function AdminContent() {
             {demoRaces.map(race => {
               const result = raceResults[race.id];
               const isComplete = result?.isComplete;
+              const isCancelled = race.status === 'cancelled';
               const hasData = result && result.driverResults.some(dr => dr.points > 0);
 
               return (
@@ -1355,18 +1356,49 @@ export default function AdminContent() {
                     { backgroundColor: theme.card },
                     selectedRaceId === race.id && [styles.raceChipSelected, { backgroundColor: theme.primary, borderColor: theme.primary }],
                     isComplete && styles.raceChipComplete,
+                    isCancelled && { opacity: 0.4, borderColor: COLORS.danger },
                     race.hasSprint && styles.raceChipSprint,
                   ]}
-                  onPress={() => handleSelectRace(race.id)}
+                  onPress={() => isCancelled ? null : handleSelectRace(race.id)}
+                  onLongPress={() => {
+                    if (isComplete) return;
+                    Alert.alert(
+                      isCancelled ? 'Restore Race' : 'Cancel Race',
+                      isCancelled
+                        ? `Restore ${race.name} (R${race.round})?`
+                        : `Cancel ${race.name} (R${race.round})? This will skip it in the schedule.`,
+                      [
+                        { text: 'No', style: 'cancel' },
+                        {
+                          text: isCancelled ? 'Restore' : 'Cancel Race',
+                          style: isCancelled ? 'default' : 'destructive',
+                          onPress: async () => {
+                            try {
+                              const newStatus = isCancelled ? 'upcoming' : 'cancelled';
+                              await raceService.updateRaceStatus(race.id, newStatus);
+                              race.status = newStatus;
+                              Alert.alert('Done', `${race.name} is now ${newStatus}`);
+                            } catch (e) {
+                              Alert.alert('Error', 'Failed to update race status');
+                            }
+                          },
+                        },
+                      ],
+                    );
+                  }}
                 >
                   <View style={styles.raceChipHeader}>
                     <Text style={[
                       styles.raceChipRound,
                       selectedRaceId === race.id && styles.raceChipTextSelected,
+                      isCancelled && { textDecorationLine: 'line-through' as const },
                     ]}>
                       R{race.round}
                     </Text>
-                    {race.hasSprint && (
+                    {isCancelled && (
+                      <Ionicons name="close-circle" size={10} color={COLORS.danger} />
+                    )}
+                    {!isCancelled && race.hasSprint && (
                       <Ionicons
                         name="flash"
                         size={10}
@@ -1378,16 +1410,20 @@ export default function AdminContent() {
                     style={[
                       styles.raceChipName,
                       selectedRaceId === race.id && styles.raceChipTextSelected,
+                      isCancelled && { textDecorationLine: 'line-through' as const },
                     ]}
                     numberOfLines={1}
                   >
                     {race.country}
                   </Text>
                   <View style={styles.raceChipBadges}>
-                    {isComplete && (
+                    {isCancelled && (
+                      <Text style={{ fontSize: 8, color: COLORS.danger }}>CANCELLED</Text>
+                    )}
+                    {!isCancelled && isComplete && (
                       <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
                     )}
-                    {!isComplete && hasData && (
+                    {!isCancelled && !isComplete && hasData && (
                       <Ionicons name="ellipse" size={8} color={COLORS.warning} />
                     )}
                     {isComplete && cloudSyncedRaces[race.id] && (

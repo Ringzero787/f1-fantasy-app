@@ -16,8 +16,9 @@ export const ROUND_TO_RACE_ID: Record<number, string> = {
   1: 'australia_2026',
   2: 'china_2026',
   3: 'japan_2026',
-  4: 'bahrain_2026',
-  5: 'saudi_2026',
+  // 4 and 5 cancelled (Bahrain & Saudi — Middle East conflict)
+  // 4: 'bahrain_2026',
+  // 5: 'saudi_2026',
   6: 'miami_2026',
   7: 'canada_2026',
   8: 'monaco_2026',

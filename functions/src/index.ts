@@ -17,6 +17,7 @@ export * from './users/deleteUserData';
 export * from './notifications/sendBroadcast';
 export * from './ingestion/checkResults';
 export * from './ingestion/syncSchedule';
+export * from './ingestion/scheduleMonitor';
 export * from './cache/marketCache';
 export * from './teams/teamOperations';
 export * from './auth/signInWithAmazon';

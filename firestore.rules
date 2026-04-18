@@ -207,6 +207,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Race scores — per-driver/constructor per-race scoring breakdown (read-only)
+    match /raceScores/{scoreId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // Game config — readable by all authenticated users, writable by admin only
+    match /config/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // Cache — authenticated users can read, only Cloud Functions write
     match /cache/{docId} {
       allow read: if isAuthenticated();

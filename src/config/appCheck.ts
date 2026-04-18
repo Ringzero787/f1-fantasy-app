@@ -1,55 +1,29 @@
-import appCheckModule from '@react-native-firebase/app-check';
-import { initializeAppCheck, CustomProvider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { app } from './firebase';
 
 /**
- * Initialize Firebase App Check on both the native (@react-native-firebase)
- * and JS (firebase/) SDKs.
- *
- * The native module handles platform attestation (Play Integrity on Android,
- * App Attest on iOS). We bridge the token to the JS SDK via a CustomProvider
- * so httpsCallable / Firestore / Storage calls include the App Check header.
- *
- * Call this once at app startup (before any protected Firebase calls).
+ * Initialize Firebase App Check using the JS SDK only.
+ * Native attestation (@react-native-firebase) removed for Expo 55 compatibility.
+ * Falls back gracefully — app works without App Check, just without the extra security layer.
  */
 export async function initAppCheck(): Promise<void> {
   try {
-    // 1. Configure native App Check provider
-    const rnProvider = appCheckModule().newReactNativeFirebaseAppCheckProvider();
-    rnProvider.configure({
-      android: {
-        provider: __DEV__ ? 'debug' : 'playIntegrity',
-      },
-      apple: {
-        provider: __DEV__ ? 'debug' : 'appAttestWithDeviceCheckFallback',
-      },
-    });
+    if (__DEV__) {
+      // In dev, set the debug token for App Check
+      // @ts-ignore
+      self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
 
-    await appCheckModule().initializeAppCheck({
-      provider: rnProvider,
-      isTokenAutoRefreshEnabled: true,
-    });
-
-    // 2. Bridge native tokens to JS SDK so httpsCallable/Firestore/Storage
-    //    include the X-Firebase-AppCheck header automatically
     initializeAppCheck(app, {
-      provider: new CustomProvider({
-        getToken: async () => {
-          const { token } = await appCheckModule().getToken(false);
-          // The JS SDK expects an expireTimeMillis. We don't have the exact
-          // expiry from the native module, so use 1 hour from now.
-          return {
-            token,
-            expireTimeMillis: Date.now() + 60 * 60 * 1000,
-          };
-        },
-      }),
+      provider: new ReCaptchaEnterpriseProvider(
+        process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || 'placeholder'
+      ),
       isTokenAutoRefreshEnabled: true,
     });
 
-    console.log('App Check initialized');
+    console.log('App Check initialized (JS SDK)');
   } catch (err) {
-    // Non-fatal — app still works, just without App Check protection
+    // Non-fatal — app still works without App Check
     console.warn('App Check initialization failed:', err);
   }
 }

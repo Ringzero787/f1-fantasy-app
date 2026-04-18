@@ -1,15 +1,16 @@
 import { useMemo } from 'react';
 import { useAdminStore } from '../store/admin.store';
-import { demoRaces } from '../data/demoData';
+import { useRemoteConfigStore } from '../store/remoteConfig.store';
 import { computeLockoutStatus, type LockoutInfo } from '../utils/lockout';
 
 /**
  * React hook that computes the current lockout status.
- * Reads race results and admin override from the admin store.
+ * Reads live race data from remoteConfig store (Firestore-backed).
  */
 export function useLockoutStatus(): LockoutInfo {
   const raceResults = useAdminStore((s) => s.raceResults);
   const adminLockOverride = useAdminStore((s) => s.adminLockOverride);
+  const races = useRemoteConfigStore((s) => s.races);
 
   return useMemo(() => {
     const completedRaceIds = new Set<string>();
@@ -20,10 +21,10 @@ export function useLockoutStatus(): LockoutInfo {
     });
 
     return computeLockoutStatus(
-      demoRaces,
+      races,
       completedRaceIds,
       new Date(),
       adminLockOverride,
     );
-  }, [raceResults, adminLockOverride]);
+  }, [races, raceResults, adminLockOverride]);
 }

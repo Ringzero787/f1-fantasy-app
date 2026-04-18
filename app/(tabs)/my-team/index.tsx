@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { maybeRequestReview } from '../../../src/utils/reviewPrompt';
 import {
   View,
   Text,
@@ -741,6 +742,16 @@ export default function MyTeamScreen() {
 
   const driversCount = currentTeam?.drivers.length || 0;
   const hasConstructor = !!currentTeam?.constructor;
+  const teamIsFull = driversCount === TEAM_SIZE && hasConstructor;
+
+  // Prompt for review when team is complete
+  const reviewTriggered = useRef(false);
+  useEffect(() => {
+    if (teamIsFull && !reviewTriggered.current) {
+      reviewTriggered.current = true;
+      maybeRequestReview();
+    }
+  }, [teamIsFull]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

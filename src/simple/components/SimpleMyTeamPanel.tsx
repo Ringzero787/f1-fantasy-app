@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { maybeRequestReview } from '../../utils/reviewPrompt';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
@@ -18,6 +19,7 @@ import { useAdminStore } from '../../store/admin.store';
 import { useLeagueStore } from '../../store/league.store';
 import { useTeamStore } from '../../store/team.store';
 import { useLockoutStatus } from '../../hooks/useLockoutStatus';
+import { useRaceScoresStore } from '../../store/raceScores.store';
 import { TEAM_SIZE, BUDGET } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
 import type { SimplePanel } from './SimpleToggleBar';
@@ -62,9 +64,19 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
   const [creatingSecondTeam, setCreatingSecondTeam] = useState(false);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const leagueMembers = useLeagueStore((s) => s.members);
+  const loadLeagueMembers = useLeagueStore((s) => s.loadLeagueMembers);
   const driverPrices = useAdminStore((s) => s.driverPrices);
   const constructorPrices = useAdminStore((s) => s.constructorPrices);
   const setCurrentTeam = useTeamStore((s) => s.setCurrentTeam);
+  const { lastRaceScores, fetchLastRaceScores } = useRaceScoresStore();
+
+  // Fetch last race scores and league members on mount
+  React.useEffect(() => { fetchLastRaceScores(); }, []);
+  React.useEffect(() => {
+    if (team?.leagueId && leagueMembers.length === 0) {
+      loadLeagueMembers(team.leagueId);
+    }
+  }, [team?.leagueId]);
 
   const styles = useMemo(() => ({
     scroll: {
@@ -143,7 +155,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
       borderLeftColor: colors.borderLight,
     },
     statValue: {
-      fontSize: fonts.hero,
+      fontSize: fonts.xl,
       fontWeight: S_FONTS.weights.bold,
       color: colors.text.primary,
     },
@@ -263,6 +275,15 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
 
   const emptyDriverSlots = TEAM_SIZE - driversCount;
 
+  // Prompt for review when team is complete
+  const reviewTriggered = useRef(false);
+  useEffect(() => {
+    if (isFull && !reviewTriggered.current) {
+      reviewTriggered.current = true;
+      maybeRequestReview();
+    }
+  }, [isFull]);
+
   // Enrich drivers with live market prices
   const enrichedDrivers = (team!.drivers ?? []).map(d => {
     const marketPrice = driverPrices[d.driverId]?.currentPrice;
@@ -273,6 +294,26 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
     : null;
   const totalValue = enrichedDrivers.reduce((s, d) => s + (d.currentPrice || 0), 0)
     + (enrichedConstructor?.currentPrice || 0);
+  const totalPurchaseValue = enrichedDrivers.reduce((s, d) => s + (d.purchasePrice || 0), 0)
+    + (enrichedConstructor?.purchasePrice || 0);
+  const valueChange = totalValue - totalPurchaseValue;
+
+  // Last race points from raceScores store
+  const lastRacePoints = (() => {
+    const driverIds = enrichedDrivers.map(d => d.driverId);
+    const ctorId = enrichedConstructor?.constructorId;
+    const scores = driverIds.map(id => lastRaceScores[id]?.totalPoints ?? 0);
+    if (ctorId && lastRaceScores[ctorId]) scores.push(lastRaceScores[ctorId].totalPoints);
+    // Only show if we have any scores loaded
+    if (Object.keys(lastRaceScores).length === 0) return null;
+    return scores.reduce((a, b) => a + b, 0);
+  })();
+
+  // League rank
+  const userId = team!.userId;
+  const myLeagueMember = leagueMembers.find(m => m.userId === userId);
+  const myRank = myLeagueMember?.rank;
+  const leagueSize = leagueMembers.length;
 
   const handleToggleAce = async (driverId: string) => {
     if (aceLocked) return;
@@ -366,20 +407,40 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
         <View style={[styles.statItem, { marginLeft: spacing.sm }]}>
           <Text style={styles.statValue}>
             {(() => {
-              // Use league member totalPoints as authoritative (includes qualifying, sprint, expired drivers)
-              const userId = team!.userId;
-              const leagueMember = leagueMembers.find(m => m.userId === userId);
-              const leaguePts = leagueMember?.totalPoints ?? 0;
+              const leaguePts = myLeagueMember?.totalPoints ?? 0;
               const teamPts = team!.totalPoints ?? 0;
               const computedPts = enrichedDrivers.reduce((s, d) => s + (d.pointsScored || 0), 0)
                 + (enrichedConstructor?.pointsScored || 0) + (team!.lockedPoints || 0);
               return Math.max(leaguePts, teamPts, computedPts);
             })()}
           </Text>
+          {lastRacePoints !== null && (
+            <Text style={{ fontSize: fonts.xs, color: lastRacePoints >= 0 ? colors.positive : colors.negative, fontWeight: S_FONTS.weights.medium }}>
+              {lastRacePoints >= 0 ? '+' : ''}{lastRacePoints} last
+            </Text>
+          )}
           <Text style={styles.statLabel}>Points</Text>
         </View>
         <View style={[styles.statItem, styles.statDivider]}>
+          {myRank ? (
+            <>
+              <Text style={styles.statValue}>{myRank}<Text style={{ fontSize: fonts.xs, color: colors.text.muted }}>/{leagueSize}</Text></Text>
+              <Text style={styles.statLabel}>Rank</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.statValue}>—</Text>
+              <Text style={styles.statLabel}>Rank</Text>
+            </>
+          )}
+        </View>
+        <View style={[styles.statItem, styles.statDivider]}>
           <Text style={styles.statValue}>${totalValue}</Text>
+          {valueChange !== 0 && (
+            <Text style={{ fontSize: fonts.xs, color: valueChange > 0 ? colors.positive : colors.negative, fontWeight: S_FONTS.weights.medium }}>
+              {valueChange > 0 ? '+' : ''}{valueChange}
+            </Text>
+          )}
           <Text style={styles.statLabel}>Value</Text>
         </View>
         <View style={[styles.statItem, styles.statDivider]}>
@@ -410,6 +471,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
           isAce={team!.aceDriverId === driver.driverId}
           locked={locked}
           aceLocked={aceLocked}
+          lastRacePoints={lastRaceScores[driver.driverId]?.totalPoints ?? null}
           onRemove={() => {
             const racesLeft = (driver.contractLength ?? 3) - (driver.racesHeld ?? 0);
             const earlyTermFee = racesLeft > 0 ? Math.round(driver.currentPrice * 0.1 * racesLeft) : 0;
@@ -449,6 +511,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
           isAce={team!.aceConstructorId === teamConstructor.constructorId}
           locked={locked}
           aceLocked={aceLocked}
+          lastRacePoints={lastRaceScores[teamConstructor.constructorId]?.totalPoints ?? null}
           onRemove={() => {
             const racesLeft = (teamConstructor.contractLength ?? 3) - (teamConstructor.racesHeld ?? 0);
             const earlyTermFee = racesLeft > 0 ? Math.round(teamConstructor.currentPrice * 0.1 * racesLeft) : 0;

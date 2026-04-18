@@ -33,6 +33,7 @@ export function getNextIncompleteRace(
   const IMPLICIT_COMPLETE_MS = 4 * 60 * 60 * 1000; // 4 hours after race start
   return sorted.find((r) => {
     if (completedRaceIds.has(r.id)) return false;
+    if (r.status === 'cancelled') return false;
     // If race start time is well past, treat as implicitly complete
     const raceTimeRaw = r.schedule?.race;
     if (raceTimeRaw) {

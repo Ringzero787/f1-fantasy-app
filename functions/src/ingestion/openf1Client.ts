@@ -228,7 +228,9 @@ export async function convertToRaceResults(
     const position = (isDnf || isDsq || !r.position) ? 0 : r.position;
     const status: RaceResult['status'] = isDsq ? 'dsq' : isDnf ? 'dnf' : 'finished';
 
-    const grid = gridPositions[driverId] ?? position; // fallback to finishing pos
+    // Use qualifying grid position; for drivers without qualifying data
+    // (e.g. crashed in Q1, stewards' permission), place them at the back
+    const grid = gridPositions[driverId] ?? 22;
 
     if (r.number_of_laps > maxLaps) {
       maxLaps = r.number_of_laps;

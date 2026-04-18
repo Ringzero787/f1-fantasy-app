@@ -10,6 +10,8 @@ import * as Updates from 'expo-updates';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { useLayout } from '../src/hooks/useLayout';
 import { handleAmazonDeepLink } from '../src/utils/amazonSignIn';
+import { useRemoteConfigStore } from '../src/store/remoteConfig.store';
+import { usePrefsStore } from '../src/store/prefs.store';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +41,12 @@ function extractInviteCode(url: string): string | null {
 
 export default function RootLayout() {
   const { isTablet } = useLayout();
+
+  // Load remote config from Firestore on startup
+  useEffect(() => { useRemoteConfigStore.getState().initialize(); }, []);
+
+  // Track session count for review prompt
+  useEffect(() => { usePrefsStore.getState().incrementSession(); }, []);
 
   // Lock phones to portrait; let tablets rotate freely
   useEffect(() => {

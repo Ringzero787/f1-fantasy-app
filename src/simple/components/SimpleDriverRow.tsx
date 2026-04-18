@@ -12,6 +12,7 @@ interface Props {
   isAce: boolean;
   locked: boolean;
   aceLocked?: boolean;
+  lastRacePoints?: number | null;
   onRemove?: () => void;
   onToggleAce?: () => void;
 }
@@ -21,6 +22,7 @@ export const SimpleDriverRow = React.memo(function SimpleDriverRow({
   isAce,
   locked,
   aceLocked = locked,
+  lastRacePoints,
   onRemove,
   onToggleAce,
 }: Props) {
@@ -29,6 +31,7 @@ export const SimpleDriverRow = React.memo(function SimpleDriverRow({
   const contractRemaining = (driver.contractLength ?? 3) - (driver.racesHeld ?? 0);
   const price = driver.currentPrice ?? driver.purchasePrice;
   const aceEligible = price <= PRICING_CONFIG.ACE_MAX_PRICE;
+  const priceChange = (driver.currentPrice && driver.purchasePrice) ? driver.currentPrice - driver.purchasePrice : 0;
 
   const styles = useMemo(() => ({
     container: {
@@ -135,13 +138,29 @@ export const SimpleDriverRow = React.memo(function SimpleDriverRow({
           )}
         </View>
         <Text style={styles.meta}>
-          {driver.shortName} · {contractRemaining} race{contractRemaining !== 1 ? 's' : ''} left
+          {driver.shortName} · {contractRemaining <= 0 ? 'Final race' : `${contractRemaining} race${contractRemaining !== 1 ? 's' : ''} left`}
         </Text>
       </View>
 
       <View style={styles.stats}>
-        <Text style={styles.points}>{driver.pointsScored ?? 0} pts</Text>
-        <Text style={styles.price}>${driver.currentPrice ?? driver.purchasePrice}</Text>
+        {lastRacePoints != null ? (
+          <>
+            <Text style={[styles.points, { color: lastRacePoints >= 0 ? colors.primary : colors.negative }]}>
+              {lastRacePoints >= 0 ? '+' : ''}{lastRacePoints}
+            </Text>
+            <Text style={{ fontSize: fonts.xs, color: colors.text.muted }}>{driver.pointsScored ?? 0} total</Text>
+          </>
+        ) : (
+          <Text style={styles.points}>{driver.pointsScored ?? 0} pts</Text>
+        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+          <Text style={styles.price}>${price}</Text>
+          {priceChange !== 0 && (
+            <Text style={{ fontSize: fonts.xs, color: priceChange > 0 ? colors.positive : colors.negative, fontWeight: S_FONTS.weights.medium }}>
+              {priceChange > 0 ? '▲' : '▼'}{Math.abs(priceChange)}
+            </Text>
+          )}
+        </View>
       </View>
 
       {!locked && onRemove && (

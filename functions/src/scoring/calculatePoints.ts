@@ -630,6 +630,120 @@ export const onRaceCompleted = functions
     const ctorPriceMap = new Map<string, number>();
     ctorPriceSnap.docs.forEach((d) => ctorPriceMap.set(d.id, d.data().price || 0));
 
+    // ─── PHASE 0.5: Write per-driver/constructor race scores ───
+    console.log(`[Phase 0.5] Writing race scores for ${raceId}`);
+    const raceScoreOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+
+    for (const result of raceResults) {
+      const sprintResult = sprintResultsMap.get(result.driverId) || null;
+      const qualiResult = qualifyingResultsMap.get(result.driverId);
+
+      let racePoints = 0;
+      let sprintPoints = 0;
+      let qualiPoints = 0;
+      let positionsGained = 0;
+      let fastestLapBonus = 0;
+
+      if (result.status === 'finished') {
+        if (result.position <= RACE_POINTS.length) racePoints += RACE_POINTS[result.position - 1];
+        positionsGained = result.gridPosition - result.position;
+        if (positionsGained > 0) racePoints += positionsGained * POSITION_GAINED_BONUS;
+        if (positionsGained < 0) racePoints += positionsGained;
+        if (result.fastestLap && result.position <= 10) {
+          racePoints += FASTEST_LAP_BONUS;
+          fastestLapBonus = FASTEST_LAP_BONUS;
+        }
+        if (result.position >= 1 && result.position <= GRID_SIZE) {
+          racePoints += GRID_SIZE + 1 - result.position;
+        }
+      } else if (result.status === 'dnf' || result.status === 'dsq') {
+        racePoints = -5;
+      }
+
+      if (sprintResult) {
+        if (sprintResult.status === 'finished' && sprintResult.position <= SPRINT_POINTS.length) {
+          sprintPoints = SPRINT_POINTS[sprintResult.position - 1];
+        } else if (sprintResult.status === 'dnf' || sprintResult.status === 'dsq') {
+          sprintPoints = SPRINT_DNF_PENALTY;
+        }
+      }
+
+      if (scoreQualifying && qualiResult && qualiResult.position >= 1 && qualiResult.position <= GRID_SIZE) {
+        qualiPoints = Math.floor((GRID_SIZE + 1 - qualiResult.position) / 2);
+      }
+
+      const docId = `${raceId}__${result.driverId}`;
+      raceScoreOps.push({
+        ref: db.collection('raceScores').doc(docId),
+        data: {
+          raceId,
+          round: afterData.round || 0,
+          entityId: result.driverId,
+          entityType: 'driver',
+          constructorId: result.constructorId,
+          position: result.position,
+          gridPosition: result.gridPosition,
+          status: result.status,
+          positionsGained,
+          racePoints,
+          sprintPoints,
+          sprintPosition: sprintResult?.position ?? null,
+          qualiPoints,
+          qualiPosition: qualiResult?.position ?? null,
+          fastestLap: result.fastestLap,
+          fastestLapBonus,
+          totalPoints: racePoints + sprintPoints + qualiPoints,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      });
+    }
+
+    // Constructor race scores (aggregate of both drivers)
+    const constructorIds = [...new Set(raceResults.map(r => r.constructorId))];
+    for (const ctorId of constructorIds) {
+      const ctorDriverResults = raceResults.filter(r => r.constructorId === ctorId);
+      let ctorRacePoints = 0;
+      let ctorQualiPoints = 0;
+      let ctorSprintPoints = 0;
+
+      for (const result of ctorDriverResults) {
+        if (result.status === 'finished') {
+          if (result.position <= RACE_POINTS.length) ctorRacePoints += RACE_POINTS[result.position - 1];
+          if (result.position >= 1 && result.position <= GRID_SIZE) ctorRacePoints += GRID_SIZE + 1 - result.position;
+        }
+        const sr = sprintResultsMap.get(result.driverId);
+        if (sr) {
+          if (sr.status === 'finished' && sr.position <= SPRINT_POINTS.length) ctorSprintPoints += SPRINT_POINTS[sr.position - 1];
+          else if (sr.status === 'dnf' || sr.status === 'dsq') ctorSprintPoints += SPRINT_DNF_PENALTY;
+        }
+        if (scoreQualifying) {
+          const qr = qualifyingResultsMap.get(result.driverId);
+          if (qr && qr.position >= 1 && qr.position <= GRID_SIZE) {
+            ctorQualiPoints += Math.floor((GRID_SIZE + 1 - qr.position) / 2);
+          }
+        }
+      }
+
+      const docId = `${raceId}__${ctorId}`;
+      raceScoreOps.push({
+        ref: db.collection('raceScores').doc(docId),
+        data: {
+          raceId,
+          round: afterData.round || 0,
+          entityId: ctorId,
+          entityType: 'constructor',
+          racePoints: ctorRacePoints,
+          sprintPoints: ctorSprintPoints,
+          qualiPoints: ctorQualiPoints,
+          totalPoints: ctorRacePoints + ctorSprintPoints + ctorQualiPoints,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      });
+    }
+
+    await commitInBatches(raceScoreOps);
+    console.log(`[Phase 0.5] Wrote ${raceScoreOps.length} race scores`);
+
     // ─── PHASE 1: Score fantasy teams ───
     console.log(`[Phase 1] Scoring teams for race ${raceId}`);
 

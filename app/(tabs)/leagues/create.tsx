@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { maybeRequestReview } from '../../../src/utils/reviewPrompt';
 import {
   View,
   Text,
@@ -158,6 +159,7 @@ export default function CreateLeagueScreen() {
           await createTeam(user.id, league.id, teamName);
 
           // Show confirmation and navigate to the league page
+          maybeRequestReview();
           Alert.alert(
             'League Created!',
             `Your league "${league.name}" is ready! A new team has been created and added to your league. Head to the My Team tab to build your lineup.`,

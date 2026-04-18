@@ -621,8 +621,9 @@ export const demoRaces: Race[] = [
     country: 'Bahrain',
     city: 'Sakhir',
     timezone: 'Asia/Bahrain',
+    // Cancelled due to Middle East conflict
     hasSprint: false,
-    status: 'upcoming',
+    status: 'cancelled',
     schedule: {
       fp1: new Date('2026-04-10T11:30:00Z'),
       fp2: new Date('2026-04-10T15:00:00Z'),
@@ -643,8 +644,9 @@ export const demoRaces: Race[] = [
     country: 'Saudi Arabia',
     city: 'Jeddah',
     timezone: 'Asia/Riyadh',
+    // Cancelled due to Middle East conflict
     hasSprint: false,
-    status: 'upcoming',
+    status: 'cancelled',
     schedule: {
       fp1: new Date('2026-04-17T13:30:00Z'),
       fp2: new Date('2026-04-17T17:00:00Z'),
