@@ -368,6 +368,11 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    // Admin-page UI prefs (e.g. last-selected race). Owner-only — keyed by uid.
+    match /tl_admin_prefs/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
     // Player picks — one doc per (user, race), owned by the user. Picks default
     // to side='with', stake=0; settlement fields written by tlSettleWeekend.
     match /tl_picks/{pickId} {

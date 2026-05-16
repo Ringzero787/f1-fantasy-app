@@ -12,6 +12,7 @@
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import racesData from './_seedRacesData.json';
+import { applyCors } from './_cors';
 
 const db = admin.firestore();
 
@@ -43,6 +44,7 @@ function toTimestamps(schedule: Record<string, string>): Record<string, admin.fi
 }
 
 export const tlSeedRaces = functions.https.onRequest(async (req, res) => {
+  if (applyCors(req, res)) return;
   if (req.query.key !== SEED_SECRET) {
     res.status(401).send('Unauthorized');
     return;

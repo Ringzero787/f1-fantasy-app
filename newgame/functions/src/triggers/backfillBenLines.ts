@@ -14,6 +14,7 @@
 
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
+import { applyCors } from './_cors';
 
 const db = admin.firestore();
 const SEED_SECRET = 'tl-seed-races-2026-shared-secret';
@@ -44,6 +45,7 @@ function decideOutcome(line: number, result: number): 'with' | 'against' | 'push
 }
 
 export const tlBackfillBenLines = functions.https.onRequest(async (req, res) => {
+  if (applyCors(req, res)) return;
   if (req.query.key !== SEED_SECRET) {
     res.status(401).send('Unauthorized');
     return;
