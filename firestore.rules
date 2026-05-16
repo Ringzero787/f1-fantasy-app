@@ -224,5 +224,177 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if false;
     }
+
+    // ============================================================
+    // Track Limits (sibling app — sibling collections prefixed tl_)
+    // ============================================================
+
+    function isTLLeagueMember(leagueId) {
+      return exists(/databases/$(database)/documents/tl_leagues/$(leagueId)/members/$(request.auth.uid));
+    }
+
+    function isTLLeagueOwner(leagueId) {
+      return get(/databases/$(database)/documents/tl_leagues/$(leagueId)).data.ownerId == request.auth.uid;
+    }
+
+    // TL user profiles — only the owner can read/write their own
+    match /tl_users/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // TL garage — only the owner can read/write
+    match /tl_garages/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+
+      // Transaction history — owner can read; client can append.
+      // Update/delete denied so transaction log is append-only.
+      match /transactions/{txId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+    }
+
+    // TL lineups — doc ID is {userId}_{raceId}; userId field on doc is authoritative
+    match /tl_lineups/{lineupId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == resource.data.userId;
+      allow delete: if false;
+    }
+
+    // TL leagues
+    match /tl_leagues/{leagueId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      // Members can update memberCount (via join transaction); owner can update everything else.
+      allow update: if isAuthenticated() && (
+        isTLLeagueOwner(leagueId) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'updatedAt'])
+      );
+      allow delete: if isAuthenticated() && isTLLeagueOwner(leagueId);
+
+      // League members — anyone authed can read (for leaderboard); join writes own member doc.
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && memberId == request.auth.uid;
+        allow update: if isAuthenticated() && (memberId == request.auth.uid || isTLLeagueOwner(leagueId));
+        allow delete: if isAuthenticated() && (memberId == request.auth.uid || isTLLeagueOwner(leagueId));
+      }
+
+      // Ledger entries — members can read everything (for leaderboard transparency),
+      // any member can append their own entry, status updates from owner or affected user.
+      match /ledger/{entryId} {
+        allow read: if isAuthenticated() && (isTLLeagueMember(leagueId) || isTLLeagueOwner(leagueId));
+        allow create: if isAuthenticated() && (isTLLeagueMember(leagueId) || isTLLeagueOwner(leagueId))
+                      && request.resource.data.userId == request.auth.uid;
+        allow update: if isAuthenticated() && (
+          isTLLeagueOwner(leagueId) ||
+          resource.data.userId == request.auth.uid
+        );
+        allow delete: if isAuthenticated() && isTLLeagueOwner(leagueId);
+      }
+
+      // Settlements — two-step "I sent it" / "I received it" flow.
+      match /settlements/{settlementId} {
+        allow read: if isAuthenticated() && (isTLLeagueMember(leagueId) || isTLLeagueOwner(leagueId));
+        allow create: if isAuthenticated() && request.resource.data.fromUserId == request.auth.uid;
+        // Only the recipient can confirm; only sender can dispute.
+        allow update: if isAuthenticated() && (
+          (resource.data.toUserId == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'confirmedByToAt'])) ||
+          (resource.data.fromUserId == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+        );
+        allow delete: if false;
+      }
+    }
+
+    // TL race scores — written by tlOnRaceCompleted Cloud Function, read by anyone authed.
+    match /tl_scores/{scoreId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // TL entitlements — owner reads their own; writes via Cloud Functions only.
+    match /tl_entitlements/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if false;
+    }
+
+    // TL purchases — owner reads their own; writes via Cloud Functions only.
+    match /tl_purchases/{purchaseId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // TL webhook log — admin/debug only.
+    match /tl_webhook_log/{logId} {
+      allow read, write: if false;
+    }
+
+    // TL insurance — owner reads/writes their own. Doc ID is `${userId}_${raceId}`,
+    // userId field on the doc is the source of truth for ownership.
+    match /tl_insurance/{insuranceId} {
+      allow get: if isAuthenticated() && resource != null && resource.data.userId == request.auth.uid;
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // TL bets — same model as insurance.
+    match /tl_bets/{betsId} {
+      allow get: if isAuthenticated() && resource != null && resource.data.userId == request.auth.uid;
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Ben's posted lines — read by anyone authed. Writes are intended to be
+    // server-only (Cloud Functions / admin tool driven by the predictor pipeline),
+    // but for the dev/demo phase we allow authed clients to seed placeholder
+    // lines via the in-app Demo screen. TODO: tighten to `if false` once Ben's
+    // pipeline is wired up.
+    match /ben_lines/{lineId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Player picks — one doc per (user, race), owned by the user. Picks default
+    // to side='with', stake=0; settlement fields written by tlSettleWeekend.
+    match /tl_picks/{pickId} {
+      allow get: if isAuthenticated() && resource != null && resource.data.userId == request.auth.uid;
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid
+                    // Don't let the client write settlement fields — those are CF-only.
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['settled', 'settledAt', 'weekendPoints', 'weekendCash', 'callsCorrect', 'callsTotal']);
+      allow delete: if false;
+    }
+
+    // Per-weekend per-user score — written by tlSettleWeekend, read for the
+    // weekly leaderboard. Anyone authed can read for cross-league comparison.
+    match /tl_weekend_scores/{scoreId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // Running season totals per user — written by tlSettleWeekend on each race
+    // settlement, read for the season leaderboard.
+    match /tl_season_scores/{scoreId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
   }
 }

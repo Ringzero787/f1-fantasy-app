@@ -1,0 +1,30 @@
+{
+  "name": "tracklimits-functions",
+  "version": "0.1.0",
+  "description": "Cloud Functions for Track Limits (subset scoring + ledger payouts)",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "deploy": "firebase deploy --only functions:tracklimits",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "expo": "~55.0.23",
+    "expo-clipboard": "~55.0.13",
+    "firebase-admin": "^13.8.0",
+    "firebase-functions": "^6.6.0",
+    "google-auth-library": "^10.6.2",
+    "react": "19.2.0",
+    "react-native": "0.83.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.3.0"
+  },
+  "private": true
+}

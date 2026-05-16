@@ -160,6 +160,57 @@
         { "fieldPath": "raceId", "order": "ASCENDING" },
         { "fieldPath": "entityType", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "tl_weekend_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "raceId", "order": "ASCENDING" },
+        { "fieldPath": "points", "order": "DESCENDING" },
+        { "fieldPath": "cash", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tl_weekend_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "seasonId", "order": "ASCENDING" },
+        { "fieldPath": "round", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tl_weekend_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "seasonId", "order": "ASCENDING" },
+        { "fieldPath": "round", "order": "ASCENDING" },
+        { "fieldPath": "points", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tl_season_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "seasonId", "order": "ASCENDING" },
+        { "fieldPath": "totalPoints", "order": "DESCENDING" },
+        { "fieldPath": "totalCash", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tl_season_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "seasonId", "order": "ASCENDING" },
+        { "fieldPath": "totalCash", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tl_picks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "raceId", "order": "ASCENDING" },
+        { "fieldPath": "settled", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
