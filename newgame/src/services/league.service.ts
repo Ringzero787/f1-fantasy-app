@@ -179,6 +179,33 @@ export const leagueService = {
     return snap.docs.map((d, i) => ({ id: d.id, ...d.data(), rank: i + 1 })) as LeagueMember[];
   },
 
+  // Enriched standings: members + their season scores (totalCash, callsCorrect,
+  // callsTotal) joined for the new league detail page. Falls back gracefully
+  // when a member has no season score doc yet (no settled weekends).
+  async getStandings(args: {
+    leagueId: string;
+    seasonId: string;
+  }): Promise<Array<LeagueMember & { totalCash: number; callsCorrect: number; callsTotal: number }>> {
+    const { leagueId, seasonId } = args;
+    const members = await this.getMembers(leagueId);
+    const enriched = await Promise.all(
+      members.map(async (m) => {
+        const ssRef = doc(db, 'tl_season_scores', `${m.userId}_${seasonId}`);
+        const ss = await getDoc(ssRef);
+        const data = ss.exists() ? (ss.data() as { totalCash?: number; callsCorrect?: number; callsTotal?: number; totalPoints?: number }) : null;
+        return {
+          ...m,
+          totalCash: data?.totalCash ?? 0,
+          callsCorrect: data?.callsCorrect ?? 0,
+          callsTotal: data?.callsTotal ?? 0,
+          // Prefer season-scores points (settlement-driven) over the member doc.
+          totalPoints: data?.totalPoints ?? m.totalPoints,
+        };
+      })
+    );
+    return enriched;
+  },
+
   async deleteLeague(leagueId: string): Promise<void> {
     // Best-effort: delete members + ledger then league. Production version should be a Cloud Function.
     const members = await getDocs(membersCol(leagueId));

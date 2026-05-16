@@ -1,62 +1,64 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+// League Detail — header + invite code + edge/biggest-haul hero + leaderboard
+// with three sort modes (vs Ben / Points / Cash). Per the v2 design handoff:
+// the bag-of-cash + inline ledger action grid moved out of the main page; the
+// sub-screens (settle-up, settlements, ledger, payout) still exist and are
+// reachable via a compact "Ledger tools" link block for ledger-enabled leagues.
+
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { leagueService } from '@services/league.service';
-import { ledgerService } from '@services/ledger.service';
+import { useUpcomingRace } from '@/hooks/useUpcomingRace';
 import { HelmetAvatar } from '@components/HelmetAvatar';
-import {
-  SectionLabel,
-  GhostBtn,
-  BagSplit,
-  ActionTile,
-  ChevronRank,
-  StatusBanner,
-  Num,
-  CashFlowStat,
-} from '@components/tl';
+import { SectionLabel, GhostBtn, ChevronRank } from '@components/tl';
 import { useTheme } from '@/theme';
-import type { BagOfCash, League, LeagueMember } from '@/types';
+import type { League, LeagueMember } from '@/types';
 
-type StandingsView = 'points' | 'cash';
+type Enriched = LeagueMember & {
+  totalCash: number;
+  callsCorrect: number;
+  callsTotal: number;
+};
+
+type SortMode = 'ben' | 'points' | 'cash';
 
 export default function LeagueDetailScreen() {
   const t = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const { data: upcomingRace } = useUpcomingRace();
+  const seasonId = upcomingRace?.seasonId ?? '2026';
 
   const [league, setLeague] = useState<League | null>(null);
-  const [members, setMembers] = useState<LeagueMember[]>([]);
-  const [bag, setBag] = useState<BagOfCash | null>(null);
-  const [cashBoard, setCashBoard] = useState<(BagOfCash & { displayName: string; rank: number })[]>([]);
+  const [members, setMembers] = useState<Enriched[]>([]);
   const [loading, setLoading] = useState(true);
-  const [standingsView, setStandingsView] = useState<StandingsView>('points');
+  const [sortBy, setSortBy] = useState<SortMode>('ben');
 
   const reload = useCallback(async () => {
     if (!id || !user) return;
     setLoading(true);
     try {
-      const [l, ms] = await Promise.all([leagueService.getLeague(id), leagueService.getMembers(id)]);
+      const [l, enriched] = await Promise.all([
+        leagueService.getLeague(id),
+        leagueService.getStandings({ leagueId: id, seasonId }),
+      ]);
       setLeague(l);
-      setMembers(ms);
-      if (l?.ledger.enabled) {
-        const b = await ledgerService.computeBag({ leagueId: id, userId: user.id, currencyLabel: l.ledger.currencyLabel });
-        setBag(b);
-        const allBags = await ledgerService.computeBagsForAllMembers({
-          leagueId: id,
-          members: ms.map((m) => ({ userId: m.userId, displayName: m.displayName })),
-          currencyLabel: l.ledger.currencyLabel,
-        });
-        setCashBoard(ledgerService.cashLeaderboard(allBags));
-      } else {
-        setBag(null);
-        setCashBoard([]);
-      }
+      setMembers(enriched);
     } finally {
       setLoading(false);
     }
-  }, [id, user]);
+  }, [id, user, seasonId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -64,12 +66,32 @@ export default function LeagueDetailScreen() {
     }, [reload])
   );
 
+  // Compute per-sort orderings + top/bottom IDs for chevron highlights.
+  const sorted = useMemo(() => {
+    const arr = [...members];
+    if (sortBy === 'ben' || sortBy === 'cash') arr.sort((a, b) => b.totalCash - a.totalCash);
+    else arr.sort((a, b) => b.totalPoints - a.totalPoints);
+    return arr;
+  }, [members, sortBy]);
+
+  const byCash = useMemo(() => [...members].sort((a, b) => b.totalCash - a.totalCash), [members]);
+  const byPoints = useMemo(() => [...members].sort((a, b) => b.totalPoints - a.totalPoints), [members]);
+  const cashTopId = byCash[0]?.userId;
+  const cashBotId = byCash.length > 1 ? byCash[byCash.length - 1]?.userId : null;
+  const ptsTopId = byPoints[0]?.userId;
+  // For our model edge == cash (both are net from Ben mechanic); we still
+  // expose ben tab separately so users can switch wording.
+  const benTopId = cashTopId;
+  const benBotId = cashBotId;
+
+  const me = members.find((m) => m.userId === user?.id);
+  const myEdge = me?.totalCash ?? 0;
+  const topMember = byCash[0];
+
   const onShareCode = async () => {
     if (!league) return;
     try {
-      await Share.share({
-        message: `Join my Track Limits league "${league.name}" with code ${league.inviteCode}`,
-      });
+      await Share.share({ message: `Join my Track Limits league "${league.name}" with code ${league.inviteCode}` });
     } catch {
       // cancelled
     }
@@ -90,24 +112,6 @@ export default function LeagueDetailScreen() {
     ]);
   };
 
-  const onPledgeBuyIn = async () => {
-    if (!league || !user || !league.ledger.enabled) return;
-    Alert.alert(
-      'Pledge buy-in?',
-      `Mark your ${league.ledger.currencyLabel}${league.ledger.buyInAmount} buy-in as pledged. Send it via Venmo / Cash App / Zelle.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Pledge',
-          onPress: async () => {
-            await ledgerService.pledgeBuyIn({ leagueId: league.id, userId: user.id, amount: league.ledger.buyInAmount });
-            reload();
-          },
-        },
-      ]
-    );
-  };
-
   if (loading || !league) {
     return (
       <View style={[styles.center, { backgroundColor: t.bg }]}>
@@ -120,7 +124,7 @@ export default function LeagueDetailScreen() {
   const ledgerOn = league.ledger.enabled;
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingBottom: 80 }}>
       {/* Header */}
       <View style={{ padding: 20, paddingTop: 8 }}>
         <Text
@@ -144,13 +148,14 @@ export default function LeagueDetailScreen() {
             letterSpacing: -0.8,
             color: t.text,
           }}
+          numberOfLines={1}
         >
           {league.name}
         </Text>
       </View>
 
-      {/* Invite code card */}
-      <View style={{ paddingHorizontal: 16, marginBottom: 4 }}>
+      {/* Invite code */}
+      <View style={{ paddingHorizontal: 16 }}>
         <View
           style={{
             backgroundColor: t.surface,
@@ -164,15 +169,7 @@ export default function LeagueDetailScreen() {
           }}
         >
           <View>
-            <Text
-              style={{
-                fontFamily: t.fMono,
-                fontSize: 9,
-                color: t.textMute,
-                letterSpacing: 1.2,
-                textTransform: 'uppercase',
-              }}
-            >
+            <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>
               Invite code
             </Text>
             <Text style={{ marginTop: 2, fontFamily: t.fMono, fontSize: 18, fontWeight: '600', color: t.text, letterSpacing: 2 }}>
@@ -183,191 +180,247 @@ export default function LeagueDetailScreen() {
         </View>
       </View>
 
-      {/* Bag of cash hero */}
-      {ledgerOn && bag ? (
-        <View style={{ paddingHorizontal: 16, marginTop: 14 }}>
-          <View
-            style={{
-              backgroundColor: t.surface,
-              borderWidth: 1,
-              borderColor: t.line,
-              borderRadius: 14,
-              overflow: 'hidden',
-            }}
-          >
-            <View style={{ padding: 18, borderBottomWidth: 1, borderBottomColor: t.lineSoft }}>
-              <Text
-                style={{
-                  fontFamily: t.fMono,
-                  fontSize: 10,
-                  color: t.accent,
-                  letterSpacing: 1.4,
-                  textTransform: 'uppercase',
-                  fontWeight: '700',
-                }}
-              >
-                Bag of cash · your position
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
-                <Text
-                  style={{
-                    fontFamily: t.fDisp,
-                    fontWeight: '600',
-                    fontSize: 38,
-                    color: bag.net >= 0 ? t.success : t.danger,
-                    letterSpacing: -1.0,
-                    fontVariant: ['tabular-nums'],
-                  }}
-                >
-                  {bag.net >= 0 ? '+' : '−'}
-                  {bag.currencyLabel}
-                  {Math.abs(bag.net).toFixed(2)}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: t.fMono,
-                    fontSize: 11,
-                    color: t.textMute,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {bag.net >= 0 ? 'net owed to you' : 'net you owe'}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-                <BagSplit label="Owed to you" amount={bag.unsettledOwed} positive currency={bag.currencyLabel} />
-                <BagSplit label="You owe" amount={bag.unsettledOwing} positive={false} currency={bag.currencyLabel} />
-              </View>
-            </View>
-
-            {/* Action grid 2x2 */}
-            <View>
-              <View style={{ flexDirection: 'row', backgroundColor: t.lineSoft, gap: 1 }}>
-                <ActionTile label="Settle up" sub="Optimal transfers" primary onPress={() => router.push(`/(tabs)/leagues/${league.id}/settle-up`)} />
-                <ActionTile label="Settlements" sub="Confirm / dispute" onPress={() => router.push(`/(tabs)/leagues/${league.id}/settlements`)} />
-              </View>
-              <View style={{ flexDirection: 'row', backgroundColor: t.lineSoft, gap: 1, borderTopWidth: 1, borderTopColor: t.lineSoft }}>
-                <ActionTile label="Ledger" sub="Full history" onPress={() => router.push(`/(tabs)/leagues/${league.id}/ledger`)} />
-                {isOwner ? (
-                  <ActionTile label="Create payout" sub="Commish action" onPress={() => router.push(`/(tabs)/leagues/${league.id}/payout`)} />
-                ) : (
-                  <ActionTile label="House rules" sub="Read only" onPress={() => undefined} />
-                )}
-              </View>
-            </View>
-
+      {/* Hero — your edge + biggest haul (two cells with a hairline between) */}
+      <View style={{ paddingHorizontal: 16, marginTop: 14 }}>
+        <View
+          style={{
+            backgroundColor: t.line,
+            borderRadius: 12,
+            overflow: 'hidden',
+            flexDirection: 'row',
+            gap: 1,
+          }}
+        >
+          <View style={{ flex: 1, backgroundColor: t.surface, padding: 14 }}>
             <Text
               style={{
-                padding: 12,
                 fontFamily: t.fMono,
-                fontSize: 10,
+                fontSize: 9,
                 color: t.textMute,
-                letterSpacing: 0.4,
-                textAlign: 'center',
-                borderTopWidth: 1,
-                borderTopColor: t.lineSoft,
+                letterSpacing: 1.2,
+                textTransform: 'uppercase',
+                fontWeight: '700',
               }}
             >
-              Track Limits never moves real money. Settle on Venmo, Cash App, or Zelle.
+              Your edge
+            </Text>
+            <Text
+              style={{
+                marginTop: 4,
+                fontFamily: t.fDisp,
+                fontWeight: '700',
+                fontSize: 24,
+                color: myEdge >= 0 ? t.success : t.danger,
+                letterSpacing: -0.6,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {myEdge >= 0 ? '+' : '−'}${Math.abs(myEdge).toFixed(0)}
+            </Text>
+            <Text style={{ marginTop: 2, fontFamily: t.fMono, fontSize: 10, color: t.textDim, letterSpacing: 0.4 }}>
+              vs Ben this season
             </Text>
           </View>
-
-          {bag.net === 0 && bag.unsettledOwing === 0 ? (
-            <Pressable
-              onPress={onPledgeBuyIn}
-              style={({ pressed }) => [
-                {
-                  marginTop: 12,
-                  backgroundColor: t.accent,
-                  borderRadius: 10,
-                  padding: 14,
-                  alignItems: 'center',
-                  opacity: pressed ? 0.85 : 1,
-                },
-              ]}
+          <View style={{ flex: 1, backgroundColor: t.surface, padding: 14 }}>
+            <Text
+              style={{
+                fontFamily: t.fMono,
+                fontSize: 9,
+                color: t.textMute,
+                letterSpacing: 1.2,
+                textTransform: 'uppercase',
+                fontWeight: '700',
+              }}
             >
-              <Text style={{ color: '#0E1116', fontFamily: t.fSans, fontWeight: '700', fontSize: 15, letterSpacing: 0.2 }}>
-                Pledge buy-in ({league.ledger.currencyLabel}
-                {league.ledger.buyInAmount})
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-
-      {/* Standings */}
-      <View style={{ marginTop: 22 }}>
-        <SectionLabel trailing={ledgerOn ? undefined : 'STANDINGS'}>Leaderboard</SectionLabel>
-        {ledgerOn ? (
-          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', backgroundColor: t.surface, borderRadius: 8, padding: 3, borderWidth: 1, borderColor: t.line, gap: 4 }}>
-              {(['points', 'cash'] as const).map((opt) => {
-                const active = standingsView === opt;
-                return (
-                  <Pressable
-                    key={opt}
-                    onPress={() => setStandingsView(opt)}
-                    style={{ flex: 1, padding: 7, borderRadius: 6, backgroundColor: active ? t.accent : 'transparent', alignItems: 'center' }}
-                  >
-                    <Text
-                      style={{
-                        color: active ? '#0E1116' : t.textDim,
-                        fontFamily: t.fMono,
-                        fontSize: 10,
-                        fontWeight: '700',
-                        letterSpacing: 1,
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {opt}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
-
-        <View style={{ paddingHorizontal: 16 }}>
-          <View style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, borderRadius: 12, overflow: 'hidden' }}>
-            {standingsView === 'points'
-              ? members.map((m, idx) => (
-                  <MemberRow
-                    key={m.id}
-                    rank={idx + 1}
-                    name={m.displayName}
-                    you={m.userId === user?.id}
-                    sub={`${m.totalPoints} pts · ${m.raceWins} ${m.raceWins === 1 ? 'win' : 'wins'}`}
-                    rightValue={`${m.totalPoints}`}
-                    rightColor={t.text}
-                    isFirst={idx === 0}
-                    isLast={idx === members.length - 1}
-                    userId={m.userId}
-                  />
-                ))
-              : cashBoard.map((b, idx) => {
-                  const isTop = idx === 0;
-                  const isBottom = idx === cashBoard.length - 1 && cashBoard.length > 1;
-                  return (
-                    <MemberRow
-                      key={b.userId}
-                      rank={idx + 1}
-                      name={b.displayName}
-                      you={b.userId === user?.id}
-                      sub={`net ${b.currencyLabel}${b.net.toFixed(0)}`}
-                      rightValue=""
-                      rightNode={<CashFlowStat amount={b.net} size={16} prefix={b.currencyLabel} />}
-                      chevron={isTop ? 'top' : isBottom ? 'bottom' : null}
-                      isFirst={idx === 0}
-                      isLast={idx === cashBoard.length - 1}
-                      userId={b.userId}
-                    />
-                  );
-                })}
+              ▲ Biggest haul
+            </Text>
+            <Text
+              style={{
+                marginTop: 4,
+                fontFamily: t.fDisp,
+                fontWeight: '700',
+                fontSize: 20,
+                color: t.text,
+                letterSpacing: -0.4,
+              }}
+              numberOfLines={1}
+            >
+              {topMember?.displayName ?? '—'}
+            </Text>
+            <Text
+              style={{
+                marginTop: 2,
+                fontFamily: t.fMono,
+                fontSize: 10,
+                color: topMember && topMember.totalCash >= 0 ? t.success : t.textDim,
+                letterSpacing: 0.4,
+                fontWeight: '700',
+              }}
+            >
+              {topMember
+                ? `${topMember.totalCash >= 0 ? '+' : '−'}$${Math.abs(topMember.totalCash).toFixed(0)} · ${topMember.callsCorrect}W`
+                : ''}
+            </Text>
           </View>
         </View>
       </View>
+
+      {/* Leaderboard */}
+      <View style={{ marginTop: 22 }}>
+        <SectionLabel trailing={`R${upcomingRace?.round ?? ''} · LIVE`}>Leaderboard</SectionLabel>
+        <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', backgroundColor: t.surface, borderRadius: 8, padding: 3, borderWidth: 1, borderColor: t.line, gap: 4 }}>
+            {([
+              { id: 'ben', label: 'vs Ben' },
+              { id: 'points', label: 'Points' },
+              { id: 'cash', label: 'Cash' },
+            ] as const).map((opt) => {
+              const active = sortBy === opt.id;
+              return (
+                <Pressable
+                  key={opt.id}
+                  onPress={() => setSortBy(opt.id)}
+                  style={{ flex: 1, padding: 8, borderRadius: 6, backgroundColor: active ? t.accent : 'transparent', alignItems: 'center' }}
+                >
+                  <Text
+                    style={{
+                      color: active ? '#0E1116' : t.textDim,
+                      fontFamily: t.fMono,
+                      fontSize: 10,
+                      fontWeight: '700',
+                      letterSpacing: 1,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={{ paddingHorizontal: 16 }}>
+          <View style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, borderRadius: 12, overflow: 'hidden' }}>
+            {sorted.map((m, i) => {
+              const isLast = i === sorted.length - 1;
+              const isMe = m.userId === user?.id;
+              const lost = Math.max(0, m.callsTotal - m.callsCorrect);
+              const chevron: 'top' | 'bottom' | null =
+                sortBy === 'cash' && m.userId === cashTopId ? 'top' :
+                sortBy === 'cash' && m.userId === cashBotId ? 'bottom' :
+                sortBy === 'ben' && m.userId === benTopId ? 'top' :
+                sortBy === 'ben' && m.userId === benBotId ? 'bottom' :
+                sortBy === 'points' && m.userId === ptsTopId ? 'top' :
+                null;
+
+              let primary = '';
+              let primaryColor = t.text;
+              if (sortBy === 'points') {
+                primary = String(m.totalPoints);
+              } else {
+                const v = m.totalCash;
+                primary = `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(0)}`;
+                primaryColor = v >= 0 ? t.success : t.danger;
+              }
+
+              const sub =
+                sortBy === 'points'
+                  ? `${m.raceWins} ${m.raceWins === 1 ? 'win' : 'wins'} · ${m.callsCorrect}W-${lost}L vs Ben`
+                  : sortBy === 'ben'
+                    ? `${m.callsCorrect}W-${lost}L · ${m.totalPoints} pts`
+                    : `${m.callsCorrect}W vs Ben · ${m.totalPoints} pts`;
+
+              return (
+                <View
+                  key={m.id}
+                  style={{
+                    padding: 14,
+                    backgroundColor: isMe ? t.accentSoft : 'transparent',
+                    borderBottomWidth: isLast ? 0 : 1,
+                    borderBottomColor: t.lineSoft,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <Text
+                    style={{
+                      width: 24,
+                      fontFamily: t.fMono,
+                      fontSize: 12,
+                      fontWeight: '700',
+                      color: i === 0 ? t.accent : t.textMute,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {i + 1}
+                  </Text>
+                  <HelmetAvatar userId={m.userId} displayName={m.displayName} size={30} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <Text style={{ fontFamily: t.fSans, fontWeight: isMe ? '600' : '500', fontSize: 14, color: t.text }} numberOfLines={1}>
+                        {m.displayName}
+                      </Text>
+                      {chevron ? <ChevronRank kind={chevron} /> : null}
+                    </View>
+                    <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.textMute, letterSpacing: 0.4, marginTop: 2 }}>
+                      {sub}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text
+                      style={{
+                        fontFamily: t.fMono,
+                        fontSize: 16,
+                        fontWeight: '700',
+                        color: primaryColor,
+                        letterSpacing: -0.2,
+                        fontVariant: ['tabular-nums'],
+                      }}
+                    >
+                      {primary}
+                    </Text>
+                    {sortBy !== 'points' ? (
+                      <Text
+                        style={{
+                          marginTop: 2,
+                          fontFamily: t.fMono,
+                          fontSize: 9,
+                          color: t.textMute,
+                          letterSpacing: 0.6,
+                          textTransform: 'uppercase',
+                          fontWeight: '600',
+                        }}
+                      >
+                        {sortBy === 'cash' ? 'NET' : 'EDGE'}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+
+      {/* Ledger tools — compact link block, only shown when ledger enabled */}
+      {ledgerOn ? (
+        <View style={{ paddingHorizontal: 16, marginTop: 18 }}>
+          <SectionLabel>Ledger</SectionLabel>
+          <View style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, borderRadius: 12, overflow: 'hidden' }}>
+            <LedgerLink label="Settle up" sub="Optimal transfers" onPress={() => router.push(`/(tabs)/leagues/${league.id}/settle-up`)} />
+            <LedgerLink label="Settlements" sub="Confirm / dispute" onPress={() => router.push(`/(tabs)/leagues/${league.id}/settlements`)} />
+            <LedgerLink label="Ledger" sub="Full history" onPress={() => router.push(`/(tabs)/leagues/${league.id}/ledger`)} />
+            {isOwner ? (
+              <LedgerLink label="Create payout" sub="Commish action" onPress={() => router.push(`/(tabs)/leagues/${league.id}/payout`)} isLast />
+            ) : null}
+          </View>
+          <Text style={{ marginTop: 8, fontFamily: t.fMono, fontSize: 10, color: t.textMute, letterSpacing: 0.4, textAlign: 'center' }}>
+            Track Limits never moves real money. Settle on Venmo, Cash App, or Zelle.
+          </Text>
+        </View>
+      ) : null}
 
       {!isOwner ? (
         <View style={{ padding: 16, marginTop: 16 }}>
@@ -385,7 +438,9 @@ export default function LeagueDetailScreen() {
               },
             ]}
           >
-            <Text style={{ color: t.danger, fontFamily: t.fSans, fontWeight: '600', fontSize: 14 }}>Leave league</Text>
+            <Text style={{ color: t.danger, fontFamily: t.fSans, fontWeight: '600', fontSize: 14 }}>
+              Leave league
+            </Text>
           </Pressable>
         </View>
       ) : null}
@@ -393,81 +448,39 @@ export default function LeagueDetailScreen() {
   );
 }
 
-function MemberRow({
-  rank,
-  name,
-  you,
+function LedgerLink({
+  label,
   sub,
-  rightValue,
-  rightNode,
-  rightColor,
-  chevron,
-  isFirst,
+  onPress,
   isLast,
-  userId,
 }: {
-  rank: number;
-  name: string;
-  you: boolean;
+  label: string;
   sub: string;
-  rightValue: string;
-  rightNode?: React.ReactNode;
-  rightColor?: string;
-  chevron?: 'top' | 'bottom' | null;
-  isFirst: boolean;
-  isLast: boolean;
-  userId: string;
+  onPress: () => void;
+  isLast?: boolean;
 }) {
   const t = useTheme();
   return (
-    <View
-      style={{
-        padding: 14,
-        backgroundColor: you ? t.accentSoft : 'transparent',
-        borderBottomWidth: isLast ? 0 : 1,
-        borderBottomColor: t.lineSoft,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-      }}
-    >
-      <View
-        style={{
-          width: 26,
-          height: 26,
-          borderRadius: 4,
-          backgroundColor: isFirst ? t.accent : t.surface2,
-          borderWidth: isFirst ? 0 : 1,
-          borderColor: t.line,
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          padding: 14,
+          flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: isFirst ? '#0E1116' : t.textDim, fontFamily: t.fMono, fontSize: 12, fontWeight: '700' }}>{rank}</Text>
+          justifyContent: 'space-between',
+          borderBottomWidth: isLast ? 0 : 1,
+          borderBottomColor: t.lineSoft,
+          opacity: pressed ? 0.85 : 1,
+        },
+      ]}
+    >
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontFamily: t.fSans, fontWeight: '600', fontSize: 14, color: t.text }}>{label}</Text>
+        <Text style={{ marginTop: 1, fontFamily: t.fMono, fontSize: 10, color: t.textMute, letterSpacing: 0.4 }}>{sub}</Text>
       </View>
-      <HelmetAvatar userId={userId} displayName={name} size={32} />
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Text style={{ fontFamily: t.fSans, fontWeight: you ? '600' : '500', fontSize: 14, color: t.text }}>{name}</Text>
-          {chevron ? <ChevronRank kind={chevron} /> : null}
-        </View>
-        <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.textMute, letterSpacing: 0.4, marginTop: 2 }}>{sub}</Text>
-      </View>
-      {rightNode ? rightNode : (
-        <Text
-          style={{
-            fontFamily: t.fMono,
-            fontSize: 16,
-            fontWeight: '700',
-            color: rightColor || t.text,
-            letterSpacing: -0.2,
-            fontVariant: ['tabular-nums'],
-          }}
-        >
-          {rightValue}
-        </Text>
-      )}
-    </View>
+      <Text style={{ color: t.textMute, fontSize: 16 }}>›</Text>
+    </Pressable>
   );
 }
 
