@@ -42,6 +42,7 @@ export default function CreateLeagueScreen() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
   const [ledgerEnabled, setLedgerEnabled] = useState(false);
   const [buyIn, setBuyIn] = useState('20');
   const [currency, setCurrency] = useState('$');
@@ -66,6 +67,7 @@ export default function CreateLeagueScreen() {
         ownerId: user.id,
         ownerName: user.displayName,
         seasonId,
+        isPublic,
         ledger: {
           enabled: ledgerEnabled,
           buyInAmount: ledgerEnabled ? Math.max(parseInt(buyIn || '0', 10), 0) : 0,
@@ -128,6 +130,44 @@ export default function CreateLeagueScreen() {
             placeholder="What's the vibe?"
             autoCapitalize="sentences"
             multiline
+          />
+        </View>
+
+        {/* Public toggle */}
+        <View
+          style={{
+            backgroundColor: t.surface,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: t.line,
+            padding: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: t.fMono,
+                fontSize: 10,
+                color: t.textMute,
+                letterSpacing: 1.2,
+                textTransform: 'uppercase',
+                fontWeight: '700',
+              }}
+            >
+              Open to the public
+            </Text>
+            <Text style={{ marginTop: 4, fontFamily: t.fSans, fontSize: 12.5, color: t.textDim, lineHeight: 18 }}>
+              Anyone can find this league in the browse list and join without an invite code. Leave off for private leagues — invite code only.
+            </Text>
+          </View>
+          <Switch
+            value={isPublic}
+            onValueChange={setIsPublic}
+            trackColor={{ false: t.surface2, true: t.accentSoft }}
+            thumbColor={isPublic ? t.accent : t.textDim}
           />
         </View>
 

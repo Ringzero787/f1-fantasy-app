@@ -34,6 +34,7 @@ export const leagueService = {
     ownerId: string;
     ownerName: string;
     seasonId: string;
+    isPublic?: boolean;
     ledger: LeagueLedgerConfig;
   }): Promise<League> {
     const inviteCode = generateInviteCode();
@@ -48,6 +49,7 @@ export const leagueService = {
       memberCount: 1,
       maxMembers: 8,
       seasonId: args.seasonId,
+      isPublic: args.isPublic ?? false,
       ledger: args.ledger,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -179,6 +181,67 @@ export const leagueService = {
     return snap.docs.map((d, i) => ({ id: d.id, ...d.data(), rank: i + 1 })) as LeagueMember[];
   },
 
+  // Browse public leagues. Used by the Leagues tab search/browse list. Returns
+  // leagues where isPublic === true, optionally filtered by a fuzzy name match.
+  // Caps the result to keep the page snappy.
+  async browsePublic(args: { search?: string; limit?: number } = {}): Promise<League[]> {
+    const max = args.limit ?? 50;
+    const snap = await getDocs(query(leaguesCol, where('isPublic', '==', true)));
+    const leagues = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as League);
+    const needle = (args.search || '').trim().toLowerCase();
+    const filtered = needle
+      ? leagues.filter((l) =>
+          (l.name || '').toLowerCase().includes(needle) ||
+          (l.description || '').toLowerCase().includes(needle) ||
+          (l.ownerName || '').toLowerCase().includes(needle)
+        )
+      : leagues;
+    filtered.sort((a, b) => (b.memberCount || 0) - (a.memberCount || 0));
+    return filtered.slice(0, max);
+  },
+
+  // Public-league join shortcut. Same membership add as joinByInviteCode but
+  // gated on the league actually being public.
+  async joinPublic(args: { leagueId: string; userId: string; displayName: string }): Promise<League> {
+    const league = await this.getLeague(args.leagueId);
+    if (!league) throw new Error('League not found');
+    if (!league.isPublic) throw new Error('This league is invite-only');
+    if (league.memberCount >= league.maxMembers) {
+      throw new Error(`League is full (${league.maxMembers} members)`);
+    }
+    const memberRef = doc(membersCol(league.id), args.userId);
+    const memberSnap = await getDoc(memberRef);
+    if (memberSnap.exists()) return league;
+    await runTransaction(db, async (tx) => {
+      tx.set(memberRef, {
+        leagueId: league.id,
+        userId: args.userId,
+        displayName: args.displayName,
+        totalPoints: 0,
+        raceWins: 0,
+        rank: league.memberCount + 1,
+        joinedAt: serverTimestamp(),
+      });
+      tx.update(doc(leaguesCol, league.id), {
+        memberCount: increment(1),
+        updatedAt: serverTimestamp(),
+      });
+    });
+    if (league.ledger?.enabled && league.ledger.buyInAmount > 0) {
+      try {
+        const { ledgerService } = await import('./ledger.service');
+        await ledgerService.pledgeBuyIn({
+          leagueId: league.id,
+          userId: args.userId,
+          amount: league.ledger.buyInAmount,
+        });
+      } catch (err) {
+        console.warn('[tl] auto-pledge failed:', err);
+      }
+    }
+    return { ...league, memberCount: league.memberCount + 1 };
+  },
+
   // Enriched standings: members + their season scores (totalCash, callsCorrect,
   // callsTotal) joined for the new league detail page. Falls back gracefully
   // when a member has no season score doc yet (no settled weekends).
@@ -211,5 +274,41 @@ export const leagueService = {
     const members = await getDocs(membersCol(leagueId));
     for (const m of members.docs) await deleteDoc(m.ref);
     await deleteDoc(doc(leaguesCol, leagueId));
+  },
+
+  // Admin: flip a league's public flag (search visibility + open-join).
+  async setLeaguePublic(leagueId: string, isPublic: boolean): Promise<void> {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(leaguesCol, leagueId);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new Error('League not found');
+      tx.update(ref, {
+        isPublic,
+        updatedAt: serverTimestamp(),
+      });
+    });
+  },
+
+  // Admin: kick a member. Decrements memberCount, removes the member doc.
+  // Caller (the UI) is responsible for confirming + checking ownership; we
+  // verify here too in case it's called from elsewhere.
+  async removeMember(args: { leagueId: string; targetUserId: string; requestedBy: string }): Promise<void> {
+    const { leagueId, targetUserId, requestedBy } = args;
+    await runTransaction(db, async (tx) => {
+      const leagueRef = doc(leaguesCol, leagueId);
+      const leagueSnap = await tx.get(leagueRef);
+      if (!leagueSnap.exists()) throw new Error('League not found');
+      const league = leagueSnap.data() as League;
+      if (league.ownerId !== requestedBy) throw new Error('Only the commissioner can remove members');
+      if (league.ownerId === targetUserId) throw new Error('The commissioner cannot be removed — delete the league instead');
+      const memberRef = doc(membersCol(leagueId), targetUserId);
+      const memberSnap = await tx.get(memberRef);
+      if (!memberSnap.exists()) return;
+      tx.delete(memberRef);
+      tx.update(leagueRef, {
+        memberCount: increment(-1),
+        updatedAt: serverTimestamp(),
+      });
+    });
   },
 };

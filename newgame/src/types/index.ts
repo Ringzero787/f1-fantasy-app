@@ -262,6 +262,9 @@ export interface League {
   memberCount: number;
   maxMembers: number; // default 8 (free), unlimited with Commissioner Pro
   seasonId: string;
+  // Discovery flag. Public leagues show up in the Browse list and are joinable
+  // by anyone without an invite code. Default false (invite-only).
+  isPublic?: boolean;
   ledger: LeagueLedgerConfig;
   createdAt: Date;
   updatedAt: Date;

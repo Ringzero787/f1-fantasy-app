@@ -127,31 +127,57 @@ export default function LeagueDetailScreen() {
     <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingBottom: 80 }}>
       {/* Header */}
       <View style={{ padding: 20, paddingTop: 8 }}>
-        <Text
-          style={{
-            fontFamily: t.fMono,
-            fontSize: 11,
-            color: t.textMute,
-            letterSpacing: 1.2,
-            textTransform: 'uppercase',
-          }}
-        >
-          League · {league.memberCount} of {league.maxMembers}
-          {isOwner ? ' · You commish' : ''}
-        </Text>
-        <Text
-          style={{
-            marginTop: 6,
-            fontFamily: t.fDisp,
-            fontWeight: '600',
-            fontSize: 26,
-            letterSpacing: -0.8,
-            color: t.text,
-          }}
-          numberOfLines={1}
-        >
-          {league.name}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              style={{
+                fontFamily: t.fMono,
+                fontSize: 11,
+                color: t.textMute,
+                letterSpacing: 1.2,
+                textTransform: 'uppercase',
+              }}
+            >
+              League · {league.memberCount} of {league.maxMembers}
+              {isOwner ? ' · You commish' : ''}
+              {league.isPublic ? ' · Public' : ''}
+            </Text>
+            <Text
+              style={{
+                marginTop: 6,
+                fontFamily: t.fDisp,
+                fontWeight: '600',
+                fontSize: 26,
+                letterSpacing: -0.8,
+                color: t.text,
+              }}
+              numberOfLines={1}
+            >
+              {league.name}
+            </Text>
+          </View>
+          {isOwner ? (
+            <Pressable
+              onPress={() => router.push(`/(tabs)/leagues/${league.id}/settings`)}
+              style={({ pressed }) => [
+                {
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: t.line,
+                  backgroundColor: t.surface,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+              accessibilityLabel="League settings"
+            >
+              <Text style={{ fontSize: 18, color: t.textDim }}>⚙</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       {/* Invite code */}
