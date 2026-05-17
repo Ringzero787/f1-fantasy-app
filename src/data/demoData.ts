@@ -677,7 +677,7 @@ export const demoRaces: Race[] = [
       race: new Date('2026-05-03T20:00:00Z'),
     },
   },
-  // Round 7: Canadian Grand Prix (Sprint) - May 22-24, 2026
+  // Round 7: Canadian Grand Prix - May 22-24, 2026 (non-sprint)
   {
     id: 'canada_2026',
     seasonId: '2026',
@@ -689,12 +689,12 @@ export const demoRaces: Race[] = [
     country: 'Canada',
     city: 'Montreal',
     timezone: 'America/Toronto',
-    hasSprint: true,
+    hasSprint: false,
     status: 'upcoming',
     schedule: {
       fp1: new Date('2026-05-22T17:30:00Z'),
-      sprintQualifying: new Date('2026-05-22T21:30:00Z'),
-      sprint: new Date('2026-05-23T16:00:00Z'),
+      fp2: new Date('2026-05-22T21:00:00Z'),
+      fp3: new Date('2026-05-23T16:30:00Z'),
       qualifying: new Date('2026-05-23T20:00:00Z'),
       race: new Date('2026-05-24T18:00:00Z'),
     },
@@ -765,7 +765,7 @@ export const demoRaces: Race[] = [
       race: new Date('2026-06-28T13:00:00Z'),
     },
   },
-  // Round 11: British Grand Prix (Sprint) - July 3-5, 2026
+  // Round 11: British Grand Prix - July 3-5, 2026 (non-sprint)
   {
     id: 'britain_2026',
     seasonId: '2026',
@@ -777,17 +777,17 @@ export const demoRaces: Race[] = [
     country: 'United Kingdom',
     city: 'Silverstone',
     timezone: 'Europe/London',
-    hasSprint: true,
+    hasSprint: false,
     status: 'upcoming',
     schedule: {
       fp1: new Date('2026-07-03T11:30:00Z'),
-      sprintQualifying: new Date('2026-07-03T15:30:00Z'),
-      sprint: new Date('2026-07-04T11:00:00Z'),
-      qualifying: new Date('2026-07-04T15:00:00Z'),
+      fp2: new Date('2026-07-03T15:00:00Z'),
+      fp3: new Date('2026-07-04T10:30:00Z'),
+      qualifying: new Date('2026-07-04T14:00:00Z'),
       race: new Date('2026-07-05T14:00:00Z'),
     },
   },
-  // Round 12: Belgian Grand Prix - July 17-19, 2026
+  // Round 12: Belgian Grand Prix (Sprint) - July 17-19, 2026
   {
     id: 'belgium_2026',
     seasonId: '2026',
@@ -799,12 +799,12 @@ export const demoRaces: Race[] = [
     country: 'Belgium',
     city: 'Spa',
     timezone: 'Europe/Brussels',
-    hasSprint: false,
+    hasSprint: true,
     status: 'upcoming',
     schedule: {
-      fp1: new Date('2026-07-17T11:30:00Z'),
-      fp2: new Date('2026-07-17T15:00:00Z'),
-      fp3: new Date('2026-07-18T10:30:00Z'),
+      fp1: new Date('2026-07-17T10:30:00Z'),
+      sprintQualifying: new Date('2026-07-17T14:30:00Z'),
+      sprint: new Date('2026-07-18T10:00:00Z'),
       qualifying: new Date('2026-07-18T14:00:00Z'),
       race: new Date('2026-07-19T13:00:00Z'),
     },
@@ -831,7 +831,7 @@ export const demoRaces: Race[] = [
       race: new Date('2026-07-26T13:00:00Z'),
     },
   },
-  // Round 14: Dutch Grand Prix (Sprint) - August 21-23, 2026
+  // Round 14: Dutch Grand Prix - August 21-23, 2026 (non-sprint)
   {
     id: 'netherlands_2026',
     seasonId: '2026',
@@ -843,13 +843,13 @@ export const demoRaces: Race[] = [
     country: 'Netherlands',
     city: 'Zandvoort',
     timezone: 'Europe/Amsterdam',
-    hasSprint: true,
+    hasSprint: false,
     status: 'upcoming',
     schedule: {
       fp1: new Date('2026-08-21T10:30:00Z'),
-      sprintQualifying: new Date('2026-08-21T14:30:00Z'),
-      sprint: new Date('2026-08-22T11:00:00Z'),
-      qualifying: new Date('2026-08-22T15:00:00Z'),
+      fp2: new Date('2026-08-21T14:00:00Z'),
+      fp3: new Date('2026-08-22T10:30:00Z'),
+      qualifying: new Date('2026-08-22T14:00:00Z'),
       race: new Date('2026-08-23T13:00:00Z'),
     },
   },
@@ -919,7 +919,7 @@ export const demoRaces: Race[] = [
       race: new Date('2026-09-26T11:00:00Z'),
     },
   },
-  // Round 18: Singapore Grand Prix (Sprint) - October 9-11, 2026
+  // Round 18: Singapore Grand Prix - October 9-11, 2026 (non-sprint)
   {
     id: 'singapore_2026',
     seasonId: '2026',
@@ -931,17 +931,17 @@ export const demoRaces: Race[] = [
     country: 'Singapore',
     city: 'Singapore',
     timezone: 'Asia/Singapore',
-    hasSprint: true,
+    hasSprint: false,
     status: 'upcoming',
     schedule: {
       fp1: new Date('2026-10-09T09:30:00Z'),
-      sprintQualifying: new Date('2026-10-09T13:30:00Z'),
-      sprint: new Date('2026-10-10T10:00:00Z'),
-      qualifying: new Date('2026-10-10T14:00:00Z'),
+      fp2: new Date('2026-10-09T13:00:00Z'),
+      fp3: new Date('2026-10-10T09:30:00Z'),
+      qualifying: new Date('2026-10-10T13:00:00Z'),
       race: new Date('2026-10-11T12:00:00Z'),
     },
   },
-  // Round 19: United States Grand Prix - October 23-25, 2026
+  // Round 19: United States Grand Prix (Sprint) - October 23-25, 2026
   {
     id: 'usa_2026',
     seasonId: '2026',
@@ -953,13 +953,13 @@ export const demoRaces: Race[] = [
     country: 'United States',
     city: 'Austin',
     timezone: 'America/Chicago',
-    hasSprint: false,
+    hasSprint: true,
     status: 'upcoming',
     schedule: {
       fp1: new Date('2026-10-23T17:30:00Z'),
-      fp2: new Date('2026-10-23T21:00:00Z'),
-      fp3: new Date('2026-10-24T18:00:00Z'),
-      qualifying: new Date('2026-10-24T22:00:00Z'),
+      sprintQualifying: new Date('2026-10-23T21:30:00Z'),
+      sprint: new Date('2026-10-24T17:00:00Z'),
+      qualifying: new Date('2026-10-24T21:00:00Z'),
       race: new Date('2026-10-25T19:00:00Z'),
     },
   },
@@ -985,7 +985,7 @@ export const demoRaces: Race[] = [
       race: new Date('2026-11-01T20:00:00Z'),
     },
   },
-  // Round 21: Brazilian Grand Prix - November 6-8, 2026
+  // Round 21: Sao Paulo Grand Prix (Sprint) - November 6-8, 2026
   {
     id: 'brazil_2026',
     seasonId: '2026',
@@ -997,12 +997,12 @@ export const demoRaces: Race[] = [
     country: 'Brazil',
     city: 'Sao Paulo',
     timezone: 'America/Sao_Paulo',
-    hasSprint: false,
+    hasSprint: true,
     status: 'upcoming',
     schedule: {
       fp1: new Date('2026-11-06T14:30:00Z'),
-      fp2: new Date('2026-11-06T18:00:00Z'),
-      fp3: new Date('2026-11-07T14:30:00Z'),
+      sprintQualifying: new Date('2026-11-06T18:30:00Z'),
+      sprint: new Date('2026-11-07T14:00:00Z'),
       qualifying: new Date('2026-11-07T18:00:00Z'),
       race: new Date('2026-11-08T17:00:00Z'),
     },
@@ -1029,7 +1029,7 @@ export const demoRaces: Race[] = [
       race: new Date('2026-11-22T06:00:00Z'),
     },
   },
-  // Round 23: Qatar Grand Prix - November 27-29, 2026
+  // Round 23: Qatar Grand Prix (Sprint) - November 27-29, 2026
   {
     id: 'qatar_2026',
     seasonId: '2026',
@@ -1041,13 +1041,13 @@ export const demoRaces: Race[] = [
     country: 'Qatar',
     city: 'Lusail',
     timezone: 'Asia/Qatar',
-    hasSprint: false,
+    hasSprint: true,
     status: 'upcoming',
     schedule: {
       fp1: new Date('2026-11-27T13:30:00Z'),
-      fp2: new Date('2026-11-27T17:00:00Z'),
-      fp3: new Date('2026-11-28T14:00:00Z'),
-      qualifying: new Date('2026-11-28T18:00:00Z'),
+      sprintQualifying: new Date('2026-11-27T17:30:00Z'),
+      sprint: new Date('2026-11-28T13:00:00Z'),
+      qualifying: new Date('2026-11-28T17:00:00Z'),
       race: new Date('2026-11-29T17:00:00Z'),
     },
   },

@@ -77,14 +77,42 @@ export default function LineupScreen() {
     };
   }, [userId]);
 
-  const sprintAvailable = !!benByRace?.sprint;
+  // Sprint tab only shows on actual sprint weekends (per the race schedule),
+  // not just whenever Ben happens to have posted sprint lines.
+  const hasSprintWeekend = !!upcomingRace?.hasSprint;
   const sessionsAvailable = useMemo<SessionKey[]>(() => {
-    return sprintAvailable ? ['sprint', 'qualifying', 'race'] : ['qualifying', 'race'];
-  }, [sprintAvailable]);
+    return hasSprintWeekend ? ['sprint', 'qualifying', 'race'] : ['qualifying', 'race'];
+  }, [hasSprintWeekend]);
 
+  // Smart-default the scope to the next un-locked session in calendar order.
+  // Once the user picks one manually it's respected for the rest of the visit.
+  const [scopeTouched, setScopeTouched] = useState(false);
   useEffect(() => {
-    if (!sessionsAvailable.includes(scope)) setScope(sessionsAvailable[0]);
-  }, [sessionsAvailable, scope]);
+    if (!sessionsAvailable.includes(scope)) {
+      setScope(sessionsAvailable[0]);
+      return;
+    }
+    if (scopeTouched) return;
+    if (!upcomingRace) return;
+    const now = Date.now();
+    const t = (d?: Date | null) => (d ? d.getTime() : Infinity);
+    const sprintAt = upcomingRace.schedule.sprint ? toDate(upcomingRace.schedule.sprint) : null;
+    const qualiAt = toDate(upcomingRace.schedule.qualifying);
+    const raceAt = toDate(upcomingRace.schedule.race);
+    const candidates: Array<{ key: SessionKey; t: number }> = [];
+    if (hasSprintWeekend) candidates.push({ key: 'sprint', t: t(sprintAt) });
+    candidates.push({ key: 'qualifying', t: t(qualiAt) });
+    candidates.push({ key: 'race', t: t(raceAt) });
+    // Sort by time, prefer the first session whose start is in the future.
+    candidates.sort((a, b) => a.t - b.t);
+    const next = candidates.find((c) => c.t > now) ?? candidates[0];
+    if (next && next.key !== scope) setScope(next.key);
+  }, [sessionsAvailable, scope, scopeTouched, upcomingRace, hasSprintWeekend]);
+
+  const onPickScope = (next: SessionKey) => {
+    setScopeTouched(true);
+    setScope(next);
+  };
 
   const benSession = benByRace?.[scope] ?? null;
 
@@ -137,7 +165,8 @@ export default function LineupScreen() {
 
   const qualiAt = toDate(upcomingRace.schedule.qualifying);
   const raceAt = toDate(upcomingRace.schedule.race);
-  const sessionStart = scope === 'qualifying' ? qualiAt : raceAt;
+  const sprintAt = upcomingRace.schedule.sprint ? toDate(upcomingRace.schedule.sprint) : null;
+  const sessionStart = scope === 'sprint' ? sprintAt : scope === 'qualifying' ? qualiAt : raceAt;
   const countdownStr = sessionStart ? formatCountdown(sessionStart) : (['—', ''] as [string, string]);
   const linesPosted = benSession && Object.keys(benSession.entities ?? {}).length > 0;
 
@@ -228,7 +257,7 @@ export default function LineupScreen() {
                 label={s === 'qualifying' ? 'Qualifying' : s === 'race' ? 'Race' : 'Sprint'}
                 sub={s === 'race' ? 'x1.00' : s === 'qualifying' ? 'x0.50' : 'x0.25'}
                 active={scope === s}
-                onPress={() => setScope(s)}
+                onPress={() => onPickScope(s)}
               />
             ))}
           </View>

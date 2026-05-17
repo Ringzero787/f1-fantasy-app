@@ -5,8 +5,7 @@
 // Source layout: design_handoff_track_limits/screen-lineup.jsx StakeSheet.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
-import { Sheet } from './Sheet';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@/theme';
 import { CONSTRUCTOR_COLORS } from '@/theme/tokens';
 import { Num, PrimaryBtn, WithAgainstToggle } from '@components/tl';
@@ -85,13 +84,50 @@ export function StakeSheet({
     onClose();
   };
 
+  const titleText = `${name ?? '—'} · ${scope === 'qualifying' ? 'Qualifying' : scope === 'race' ? 'Race' : 'Sprint'}`;
+  const subtitleText = `${sideLabel.toUpperCase()} · place a stake or skip to keep the pick free`;
+
   return (
-    <Sheet
-      visible={visible}
-      onClose={onClose}
-      title={`${name ?? '—'} · ${scope === 'qualifying' ? 'Qualifying' : scope === 'race' ? 'Race' : 'Sprint'}`}
-      subtitle={`${sideLabel.toUpperCase()} · place a stake or skip to keep the pick free`}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={centerStyles.scrim} onPress={onClose}>
+        <Pressable
+          onPress={(e) => e.stopPropagation()}
+          style={[
+            centerStyles.card,
+            { backgroundColor: t.surface, borderColor: t.line },
+          ]}
+        >
+          {/* Header */}
+          <View style={[centerStyles.headerRow, { borderBottomColor: t.lineSoft }]}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 17, letterSpacing: -0.4, color: t.text }}>
+                {titleText}
+              </Text>
+              <Text style={{ marginTop: 4, fontFamily: t.fMono, fontSize: 10, color: t.textDim, letterSpacing: 0.6 }}>
+                {subtitleText}
+              </Text>
+            </View>
+            <Pressable
+              onPress={onClose}
+              style={({ pressed }) => [
+                {
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  backgroundColor: t.surface2,
+                  borderWidth: 1,
+                  borderColor: t.line,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Text style={{ color: t.textDim, fontSize: 16, fontWeight: '700' }}>×</Text>
+            </Pressable>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 14 }} keyboardShouldPersistTaps="handled">
       {/* Side flip */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
         <Text
@@ -418,6 +454,37 @@ export function StakeSheet({
           <PrimaryBtn title={stake === 0 ? 'Save pick (no stake)' : `Lock $${stake}`} onPress={apply} />
         </View>
       </View>
-    </Sheet>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
+
+// Layout for the centered modal — kept inline so we don't pollute the bottom-
+// sheet Sheet primitive (still used by Spend/Replace/Bet/Insurance sheets).
+const centerStyles = StyleSheet.create({
+  scrim: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '92%',
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+});

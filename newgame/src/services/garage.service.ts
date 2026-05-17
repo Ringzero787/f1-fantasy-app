@@ -18,13 +18,15 @@ const RELEASE_REFUND_PCT = 0.75;
 const REROLL_BASE_COST = 5;
 const ROSTER_DRIVER_SLOTS = 4;
 const ROSTER_CONSTRUCTOR_SLOTS = 2;
-// Opening-roll budget — user must compose a 4-driver + 2-constructor hand within this.
-// Sized to Undercut's price scale where top drivers run ~$200–$600, midfield
-// $80–$150, backmarkers $20–$60. $1000 gives realistic headroom: a top-shelf
-// hand spends most of it; a balanced hand leaves $200–$400 as starting cash.
+// Opening-roll budget — used by the lite-generator / legacy scoring. The
+// onboarding wizard no longer constrains the player to it; the starting
+// bankroll is a flat ROLL_STARTING_CASH amount (see below).
 const ROLL_BUDGET = 1000;
 const ROLL_REJECT_TOKENS = 3;
-const ROLL_MACRO_REROLLS = 1;
+const ROLL_MACRO_REROLLS = 3;
+// Flat starting cash after the opening roll. Players spend it in the shop to
+// build out their roster beyond the random opening hand.
+const ROLL_STARTING_CASH = 100;
 
 const garageDoc = (userId: string) => doc(db, 'tl_garages', userId);
 const txCollection = (userId: string) => collection(db, 'tl_garages', userId, 'transactions');
@@ -526,4 +528,5 @@ export const garageConfig = {
   ROLL_BUDGET,
   ROLL_REJECT_TOKENS,
   ROLL_MACRO_REROLLS,
+  ROLL_STARTING_CASH,
 };

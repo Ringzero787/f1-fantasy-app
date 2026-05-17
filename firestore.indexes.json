@@ -211,6 +211,14 @@
         { "fieldPath": "raceId", "order": "ASCENDING" },
         { "fieldPath": "settled", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "races",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "schedule.race", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

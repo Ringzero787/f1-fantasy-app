@@ -11,6 +11,19 @@ import {
 import { db } from '../config/firebase';
 import type { Driver, Constructor, Race } from '../types';
 
+// Firestore Timestamp / Date / millis-number → millis. Race.schedule.race can
+// arrive as any of these depending on whether the doc was just written client-
+// side (Date) or read back (Timestamp).
+function toMillis(v: unknown): number {
+  if (!v) return Infinity;
+  if (typeof v === 'number') return v;
+  if (v instanceof Date) return v.getTime();
+  const maybeTs = v as { toMillis?: () => number; seconds?: number };
+  if (typeof maybeTs.toMillis === 'function') return maybeTs.toMillis();
+  if (typeof maybeTs.seconds === 'number') return maybeTs.seconds * 1000;
+  return Infinity;
+}
+
 // Synthesized race used when prod data is missing — lets the lineup UI render
 // end-to-end without depending on Undercut's schedule ingestion being current.
 function getMockUpcomingRace(): Race {
@@ -81,6 +94,9 @@ export const dataService = {
   },
 
   async getUpcomingRace(): Promise<Race | null> {
+    // Preferred path: status filter + orderBy schedule.race. Needs a composite
+    // index (status asc, schedule.race asc) — without it Firestore throws
+    // FAILED_PRECONDITION and we'd dump the user onto a mock race.
     try {
       const q = query(
         collection(db, 'races'),
@@ -94,10 +110,27 @@ export const dataService = {
         return { id: d.id, ...d.data() } as Race;
       }
     } catch (err) {
-      console.warn('[tl] getUpcomingRace prod query failed, falling back to mock:', err);
+      console.warn('[tl] getUpcomingRace indexed query failed, trying no-orderBy fallback:', err);
     }
-    // Layout fallback so the lineup screen renders even when prod data is missing
-    // or unreachable. Quali starts in 24h, race in 48h — both unlocked.
+    // Fallback A: status-only query with no orderBy (no index required), sort
+    // client-side. Works even while the composite index is still building.
+    try {
+      const q2 = query(collection(db, 'races'), where('status', '==', 'upcoming'));
+      const snap2 = await getDocs(q2);
+      if (!snap2.empty) {
+        const races = snap2.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Race, 'id'>) }));
+        races.sort((a, b) => {
+          const ta = a.schedule?.race ? toMillis(a.schedule.race) : Infinity;
+          const tb = b.schedule?.race ? toMillis(b.schedule.race) : Infinity;
+          return ta - tb;
+        });
+        return races[0] as Race;
+      }
+    } catch (err) {
+      console.warn('[tl] getUpcomingRace fallback A also failed, using mock:', err);
+    }
+    // Fallback B: synthesized mock so the lineup screen still renders rather
+    // than crash. Caller can detect this by the synthetic id.
     return getMockUpcomingRace();
   },
 

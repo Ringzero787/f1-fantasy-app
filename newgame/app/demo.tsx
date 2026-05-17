@@ -163,6 +163,22 @@ export default function DemoScreen() {
       );
     });
 
+  const generateBenLiteUpcoming = () =>
+    wrap('Generate Ben-Lite (upcoming race)', async () => {
+      const race = await dataService.getUpcomingRace();
+      if (!race) throw new Error('No upcoming race');
+      const url = `https://us-central1-f1-app-18077.cloudfunctions.net/tlGenerateBenLinesLite?key=tl-seed-races-2026-shared-secret&raceId=${encodeURIComponent(race.id)}${race.hasSprint ? '&sprint=1' : ''}`;
+      const resp = await fetch(url, { method: 'POST' });
+      const text = await resp.text();
+      if (!resp.ok) throw new Error(text);
+      const out = JSON.parse(text);
+      const total = Object.values(out.summary || {}).reduce((s: number, n) => s + Number(n || 0), 0);
+      Alert.alert(
+        'Ben-Lite generated',
+        `${race.name} · R${race.round}\n${total} lines posted using window: ${(out.windowRaces || []).join(', ')}.\n\nOpen the Lineup tab to see them.`
+      );
+    });
+
   const mockSettleRace = () =>
     wrap('Mock settle race', async () => {
       // Fabricates results for each line, decides outcomes, settles the current
@@ -365,7 +381,8 @@ export default function DemoScreen() {
 
         <SectionLabel>Race weekend</SectionLabel>
         <Group>
-          <Btn label="Seed Ben lines for upcoming race" sub="Writes placeholder O/U lines for Q + R so the betting UI has data" onPress={seedBenLines} disabled={busy} />
+          <Btn label="Generate Ben-Lite (upcoming race)" sub="Calls the Cloud Function — predicts O/U lines for the next race from last 9 results" onPress={generateBenLiteUpcoming} disabled={busy} />
+          <Btn label="Seed placeholder lines (upcoming race)" sub="Writes flat 10.5/21.5 placeholder O/U for Q + R when you just need stub data" onPress={seedBenLines} disabled={busy} />
           <Btn label="Mock-settle the race" sub="Fabricates results, settles your picks, writes weekend + season scores" onPress={mockSettleRace} disabled={busy} />
           <Btn label="Apply mock race finish (legacy)" sub="+87 pts, +$42 to garage; updates streak" onPress={mockRaceFinish} disabled={busy} />
           <Btn label="Open Standings" onPress={() => router.push('/standings')} disabled={busy} />
