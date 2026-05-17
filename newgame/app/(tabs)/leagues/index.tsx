@@ -9,12 +9,14 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { leagueService } from '@services/league.service';
@@ -96,9 +98,67 @@ export default function LeaguesIndexScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.bg }}>
-      {/* Top actions */}
-      <View style={{ flexDirection: 'row', padding: 16, gap: 10 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+      {/* Compact top bar — mirrors the Lineup tab pattern. Quick link back to
+         Lineup since you'll often be hopping between leagues and your picks. */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 16,
+          paddingTop: 6,
+          paddingBottom: 6,
+          borderBottomWidth: 1,
+          borderBottomColor: t.lineSoft,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: t.fMono,
+            fontSize: 11,
+            color: t.textMute,
+            letterSpacing: 1.6,
+            textTransform: 'uppercase',
+            fontWeight: '700',
+          }}
+        >
+          Leagues
+        </Text>
+        <Pressable
+          onPress={() => router.push('/(tabs)')}
+          style={({ pressed }) => [
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 5,
+              height: 26,
+              paddingHorizontal: 10,
+              borderRadius: 6,
+              borderWidth: 1,
+              borderColor: t.line,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Text
+            style={{
+              fontFamily: t.fMono,
+              fontSize: 10,
+              fontWeight: '700',
+              color: t.text,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+            }}
+          >
+            Lineup
+          </Text>
+          <Text style={{ color: t.textDim, fontSize: 11 }}>↗</Text>
+        </Pressable>
+      </View>
+
+      {/* Top actions — flush against the top bar */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, gap: 10 }}>
         <Pressable
           onPress={() => router.push('/(tabs)/leagues/create')}
           style={({ pressed }) => [
@@ -255,7 +315,7 @@ export default function LeaguesIndexScreen() {
           )}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -300,23 +360,37 @@ function LeagueCard({
       {/* Top color stripe — identifies the league at a glance */}
       <View style={{ height: 4, backgroundColor: accent }} />
       <View style={{ padding: 14, flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-        {/* Initial badge */}
-        <View
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 12,
-            backgroundColor: `${accent}26`,
-            borderWidth: 1.5,
-            borderColor: accent,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontFamily: t.fDisp, fontWeight: '800', fontSize: 18, color: accent, letterSpacing: -0.2 }}>
-            {initials || 'TL'}
-          </Text>
-        </View>
+        {/* Avatar — uploaded photo if present, otherwise initial badge */}
+        {league.avatarUrl ? (
+          <Image
+            source={{ uri: league.avatarUrl }}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              borderWidth: 1.5,
+              borderColor: accent,
+            }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              backgroundColor: `${accent}26`,
+              borderWidth: 1.5,
+              borderColor: accent,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontFamily: t.fDisp, fontWeight: '800', fontSize: 18, color: accent, letterSpacing: -0.2 }}>
+              {initials || 'TL'}
+            </Text>
+          </View>
+        )}
         {/* Text block */}
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>

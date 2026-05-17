@@ -9,6 +9,7 @@ import { useGarageWithEntities } from '@/hooks/useGarageWithEntities';
 import { authService } from '@services/auth.service';
 import { purchasesService } from '@services/purchases.service';
 import { invalidateHelmetCache } from '@components/HelmetAvatar';
+import { avatarsService } from '@services/avatars.service';
 import { getHelmetUrl } from '@/data/cosmeticsCatalog';
 import { useTheme, useThemePrefs, TL_PALETTES } from '@/theme';
 import type { Palette, ThemeMode } from '@/theme';
@@ -18,6 +19,7 @@ export default function ProfileScreen() {
   const t = useTheme();
   const { mode, palette, setMode, setPalette } = useThemePrefs();
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const signOut = useAuthStore((s) => s.signOut);
   const resetGarage = useGarageStore((s) => s.reset);
   const resetShop = useShopStore((s) => s.reset);
@@ -34,6 +36,27 @@ export default function ProfileScreen() {
   const ownedHelmets = entitlements ? purchasesService.ownedHelmets(entitlements) : [];
   const activeHelmetId = entitlements?.activeCosmetics?.helmet_livery;
   const activeHelmetUrl = getHelmetUrl(activeHelmetId);
+  const [uploading, setUploading] = useState(false);
+
+  // Resolved avatar to render in the top-left circle. Custom photo wins, then
+  // helmet livery, then a fallback initial.
+  const resolvedAvatarUrl = user?.photoURL || activeHelmetUrl;
+
+  const onUploadPhoto = async () => {
+    if (!user || uploading) return;
+    setUploading(true);
+    try {
+      const url = await avatarsService.pickAndUploadUserAvatar(user.id);
+      if (url) {
+        setUser({ ...user, photoURL: url });
+        invalidateHelmetCache(user.id);
+      }
+    } catch (err) {
+      Alert.alert('Upload failed', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const onSelectHelmet = async (itemId: string) => {
     if (!user) return;
@@ -110,8 +133,8 @@ export default function ProfileScreen() {
             overflow: 'hidden',
           }}
         >
-          {activeHelmetUrl ? (
-            <Image source={{ uri: activeHelmetUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          {resolvedAvatarUrl ? (
+            <Image source={{ uri: resolvedAvatarUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
           ) : (
             <Text style={{ color: t.text, fontFamily: t.fDisp, fontWeight: '700', fontSize: 32 }}>
               {user.displayName.charAt(0).toUpperCase()}
@@ -124,21 +147,36 @@ export default function ProfileScreen() {
             {user.displayName}
           </Text>
           <Text style={{ color: t.textDim, fontFamily: t.fSans, fontSize: 13, marginTop: 2 }}>{user.email}</Text>
-          <Pressable onPress={() => setPickerOpen((v) => !v)}>
-            <Text
-              style={{
-                color: t.accent,
-                fontFamily: t.fMono,
-                fontSize: 10,
-                fontWeight: '700',
-                letterSpacing: 1.2,
-                textTransform: 'uppercase',
-                marginTop: 6,
-              }}
-            >
-              {pickerOpen ? 'Done' : 'Change helmet'}
-            </Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 6 }}>
+            <Pressable onPress={onUploadPhoto} disabled={uploading}>
+              <Text
+                style={{
+                  color: t.accent,
+                  fontFamily: t.fMono,
+                  fontSize: 10,
+                  fontWeight: '700',
+                  letterSpacing: 1.2,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {uploading ? 'Uploading…' : 'Upload photo'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setPickerOpen((v) => !v)}>
+              <Text
+                style={{
+                  color: t.accent,
+                  fontFamily: t.fMono,
+                  fontSize: 10,
+                  fontWeight: '700',
+                  letterSpacing: 1.2,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {pickerOpen ? 'Done' : 'Change helmet'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
 

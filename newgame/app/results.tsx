@@ -45,9 +45,8 @@ interface SessionView {
       side: 'with' | 'against';
       stake: number;
       result?: number;
-      outcome?: 'with' | 'against' | 'push';
+      outcome?: 'with' | 'against';
       won?: boolean;
-      pushed?: boolean;
     }
   >;
 }
@@ -113,9 +112,8 @@ async function loadRecap(userId: string): Promise<RecapData | null> {
         side,
         stake: userPick?.stake ?? 0,
         result: line.result,
-        outcome: line.outcome as 'with' | 'against' | 'push' | undefined,
+        outcome: line.outcome,
         won: line.outcome ? side === line.outcome : undefined,
-        pushed: line.outcome === 'push',
       };
     }
     sessionViews.push({ session: s, lines, picks: view });
@@ -310,8 +308,7 @@ function SessionBlock({
 
   const totalCalls = entries.filter((e) => e.pick.outcome != null).length;
   const won = entries.filter((e) => e.pick.won).length;
-  const pushed = entries.filter((e) => e.pick.pushed).length;
-  const lost = totalCalls - won - pushed;
+  const lost = totalCalls - won;
 
   return (
     <View style={{ marginTop: 22 }}>
@@ -323,12 +320,6 @@ function SessionBlock({
           <Text style={{ color: t.success, fontWeight: '700' }}>{won}W</Text>
           <Text style={{ color: t.textMute }}> / </Text>
           <Text style={{ color: t.danger, fontWeight: '700' }}>{lost}L</Text>
-          {pushed > 0 ? (
-            <>
-              <Text style={{ color: t.textMute }}> / </Text>
-              <Text style={{ color: t.warn, fontWeight: '700' }}>{pushed}P</Text>
-            </>
-          ) : null}
           <Text style={{ color: t.textMute }}> · {totalCalls} calls</Text>
         </Text>
       </View>
@@ -342,7 +333,6 @@ function SessionBlock({
             result={pick.result}
             outcome={pick.outcome}
             won={pick.won}
-            pushed={pick.pushed}
             driver={driver}
             team={team}
           />
@@ -359,7 +349,6 @@ function PickRow({
   result,
   outcome,
   won,
-  pushed,
   driver,
   team,
 }: {
@@ -367,9 +356,8 @@ function PickRow({
   side: 'with' | 'against';
   stake: number;
   result?: number;
-  outcome?: 'with' | 'against' | 'push';
+  outcome?: 'with' | 'against';
   won?: boolean;
-  pushed?: boolean;
   driver?: Driver;
   team?: Constructor;
 }) {
@@ -382,20 +370,18 @@ function PickRow({
 
   let statusColor = t.textMute;
   let statusLabel = '—';
-  if (outcome === 'push') {
-    statusColor = t.warn;
-    statusLabel = 'Push';
-  } else if (won === true) {
+  if (won === true) {
     statusColor = t.success;
     statusLabel = 'Won';
   } else if (won === false) {
     statusColor = t.danger;
     statusLabel = 'Lost';
   }
+  void outcome;
 
   const odds = side === 'with' ? line.withOdds : line.againstOdds;
   const payout = won && stake > 0 ? Math.round(stake * odds) : 0;
-  const cashDelta = pushed ? 0 : won ? payout - stake : -stake;
+  const cashDelta = won ? payout - stake : -stake;
 
   return (
     <View
@@ -416,7 +402,13 @@ function PickRow({
           {name}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-          <BenLinePill ou={line.line} oddsWith={line.withOdds} oddsAgainst={line.againstOdds} />
+          <BenLinePill
+            lo={line.predictedLo}
+            hi={line.predictedHi}
+            ou={line.line}
+            oddsWith={line.withOdds}
+            oddsAgainst={line.againstOdds}
+          />
           <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 0.8 }}>
             actual {result != null ? `P${result}` : '—'}
           </Text>

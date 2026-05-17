@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +20,7 @@ import {
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { leagueService } from '@services/league.service';
+import { avatarsService } from '@services/avatars.service';
 import { HelmetAvatar } from '@components/HelmetAvatar';
 import { SectionLabel } from '@components/tl';
 import { useTheme } from '@/theme';
@@ -72,6 +74,19 @@ export default function LeagueSettingsScreen() {
       </SafeBg>
     );
   }
+
+  const onUploadAvatar = async () => {
+    if (!league || busy) return;
+    setBusy('avatar');
+    try {
+      const url = await avatarsService.pickAndUploadLeagueAvatar(league.id);
+      if (url) setLeague({ ...league, avatarUrl: url });
+    } catch (err) {
+      Alert.alert('Upload failed', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const onTogglePublic = async (next: boolean) => {
     if (busy) return;
@@ -183,6 +198,68 @@ export default function LeagueSettingsScreen() {
         <Text style={{ marginTop: 6, fontFamily: t.fSans, fontSize: 13, color: t.textDim, lineHeight: 19 }}>
           Toggle league visibility, remove members, or delete the whole thing. Members can't see this page.
         </Text>
+
+        {/* League avatar */}
+        <SectionLabel trailing={league.avatarUrl ? 'CUSTOM' : 'DEFAULT'}>Avatar</SectionLabel>
+        <View
+          style={{
+            backgroundColor: t.surface,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: t.line,
+            padding: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <View
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: 12,
+              backgroundColor: t.surface2,
+              borderWidth: 1,
+              borderColor: t.line,
+              overflow: 'hidden',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {league.avatarUrl ? (
+              <Image source={{ uri: league.avatarUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            ) : (
+              <Text style={{ fontFamily: t.fDisp, fontSize: 22, fontWeight: '800', color: t.textDim }}>
+                {league.name.charAt(0).toUpperCase()}
+              </Text>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: '700' }}>
+              League photo
+            </Text>
+            <Text style={{ marginTop: 4, fontFamily: t.fSans, fontSize: 12.5, color: t.textDim, lineHeight: 18 }}>
+              Shown on the league card and detail page. Square photo works best.
+            </Text>
+          </View>
+          <Pressable
+            onPress={onUploadAvatar}
+            disabled={busy === 'avatar'}
+            style={({ pressed }) => [
+              {
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderRadius: 8,
+                backgroundColor: t.accent,
+                opacity: busy === 'avatar' ? 0.5 : pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <Text style={{ color: '#0E1116', fontFamily: t.fMono, fontSize: 11, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              {busy === 'avatar' ? 'Uploading…' : league.avatarUrl ? 'Replace' : 'Upload'}
+            </Text>
+          </Pressable>
+        </View>
 
         {/* Public toggle */}
         <SectionLabel trailing={league.isPublic ? 'PUBLIC' : 'INVITE-ONLY'}>Visibility</SectionLabel>

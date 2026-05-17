@@ -29,8 +29,10 @@ const SESSION_RESULTS_KEY: Record<SessionKey, string> = {
 
 const DEFAULT_WITH_ODDS = 1.91;
 const DEFAULT_AGAINST_ODDS = 1.91;
-const DRIVER_PLACEHOLDER_LINE = 10.5;
-const CONSTRUCTOR_PLACEHOLDER_LINE = 21.5;
+// Placeholder ranges used only when seeding from actuals for completed races
+// where Ben hadn't posted a real range. ±1 around the actual + center.
+const DRIVER_PLACEHOLDER_HALF = 1;
+const CONSTRUCTOR_PLACEHOLDER_HALF = 3;
 
 interface ResultRow {
   position: number;
@@ -38,10 +40,8 @@ interface ResultRow {
   constructorId?: string;
 }
 
-function decideOutcome(line: number, result: number): 'with' | 'against' | 'push' {
-  const isInteger = line % 1 === 0;
-  if (isInteger && result === line) return 'push';
-  return result <= line ? 'with' : 'against';
+function decideOutcomeFromRange(lo: number, hi: number, result: number): 'with' | 'against' {
+  return result >= lo && result <= hi ? 'with' : 'against';
 }
 
 export const tlBackfillBenLines = functions.https.onRequest(async (req, res) => {
@@ -89,36 +89,55 @@ export const tlBackfillBenLines = functions.https.onRequest(async (req, res) => 
         : {};
 
       let added = 0;
-      // Drivers
+      // Drivers — preserve any existing range, otherwise seed a placeholder
+      // centered on the actual finish (±1 position).
       for (const [id, pos] of Object.entries(driverPos)) {
-        const existing = existingEntities[id];
-        const line = typeof existing?.line === 'number' ? (existing.line as number) : DRIVER_PLACEHOLDER_LINE;
+        const existing = existingEntities[id] as Record<string, unknown> | undefined;
+        const lo =
+          typeof existing?.predictedLo === 'number'
+            ? (existing.predictedLo as number)
+            : Math.max(1, pos - DRIVER_PLACEHOLDER_HALF);
+        const hi =
+          typeof existing?.predictedHi === 'number'
+            ? (existing.predictedHi as number)
+            : pos + DRIVER_PLACEHOLDER_HALF;
         existingEntities[id] = {
           ...(existing || {}),
           entityId: id,
           entityKind: 'driver',
-          line,
+          predictedLo: lo,
+          predictedHi: hi,
+          line: Math.round((lo + hi) / 2),
           withOdds: typeof existing?.withOdds === 'number' ? existing.withOdds : DEFAULT_WITH_ODDS,
           againstOdds: typeof existing?.againstOdds === 'number' ? existing.againstOdds : DEFAULT_AGAINST_ODDS,
           result: pos,
-          outcome: decideOutcome(line, pos),
+          outcome: decideOutcomeFromRange(lo, hi, pos),
         };
         added++;
       }
       // Constructors
       for (const [id, positions] of Object.entries(teamPositions)) {
         const sum = positions.reduce((s, p) => s + p, 0);
-        const existing = existingEntities[id];
-        const line = typeof existing?.line === 'number' ? (existing.line as number) : CONSTRUCTOR_PLACEHOLDER_LINE;
+        const existing = existingEntities[id] as Record<string, unknown> | undefined;
+        const lo =
+          typeof existing?.predictedLo === 'number'
+            ? (existing.predictedLo as number)
+            : Math.max(2, sum - CONSTRUCTOR_PLACEHOLDER_HALF);
+        const hi =
+          typeof existing?.predictedHi === 'number'
+            ? (existing.predictedHi as number)
+            : sum + CONSTRUCTOR_PLACEHOLDER_HALF;
         existingEntities[id] = {
           ...(existing || {}),
           entityId: id,
           entityKind: 'constructor',
-          line,
+          predictedLo: lo,
+          predictedHi: hi,
+          line: Math.round((lo + hi) / 2),
           withOdds: typeof existing?.withOdds === 'number' ? existing.withOdds : DEFAULT_WITH_ODDS,
           againstOdds: typeof existing?.againstOdds === 'number' ? existing.againstOdds : DEFAULT_AGAINST_ODDS,
           result: sum,
-          outcome: decideOutcome(line, sum),
+          outcome: decideOutcomeFromRange(lo, hi, sum),
         };
         added++;
       }

@@ -22,11 +22,26 @@ const SESSION_WEIGHT: Record<SessionKey, number> = { race: 1, qualifying: 0.5, s
 interface BenLine {
   entityId: string;
   entityKind: 'driver' | 'constructor';
-  line: number;
+  // New range-based prediction. Legacy single `line` kept as fallback so docs
+  // written before the range migration still settle correctly.
+  predictedLo?: number;
+  predictedHi?: number;
+  line?: number;
   withOdds: number;
   againstOdds: number;
   result?: number;
-  outcome?: BenSide | 'push';
+  outcome?: BenSide;
+}
+
+function lineLo(l: BenLine): number {
+  if (typeof l.predictedLo === 'number') return l.predictedLo;
+  if (typeof l.line === 'number') return Math.max(1, Math.round(l.line - 1));
+  return 0;
+}
+function lineHi(l: BenLine): number {
+  if (typeof l.predictedHi === 'number') return l.predictedHi;
+  if (typeof l.line === 'number') return Math.round(l.line + 1);
+  return 0;
 }
 
 interface BenSessionDoc {
@@ -54,51 +69,36 @@ interface PickOutcome {
   side: BenSide;
   stake: number;
   result: number;
-  outcome: BenSide | 'push'; // who won the line, or push on integer-line exact
+  outcome: BenSide;
   won: boolean;
-  pushed: boolean;
-  payout: number; // gross cash returned to player (0 on loss, stake on push)
-  pointsCredit: number; // weighted player-points credit (0 if wrong/pushed)
+  payout: number;
+  pointsCredit: number;
 }
 
-// Per-pick payout calc. CURRENT ASSUMPTIONS (pending Ben's Q3 confirmation):
-// - Odds are decimal. Gross payout = `stake × odds` (includes stake back).
-//   Profit = payout − stake. Loss = stake forfeit.
-// - Integer line + exact match = push: stake refunded, no points credit.
-// - Half-line (e.g. P3.5) can never push.
-// When Ben's spec lands, swap the body of this function only; the surrounding
-// settlement plumbing is unchanged.
+// Per-pick payout calc. Odds are decimal; gross payout = stake × odds (incl.
+// stake back). Loss = forfeit. Range model: no pushes — the result either
+// falls inside [lo, hi] (WITH wins) or outside (AGAINST wins).
 function computePayout(pick: Pick, line: BenLine): Omit<PickOutcome, 'side' | 'stake' | 'result' | 'outcome'> {
   if (line.result == null || line.outcome == null) {
-    return { won: false, pushed: false, payout: 0, pointsCredit: 0 };
-  }
-  if (line.outcome === 'push') {
-    return { won: false, pushed: true, payout: pick.stake, pointsCredit: 0 };
+    return { won: false, payout: 0, pointsCredit: 0 };
   }
   const won = pick.side === line.outcome;
   const odds = pick.side === 'with' ? line.withOdds : line.againstOdds;
   const payout = won ? Math.round(pick.stake * odds * 100) / 100 : 0;
   const pointsCredit = won ? 1 : 0;
-  return { won, pushed: false, payout, pointsCredit };
+  return { won, payout, pointsCredit };
 }
 
-// Decide which side of Ben's line the actual result fell on. For drivers,
-// `line` is finishing position; for constructors, sum of both drivers'
-// finishing positions.
-//   Convention: WITH = under-or-equal (better/lower position), AGAINST = over.
-//   Integer line with exact result = push (no side wins).
-// If Ben's spec inverts WITH/AGAINST, flip the two branches here.
-function decideOutcome(line: BenLine): BenSide | 'push' | null {
+// Decide which side of Ben's predicted range the actual result fell on.
+//   WITH    = result ∈ [predictedLo, predictedHi]  (Ben called it right)
+//   AGAINST = result outside the range             (Ben was wrong)
+function decideOutcome(line: BenLine): BenSide | null {
   if (line.result == null) return null;
-  const isInteger = line.line % 1 === 0;
-  if (isInteger && line.result === line.line) return 'push';
-  return line.result <= line.line ? 'with' : 'against';
+  const lo = lineLo(line);
+  const hi = lineHi(line);
+  return line.result >= lo && line.result <= hi ? 'with' : 'against';
 }
 
-// DNF / DSQ / DNS placeholder. We treat any "no result" event as P22 so
-// position lines settle predictably. Ben can override by writing `result`
-// directly on the line doc with whatever semantics he wants (auto-loss, void,
-// classified +1, etc.).
 const DNF_POSITION_PLACEHOLDER = 22;
 
 interface SettleArgs {
@@ -170,15 +170,12 @@ export const tlSettleWeekend = functions.https.onCall(async (data: SettleArgs, c
           result: line.result,
           outcome: line.outcome,
           won: calc.won,
-          pushed: calc.pushed,
           payout: calc.payout,
           pointsCredit: calc.pointsCredit * weight,
         };
         sessionOutcomes[entityId] = outcome;
         weekendPoints += outcome.pointsCredit;
-        // Push refunds the stake (cash delta = 0). Win adds profit. Loss
-        // subtracts the stake.
-        weekendCash += calc.pushed ? 0 : calc.won ? calc.payout - pick.stake : -pick.stake;
+        weekendCash += calc.won ? calc.payout - pick.stake : -pick.stake;
         if (calc.won) callsCorrect++;
         callsTotal++;
         void pickedOdds;

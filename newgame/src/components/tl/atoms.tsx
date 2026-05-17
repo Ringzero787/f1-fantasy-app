@@ -1,7 +1,7 @@
 // Track Limits design-system atoms. Ported from design_handoff_track_limits/atoms.jsx
 // with React Native primitives. Type-led, mono numerics, broadcast-graphic restraint.
 
-import { Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { Alert, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { useTheme } from '@/theme';
 import { hexA } from '@/theme/tokens';
 
@@ -1009,20 +1009,50 @@ const styles = StyleSheet.create({
 // ============================================
 
 // Compact inline pill: [BEN] [O/U 3.5  with/against]
+// Ben's predicted range, rendered as a small intentionally-tentative pill:
+//   [BEN] [GUESS  P3–P5  1.91 / 1.91]
+// Faded (lower opacity, dotted boundary) to signal "this is a guess, not
+// a guarantee". Pass either:
+//   { lo, hi }     — preferred, range-based
+//   { ou }         — legacy single-value back-compat
 export function BenLinePill({
   ou,
+  lo,
+  hi,
   oddsWith,
   oddsAgainst,
   dim = false,
+  showTooltip = true,
 }: {
-  ou: number;
+  ou?: number;
+  lo?: number;
+  hi?: number;
   oddsWith?: number;
   oddsAgainst?: number;
   dim?: boolean;
+  showTooltip?: boolean;
 }) {
   const t = useTheme();
+  // Resolve to a range. If only `ou` was given (legacy), fall back to ±1.
+  const rangeLo = lo != null ? lo : ou != null ? Math.max(1, Math.round(ou - 1)) : null;
+  const rangeHi = hi != null ? hi : ou != null ? Math.round(ou + 1) : null;
+  const label =
+    rangeLo != null && rangeHi != null
+      ? rangeLo === rangeHi
+        ? `P${rangeLo}`
+        : `P${rangeLo}–P${rangeHi}`
+      : '—';
+
+  const onInfo = () => {
+    Alert.alert(
+      "Ben's guess",
+      `Ben's model thinks this driver/constructor lands in ${label}. Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Stake cash to amplify; free picks still score the points leaderboard.`
+    );
+  };
+
   return (
-    <View
+    <Pressable
+      onPress={showTooltip ? onInfo : undefined}
       style={{
         flexDirection: 'row',
         alignItems: 'stretch',
@@ -1030,8 +1060,10 @@ export function BenLinePill({
         borderRadius: 4,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: dim ? t.line : hexA(t.accent, 0.4),
-        backgroundColor: dim ? 'transparent' : hexA(t.accent, 0.1),
+        borderStyle: 'dashed',
+        borderColor: dim ? t.line : hexA(t.accent, 0.55),
+        backgroundColor: dim ? 'transparent' : hexA(t.accent, 0.08),
+        opacity: 0.92,
       }}
     >
       <View
@@ -1070,7 +1102,7 @@ export function BenLinePill({
             letterSpacing: 0.6,
           }}
         >
-          O/U
+          GUESS
         </Text>
         <Text
           style={{
@@ -1081,7 +1113,7 @@ export function BenLinePill({
             fontVariant: ['tabular-nums'],
           }}
         >
-          {ou % 1 === 0.5 ? ou.toFixed(1) : ou.toString()}
+          {label}
         </Text>
         {oddsWith != null && oddsAgainst != null ? (
           <View
@@ -1120,7 +1152,7 @@ export function BenLinePill({
           </View>
         ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 

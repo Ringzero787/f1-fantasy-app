@@ -9,6 +9,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { useTheme } from '@/theme';
 import { CONSTRUCTOR_COLORS } from '@/theme/tokens';
 import { Num, PrimaryBtn, WithAgainstToggle } from '@components/tl';
+import { benLineLo, benLineHi } from '@/types';
 import type { BenLine, BenSide, Driver, Constructor, SessionKey } from '@/types';
 
 // Preset stake chips scaled to a $1000 budget. The design's slider ran 0-10M;
@@ -199,7 +200,7 @@ export function StakeSheet({
               letterSpacing: 0.6,
             }}
           >
-            O/U
+            Guess
           </Text>
           <Text
             style={{
@@ -211,7 +212,13 @@ export function StakeSheet({
               fontVariant: ['tabular-nums'],
             }}
           >
-            {line?.line != null ? (line.line % 1 === 0.5 ? line.line.toFixed(1) : line.line.toString()) : '—'}
+            {line
+              ? (() => {
+                  const lo = benLineLo(line);
+                  const hi = benLineHi(line);
+                  return lo === hi ? `P${lo}` : `P${lo}–P${hi}`;
+                })()
+              : '—'}
           </Text>
         </View>
         <View

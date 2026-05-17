@@ -18,7 +18,7 @@ import { dataService } from '@services/data.service';
 import { picksService } from '@services/picks.service';
 import { useTheme } from '@/theme';
 import { SectionLabel } from '@components/tl';
-import { SESSION_WEIGHT } from '@/types';
+import { SESSION_WEIGHT, benLineHits } from '@/types';
 import type { BenLine, BenSessionDoc, SessionKey, BenSide } from '@/types';
 
 export default function DemoScreen() {
@@ -204,16 +204,14 @@ export default function DemoScreen() {
         const weight = SESSION_WEIGHT[session];
 
         // Fabricate random finishing positions for every entity and decide
-        // outcomes. Drivers: 1-22; constructors: sum 5-40.
+        // outcomes using the range model (WITH if result ∈ [lo, hi]).
         const updatedEntities: Record<string, BenLine> = { ...sessionDoc.entities };
         for (const [entityId, line] of Object.entries(updatedEntities)) {
           const isDriver = line.entityKind === 'driver';
           const result = isDriver
             ? Math.floor(Math.random() * 22) + 1
             : Math.floor(Math.random() * 36) + 5;
-          const isInteger = line.line % 1 === 0;
-          const outcome: BenSide | 'push' =
-            isInteger && result === line.line ? 'push' : result <= line.line ? 'with' : 'against';
+          const outcome: BenSide = benLineHits(line, result) ? 'with' : 'against';
           updatedEntities[entityId] = { ...line, result, outcome };
         }
         await updateDoc(doc(db, 'ben_lines', `${race.id}_${session}`), {
@@ -228,10 +226,6 @@ export default function DemoScreen() {
           const line = updatedEntities[entityId];
           if (!line || line.result == null || line.outcome == null) continue;
           callsTotal++;
-          if (line.outcome === 'push') {
-            // Push: stake refunded, no points credit, cash delta = 0.
-            continue;
-          }
           const won = p.side === line.outcome;
           if (won) {
             callsCorrect++;
@@ -244,18 +238,15 @@ export default function DemoScreen() {
           }
         }
 
-        // Account for unstaked WITH-Ben defaults that won — they still score
-        // player points even though there's no pick doc entry. Drivers/constructors
-        // the user didn't explicitly set a pick for default to WITH/$0.
+        // Default WITH-Ben picks (no explicit doc entry) still score points
+        // when Ben's range hits.
         const rosterIds = [...garage.rosteredDriverIds, ...garage.rosteredConstructorIds];
         for (const entityId of rosterIds) {
           if (sessionPicks[entityId]) continue; // already counted above
           const line = updatedEntities[entityId];
           if (!line || line.outcome == null) continue;
           callsTotal++;
-          if (line.outcome === 'push') continue;
           if (line.outcome === 'with') {
-            // Default WITH pick won — score the credit even without a stake.
             callsCorrect++;
             weekendPoints += weight;
           }

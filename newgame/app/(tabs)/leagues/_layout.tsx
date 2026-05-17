@@ -12,7 +12,7 @@ export default function LeaguesStack() {
         contentStyle: { backgroundColor: t.bg },
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Leagues' }} />
+      <Stack.Screen name="index" options={{ title: 'Leagues', headerShown: false }} />
       <Stack.Screen name="create" options={{ title: 'New league', presentation: 'modal' }} />
       <Stack.Screen name="join" options={{ title: 'Join with code', presentation: 'modal' }} />
       <Stack.Screen name="[id]/index" options={{ title: 'League' }} />

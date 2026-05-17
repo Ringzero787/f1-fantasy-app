@@ -602,6 +602,8 @@ function EntityRow(props: {
           </View>
           {props.line ? (
             <BenLinePill
+              lo={props.line.predictedLo}
+              hi={props.line.predictedHi}
               ou={props.line.line}
               oddsWith={props.line.withOdds}
               oddsAgainst={props.line.againstOdds}

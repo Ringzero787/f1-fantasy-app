@@ -47,7 +47,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: 'Lineup', headerShown: false }} />
       <Tabs.Screen name="garage" options={{ title: 'Garage' }} />
       <Tabs.Screen name="shop" options={{ title: 'Shop' }} />
-      <Tabs.Screen name="leagues" options={{ title: 'League' }} />
+      <Tabs.Screen name="leagues" options={{ title: 'League', headerShown: false }} />
       <Tabs.Screen name="profile" options={{ title: 'You' }} />
     </Tabs>
   );

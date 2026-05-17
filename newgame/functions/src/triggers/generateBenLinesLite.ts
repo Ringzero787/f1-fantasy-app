@@ -50,14 +50,24 @@ function normalCdf(x: number, mean: number, sigma: number): number {
   return 0.5 * (1 + erf((x - mean) / (sigma * Math.SQRT2)));
 }
 
-function nearestHalf(x: number): number {
-  return Math.round(x * 2 - 0.5) + 0.5; // always lands on .5
-}
-
 function sigmaForPosition(pred: number): number {
   if (pred <= 7) return 2.0;
   if (pred <= 14) return 5.0;
   return 2.0;
+}
+
+// Range half-width as a fraction of σ. ~0.6 gives ~45–50% probability the
+// actual finish lands inside the range — close to break-even for fair odds.
+const RANGE_HALF_WIDTH_SIGMA = 0.6;
+
+function rangeForPrediction(pred: number, kind: 'driver' | 'constructor'): { lo: number; hi: number } {
+  const sigma = kind === 'driver' ? sigmaForPosition(pred) : Math.sqrt(2) * sigmaForPosition(pred / 2);
+  const half = Math.max(1, Math.round(sigma * RANGE_HALF_WIDTH_SIGMA));
+  const minPos = 1;
+  const maxPos = kind === 'driver' ? FIELD_SIZE : FIELD_SIZE * 2;
+  const lo = Math.max(minPos, Math.round(pred) - half);
+  const hi = Math.min(maxPos, Math.round(pred) + half);
+  return { lo, hi };
 }
 
 // Decimal odds from a fair probability. Gross payout = stake × odds.
@@ -127,32 +137,43 @@ function predictDrivers(window: RaceDoc[], session: SessionKey): DriverPredictio
 interface BenLineEntity {
   entityId: string;
   entityKind: 'driver' | 'constructor';
+  predictedLo: number;
+  predictedHi: number;
+  /** legacy single-line value (midpoint) — kept for read fallbacks */
   line: number;
   withOdds: number;
   againstOdds: number;
   predicted?: number;
   sigma?: number;
-  underProbability?: number;
-  overProbability?: number;
+  withProbability?: number;
+  againstProbability?: number;
+}
+
+// Probability the actual finish lands in [lo, hi] given a normal around `pred`
+// with stdev σ. Uses ±0.5 half-position correction for the integer grid.
+function probInRange(pred: number, sigma: number, lo: number, hi: number): number {
+  const pHi = normalCdf(hi + 0.5, pred, sigma);
+  const pLo = normalCdf(lo - 0.5, pred, sigma);
+  return Math.max(0.05, Math.min(0.95, pHi - pLo));
 }
 
 function buildDriverLine(pred: DriverPrediction): BenLineEntity {
-  const line = nearestHalf(pred.predicted);
+  const { lo, hi } = rangeForPrediction(pred.predicted, 'driver');
   const sigma = sigmaForPosition(pred.predicted);
-  // P(under or equal) = P(X ≤ line) — but with continuous distribution,
-  // P(X ≤ line.5) ≈ Φ((line - predicted)/σ). "WITH" = under = better-or-equal.
-  const underProb = normalCdf(line, pred.predicted, sigma);
-  const overProb = 1 - underProb;
+  const withProb = probInRange(pred.predicted, sigma, lo, hi);
+  const againstProb = 1 - withProb;
   return {
     entityId: pred.driverId,
     entityKind: 'driver',
-    line,
-    withOdds: decimalOddsFromProb(underProb),
-    againstOdds: decimalOddsFromProb(overProb),
+    predictedLo: lo,
+    predictedHi: hi,
+    line: Math.round((lo + hi) / 2),
+    withOdds: decimalOddsFromProb(withProb),
+    againstOdds: decimalOddsFromProb(againstProb),
     predicted: Math.round(pred.predicted * 100) / 100,
     sigma,
-    underProbability: Math.round(underProb * 10000) / 10000,
-    overProbability: Math.round(overProb * 10000) / 10000,
+    withProbability: Math.round(withProb * 10000) / 10000,
+    againstProbability: Math.round(againstProb * 10000) / 10000,
   };
 }
 
@@ -171,19 +192,21 @@ function buildConstructorLines(drivers: DriverPrediction[]): BenLineEntity[] {
     const sumPred = members.reduce((s, d) => s + d.predicted, 0);
     const sumVar = members.reduce((s, d) => s + Math.pow(sigmaForPosition(d.predicted), 2), 0);
     const sigma = Math.sqrt(sumVar);
-    const line = nearestHalf(sumPred);
-    const underProb = normalCdf(line, sumPred, sigma);
-    const overProb = 1 - underProb;
+    const { lo, hi } = rangeForPrediction(sumPred, 'constructor');
+    const withProb = probInRange(sumPred, sigma, lo, hi);
+    const againstProb = 1 - withProb;
     out.push({
       entityId: ctorId,
       entityKind: 'constructor',
-      line,
-      withOdds: decimalOddsFromProb(underProb),
-      againstOdds: decimalOddsFromProb(overProb),
+      predictedLo: lo,
+      predictedHi: hi,
+      line: Math.round((lo + hi) / 2),
+      withOdds: decimalOddsFromProb(withProb),
+      againstOdds: decimalOddsFromProb(againstProb),
       predicted: Math.round(sumPred * 100) / 100,
       sigma: Math.round(sigma * 100) / 100,
-      underProbability: Math.round(underProb * 10000) / 10000,
-      overProbability: Math.round(overProb * 10000) / 10000,
+      withProbability: Math.round(withProb * 10000) / 10000,
+      againstProbability: Math.round(againstProb * 10000) / 10000,
     });
   }
   return out;

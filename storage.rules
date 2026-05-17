@@ -27,6 +27,26 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Track Limits user avatars — owner-write, public-read. Path keeps the
+    // user id in the prefix so the rule can verify ownership.
+    match /tl_avatars/{userId}/{filename} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024  // 5MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Track Limits league avatars — any authed user can write (the app does
+    // the commish-only check; rule-level enforcement would need custom claims).
+    // Public read so the avatar shows in browse cards for non-members.
+    match /tl_league_avatars/{leagueId}/{filename} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024  // 5MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+
     // Ben's model artifacts — uploaded from the Track Limits admin page.
     // Versioned by upload timestamp in the filename. Authed-user read+write;
     // the admin page enforces the human allowlist on its end (rules can't

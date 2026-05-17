@@ -8,6 +8,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   ScrollView,
   Share,
@@ -127,7 +128,14 @@ export default function LeagueDetailScreen() {
     <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingBottom: 80 }}>
       {/* Header */}
       <View style={{ padding: 20, paddingTop: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {league.avatarUrl ? (
+            <Image
+              source={{ uri: league.avatarUrl }}
+              style={{ width: 56, height: 56, borderRadius: 12, borderWidth: 1, borderColor: t.line }}
+              resizeMode="cover"
+            />
+          ) : null}
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text
               style={{
@@ -144,7 +152,7 @@ export default function LeagueDetailScreen() {
             </Text>
             <Text
               style={{
-                marginTop: 6,
+                marginTop: 4,
                 fontFamily: t.fDisp,
                 fontWeight: '600',
                 fontSize: 26,

@@ -6,6 +6,8 @@ export interface TLUser {
   id: string;
   email: string;
   displayName: string;
+  // photoURL: custom uploaded avatar (Storage) OR Google profile photo from
+  // sign-in. Takes precedence over activeHelmetUrl when present.
   photoURL?: string;
   activeHelmetUrl?: string;
   hasOnboarded?: boolean;
@@ -265,6 +267,10 @@ export interface League {
   // Discovery flag. Public leagues show up in the Browse list and are joinable
   // by anyone without an invite code. Default false (invite-only).
   isPublic?: boolean;
+  // Optional avatar uploaded by the commissioner (Storage path
+  // tl_league_avatars/{id}/avatar.jpg). When unset, list cards fall back to
+  // the hashed-color initials badge.
+  avatarUrl?: string;
   ledger: LeagueLedgerConfig;
   createdAt: Date;
   updatedAt: Date;
@@ -506,15 +512,40 @@ export type BenEntityKind = 'driver' | 'constructor';
 export interface BenLine {
   entityId: string;
   entityKind: BenEntityKind;
-  line: number;
-  withOdds: number; // decimal odds — payout = stake * odds (gross, includes stake back)
-  againstOdds: number;
+  // Ben's predicted finishing-position range (inclusive). For drivers, the
+  // finishing position. For constructors, the sum of both drivers' positions.
+  // Replaces the legacy single `line` (which is kept for back-compat — derived
+  // from the midpoint when only it is present).
+  predictedLo: number;
+  predictedHi: number;
+  /** @deprecated single-line O/U value. Derived as round((lo+hi)/2) for old
+   *  readers; new writers should set lo/hi instead. */
+  line?: number;
+  withOdds: number;     // payout if WITH wins (driver finishes inside the range)
+  againstOdds: number;  // payout if AGAINST wins (finishes outside the range)
   // Filled in by the settlement Cloud Function after the session runs.
-  result?: number; // actual finishing position (driver) or position sum (constructor)
-  outcome?: BenSide | 'push'; // 'with' wins | 'against' wins | 'push' on exact integer-line match
+  result?: number;
+  outcome?: BenSide;    // 'with' = result ∈ [lo, hi]; 'against' = outside
   settledAt?: Date;
-  // Optional explicit lock time; defaults to the session start in the Race doc.
   lockAt?: Date;
+}
+
+// Tiny helpers used everywhere we hydrate a line. Centralized here so the
+// app, admin, and Cloud Functions all derive the range the same way. (Param
+// type kept structural rather than `Pick<BenLine,…>` because we have a
+// separate `Pick` interface in this file for player picks.)
+export function benLineLo(line: { predictedLo?: number; line?: number }): number {
+  if (typeof line.predictedLo === 'number') return line.predictedLo;
+  if (typeof line.line === 'number') return Math.max(1, Math.round(line.line - 1));
+  return 0;
+}
+export function benLineHi(line: { predictedHi?: number; line?: number }): number {
+  if (typeof line.predictedHi === 'number') return line.predictedHi;
+  if (typeof line.line === 'number') return Math.round(line.line + 1);
+  return 0;
+}
+export function benLineHits(line: { predictedLo?: number; predictedHi?: number; line?: number }, result: number): boolean {
+  return result >= benLineLo(line) && result <= benLineHi(line);
 }
 
 // One Firestore document per (race, session) holds all of Ben's lines for that
