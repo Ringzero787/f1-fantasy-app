@@ -13,3 +13,4 @@ export {
   tlAppleSubscriptionWebhook,
   tlGoogleSubscriptionWebhook,
 } from './purchases/webhooks';
+export { tlRequestAccountDeletion } from './users/requestAccountDeletion';
