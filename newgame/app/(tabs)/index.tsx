@@ -347,10 +347,9 @@ export default function LineupScreen() {
                 pickSide={pick?.side ?? 'with'}
                 pickStake={pick?.stake ?? 0}
                 onRowPress={() => setStakeFor({ kind: 'driver', id: d.id })}
-                onFlip={() => {
+                onSelect={(next) => {
                   if (!userId || !upcomingRace) return;
-                  const nextSide = pick?.side === 'against' ? 'with' : 'against';
-                  void setSide(userId, upcomingRace.id, scope, d.id, nextSide);
+                  void setSide(userId, upcomingRace.id, scope, d.id, next);
                 }}
               />
             );
@@ -371,10 +370,9 @@ export default function LineupScreen() {
                 pickSide={pick?.side ?? 'with'}
                 pickStake={pick?.stake ?? 0}
                 onRowPress={() => setStakeFor({ kind: 'constructor', id: c.id })}
-                onFlip={() => {
+                onSelect={(next) => {
                   if (!userId || !upcomingRace) return;
-                  const nextSide = pick?.side === 'against' ? 'with' : 'against';
-                  void setSide(userId, upcomingRace.id, scope, c.id, nextSide);
+                  void setSide(userId, upcomingRace.id, scope, c.id, next);
                 }}
               />
             );
@@ -550,7 +548,7 @@ function EntityRow(props: {
   pickSide: 'with' | 'against';
   pickStake: number;
   onRowPress: () => void;
-  onFlip: () => void;
+  onSelect: (next: 'with' | 'against') => void;
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
@@ -632,7 +630,7 @@ function EntityRow(props: {
             </Text>
           )}
         </View>
-        <WithAgainstToggle side={props.pickSide} onFlip={props.onFlip} />
+        <WithAgainstToggle side={props.pickSide} onSelect={props.onSelect} />
       </View>
     </Pressable>
   );

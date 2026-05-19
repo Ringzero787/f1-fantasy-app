@@ -1172,47 +1172,61 @@ export function BenLinePill({
 }
 
 // Segmented toggle: [AGAINST | WITH] — danger red on the AGAINST side, accent
-// green on the WITH side. Tappable as one unit; flips the active side.
+// green on the WITH side. Each pill is an INDEPENDENT Pressable so tapping
+// "Against" always sets the side to against (not just "flip"). Wrapping each
+// pill in its own Pressable also prevents the parent row Pressable from
+// stealing the tap, which was making the toggle feel dead on phone.
+//
+// `onSelect(side)` is the canonical prop. `onFlip()` is kept for back-compat
+// with callers that still expect the old flip semantics.
 export function WithAgainstToggle({
   side,
+  onSelect,
   onFlip,
 }: {
   side: 'with' | 'against';
-  onFlip: () => void;
+  onSelect?: (next: 'with' | 'against') => void;
+  /** @deprecated use onSelect — kept so legacy callers still compile. */
+  onFlip?: () => void;
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
   const against = side === 'against';
-  const h = scale(isTablet ? 44 : 28);
-  const padH = scale(isTablet ? 18 : 10);
-  const fontSize = scale(isTablet ? 14 : 10);
+  // Minimum 44dp touch target on phone (Apple HIG / Material guidance).
+  const h = scale(isTablet ? 44 : 32);
+  const padH = scale(isTablet ? 18 : 12);
+  const fontSize = scale(isTablet ? 14 : 11);
+
+  const handleSelect = (next: 'with' | 'against') => {
+    if (onSelect) onSelect(next);
+    else if (onFlip && next !== side) onFlip();
+  };
+
   return (
-    <Pressable
-      onPress={(e) => {
-        e.stopPropagation?.();
-        onFlip();
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        height: h,
+        borderRadius: isTablet ? 8 : 6,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: against ? t.danger : t.line,
+        backgroundColor: t.surface,
       }}
-      style={({ pressed }) => [
-        {
-          flexDirection: 'row',
-          alignItems: 'stretch',
-          height: h,
-          borderRadius: isTablet ? 8 : 6,
-          overflow: 'hidden',
-          borderWidth: 1,
-          borderColor: against ? t.danger : t.line,
-          backgroundColor: t.surface,
-          opacity: pressed ? 0.85 : 1,
-        },
-      ]}
     >
-      <View
-        style={{
-          paddingHorizontal: padH,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: against ? t.danger : 'transparent',
-        }}
+      <Pressable
+        onPress={() => handleSelect('against')}
+        hitSlop={{ top: 6, bottom: 6, left: 4, right: 0 }}
+        style={({ pressed }) => [
+          {
+            paddingHorizontal: padH,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: against ? t.danger : 'transparent',
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
       >
         <Text
           style={{
@@ -1226,14 +1240,19 @@ export function WithAgainstToggle({
         >
           Against
         </Text>
-      </View>
-      <View
-        style={{
-          paddingHorizontal: padH,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: against ? 'transparent' : t.accent,
-        }}
+      </Pressable>
+      <Pressable
+        onPress={() => handleSelect('with')}
+        hitSlop={{ top: 6, bottom: 6, left: 0, right: 4 }}
+        style={({ pressed }) => [
+          {
+            paddingHorizontal: padH,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: against ? 'transparent' : t.accent,
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
       >
         <Text
           style={{
@@ -1247,8 +1266,8 @@ export function WithAgainstToggle({
         >
           With
         </Text>
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
