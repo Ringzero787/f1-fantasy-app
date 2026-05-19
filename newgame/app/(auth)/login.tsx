@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { AuthInput } from '@components/auth/AuthInput';
 import { PrimaryButton } from '@components/auth/PrimaryButton';
+import { GoogleSignInButton } from '@components/auth/GoogleSignInButton';
 import { colors, fontSize, spacing } from '@/constants/theme';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const signIn = useAuthStore((s) => s.signIn);
-  const signInAsGuest = useAuthStore((s) => s.signInAsGuest);
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
   const clearError = useAuthStore((s) => s.clearError);
@@ -19,15 +19,6 @@ export default function LoginScreen() {
     clearError();
     try {
       await signIn(email.trim(), password);
-    } catch {
-      // store already captured the error
-    }
-  };
-
-  const onDemo = async () => {
-    clearError();
-    try {
-      await signInAsGuest();
     } catch {
       // store already captured the error
     }
@@ -74,14 +65,7 @@ export default function LoginScreen() {
             <View style={styles.divider} />
           </View>
 
-          <Pressable
-            onPress={onDemo}
-            disabled={isLoading}
-            style={({ pressed }) => [styles.demoBtn, { opacity: pressed ? 0.7 : isLoading ? 0.4 : 1 }]}
-          >
-            <Text style={styles.demoBtnText}>Skip sign-up · try demo mode</Text>
-            <Text style={styles.demoBtnSub}>No password. Anonymous account, full app access.</Text>
-          </Pressable>
+          <GoogleSignInButton disabled={isLoading} />
 
           <Link href="/(auth)/forgot" style={styles.linkSubtle}>
             <Text style={styles.linkSubtleText}>Forgot password?</Text>

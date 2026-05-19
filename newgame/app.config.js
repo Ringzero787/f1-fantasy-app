@@ -26,7 +26,9 @@ module.exports = {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0D1117"
       },
-      package: "com.tracklimits.app"
+      package: "com.tracklimits.app",
+      googleServicesFile: "./google-services.json",
+      versionCode: 2
     },
     web: {
       bundler: "metro",
@@ -35,7 +37,9 @@ module.exports = {
     },
     plugins: [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-google-signin/google-signin",
+      "./plugins/withReleaseSigning"
     ],
     experiments: {
       typedRoutes: true

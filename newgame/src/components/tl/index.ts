@@ -40,3 +40,4 @@ export {
 
 export { TopBar } from './TopBar';
 export { BetsCard } from './BetsCard';
+export { TabletColumn } from './TabletColumn';

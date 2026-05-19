@@ -1,9 +1,11 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { useTheme } from '@/theme';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
 export default function TabsLayout() {
   const t = useTheme();
+  const { isTablet } = useDeviceLayout();
   return (
     <Tabs
       screenOptions={{
@@ -11,13 +13,13 @@ export default function TabsLayout() {
           backgroundColor: t.bg,
           borderTopColor: t.lineSoft,
           borderTopWidth: 1,
-          paddingTop: 6,
-          paddingBottom: 28,
-          height: 70,
+          paddingTop: isTablet ? 10 : 6,
+          paddingBottom: isTablet ? 36 : 28,
+          height: isTablet ? 92 : 70,
         },
         tabBarLabelStyle: {
           fontFamily: t.fMono,
-          fontSize: 10,
+          fontSize: isTablet ? 15 : 10,
           fontWeight: '600',
           letterSpacing: 1.4,
           textTransform: 'uppercase',
@@ -25,14 +27,14 @@ export default function TabsLayout() {
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.textMute,
         tabBarShowLabel: true,
-        tabBarItemStyle: { paddingTop: 4 },
-        // Dot indicator: render a tiny accent square under the active tab
+        tabBarItemStyle: { paddingTop: isTablet ? 6 : 4 },
+        // Dot indicator: render a small accent square under the active tab
         tabBarIcon: ({ focused }) => (
           <View
             style={{
-              width: 4,
-              height: 4,
-              borderRadius: 1,
+              width: isTablet ? 6 : 4,
+              height: isTablet ? 6 : 4,
+              borderRadius: isTablet ? 1.5 : 1,
               backgroundColor: focused ? t.accent : 'transparent',
               marginTop: -4,
             }}

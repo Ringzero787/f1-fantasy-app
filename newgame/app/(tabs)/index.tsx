@@ -24,10 +24,12 @@ import {
   BenLinePill,
   WithAgainstToggle,
   ActiveBetDot,
+  TabletColumn,
 } from '@components/tl';
 import { StakeSheet } from '@components/sheets/StakeSheet';
 import { useTheme } from '@/theme';
 import { CONSTRUCTOR_COLORS, hexA } from '@/theme/tokens';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { toDate } from '@utils/formatters';
 import type { BenLine, Driver, Constructor, League, SessionKey } from '@/types';
 
@@ -227,6 +229,7 @@ export default function LineupScreen() {
         }
       />
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+        <TabletColumn>
         {/* Race title */}
         <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 }}>
           <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 22, letterSpacing: -0.6, color: t.text }}>
@@ -402,6 +405,7 @@ export default function LineupScreen() {
             {statusLine}
           </Text>
         </View>
+        </TabletColumn>
       </ScrollView>
 
       {/* Stake sheet */}
@@ -483,12 +487,15 @@ function ScopeBtn({
 
 function SectionHeader({ title, withCount, againstCount }: { title: string; withCount: number; againstCount: number }) {
   const t = useTheme();
+  const { isTablet } = useDeviceLayout();
+  const titleFont = isTablet ? 14 : 11;
+  const countFont = isTablet ? 13 : 10;
   return (
     <View
       style={{
         paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 8,
+        paddingTop: isTablet ? 22 : 16,
+        paddingBottom: isTablet ? 12 : 8,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -497,20 +504,20 @@ function SectionHeader({ title, withCount, againstCount }: { title: string; with
       <Text
         style={{
           fontFamily: t.fMono,
-          fontSize: 11,
+          fontSize: titleFont,
           fontWeight: '500',
           color: t.textMute,
-          letterSpacing: 1.2,
+          letterSpacing: 1.4,
           textTransform: 'uppercase',
         }}
       >
         {title}
       </Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
         <Text
           style={{
             fontFamily: t.fMono,
-            fontSize: 10,
+            fontSize: countFont,
             fontWeight: '700',
             color: t.textDim,
             letterSpacing: 0.8,
@@ -518,11 +525,11 @@ function SectionHeader({ title, withCount, againstCount }: { title: string; with
         >
           WITH · {withCount}
         </Text>
-        <Text style={{ color: t.textMute, fontFamily: t.fMono, fontSize: 10 }}>/</Text>
+        <Text style={{ color: t.textMute, fontFamily: t.fMono, fontSize: countFont }}>/</Text>
         <Text
           style={{
             fontFamily: t.fMono,
-            fontSize: 10,
+            fontSize: countFont,
             fontWeight: '700',
             color: againstCount > 0 ? t.danger : t.textMute,
             letterSpacing: 0.8,
@@ -546,6 +553,7 @@ function EntityRow(props: {
   onFlip: () => void;
 }) {
   const t = useTheme();
+  const { isTablet } = useDeviceLayout();
   const isDriver = props.kind === 'driver';
   const driver = props.driver;
   const team = props.team;
@@ -556,13 +564,21 @@ function EntityRow(props: {
   const against = props.pickSide === 'against';
   const hasBet = props.pickStake > 0;
 
+  // Tablet sizing: bigger portraits, larger names, more padding so cards have
+  // presence on a tablet canvas instead of looking like phone-sized chiclets.
+  const padding = isTablet ? 16 : 10;
+  const gap = isTablet ? 14 : 10;
+  const portraitSize = isTablet ? 60 : 42;
+  const nameFont = isTablet ? 18 : 14;
+  const stripeMinH = isTablet ? 60 : 42;
+
   return (
     <Pressable
       onPress={props.onRowPress}
       style={({ pressed }) => [
         {
           backgroundColor: t.surface,
-          borderRadius: 12,
+          borderRadius: isTablet ? 14 : 12,
           borderWidth: against ? 1.5 : 1,
           borderColor: against ? t.danger : t.line,
           overflow: 'hidden',
@@ -584,16 +600,16 @@ function EntityRow(props: {
           }}
         />
       ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap, padding }}>
         {isDriver ? (
-          <DriverPortrait driver={driver!} size={42} />
+          <DriverPortrait driver={driver!} size={portraitSize} />
         ) : (
-          <View style={{ width: 4, alignSelf: 'stretch', minHeight: 42, borderRadius: 2, backgroundColor: teamColor }} />
+          <View style={{ width: isTablet ? 6 : 4, alignSelf: 'stretch', minHeight: stripeMinH, borderRadius: 3, backgroundColor: teamColor }} />
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: isTablet ? 6 : 4 }}>
             <Text
-              style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 14, color: t.text, letterSpacing: -0.3 }}
+              style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: nameFont, color: t.text, letterSpacing: -0.3 }}
               numberOfLines={1}
             >
               {name}
@@ -609,7 +625,7 @@ function EntityRow(props: {
               oddsAgainst={props.line.againstOdds}
             />
           ) : (
-            <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.textMute, letterSpacing: 0.6 }}>
+            <Text style={{ fontFamily: t.fMono, fontSize: isTablet ? 12 : 10, color: t.textMute, letterSpacing: 0.6 }}>
               Ben hasn't posted yet
             </Text>
           )}

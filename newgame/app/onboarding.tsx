@@ -30,6 +30,7 @@ import { dataService } from '@services/data.service';
 import { useGarageStore } from '@store/garage.store';
 import { pickN, rollInitialDriverMix } from '@utils/rarity';
 import { useTheme } from '@/theme';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { CONSTRUCTOR_COLORS } from '@/theme/tokens';
 import { TierChip, PrimaryBtn, Num, WithAgainstToggle } from '@components/tl';
 import type { Driver, Constructor } from '@/types';
@@ -276,6 +277,7 @@ function RollStage({
   submitting: boolean;
 }) {
   const t = useTheme();
+  const { isTablet } = useDeviceLayout();
   const [phase, setPhase] = useState<RollPhase>(hand ? 'showing' : 'idle');
   const [diceFace, setDiceFace] = useState(6);
 
@@ -440,16 +442,16 @@ function RollStage({
       }}
     >
       {/* Header: title left, bankroll right */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 4, marginBottom: 14 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 4, marginBottom: isTablet ? 24 : 14 }}>
         <View>
-          <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.accent, letterSpacing: 1.6, fontWeight: '700', textTransform: 'uppercase' }}>
+          <Text style={{ fontFamily: t.fMono, fontSize: isTablet ? 15 : 10, color: t.accent, letterSpacing: 1.8, fontWeight: '700', textTransform: 'uppercase' }}>
             The opening roll
           </Text>
           <Text
             style={{
-              marginTop: 4,
+              marginTop: isTablet ? 8 : 4,
               fontFamily: t.fDisp,
-              fontSize: 22,
+              fontSize: isTablet ? 38 : 22,
               fontWeight: '700',
               letterSpacing: -0.6,
               color: t.text,
@@ -463,12 +465,12 @@ function RollStage({
           </Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: '700' }}>
+          <Text style={{ fontFamily: t.fMono, fontSize: isTablet ? 13 : 9, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontWeight: '700' }}>
             Starting cash
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 1 }}>
-            <Text style={{ fontFamily: t.fDisp, fontSize: 14, color: t.textDim, fontWeight: '500' }}>$</Text>
-            <Num size={30} weight="800">
+            <Text style={{ fontFamily: t.fDisp, fontSize: isTablet ? 22 : 14, color: t.textDim, fontWeight: '500' }}>$</Text>
+            <Num size={isTablet ? 48 : 30} weight="800">
               {STARTING_CASH}
             </Num>
           </View>
@@ -495,16 +497,16 @@ function RollStage({
             </View>
           </Animated.View>
         ) : (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: isTablet ? 28 : 18 }}>
             <Animated.View style={{ transform: phase === 'idle' ? [{ translateY: bobY }] : [] }}>
-              <PipDie face={diceFace} size={140} shaking={phase === 'shaking'} onPress={startRattle} />
+              <PipDie face={diceFace} size={isTablet ? 220 : 140} shaking={phase === 'shaking'} onPress={startRattle} />
             </Animated.View>
             <Text
               style={{
                 fontFamily: t.fMono,
-                fontSize: 10,
+                fontSize: isTablet ? 16 : 10,
                 color: t.textMute,
-                letterSpacing: 1.8,
+                letterSpacing: 2,
                 textTransform: 'uppercase',
                 fontWeight: '700',
                 textAlign: 'center',
@@ -518,14 +520,14 @@ function RollStage({
 
       {/* Actions */}
       {phase === 'showing' && hand ? (
-        <View style={{ gap: 8, marginTop: 12 }}>
+        <View style={{ gap: isTablet ? 12 : 8, marginTop: isTablet ? 18 : 12 }}>
           <Pressable
             onPress={onReroll}
             disabled={rerollsLeft <= 0 || submitting}
             style={({ pressed }) => [
               {
-                height: 44,
-                borderRadius: 12,
+                height: isTablet ? 64 : 44,
+                borderRadius: isTablet ? 14 : 12,
                 borderWidth: 1.5,
                 borderColor: t.accent,
                 backgroundColor: t.surface2,
@@ -537,8 +539,8 @@ function RollStage({
               },
             ]}
           >
-            <Text style={{ fontSize: 16, color: t.accent }}>↻</Text>
-            <Text style={{ fontFamily: t.fMono, fontSize: 12, fontWeight: '700', color: t.accent, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+            <Text style={{ fontSize: isTablet ? 22 : 16, color: t.accent }}>↻</Text>
+            <Text style={{ fontFamily: t.fMono, fontSize: isTablet ? 17 : 12, fontWeight: '700', color: t.accent, letterSpacing: 1.4, textTransform: 'uppercase' }}>
               {rerollsLeft > 0 ? `Re-roll the deck (${rerollsLeft})` : 'No re-rolls left'}
             </Text>
           </Pressable>
@@ -547,9 +549,10 @@ function RollStage({
             style={{
               textAlign: 'center',
               fontFamily: t.fMono,
-              fontSize: 9,
+              fontSize: isTablet ? 13 : 9,
               color: t.textMute,
-              letterSpacing: 0.6,
+              letterSpacing: 0.8,
+              marginTop: isTablet ? 4 : 0,
             }}
           >
             Hand worth ${cost} · you start with ${STARTING_CASH} for the shop.
@@ -644,6 +647,7 @@ function PipDie({ face, size = 92, shaking, onPress }: { face: number; size?: nu
 
 function HandTile({ kind, item }: { kind: 'D' | 'C'; item: Driver | Constructor | undefined }) {
   const t = useTheme();
+  const { isTablet } = useDeviceLayout();
   if (!item) {
     return (
       <View
@@ -679,7 +683,7 @@ function HandTile({ kind, item }: { kind: 'D' | 'C'; item: Driver | Constructor 
         overflow: 'hidden',
       }}
     >
-      <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: isDriver ? 5 : 46, backgroundColor: teamColor }} />
+      <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: isDriver ? (isTablet ? 8 : 5) : (isTablet ? 70 : 46), backgroundColor: teamColor }} />
       {isDriver && number != null ? (
         <Text
           style={{
@@ -688,8 +692,8 @@ function HandTile({ kind, item }: { kind: 'D' | 'C'; item: Driver | Constructor 
             top: 0,
             fontFamily: t.fDisp,
             fontWeight: '800',
-            fontSize: 160,
-            lineHeight: 150,
+            fontSize: isTablet ? 240 : 160,
+            lineHeight: isTablet ? 225 : 150,
             color: teamColor,
             opacity: 0.18,
             letterSpacing: -6,
@@ -698,19 +702,19 @@ function HandTile({ kind, item }: { kind: 'D' | 'C'; item: Driver | Constructor 
           {number}
         </Text>
       ) : null}
-      <View style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}>
-        <TierChip tier={tier} />
+      <View style={{ position: 'absolute', top: isTablet ? 12 : 8, right: isTablet ? 12 : 8, zIndex: 2 }}>
+        <TierChip tier={tier} size={isTablet ? 'md' : 'sm'} />
       </View>
       <Text
         style={{
           position: 'absolute',
-          left: 12,
-          top: isDriver ? 12 : 60,
+          left: isTablet ? 18 : 12,
+          top: isDriver ? (isTablet ? 18 : 12) : (isTablet ? 90 : 60),
           fontFamily: t.fMono,
-          fontSize: 10,
+          fontSize: isTablet ? 15 : 10,
           fontWeight: '800',
           color: isDriver ? teamColor : t.textDim,
-          letterSpacing: 1.4,
+          letterSpacing: 1.6,
           textTransform: 'uppercase',
         }}
         numberOfLines={1}
@@ -721,26 +725,26 @@ function HandTile({ kind, item }: { kind: 'D' | 'C'; item: Driver | Constructor 
         <Text
           style={{
             position: 'absolute',
-            left: 12,
-            top: 14,
+            left: isTablet ? 18 : 12,
+            top: isTablet ? 22 : 14,
             fontFamily: t.fMono,
-            fontSize: 12,
+            fontSize: isTablet ? 18 : 12,
             fontWeight: '800',
             color: '#0E1116',
-            letterSpacing: 1.4,
+            letterSpacing: 1.6,
             textTransform: 'uppercase',
           }}
         >
           {constructor!.shortName}
         </Text>
       ) : null}
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: 36 }}>
+      <View style={{ position: 'absolute', left: isTablet ? 18 : 12, right: isTablet ? 18 : 12, bottom: isTablet ? 60 : 36 }}>
         <Text
           style={{
             fontFamily: t.fMono,
-            fontSize: 11,
+            fontSize: isTablet ? 16 : 11,
             color: t.textDim,
-            letterSpacing: 1.2,
+            letterSpacing: 1.4,
             fontWeight: '700',
           }}
         >
@@ -748,13 +752,13 @@ function HandTile({ kind, item }: { kind: 'D' | 'C'; item: Driver | Constructor 
         </Text>
         <Text
           style={{
-            marginTop: 2,
+            marginTop: isTablet ? 4 : 2,
             fontFamily: t.fDisp,
             fontWeight: '700',
-            fontSize: 16,
+            fontSize: isTablet ? 26 : 16,
             color: t.text,
             letterSpacing: -0.4,
-            lineHeight: 18,
+            lineHeight: isTablet ? 30 : 18,
           }}
           numberOfLines={2}
         >
@@ -767,22 +771,22 @@ function HandTile({ kind, item }: { kind: 'D' | 'C'; item: Driver | Constructor 
           left: 0,
           right: 0,
           bottom: 0,
-          height: 30,
+          height: isTablet ? 48 : 30,
           backgroundColor: t.bg,
           borderTopWidth: 1,
           borderTopColor: t.line,
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
-          paddingHorizontal: 10,
+          paddingHorizontal: isTablet ? 16 : 10,
         }}
       >
-        <Text style={{ fontFamily: t.fMono, fontSize: 8, fontWeight: '700', color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase' }}>
+        <Text style={{ fontFamily: t.fMono, fontSize: isTablet ? 13 : 8, fontWeight: '700', color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase' }}>
           Cost
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 1 }}>
-          <Text style={{ fontFamily: t.fDisp, fontSize: 11, color: t.textDim, fontWeight: '500' }}>−$</Text>
-          <Num size={17} weight="800" color={t.danger}>
+          <Text style={{ fontFamily: t.fDisp, fontSize: isTablet ? 17 : 11, color: t.textDim, fontWeight: '500' }}>−$</Text>
+          <Num size={isTablet ? 28 : 17} weight="800" color={t.danger}>
             {cost}
           </Num>
         </View>

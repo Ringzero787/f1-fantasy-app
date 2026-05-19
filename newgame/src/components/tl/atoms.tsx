@@ -4,6 +4,7 @@
 import { Alert, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { useTheme } from '@/theme';
 import { hexA } from '@/theme/tokens';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
 // ---- TierChip — A is gold-filled; B/C outlined ----
 export function TierChip({ tier, size = 'sm' }: { tier: 'A' | 'B' | 'C'; size?: 'sm' | 'md' }) {
@@ -1033,6 +1034,7 @@ export function BenLinePill({
   showTooltip?: boolean;
 }) {
   const t = useTheme();
+  const { isTablet } = useDeviceLayout();
   // Resolve to a range. If only `ou` was given (legacy), fall back to ±1.
   const rangeLo = lo != null ? lo : ou != null ? Math.max(1, Math.round(ou - 1)) : null;
   const rangeHi = hi != null ? hi : ou != null ? Math.round(ou + 1) : null;
@@ -1050,25 +1052,37 @@ export function BenLinePill({
     );
   };
 
+  // Tablet sizing: pill needs presence so the user can actually read the
+  // prediction range from a normal viewing distance.
+  const pillH = isTablet ? 30 : 20;
+  const fontBen = isTablet ? 12 : 8;
+  const fontGuess = isTablet ? 11 : 8;
+  const fontLabel = isTablet ? 16 : 11;
+  const fontOdds = isTablet ? 13 : 9;
+  const padBen = isTablet ? 8 : 5;
+  const padBody = isTablet ? 10 : 6;
+  const gapBody = isTablet ? 6 : 4;
+
   return (
     <Pressable
       onPress={showTooltip ? onInfo : undefined}
       style={{
         flexDirection: 'row',
         alignItems: 'stretch',
-        height: 20,
-        borderRadius: 4,
+        height: pillH,
+        borderRadius: isTablet ? 6 : 4,
         overflow: 'hidden',
         borderWidth: 1,
         borderStyle: 'dashed',
         borderColor: dim ? t.line : hexA(t.accent, 0.55),
         backgroundColor: dim ? 'transparent' : hexA(t.accent, 0.08),
         opacity: 0.92,
+        alignSelf: 'flex-start',
       }}
     >
       <View
         style={{
-          paddingHorizontal: 5,
+          paddingHorizontal: padBen,
           justifyContent: 'center',
           backgroundColor: dim ? 'transparent' : hexA(t.accent, 0.18),
         }}
@@ -1076,7 +1090,7 @@ export function BenLinePill({
         <Text
           style={{
             fontFamily: t.fMono,
-            fontSize: 8,
+            fontSize: fontBen,
             fontWeight: '800',
             color: dim ? t.textMute : t.accent,
             letterSpacing: 0.8,
@@ -1087,16 +1101,16 @@ export function BenLinePill({
       </View>
       <View
         style={{
-          paddingHorizontal: 6,
+          paddingHorizontal: padBody,
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 4,
+          gap: gapBody,
         }}
       >
         <Text
           style={{
             fontFamily: t.fMono,
-            fontSize: 8,
+            fontSize: fontGuess,
             fontWeight: '700',
             color: t.textMute,
             letterSpacing: 0.6,
@@ -1107,7 +1121,7 @@ export function BenLinePill({
         <Text
           style={{
             fontFamily: t.fMono,
-            fontSize: 11,
+            fontSize: fontLabel,
             fontWeight: '700',
             color: t.text,
             fontVariant: ['tabular-nums'],
@@ -1119,7 +1133,7 @@ export function BenLinePill({
           <View
             style={{
               marginLeft: 2,
-              paddingLeft: 5,
+              paddingLeft: isTablet ? 8 : 5,
               borderLeftWidth: 1,
               borderLeftColor: t.line,
               flexDirection: 'row',
@@ -1129,7 +1143,7 @@ export function BenLinePill({
             <Text
               style={{
                 fontFamily: t.fMono,
-                fontSize: 9,
+                fontSize: fontOdds,
                 fontWeight: '700',
                 color: t.accent,
                 fontVariant: ['tabular-nums'],
@@ -1137,11 +1151,11 @@ export function BenLinePill({
             >
               {oddsWith.toFixed(2)}
             </Text>
-            <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, marginHorizontal: 2 }}>/</Text>
+            <Text style={{ fontFamily: t.fMono, fontSize: fontOdds, color: t.textMute, marginHorizontal: 2 }}>/</Text>
             <Text
               style={{
                 fontFamily: t.fMono,
-                fontSize: 9,
+                fontSize: fontOdds,
                 fontWeight: '700',
                 color: t.danger,
                 fontVariant: ['tabular-nums'],
@@ -1166,7 +1180,11 @@ export function WithAgainstToggle({
   onFlip: () => void;
 }) {
   const t = useTheme();
+  const { isTablet } = useDeviceLayout();
   const against = side === 'against';
+  const h = isTablet ? 44 : 28;
+  const padH = isTablet ? 18 : 10;
+  const fontSize = isTablet ? 14 : 10;
   return (
     <Pressable
       onPress={(e) => {
@@ -1177,8 +1195,8 @@ export function WithAgainstToggle({
         {
           flexDirection: 'row',
           alignItems: 'stretch',
-          height: 28,
-          borderRadius: 6,
+          height: h,
+          borderRadius: isTablet ? 8 : 6,
           overflow: 'hidden',
           borderWidth: 1,
           borderColor: against ? t.danger : t.line,
@@ -1189,7 +1207,7 @@ export function WithAgainstToggle({
     >
       <View
         style={{
-          paddingHorizontal: 10,
+          paddingHorizontal: padH,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: against ? t.danger : 'transparent',
@@ -1198,7 +1216,7 @@ export function WithAgainstToggle({
         <Text
           style={{
             fontFamily: t.fMono,
-            fontSize: 10,
+            fontSize,
             fontWeight: '800',
             color: against ? '#0E1116' : t.textMute,
             letterSpacing: 0.8,
@@ -1210,7 +1228,7 @@ export function WithAgainstToggle({
       </View>
       <View
         style={{
-          paddingHorizontal: 10,
+          paddingHorizontal: padH,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: against ? 'transparent' : t.accent,
@@ -1219,7 +1237,7 @@ export function WithAgainstToggle({
         <Text
           style={{
             fontFamily: t.fMono,
-            fontSize: 10,
+            fontSize,
             fontWeight: '800',
             color: against ? t.textMute : '#0E1116',
             letterSpacing: 0.8,
