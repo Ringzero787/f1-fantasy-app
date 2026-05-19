@@ -77,18 +77,21 @@ export function escapeHtml(s: string): string {
     .replace(/\n/g, '<br>');
 }
 
-// Track Limits brand palette (matches the app's dark theme).
+// Track Limits email palette — light theme. Inboxes are predominantly light
+// (Gmail/Outlook default), and the black wordmark sits cleanest on white.
 const BRAND = {
-  bg: '#0D1117',
-  card: '#161B22',
-  border: '#30363D',
-  text: '#E6EDF3',
-  textMuted: '#8B949E',
-  accent: '#F87171', // TL red
-  link: '#58A6FF',
+  bg: '#F9FAFB',
+  card: '#FFFFFF',
+  border: '#E5E7EB',
+  text: '#111827',
+  textBody: '#374151',
+  textMuted: '#6B7280',
+  accent: '#DC2626', // TL red
+  link: '#2563EB',
+  rowBg: '#F9FAFB',
 };
 
-const WORDMARK_URL = 'https://humannpc.com/tracklimits/images/wordmark-white.png';
+const WORDMARK_URL = 'https://humannpc.com/tracklimits/images/wordmark-black.png';
 const SITE_URL = 'https://humannpc.com/tracklimits/';
 const PRIVACY_URL = 'https://humannpc.com/tracklimits/privacy.html';
 const DELETE_URL = 'https://humannpc.com/tracklimits/delete-account.html';
@@ -111,8 +114,8 @@ export function renderBrandEmail({ heading, bodyHtml, preheader }: BrandTemplate
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark light">
-  <meta name="supported-color-schemes" content="dark light">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>${escapeHtml(heading)}</title>
 </head>
 <body style="margin:0;padding:0;background:${BRAND.bg};color:${BRAND.text};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
@@ -129,9 +132,9 @@ export function renderBrandEmail({ heading, bodyHtml, preheader }: BrandTemplate
             </td>
           </tr>
           <tr>
-            <td style="background:${BRAND.card};border:1px solid ${BRAND.border};border-radius:14px;padding:28px 28px 24px;">
+            <td style="background:${BRAND.card};border:1px solid ${BRAND.border};border-radius:14px;padding:28px 28px 24px;box-shadow:0 1px 3px rgba(17,24,39,0.04);">
               <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3;letter-spacing:-0.01em;font-weight:700;color:${BRAND.text};">${escapeHtml(heading)}</h1>
-              <div style="font-size:15px;line-height:1.7;color:${BRAND.text};">
+              <div style="font-size:15px;line-height:1.7;color:${BRAND.textBody};">
                 ${bodyHtml}
               </div>
             </td>
@@ -143,7 +146,7 @@ export function renderBrandEmail({ heading, bodyHtml, preheader }: BrandTemplate
                 &nbsp;·&nbsp;
                 <a href="${DELETE_URL}" style="color:${BRAND.textMuted};text-decoration:underline;">Delete account or data</a>
               </p>
-              <p style="margin:0;opacity:0.6;">Track Limits — a HumanNPC game</p>
+              <p style="margin:0;opacity:0.7;">Track Limits — a HumanNPC game</p>
             </td>
           </tr>
         </table>
