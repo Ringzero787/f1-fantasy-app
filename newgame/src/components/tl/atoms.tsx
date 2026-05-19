@@ -1034,7 +1034,7 @@ export function BenLinePill({
   showTooltip?: boolean;
 }) {
   const t = useTheme();
-  const { isTablet } = useDeviceLayout();
+  const { isTablet, scale } = useDeviceLayout();
   // Resolve to a range. If only `ou` was given (legacy), fall back to ±1.
   const rangeLo = lo != null ? lo : ou != null ? Math.max(1, Math.round(ou - 1)) : null;
   const rangeHi = hi != null ? hi : ou != null ? Math.round(ou + 1) : null;
@@ -1053,15 +1053,16 @@ export function BenLinePill({
   };
 
   // Tablet sizing: pill needs presence so the user can actually read the
-  // prediction range from a normal viewing distance.
-  const pillH = isTablet ? 30 : 20;
-  const fontBen = isTablet ? 12 : 8;
-  const fontGuess = isTablet ? 11 : 8;
-  const fontLabel = isTablet ? 16 : 11;
-  const fontOdds = isTablet ? 13 : 9;
-  const padBen = isTablet ? 8 : 5;
-  const padBody = isTablet ? 10 : 6;
-  const gapBody = isTablet ? 6 : 4;
+  // prediction range from a normal viewing distance. All sizes go through
+  // scale() so the user's display-size preference takes effect too.
+  const pillH = scale(isTablet ? 30 : 20);
+  const fontBen = scale(isTablet ? 12 : 8);
+  const fontGuess = scale(isTablet ? 11 : 8);
+  const fontLabel = scale(isTablet ? 16 : 11);
+  const fontOdds = scale(isTablet ? 13 : 9);
+  const padBen = scale(isTablet ? 8 : 5);
+  const padBody = scale(isTablet ? 10 : 6);
+  const gapBody = scale(isTablet ? 6 : 4);
 
   return (
     <Pressable
@@ -1180,11 +1181,11 @@ export function WithAgainstToggle({
   onFlip: () => void;
 }) {
   const t = useTheme();
-  const { isTablet } = useDeviceLayout();
+  const { isTablet, scale } = useDeviceLayout();
   const against = side === 'against';
-  const h = isTablet ? 44 : 28;
-  const padH = isTablet ? 18 : 10;
-  const fontSize = isTablet ? 14 : 10;
+  const h = scale(isTablet ? 44 : 28);
+  const padH = scale(isTablet ? 18 : 10);
+  const fontSize = scale(isTablet ? 14 : 10);
   return (
     <Pressable
       onPress={(e) => {

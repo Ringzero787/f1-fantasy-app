@@ -487,9 +487,9 @@ function ScopeBtn({
 
 function SectionHeader({ title, withCount, againstCount }: { title: string; withCount: number; againstCount: number }) {
   const t = useTheme();
-  const { isTablet } = useDeviceLayout();
-  const titleFont = isTablet ? 14 : 11;
-  const countFont = isTablet ? 13 : 10;
+  const { isTablet, scale } = useDeviceLayout();
+  const titleFont = scale(isTablet ? 14 : 11);
+  const countFont = scale(isTablet ? 13 : 10);
   return (
     <View
       style={{
@@ -553,7 +553,7 @@ function EntityRow(props: {
   onFlip: () => void;
 }) {
   const t = useTheme();
-  const { isTablet } = useDeviceLayout();
+  const { isTablet, scale } = useDeviceLayout();
   const isDriver = props.kind === 'driver';
   const driver = props.driver;
   const team = props.team;
@@ -566,11 +566,13 @@ function EntityRow(props: {
 
   // Tablet sizing: bigger portraits, larger names, more padding so cards have
   // presence on a tablet canvas instead of looking like phone-sized chiclets.
-  const padding = isTablet ? 16 : 10;
-  const gap = isTablet ? 14 : 10;
-  const portraitSize = isTablet ? 60 : 42;
-  const nameFont = isTablet ? 18 : 14;
-  const stripeMinH = isTablet ? 60 : 42;
+  // All sizes pass through scale() so the user's display-size preference
+  // multiplies on top of the tablet-vs-phone base.
+  const padding = scale(isTablet ? 16 : 10);
+  const gap = scale(isTablet ? 14 : 10);
+  const portraitSize = scale(isTablet ? 60 : 42);
+  const nameFont = scale(isTablet ? 18 : 14);
+  const stripeMinH = scale(isTablet ? 60 : 42);
 
   return (
     <Pressable

@@ -14,6 +14,7 @@ import { getHelmetUrl } from '@/data/cosmeticsCatalog';
 import { useTheme, useThemePrefs, TL_PALETTES } from '@/theme';
 import type { Palette, ThemeMode } from '@/theme';
 import { Num, PrimaryBtn, SectionLabel } from '@components/tl';
+import { usePrefsStore, DISPLAY_SCALE_OPTIONS } from '@store/prefs.store';
 
 export default function ProfileScreen() {
   const t = useTheme();
@@ -259,6 +260,9 @@ export default function ProfileScreen() {
         ))}
       </View>
 
+      <SectionLabel>Display size</SectionLabel>
+      <DisplayScalePicker />
+
       <SectionLabel>Accent</SectionLabel>
       <View style={[styles.row, { gap: 8 }]}>
         {(Object.keys(TL_PALETTES) as Palette[]).map((p) => (
@@ -288,9 +292,58 @@ export default function ProfileScreen() {
       </View>
 
       <Text style={{ color: t.textMute, fontFamily: t.fMono, fontSize: 10, textAlign: 'center', marginTop: 24, letterSpacing: 1 }}>
-        TRACK LIMITS · v0.1.0
+        TRACK LIMITS · v0.1.3
       </Text>
     </ScrollView>
+  );
+}
+
+// 4-button display-size picker. Each button renders an "A" sized to roughly
+// match the option's scale so the user previews the change before applying.
+function DisplayScalePicker() {
+  const t = useTheme();
+  const current = usePrefsStore((s) => s.displayScale);
+  const setScale = usePrefsStore((s) => s.setDisplayScale);
+  // Visual "A" size per option — exaggerated vs the real scale so the
+  // difference between buttons reads clearly.
+  const LABEL_SIZES: Record<number, number> = { 0.9: 12, 1.0: 15, 1.15: 19, 1.3: 23 };
+  return (
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      {DISPLAY_SCALE_OPTIONS.map((s) => {
+        const active = current === s;
+        return (
+          <Pressable
+            key={s}
+            onPress={() => setScale(s)}
+            style={({ pressed }) => [
+              {
+                flex: 1,
+                height: 56,
+                borderRadius: 12,
+                borderWidth: 1.5,
+                borderColor: active ? t.accent : t.line,
+                backgroundColor: active ? t.accentSoft : t.surface,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Text
+              style={{
+                fontFamily: t.fDisp,
+                fontWeight: '700',
+                fontSize: LABEL_SIZES[s] ?? 15,
+                color: active ? t.accent : t.text,
+                lineHeight: LABEL_SIZES[s] ? LABEL_SIZES[s] + 2 : 17,
+              }}
+            >
+              A
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 

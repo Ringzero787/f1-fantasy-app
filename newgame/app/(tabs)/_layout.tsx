@@ -1,11 +1,19 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
 export default function TabsLayout() {
   const t = useTheme();
-  const { isTablet } = useDeviceLayout();
+  const { isTablet, scale } = useDeviceLayout();
+  const insets = useSafeAreaInsets();
+  // Use the actual safe-area bottom inset (iPhone home indicator, Android
+  // gesture nav) instead of guessing 28dp — the hardcoded value was clipping
+  // labels under the iPhone bottom indicator on the Pro/Pro Max.
+  const padBottom = (isTablet ? 14 : 10) + insets.bottom;
+  const padTop = isTablet ? 10 : 6;
+  const baseHeight = scale(isTablet ? 56 : 44);
   return (
     <Tabs
       screenOptions={{
@@ -13,13 +21,13 @@ export default function TabsLayout() {
           backgroundColor: t.bg,
           borderTopColor: t.lineSoft,
           borderTopWidth: 1,
-          paddingTop: isTablet ? 10 : 6,
-          paddingBottom: isTablet ? 36 : 28,
-          height: isTablet ? 92 : 70,
+          paddingTop: padTop,
+          paddingBottom: padBottom,
+          height: baseHeight + padTop + padBottom,
         },
         tabBarLabelStyle: {
           fontFamily: t.fMono,
-          fontSize: isTablet ? 15 : 10,
+          fontSize: scale(isTablet ? 15 : 10),
           fontWeight: '600',
           letterSpacing: 1.4,
           textTransform: 'uppercase',
