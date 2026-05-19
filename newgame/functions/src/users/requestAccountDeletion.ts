@@ -16,6 +16,10 @@ const db = admin.firestore();
 interface DeletionRequestBody {
   email?: string;
   reason?: string;
+  /** "account_and_data" deletes the auth user + all docs; "data_only" wipes
+   *  docs but leaves the auth user signable-in. Defaults to account_and_data
+   *  for safety + back-compat with form posts that pre-date this field. */
+  requestType?: 'account_and_data' | 'data_only';
 }
 
 export const tlRequestAccountDeletion = functions.https.onRequest(async (req, res) => {
@@ -24,17 +28,19 @@ export const tlRequestAccountDeletion = functions.https.onRequest(async (req, re
     res.status(405).json({ error: 'POST only' });
     return;
   }
-  const { email, reason } = (req.body || {}) as DeletionRequestBody;
+  const { email, reason, requestType } = (req.body || {}) as DeletionRequestBody;
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     res.status(400).json({ error: 'email required' });
     return;
   }
   const trimmedEmail = email.trim().toLowerCase().slice(0, 320);
   const trimmedReason = (reason || '').toString().slice(0, 2000);
+  const safeRequestType = requestType === 'data_only' ? 'data_only' : 'account_and_data';
 
   await db.collection('tl_deletion_requests').add({
     email: trimmedEmail,
     reason: trimmedReason,
+    requestType: safeRequestType,
     status: 'pending',
     receivedAt: admin.firestore.FieldValue.serverTimestamp(),
     userAgent: req.headers['user-agent'] || null,
