@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Track Limits",
     slug: "track-limits",
-    version: "0.1.0",
+    version: "0.1.1",
     orientation: "portrait",
     icon: "./assets/icon.png",
     scheme: "tracklimits",

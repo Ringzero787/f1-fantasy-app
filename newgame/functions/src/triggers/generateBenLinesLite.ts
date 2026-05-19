@@ -5,8 +5,10 @@
 // 2. For each active driver, compute weighted-avg finishing position across
 //    the window (most recent races weighted higher)
 // 3. Round to nearest half-integer = line
-// 4. Apply variable σ by zone (P1–P7=2, P8–P14=5, P15+=2)
-// 5. Normal CDF around prediction → under/over probability
+// 4. Apply variable σ by zone — per MODELS v1.2:
+//      Race / Sprint: P1–P7=2.0, P8–P14=5.0, P15+=2.0
+//      Quali       : P1–P5=3.5, P6–P14=5.0, P15+=4.0  (1-lap event, wider front)
+// 5. Normal CDF around prediction → with/against probability
 // 6. Fair decimal odds = 1/probability
 // 7. Constructor line = sum of team's two drivers' predicted positions
 // 8. Write ben_lines/{raceId}_{session} (qualifying + race; sprint optional)
@@ -50,7 +52,16 @@ function normalCdf(x: number, mean: number, sigma: number): number {
   return 0.5 * (1 + erf((x - mean) / (sigma * Math.SQRT2)));
 }
 
-function sigmaForPosition(pred: number): number {
+// Per MODELS v1.2: race + sprint share one σ schedule (predictable top, chaotic
+// midfield, compressed backmarkers). Quali is wider because a single lap-time
+// mistake costs 5+ slots with no recovery, so even front-runners have variance.
+function sigmaForPosition(pred: number, session: SessionKey): number {
+  if (session === 'qualifying') {
+    if (pred <= 5) return 3.5;
+    if (pred <= 14) return 5.0;
+    return 4.0;
+  }
+  // race + sprint
   if (pred <= 7) return 2.0;
   if (pred <= 14) return 5.0;
   return 2.0;
@@ -60,8 +71,14 @@ function sigmaForPosition(pred: number): number {
 // actual finish lands inside the range — close to break-even for fair odds.
 const RANGE_HALF_WIDTH_SIGMA = 0.6;
 
-function rangeForPrediction(pred: number, kind: 'driver' | 'constructor'): { lo: number; hi: number } {
-  const sigma = kind === 'driver' ? sigmaForPosition(pred) : Math.sqrt(2) * sigmaForPosition(pred / 2);
+function rangeForPrediction(
+  pred: number,
+  kind: 'driver' | 'constructor',
+  session: SessionKey,
+): { lo: number; hi: number } {
+  const sigma = kind === 'driver'
+    ? sigmaForPosition(pred, session)
+    : Math.sqrt(2) * sigmaForPosition(pred / 2, session);
   const half = Math.max(1, Math.round(sigma * RANGE_HALF_WIDTH_SIGMA));
   const minPos = 1;
   const maxPos = kind === 'driver' ? FIELD_SIZE : FIELD_SIZE * 2;
@@ -157,9 +174,9 @@ function probInRange(pred: number, sigma: number, lo: number, hi: number): numbe
   return Math.max(0.05, Math.min(0.95, pHi - pLo));
 }
 
-function buildDriverLine(pred: DriverPrediction): BenLineEntity {
-  const { lo, hi } = rangeForPrediction(pred.predicted, 'driver');
-  const sigma = sigmaForPosition(pred.predicted);
+function buildDriverLine(pred: DriverPrediction, session: SessionKey): BenLineEntity {
+  const { lo, hi } = rangeForPrediction(pred.predicted, 'driver', session);
+  const sigma = sigmaForPosition(pred.predicted, session);
   const withProb = probInRange(pred.predicted, sigma, lo, hi);
   const againstProb = 1 - withProb;
   return {
@@ -177,7 +194,7 @@ function buildDriverLine(pred: DriverPrediction): BenLineEntity {
   };
 }
 
-function buildConstructorLines(drivers: DriverPrediction[]): BenLineEntity[] {
+function buildConstructorLines(drivers: DriverPrediction[], session: SessionKey): BenLineEntity[] {
   // Group drivers by constructor; constructor predicted = sum of two drivers'
   // predicted positions. σ_combined ≈ √(σ1² + σ2²).
   const byCtor: Record<string, DriverPrediction[]> = {};
@@ -190,9 +207,9 @@ function buildConstructorLines(drivers: DriverPrediction[]): BenLineEntity[] {
   for (const [ctorId, members] of Object.entries(byCtor)) {
     if (members.length < 1) continue;
     const sumPred = members.reduce((s, d) => s + d.predicted, 0);
-    const sumVar = members.reduce((s, d) => s + Math.pow(sigmaForPosition(d.predicted), 2), 0);
+    const sumVar = members.reduce((s, d) => s + Math.pow(sigmaForPosition(d.predicted, session), 2), 0);
     const sigma = Math.sqrt(sumVar);
-    const { lo, hi } = rangeForPrediction(sumPred, 'constructor');
+    const { lo, hi } = rangeForPrediction(sumPred, 'constructor', session);
     const withProb = probInRange(sumPred, sigma, lo, hi);
     const againstProb = 1 - withProb;
     out.push({
@@ -252,10 +269,15 @@ export const tlGenerateBenLinesLite = functions.https.onRequest(async (req, res)
   const summary: Record<string, number> = {};
 
   for (const session of sessions) {
-    const preds = predictDrivers(completed, session);
+    // Per MODELS v1.2, sprint uses GP rank as proxy when no sprint pace data
+    // exists yet (sprints only happen ~6× a season). Fall back to race history.
+    let preds = predictDrivers(completed, session);
+    if (preds.length === 0 && session === 'sprint') {
+      preds = predictDrivers(completed, 'race');
+    }
     if (preds.length === 0) continue;
-    const driverLines = preds.map(buildDriverLine);
-    const ctorLines = buildConstructorLines(preds);
+    const driverLines = preds.map((p) => buildDriverLine(p, session));
+    const ctorLines = buildConstructorLines(preds, session);
     const entities: Record<string, BenLineEntity> = {};
     for (const e of driverLines) entities[e.entityId] = e;
     for (const e of ctorLines) entities[e.entityId] = e;
