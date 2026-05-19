@@ -10,7 +10,7 @@
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { applyCors } from '../triggers/_cors';
-import { sendEmail, escapeHtml } from '../utils/email';
+import { sendEmail, escapeHtml, renderBrandEmail } from '../utils/email';
 
 const db = admin.firestore();
 const ADMIN_NOTIFY_TO = 'nathan.shanks@gmail.com';
@@ -60,16 +60,25 @@ export const tlRequestAccountDeletion = functions
     void sendEmail({
       to: trimmedEmail,
       subject: 'Track Limits — deletion request received',
-      html: `
-        <p>Hi,</p>
-        <p>We received your Track Limits deletion request. Here's what you asked for:</p>
-        <ul>
-          <li><strong>Request type:</strong> ${escapeHtml(requestTypeLabel)}</li>
-          <li><strong>Account email:</strong> ${escapeHtml(trimmedEmail)}</li>
-        </ul>
-        <p>We'll process your request within 30 days and email you again when it's complete. If you didn't make this request, reply to this email immediately and we'll cancel it.</p>
-        <p>— Track Limits</p>
-      `,
+      html: renderBrandEmail({
+        heading: 'We received your deletion request',
+        preheader: `${requestTypeLabel} · We'll process within 30 days.`,
+        bodyHtml: `
+          <p style="margin:0 0 14px;">Thanks — your Track Limits deletion request is in our queue. Here's what you asked for:</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 16px;border-collapse:collapse;">
+            <tr>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-right:0;background:#0D1117;width:40%;color:#8B949E;font-size:13px;">Request type</td>
+              <td style="padding:8px 12px;border:1px solid #30363D;background:#0D1117;color:#E6EDF3;font-size:14px;"><strong>${escapeHtml(requestTypeLabel)}</strong></td>
+            </tr>
+            <tr>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-top:0;border-right:0;background:#0D1117;color:#8B949E;font-size:13px;">Account email</td>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-top:0;background:#0D1117;color:#E6EDF3;font-size:14px;">${escapeHtml(trimmedEmail)}</td>
+            </tr>
+          </table>
+          <p style="margin:0 0 14px;">We'll process your request within <strong>30 days</strong> and email you again when it's complete.</p>
+          <p style="margin:0;color:#8B949E;font-size:13px;">If you didn't make this request, reply to this email and we'll cancel it.</p>
+        `,
+      }),
       text:
         `We received your Track Limits deletion request.\n` +
         `Request type: ${requestTypeLabel}\n` +
@@ -83,16 +92,31 @@ export const tlRequestAccountDeletion = functions
     void sendEmail({
       to: ADMIN_NOTIFY_TO,
       subject: `[TL] Deletion request: ${trimmedEmail}`,
-      html: `
-        <p>New Track Limits deletion request.</p>
-        <ul>
-          <li><strong>Email:</strong> ${escapeHtml(trimmedEmail)}</li>
-          <li><strong>Request type:</strong> ${escapeHtml(requestTypeLabel)}</li>
-          <li><strong>Reason:</strong> ${trimmedReason ? escapeHtml(trimmedReason) : '<em>none given</em>'}</li>
-          <li><strong>Firestore doc:</strong> tl_deletion_requests/${docRef.id}</li>
-        </ul>
-        <p>Action via Firebase console or the adminDeleteUser callable.</p>
-      `,
+      html: renderBrandEmail({
+        heading: 'New deletion request',
+        preheader: `${trimmedEmail} · ${requestTypeLabel}`,
+        bodyHtml: `
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;">
+            <tr>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-right:0;background:#0D1117;width:40%;color:#8B949E;font-size:13px;">Email</td>
+              <td style="padding:8px 12px;border:1px solid #30363D;background:#0D1117;color:#E6EDF3;font-size:14px;">${escapeHtml(trimmedEmail)}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-top:0;border-right:0;background:#0D1117;color:#8B949E;font-size:13px;">Request type</td>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-top:0;background:#0D1117;color:#E6EDF3;font-size:14px;">${escapeHtml(requestTypeLabel)}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-top:0;border-right:0;background:#0D1117;color:#8B949E;font-size:13px;">Reason</td>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-top:0;background:#0D1117;color:#E6EDF3;font-size:14px;">${trimmedReason ? escapeHtml(trimmedReason) : '<em style="color:#8B949E;">none given</em>'}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-top:0;border-right:0;background:#0D1117;color:#8B949E;font-size:13px;">Firestore doc</td>
+              <td style="padding:8px 12px;border:1px solid #30363D;border-top:0;background:#0D1117;color:#E6EDF3;font-size:13px;font-family:'SF Mono','Menlo',monospace;">tl_deletion_requests/${docRef.id}</td>
+            </tr>
+          </table>
+          <p style="margin:0;color:#8B949E;font-size:13px;">Action via Firebase console or the <code style="background:#0D1117;border:1px solid #30363D;border-radius:4px;padding:2px 6px;font-size:12px;">adminDeleteUser</code> callable.</p>
+        `,
+      }),
     });
 
     res.status(200).json({ ok: true });
