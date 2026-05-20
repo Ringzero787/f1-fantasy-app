@@ -1,19 +1,68 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
+
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+function TabBarItemContent({
+  icon,
+  focused,
+  isTablet,
+  scale,
+  activeColor,
+  inactiveColor,
+}: {
+  icon: IconName;
+  focused: boolean;
+  isTablet: boolean;
+  scale: (n: number) => number;
+  activeColor: string;
+  inactiveColor: string;
+}) {
+  const iconSize = scale(isTablet ? 28 : 22);
+  const dotSize = isTablet ? 6 : 4;
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <MaterialCommunityIcons
+        name={icon}
+        size={iconSize}
+        color={focused ? activeColor : inactiveColor}
+      />
+      <View
+        style={{
+          marginTop: 4,
+          width: dotSize,
+          height: dotSize,
+          borderRadius: dotSize / 4,
+          backgroundColor: focused ? activeColor : 'transparent',
+        }}
+      />
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
   const insets = useSafeAreaInsets();
-  // Use the actual safe-area bottom inset (iPhone home indicator, Android
-  // gesture nav) instead of guessing 28dp — the hardcoded value was clipping
-  // labels under the iPhone bottom indicator on the Pro/Pro Max.
   const padBottom = (isTablet ? 14 : 10) + insets.bottom;
   const padTop = isTablet ? 10 : 6;
   const baseHeight = scale(isTablet ? 56 : 44);
+
+  const renderItem = (icon: IconName) => ({ focused }: { focused: boolean }) => (
+    <TabBarItemContent
+      icon={icon}
+      focused={focused}
+      isTablet={isTablet}
+      scale={scale}
+      activeColor={t.accent}
+      inactiveColor={t.textMute}
+    />
+  );
+
   return (
     <Tabs
       screenOptions={{
@@ -25,40 +74,21 @@ export default function TabsLayout() {
           paddingBottom: padBottom,
           height: baseHeight + padTop + padBottom,
         },
-        tabBarLabelStyle: {
-          fontFamily: t.fMono,
-          fontSize: scale(isTablet ? 15 : 10),
-          fontWeight: '600',
-          letterSpacing: 1.4,
-          textTransform: 'uppercase',
-        },
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.textMute,
-        tabBarShowLabel: true,
+        tabBarShowLabel: false,
         tabBarItemStyle: { paddingTop: isTablet ? 6 : 4 },
-        // Dot indicator: render a small accent square under the active tab
-        tabBarIcon: ({ focused }) => (
-          <View
-            style={{
-              width: isTablet ? 6 : 4,
-              height: isTablet ? 6 : 4,
-              borderRadius: isTablet ? 1.5 : 1,
-              backgroundColor: focused ? t.accent : 'transparent',
-              marginTop: -4,
-            }}
-          />
-        ),
         headerStyle: { backgroundColor: t.bg },
         headerTintColor: t.text,
         headerTitleStyle: { fontFamily: t.fDisp, fontWeight: '700' },
         sceneStyle: { backgroundColor: t.bg },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Lineup', headerShown: false }} />
-      <Tabs.Screen name="garage" options={{ title: 'Garage' }} />
-      <Tabs.Screen name="shop" options={{ title: 'Shop' }} />
-      <Tabs.Screen name="leagues" options={{ title: 'League', headerShown: false }} />
-      <Tabs.Screen name="profile" options={{ title: 'You' }} />
+      <Tabs.Screen name="index" options={{ title: 'Lineup', headerShown: false, tabBarIcon: renderItem('flag-checkered') }} />
+      <Tabs.Screen name="garage" options={{ title: 'Garage', tabBarIcon: renderItem('garage-variant') }} />
+      <Tabs.Screen name="shop" options={{ title: 'Shop', tabBarIcon: renderItem('cart-outline') }} />
+      <Tabs.Screen name="leagues" options={{ title: 'League', headerShown: false, tabBarIcon: renderItem('trophy-outline') }} />
+      <Tabs.Screen name="profile" options={{ title: 'You', tabBarIcon: renderItem('account-circle-outline') }} />
     </Tabs>
   );
 }

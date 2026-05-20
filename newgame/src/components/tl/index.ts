@@ -28,6 +28,8 @@ export {
   BenLinePill,
   WithAgainstToggle,
   ActiveBetDot,
+  BEN_AGAINST,
+  BEN_AGAINST_WASH,
 } from './atoms';
 
 export {

@@ -403,6 +403,7 @@ function PickRow({
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
           <BenLinePill
+            kind={isDriver ? 'driver' : 'constructor'}
             lo={line.predictedLo}
             hi={line.predictedHi}
             ou={line.line}

@@ -28,6 +28,7 @@ export function StakeSheet({
   initialStake,
   cash,
   onApply,
+  onFlipSide,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -40,6 +41,9 @@ export function StakeSheet({
   initialStake: number;
   cash: number;
   onApply: (next: { side: BenSide; stake: number }) => void;
+  // Fires whenever the side is flipped inside the sheet, so the lineup card
+  // under the modal reflects the new side immediately (not just on Save).
+  onFlipSide?: (next: BenSide) => void;
 }) {
   const t = useTheme();
   const [side, setSide] = useState<BenSide>(initialSide);
@@ -71,7 +75,13 @@ export function StakeSheet({
   const sideLabel = against ? 'Against Ben' : 'With Ben';
   const maxStake = Math.min(cash, 1000);
 
-  const flipSide = () => setSide((s) => (s === 'against' ? 'with' : 'against'));
+  const flipSide = () => {
+    setSide((s) => {
+      const next: BenSide = s === 'against' ? 'with' : 'against';
+      onFlipSide?.(next);
+      return next;
+    });
+  };
 
   const commitCustom = () => {
     const n = Math.max(0, Math.min(maxStake, parseInt(draft || '0', 10) || 0));
@@ -214,9 +224,14 @@ export function StakeSheet({
           >
             {line
               ? (() => {
-                  const lo = benLineLo(line);
-                  const hi = benLineHi(line);
-                  return lo === hi ? `P${lo}` : `P${lo}–P${hi}`;
+                  // Constructor predictions are sums-of-two-positions
+                  // (range 1–44). Halve for display so users see realistic
+                  // grid positions; scoring still uses the sum.
+                  const isCtor = entityKind === 'constructor';
+                  const lo = isCtor ? Math.round(benLineLo(line) / 2) : benLineLo(line);
+                  const hi = isCtor ? Math.round(benLineHi(line) / 2) : benLineHi(line);
+                  const base = lo === hi ? `P${lo}` : `P${lo}–P${hi}`;
+                  return isCtor ? `${base} avg` : base;
                 })()
               : '—'}
           </Text>

@@ -1,7 +1,7 @@
 // Track Limits design-system atoms. Ported from design_handoff_track_limits/atoms.jsx
 // with React Native primitives. Type-led, mono numerics, broadcast-graphic restraint.
 
-import { Alert, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { Alert, Pressable, StyleProp, StyleSheet, Text, TextStyle, TouchableOpacity, Vibration, View, ViewStyle } from 'react-native';
 import { useTheme } from '@/theme';
 import { hexA } from '@/theme/tokens';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -1022,6 +1022,7 @@ export function BenLinePill({
   hi,
   oddsWith,
   oddsAgainst,
+  kind = 'driver',
   dim = false,
   showTooltip = true,
 }: {
@@ -1030,39 +1031,55 @@ export function BenLinePill({
   hi?: number;
   oddsWith?: number;
   oddsAgainst?: number;
+  // Constructor predictions are stored as the SUM of both drivers' finishing
+  // positions (range 1–44). For display we halve and label it as an average
+  // per car, so users see realistic grid positions (1–22). Math/scoring
+  // continues to use the sum under the hood.
+  kind?: 'driver' | 'constructor';
   dim?: boolean;
   showTooltip?: boolean;
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
   // Resolve to a range. If only `ou` was given (legacy), fall back to ±1.
-  const rangeLo = lo != null ? lo : ou != null ? Math.max(1, Math.round(ou - 1)) : null;
-  const rangeHi = hi != null ? hi : ou != null ? Math.round(ou + 1) : null;
-  const label =
+  const rawLo = lo != null ? lo : ou != null ? Math.max(1, Math.round(ou - 1)) : null;
+  const rawHi = hi != null ? hi : ou != null ? Math.round(ou + 1) : null;
+  const isCtor = kind === 'constructor';
+  const rangeLo = rawLo != null ? (isCtor ? Math.round(rawLo / 2) : rawLo) : null;
+  const rangeHi = rawHi != null ? (isCtor ? Math.round(rawHi / 2) : rawHi) : null;
+  const baseLabel =
     rangeLo != null && rangeHi != null
       ? rangeLo === rangeHi
         ? `P${rangeLo}`
         : `P${rangeLo}–P${rangeHi}`
       : '—';
+  const label = isCtor && baseLabel !== '—' ? `${baseLabel} avg` : baseLabel;
 
   const onInfo = () => {
+    const detail = isCtor
+      ? `Ben's model thinks this constructor's two cars finish in ${baseLabel} on average. (Internally the bet resolves on the sum of both finishing positions.)`
+      : `Ben's model thinks this driver lands in ${baseLabel}.`;
     Alert.alert(
       "Ben's guess",
-      `Ben's model thinks this driver/constructor lands in ${label}. Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Stake cash to amplify; free picks still score the points leaderboard.`
+      `${detail} Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Stake cash to amplify; free picks still score the points leaderboard.`,
     );
   };
 
   // Tablet sizing: pill needs presence so the user can actually read the
   // prediction range from a normal viewing distance. All sizes go through
   // scale() so the user's display-size preference takes effect too.
-  const pillH = scale(isTablet ? 30 : 20);
-  const fontBen = scale(isTablet ? 12 : 8);
-  const fontGuess = scale(isTablet ? 11 : 8);
+  const pillH = scale(isTablet ? 30 : 22);
+  const fontBen = scale(isTablet ? 12 : 9);
+  const fontGuess = scale(isTablet ? 11 : 9);
   const fontLabel = scale(isTablet ? 16 : 11);
   const fontOdds = scale(isTablet ? 13 : 9);
   const padBen = scale(isTablet ? 8 : 5);
   const padBody = scale(isTablet ? 10 : 6);
   const gapBody = scale(isTablet ? 6 : 4);
+  // On phone, the row is tight — driver name + pill + WITH/AGAINST toggle
+  // collide on a 360dp screen. Hide odds in the pill on phone; they show
+  // inside the StakeSheet when the user taps the row anyway.
+  const showOdds = isTablet && oddsWith != null && oddsAgainst != null;
 
   return (
     <Pressable
@@ -1130,7 +1147,7 @@ export function BenLinePill({
         >
           {label}
         </Text>
-        {oddsWith != null && oddsAgainst != null ? (
+        {showOdds ? (
           <View
             style={{
               marginLeft: 2,
@@ -1150,7 +1167,7 @@ export function BenLinePill({
                 fontVariant: ['tabular-nums'],
               }}
             >
-              {oddsWith.toFixed(2)}
+              {oddsWith!.toFixed(2)}
             </Text>
             <Text style={{ fontFamily: t.fMono, fontSize: fontOdds, color: t.textMute, marginHorizontal: 2 }}>/</Text>
             <Text
@@ -1162,7 +1179,7 @@ export function BenLinePill({
                 fontVariant: ['tabular-nums'],
               }}
             >
-              {oddsAgainst.toFixed(2)}
+              {oddsAgainst!.toFixed(2)}
             </Text>
           </View>
         ) : null}
@@ -1171,62 +1188,56 @@ export function BenLinePill({
   );
 }
 
-// Segmented toggle: [AGAINST | WITH] — danger red on the AGAINST side, accent
-// green on the WITH side. Each pill is an INDEPENDENT Pressable so tapping
-// "Against" always sets the side to against (not just "flip"). Wrapping each
-// pill in its own Pressable also prevents the parent row Pressable from
-// stealing the tap, which was making the toggle feel dead on phone.
-//
-// `onSelect(side)` is the canonical prop. `onFlip()` is kept for back-compat
-// with callers that still expect the old flip semantics.
+// Segmented pill matching design_handoff lineup_handoff/ben-picks.jsx. One
+// Pressable, two visual halves (AGAINST left, WITH right). Single tap
+// anywhere flips the side — no per-half logic, no no-op states. Sage
+// (#9CAF88) for AGAINST treatment, theme accent for WITH active.
+export const BEN_AGAINST = '#9CAF88';
+export const BEN_AGAINST_WASH = 'rgba(156, 175, 136, 0.16)';
+
 export function WithAgainstToggle({
   side,
-  onSelect,
   onFlip,
 }: {
   side: 'with' | 'against';
-  onSelect?: (next: 'with' | 'against') => void;
-  /** @deprecated use onSelect — kept so legacy callers still compile. */
-  onFlip?: () => void;
+  onFlip: () => void;
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
   const against = side === 'against';
-  // Minimum 44dp touch target on phone (Apple HIG / Material guidance).
-  const h = scale(isTablet ? 44 : 32);
-  const padH = scale(isTablet ? 18 : 12);
-  const fontSize = scale(isTablet ? 14 : 11);
 
-  const handleSelect = (next: 'with' | 'against') => {
-    if (onSelect) onSelect(next);
-    else if (onFlip && next !== side) onFlip();
-  };
+  const h = scale(isTablet ? 36 : 28);
+  const halfPadH = scale(isTablet ? 14 : 10);
+  const fontSize = scale(isTablet ? 13 : 10);
 
   return (
-    <View
-      style={{
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={against ? 'Flip to with Ben' : 'Flip to against Ben'}
+      onPress={() => {
+        Vibration.vibrate(against ? 8 : 30);
+        onFlip();
+      }}
+      android_ripple={{ color: hexA(t.text, 0.08), borderless: false }}
+      style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'stretch',
         height: h,
-        borderRadius: isTablet ? 8 : 6,
-        overflow: 'hidden',
+        borderRadius: 6,
         borderWidth: 1,
-        borderColor: against ? t.danger : t.line,
+        borderColor: against ? BEN_AGAINST : t.line,
         backgroundColor: t.surface,
-      }}
+        overflow: 'hidden',
+        opacity: pressed ? 0.85 : 1,
+      })}
     >
-      <Pressable
-        onPress={() => handleSelect('against')}
-        hitSlop={{ top: 6, bottom: 6, left: 4, right: 0 }}
-        style={({ pressed }) => [
-          {
-            paddingHorizontal: padH,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: against ? t.danger : 'transparent',
-            opacity: pressed ? 0.7 : 1,
-          },
-        ]}
+      <View
+        style={{
+          paddingHorizontal: halfPadH,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: against ? BEN_AGAINST : 'transparent',
+        }}
       >
         <Text
           style={{
@@ -1240,19 +1251,14 @@ export function WithAgainstToggle({
         >
           Against
         </Text>
-      </Pressable>
-      <Pressable
-        onPress={() => handleSelect('with')}
-        hitSlop={{ top: 6, bottom: 6, left: 0, right: 4 }}
-        style={({ pressed }) => [
-          {
-            paddingHorizontal: padH,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: against ? 'transparent' : t.accent,
-            opacity: pressed ? 0.7 : 1,
-          },
-        ]}
+      </View>
+      <View
+        style={{
+          paddingHorizontal: halfPadH,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: against ? 'transparent' : t.accent,
+        }}
       >
         <Text
           style={{
@@ -1266,8 +1272,8 @@ export function WithAgainstToggle({
         >
           With
         </Text>
-      </Pressable>
-    </View>
+      </View>
+    </Pressable>
   );
 }
 

@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
@@ -25,6 +26,8 @@ import {
   WithAgainstToggle,
   ActiveBetDot,
   TabletColumn,
+  BEN_AGAINST,
+  BEN_AGAINST_WASH,
 } from '@components/tl';
 import { StakeSheet } from '@components/sheets/StakeSheet';
 import { useTheme } from '@/theme';
@@ -48,7 +51,7 @@ export default function LineupScreen() {
   const benByRace = useBenStore((s) => (upcomingRace?.id ? s.byRaceId[upcomingRace.id] : null));
   const loadBen = useBenStore((s) => s.load);
   const picksDoc = usePicksStore((s) => (upcomingRace?.id ? s.byRaceId[upcomingRace.id] : null));
-  const loadPicks = usePicksStore((s) => s.load);
+  const subscribePicks = usePicksStore((s) => s.subscribe);
   const setSide = usePicksStore((s) => s.setSide);
   const setStake = usePicksStore((s) => s.setStake);
 
@@ -56,11 +59,20 @@ export default function LineupScreen() {
   const [primaryLeague, setPrimaryLeague] = useState<League | null>(null);
   const [stakeFor, setStakeFor] = useState<{ kind: 'driver' | 'constructor'; id: string } | null>(null);
 
+  // Picks: Firestore IS the source of truth. Subscribe and the snapshot
+  // listener feeds byRaceId. Writes via setSide/setStake go straight to
+  // Firestore and the same listener pushes them back instantly (SDK
+  // latency compensation). One writer, no races, no manual optimistic state.
   useEffect(() => {
     if (!upcomingRace?.id) return;
     loadBen(upcomingRace.id);
-    if (userId) loadPicks(userId, upcomingRace.id);
-  }, [upcomingRace?.id, userId, loadBen, loadPicks]);
+  }, [upcomingRace?.id, loadBen]);
+
+  useEffect(() => {
+    if (!userId || !upcomingRace?.id) return;
+    const unsubscribe = subscribePicks(userId, upcomingRace.id);
+    return unsubscribe;
+  }, [userId, upcomingRace?.id, subscribePicks]);
 
   useEffect(() => {
     if (!userId) return;
@@ -347,8 +359,9 @@ export default function LineupScreen() {
                 pickSide={pick?.side ?? 'with'}
                 pickStake={pick?.stake ?? 0}
                 onRowPress={() => setStakeFor({ kind: 'driver', id: d.id })}
-                onSelect={(next) => {
+                onFlip={() => {
                   if (!userId || !upcomingRace) return;
+                  const next = (pick?.side ?? 'with') === 'against' ? 'with' : 'against';
                   void setSide(userId, upcomingRace.id, scope, d.id, next);
                 }}
               />
@@ -370,8 +383,9 @@ export default function LineupScreen() {
                 pickSide={pick?.side ?? 'with'}
                 pickStake={pick?.stake ?? 0}
                 onRowPress={() => setStakeFor({ kind: 'constructor', id: c.id })}
-                onSelect={(next) => {
+                onFlip={() => {
                   if (!userId || !upcomingRace) return;
+                  const next = (pick?.side ?? 'with') === 'against' ? 'with' : 'against';
                   void setSide(userId, upcomingRace.id, scope, c.id, next);
                 }}
               />
@@ -395,7 +409,7 @@ export default function LineupScreen() {
               fontFamily: t.fMono,
               fontSize: 10,
               fontWeight: '700',
-              color: anyAgainst ? t.danger : t.textDim,
+              color: anyAgainst ? BEN_AGAINST : t.textDim,
               letterSpacing: 1,
               textTransform: 'uppercase',
             }}
@@ -424,6 +438,11 @@ export default function LineupScreen() {
             // sequence, so the doc ends in the right state.
             await setSide(userId, upcomingRace.id, scope, stakeFor.id, side);
             await setStake(userId, upcomingRace.id, scope, stakeFor.id, stake);
+          }}
+          onFlipSide={(next) => {
+            // Propagate the side flip to the lineup card immediately so the
+            // user sees the new state without having to Save the stake first.
+            void setSide(userId, upcomingRace.id, scope, stakeFor.id, next);
           }}
         />
       ) : null}
@@ -529,7 +548,7 @@ function SectionHeader({ title, withCount, againstCount }: { title: string; with
             fontFamily: t.fMono,
             fontSize: countFont,
             fontWeight: '700',
-            color: againstCount > 0 ? t.danger : t.textMute,
+            color: againstCount > 0 ? BEN_AGAINST : t.textMute,
             letterSpacing: 0.8,
           }}
         >
@@ -548,7 +567,7 @@ function EntityRow(props: {
   pickSide: 'with' | 'against';
   pickStake: number;
   onRowPress: () => void;
-  onSelect: (next: 'with' | 'against') => void;
+  onFlip: () => void;
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
@@ -566,41 +585,53 @@ function EntityRow(props: {
   // presence on a tablet canvas instead of looking like phone-sized chiclets.
   // All sizes pass through scale() so the user's display-size preference
   // multiplies on top of the tablet-vs-phone base.
-  const padding = scale(isTablet ? 16 : 10);
-  const gap = scale(isTablet ? 14 : 10);
-  const portraitSize = scale(isTablet ? 60 : 42);
-  const nameFont = scale(isTablet ? 18 : 14);
-  const stripeMinH = scale(isTablet ? 60 : 42);
+  //
+  // Base sizes bumped ~15% from the original (May 20) — driver/constructor
+  // cards were reading too small on phone next to the rest of the chrome.
+  const padding = scale(isTablet ? 19 : 11);
+  const gap = scale(isTablet ? 17 : 11);
+  const portraitSize = scale(isTablet ? 68 : 50);
+  const nameFont = scale(isTablet ? 21 : 16);
+  const stripeMinH = scale(isTablet ? 68 : 50);
+
+  // Layout: WITH/AGAINST toggle is ABSOLUTELY positioned so it's outside the
+  // flex flow entirely — zero risk that the row-body Pressable's flex:1
+  // bounds overlap with the toggle's hit area. Row body Pressable has
+  // explicit paddingRight so the avatar/name/pill don't visually run under
+  // the toggle.
+  const togglePadRight = scale(isTablet ? 200 : 140); // toggle width + gap
 
   return (
-    <Pressable
-      onPress={props.onRowPress}
-      style={({ pressed }) => [
-        {
-          backgroundColor: t.surface,
-          borderRadius: isTablet ? 14 : 12,
-          borderWidth: against ? 1.5 : 1,
-          borderColor: against ? t.danger : t.line,
-          overflow: 'hidden',
-          opacity: pressed ? 0.92 : 1,
-        },
-      ]}
+    <View
+      style={{
+        position: 'relative',
+        backgroundColor: t.surface,
+        borderRadius: isTablet ? 14 : 12,
+        borderWidth: against ? 1.5 : 1,
+        borderColor: against ? BEN_AGAINST : t.line,
+        overflow: 'hidden',
+      }}
     >
       {against ? (
-        <View
+        <LinearGradient
+          colors={[BEN_AGAINST_WASH, 'rgba(156,175,136,0)']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 0.6, y: 0.5 }}
           pointerEvents="none"
-          style={{
-            position: 'absolute',
-            inset: 0 as unknown as number,
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: hexA(t.danger, 0.08),
-          }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         />
       ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap, padding }}>
+      <Pressable
+        onPress={props.onRowPress}
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap,
+          padding,
+          paddingRight: padding + togglePadRight,
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
         {isDriver ? (
           <DriverPortrait driver={driver!} size={portraitSize} />
         ) : (
@@ -618,6 +649,7 @@ function EntityRow(props: {
           </View>
           {props.line ? (
             <BenLinePill
+              kind={props.kind}
               lo={props.line.predictedLo}
               hi={props.line.predictedHi}
               ou={props.line.line}
@@ -630,9 +662,11 @@ function EntityRow(props: {
             </Text>
           )}
         </View>
-        <WithAgainstToggle side={props.pickSide} onSelect={props.onSelect} />
+      </Pressable>
+      <View style={{ position: 'absolute', right: padding, top: 0, bottom: 0, justifyContent: 'center' }}>
+        <WithAgainstToggle side={props.pickSide} onFlip={props.onFlip} />
       </View>
-    </Pressable>
+    </View>
   );
 }
 
