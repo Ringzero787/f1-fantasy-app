@@ -333,21 +333,21 @@ function DriverHeader({ driver }: { driver: Driver }) {
   const teamShort = (driver.constructorName || '').slice(0, 3).toUpperCase();
   const teamColor = (CONSTRUCTOR_COLORS as Record<string, string>)[teamShort] || t.accent;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <DriverPortrait driver={driver} size={56} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+      <DriverPortrait driver={driver} size={68} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 16, color: t.text, letterSpacing: -0.3 }}>{driver.name}</Text>
+          <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 19, color: t.text, letterSpacing: -0.3 }}>{driver.name}</Text>
           <TierChip tier={driver.tier} />
           <TierMultBadge tier={driver.tier} />
         </View>
-        <Text style={{ fontFamily: t.fMono, fontSize: 11, color: teamColor, fontWeight: '600', marginTop: 3 }}>
+        <Text style={{ fontFamily: t.fMono, fontSize: 13, color: teamColor, fontWeight: '600', marginTop: 3 }}>
           {driver.constructorName}
         </Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Price</Text>
-        <Num size={16} weight="600">${driver.price}</Num>
+        <Num size={20} weight="600">${driver.price}</Num>
       </View>
     </View>
   );
@@ -372,8 +372,8 @@ function RosteredDriverCard({
         borderRadius: 12,
         borderWidth: 1.5,
         borderColor: t.accent,
-        padding: 14,
-        gap: 12,
+        padding: 17,
+        gap: 14,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -429,8 +429,8 @@ function BenchDriverCard({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: t.line,
-        padding: 14,
-        gap: 12,
+        padding: 17,
+        gap: 14,
         opacity: 0.95,
       }}
     >
@@ -469,15 +469,15 @@ function ConstructorHeader({ constructor }: { constructor: Constructor }) {
   const t = useTheme();
   const color = (CONSTRUCTOR_COLORS as Record<string, string>)[constructor.shortName] || constructor.primaryColor || t.accent;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <View style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, backgroundColor: color }} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <View style={{ width: 5, alignSelf: 'stretch', borderRadius: 3, backgroundColor: color }} />
       <View style={{ flex: 1, paddingLeft: 4 }}>
-        <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 16, color: t.text, letterSpacing: -0.3 }}>{constructor.name}</Text>
-        <Text style={{ fontFamily: t.fMono, fontSize: 11, color: t.textDim, marginTop: 2 }}>{constructor.fantasyPoints} pts</Text>
+        <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 19, color: t.text, letterSpacing: -0.3 }}>{constructor.name}</Text>
+        <Text style={{ fontFamily: t.fMono, fontSize: 13, color: t.textDim, marginTop: 2 }}>{constructor.fantasyPoints} pts</Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Price</Text>
-        <Num size={16} weight="600">${constructor.price}</Num>
+        <Num size={20} weight="600">${constructor.price}</Num>
       </View>
     </View>
   );
@@ -502,8 +502,8 @@ function RosteredConstructorCard({
         borderRadius: 12,
         borderWidth: 1.5,
         borderColor: t.accent,
-        padding: 14,
-        gap: 12,
+        padding: 17,
+        gap: 14,
         overflow: 'hidden',
       }}
     >
@@ -552,8 +552,8 @@ function BenchConstructorCard({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: t.line,
-        padding: 14,
-        gap: 12,
+        padding: 17,
+        gap: 14,
         overflow: 'hidden',
       }}
     >

@@ -19,7 +19,7 @@ import { picksService } from '@services/picks.service';
 import { useTheme } from '@/theme';
 import { SectionLabel } from '@components/tl';
 import { SESSION_WEIGHT, benLineHits } from '@/types';
-import type { BenLine, BenSessionDoc, SessionKey, BenSide } from '@/types';
+import type { BenLine, BenSessionDoc, PicksDoc, Pick, SessionKey, BenSide } from '@/types';
 
 export default function DemoScreen() {
   const t = useTheme();
@@ -195,7 +195,13 @@ export default function DemoScreen() {
       let callsCorrect = 0;
       let callsTotal = 0;
 
-      const picks = await picksService.getOrCreate(user.id, race.id);
+      const picks = (await picksService.get(user.id, race.id)) ?? {
+        id: `${user.id}_${race.id}`,
+        userId: user.id,
+        raceId: race.id,
+        picks: {},
+        totalStaked: 0,
+      } as PicksDoc;
 
       for (const session of sessions) {
         const snap = await getDoc(doc(db, 'ben_lines', `${race.id}_${session}`));

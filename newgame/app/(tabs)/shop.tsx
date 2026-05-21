@@ -208,25 +208,25 @@ function ShopDriverCard({ driver, cash, onBuy }: { driver: Driver; cash: number;
         backgroundColor: t.surface,
         borderWidth: 1,
         borderColor: t.line,
-        borderRadius: 12,
-        padding: 14,
+        borderRadius: 14,
+        padding: 17,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 14,
         opacity: canAfford ? 1 : 0.55,
       }}
     >
-      <DriverPortrait driver={driver} size={52} />
+      <DriverPortrait driver={driver} size={62} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 15, color: t.text, letterSpacing: -0.3 }}>{driver.name}</Text>
+          <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 18, color: t.text, letterSpacing: -0.3 }}>{driver.name}</Text>
           <TierChip tier={driver.tier} />
           <TierMultBadge tier={driver.tier} />
         </View>
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 3 }}>
-          <Text style={{ fontFamily: t.fMono, fontSize: 11, color: teamColor, fontWeight: '600' }}>{teamShort}</Text>
-          <Text style={{ fontFamily: t.fMono, fontSize: 11, color: t.textDim, opacity: 0.5 }}>·</Text>
-          <Text style={{ fontFamily: t.fMono, fontSize: 11, color: t.textDim }}>{driver.fantasyPoints} pts</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+          <Text style={{ fontFamily: t.fMono, fontSize: 13, color: teamColor, fontWeight: '600' }}>{teamShort}</Text>
+          <Text style={{ fontFamily: t.fMono, fontSize: 13, color: t.textDim, opacity: 0.5 }}>·</Text>
+          <Text style={{ fontFamily: t.fMono, fontSize: 13, color: t.textDim }}>{driver.fantasyPoints} pts</Text>
         </View>
       </View>
       <Pressable
@@ -234,9 +234,9 @@ function ShopDriverCard({ driver, cash, onBuy }: { driver: Driver; cash: number;
         onPress={onBuy}
         style={({ pressed }) => [
           {
-            height: 44,
-            paddingHorizontal: 14,
-            borderRadius: 10,
+            height: 52,
+            paddingHorizontal: 16,
+            borderRadius: 12,
             backgroundColor: canAfford ? t.accent : t.surface2,
             alignItems: 'center',
             justifyContent: 'center',
@@ -248,14 +248,14 @@ function ShopDriverCard({ driver, cash, onBuy }: { driver: Driver; cash: number;
           style={{
             color: canAfford ? '#0E1116' : t.textMute,
             fontFamily: t.fMono,
-            fontSize: 13,
+            fontSize: 16,
             fontWeight: '700',
             fontVariant: ['tabular-nums'],
           }}
         >
           ${driver.price}
         </Text>
-        <Text style={{ color: canAfford ? '#0E1116' : t.textMute, fontFamily: t.fMono, fontSize: 8, fontWeight: '700', letterSpacing: 1, marginTop: 1, opacity: 0.7 }}>
+        <Text style={{ color: canAfford ? '#0E1116' : t.textMute, fontFamily: t.fMono, fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 1, opacity: 0.7 }}>
           BUY
         </Text>
       </Pressable>
@@ -273,29 +273,29 @@ function ShopConstructorCard({ constructor, cash, onBuy }: { constructor: Constr
         backgroundColor: t.surface,
         borderWidth: 1,
         borderColor: t.line,
-        borderRadius: 12,
-        padding: 14,
+        borderRadius: 14,
+        padding: 17,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 14,
         opacity: canAfford ? 1 : 0.55,
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: color }} />
-      <View style={{ flex: 1, paddingLeft: 8 }}>
-        <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 15, color: t.text, letterSpacing: -0.3 }}>{constructor.name}</Text>
-        <Text style={{ fontFamily: t.fMono, fontSize: 11, color: t.textDim, marginTop: 2 }}>{constructor.fantasyPoints} pts</Text>
+      <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, backgroundColor: color }} />
+      <View style={{ flex: 1, paddingLeft: 10 }}>
+        <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 18, color: t.text, letterSpacing: -0.3 }}>{constructor.name}</Text>
+        <Text style={{ fontFamily: t.fMono, fontSize: 13, color: t.textDim, marginTop: 3 }}>{constructor.fantasyPoints} pts</Text>
       </View>
       <Pressable
         disabled={!canAfford}
         onPress={onBuy}
         style={({ pressed }) => [
           {
-            height: 44,
-            paddingHorizontal: 14,
-            borderRadius: 10,
+            height: 52,
+            paddingHorizontal: 16,
+            borderRadius: 12,
             backgroundColor: canAfford ? t.accent : t.surface2,
             alignItems: 'center',
             justifyContent: 'center',
@@ -307,13 +307,13 @@ function ShopConstructorCard({ constructor, cash, onBuy }: { constructor: Constr
           style={{
             color: canAfford ? '#0E1116' : t.textMute,
             fontFamily: t.fMono,
-            fontSize: 13,
+            fontSize: 16,
             fontWeight: '700',
           }}
         >
           ${constructor.price}
         </Text>
-        <Text style={{ color: canAfford ? '#0E1116' : t.textMute, fontFamily: t.fMono, fontSize: 8, fontWeight: '700', letterSpacing: 1, marginTop: 1, opacity: 0.7 }}>
+        <Text style={{ color: canAfford ? '#0E1116' : t.textMute, fontFamily: t.fMono, fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 1, opacity: 0.7 }}>
           BUY
         </Text>
       </Pressable>

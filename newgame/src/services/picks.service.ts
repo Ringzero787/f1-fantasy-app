@@ -1,115 +1,102 @@
-// Picks service — read and write player picks for a race.
-// One Firestore doc per (user, race) holds picks across all sessions.
-// Picks default to side='with', stake=0. UI flips side and adjusts stake; the
-// settlement Cloud Function reads this doc and grades it against ben_lines.
+// Picks service — one Firestore doc per (user, race) holds picks across all
+// sessions. Picks default to side='with', stake=0.
+//
+// Architecture: Firestore IS the source of truth for picks. Reads go through
+// `subscribe()` (onSnapshot — Firestore's built-in latency compensation makes
+// local writes appear instantly in the snapshot listener with
+// metadata.hasPendingWrites=true). Writes go through `setSide` / `setStake`
+// using setDoc(..., {merge:true}) — creates the doc if missing, deep-merges
+// the new pick if it exists. No transactions, no manual optimistic state,
+// no race between optimistic + network response.
 
-import { doc, getDoc, setDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  onSnapshot,
+  setDoc,
+  serverTimestamp,
+  Unsubscribe,
+} from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { PicksDoc, Pick, BenSide, SessionKey } from '../types';
 
 const pickDocId = (userId: string, raceId: string) => `${userId}_${raceId}`;
-const pickDoc = (userId: string, raceId: string) => doc(db, 'tl_picks', pickDocId(userId, raceId));
-
-function sumStakes(picks: PicksDoc['picks']): number {
-  let total = 0;
-  for (const session of Object.values(picks)) {
-    if (!session) continue;
-    for (const p of Object.values(session)) {
-      total += p?.stake ?? 0;
-    }
-  }
-  return Math.round(total * 100) / 100;
-}
+const pickDoc = (userId: string, raceId: string) =>
+  doc(db, 'tl_picks', pickDocId(userId, raceId));
 
 export const picksService = {
+  // One-shot read. Mostly used by the demo / settle scripts. Live UI should
+  // use subscribe() instead so it stays in sync.
   async get(userId: string, raceId: string): Promise<PicksDoc | null> {
     const snap = await getDoc(pickDoc(userId, raceId));
-    if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() } as PicksDoc;
+    return snap.exists() ? ({ id: snap.id, ...snap.data() } as PicksDoc) : null;
   },
 
-  // Idempotent: returns an existing doc or creates a fresh one with empty picks.
-  async getOrCreate(userId: string, raceId: string): Promise<PicksDoc> {
-    const existing = await this.get(userId, raceId);
-    if (existing) return existing;
-    const doc: Omit<PicksDoc, 'id'> = {
-      userId,
-      raceId,
-      picks: {},
-      totalStaked: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    await setDoc(pickDoc(userId, raceId), {
-      ...doc,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+  // Subscribe to a user's picks doc for a race. The callback fires once
+  // immediately with current state, then on every change (including the
+  // user's own writes — Firestore SDK emits the pending state instantly
+  // before the server confirms).
+  subscribe(
+    userId: string,
+    raceId: string,
+    cb: (doc: PicksDoc | null) => void,
+  ): Unsubscribe {
+    return onSnapshot(pickDoc(userId, raceId), (snap) => {
+      if (snap.exists()) {
+        cb({ id: snap.id, ...snap.data() } as PicksDoc);
+      } else {
+        cb(null);
+      }
     });
-    return { id: pickDocId(userId, raceId), ...doc };
   },
 
-  // Set/replace one pick. The session and entityId form the address within the
-  // picks map. Used by the toggle (side flip) and stake stepper.
-  async setPick(args: {
+  // Set the side for one entity in one session. Creates the doc if missing,
+  // deep-merges otherwise so other picks + the stake are preserved.
+  async setSide(args: {
     userId: string;
     raceId: string;
     session: SessionKey;
     entityId: string;
-    pick: Pick;
-  }): Promise<PicksDoc> {
-    const { userId, raceId, session, entityId, pick } = args;
-    return runTransaction(db, async (tx) => {
-      const ref = pickDoc(userId, raceId);
-      const snap = await tx.get(ref);
-      const existing = snap.exists() ? (snap.data() as Omit<PicksDoc, 'id'>) : null;
-      const picks: PicksDoc['picks'] = existing?.picks ?? {};
-      const sessionMap = { ...(picks[session] ?? {}) };
-      sessionMap[entityId] = pick;
-      const nextPicks: PicksDoc['picks'] = { ...picks, [session]: sessionMap };
-      const totalStaked = sumStakes(nextPicks);
+    side: BenSide;
+  }): Promise<void> {
+    await setDoc(
+      pickDoc(args.userId, args.raceId),
+      {
+        userId: args.userId,
+        raceId: args.raceId,
+        picks: { [args.session]: { [args.entityId]: { side: args.side } } },
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  },
 
-      const next: Omit<PicksDoc, 'id'> = {
-        userId,
-        raceId,
-        picks: nextPicks,
-        totalStaked,
-        createdAt: existing?.createdAt ?? new Date(),
-        updatedAt: new Date(),
-      };
-
-      tx.set(
-        ref,
-        {
-          ...next,
-          createdAt: existing ? existing.createdAt : serverTimestamp(),
-          updatedAt: serverTimestamp(),
+  // Set the stake for one entity in one session. Same merge semantics.
+  async setStake(args: {
+    userId: string;
+    raceId: string;
+    session: SessionKey;
+    entityId: string;
+    stake: number;
+  }): Promise<void> {
+    await setDoc(
+      pickDoc(args.userId, args.raceId),
+      {
+        userId: args.userId,
+        raceId: args.raceId,
+        picks: {
+          [args.session]: {
+            [args.entityId]: { stake: Math.max(0, Math.round(args.stake)) },
+          },
         },
-        { merge: false }
-      );
-
-      return { id: pickDocId(userId, raceId), ...next };
-    });
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
   },
 
-  async setSide(args: { userId: string; raceId: string; session: SessionKey; entityId: string; side: BenSide }) {
-    const current = await this.get(args.userId, args.raceId);
-    const existing = current?.picks?.[args.session]?.[args.entityId];
-    return this.setPick({
-      ...args,
-      pick: { side: args.side, stake: existing?.stake ?? 0 },
-    });
-  },
-
-  async setStake(args: { userId: string; raceId: string; session: SessionKey; entityId: string; stake: number }) {
-    const current = await this.get(args.userId, args.raceId);
-    const existing = current?.picks?.[args.session]?.[args.entityId];
-    return this.setPick({
-      ...args,
-      pick: { side: existing?.side ?? 'with', stake: Math.max(0, Math.round(args.stake)) },
-    });
-  },
-
-  // Helper: read a single pick (returns the default WITH/$0 if not yet stored).
+  // Helper: read a single pick out of a PicksDoc (returns the default
+  // WITH/$0 if not yet stored).
   pickFor(picksDoc: PicksDoc | null, session: SessionKey, entityId: string): Pick {
     const stored = picksDoc?.picks?.[session]?.[entityId];
     return stored ?? { side: 'with', stake: 0 };
