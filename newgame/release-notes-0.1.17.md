@@ -1,7 +1,10 @@
-# Track Limits 0.1.16
+# Track Limits 0.1.17
 
-**versionCode:** 17
-**versionName:** 0.1.16
+**versionCode:** 18
+**versionName:** 0.1.17
+
+> Re-cut of 0.1.16 (icon tab bar + Garage/Shop sizing + picks refactor) with a
+> fresh versionCode so it can be uploaded over the version Google already has.
 **AAB:** `android/app/build/outputs/bundle/release/app-release.aab`
 
 ## Picks service — Firestore as the source of truth
