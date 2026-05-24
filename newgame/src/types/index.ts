@@ -1,4 +1,32 @@
 // ============================================
+// Remote app config (Firestore: tl_config/app)
+// ============================================
+// Server-controlled knobs read on launch so we can respond to issues without
+// shipping a build. ALL fields optional — a missing doc / unreadable config
+// must leave the app fully functional (the gate fails open).
+
+export interface AppConfig {
+  // Hard floor. If the running build's android versionCode is below this, the
+  // app shows a blocking "update required" screen. This is the kill-switch for
+  // shipped-broken versions — set it to the first good versionCode.
+  minSupportedVersionCode?: number;
+  // Store link for the update button (defaults to the Play listing).
+  updateUrl?: string;
+  // Optional banner shown at the top of the app (maintenance / notice / soft
+  // update nudge). Non-blocking.
+  notice?: {
+    enabled?: boolean;
+    id?: string; // changing this re-shows the banner after a dismiss
+    title?: string;
+    body?: string;
+    severity?: 'info' | 'warn';
+    dismissible?: boolean;
+  };
+  // Open-ended feature flags. Read with appConfigFlag(config, key, default).
+  features?: Record<string, boolean>;
+}
+
+// ============================================
 // User
 // ============================================
 

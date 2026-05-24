@@ -8,6 +8,7 @@ import { useAuthStore } from '@store/auth.store';
 import { authService } from '@services/auth.service';
 import { colors } from '@/constants/theme';
 import { ThemeProvider } from '@/theme';
+import { AppConfigGate } from '@components/AppConfigGate';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +84,7 @@ export default function RootLayout() {
       <ThemeProvider>
         <SafeAreaProvider>
           <StatusBar style="auto" />
+          <AppConfigGate>
           <AuthGate>
             <Stack
               screenOptions={{
@@ -99,6 +101,7 @@ export default function RootLayout() {
               <Stack.Screen name="standings" options={{ headerShown: true, presentation: 'modal' }} />
             </Stack>
           </AuthGate>
+          </AppConfigGate>
         </SafeAreaProvider>
       </ThemeProvider>
     </QueryClientProvider>
