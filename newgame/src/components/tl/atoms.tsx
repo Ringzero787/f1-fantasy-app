@@ -1281,15 +1281,26 @@ export function WithAgainstToggle({
 // Locked-state badge — replaces the WITH/AGAINST toggle once a session starts.
 // Padlock + frozen side + (optional) stake. Sized to match WithAgainstToggle so
 // it occupies the same absolute slot on the row.
-export function LockedBadge({ side, stake }: { side: 'with' | 'against'; stake: number }) {
+export function LockedBadge({
+  side,
+  stake,
+  variant = 'locked',
+}: {
+  side: 'with' | 'against';
+  stake: number;
+  // 'locked' = session running (padlock). 'complete' = session finished,
+  // results pending (clock). Both keep the pick frozen + visible.
+  variant?: 'locked' | 'complete';
+}) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
   const against = side === 'against';
   const sideColor = against ? BEN_AGAINST : t.accent;
   const h = scale(isTablet ? 36 : 28);
   const fontSize = scale(isTablet ? 13 : 10);
-  const lockSize = scale(isTablet ? 13 : 11);
+  const iconSize = scale(isTablet ? 13 : 11);
   const hasBet = stake > 0;
+  const complete = variant === 'complete';
   return (
     <View
       style={{
@@ -1304,10 +1315,17 @@ export function LockedBadge({ side, stake }: { side: 'with' | 'against'; stake: 
       }}
     >
       <View style={{ paddingHorizontal: scale(6), alignItems: 'center', justifyContent: 'center', backgroundColor: t.surface2, borderRightWidth: 1, borderRightColor: t.line }}>
-        <Svg width={lockSize} height={lockSize + 1} viewBox="0 0 9 11">
-          <Rect x={1} y={5} width={7} height={6} rx={1} fill={t.textMute} />
-          <Path d="M2.5 5V3.2a2 2 0 014 0V5" stroke={t.textMute} strokeWidth={1.1} fill="none" />
-        </Svg>
+        {complete ? (
+          <Svg width={iconSize + 1} height={iconSize + 1} viewBox="0 0 12 12">
+            <Circle cx={6} cy={6} r={4.6} stroke={t.textMute} strokeWidth={1.1} fill="none" />
+            <Path d="M6 3.4V6L7.8 7.2" stroke={t.textMute} strokeWidth={1.1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        ) : (
+          <Svg width={iconSize} height={iconSize + 1} viewBox="0 0 9 11">
+            <Rect x={1} y={5} width={7} height={6} rx={1} fill={t.textMute} />
+            <Path d="M2.5 5V3.2a2 2 0 014 0V5" stroke={t.textMute} strokeWidth={1.1} fill="none" />
+          </Svg>
+        )}
       </View>
       <View style={{ paddingHorizontal: scale(8), alignItems: 'center', justifyContent: 'center', backgroundColor: sideColor }}>
         <Text style={{ fontFamily: t.fMono, fontSize, fontWeight: '800', color: '#0E1116', letterSpacing: 0.8, textTransform: 'uppercase' }}>
@@ -1358,16 +1376,38 @@ export function ResultBadge({ won, payout }: { won: boolean; payout: number }) {
   );
 }
 
-// Phase banner — sits under the scope toggle to signal locked / settled state.
-// Returns null when the session is still open.
-export function PhaseBanner({ scope, phase }: { scope: SessionKey; phase: 'open' | 'locked' | 'results' }) {
+// Phase banner — sits under the scope toggle to signal session state.
+// Returns null when the session is still open. Amber=locked (running),
+// cornflower=complete (finished, results pending), green=results (settled).
+export function PhaseBanner({ scope, phase }: { scope: SessionKey; phase: 'open' | 'locked' | 'complete' | 'results' }) {
   const t = useTheme();
   if (phase === 'open') return null;
-  const locked = phase === 'locked';
-  const color = locked ? t.warn : t.success;
-  const bg = locked ? 'rgba(224,164,88,0.10)' : 'rgba(123,211,137,0.10)';
-  const border = locked ? 'rgba(224,164,88,0.4)' : 'rgba(123,211,137,0.4)';
   const sessionLabel = scope === 'qualifying' ? 'Quali' : scope === 'sprint' ? 'Sprint' : 'Race';
+
+  const cfg = {
+    locked: {
+      color: t.warn,
+      bg: 'rgba(224,164,88,0.10)',
+      border: 'rgba(224,164,88,0.4)',
+      title: `${sessionLabel} locked`,
+      body: 'Picks frozen. Results land when the session ends.',
+    },
+    complete: {
+      color: t.accent,
+      bg: hexA(t.accent, 0.1),
+      border: hexA(t.accent, 0.4),
+      title: `${sessionLabel} complete`,
+      body: 'Results pending — scores post once the session is graded.',
+    },
+    results: {
+      color: t.success,
+      bg: 'rgba(123,211,137,0.10)',
+      border: 'rgba(123,211,137,0.4)',
+      title: `${sessionLabel} settled`,
+      body: 'Cards show your result. Unlocks for next round soon.',
+    },
+  }[phase];
+
   return (
     <View
       style={{
@@ -1376,19 +1416,24 @@ export function PhaseBanner({ scope, phase }: { scope: SessionKey; phase: 'open'
         paddingVertical: 10,
         paddingHorizontal: 12,
         borderRadius: 10,
-        backgroundColor: bg,
+        backgroundColor: cfg.bg,
         borderWidth: 1,
-        borderColor: border,
+        borderColor: cfg.border,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
       }}
     >
-      <View style={{ width: 22, height: 22, borderRadius: 5, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
-        {locked ? (
+      <View style={{ width: 22, height: 22, borderRadius: 5, backgroundColor: cfg.color, alignItems: 'center', justifyContent: 'center' }}>
+        {phase === 'locked' ? (
           <Svg width={12} height={13} viewBox="0 0 9 11">
             <Rect x={1} y={5} width={7} height={6} rx={1} fill="#0E1116" />
             <Path d="M2.5 5V3.2a2 2 0 014 0V5" stroke="#0E1116" strokeWidth={1.1} fill="none" />
+          </Svg>
+        ) : phase === 'complete' ? (
+          <Svg width={13} height={13} viewBox="0 0 12 12">
+            <Circle cx={6} cy={6} r={4.6} stroke="#0E1116" strokeWidth={1.2} fill="none" />
+            <Path d="M6 3.3V6L8 7.2" stroke="#0E1116" strokeWidth={1.3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         ) : (
           <Svg width={12} height={12} viewBox="0 0 12 12">
@@ -1397,11 +1442,11 @@ export function PhaseBanner({ scope, phase }: { scope: SessionKey; phase: 'open'
         )}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ fontFamily: t.fMono, fontSize: 10, fontWeight: '800', color, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-          {locked ? `${sessionLabel} locked` : `${sessionLabel} settled`}
+        <Text style={{ fontFamily: t.fMono, fontSize: 10, fontWeight: '800', color: cfg.color, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+          {cfg.title}
         </Text>
         <Text style={{ fontFamily: t.fSans, fontSize: 12, color: t.text, marginTop: 2, letterSpacing: -0.1 }}>
-          {locked ? 'Picks frozen. Results land when the session ends.' : 'Cards show your result. Unlocks for next round soon.'}
+          {cfg.body}
         </Text>
       </View>
     </View>

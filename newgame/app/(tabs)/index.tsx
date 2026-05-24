@@ -43,7 +43,21 @@ import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { toDate } from '@utils/formatters';
 import type { BenLine, Driver, Constructor, League, SessionKey, PickOutcome } from '@/types';
 
-type Phase = 'open' | 'locked' | 'results';
+type Phase = 'open' | 'locked' | 'complete' | 'results';
+
+// Picks lock a short cushion BEFORE the scheduled session start, so nobody can
+// sneak an edit during the out/formation lap.
+const LOCK_BUFFER_MS = 5 * 60_000;
+
+// We only store session START times, not ends. To tell "running" (locked) from
+// "finished" (complete) we treat a session as over this long after its start.
+// Generous upper bounds (red flags, overruns) — better to read "locked" a bit
+// long than flip to "complete" mid-session.
+const SESSION_DURATION_MS: Record<SessionKey, number> = {
+  sprint: 90 * 60_000,
+  qualifying: 90 * 60_000,
+  race: 210 * 60_000,
+};
 
 export default function LineupScreen() {
   const t = useTheme();
@@ -194,20 +208,29 @@ export default function LineupScreen() {
   const raceAt = toDate(upcomingRace.schedule.race);
   const sprintAt = upcomingRace.schedule.sprint ? toDate(upcomingRace.schedule.sprint) : null;
   const sessionStart = scope === 'sprint' ? sprintAt : scope === 'qualifying' ? qualiAt : raceAt;
-  const countdownStr = sessionStart ? formatCountdown(sessionStart) : (['—', ''] as [string, string]);
+  // Countdown targets the LOCK moment (start − buffer), so "locks in" is honest.
+  const lockTarget = sessionStart ? new Date(sessionStart.getTime() - LOCK_BUFFER_MS) : null;
+  const countdownStr = lockTarget ? formatCountdown(lockTarget) : (['—', ''] as [string, string]);
   const linesPosted = benSession && Object.keys(benSession.entities ?? {}).length > 0;
 
-  // Phase per scope: settled outcomes → 'results'; session start passed → 'locked';
-  // otherwise 'open'. Locked/results disable card interaction and swap the toggle
-  // for a status badge.
+  // Phase per scope:
+  //   results  — settlement outcomes exist for the session
+  //   complete — session finished (start + duration passed) but not yet graded
+  //   locked   — within the lock buffer of start, or running
+  //   open     — still editable
   const startForScope = (s: SessionKey): Date | null =>
     (s === 'sprint' ? sprintAt : s === 'qualifying' ? qualiAt : raceAt) ?? null;
   const phaseFor = (s: SessionKey): Phase => {
     const outcomes = picksDoc?.settledOutcomes?.[s];
     if (outcomes && Object.keys(outcomes).length > 0) return 'results';
     const start = startForScope(s);
-    if (start && start.getTime() <= Date.now()) return 'locked';
-    return 'open';
+    if (!start) return 'open';
+    const now = Date.now();
+    if (now < start.getTime() - LOCK_BUFFER_MS) return 'open';
+    const ended =
+      now >= start.getTime() + SESSION_DURATION_MS[s] ||
+      (s === 'race' && (upcomingRace.status === 'completed' || !!upcomingRace.results?.raceResults?.length));
+    return ended ? 'complete' : 'locked';
   };
   const phase = phaseFor(scope);
 
@@ -309,6 +332,7 @@ export default function LineupScreen() {
                 key={s}
                 label={s === 'qualifying' ? 'Qualifying' : s === 'race' ? 'Race' : 'Sprint'}
                 sub={s === 'race' ? 'x1.00' : s === 'qualifying' ? 'x0.50' : 'x0.25'}
+                status={phaseFor(s)}
                 active={scope === s}
                 onPress={() => onPickScope(s)}
               />
@@ -316,7 +340,9 @@ export default function LineupScreen() {
           </View>
         </View>
 
-        {/* Countdown */}
+        {/* Countdown — only while the session is still open; once it locks the
+            PhaseBanner below conveys state instead. */}
+        {phase === 'open' ? (
         <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
           <View
             style={{
@@ -356,10 +382,11 @@ export default function LineupScreen() {
             <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: t.accent }} />
           </View>
         </View>
+        ) : null}
 
         <PhaseBanner scope={scope} phase={phase} />
 
-        {!linesPosted ? (
+        {!linesPosted && phase === 'open' ? (
           <View
             style={{
               marginTop: 12,
@@ -504,15 +531,30 @@ export default function LineupScreen() {
 function ScopeBtn({
   label,
   sub,
+  status = 'open',
   active,
   onPress,
 }: {
   label: string;
   sub: string;
+  status?: Phase;
   active: boolean;
   onPress: () => void;
 }) {
   const t = useTheme();
+  // While open, the sub line shows the scoring multiplier. Once the session
+  // locks it shows the state instead, so all sessions read at a glance.
+  const subText =
+    status === 'locked' ? 'LOCKED' : status === 'complete' ? 'DONE' : status === 'results' ? 'SETTLED' : sub;
+  const subColor = active
+    ? '#0E1116'
+    : status === 'locked'
+      ? t.warn
+      : status === 'complete'
+        ? t.accent
+        : status === 'results'
+          ? t.success
+          : t.textMute;
   return (
     <Pressable
       onPress={onPress}
@@ -538,16 +580,16 @@ function ScopeBtn({
       </Text>
       <Text
         style={{
-          color: active ? '#0E1116' : t.textMute,
+          color: subColor,
           fontFamily: t.fMono,
           fontSize: 9,
-          fontWeight: '600',
+          fontWeight: status === 'open' ? '600' : '800',
           letterSpacing: 1,
           textAlign: 'center',
-          opacity: active ? 0.6 : 0.7,
+          opacity: active ? (status === 'open' ? 0.6 : 0.8) : 0.9,
         }}
       >
-        {sub}
+        {subText}
       </Text>
     </Pressable>
   );
@@ -665,7 +707,7 @@ function EntityRow(props: {
         borderWidth: against ? 1.5 : 1,
         borderColor: against ? BEN_AGAINST : t.line,
         overflow: 'hidden',
-        opacity: phase === 'locked' ? 0.7 : 1,
+        opacity: phase === 'locked' || phase === 'complete' ? 0.7 : 1,
       }}
     >
       {against ? (
@@ -723,8 +765,8 @@ function EntityRow(props: {
       <View style={{ position: 'absolute', right: padding, top: 0, bottom: 0, justifyContent: 'center' }}>
         {phase === 'results' && props.result ? (
           <ResultBadge won={props.result.won} payout={props.result.payout} />
-        ) : phase === 'locked' ? (
-          <LockedBadge side={props.pickSide} stake={props.pickStake} />
+        ) : phase === 'locked' || phase === 'complete' ? (
+          <LockedBadge side={props.pickSide} stake={props.pickStake} variant={phase === 'complete' ? 'complete' : 'locked'} />
         ) : (
           <WithAgainstToggle side={props.pickSide} onFlip={props.onFlip} />
         )}
