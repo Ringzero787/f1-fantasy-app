@@ -47,4 +47,5 @@ export { TopBar } from './TopBar';
 export { BetsCard } from './BetsCard';
 export { TabletColumn } from './TabletColumn';
 export { Scoreboard, ScoreboardChip, summarizeScope } from './Scoreboard';
-export type { ScopeSummary, ScoreEntity } from './Scoreboard';
+export type { ScopeSummary, ScoreEntity, ScopeSummaryLine } from './Scoreboard';
+export { SessionSummary, useSessionSummary } from './SessionSummary';

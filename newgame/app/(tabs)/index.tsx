@@ -32,6 +32,8 @@ import {
   Scoreboard,
   ScoreboardChip,
   summarizeScope,
+  SessionSummary,
+  useSessionSummary,
   BEN_AGAINST,
   BEN_AGAINST_WASH,
 } from '@components/tl';
@@ -124,6 +126,19 @@ export default function LineupScreen() {
   const sessionsAvailable = useMemo<SessionKey[]>(() => {
     return hasSprintWeekend ? ['sprint', 'qualifying', 'race'] : ['qualifying', 'race'];
   }, [hasSprintWeekend]);
+
+  // Sessions with graded outcomes (results phase) — drives the auto-popping
+  // Session Summary. Derived purely from settledOutcomes, so it's safe to
+  // compute up here (before the loading/early-return guards) where hooks live.
+  const settledScopes = useMemo<SessionKey[]>(
+    () =>
+      sessionsAvailable.filter((s) => {
+        const o = picksDoc?.settledOutcomes?.[s];
+        return !!o && Object.keys(o).length > 0;
+      }),
+    [sessionsAvailable, picksDoc],
+  );
+  const summary = useSessionSummary(upcomingRace?.id, settledScopes);
 
   // Smart-default the scope to the next un-locked session in calendar order.
   // Once the user picks one manually it's respected for the rest of the visit.
@@ -523,6 +538,17 @@ export default function LineupScreen() {
         onClose={() => setScoreOpen(false)}
         scopes={sessionsAvailable}
         summaries={summaries}
+        onOpenRecap={() => {
+          setScoreOpen(false);
+          summary.openManually();
+        }}
+      />
+
+      <SessionSummary
+        visible={summary.open}
+        scopes={summary.scopes}
+        summaries={summaries}
+        onClose={summary.close}
       />
     </SafeAreaView>
   );

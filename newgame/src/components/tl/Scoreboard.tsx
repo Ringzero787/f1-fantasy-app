@@ -11,32 +11,49 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { useTheme } from '@/theme';
 import { BEN_AGAINST } from './atoms';
 import type { BenSessionDoc, PicksDoc, SessionKey } from '@/types';
+import { benLineLo, benLineHi } from '@/types';
 
 export interface ScoreEntity {
   id: string;
   name: string;
 }
 
-interface ScopeSummaryLine {
+export interface ScopeSummaryLine {
   id: string;
   name: string;
+  kind: 'driver' | 'constructor';
   side: 'with' | 'against';
   stake: number;
   settled: boolean;
   won?: boolean;
   delta?: number; // realised profit/loss on a settled pick
   pendingPayout?: number; // gross payout if a pending stake wins
-  result?: number;
+  result?: number; // realised finishing position (display value; halved for constructors)
+  ouLabel?: string; // Ben's predicted range for display, e.g. "P3–P5"
 }
 
 export interface ScopeSummary {
   settled: boolean;
   atRisk: number;
   net: number;
+  won: number; // gross $ won across hits (payouts)
+  lost: number; // gross $ lost across misses (stakes)
   hits: number;
   misses: number;
   points: number;
   lines: ScopeSummaryLine[];
+}
+
+// Ben's predicted range as a display label. Constructor lines store the SUM of
+// both cars' positions, so halve for display (matching BenLinePill).
+function rangeLabel(line: BenSessionDoc['entities'][string] | undefined, kind: 'driver' | 'constructor'): string | undefined {
+  if (!line) return undefined;
+  const lo = benLineLo(line);
+  const hi = benLineHi(line);
+  if (!lo && !hi) return undefined;
+  const dLo = kind === 'constructor' ? Math.round(lo / 2) : lo;
+  const dHi = kind === 'constructor' ? Math.round(hi / 2) : hi;
+  return dLo === dHi ? `P${dLo}` : `P${dLo}–P${dHi}`;
 }
 
 const SCOPE_LABEL: Record<SessionKey, string> = {
@@ -56,29 +73,41 @@ export function summarizeScope(
   const settled = !!outcomes && Object.keys(outcomes).length > 0;
   let atRisk = 0;
   let net = 0;
+  let won = 0;
+  let lost = 0;
   let hits = 0;
   let misses = 0;
   let points = 0;
   const lines: ScopeSummaryLine[] = [];
 
-  const collect = (items: ScoreEntity[]) => {
+  const collect = (items: ScoreEntity[], kind: 'driver' | 'constructor') => {
     for (const item of items) {
+      const line = benSession?.entities?.[item.id];
       const outcome = outcomes?.[item.id];
       if (settled && outcome) {
         const delta = outcome.won ? outcome.payout - outcome.stake : -outcome.stake;
         net += delta;
         points += outcome.pointsCredit ?? 0;
-        if (outcome.won) hits++;
-        else misses++;
+        if (outcome.won) {
+          hits++;
+          won += outcome.payout;
+        } else {
+          misses++;
+          lost += outcome.stake;
+        }
+        const resultDisp =
+          outcome.result != null && kind === 'constructor' ? Math.round(outcome.result / 2) : outcome.result;
         lines.push({
           id: item.id,
           name: item.name,
+          kind,
           side: outcome.side,
           stake: outcome.stake,
           settled: true,
           won: outcome.won,
           delta,
-          result: outcome.result,
+          result: resultDisp,
+          ouLabel: rangeLabel(line, kind),
         });
         continue;
       }
@@ -86,16 +115,15 @@ export function summarizeScope(
       const stake = pick?.stake ?? 0;
       if (stake <= 0) continue;
       const side = pick?.side ?? 'with';
-      const line = benSession?.entities?.[item.id];
       const odds = (side === 'against' ? line?.againstOdds : line?.withOdds) ?? 2;
       atRisk += stake;
-      lines.push({ id: item.id, name: item.name, side, stake, settled: false, pendingPayout: stake * odds });
+      lines.push({ id: item.id, name: item.name, kind, side, stake, settled: false, pendingPayout: stake * odds });
     }
   };
-  collect(drivers);
-  collect(constructors);
+  collect(drivers, 'driver');
+  collect(constructors, 'constructor');
 
-  return { settled, atRisk, net, hits, misses, points, lines };
+  return { settled, atRisk, net, won, lost, hits, misses, points, lines };
 }
 
 function chipAmount(summaries: ScopeSummary[]): { label: string; settled: boolean; positive: boolean } | null {
@@ -146,11 +174,15 @@ export function Scoreboard({
   onClose,
   scopes,
   summaries,
+  onOpenRecap,
 }: {
   visible: boolean;
   onClose: () => void;
   scopes: SessionKey[];
   summaries: Record<string, ScopeSummary>;
+  // When provided and some scope is settled, shows a "View full recap" button
+  // that opens the paged Session Summary.
+  onOpenRecap?: () => void;
 }) {
   const t = useTheme();
   const list = scopes.map((s) => ({ scope: s, summary: summaries[s] })).filter((x) => x.summary);
@@ -194,6 +226,24 @@ export function Scoreboard({
             {list.map(({ scope, summary }) => (
               <ScopeBlock key={scope} label={SCOPE_LABEL[scope]} summary={summary} />
             ))}
+            {settledAny && onOpenRecap ? (
+              <Pressable
+                onPress={onOpenRecap}
+                style={({ pressed }) => ({
+                  marginTop: 14,
+                  height: 44,
+                  borderRadius: 10,
+                  backgroundColor: t.accent,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <Text style={{ color: '#0E1116', fontFamily: t.fMono, fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' }}>
+                  View full recap
+                </Text>
+              </Pressable>
+            ) : null}
             <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 0.4, textAlign: 'center', marginTop: 14, lineHeight: 14 }}>
               Correct calls score points · cash settles per stake × odds
             </Text>
