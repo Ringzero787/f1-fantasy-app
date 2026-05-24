@@ -93,15 +93,31 @@ export const syncRaceSchedules = onSchedule(
         }
       }
 
-      if (hasChanges) {
+      // Keep the `hasSprint` boolean in sync with the authoritative OpenF1
+      // schedule. If OpenF1 lists a Sprint session for the meeting, this is a
+      // sprint weekend — set the flag. We only ever set it TRUE: a sprint round
+      // whose sessions OpenF1 hasn't published yet still has hasSprint=true from
+      // seed data, and clobbering that to false would hide the Sprint scope
+      // until late. The race-time `sprint` key is the definitive marker.
+      const isSprintWeekend = !!newSchedule.sprint;
+      const currentHasSprint = raceDoc.data()?.hasSprint === true;
+      const needsSprintFlag = isSprintWeekend && !currentHasSprint;
+
+      if (hasChanges || needsSprintFlag) {
         // Build update with dot notation to merge, not overwrite
-        const updateData: Record<string, admin.firestore.Timestamp> = {};
+        const updateData: Record<string, admin.firestore.Timestamp | boolean> = {};
         for (const [key, timestamp] of Object.entries(newSchedule)) {
           updateData[`schedule.${key}`] = timestamp;
         }
+        if (isSprintWeekend) {
+          updateData.hasSprint = true;
+        }
         await raceRef.update(updateData);
         updatedCount++;
-        console.log(`[ScheduleSync] Updated schedule for ${raceId} (round ${round})`);
+        console.log(
+          `[ScheduleSync] Updated schedule for ${raceId} (round ${round})` +
+            (needsSprintFlag ? ' [set hasSprint=true]' : '')
+        );
       }
     }
 
