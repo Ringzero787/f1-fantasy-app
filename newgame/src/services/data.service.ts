@@ -94,13 +94,21 @@ export const dataService = {
   },
 
   async getUpcomingRace(): Promise<Race | null> {
+    // The "current" race is the earliest race that hasn't completed yet. This
+    // INCLUDES 'in_progress' — once a race weekend starts, the shared lock cron
+    // (Undercut) flips the race doc to 'in_progress', and the player is still
+    // making picks for its remaining sessions until each one locks. Filtering on
+    // 'upcoming' only would skip the live weekend and jump to the next race
+    // (and so hide its Sprint scope entirely).
+    const ACTIVE: Race['status'][] = ['upcoming', 'in_progress'];
+
     // Preferred path: status filter + orderBy schedule.race. Needs a composite
-    // index (status asc, schedule.race asc) — without it Firestore throws
-    // FAILED_PRECONDITION and we'd dump the user onto a mock race.
+    // index (status, schedule.race) — without it Firestore throws
+    // FAILED_PRECONDITION and we'd fall through to the no-orderBy path.
     try {
       const q = query(
         collection(db, 'races'),
-        where('status', '==', 'upcoming'),
+        where('status', 'in', ACTIVE),
         orderBy('schedule.race', 'asc'),
         limit(1)
       );
@@ -112,10 +120,10 @@ export const dataService = {
     } catch (err) {
       console.warn('[tl] getUpcomingRace indexed query failed, trying no-orderBy fallback:', err);
     }
-    // Fallback A: status-only query with no orderBy (no index required), sort
+    // Fallback A: status filter with no orderBy (no index required), sort
     // client-side. Works even while the composite index is still building.
     try {
-      const q2 = query(collection(db, 'races'), where('status', '==', 'upcoming'));
+      const q2 = query(collection(db, 'races'), where('status', 'in', ACTIVE));
       const snap2 = await getDocs(q2);
       if (!snap2.empty) {
         const races = snap2.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Race, 'id'>) }));
