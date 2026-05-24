@@ -292,7 +292,7 @@ export default function ProfileScreen() {
       </View>
 
       <Text style={{ color: t.textMute, fontFamily: t.fMono, fontSize: 10, textAlign: 'center', marginTop: 24, letterSpacing: 1 }}>
-        TRACK LIMITS · v0.1.17
+        TRACK LIMITS · v0.1.18
       </Text>
     </ScrollView>
   );
