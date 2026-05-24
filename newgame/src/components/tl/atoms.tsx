@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleProp, StyleSheet, Text, TextStyle, TouchableOpac
 import { useTheme } from '@/theme';
 import { hexA } from '@/theme/tokens';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
+import type { SessionKey } from '@/types';
 
 // ---- TierChip — A is gold-filled; B/C outlined ----
 export function TierChip({ tier, size = 'sm' }: { tier: 'A' | 'B' | 'C'; size?: 'sm' | 'md' }) {
@@ -1274,6 +1275,136 @@ export function WithAgainstToggle({
         </Text>
       </View>
     </Pressable>
+  );
+}
+
+// Locked-state badge — replaces the WITH/AGAINST toggle once a session starts.
+// Padlock + frozen side + (optional) stake. Sized to match WithAgainstToggle so
+// it occupies the same absolute slot on the row.
+export function LockedBadge({ side, stake }: { side: 'with' | 'against'; stake: number }) {
+  const t = useTheme();
+  const { isTablet, scale } = useDeviceLayout();
+  const against = side === 'against';
+  const sideColor = against ? BEN_AGAINST : t.accent;
+  const h = scale(isTablet ? 36 : 28);
+  const fontSize = scale(isTablet ? 13 : 10);
+  const lockSize = scale(isTablet ? 13 : 11);
+  const hasBet = stake > 0;
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        height: h,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: sideColor,
+        backgroundColor: t.surface,
+        overflow: 'hidden',
+      }}
+    >
+      <View style={{ paddingHorizontal: scale(6), alignItems: 'center', justifyContent: 'center', backgroundColor: t.surface2, borderRightWidth: 1, borderRightColor: t.line }}>
+        <Svg width={lockSize} height={lockSize + 1} viewBox="0 0 9 11">
+          <Rect x={1} y={5} width={7} height={6} rx={1} fill={t.textMute} />
+          <Path d="M2.5 5V3.2a2 2 0 014 0V5" stroke={t.textMute} strokeWidth={1.1} fill="none" />
+        </Svg>
+      </View>
+      <View style={{ paddingHorizontal: scale(8), alignItems: 'center', justifyContent: 'center', backgroundColor: sideColor }}>
+        <Text style={{ fontFamily: t.fMono, fontSize, fontWeight: '800', color: '#0E1116', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+          {against ? 'Against' : 'With'}
+        </Text>
+      </View>
+      {hasBet ? (
+        <View style={{ paddingHorizontal: scale(7), alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: t.line }}>
+          <Text style={{ fontFamily: t.fMono, fontSize, fontWeight: '800', color: t.text, letterSpacing: 0.2, fontVariant: ['tabular-nums'] }}>
+            ${stake}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+// Result badge — shown in the row's right slot once a session is settled.
+// Green "+$X" on a winning pick, coral "MISS" on a loss.
+export function ResultBadge({ won, payout }: { won: boolean; payout: number }) {
+  const t = useTheme();
+  const { isTablet, scale } = useDeviceLayout();
+  const color = won ? t.success : '#FFB3AC';
+  const border = won ? t.success : 'rgba(242,92,84,0.55)';
+  const bg = won ? '#0d2418' : 'rgba(242,92,84,0.12)';
+  const h = scale(isTablet ? 36 : 28);
+  const fontSize = scale(isTablet ? 13 : 11);
+  const label = won ? (payout > 0 ? `+$${payout.toFixed(payout < 10 ? 1 : 0)}` : 'WON') : 'MISS';
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        height: h,
+        paddingHorizontal: scale(10),
+        borderRadius: 6,
+        backgroundColor: bg,
+        borderWidth: 1,
+        borderColor: border,
+      }}
+    >
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+      <Text style={{ fontFamily: t.fMono, fontSize, fontWeight: '800', color, letterSpacing: 0.6, textTransform: 'uppercase', fontVariant: ['tabular-nums'] }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+// Phase banner — sits under the scope toggle to signal locked / settled state.
+// Returns null when the session is still open.
+export function PhaseBanner({ scope, phase }: { scope: SessionKey; phase: 'open' | 'locked' | 'results' }) {
+  const t = useTheme();
+  if (phase === 'open') return null;
+  const locked = phase === 'locked';
+  const color = locked ? t.warn : t.success;
+  const bg = locked ? 'rgba(224,164,88,0.10)' : 'rgba(123,211,137,0.10)';
+  const border = locked ? 'rgba(224,164,88,0.4)' : 'rgba(123,211,137,0.4)';
+  const sessionLabel = scope === 'qualifying' ? 'Quali' : scope === 'sprint' ? 'Sprint' : 'Race';
+  return (
+    <View
+      style={{
+        marginHorizontal: 16,
+        marginTop: 10,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+        backgroundColor: bg,
+        borderWidth: 1,
+        borderColor: border,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+      }}
+    >
+      <View style={{ width: 22, height: 22, borderRadius: 5, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
+        {locked ? (
+          <Svg width={12} height={13} viewBox="0 0 9 11">
+            <Rect x={1} y={5} width={7} height={6} rx={1} fill="#0E1116" />
+            <Path d="M2.5 5V3.2a2 2 0 014 0V5" stroke="#0E1116" strokeWidth={1.1} fill="none" />
+          </Svg>
+        ) : (
+          <Svg width={12} height={12} viewBox="0 0 12 12">
+            <Path d="M2.5 6.5L5 9L9.5 3.5" stroke="#0E1116" strokeWidth={1.8} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        )}
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontFamily: t.fMono, fontSize: 10, fontWeight: '800', color, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+          {locked ? `${sessionLabel} locked` : `${sessionLabel} settled`}
+        </Text>
+        <Text style={{ fontFamily: t.fSans, fontSize: 12, color: t.text, marginTop: 2, letterSpacing: -0.1 }}>
+          {locked ? 'Picks frozen. Results land when the session ends.' : 'Cards show your result. Unlocks for next round soon.'}
+        </Text>
+      </View>
+    </View>
   );
 }
 

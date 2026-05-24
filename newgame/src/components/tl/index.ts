@@ -28,6 +28,9 @@ export {
   BenLinePill,
   WithAgainstToggle,
   ActiveBetDot,
+  LockedBadge,
+  ResultBadge,
+  PhaseBanner,
   BEN_AGAINST,
   BEN_AGAINST_WASH,
 } from './atoms';
@@ -43,3 +46,5 @@ export {
 export { TopBar } from './TopBar';
 export { BetsCard } from './BetsCard';
 export { TabletColumn } from './TabletColumn';
+export { Scoreboard, ScoreboardChip, summarizeScope } from './Scoreboard';
+export type { ScopeSummary, ScoreEntity } from './Scoreboard';

@@ -569,6 +569,17 @@ export interface Pick {
   stake: number; // 0 = free play; still scores points
 }
 
+// Per-pick settlement outcome, written by tlSettleWeekend onto the picks doc.
+export interface PickOutcome {
+  side: BenSide;
+  stake: number;
+  result: number; // realised metric (finishing position / position sum)
+  outcome: BenSide; // which side actually won
+  won: boolean;
+  payout: number; // gross payout (stake × odds) on a win, 0 on a loss
+  pointsCredit: number; // session-weighted points credited
+}
+
 // All of a player's picks for one race. Sessions map keys are SessionKey values;
 // each session map is entityId → Pick.
 export interface PicksDoc {
@@ -584,6 +595,8 @@ export interface PicksDoc {
   weekendCash?: number; // net cash delta (payouts − stakes lost)
   callsCorrect?: number; // count of winning picks (any stake)
   callsTotal?: number; // total picks made
+  // Per-session, per-entity outcomes for the lineup result cards + scoreboard.
+  settledOutcomes?: Partial<Record<SessionKey, Record<string, PickOutcome>>>;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -24,17 +24,26 @@ import {
   DriverPortrait,
   BenLinePill,
   WithAgainstToggle,
+  LockedBadge,
+  ResultBadge,
+  PhaseBanner,
   ActiveBetDot,
   TabletColumn,
+  Scoreboard,
+  ScoreboardChip,
+  summarizeScope,
   BEN_AGAINST,
   BEN_AGAINST_WASH,
 } from '@components/tl';
+import type { ScopeSummary } from '@components/tl';
 import { StakeSheet } from '@components/sheets/StakeSheet';
 import { useTheme } from '@/theme';
 import { CONSTRUCTOR_COLORS, hexA } from '@/theme/tokens';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { toDate } from '@utils/formatters';
-import type { BenLine, Driver, Constructor, League, SessionKey } from '@/types';
+import type { BenLine, Driver, Constructor, League, SessionKey, PickOutcome } from '@/types';
+
+type Phase = 'open' | 'locked' | 'results';
 
 export default function LineupScreen() {
   const t = useTheme();
@@ -58,6 +67,7 @@ export default function LineupScreen() {
   const [scope, setScope] = useState<SessionKey>('race');
   const [primaryLeague, setPrimaryLeague] = useState<League | null>(null);
   const [stakeFor, setStakeFor] = useState<{ kind: 'driver' | 'constructor'; id: string } | null>(null);
+  const [scoreOpen, setScoreOpen] = useState(false);
 
   // Picks: Firestore IS the source of truth. Subscribe and the snapshot
   // listener feeds byRaceId. Writes via setSide/setStake go straight to
@@ -91,9 +101,12 @@ export default function LineupScreen() {
     };
   }, [userId]);
 
-  // Sprint tab only shows on actual sprint weekends (per the race schedule),
-  // not just whenever Ben happens to have posted sprint lines.
-  const hasSprintWeekend = !!upcomingRace?.hasSprint;
+  // Sprint tab only shows on actual sprint weekends. The `hasSprint` boolean
+  // and the `schedule.sprint` timestamp are populated independently by the
+  // shared races ingestion, and either one can be missing on a given doc, so
+  // treat the weekend as a sprint if EITHER signal is present.
+  const hasSprintWeekend =
+    !!upcomingRace?.hasSprint || !!upcomingRace?.schedule?.sprint;
   const sessionsAvailable = useMemo<SessionKey[]>(() => {
     return hasSprintWeekend ? ['sprint', 'qualifying', 'race'] : ['qualifying', 'race'];
   }, [hasSprintWeekend]);
@@ -184,6 +197,30 @@ export default function LineupScreen() {
   const countdownStr = sessionStart ? formatCountdown(sessionStart) : (['—', ''] as [string, string]);
   const linesPosted = benSession && Object.keys(benSession.entities ?? {}).length > 0;
 
+  // Phase per scope: settled outcomes → 'results'; session start passed → 'locked';
+  // otherwise 'open'. Locked/results disable card interaction and swap the toggle
+  // for a status badge.
+  const startForScope = (s: SessionKey): Date | null =>
+    (s === 'sprint' ? sprintAt : s === 'qualifying' ? qualiAt : raceAt) ?? null;
+  const phaseFor = (s: SessionKey): Phase => {
+    const outcomes = picksDoc?.settledOutcomes?.[s];
+    if (outcomes && Object.keys(outcomes).length > 0) return 'results';
+    const start = startForScope(s);
+    if (start && start.getTime() <= Date.now()) return 'locked';
+    return 'open';
+  };
+  const phase = phaseFor(scope);
+
+  // Scoreboard summaries — one per available session, reused by the header chip
+  // and the overlay.
+  const driverEntities = rosteredDrivers.map((d) => ({ id: d.id, name: d.name }));
+  const constructorEntities = rosteredConstructors.map((c) => ({ id: c.id, name: c.name }));
+  const summaries = sessionsAvailable.reduce<Record<string, ScopeSummary>>((acc, s) => {
+    acc[s] = summarizeScope(s, picksDoc, benByRace?.[s] ?? null, driverEntities, constructorEntities);
+    return acc;
+  }, {});
+  const summaryList = sessionsAvailable.map((s) => summaries[s]);
+
   const anyAgainst = tally.dAgainst + tally.cAgainst > 0;
   const statusLine = anyAgainst
     ? `${tally.dAgainst + tally.cAgainst} against Ben${tally.totalStake > 0 ? ` · $${tally.totalStake} staked` : ''}`
@@ -235,6 +272,7 @@ export default function LineupScreen() {
         }
         actions={
           <>
+            <ScoreboardChip summaries={summaryList} onPress={() => setScoreOpen(true)} />
             <BetsChip placedCount={tally.totalStake > 0 ? 1 : 0} onPress={() => router.push('/standings')} />
             {garage ? <BankrollChip cash={garage.cash} onPress={() => router.push('/(tabs)/shop')} /> : null}
           </>
@@ -319,6 +357,8 @@ export default function LineupScreen() {
           </View>
         </View>
 
+        <PhaseBanner scope={scope} phase={phase} />
+
         {!linesPosted ? (
           <View
             style={{
@@ -358,6 +398,8 @@ export default function LineupScreen() {
                 line={benSession?.entities?.[d.id] ?? null}
                 pickSide={pick?.side ?? 'with'}
                 pickStake={pick?.stake ?? 0}
+                phase={phase}
+                result={picksDoc?.settledOutcomes?.[scope]?.[d.id] ?? null}
                 onRowPress={() => setStakeFor({ kind: 'driver', id: d.id })}
                 onFlip={() => {
                   if (!userId || !upcomingRace) return;
@@ -382,6 +424,8 @@ export default function LineupScreen() {
                 line={benSession?.entities?.[c.id] ?? null}
                 pickSide={pick?.side ?? 'with'}
                 pickStake={pick?.stake ?? 0}
+                phase={phase}
+                result={picksDoc?.settledOutcomes?.[scope]?.[c.id] ?? null}
                 onRowPress={() => setStakeFor({ kind: 'constructor', id: c.id })}
                 onFlip={() => {
                   if (!userId || !upcomingRace) return;
@@ -446,6 +490,13 @@ export default function LineupScreen() {
           }}
         />
       ) : null}
+
+      <Scoreboard
+        visible={scoreOpen}
+        onClose={() => setScoreOpen(false)}
+        scopes={sessionsAvailable}
+        summaries={summaries}
+      />
     </SafeAreaView>
   );
 }
@@ -566,6 +617,8 @@ function EntityRow(props: {
   line: BenLine | null;
   pickSide: 'with' | 'against';
   pickStake: number;
+  phase?: Phase;
+  result?: PickOutcome | null;
   onRowPress: () => void;
   onFlip: () => void;
 }) {
@@ -580,6 +633,8 @@ function EntityRow(props: {
     (CONSTRUCTOR_COLORS as Record<string, string>)[teamShort] || team?.primaryColor || t.accent;
   const against = props.pickSide === 'against';
   const hasBet = props.pickStake > 0;
+  const phase: Phase = props.phase ?? 'open';
+  const interactive = phase === 'open';
 
   // Tablet sizing: bigger portraits, larger names, more padding so cards have
   // presence on a tablet canvas instead of looking like phone-sized chiclets.
@@ -610,6 +665,7 @@ function EntityRow(props: {
         borderWidth: against ? 1.5 : 1,
         borderColor: against ? BEN_AGAINST : t.line,
         overflow: 'hidden',
+        opacity: phase === 'locked' ? 0.7 : 1,
       }}
     >
       {against ? (
@@ -622,14 +678,15 @@ function EntityRow(props: {
         />
       ) : null}
       <Pressable
-        onPress={props.onRowPress}
+        onPress={interactive ? props.onRowPress : undefined}
+        disabled={!interactive}
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
           gap,
           padding,
           paddingRight: padding + togglePadRight,
-          opacity: pressed ? 0.85 : 1,
+          opacity: pressed && interactive ? 0.85 : 1,
         })}
       >
         {isDriver ? (
@@ -664,7 +721,13 @@ function EntityRow(props: {
         </View>
       </Pressable>
       <View style={{ position: 'absolute', right: padding, top: 0, bottom: 0, justifyContent: 'center' }}>
-        <WithAgainstToggle side={props.pickSide} onFlip={props.onFlip} />
+        {phase === 'results' && props.result ? (
+          <ResultBadge won={props.result.won} payout={props.result.payout} />
+        ) : phase === 'locked' ? (
+          <LockedBadge side={props.pickSide} stake={props.pickStake} />
+        ) : (
+          <WithAgainstToggle side={props.pickSide} onFlip={props.onFlip} />
+        )}
       </View>
     </View>
   );
