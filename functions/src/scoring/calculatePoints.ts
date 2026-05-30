@@ -1098,6 +1098,10 @@ export const onRaceCompleted = functions
       let aceDriverId = team.aceDriverId;
       let aceConstructorId = team.aceConstructorId;
       let lockedPoints = team.lockedPoints || 0;
+      // Points banked THIS pass (newly-expired entities). These must be subtracted
+      // from totalPoints — they move into lockedPoints, and the leaderboard/client
+      // display totalPoints + lockedPoints, so leaving them in both double-counts.
+      let newlyBanked = 0;
       const lockouts: Record<string, number> = { ...(team.driverLockouts || {}) };
 
       let saleReturns = 0;
@@ -1113,6 +1117,7 @@ export const onRaceCompleted = functions
           // Expired: sell at current price, bank points, add lockout
           saleReturns += driver.currentPrice; // SALE_COMMISSION_RATE is 0
           lockedPoints += driver.pointsScored;
+          newlyBanked += driver.pointsScored;
           lockouts[driver.driverId] = completedRaceCount + CONTRACT_LOCKOUT_RACES;
           expiredDriverIds.push(driver.driverId);
           if (aceDriverId === driver.driverId) aceDriverId = undefined;
@@ -1130,6 +1135,7 @@ export const onRaceCompleted = functions
         if (teamCtor.racesHeld >= cContractLen) {
           saleReturns += teamCtor.currentPrice;
           lockedPoints += teamCtor.pointsScored;
+          newlyBanked += teamCtor.pointsScored;
           expiredConstructorId = teamCtor.constructorId;
           if (aceConstructorId === teamCtor.constructorId) aceConstructorId = undefined;
           teamCtor = null;
@@ -1251,6 +1257,9 @@ export const onRaceCompleted = functions
           aceConstructorId: aceConstructorId ?? admin.firestore.FieldValue.delete(),
           driverLockouts: Object.keys(lockouts).length > 0 ? lockouts : admin.firestore.FieldValue.delete(),
           lockedPoints: lockedPoints > 0 ? lockedPoints : admin.firestore.FieldValue.delete(),
+          // Remove newly-banked points from totalPoints so totalPoints stays =
+          // active-roster points only (no overlap with lockedPoints).
+          totalPoints: admin.firestore.FieldValue.increment(-newlyBanked),
         },
       });
     }
