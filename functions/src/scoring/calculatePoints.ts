@@ -2,32 +2,27 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
 import { rebuildMarketCache } from '../cache/marketCache';
+import {
+  RACE_POINTS,
+  SPRINT_POINTS,
+  SPRINT_DNF_PENALTY,
+  FASTEST_LAP_BONUS,
+  POSITION_GAINED_BONUS,
+  GRID_SIZE,
+  ACE_MAX_PRICE,
+  calculateLockBonus,
+  calculateQualifyingPoints,
+  calculateDriverPoints,
+  RaceResult,
+  SprintResult,
+  QualifyingResult,
+} from './scoringCore';
 
 const db = admin.firestore();
-
-// Points allocation
-const RACE_POINTS = [45, 37, 33, 29, 26, 23, 20, 17, 14, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-const SPRINT_POINTS = [5, 4, 3, 3, 2, 2, 1, 1];
-const SPRINT_DNF_PENALTY = -3;
-const FASTEST_LAP_BONUS = 1;
-const POSITION_GAINED_BONUS = 1;
-const GRID_SIZE = 22;
-
-// Lock bonus tiers
-const LOCK_BONUS = {
-  TIER_1: { maxRaces: 3, bonus: 1 },
-  TIER_2: { maxRaces: 6, bonus: 2 },
-  TIER_3: { maxRaces: Infinity, bonus: 3 },
-  FULL_SEASON_BONUS: 100,
-  FULL_SEASON_RACES: 24,
-};
 
 // Price tier thresholds
 const TIER_A_THRESHOLD = 240;
 const TIER_B_THRESHOLD = 120;
-
-// Ace system: only drivers/constructors at or below this price can be ace
-const ACE_MAX_PRICE = 200;
 
 // PPM thresholds for pricing
 const PPM_GREAT = 0.06;
@@ -55,28 +50,6 @@ const TEAM_SIZE = 5;
 
 // Firestore batch limit
 const BATCH_OP_LIMIT = 499;
-
-interface RaceResult {
-  position: number;
-  driverId: string;
-  constructorId: string;
-  gridPosition: number;
-  status: 'finished' | 'dnf' | 'dsq';
-  fastestLap: boolean;
-  laps?: number;
-}
-
-interface SprintResult {
-  position: number;
-  driverId: string;
-  status: 'finished' | 'dnf' | 'dsq';
-}
-
-interface QualifyingResult {
-  position: number;
-  driverId: string;
-  constructorId: string;
-}
 
 interface FantasyDriver {
   driverId: string;
@@ -133,84 +106,9 @@ interface FantasyTeam {
 type PerformanceTier = 'great' | 'good' | 'poor' | 'terrible';
 
 // ─── Helper functions ───
-
-function calculateLockBonus(racesHeld: number): number {
-  if (racesHeld >= LOCK_BONUS.FULL_SEASON_RACES) {
-    return LOCK_BONUS.FULL_SEASON_BONUS;
-  }
-
-  let bonus = 0;
-  let remaining = racesHeld;
-
-  const tier1Races = Math.min(remaining, LOCK_BONUS.TIER_1.maxRaces);
-  bonus += tier1Races * LOCK_BONUS.TIER_1.bonus;
-  remaining -= tier1Races;
-
-  if (remaining > 0) {
-    const tier2Races = Math.min(remaining, LOCK_BONUS.TIER_2.maxRaces - LOCK_BONUS.TIER_1.maxRaces);
-    bonus += tier2Races * LOCK_BONUS.TIER_2.bonus;
-    remaining -= tier2Races;
-  }
-
-  if (remaining > 0) {
-    bonus += remaining * LOCK_BONUS.TIER_3.bonus;
-  }
-
-  return bonus;
-}
-
-function calculateDriverPoints(
-  result: RaceResult,
-  sprintResult: SprintResult | null,
-  racesHeld: number,
-  isAce: boolean
-): number {
-  let racePoints = 0;
-  let sprintPoints = 0;
-
-  if (result.status === 'finished') {
-    if (result.position <= RACE_POINTS.length) {
-      racePoints += RACE_POINTS[result.position - 1];
-    }
-    const positionsGained = result.gridPosition - result.position;
-    if (positionsGained > 0) {
-      racePoints += positionsGained * POSITION_GAINED_BONUS;
-    }
-    if (positionsGained < 0) {
-      racePoints += positionsGained;
-    }
-    if (result.fastestLap && result.position <= 10) {
-      racePoints += FASTEST_LAP_BONUS;
-    }
-    // Position bonus: all classified finishers P1-P22 get reverse-grid points
-    if (result.position >= 1 && result.position <= GRID_SIZE) {
-      racePoints += GRID_SIZE + 1 - result.position;
-    }
-  } else if (result.status === 'dnf') {
-    racePoints = -5;
-  } else if (result.status === 'dsq') {
-    racePoints = -5;
-  }
-
-  if (sprintResult) {
-    if (sprintResult.status === 'finished' && sprintResult.position <= SPRINT_POINTS.length) {
-      sprintPoints += SPRINT_POINTS[sprintResult.position - 1];
-    } else if (sprintResult.status === 'dnf') {
-      sprintPoints = SPRINT_DNF_PENALTY;
-    } else if (sprintResult.status === 'dsq') {
-      sprintPoints = SPRINT_DNF_PENALTY;
-    }
-  }
-
-  let points = racePoints + sprintPoints;
-  points += calculateLockBonus(racesHeld);
-
-  if (isAce) {
-    points *= 2;
-  }
-
-  return points;
-}
+// Pure scoring math (constants, calculateLockBonus, calculateQualifyingPoints,
+// calculateDriverPoints, result types) now lives in ./scoringCore and is imported
+// above, so the live pipeline and the diagnostic share one source of truth.
 
 function getPerformanceTier(ppm: number): PerformanceTier {
   if (ppm >= PPM_GREAT) return 'great';
@@ -290,8 +188,8 @@ async function commitInBatches(
 
 /**
  * Score qualifying results independently of race completion.
- * Awards half-rate position bonus: floor((GRID_SIZE + 1 - pos) / 2)
- * Skipped on sprint weekends.
+ * Awards quarter-rate position bonus via calculateQualifyingPoints (top 16 only).
+ * Runs on every weekend, including sprint weekends.
  */
 export async function handleQualifyingScoring(
   raceId: string,
@@ -343,11 +241,8 @@ export async function handleQualifyingScoring(
       }
 
       const qualiResult = qualifyingResultsMap.get(driver.driverId);
-      let qualiPoints = 0;
-      if (qualiResult && qualiResult.position >= 1 && qualiResult.position <= 16) {
-        qualiPoints = Math.floor((GRID_SIZE + 1 - qualiResult.position) / 4);
-        if (isAce) qualiPoints *= 2;
-      }
+      let qualiPoints = qualiResult ? calculateQualifyingPoints(qualiResult.position) : 0;
+      if (isAce) qualiPoints *= 2;
 
       teamPoints += qualiPoints;
       return {
@@ -373,9 +268,7 @@ export async function handleQualifyingScoring(
         (r) => r.constructorId === ctor.constructorId,
       );
       for (const qr of ctorQualiResults) {
-        if (qr.position >= 1 && qr.position <= 16) {
-          ctorQualiPoints += Math.floor((GRID_SIZE + 1 - qr.position) / 4);
-        }
+        ctorQualiPoints += calculateQualifyingPoints(qr.position);
       }
       if (isAceConstructor) ctorQualiPoints *= 2;
 
@@ -413,27 +306,26 @@ export async function handleQualifyingScoring(
 
   console.log(`[Qualifying] Scored ${pointsUpdates.length} teams for ${raceId}`);
 
-  // Update league rankings
-  const leagueMemberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
-  for (const update of pointsUpdates) {
-    if (!update.leagueId || !update.userId) {
-      console.log(`[Qualifying] Skipping league update with missing leagueId or userId`);
-      continue;
-    }
-    leagueMemberOps.push({
-      ref: db.collection('leagues').doc(update.leagueId).collection('members').doc(update.userId),
-      data: { totalPoints: admin.firestore.FieldValue.increment(update.points) },
-    });
-  }
-  await commitInBatches(leagueMemberOps);
-
+  // Sync league member totalPoints from team docs (authoritative source)
   const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))];
   for (const leagueId of affectedLeagues) {
-    const membersSnapshot = await db
-      .collection('leagues').doc(leagueId).collection('members')
-      .orderBy('totalPoints', 'desc').get();
+    const leagueTeamsSnap = await db.collection('fantasyTeams').where('leagueId', '==', leagueId).get();
+    const teamPtsByUser = new Map<string, number>();
+    leagueTeamsSnap.docs.forEach(d => {
+      const t = d.data();
+      const pts = (t.totalPoints || 0) + (t.lockedPoints || 0);
+      teamPtsByUser.set(t.userId, (teamPtsByUser.get(t.userId) || 0) + pts);
+    });
+    const membersSnap = await db.collection('leagues').doc(leagueId).collection('members').get();
+    const memberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+    membersSnap.docs.forEach(d => {
+      const pts = teamPtsByUser.get(d.id);
+      if (pts !== undefined) memberOps.push({ ref: d.ref, data: { totalPoints: pts } });
+    });
+    await commitInBatches(memberOps);
+    const rankedSnap = await db.collection('leagues').doc(leagueId).collection('members').orderBy('totalPoints', 'desc').get();
     const rankOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
-    membersSnapshot.docs.forEach((d, index) => {
+    rankedSnap.docs.forEach((d: FirebaseFirestore.QueryDocumentSnapshot, index: number) => {
       rankOps.push({ ref: d.ref, data: { rank: index + 1 } });
     });
     await commitInBatches(rankOps);
@@ -535,24 +427,26 @@ export async function handleSprintScoring(
 
   console.log(`[Sprint] Scored ${pointsUpdates.length} teams for ${raceId}`);
 
-  // Update league rankings
-  const leagueMemberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
-  for (const update of pointsUpdates) {
-    if (!update.leagueId || !update.userId) continue;
-    leagueMemberOps.push({
-      ref: db.collection('leagues').doc(update.leagueId).collection('members').doc(update.userId),
-      data: { totalPoints: admin.firestore.FieldValue.increment(update.points) },
-    });
-  }
-  await commitInBatches(leagueMemberOps);
-
+  // Sync league member totalPoints from team docs (authoritative source)
   const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))];
   for (const leagueId of affectedLeagues) {
-    const membersSnapshot = await db
-      .collection('leagues').doc(leagueId).collection('members')
-      .orderBy('totalPoints', 'desc').get();
+    const leagueTeamsSnap = await db.collection('fantasyTeams').where('leagueId', '==', leagueId).get();
+    const teamPtsByUser = new Map<string, number>();
+    leagueTeamsSnap.docs.forEach(d => {
+      const t = d.data();
+      const pts = (t.totalPoints || 0) + (t.lockedPoints || 0);
+      teamPtsByUser.set(t.userId, (teamPtsByUser.get(t.userId) || 0) + pts);
+    });
+    const membersSnap = await db.collection('leagues').doc(leagueId).collection('members').get();
+    const memberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+    membersSnap.docs.forEach(d => {
+      const pts = teamPtsByUser.get(d.id);
+      if (pts !== undefined) memberOps.push({ ref: d.ref, data: { totalPoints: pts } });
+    });
+    await commitInBatches(memberOps);
+    const updatedSnap = await db.collection('leagues').doc(leagueId).collection('members').orderBy('totalPoints', 'desc').get();
     const rankOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
-    membersSnapshot.docs.forEach((d, index) => {
+    updatedSnap.docs.forEach((d, index) => {
       rankOps.push({ ref: d.ref, data: { rank: index + 1 } });
     });
     await commitInBatches(rankOps);
@@ -616,8 +510,12 @@ export const onRaceCompleted = functions
       sprintResults.forEach((r) => sprintResultsMap.set(r.driverId, r));
     }
 
+    // Always build the quali map so the per-driver raceScores breakdown (Phase 0.5)
+    // reflects qualifying points even when qualifying was already scored standalone
+    // on Saturday. Team scoring (Phase 1) still gates quali on `scoreQualifying` to
+    // avoid double-counting — only the breakdown display reads the map unconditionally.
     const qualifyingResultsMap = new Map<string, QualifyingResult>();
-    if (scoreQualifying && qualifyingResults) {
+    if (qualifyingResults) {
       qualifyingResults.forEach((r) => qualifyingResultsMap.set(r.driverId, r));
     }
 
@@ -668,8 +566,10 @@ export const onRaceCompleted = functions
         }
       }
 
-      if (scoreQualifying && qualiResult && qualiResult.position >= 1 && qualiResult.position <= GRID_SIZE) {
-        qualiPoints = Math.floor((GRID_SIZE + 1 - qualiResult.position) / 2);
+      // Breakdown always reflects qualifying (scored Saturday or at race time) so the
+      // per-driver "last race points" reconcile with the team total.
+      if (qualiResult) {
+        qualiPoints = calculateQualifyingPoints(qualiResult.position);
       }
 
       const docId = `${raceId}__${result.driverId}`;
@@ -711,16 +611,11 @@ export const onRaceCompleted = functions
           if (result.position <= RACE_POINTS.length) ctorRacePoints += RACE_POINTS[result.position - 1];
           if (result.position >= 1 && result.position <= GRID_SIZE) ctorRacePoints += GRID_SIZE + 1 - result.position;
         }
-        const sr = sprintResultsMap.get(result.driverId);
-        if (sr) {
-          if (sr.status === 'finished' && sr.position <= SPRINT_POINTS.length) ctorSprintPoints += SPRINT_POINTS[sr.position - 1];
-          else if (sr.status === 'dnf' || sr.status === 'dsq') ctorSprintPoints += SPRINT_DNF_PENALTY;
-        }
-        if (scoreQualifying) {
-          const qr = qualifyingResultsMap.get(result.driverId);
-          if (qr && qr.position >= 1 && qr.position <= GRID_SIZE) {
-            ctorQualiPoints += Math.floor((GRID_SIZE + 1 - qr.position) / 2);
-          }
+        // Constructors do not earn sprint points (matches team scoring + spec);
+        // ctorSprintPoints stays 0 so the breakdown shows no phantom sprint points.
+        const qr = qualifyingResultsMap.get(result.driverId);
+        if (qr) {
+          ctorQualiPoints += calculateQualifyingPoints(qr.position);
         }
       }
 
@@ -744,12 +639,28 @@ export const onRaceCompleted = functions
     await commitInBatches(raceScoreOps);
     console.log(`[Phase 0.5] Wrote ${raceScoreOps.length} race scores`);
 
+    // Neutral per-entity point components (race/sprint/quali, no ace/lock/stale)
+    // from the breakdown, used for the Phase 1 reconciliation guard below.
+    const neutralByEntity = new Map<string, { racePoints: number; sprintPoints: number; qualiPoints: number }>();
+    for (const op of raceScoreOps) {
+      neutralByEntity.set(op.data.entityId, {
+        racePoints: op.data.racePoints || 0,
+        sprintPoints: op.data.sprintPoints || 0,
+        qualiPoints: op.data.qualiPoints || 0,
+      });
+    }
+
     // ─── PHASE 1: Score fantasy teams ───
     console.log(`[Phase 1] Scoring teams for race ${raceId}`);
 
     const teamsSnapshot = await db.collection('fantasyTeams').get();
     const teamOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
     const pointsUpdates: { leagueId: string; userId: string; points: number }[] = [];
+    // Double-entry guard: each team's scored points, re-derived independently from
+    // the neutral breakdown, must equal the team-scored points. A mismatch means the
+    // breakdown (Phase 0.5) and team scoring (Phase 1) have diverged — the exact bug
+    // class that hid qualifying points from players.
+    const reconMismatches: Array<{ teamId: string; expected: number; got: number }> = [];
 
     for (const teamDoc of teamsSnapshot.docs) {
       const team = teamDoc.data() as FantasyTeam;
@@ -761,6 +672,7 @@ export const onRaceCompleted = functions
       }
 
       let teamPoints = 0;
+      let reconTeamPoints = 0;
       const aceDriverId = team.aceDriverId;
 
       // Skip sprint in race scoring if already scored independently
@@ -790,14 +702,26 @@ export const onRaceCompleted = functions
         // Qualifying points: half-rate position bonus (non-sprint weekends only)
         if (scoreQualifying) {
           const qualiResult = qualifyingResultsMap.get(driver.driverId);
-          if (qualiResult && qualiResult.position >= 1 && qualiResult.position <= GRID_SIZE) {
-            let qualiPoints = Math.floor((GRID_SIZE + 1 - qualiResult.position) / 2);
+          if (qualiResult) {
+            let qualiPoints = calculateQualifyingPoints(qualiResult.position);
             if (isAce) qualiPoints *= 2;
             driverPoints += qualiPoints;
           }
         }
 
         teamPoints += driverPoints;
+
+        // Re-derive the same points from the neutral breakdown, mirroring the gates
+        // above (sprint excluded if already scored Saturday; quali only when scored
+        // at race time; ace doubles base, lock bonus added after).
+        const dn = neutralByEntity.get(driver.driverId);
+        if (dn) {
+          const base = dn.racePoints
+            + (sprintAlreadyScored ? 0 : dn.sprintPoints)
+            + (scoreQualifying ? dn.qualiPoints : 0);
+          reconTeamPoints += base * (isAce ? 2 : 1) + calculateLockBonus(driver.racesHeld);
+        }
+
         updatedDrivers.push({
           ...driver,
           pointsScored: (driver.pointsScored || 0) + driverPoints,
@@ -842,18 +766,26 @@ export const onRaceCompleted = functions
             (r) => r.constructorId === ctor.constructorId
           );
           for (const qr of ctorQualiResults) {
-            if (qr.position >= 1 && qr.position <= GRID_SIZE) {
-              constructorPoints += Math.floor((GRID_SIZE + 1 - qr.position) / 2);
-            }
+            constructorPoints += calculateQualifyingPoints(qr.position);
           }
         }
 
-        constructorPoints += calculateLockBonus(ctor.racesHeld);
         if (isAceConstructor) {
           constructorPoints *= 2;
         }
+        // Lock bonus is loyalty-based and is NOT doubled by ace (per scoring spec).
+        constructorPoints += calculateLockBonus(ctor.racesHeld);
 
         teamPoints += constructorPoints;
+
+        // Re-derive constructor points from the neutral breakdown (no sprint for
+        // constructors; quali only when scored at race time).
+        const cn = neutralByEntity.get(ctor.constructorId);
+        if (cn) {
+          const base = cn.racePoints + (scoreQualifying ? cn.qualiPoints : 0);
+          reconTeamPoints += base * (isAceConstructor ? 2 : 1) + calculateLockBonus(ctor.racesHeld);
+        }
+
         updatedConstructor = {
           ...ctor,
           pointsScored: (ctor.pointsScored || 0) + constructorPoints,
@@ -866,6 +798,11 @@ export const onRaceCompleted = functions
       if (racesSinceTransfer > 5) {
         const stalePenalty = (racesSinceTransfer - 5) * 5;
         teamPoints -= stalePenalty;
+        reconTeamPoints -= stalePenalty;
+      }
+
+      if (reconTeamPoints !== teamPoints) {
+        reconMismatches.push({ teamId: teamDoc.id, expected: reconTeamPoints, got: teamPoints });
       }
 
       teamOps.push({
@@ -888,6 +825,17 @@ export const onRaceCompleted = functions
 
     await commitInBatches(teamOps);
     console.log(`[Phase 1] Scored ${teamsSnapshot.size} teams`);
+
+    // Reconciliation guard: breakdown must match team scoring.
+    if (reconMismatches.length > 0) {
+      console.error(`[Phase 1][RECONCILE] ${reconMismatches.length} team(s) failed breakdown reconciliation — ` +
+        `the raceScores breakdown does not match team scoring (the two paths have diverged):`);
+      for (const m of reconMismatches.slice(0, 20)) {
+        console.error(`[Phase 1][RECONCILE]   team ${m.teamId}: breakdown-derived=${m.expected} vs team-scored=${m.got}`);
+      }
+    } else {
+      console.log(`[Phase 1][RECONCILE] OK — all ${teamOps.length} scored teams reconcile with the raceScores breakdown`);
+    }
 
     // ─── PHASE 2: Update market prices ───
     console.log(`[Phase 2] Updating market prices`);
@@ -1311,37 +1259,71 @@ export const onRaceCompleted = functions
     console.log(`[Phase 3.5] Expired ${totalExpiredDrivers} drivers, ${totalExpiredConstructors} constructors, auto-filled ${totalAutoFilled} slots`);
 
     // ─── PHASE 4: Update league rankings ───
-    console.log(`[Phase 4] Updating league rankings`);
+    // Re-read all teams to get authoritative totalPoints (includes quali, sprint, race)
+    // and SET league member totalPoints (not increment) to prevent drift.
+    console.log(`[Phase 4] Syncing league member points from team totals`);
 
-    const leagueMemberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
-
-    for (const update of pointsUpdates) {
-      if (!update.leagueId || !update.userId) {
-        console.log(`[Phase 4] Skipping update with missing leagueId or userId: leagueId=${update.leagueId}, userId=${update.userId}`);
-        continue;
-      }
-      const memberRef = db
-        .collection('leagues')
-        .doc(update.leagueId)
-        .collection('members')
-        .doc(update.userId);
-
-      leagueMemberOps.push({
-        ref: memberRef,
-        data: {
-          totalPoints: admin.firestore.FieldValue.increment(update.points),
-          lastRacePoints: update.points,
-          lastRaceId: raceId,
-        },
-      });
-    }
-
-    await commitInBatches(leagueMemberOps);
-
-    // Recalculate rankings per league
     const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))];
+
     for (const leagueId of affectedLeagues) {
+      // Get all teams in this league
+      const leagueTeamsSnap = await db
+        .collection('fantasyTeams')
+        .where('leagueId', '==', leagueId)
+        .get();
+
+      // Build userId → totalPoints from authoritative team docs
+      const teamPointsByUser = new Map<string, { totalPoints: number; lastRacePoints: number }>();
+      for (const teamDoc of leagueTeamsSnap.docs) {
+        const team = teamDoc.data();
+        const userId = team.userId;
+        const teamTotal = (team.totalPoints || 0) + (team.lockedPoints || 0);
+
+        // Find this race's points for lastRacePoints
+        const raceUpdate = pointsUpdates.find(u => u.userId === userId && u.leagueId === leagueId);
+        const lastRacePts = raceUpdate?.points ?? 0;
+
+        // If user has multiple teams in same league, sum them
+        const existing = teamPointsByUser.get(userId);
+        if (existing) {
+          teamPointsByUser.set(userId, {
+            totalPoints: existing.totalPoints + teamTotal,
+            lastRacePoints: existing.lastRacePoints + lastRacePts,
+          });
+        } else {
+          teamPointsByUser.set(userId, { totalPoints: teamTotal, lastRacePoints: lastRacePts });
+        }
+      }
+
+      // SET league member totalPoints from team data (authoritative, no drift)
       const membersSnapshot = await db
+        .collection('leagues')
+        .doc(leagueId)
+        .collection('members')
+        .get();
+
+      const memberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
+      for (const memberDoc of membersSnapshot.docs) {
+        const userId = memberDoc.id;
+        const teamData = teamPointsByUser.get(userId);
+
+        if (teamData) {
+          memberOps.push({
+            ref: memberDoc.ref,
+            data: {
+              totalPoints: teamData.totalPoints,
+              lastRacePoints: teamData.lastRacePoints,
+              lastRaceId: raceId,
+            },
+          });
+        }
+      }
+
+      await commitInBatches(memberOps);
+
+      // Recalculate rankings
+      // Re-read after update to get correct order
+      const updatedMembersSnap = await db
         .collection('leagues')
         .doc(leagueId)
         .collection('members')
@@ -1349,13 +1331,13 @@ export const onRaceCompleted = functions
         .get();
 
       const rankOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
-      membersSnapshot.docs.forEach((d, index) => {
+      updatedMembersSnap.docs.forEach((d, index) => {
         rankOps.push({ ref: d.ref, data: { rank: index + 1 } });
       });
       await commitInBatches(rankOps);
     }
 
-    console.log(`[Phase 4] Updated rankings for ${affectedLeagues.length} leagues`);
+    console.log(`[Phase 4] Synced rankings for ${affectedLeagues.length} leagues`);
 
     // ─── PHASE 5: Schedule delayed unlock (3 hours after race completion) ───
     const UNLOCK_DELAY_MS = 3 * 60 * 60 * 1000; // 3 hours
@@ -1424,18 +1406,22 @@ export const calculatePointsManually = functions.https.onCall(async (data, conte
 });
 
 /**
- * One-time repair function: recalculates all team scoring from scratch.
+ * Repair function: recalculates team scoring.
  *
- * Fixes data corruption caused by client syncing driver arrays without
- * pointsScored, which overwrote server-scored values in Firestore.
+ * Two modes:
+ *  • FULL rebuild (default, no fromRound): recomputes every team's total from
+ *    scratch over all completed races, re-applies contract expiry/auto-fill, and
+ *    rewrites lockouts. Use this to fix corruption — note it WILL shift standings
+ *    if scoring rules changed since races were originally scored.
+ *  • INCREMENTAL (fromRound set): preserves the stored total and all rounds
+ *    < fromRound exactly as-is, and only scores races with round >= fromRound that
+ *    are not already in the team's scoredRaces, adding them on top with the current
+ *    (corrected) logic. Roster, lockouts, and lockedPoints are left untouched. Use
+ *    this to apply a scoring fix "going forward only" without disturbing history.
+ *    Incremental mode never rescores an already-scored race; to correct one, run a
+ *    full rebuild.
  *
- * What it does:
- *  1. Reads all completed races (race + qualifying results)
- *  2. For each fantasy team, recalculates driver/constructor points from scratch
- *  3. Re-applies contract expiry (removes expired drivers, banks lockedPoints)
- *  4. Auto-fills empty slots with cheapest available drivers/constructors
- *  5. Fixes league member totalPoints to match team totalPoints
- *
+ * Params: { dryRun?: boolean, fromRound?: number }
  * Admin-only, callable. Invoke from admin panel or Firebase console.
  */
 export const repairTeamScoring = functions
@@ -1449,7 +1435,18 @@ export const repairTeamScoring = functions
     }
 
     const dryRun = data?.dryRun === true;
-    console.log(`[Repair] Starting team scoring repair (dryRun=${dryRun})`);
+
+    // Optional round cutoff: when set, run in incremental mode (preserve history
+    // before fromRound, only score not-yet-scored races from fromRound onward).
+    let fromRound: number | null = null;
+    if (data?.fromRound !== undefined && data?.fromRound !== null) {
+      fromRound = Number(data.fromRound);
+      if (!Number.isInteger(fromRound) || fromRound < 1) {
+        throw new functions.https.HttpsError('invalid-argument', 'fromRound must be a positive integer');
+      }
+    }
+    const incremental = fromRound !== null;
+    console.log(`[Repair] Starting team scoring repair (dryRun=${dryRun}, mode=${incremental ? `incremental from round ${fromRound}` : 'full rebuild'})`);
 
     // ─── Load all completed races ───
     const racesSnap = await db.collection('races')
@@ -1491,7 +1488,12 @@ export const repairTeamScoring = functions
     }
 
     const completedRaceCount = completedRaces.length;
-    console.log(`[Repair] Found ${completedRaceCount} completed race(s)`);
+
+    // In incremental mode, only races from the cutoff onward are (re)scored.
+    const racesToScore = incremental
+      ? completedRaces.filter((r) => r.round >= fromRound!)
+      : completedRaces;
+    console.log(`[Repair] Found ${completedRaceCount} completed race(s); scoring ${racesToScore.length}`);
 
     // ─── Load driver/constructor prices for ace validation ───
     const [driverPriceSnap, ctorPriceSnap] = await Promise.all([
@@ -1541,19 +1543,22 @@ export const repairTeamScoring = functions
       let drivers = [...(team.drivers || [])] as FantasyDriver[];
       let teamCtor = (team as Record<string, any>)['constructor'] as FantasyConstructor | null;
 
-      // Reset all pointsScored and racesHeld to recalculate from scratch
-      drivers = drivers.map(d => ({ ...d, pointsScored: 0, racesHeld: 0 }));
-      if (teamCtor) {
-        teamCtor = { ...teamCtor, pointsScored: 0, racesHeld: 0 };
+      // FULL mode rebuilds from scratch; INCREMENTAL mode keeps the stored
+      // pointsScored/racesHeld/total/scoredRaces as the preserved baseline.
+      if (!incremental) {
+        drivers = drivers.map(d => ({ ...d, pointsScored: 0, racesHeld: 0 }));
+        if (teamCtor) {
+          teamCtor = { ...teamCtor, pointsScored: 0, racesHeld: 0 };
+        }
       }
 
-      let totalPoints = 0;
+      let totalPoints = incremental ? (team.totalPoints || 0) : 0;
       let aceDriverId = team.aceDriverId;
       let aceConstructorId = team.aceConstructorId;
-      const scoredRaceIds: string[] = [];
+      const scoredRaceIds: string[] = incremental ? [...((team.scoredRaces as string[]) || [])] : [];
 
-      // ─── Score each completed race ───
-      for (const race of completedRaces) {
+      // ─── Score each race in range ───
+      for (const race of racesToScore) {
         const raceResultsMap = new Map<string, RaceResult>();
         race.raceResults.forEach((r) => raceResultsMap.set(r.driverId, r));
 
@@ -1568,7 +1573,10 @@ export const repairTeamScoring = functions
         }
 
         // ── Qualifying scoring (quarter-rate, standalone) ──
-        if (race.qualifyingScored && race.qualifyingResults && !race.hasSprint) {
+        // Runs on every weekend including sprint rounds, matching live scoring.
+        // Skip if already banked (incremental mode preserves prior scoring).
+        if (race.qualifyingScored && race.qualifyingResults
+            && !scoredRaceIds.includes(`quali_${race.raceId}`)) {
           let qualiTeamPts = 0;
 
           drivers = drivers.map(driver => {
@@ -1579,11 +1587,8 @@ export const repairTeamScoring = functions
             }
 
             const qr = qualifyingResultsMap.get(driver.driverId);
-            let qualiPts = 0;
-            if (qr && qr.position >= 1 && qr.position <= 16) {
-              qualiPts = Math.floor((GRID_SIZE + 1 - qr.position) / 4);
-              if (isAce) qualiPts *= 2;
-            }
+            let qualiPts = qr ? calculateQualifyingPoints(qr.position) : 0;
+            if (isAce) qualiPts *= 2;
 
             qualiTeamPts += qualiPts;
             return { ...driver, pointsScored: (driver.pointsScored || 0) + qualiPts };
@@ -1600,9 +1605,7 @@ export const repairTeamScoring = functions
               (r) => r.constructorId === teamCtor!.constructorId
             );
             for (const qr of ctorQualiResults) {
-              if (qr.position >= 1 && qr.position <= 16) {
-                ctorQualiPts += Math.floor((GRID_SIZE + 1 - qr.position) / 4);
-              }
+              ctorQualiPts += calculateQualifyingPoints(qr.position);
             }
             if (isAceCtor) ctorQualiPts *= 2;
             qualiTeamPts += ctorQualiPts;
@@ -1613,7 +1616,8 @@ export const repairTeamScoring = functions
           scoredRaceIds.push(`quali_${race.raceId}`);
         }
 
-        // ── Race scoring ──
+        // ── Race scoring ── (skip if already banked, for incremental mode)
+        if (!scoredRaceIds.includes(race.raceId)) {
         let raceTeamPts = 0;
 
         drivers = drivers.map(driver => {
@@ -1660,23 +1664,11 @@ export const repairTeamScoring = functions
             }
           }
 
-          // Sprint constructor scoring
-          if (race.sprintResults) {
-            const ctorSprintResults = race.sprintResults.filter(
-              (r: any) => {
-                const rr = race.raceResults.find(rr2 => rr2.driverId === r.driverId);
-                return rr && rr.constructorId === teamCtor!.constructorId;
-              }
-            );
-            for (const sr of ctorSprintResults) {
-              if (sr.status === 'finished' && sr.position <= SPRINT_POINTS.length) {
-                ctorPts += SPRINT_POINTS[sr.position - 1];
-              }
-            }
-          }
+          // Constructors do not earn sprint points (matches live scoring + spec).
 
-          ctorPts += calculateLockBonus(teamCtor.racesHeld);
           if (isAceCtor) ctorPts *= 2;
+          // Lock bonus is loyalty-based and is NOT doubled by ace (per scoring spec).
+          ctorPts += calculateLockBonus(teamCtor.racesHeld);
 
           raceTeamPts += ctorPts;
           teamCtor = {
@@ -1686,19 +1678,25 @@ export const repairTeamScoring = functions
           };
         }
 
-        // Stale roster penalty
-        const racesSinceTransfer = team.racesSinceTransfer || 0;
-        if (racesSinceTransfer > 5) {
-          const stalePenalty = (racesSinceTransfer - 5) * 5;
-          raceTeamPts -= stalePenalty;
-        }
+        // NOTE: the per-race stale-roster penalty applied by live scoring is NOT
+        // reapplied here. `racesSinceTransfer` is a single current snapshot, not
+        // per-race history — multiplying it across every completed race (as the old
+        // code did) massively over-penalized rebuilt totals. Live scoring remains the
+        // source of truth for the stale penalty; repair leaves the already-applied
+        // penalties intact via the team's stored totalPoints baseline.
 
         totalPoints += raceTeamPts;
         scoredRaceIds.push(race.raceId);
+        }
       }
 
-      // ─── Contract expiry (Phase 3.5 equivalent) ───
-      let lockedPoints = 0;
+      // ─── Contract expiry (Phase 3.5 equivalent) — full rebuild only ───
+      // Preserved baselines: used as-is in incremental mode, recomputed in full mode.
+      let lockedPoints = (team.lockedPoints as number) || 0;
+      let existingLockouts: Record<string, number> = { ...((team.driverLockouts as Record<string, number>) || {}) };
+
+      if (!incremental) {
+      lockedPoints = 0;
       const lockouts: Record<string, number> = {};
       let budget = (team.budget as number) ?? 0;
 
@@ -1813,7 +1811,8 @@ export const repairTeamScoring = functions
         }
       }
 
-      const newBudget = budget + saleReturns - autoFillCosts;
+      // newBudget computed but not written — manual recalc is read-only for roster/budget
+      void (budget + saleReturns - autoFillCosts);
 
       // Ace auto-clear if price exceeded
       if (aceDriverId) {
@@ -1831,12 +1830,13 @@ export const repairTeamScoring = functions
       }
 
       // Prune expired lockouts
-      const existingLockouts = { ...(team.driverLockouts || {}), ...lockouts };
+      existingLockouts = { ...(team.driverLockouts || {}), ...lockouts };
       for (const [dId, expiresAt] of Object.entries(existingLockouts)) {
         if (completedRaceCount >= expiresAt) {
           delete existingLockouts[dId];
         }
       }
+      } // end full-rebuild contract expiry
 
       // ─── Compare with current state and build update ───
       const oldTotal = team.totalPoints || 0;
@@ -1867,41 +1867,22 @@ export const repairTeamScoring = functions
 
       if (changes.length === 0) continue; // No changes needed
 
-      // Build update data
+      // Build update data — SAFE: only update points and scoring records.
+      // NEVER overwrite drivers, constructor, budget, lockedPoints, or ace settings.
+      // Those are managed by the live scoring pipeline (onRaceCompleted) only.
       const updateData: Record<string, any> = {
-        drivers,
         totalPoints,
-        budget: Math.round(newBudget),
         scoredRaces: scoredRaceIds,
-        racesSinceTransfer: (team.racesSinceTransfer || 0),
       };
 
-      if (teamCtor) {
-        updateData['constructor'] = teamCtor;
-      }
-
-      if (lockedPoints > 0) {
-        updateData.lockedPoints = lockedPoints;
-      } else {
-        updateData.lockedPoints = admin.firestore.FieldValue.delete();
-      }
-
-      if (aceDriverId) {
-        updateData.aceDriverId = aceDriverId;
-      } else {
-        updateData.aceDriverId = admin.firestore.FieldValue.delete();
-      }
-
-      if (aceConstructorId) {
-        updateData.aceConstructorId = aceConstructorId;
-      } else {
-        updateData.aceConstructorId = admin.firestore.FieldValue.delete();
-      }
-
-      if (Object.keys(existingLockouts).length > 0) {
-        updateData.driverLockouts = existingLockouts;
-      } else {
-        updateData.driverLockouts = admin.firestore.FieldValue.delete();
+      // Lockouts are only recomputed/rewritten in full mode; incremental mode
+      // preserves the stored driverLockouts exactly.
+      if (!incremental) {
+        if (Object.keys(existingLockouts).length > 0) {
+          updateData.driverLockouts = existingLockouts;
+        } else {
+          updateData.driverLockouts = admin.firestore.FieldValue.delete();
+        }
       }
 
       teamOps.push({ ref: teamDoc.ref, data: updateData });
@@ -1936,6 +1917,9 @@ export const repairTeamScoring = functions
     return {
       success: true,
       dryRun,
+      mode: incremental ? 'incremental' : 'full',
+      fromRound,
+      racesScored: racesToScore.length,
       teamsFixed: teamOps.length,
       leagueMembersFixed: leagueMemberOps.length,
       details: repairLog.filter(l => l.changes.length > 0).map(l => ({
