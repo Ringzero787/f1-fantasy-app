@@ -1,6 +1,6 @@
 /**
  * Read-only scoring diagnostic. Run from an authed machine:
- *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json node tmp_diagnose_scoring.js [options]
+ *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json node diagnose-scoring.js [options]
  * or with `firebase login` ADC available.
  *
  * Modes:
