@@ -2,13 +2,15 @@
 // against Ben's posted lines, writes per-pick outcomes, weekend scores, and
 // updates the season totals.
 //
-// IMPORTANT: the payout formula (computePayout) is a stub pending Ben's odds
-// spec. The shape and bookkeeping are in place; only the per-pick maths needs
-// to be filled in once Ben confirms decimal vs American, push rules, vig, etc.
+// RESULT SOURCE: each entity's actual finishing position is derived from the
+// OFFICIAL race document (races/{raceId}.results) at settlement time — NOT from
+// a `result`/`outcome` field copied onto ben_lines. ben_lines is read only for
+// the book's predicted range (predictedLo/Hi) and decimal odds. This removes
+// the manual backfill step from the settlement path and guarantees picks settle
+// against the same results the rest of the app shows. The function refuses to
+// run unless the race is `completed` with results present.
 //
-// Trigger: HTTPS callable for now (manual run from admin/dev). Will move to a
-// Firestore trigger on ben_lines settlement once Ben's pipeline writes the
-// `result`/`outcome` fields on each line.
+// Trigger: HTTPS callable, admin-only (manual run).
 
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
@@ -18,6 +20,51 @@ const db = admin.firestore();
 type SessionKey = 'qualifying' | 'race' | 'sprint';
 type BenSide = 'with' | 'against';
 const SESSION_WEIGHT: Record<SessionKey, number> = { race: 1, qualifying: 0.5, sprint: 0.25 };
+
+// Worst classified position used when a result row has no usable position.
+const FIELD_SIZE = 22;
+
+const SESSION_RESULTS_KEY: Record<SessionKey, 'qualifyingResults' | 'raceResults' | 'sprintResults'> = {
+  qualifying: 'qualifyingResults',
+  race: 'raceResults',
+  sprint: 'sprintResults',
+};
+
+interface ResultRow {
+  position: number;
+  driverId?: string;
+  constructorId?: string;
+  status?: 'finished' | 'dnf' | 'dsq';
+}
+interface RaceResultsBundle {
+  qualifyingResults?: ResultRow[];
+  sprintResults?: ResultRow[];
+  raceResults?: ResultRow[];
+}
+
+// Per-session lookups built from the official race results. Driver result = its
+// finishing position; constructor result = sum of its drivers' positions (the
+// same quantity the lines were built/predicted against).
+interface SessionResults {
+  driver: Record<string, number>;
+  constructor: Record<string, number>;
+}
+
+function posOf(r: ResultRow): number {
+  return typeof r.position === 'number' && r.position > 0 ? r.position : FIELD_SIZE;
+}
+
+function buildSessionResults(rows: ResultRow[] | undefined): SessionResults | null {
+  if (!rows || rows.length === 0) return null;
+  const driver: Record<string, number> = {};
+  const ctor: Record<string, number> = {};
+  for (const r of rows) {
+    const p = posOf(r);
+    if (r.driverId) driver[r.driverId] = p;
+    if (r.constructorId) ctor[r.constructorId] = (ctor[r.constructorId] ?? 0) + p;
+  }
+  return { driver, constructor: ctor };
+}
 
 interface BenLine {
   entityId: string;
@@ -55,6 +102,10 @@ interface BenSessionDoc {
 interface Pick {
   side: BenSide;
   stake: number;
+  // True once the stake's cash was escrowed (debited) at placement. Escrowed
+  // picks credit only the gross payout at settlement; legacy (pre-escrow) picks
+  // are still debited their stake here.
+  escrowed?: boolean;
 }
 
 interface PicksDoc {
@@ -78,28 +129,26 @@ interface PickOutcome {
 // Per-pick payout calc. Odds are decimal; gross payout = stake × odds (incl.
 // stake back). Loss = forfeit. Range model: no pushes — the result either
 // falls inside [lo, hi] (WITH wins) or outside (AGAINST wins).
-function computePayout(pick: Pick, line: BenLine): Omit<PickOutcome, 'side' | 'stake' | 'result' | 'outcome'> {
-  if (line.result == null || line.outcome == null) {
-    return { won: false, payout: 0, pointsCredit: 0 };
-  }
-  const won = pick.side === line.outcome;
+function computePayout(
+  pick: Pick,
+  line: BenLine,
+  outcome: BenSide,
+): Omit<PickOutcome, 'side' | 'stake' | 'result' | 'outcome'> {
+  const won = pick.side === outcome;
   const odds = pick.side === 'with' ? line.withOdds : line.againstOdds;
   const payout = won ? Math.round(pick.stake * odds * 100) / 100 : 0;
   const pointsCredit = won ? 1 : 0;
   return { won, payout, pointsCredit };
 }
 
-// Decide which side of Ben's predicted range the actual result fell on.
-//   WITH    = result ∈ [predictedLo, predictedHi]  (Ben called it right)
-//   AGAINST = result outside the range             (Ben was wrong)
-function decideOutcome(line: BenLine): BenSide | null {
-  if (line.result == null) return null;
+// Decide which side of Ben's predicted range the actual (official) result fell
+// on. WITH = result ∈ [predictedLo, predictedHi] (Ben called it right);
+// AGAINST = result outside the range (Ben was wrong).
+function decideOutcome(line: BenLine, result: number): BenSide {
   const lo = lineLo(line);
   const hi = lineHi(line);
-  return line.result >= lo && line.result <= hi ? 'with' : 'against';
+  return result >= lo && result <= hi ? 'with' : 'against';
 }
-
-const DNF_POSITION_PLACEHOLDER = 22;
 
 interface SettleArgs {
   raceId: string;
@@ -107,39 +156,96 @@ interface SettleArgs {
   round: number;
 }
 
-export const tlSettleWeekend = functions.https.onCall(async (data: SettleArgs, context) => {
-  if (!context.auth?.token?.admin) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+// Core settlement, callable both by the admin onCall wrapper (manual) and by
+// tlOnRaceCompleted (auto-settle on race completion). Idempotent: picks already
+// flagged `settled` are skipped, so a re-run / retry never double-credits.
+// Throws if the race isn't completed with results, or if no posted lines exist
+// to grade against (so a premature auto-fire can't settle picks against nothing).
+export async function settleWeekendCore(
+  raceId: string,
+  seasonId: string,
+  round: number
+): Promise<{ processed: number; raceId: string; seasonId: string; round: number }> {
+  const sessions: SessionKey[] = ['qualifying', 'race', 'sprint'];
+
+  // 1. Load the OFFICIAL race results and refuse to settle unless the race is
+  // completed with results present. These are the actuals every pick is graded
+  // against (not a copy on ben_lines).
+  const raceSnap = await db.doc(`races/${raceId}`).get();
+  if (!raceSnap.exists) {
+    throw new functions.https.HttpsError('not-found', `Race ${raceId} not found`);
   }
-  const { raceId, seasonId, round } = data;
-  if (!raceId || !seasonId || typeof round !== 'number') {
-    throw new functions.https.HttpsError('invalid-argument', 'raceId, seasonId, round required');
+  const raceData = raceSnap.data() as { status?: string; results?: RaceResultsBundle };
+  if (raceData.status !== 'completed') {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Race ${raceId} is not completed (status: ${raceData.status ?? 'unknown'})`
+    );
+  }
+  const officialResults = raceData.results ?? {};
+  const resultsBySession: Partial<Record<SessionKey, SessionResults | null>> = {};
+  for (const s of sessions) {
+    resultsBySession[s] = buildSessionResults(officialResults[SESSION_RESULTS_KEY[s]]);
+  }
+  if (!sessions.some((s) => resultsBySession[s])) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Race ${raceId} has no session results to settle against`
+    );
   }
 
-  // 1. Pull Ben's three session line docs. Sprint may not exist.
-  const sessions: SessionKey[] = ['qualifying', 'race', 'sprint'];
+  // 2. Pull Ben's three session line docs (predicted ranges + odds only). Sprint
+  // may not exist.
   const sessionDocs: Partial<Record<SessionKey, BenSessionDoc>> = {};
   for (const s of sessions) {
     const snap = await db.doc(`ben_lines/${raceId}_${s}`).get();
     if (!snap.exists) continue;
-    const doc = snap.data() as BenSessionDoc;
-    // Ensure outcomes are populated; fall back to decideOutcome if Ben didn't.
-    // (Also: void warning on the constant import.)
-    void DNF_POSITION_PLACEHOLDER;
-    for (const entityId of Object.keys(doc.entities || {})) {
-      const line = doc.entities[entityId];
-      if (line.result != null && line.outcome == null) {
-        const decided = decideOutcome(line);
-        if (decided) line.outcome = decided as BenSide;
-      }
-    }
-    sessionDocs[s] = doc;
+    sessionDocs[s] = snap.data() as BenSessionDoc;
+  }
+  if (Object.keys(sessionDocs).length === 0) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Race ${raceId} has no posted ben_lines to settle picks against`
+    );
   }
 
-  // 2. Pull every player's picks for this race.
+  // 3. Pull every player's picks for this race.
   const picksSnap = await db.collection('tl_picks').where('raceId', '==', raceId).get();
 
-  const batch = db.batch();
+  // 2a. Bulk pre-fetch display names for all unsettled players in one shot
+  // (chunked getAll) instead of a serial get inside the loop.
+  const userIds = Array.from(
+    new Set(
+      picksSnap.docs
+        .map((d) => d.data() as PicksDoc)
+        .filter((p) => !p.settled)
+        .map((p) => p.userId)
+    )
+  );
+  const displayNameById: Record<string, string> = {};
+  for (let i = 0; i < userIds.length; i += 300) {
+    const refs = userIds.slice(i, i + 300).map((uid) => db.doc(`tl_users/${uid}`));
+    if (refs.length === 0) continue;
+    const snaps = await db.getAll(...refs);
+    for (const s of snaps) {
+      displayNameById[s.id] = (s.data()?.displayName as string | undefined) ?? 'Anonymous';
+    }
+  }
+
+  // Chunked batch: Firestore caps a batch at 500 writes, and each player adds up
+  // to 4 writes (pick + weekend score + season score + garage). We commit every
+  // ~450 ops, ALWAYS at a player boundary, so a player's writes never straddle a
+  // commit. If a chunk fails partway, already-settled players are skipped on a
+  // re-run (the `settled` flag is set atomically with that player's increments),
+  // so re-running never double-credits.
+  let batch = db.batch();
+  let opCount = 0;
+  const flush = async () => {
+    if (opCount === 0) return;
+    await batch.commit();
+    batch = db.batch();
+    opCount = 0;
+  };
   let processed = 0;
 
   for (const pickSnap of picksSnap.docs) {
@@ -147,7 +253,8 @@ export const tlSettleWeekend = functions.https.onCall(async (data: SettleArgs, c
     if (pickDoc.settled) continue;
 
     let weekendPoints = 0;
-    let weekendCash = 0;
+    let weekendCash = 0; // net P&L for display/leaderboard (payout − stake)
+    let garageDelta = 0; // actual cash to apply to the garage at settlement
     let callsCorrect = 0;
     let callsTotal = 0;
     const outcomesBySession: Partial<Record<SessionKey, Record<string, PickOutcome>>> = {};
@@ -155,30 +262,45 @@ export const tlSettleWeekend = functions.https.onCall(async (data: SettleArgs, c
     for (const session of sessions) {
       const sessionPicks = pickDoc.picks?.[session];
       const sessionDoc = sessionDocs[session];
-      if (!sessionPicks || !sessionDoc) continue;
+      const sessionResults = resultsBySession[session];
+      if (!sessionPicks || !sessionDoc || !sessionResults) continue;
       const weight = SESSION_WEIGHT[session];
       const sessionOutcomes: Record<string, PickOutcome> = {};
 
       for (const [entityId, pick] of Object.entries(sessionPicks)) {
         const line = sessionDoc.entities?.[entityId];
-        if (!line || line.result == null || line.outcome == null) continue;
-        const calc = computePayout(pick, line);
-        const pickedOdds = pick.side === 'with' ? line.withOdds : line.againstOdds;
+        if (!line) continue;
+        // Actual result comes from the OFFICIAL race doc, keyed by entity kind.
+        const actualResult =
+          line.entityKind === 'constructor'
+            ? sessionResults.constructor[entityId]
+            : sessionResults.driver[entityId];
+        if (actualResult == null) continue; // entity not in the official results
+        const decidedOutcome = decideOutcome(line, actualResult);
+        const calc = computePayout(pick, line, decidedOutcome);
         const outcome: PickOutcome = {
           side: pick.side,
           stake: pick.stake,
-          result: line.result,
-          outcome: line.outcome,
+          result: actualResult,
+          outcome: decidedOutcome,
           won: calc.won,
           payout: calc.payout,
           pointsCredit: calc.pointsCredit * weight,
         };
         sessionOutcomes[entityId] = outcome;
         weekendPoints += outcome.pointsCredit;
+        // Net P&L is the same regardless of when the stake was taken.
         weekendCash += calc.won ? calc.payout - pick.stake : -pick.stake;
+        // Cash to actually move now: escrowed picks already had their stake
+        // debited at placement, so credit gross payout on a win, nothing on a
+        // loss. Legacy (pre-escrow) picks are still debited their stake here.
+        if (pick.escrowed) {
+          garageDelta += calc.won ? calc.payout : 0;
+        } else {
+          garageDelta += calc.won ? calc.payout - pick.stake : -pick.stake;
+        }
         if (calc.won) callsCorrect++;
         callsTotal++;
-        void pickedOdds;
       }
       if (Object.keys(sessionOutcomes).length > 0) outcomesBySession[session] = sessionOutcomes;
     }
@@ -193,11 +315,11 @@ export const tlSettleWeekend = functions.https.onCall(async (data: SettleArgs, c
       callsTotal,
       settledOutcomes: outcomesBySession,
     });
+    opCount++;
 
     // Write the weekend score (for the leaderboard).
     const userId = pickDoc.userId;
-    const userSnap = await db.doc(`tl_users/${userId}`).get();
-    const displayName = (userSnap.data()?.displayName as string | undefined) ?? 'Anonymous';
+    const displayName = displayNameById[userId] ?? 'Anonymous';
 
     batch.set(db.doc(`tl_weekend_scores/${userId}_${raceId}`), {
       userId,
@@ -228,19 +350,37 @@ export const tlSettleWeekend = functions.https.onCall(async (data: SettleArgs, c
       },
       { merge: true }
     );
+    opCount += 2; // weekend score + season score
 
-    // Apply the weekend cash to the garage so the bankroll reflects it.
-    if (weekendCash !== 0) {
+    // Apply the settlement cash to the garage (escrowed stakes were already
+    // debited at placement, so this is gross winnings for escrowed picks).
+    if (garageDelta !== 0) {
       batch.update(db.doc(`tl_garages/${userId}`), {
-        cash: admin.firestore.FieldValue.increment(Math.round(weekendCash * 100) / 100),
-        totalCashEarned: admin.firestore.FieldValue.increment(Math.max(0, weekendCash)),
+        cash: admin.firestore.FieldValue.increment(Math.round(garageDelta * 100) / 100),
+        totalCashEarned: admin.firestore.FieldValue.increment(Math.max(0, garageDelta)),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      opCount++;
     }
 
     processed++;
+    // Flush at the player boundary so a player's writes never split across a
+    // commit, keeping each player's settlement atomic.
+    if (opCount >= 450) await flush();
   }
 
-  await batch.commit();
+  await flush();
   return { processed, raceId, seasonId, round };
+}
+
+// Admin-only manual trigger. Delegates to settleWeekendCore.
+export const tlSettleWeekend = functions.https.onCall(async (data: SettleArgs, context) => {
+  if (!context.auth?.token?.admin) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+  const { raceId, seasonId, round } = data;
+  if (!raceId || !seasonId || typeof round !== 'number') {
+    throw new functions.https.HttpsError('invalid-argument', 'raceId, seasonId, round required');
+  }
+  return settleWeekendCore(raceId, seasonId, round);
 });

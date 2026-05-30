@@ -14,3 +14,18 @@ export {
   tlGoogleSubscriptionWebhook,
 } from './purchases/webhooks';
 export { tlRequestAccountDeletion } from './users/requestAccountDeletion';
+
+// Server-authoritative economy callables. All cash-moving operations live here
+// so the client can never write tl_garages.cash directly (see firestore.rules).
+export {
+  tlInitialRoll,
+  tlCommitRoll,
+  tlBuyDriver,
+  tlBuyConstructor,
+  tlReleaseDriver,
+  tlReleaseConstructor,
+  tlChargeReroll,
+} from './economy/garageCallables';
+export { tlPlacePoleBet, tlPlaceLeagueBet, tlCancelBet } from './economy/betCallables';
+export { tlActivateInsurance, tlDropInsurance } from './economy/insuranceCallables';
+export { tlSetPick } from './economy/pickCallables';

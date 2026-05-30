@@ -1,16 +1,13 @@
 import {
   doc,
   getDoc,
-  setDoc,
   updateDoc,
   serverTimestamp,
   runTransaction,
   collection,
   addDoc,
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { dataService } from './data.service';
-import { pickN, rollInitialDriverMix } from '../utils/rarity';
+import { db, functions, httpsCallable } from '../config/firebase';
 import type { Driver, Constructor, Garage, TransactionType } from '../types';
 
 const STARTING_CASH = 250;
@@ -18,23 +15,34 @@ const RELEASE_REFUND_PCT = 0.75;
 const REROLL_BASE_COST = 5;
 const ROSTER_DRIVER_SLOTS = 4;
 const ROSTER_CONSTRUCTOR_SLOTS = 2;
-// Opening-roll budget — used by the lite-generator / legacy scoring. The
-// onboarding wizard no longer constrains the player to it; the starting
-// bankroll is a flat ROLL_STARTING_CASH amount (see below).
 const ROLL_BUDGET = 1000;
 const ROLL_REJECT_TOKENS = 3;
 const ROLL_MACRO_REROLLS = 3;
-// Flat starting cash after the opening roll. Players spend it in the shop to
-// build out their roster beyond the random opening hand.
 const ROLL_STARTING_CASH = 100;
 
 const garageDoc = (userId: string) => doc(db, 'tl_garages', userId);
-const txCollection = (userId: string) => collection(db, 'tl_garages', userId, 'transactions');
 
-// Migrates a freshly-loaded garage doc forward to the roster/bench model.
-// Older docs only had ownedDriverIds (capped at maxDrivers); the roster fields
-// might be missing. Promote up to ROSTER_DRIVER_SLOTS owned ids into the active
-// roster so existing users don't lose their lineup.
+// ---------------------------------------------------------------------------
+// Server-authoritative economy. Every cash-moving operation runs in a Cloud
+// Function callable (functions/src/economy/*) keyed on the caller's auth uid;
+// tl_garages.cash/owned/totals/streaks are immutable from the client (see
+// firestore.rules). The methods below keep their old signatures so UI call
+// sites are unchanged — they just delegate to the callable and pass the
+// result through. The `userId` arg is retained for signature compatibility
+// but ignored server-side (the server trusts context.auth.uid only).
+// ---------------------------------------------------------------------------
+const callInitialRoll = httpsCallable(functions, 'tlInitialRoll');
+const callCommitRoll = httpsCallable(functions, 'tlCommitRoll');
+const callBuyDriver = httpsCallable(functions, 'tlBuyDriver');
+const callBuyConstructor = httpsCallable(functions, 'tlBuyConstructor');
+const callReleaseDriver = httpsCallable(functions, 'tlReleaseDriver');
+const callReleaseConstructor = httpsCallable(functions, 'tlReleaseConstructor');
+const callChargeReroll = httpsCallable(functions, 'tlChargeReroll');
+
+// Migrates a freshly-loaded garage doc forward to the roster/bench model. The
+// roster slot counts are derived on read and NOT persisted from the client
+// (slots are server-managed — IAP slot grants happen server-side); only the
+// rostered arrays are written back, which is all the rules permit.
 function migrateGarageShape(g: Garage): Garage {
   const next: Garage = { ...g };
   if (!Array.isArray(next.rosteredDriverIds)) {
@@ -51,15 +59,13 @@ function migrateGarageShape(g: Garage): Garage {
 async function persistMigrationIfNeeded(userId: string, original: Garage, migrated: Garage) {
   const needsWrite =
     !Array.isArray(original.rosteredDriverIds) ||
-    !Array.isArray(original.rosteredConstructorIds) ||
-    typeof original.rosterDriverSlots !== 'number' ||
-    typeof original.rosterConstructorSlots !== 'number';
+    !Array.isArray(original.rosteredConstructorIds);
   if (!needsWrite) return;
+  // Only the rostered arrays are client-writable; slot counts are derived on
+  // read and managed server-side, so we don't persist them here.
   await updateDoc(garageDoc(userId), {
     rosteredDriverIds: migrated.rosteredDriverIds,
     rosteredConstructorIds: migrated.rosteredConstructorIds,
-    rosterDriverSlots: migrated.rosterDriverSlots,
-    rosterConstructorSlots: migrated.rosterConstructorSlots,
     updatedAt: serverTimestamp(),
   });
 }
@@ -74,256 +80,37 @@ export const garageService = {
     return migrated;
   },
 
-  // Creates the user's initial garage with 4 drivers + 2 constructors. The full
-  // initial roll is auto-rostered (active = owned at start). Idempotent.
+  // Silent legacy initial roll (server-rolled, $250). Idempotent.
   async performInitialRoll(userId: string): Promise<Garage> {
-    const existing = await this.getGarage(userId);
-    if (existing) return existing;
-
-    const [drivers, constructors] = await Promise.all([
-      dataService.getActiveDrivers(),
-      dataService.getActiveConstructors(),
-    ]);
-
-    if (drivers.length < 4 || constructors.length < 2) {
-      throw new Error('Not enough active drivers or constructors to initialize a garage');
-    }
-
-    const mix = rollInitialDriverMix();
-    const aTier = drivers.filter((d) => d.tier === 'A');
-    const bTier = drivers.filter((d) => d.tier === 'B');
-    const cTier = drivers.filter((d) => d.tier === 'C');
-
-    const pickFromTier = (pool: Driver[], n: number, fallback: Driver[]): Driver[] => {
-      const picked = pickN(pool, n, (d) => d.price + 1);
-      const remaining = n - picked.length;
-      if (remaining > 0) {
-        const fallbackPool = fallback.filter((d) => !picked.find((p) => p.id === d.id));
-        picked.push(...pickN(fallbackPool, remaining, (d) => d.price + 1));
-      }
-      return picked;
-    };
-
-    const pickedDrivers = [
-      ...pickFromTier(aTier, mix.a, [...bTier, ...cTier]),
-      ...pickFromTier(bTier, mix.b, [...aTier, ...cTier]),
-      ...pickFromTier(cTier, mix.c, [...bTier, ...aTier]),
-    ].slice(0, 4);
-
-    const pickedConstructors = pickN(constructors, 2, (c) => Math.max(c.price, 5));
-
-    const driverIds = pickedDrivers.map((d) => d.id);
-    const constructorIds = pickedConstructors.map((c) => c.id);
-
-    const garage: Omit<Garage, 'id'> = {
-      ownedDriverIds: driverIds,
-      ownedConstructorIds: constructorIds,
-      rosteredDriverIds: driverIds.slice(0, ROSTER_DRIVER_SLOTS),
-      rosteredConstructorIds: constructorIds.slice(0, ROSTER_CONSTRUCTOR_SLOTS),
-      rosterDriverSlots: ROSTER_DRIVER_SLOTS,
-      rosterConstructorSlots: ROSTER_CONSTRUCTOR_SLOTS,
-      cash: STARTING_CASH,
-      totalCashEarned: 0,
-      totalPoints: 0,
-      raceWinStreak: 0,
-      raceLossStreak: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await setDoc(garageDoc(userId), {
-      ...garage,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    await this.recordTransaction(userId, {
-      type: 'initial_roll',
-      delta: 0,
-      cashAfter: STARTING_CASH,
-      description: `Opened with ${pickedDrivers.map((d) => d.shortName).join(', ')} and ${pickedConstructors.map((c) => c.shortName).join(', ')}`,
-    });
-
-    return { id: userId, ...garage };
+    const r = await callInitialRoll();
+    return r.data as Garage;
   },
 
   async releaseDriver(userId: string, driverId: string): Promise<{ refund: number; cashAfter: number }> {
-    const driver = await dataService.getDriver(driverId);
-    if (!driver) throw new Error('Driver not found');
-    const refund = Math.round(driver.price * RELEASE_REFUND_PCT);
-
-    const result = await runTransaction(db, async (tx) => {
-      const snap = await tx.get(garageDoc(userId));
-      if (!snap.exists()) throw new Error('Garage not found');
-      const garage = migrateGarageShape(snap.data() as Garage);
-      if (!garage.ownedDriverIds.includes(driverId)) {
-        throw new Error('You do not own this driver');
-      }
-      // Releasing the last rostered driver would empty the active roster — block it.
-      if (garage.rosteredDriverIds.includes(driverId) && garage.rosteredDriverIds.length <= 2) {
-        throw new Error('You must keep at least 2 drivers in your active roster. Bench-swap first.');
-      }
-
-      const newOwned = garage.ownedDriverIds.filter((id) => id !== driverId);
-      let newRostered = garage.rosteredDriverIds.filter((id) => id !== driverId);
-      // If we removed someone from the active roster, auto-promote the first available bench
-      // driver so the roster stays at full slots.
-      if (newRostered.length < garage.rosterDriverSlots) {
-        const benchPool = newOwned.filter((id) => !newRostered.includes(id));
-        if (benchPool.length > 0) newRostered = [...newRostered, benchPool[0]];
-      }
-
-      const newCash = garage.cash + refund;
-      tx.update(garageDoc(userId), {
-        ownedDriverIds: newOwned,
-        rosteredDriverIds: newRostered,
-        cash: newCash,
-        totalCashEarned: garage.totalCashEarned + refund,
-        updatedAt: serverTimestamp(),
-      });
-      return { refund, cashAfter: newCash };
-    });
-
-    await this.recordTransaction(userId, {
-      type: 'release_driver',
-      delta: result.refund,
-      cashAfter: result.cashAfter,
-      entityId: driverId,
-      entityName: driver.name,
-      description: `Released ${driver.name} for ${result.refund}`,
-    });
-
-    return result;
+    const r = await callReleaseDriver({ driverId });
+    return r.data as { refund: number; cashAfter: number };
   },
 
   async releaseConstructor(
     userId: string,
     constructorId: string
   ): Promise<{ refund: number; cashAfter: number }> {
-    const constructor = (await dataService.getConstructorsByIds([constructorId]))[0];
-    if (!constructor) throw new Error('Constructor not found');
-    const refund = Math.round(constructor.price * RELEASE_REFUND_PCT);
-
-    const result = await runTransaction(db, async (tx) => {
-      const snap = await tx.get(garageDoc(userId));
-      if (!snap.exists()) throw new Error('Garage not found');
-      const garage = migrateGarageShape(snap.data() as Garage);
-      if (!garage.ownedConstructorIds.includes(constructorId)) {
-        throw new Error('You do not own this constructor');
-      }
-      if (garage.rosteredConstructorIds.includes(constructorId) && garage.rosteredConstructorIds.length <= 1) {
-        throw new Error('You must keep at least 1 constructor in your active roster. Bench-swap first.');
-      }
-
-      const newOwned = garage.ownedConstructorIds.filter((id) => id !== constructorId);
-      let newRostered = garage.rosteredConstructorIds.filter((id) => id !== constructorId);
-      if (newRostered.length < garage.rosterConstructorSlots) {
-        const benchPool = newOwned.filter((id) => !newRostered.includes(id));
-        if (benchPool.length > 0) newRostered = [...newRostered, benchPool[0]];
-      }
-
-      const newCash = garage.cash + refund;
-      tx.update(garageDoc(userId), {
-        ownedConstructorIds: newOwned,
-        rosteredConstructorIds: newRostered,
-        cash: newCash,
-        totalCashEarned: garage.totalCashEarned + refund,
-        updatedAt: serverTimestamp(),
-      });
-      return { refund, cashAfter: newCash };
-    });
-
-    await this.recordTransaction(userId, {
-      type: 'release_constructor',
-      delta: result.refund,
-      cashAfter: result.cashAfter,
-      entityId: constructorId,
-      entityName: constructor.name,
-      description: `Released ${constructor.name} for ${result.refund}`,
-    });
-
-    return result;
+    const r = await callReleaseConstructor({ constructorId });
+    return r.data as { refund: number; cashAfter: number };
   },
 
-  // Buying always succeeds (subject to cash). The driver joins the owned
-  // collection. If the active roster has a free slot, the new driver is
-  // auto-deployed; otherwise they sit on the bench until the user swaps them in.
   async buyDriver(userId: string, driver: Driver): Promise<{ cashAfter: number; autoRostered: boolean }> {
-    const result = await runTransaction(db, async (tx) => {
-      const snap = await tx.get(garageDoc(userId));
-      if (!snap.exists()) throw new Error('Garage not found');
-      const garage = migrateGarageShape(snap.data() as Garage);
-      if (garage.ownedDriverIds.includes(driver.id)) {
-        throw new Error('You already own this driver');
-      }
-      if (garage.cash < driver.price) {
-        throw new Error(`Not enough cash. Need ${driver.price}, have ${garage.cash}`);
-      }
-      const newOwned = [...garage.ownedDriverIds, driver.id];
-      const hasRosterRoom = garage.rosteredDriverIds.length < garage.rosterDriverSlots;
-      const newRostered = hasRosterRoom
-        ? [...garage.rosteredDriverIds, driver.id]
-        : garage.rosteredDriverIds;
-      const newCash = garage.cash - driver.price;
-      tx.update(garageDoc(userId), {
-        ownedDriverIds: newOwned,
-        rosteredDriverIds: newRostered,
-        cash: newCash,
-        updatedAt: serverTimestamp(),
-      });
-      return { cashAfter: newCash, autoRostered: hasRosterRoom };
-    });
-
-    await this.recordTransaction(userId, {
-      type: 'buy_driver',
-      delta: -driver.price,
-      cashAfter: result.cashAfter,
-      entityId: driver.id,
-      entityName: driver.name,
-      description: `Bought ${driver.name} for ${driver.price}${result.autoRostered ? ' (deployed)' : ' (to bench)'}`,
-    });
-
-    return result;
+    const r = await callBuyDriver({ driverId: driver.id });
+    return r.data as { cashAfter: number; autoRostered: boolean };
   },
 
   async buyConstructor(userId: string, constructor: Constructor): Promise<{ cashAfter: number; autoRostered: boolean }> {
-    const result = await runTransaction(db, async (tx) => {
-      const snap = await tx.get(garageDoc(userId));
-      if (!snap.exists()) throw new Error('Garage not found');
-      const garage = migrateGarageShape(snap.data() as Garage);
-      if (garage.ownedConstructorIds.includes(constructor.id)) {
-        throw new Error('You already own this constructor');
-      }
-      if (garage.cash < constructor.price) {
-        throw new Error(`Not enough cash. Need ${constructor.price}, have ${garage.cash}`);
-      }
-      const newOwned = [...garage.ownedConstructorIds, constructor.id];
-      const hasRosterRoom = garage.rosteredConstructorIds.length < garage.rosterConstructorSlots;
-      const newRostered = hasRosterRoom
-        ? [...garage.rosteredConstructorIds, constructor.id]
-        : garage.rosteredConstructorIds;
-      const newCash = garage.cash - constructor.price;
-      tx.update(garageDoc(userId), {
-        ownedConstructorIds: newOwned,
-        rosteredConstructorIds: newRostered,
-        cash: newCash,
-        updatedAt: serverTimestamp(),
-      });
-      return { cashAfter: newCash, autoRostered: hasRosterRoom };
-    });
-
-    await this.recordTransaction(userId, {
-      type: 'buy_constructor',
-      delta: -constructor.price,
-      cashAfter: result.cashAfter,
-      entityId: constructor.id,
-      entityName: constructor.name,
-      description: `Bought ${constructor.name} for ${constructor.price}${result.autoRostered ? ' (deployed)' : ' (to bench)'}`,
-    });
-
-    return result;
+    const r = await callBuyConstructor({ constructorId: constructor.id });
+    return r.data as { cashAfter: number; autoRostered: boolean };
   },
 
+  // ---- Roster / bench moves stay client-side: they touch only the rostered
+  // arrays, which the rules permit the owner to write. No cash involved. ----
   async swapRosterDriver(userId: string, outDriverId: string, inDriverId: string): Promise<void> {
     await runTransaction(db, async (tx) => {
       const snap = await tx.get(garageDoc(userId));
@@ -424,77 +211,28 @@ export const garageService = {
     });
   },
 
-  // Commit the result of the opening-roll mechanic. Caller already enforced the
-  // budget and slot counts client-side; we just persist the chosen IDs as both
-  // the owned collection AND the active roster. Idempotent: if a garage already
-  // exists, the existing one is returned untouched.
+  // Onboarding wizard commit — server validates the hand and sets the flat
+  // starting bankroll. driverIds/constructorIds come from the (free) opening
+  // roll the player locked in. Idempotent.
   async commitRoll(
     userId: string,
     driverIds: string[],
     constructorIds: string[],
-    cashRemaining: number
+    _cashRemaining: number
   ): Promise<Garage> {
-    const existing = await this.getGarage(userId);
-    if (existing) return existing;
-
-    const garage: Omit<Garage, 'id'> = {
-      ownedDriverIds: driverIds.slice(0, ROSTER_DRIVER_SLOTS),
-      ownedConstructorIds: constructorIds.slice(0, ROSTER_CONSTRUCTOR_SLOTS),
-      rosteredDriverIds: driverIds.slice(0, ROSTER_DRIVER_SLOTS),
-      rosteredConstructorIds: constructorIds.slice(0, ROSTER_CONSTRUCTOR_SLOTS),
-      rosterDriverSlots: ROSTER_DRIVER_SLOTS,
-      rosterConstructorSlots: ROSTER_CONSTRUCTOR_SLOTS,
-      cash: Math.max(0, cashRemaining),
-      totalCashEarned: 0,
-      totalPoints: 0,
-      raceWinStreak: 0,
-      raceLossStreak: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await setDoc(garageDoc(userId), {
-      ...garage,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    await this.recordTransaction(userId, {
-      type: 'initial_roll',
-      delta: 0,
-      cashAfter: garage.cash,
-      description: `Opening roll · ${driverIds.length}D + ${constructorIds.length}C · $${garage.cash} budget`,
-    });
-
-    return { id: userId, ...garage };
+    const r = await callCommitRoll({ driverIds, constructorIds });
+    return r.data as Garage;
   },
 
   async chargeReroll(userId: string): Promise<{ cashAfter: number; cost: number }> {
-    const result = await runTransaction(db, async (tx) => {
-      const snap = await tx.get(garageDoc(userId));
-      if (!snap.exists()) throw new Error('Garage not found');
-      const garage = snap.data() as Garage;
-      if (garage.cash < REROLL_BASE_COST) {
-        throw new Error(`Not enough cash to reroll (need ${REROLL_BASE_COST})`);
-      }
-      const newCash = garage.cash - REROLL_BASE_COST;
-      tx.update(garageDoc(userId), {
-        cash: newCash,
-        updatedAt: serverTimestamp(),
-      });
-      return { cashAfter: newCash, cost: REROLL_BASE_COST };
-    });
-
-    await this.recordTransaction(userId, {
-      type: 'reroll',
-      delta: -result.cost,
-      cashAfter: result.cashAfter,
-      description: `Rerolled the shop`,
-    });
-
-    return result;
+    const r = await callChargeReroll();
+    return r.data as { cashAfter: number; cost: number };
   },
 
+  // Append-only transaction log. Server callables write their own entries; this
+  // client method only remains for the dev/mock IAP path (USE_REAL_IAP=false).
+  // In production the transactions subcollection is create:false, so this is a
+  // no-op-at-the-rules-layer — real IAP fulfilment logs server-side.
   async recordTransaction(
     userId: string,
     data: {
@@ -507,15 +245,11 @@ export const garageService = {
       description: string;
     }
   ): Promise<void> {
-    const payload: Record<string, unknown> = {
-      userId,
-      ...data,
-      timestamp: serverTimestamp(),
-    };
+    const payload: Record<string, unknown> = { userId, ...data, timestamp: serverTimestamp() };
     for (const k of Object.keys(payload)) {
       if (payload[k] === undefined) delete payload[k];
     }
-    await addDoc(txCollection(userId), payload);
+    await addDoc(collection(db, 'tl_garages', userId, 'transactions'), payload);
   },
 };
 

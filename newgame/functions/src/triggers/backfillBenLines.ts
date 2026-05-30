@@ -15,6 +15,7 @@
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { applyCors } from './_cors';
+import { offeredOddsFromFairProb } from './_odds';
 
 const db = admin.firestore();
 const SEED_SECRET = 'tl-seed-races-2026-shared-secret';
@@ -27,8 +28,10 @@ const SESSION_RESULTS_KEY: Record<SessionKey, string> = {
   sprint: 'sprintResults',
 };
 
-const DEFAULT_WITH_ODDS = 1.91;
-const DEFAULT_AGAINST_ODDS = 1.91;
+// 50/50 placeholder priced through the shared vig so backfilled lines match the
+// live generator's hold (≈1.90 each, vs the legacy hard-coded 1.91).
+const DEFAULT_WITH_ODDS = offeredOddsFromFairProb(0.5);
+const DEFAULT_AGAINST_ODDS = offeredOddsFromFairProb(0.5);
 // Placeholder ranges used only when seeding from actuals for completed races
 // where Ben hadn't posted a real range. ±1 around the actual + center.
 const DRIVER_PLACEHOLDER_HALF = 1;

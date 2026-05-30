@@ -103,17 +103,24 @@ async function loadRecap(userId: string): Promise<RecapData | null> {
     const lines = lineDoc.entities ?? {};
     const sessionPicks = picksDoc?.picks?.[s] ?? {};
     const view: SessionView['picks'] = {};
+    const sessionSettled = picksDoc?.settledOutcomes?.[s] ?? {};
     for (const entityId of Object.keys(lines)) {
       const line = lines[entityId];
       entityIds.add(entityId);
       const userPick = sessionPicks[entityId];
       const side = userPick?.side ?? 'with';
+      // Prefer the authoritative settled outcome (graded against the official
+      // race results at settlement); fall back to the line's own fields for any
+      // legacy/unsettled doc.
+      const settledOutcome = sessionSettled[entityId];
       view[entityId] = {
         side,
         stake: userPick?.stake ?? 0,
-        result: line.result,
-        outcome: line.outcome,
-        won: line.outcome ? side === line.outcome : undefined,
+        result: settledOutcome?.result ?? line.result,
+        outcome: settledOutcome?.outcome ?? line.outcome,
+        won:
+          settledOutcome?.won ??
+          (line.outcome ? side === line.outcome : undefined),
       };
     }
     sessionViews.push({ session: s, lines, picks: view });

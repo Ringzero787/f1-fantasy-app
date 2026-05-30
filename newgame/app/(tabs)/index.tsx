@@ -5,12 +5,13 @@
 // Layout reference: design_handoff_track_limits v2 (May 16).
 
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { useGarageWithEntities } from '@/hooks/useGarageWithEntities';
+import { useGarageStore } from '@store/garage.store';
 import { useUpcomingRace } from '@/hooks/useUpcomingRace';
 import { useBenStore } from '@store/ben.store';
 import { usePicksStore } from '@store/picks.store';
@@ -71,6 +72,7 @@ export default function LineupScreen() {
     garage,
     isLoading: garageLoading,
   } = useGarageWithEntities();
+  const refreshGarage = useGarageStore((s) => s.refresh);
   const { data: upcomingRace, isLoading: raceLoading } = useUpcomingRace();
 
   const benByRace = useBenStore((s) => (upcomingRace?.id ? s.byRaceId[upcomingRace.id] : null));
@@ -518,12 +520,24 @@ export default function LineupScreen() {
           line={sheetLine}
           initialSide={sheetPick?.side ?? 'with'}
           initialStake={sheetPick?.stake ?? 0}
-          cash={garage?.cash ?? 0}
+          // Budget for THIS entity = free cash + its own already-escrowed stake
+          // (the server refunds the old stake before applying the new one).
+          cash={(garage?.cash ?? 0) + (sheetPick?.stake ?? 0)}
           onApply={async ({ side, stake }) => {
-            // Persist both fields. Two store calls — picks.service writes in
-            // sequence, so the doc ends in the right state.
-            await setSide(userId, upcomingRace.id, scope, stakeFor.id, side);
-            await setStake(userId, upcomingRace.id, scope, stakeFor.id, stake);
+            // Side first (cash-free), then the stake — the latter escrows cash
+            // server-side and can be rejected if the bankroll can't cover it.
+            // Refresh the garage afterwards so the bankroll reflects the escrow.
+            try {
+              await setSide(userId, upcomingRace.id, scope, stakeFor.id, side);
+              await setStake(userId, upcomingRace.id, scope, stakeFor.id, stake);
+              await refreshGarage(userId);
+            } catch (err) {
+              await refreshGarage(userId);
+              Alert.alert(
+                'Stake not placed',
+                err instanceof Error ? err.message : 'Could not place that stake.'
+              );
+            }
           }}
           onFlipSide={(next) => {
             // Propagate the side flip to the lineup card immediately so the

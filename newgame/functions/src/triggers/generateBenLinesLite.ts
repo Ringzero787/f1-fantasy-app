@@ -19,6 +19,7 @@
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { applyCors } from './_cors';
+import { offeredOddsFromFairProb, BOOK_VIG } from './_odds';
 
 const db = admin.firestore();
 const SEED_SECRET = 'tl-seed-races-2026-shared-secret';
@@ -87,11 +88,8 @@ function rangeForPrediction(
   return { lo, hi };
 }
 
-// Decimal odds from a fair probability. Gross payout = stake × odds.
-function decimalOddsFromProb(p: number): number {
-  if (p <= 0.001) return 999;
-  return Math.round((1 / p) * 100) / 100;
-}
+// Offered odds carry the bookmaker's hold (the game's cash sink) — see _odds.ts.
+// The fair probabilities are still stored on each entity for analytics.
 
 interface RaceResultRow {
   position: number;
@@ -185,8 +183,8 @@ function buildDriverLine(pred: DriverPrediction, session: SessionKey): BenLineEn
     predictedLo: lo,
     predictedHi: hi,
     line: Math.round((lo + hi) / 2),
-    withOdds: decimalOddsFromProb(withProb),
-    againstOdds: decimalOddsFromProb(againstProb),
+    withOdds: offeredOddsFromFairProb(withProb),
+    againstOdds: offeredOddsFromFairProb(againstProb),
     predicted: Math.round(pred.predicted * 100) / 100,
     sigma,
     withProbability: Math.round(withProb * 10000) / 10000,
@@ -218,8 +216,8 @@ function buildConstructorLines(drivers: DriverPrediction[], session: SessionKey)
       predictedLo: lo,
       predictedHi: hi,
       line: Math.round((lo + hi) / 2),
-      withOdds: decimalOddsFromProb(withProb),
-      againstOdds: decimalOddsFromProb(againstProb),
+      withOdds: offeredOddsFromFairProb(withProb),
+      againstOdds: offeredOddsFromFairProb(againstProb),
       predicted: Math.round(sumPred * 100) / 100,
       sigma: Math.round(sigma * 100) / 100,
       withProbability: Math.round(withProb * 10000) / 10000,
@@ -296,6 +294,7 @@ export const tlGenerateBenLinesLite = functions.https.onRequest(async (req, res)
       session,
       entities: merged,
       posted: true,
+      vig: BOOK_VIG,
       sourceFile: 'ben_lite_generator',
       postedAt: fs.serverTimestamp(),
       updatedAt: fs.serverTimestamp(),

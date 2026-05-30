@@ -1,12 +1,30 @@
-// Player picks store. Firestore is the source of truth — subscribe() attaches
-// an onSnapshot listener, and the snapshot callback is the ONLY thing that
-// writes to byRaceId. setSide/setStake just push a Firestore write; the
-// snapshot listener pushes the new state back to the store automatically
-// (with the Firestore SDK's built-in latency compensation, so it's instant).
+// Player picks store. Reads come from an onSnapshot listener (subscribe()).
+// Writes go through the server-authoritative tlSetPick callable (a stake
+// escrows real cash). setSide/setStake apply an optimistic local patch first so
+// the UI updates instantly, then push the write; the snapshot listener
+// reconciles to server truth, and a failed write rolls the patch back.
 
 import { create } from 'zustand';
 import { picksService } from '../services/picks.service';
 import type { PicksDoc, Pick, SessionKey, BenSide } from '../types';
+
+// Return a copy of the picks doc with one entity's side/stake patched. Used for
+// the optimistic update; the server write is still authoritative.
+function patchPick(
+  doc: PicksDoc | null,
+  session: SessionKey,
+  entityId: string,
+  patch: Partial<Pick>,
+): PicksDoc {
+  const base: PicksDoc =
+    doc ?? ({ picks: {} } as unknown as PicksDoc);
+  const picks = { ...(base.picks ?? {}) } as PicksDoc['picks'];
+  const sessionPicks = { ...(picks?.[session] ?? {}) };
+  const existing = sessionPicks[entityId] ?? { side: 'with', stake: 0 };
+  sessionPicks[entityId] = { ...existing, ...patch };
+  picks[session] = sessionPicks;
+  return { ...base, picks };
+}
 
 interface PicksState {
   byRaceId: Record<string, PicksDoc | null>;
@@ -51,18 +69,24 @@ export const usePicksStore = create<PicksState>((set, get) => ({
   },
 
   setSide: async (userId, raceId, session, entityId, side) => {
+    const prior = get().byRaceId[raceId] ?? null;
+    set((s) => ({ byRaceId: { ...s.byRaceId, [raceId]: patchPick(prior, session, entityId, { side }) } }));
     try {
       await picksService.setSide({ userId, raceId, session, entityId, side });
     } catch (err) {
+      set((s) => ({ byRaceId: { ...s.byRaceId, [raceId]: prior } }));
       console.error('[tl] setSide.fail', { entityId, side, err: err instanceof Error ? err.message : String(err) });
       throw err;
     }
   },
 
   setStake: async (userId, raceId, session, entityId, stake) => {
+    const prior = get().byRaceId[raceId] ?? null;
+    set((s) => ({ byRaceId: { ...s.byRaceId, [raceId]: patchPick(prior, session, entityId, { stake }) } }));
     try {
       await picksService.setStake({ userId, raceId, session, entityId, stake });
     } catch (err) {
+      set((s) => ({ byRaceId: { ...s.byRaceId, [raceId]: prior } }));
       console.error('[tl] setStake.fail', { entityId, stake, err: err instanceof Error ? err.message : String(err) });
       throw err;
     }

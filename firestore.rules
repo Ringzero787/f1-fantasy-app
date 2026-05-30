@@ -242,16 +242,27 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && isOwner(userId);
     }
 
-    // TL garage — only the owner can read/write
+    // TL garage — SERVER-AUTHORITATIVE economy. The owner can read their garage
+    // and change ONLY their active roster (rosteredDriverIds/rosteredConstructorIds).
+    // Everything that represents value — cash, totals, owned entities, roster slot
+    // counts, streaks — is written exclusively by Cloud Functions (Admin SDK,
+    // which bypasses these rules): tlBuyDriver/tlReleaseDriver/tlChargeReroll,
+    // tlPlace*Bet, tlActivateInsurance, tlOnRaceCompleted, applyEntitlement, etc.
+    // Create is server-only (tlInitialRoll / tlCommitRoll) so a client cannot
+    // mint a garage with arbitrary cash.
     match /tl_garages/{userId} {
-      allow read, write: if isAuthenticated() && isOwner(userId);
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if false;
+      allow update: if isAuthenticated() && isOwner(userId)
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['rosteredDriverIds', 'rosteredConstructorIds', 'updatedAt']);
+      allow delete: if false;
 
-      // Transaction history — owner can read; client can append.
-      // Update/delete denied so transaction log is append-only.
+      // Transaction history — owner can read; append is SERVER-ONLY so the log
+      // can't be forged. Update/delete denied so it stays append-only.
       match /transactions/{txId} {
         allow read: if isAuthenticated() && isOwner(userId);
-        allow create: if isAuthenticated() && isOwner(userId);
-        allow update, delete: if false;
+        allow create, update, delete: if false;
       }
     }
 
@@ -335,37 +346,45 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // TL insurance — owner reads/writes their own. Doc ID is `${userId}_${raceId}`,
-    // userId field on the doc is the source of truth for ownership.
+    // TL remote app config — publicly readable so the launch-time gate
+    // (force-update / notice) works before sign-in. Writes via console/admin only.
+    match /tl_config/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // TL insurance — owner reads their own; writes are SERVER-ONLY (premiums and
+    // the cash debit/refund run in tlActivateInsurance / tlDropInsurance via the
+    // Admin SDK). Doc ID is `${userId}_${raceId}`; userId field is authoritative.
     match /tl_insurance/{insuranceId} {
       allow get: if isAuthenticated() && resource != null && resource.data.userId == request.auth.uid;
-      allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated()
-                    && resource.data.userId == request.auth.uid
-                    && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No collection queries — the app only reads its own doc by id, so listing
+      // is denied to avoid leaking other players' data.
+      allow list: if false;
+      allow create, update, delete: if false;
     }
 
-    // TL bets — same model as insurance.
+    // TL bets — same model as insurance. Stakes/odds/payouts and the cash
+    // debit/refund run server-side (tlPlace*Bet / tlCancelBet); settlement by
+    // tlOnRaceCompleted. Client writes denied.
     match /tl_bets/{betsId} {
       allow get: if isAuthenticated() && resource != null && resource.data.userId == request.auth.uid;
-      allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated()
-                    && resource.data.userId == request.auth.uid
-                    && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No collection queries — the app only reads its own doc by id, so listing
+      // is denied to avoid leaking other players' data.
+      allow list: if false;
+      allow create, update, delete: if false;
     }
 
-    // Ben's posted lines — read by anyone authed. Writes are intended to be
-    // server-only (Cloud Functions / admin tool driven by the predictor pipeline),
-    // but for the dev/demo phase we allow authed clients to seed placeholder
-    // lines via the in-app Demo screen. TODO: tighten to `if false` once Ben's
-    // pipeline is wired up.
+    // Ben's posted lines — read by anyone authed. Writes are SERVER-ONLY:
+    // production lines come from the tlGenerateBenLinesLite / backfillBenLines
+    // Cloud Functions via the Admin SDK (which bypasses these rules), and
+    // actual results are written at settlement. Client writes are denied so a
+    // player cannot rewrite the book's odds/results in their favour.
+    // NOTE: the in-app Demo screen (app/demo.tsx) can no longer seed lines
+    // directly — it must call the SEED_SECRET-gated HTTP seeder instead.
     match /ben_lines/{lineId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if false;
     }
 
     // Admin-page UI prefs (e.g. last-selected race). Owner-only — keyed by uid.
@@ -374,18 +393,22 @@ service cloud.firestore {
     }
 
     // Player picks — one doc per (user, race), owned by the user. Picks default
-    // to side='with', stake=0; settlement fields written by tlSettleWeekend.
+    // to side='with', stake=0. Settlement fields (settled/weekendPoints/etc) are
+    // only ever written by tlSettleWeekend via the Admin SDK, which bypasses
+    // these rules — so the diff/affectedKeys defense was redundant + was
+    // misfiring on serverTimestamp() vs Timestamp comparisons during normal
+    // client writes. Keep ownership checks; drop the diff check.
     match /tl_picks/{pickId} {
-      allow get: if isAuthenticated() && resource != null && resource.data.userId == request.auth.uid;
-      allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated()
-                    && resource.data.userId == request.auth.uid
-                    && request.resource.data.userId == request.auth.uid
-                    // Don't let the client write settlement fields — those are CF-only.
-                    && !request.resource.data.diff(resource.data).affectedKeys()
-                         .hasAny(['settled', 'settledAt', 'weekendPoints', 'weekendCash', 'callsCorrect', 'callsTotal']);
-      allow delete: if false;
+      // Picks are SERVER-AUTHORITATIVE: a stake escrows real cash, so all writes
+      // go through the tlSetPick callable (and settlement via tlSettleWeekend),
+      // both Admin SDK. Clients may only read their own picks; doc id encodes
+      // {userId}_{raceId}. GET requires only auth (not a resource.data.userId
+      // match) to tolerate stale userIds from early anonymous→Google rebinds.
+      allow get: if isAuthenticated();
+      // No collection queries — the app only reads its own pick doc by id, so
+      // listing is denied to avoid leaking other players' picks.
+      allow list: if false;
+      allow create, update, delete: if false;
     }
 
     // Per-weekend per-user score — written by tlSettleWeekend, read for the

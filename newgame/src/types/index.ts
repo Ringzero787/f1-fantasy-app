@@ -595,6 +595,9 @@ export interface BenSessionDoc {
 export interface Pick {
   side: BenSide; // default 'with'
   stake: number; // 0 = free play; still scores points
+  // Set server-side once the stake's cash has been escrowed (debited) from the
+  // garage at placement. Used by settlement to pick escrow vs legacy math.
+  escrowed?: boolean;
 }
 
 // Per-pick settlement outcome, written by tlSettleWeekend onto the picks doc.
