@@ -32,6 +32,11 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
     throw new functions.https.HttpsError('failed-precondition', `Maximum ${MAX_TEAMS_PER_USER} teams allowed`);
   }
 
+  // Enforce one team per league per user (1:1). Solo teams (no leagueId) are exempt.
+  if (leagueId && existingTeams.docs.some((d) => d.data().leagueId === leagueId)) {
+    throw new functions.https.HttpsError('already-exists', 'You already have a team in this league');
+  }
+
   const teamRef = db.collection('fantasyTeams').doc();
   const team = {
     userId,
