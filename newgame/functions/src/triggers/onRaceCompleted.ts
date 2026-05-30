@@ -250,14 +250,12 @@ export const tlOnRaceCompleted = functions
     // Settle / re-settle pole + league bets across users (delta-based).
     await settleBets(raceId, resultsSig, results, userScoresThisRace);
 
-    // Auto-settle the bet-against-the-book picks for this race. Idempotent
-    // (picks already flagged `settled` are skipped), so this no-ops on retries
-    // and on results-correction re-fires. Wrapped so a settlement issue (e.g.
-    // lines not posted yet) can't undo the lineup scoring already committed
-    // above — it can always be re-run via the admin tlSettleWeekend callable.
-    // NOTE: because settlement keys on the `settled` flag, a results correction
-    // does NOT re-grade picks already settled (lineup scores/bets/standings do
-    // re-grade — picks settle once).
+    // Auto-settle the bet-against-the-book picks for this race. Idempotent and
+    // correction-aware: settlement keys on a results signature, so an unchanged
+    // re-run no-ops and a corrected-results re-fire re-grades picks by delta
+    // (clawing back / topping up). Wrapped so a settlement issue (e.g. lines not
+    // posted yet) can't undo the lineup scoring already committed above — it can
+    // always be re-run via the admin tlSettleWeekend callable.
     const seasonId = after.seasonId as string | undefined;
     const round = after.round as number | undefined;
     if (seasonId && typeof round === 'number') {

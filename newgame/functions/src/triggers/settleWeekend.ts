@@ -66,6 +66,27 @@ function buildSessionResults(rows: ResultRow[] | undefined): SessionResults | nu
   return { driver, constructor: ctor };
 }
 
+// Stable signature of the official results used for grading. Stored on each
+// settled pick so an unchanged re-run is a no-op and a results correction
+// (different signature) triggers a delta-based re-grade.
+function sigOfResults(bySession: Partial<Record<SessionKey, SessionResults | null>>): string {
+  const parts: string[] = [];
+  for (const s of ['qualifying', 'race', 'sprint'] as SessionKey[]) {
+    const r = bySession[s];
+    if (!r) {
+      parts.push(`${s}:none`);
+      continue;
+    }
+    const d = Object.keys(r.driver).sort().map((k) => `${k}=${r.driver[k]}`).join(',');
+    const c = Object.keys(r.constructor).sort().map((k) => `${k}=${r.constructor[k]}`).join(',');
+    parts.push(`${s}:D[${d}]C[${c}]`);
+  }
+  const str = parts.join('|');
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return String(h >>> 0);
+}
+
 interface BenLine {
   entityId: string;
   entityKind: 'driver' | 'constructor';
@@ -114,6 +135,15 @@ interface PicksDoc {
   picks: Partial<Record<SessionKey, Record<string, Pick>>>;
   totalStaked: number;
   settled?: boolean;
+  // Set at settlement; lets a results correction re-grade an already-settled
+  // pick (different sig) while an unchanged re-run no-ops. The stored weekend
+  // totals + outcomes are the baseline the re-grade computes deltas against.
+  settleSig?: string;
+  weekendPoints?: number;
+  weekendCash?: number;
+  callsCorrect?: number;
+  callsTotal?: number;
+  settledOutcomes?: Partial<Record<SessionKey, Record<string, PickOutcome>>>;
 }
 
 interface PickOutcome {
@@ -193,6 +223,7 @@ export async function settleWeekendCore(
       `Race ${raceId} has no session results to settle against`
     );
   }
+  const resultsSig = sigOfResults(resultsBySession);
 
   // 2. Pull Ben's three session line docs (predicted ranges + odds only). Sprint
   // may not exist.
@@ -218,7 +249,9 @@ export async function settleWeekendCore(
     new Set(
       picksSnap.docs
         .map((d) => d.data() as PicksDoc)
-        .filter((p) => !p.settled)
+        // Unsettled picks AND already-settled picks whose results changed (a
+        // correction needs re-grading) both need their owner's display name.
+        .filter((p) => !p.settled || p.settleSig !== resultsSig)
         .map((p) => p.userId)
     )
   );
@@ -250,7 +283,10 @@ export async function settleWeekendCore(
 
   for (const pickSnap of picksSnap.docs) {
     const pickDoc = pickSnap.data() as PicksDoc;
-    if (pickDoc.settled) continue;
+    // Skip only if already settled against THESE results; a correction (different
+    // sig) falls through and re-grades by delta.
+    if (pickDoc.settled && pickDoc.settleSig === resultsSig) continue;
+    const isResettle = pickDoc.settled === true;
 
     let weekendPoints = 0;
     let weekendCash = 0; // net P&L for display/leaderboard (payout − stake)
@@ -305,59 +341,88 @@ export async function settleWeekendCore(
       if (Object.keys(sessionOutcomes).length > 0) outcomesBySession[session] = sessionOutcomes;
     }
 
-    // Write the settled picks doc.
+    // Reconstruct what this race previously contributed (for a re-grade on
+    // corrected results); zero for a first settlement. Garage credit is rebuilt
+    // from the stored outcomes + the per-entity escrowed flag so it matches the
+    // escrow-aware math used originally.
+    let oldGarageDelta = 0;
+    if (isResettle && pickDoc.settledOutcomes) {
+      for (const [s, outs] of Object.entries(pickDoc.settledOutcomes)) {
+        for (const [e, o] of Object.entries(outs)) {
+          const escrowed = pickDoc.picks?.[s as SessionKey]?.[e]?.escrowed;
+          oldGarageDelta += escrowed ? (o.won ? o.payout : 0) : o.won ? o.payout - o.stake : -o.stake;
+        }
+      }
+    }
+    const oldPoints = isResettle ? pickDoc.weekendPoints ?? 0 : 0;
+    const oldCash = isResettle ? pickDoc.weekendCash ?? 0 : 0;
+    const oldCorrect = isResettle ? pickDoc.callsCorrect ?? 0 : 0;
+    const oldTotal = isResettle ? pickDoc.callsTotal ?? 0 : 0;
+
+    const userId = pickDoc.userId;
+    const displayName = displayNameById[userId] ?? 'Anonymous';
+    const roundCash = Math.round(weekendCash * 100) / 100;
+
+    // Pick doc — overwrite outcomes + stamp the results signature used so an
+    // unchanged re-run no-ops and a correction re-grades.
     batch.update(pickSnap.ref, {
       settled: true,
       settledAt: admin.firestore.FieldValue.serverTimestamp(),
+      settleSig: resultsSig,
       weekendPoints,
-      weekendCash: Math.round(weekendCash * 100) / 100,
+      weekendCash: roundCash,
       callsCorrect,
       callsTotal,
       settledOutcomes: outcomesBySession,
     });
     opCount++;
 
-    // Write the weekend score (for the leaderboard).
-    const userId = pickDoc.userId;
-    const displayName = displayNameById[userId] ?? 'Anonymous';
+    // Weekend score — absolute set, so overwriting with the new values is
+    // correct on a re-grade (no delta needed).
+    batch.set(
+      db.doc(`tl_weekend_scores/${userId}_${raceId}`),
+      {
+        userId,
+        displayName,
+        raceId,
+        seasonId,
+        round,
+        points: weekendPoints,
+        cash: roundCash,
+        callsCorrect,
+        callsTotal,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    opCount++;
 
-    batch.set(db.doc(`tl_weekend_scores/${userId}_${raceId}`), {
-      userId,
-      displayName,
-      raceId,
-      seasonId,
-      round,
-      points: weekendPoints,
-      cash: Math.round(weekendCash * 100) / 100,
-      callsCorrect,
-      callsTotal,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // Bump the running season totals.
+    // Season totals — apply DELTAS vs this race's previous contribution, and
+    // count the weekend only the first time.
     batch.set(
       db.doc(`tl_season_scores/${userId}_${seasonId}`),
       {
         userId,
         displayName,
         seasonId,
-        totalPoints: admin.firestore.FieldValue.increment(weekendPoints),
-        totalCash: admin.firestore.FieldValue.increment(Math.round(weekendCash * 100) / 100),
-        callsCorrect: admin.firestore.FieldValue.increment(callsCorrect),
-        callsTotal: admin.firestore.FieldValue.increment(callsTotal),
-        weekendsScored: admin.firestore.FieldValue.increment(1),
+        totalPoints: admin.firestore.FieldValue.increment(weekendPoints - oldPoints),
+        totalCash: admin.firestore.FieldValue.increment(roundCash - oldCash),
+        callsCorrect: admin.firestore.FieldValue.increment(callsCorrect - oldCorrect),
+        callsTotal: admin.firestore.FieldValue.increment(callsTotal - oldTotal),
+        weekendsScored: admin.firestore.FieldValue.increment(isResettle ? 0 : 1),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
-    opCount += 2; // weekend score + season score
+    opCount++;
 
-    // Apply the settlement cash to the garage (escrowed stakes were already
-    // debited at placement, so this is gross winnings for escrowed picks).
-    if (garageDelta !== 0) {
+    // Garage cash — apply the DELTA vs what was previously credited for this
+    // race (claws back / tops up when a correction flips outcomes).
+    const cashDelta = Math.round((garageDelta - oldGarageDelta) * 100) / 100;
+    if (cashDelta !== 0) {
       batch.update(db.doc(`tl_garages/${userId}`), {
-        cash: admin.firestore.FieldValue.increment(Math.round(garageDelta * 100) / 100),
-        totalCashEarned: admin.firestore.FieldValue.increment(Math.max(0, garageDelta)),
+        cash: admin.firestore.FieldValue.increment(cashDelta),
+        totalCashEarned: admin.firestore.FieldValue.increment(Math.max(0, cashDelta)),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       opCount++;
