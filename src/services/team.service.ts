@@ -3,7 +3,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
   updateDoc,
   addDoc,
   deleteDoc,
@@ -667,15 +666,22 @@ export const teamService = {
 
     const sanitizedData = sanitizeForFirebase(dataToWrite);
 
-    await setDoc(teamRef, {
-      ...sanitizedData,
-      createdAt: createdAt instanceof Date && !isNaN(createdAt.getTime())
-        ? createdAt
-        : (typeof createdAt === 'string' && !isNaN(new Date(createdAt).getTime())
-          ? new Date(createdAt)
-          : new Date()),
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+    // Use updateDoc (NOT setDoc/merge): syncTeam must only ever UPDATE an existing
+    // team. New teams are created via createTeam (addDoc). setDoc/merge would
+    // re-create a team that was deleted server-side (e.g. admin cleanup of a
+    // duplicate), resurrecting it as an empty "ghost". On not-found we skip.
+    try {
+      await updateDoc(teamRef, {
+        ...sanitizedData,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (e: any) {
+      if (e?.code === 'not-found') {
+        console.warn(`[syncTeam] team ${team.id} no longer exists server-side; skipping (not re-creating)`);
+        return;
+      }
+      throw e;
+    }
   },
 
   /**
