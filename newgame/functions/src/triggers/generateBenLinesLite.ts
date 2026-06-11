@@ -169,14 +169,17 @@ interface BenLineEntity {
 }
 
 // How many lines Ben features per Grand Prix, and how they're auto-chosen:
-// highest withProbability (Ben's most confident calls), tie-broken by lowest
-// sigma. Admins can hand-pick instead by setting `bestBetsSource: 'manual'` on
-// the ben_lines doc — the generator then leaves all bestBet flags untouched.
+// the most confident DRIVER calls (highest withProbability, tie-broken by
+// lowest sigma). Drivers only — constructor lines are sums of two cars, so
+// they score structurally higher confidence and would otherwise crowd out the
+// driver picks every week. Admins can hand-pick instead (incl. constructors)
+// by setting `bestBetsSource: 'manual'` on the ben_lines doc — the generator
+// then leaves all bestBet flags untouched.
 const BEST_BET_COUNT = 3;
 
 function flagBestBets(entities: Record<string, BenLineEntity>): void {
   const ranked = Object.values(entities)
-    .slice()
+    .filter((e) => e.entityKind === 'driver')
     .sort(
       (a, b) =>
         (b.withProbability ?? 0) - (a.withProbability ?? 0) ||
