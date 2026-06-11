@@ -326,9 +326,14 @@ export async function settleWeekendCore(
       const weight = SESSION_WEIGHT[session];
       const sessionOutcomes: Record<string, PickOutcome> = {};
 
-      for (const [entityId, pick] of Object.entries(sessionPicks)) {
+      for (const [entityId, rawPick] of Object.entries(sessionPicks)) {
         const line = sessionDoc.entities?.[entityId];
         if (!line) continue;
+        // Normalise the stake: legacy picks (pre-0.1.21 escrow) could have a
+        // `side` but no `stake` field — treat any missing/non-finite stake as 0
+        // so the math never produces NaN.
+        const stake = typeof rawPick.stake === 'number' && Number.isFinite(rawPick.stake) ? rawPick.stake : 0;
+        const pick: Pick = { ...rawPick, stake };
         // Actual result comes from the OFFICIAL race doc, keyed by entity kind.
         const actualResult =
           line.entityKind === 'constructor'
@@ -339,7 +344,7 @@ export async function settleWeekendCore(
         const calc = computePayout(pick, line, decidedOutcome);
         const outcome: PickOutcome = {
           side: pick.side,
-          stake: pick.stake,
+          stake,
           result: actualResult,
           outcome: decidedOutcome,
           won: calc.won,
@@ -350,14 +355,14 @@ export async function settleWeekendCore(
         sessionOutcomes[entityId] = outcome;
         weekendPoints += outcome.pointsCredit;
         // Net P&L is the same regardless of when the stake was taken.
-        weekendCash += calc.won ? calc.payout - pick.stake : -pick.stake;
+        weekendCash += calc.won ? calc.payout - stake : -stake;
         // Cash to actually move now: escrowed picks already had their stake
         // debited at placement, so credit gross payout on a win, nothing on a
         // loss. Legacy (pre-escrow) picks are still debited their stake here.
         if (pick.escrowed) {
           garageDelta += calc.won ? calc.payout : 0;
         } else {
-          garageDelta += calc.won ? calc.payout - pick.stake : -pick.stake;
+          garageDelta += calc.won ? calc.payout - stake : -stake;
         }
         if (calc.won) callsCorrect++;
         callsTotal++;
