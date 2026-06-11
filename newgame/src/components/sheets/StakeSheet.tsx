@@ -69,7 +69,15 @@ export function StakeSheet({
 
   const against = side === 'against';
   const odds = line ? (against ? line.againstOdds : line.withOdds) : 0;
-  const payout = stake > 0 && odds > 0 ? Math.round(stake * odds) : 0;
+  // Best-bet boost: beating Ben on one of his featured picks pays the PROFIT
+  // portion × 1.5 (mirrors the server's settleWeekend math). Losing one costs
+  // −1 pt on top of the stake — surfaced in the terms note below.
+  const bestBetAgainst = !!line?.bestBet && against;
+  const baseGross = stake > 0 && odds > 0 ? stake * odds : 0;
+  const payout =
+    baseGross > 0
+      ? Math.round(bestBetAgainst ? stake + (baseGross - stake) * 1.5 : baseGross)
+      : 0;
   const profit = Math.max(0, payout - stake);
   const sideColor = against ? t.danger : t.accent;
   const sideLabel = against ? 'Against Ben' : 'With Ben';
@@ -270,6 +278,30 @@ export function StakeSheet({
           </Text>
         </View>
       </View>
+
+      {/* Best-bet terms — only on Ben's 3 featured picks. */}
+      {line?.bestBet ? (
+        <View
+          style={{
+            marginTop: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 9,
+            borderRadius: 8,
+            backgroundColor: 'rgba(224,164,88,0.10)',
+            borderWidth: 1,
+            borderColor: 'rgba(224,164,88,0.45)',
+          }}
+        >
+          <Text style={{ fontFamily: t.fMono, fontSize: 9, fontWeight: '800', color: t.warn, letterSpacing: 1, textTransform: 'uppercase' }}>
+            ★ Ben's Best Bet
+          </Text>
+          <Text style={{ marginTop: 4, fontFamily: t.fSans, fontSize: 12, color: t.textDim, lineHeight: 17 }}>
+            {against
+              ? 'Beat Ben here and your profit pays ×1.5. But if he calls it, you lose the stake AND take a −1 pt penalty.'
+              : 'One of Ben’s 3 featured calls this GP. Flip to AGAINST for boosted risk/reward: profit ×1.5 if he’s wrong, −1 pt if he’s right.'}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Stake controls */}
       <View style={{ marginTop: 16 }}>

@@ -9,6 +9,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@store/auth.store';
 import { useGarageWithEntities } from '@/hooks/useGarageWithEntities';
 import { useGarageStore } from '@store/garage.store';
@@ -16,6 +17,8 @@ import { useUpcomingRace } from '@/hooks/useUpcomingRace';
 import { useBenStore } from '@store/ben.store';
 import { usePicksStore } from '@store/picks.store';
 import { leagueService } from '@services/league.service';
+import { resultsService } from '@services/results.service';
+import { leaderboardService } from '@services/leaderboard.service';
 import {
   TopBar,
   Num,
@@ -75,9 +78,18 @@ export default function LineupScreen() {
   const refreshGarage = useGarageStore((s) => s.refresh);
   const { data: upcomingRace, isLoading: raceLoading } = useUpcomingRace();
 
-  const benByRace = useBenStore((s) => (upcomingRace?.id ? s.byRaceId[upcomingRace.id] : null));
+  // Last completed race — after settlement the screen HOLDS on it (W/L tiles +
+  // weekend recap) until Ben's lines for the next race are posted, then flips
+  // to the new race in the resting state.
+  const { data: lastCompletedRace } = useQuery({
+    queryKey: ['tl', 'last-completed-race'],
+    queryFn: () => resultsService.getMostRecentCompletedRace(),
+    staleTime: 5 * 60_000,
+  });
+
+  const benAll = useBenStore((s) => s.byRaceId);
   const loadBen = useBenStore((s) => s.load);
-  const picksDoc = usePicksStore((s) => (upcomingRace?.id ? s.byRaceId[upcomingRace.id] : null));
+  const picksAll = usePicksStore((s) => s.byRaceId);
   const subscribePicks = usePicksStore((s) => s.subscribe);
   const setSide = usePicksStore((s) => s.setSide);
   const setStake = usePicksStore((s) => s.setStake);
@@ -88,19 +100,55 @@ export default function LineupScreen() {
   const [scoreOpen, setScoreOpen] = useState(false);
 
   // Picks: Firestore IS the source of truth. Subscribe and the snapshot
-  // listener feeds byRaceId. Writes via setSide/setStake go straight to
-  // Firestore and the same listener pushes them back instantly (SDK
-  // latency compensation). One writer, no races, no manual optimistic state.
+  // listener feeds byRaceId. We load lines + subscribe picks for BOTH the
+  // upcoming race and the last completed race: the upcoming lines tell us when
+  // to release the hold, and the completed race's picks carry the settled W/L
+  // outcomes the held tiles render.
   useEffect(() => {
     if (!upcomingRace?.id) return;
     loadBen(upcomingRace.id);
   }, [upcomingRace?.id, loadBen]);
+  useEffect(() => {
+    if (!lastCompletedRace?.id) return;
+    loadBen(lastCompletedRace.id);
+  }, [lastCompletedRace?.id, loadBen]);
 
   useEffect(() => {
     if (!userId || !upcomingRace?.id) return;
     const unsubscribe = subscribePicks(userId, upcomingRace.id);
     return unsubscribe;
   }, [userId, upcomingRace?.id, subscribePicks]);
+  useEffect(() => {
+    if (!userId || !lastCompletedRace?.id) return;
+    const unsubscribe = subscribePicks(userId, lastCompletedRace.id);
+    return unsubscribe;
+  }, [userId, lastCompletedRace?.id, subscribePicks]);
+
+  // Hold decision: stay on the settled race while the next race has no lines.
+  const upcomingBen = upcomingRace?.id ? benAll[upcomingRace.id] : null;
+  const nextLinesPosted =
+    !!upcomingBen &&
+    Object.values(upcomingBen).some((d) => d && Object.keys(d.entities ?? {}).length > 0);
+  const lastPicksDoc = lastCompletedRace?.id ? picksAll[lastCompletedRace.id] : null;
+  const lastRaceSettled =
+    !!lastPicksDoc?.settledOutcomes && Object.keys(lastPicksDoc.settledOutcomes).length > 0;
+  const holdingOnResults = !!lastCompletedRace && lastRaceSettled && !nextLinesPosted;
+  const displayRace = holdingOnResults ? lastCompletedRace : upcomingRace;
+
+  const benByRace = displayRace?.id ? benAll[displayRace.id] : null;
+  const picksDoc = displayRace?.id ? picksAll[displayRace.id] : null;
+
+  // While holding, the season running totals give the wrap its week-to-week
+  // context ("am I up or down on the year?").
+  const { data: seasonScore } = useQuery({
+    queryKey: ['tl', 'my-season', userId, displayRace?.seasonId],
+    queryFn: () =>
+      userId && displayRace?.seasonId
+        ? leaderboardService.getMySeason(userId, displayRace.seasonId)
+        : Promise.resolve(null),
+    enabled: !!userId && !!displayRace?.seasonId && lastRaceSettled,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     if (!userId) return;
@@ -124,7 +172,7 @@ export default function LineupScreen() {
   // shared races ingestion, and either one can be missing on a given doc, so
   // treat the weekend as a sprint if EITHER signal is present.
   const hasSprintWeekend =
-    !!upcomingRace?.hasSprint || !!upcomingRace?.schedule?.sprint;
+    !!displayRace?.hasSprint || !!displayRace?.schedule?.sprint;
   const sessionsAvailable = useMemo<SessionKey[]>(() => {
     return hasSprintWeekend ? ['sprint', 'qualifying', 'race'] : ['qualifying', 'race'];
   }, [hasSprintWeekend]);
@@ -140,7 +188,7 @@ export default function LineupScreen() {
       }),
     [sessionsAvailable, picksDoc],
   );
-  const summary = useSessionSummary(upcomingRace?.id, settledScopes);
+  const summary = useSessionSummary(displayRace?.id, settledScopes);
 
   // Smart-default the scope to the next un-locked session in calendar order.
   // Once the user picks one manually it's respected for the rest of the visit.
@@ -151,12 +199,17 @@ export default function LineupScreen() {
       return;
     }
     if (scopeTouched) return;
-    if (!upcomingRace) return;
+    if (!displayRace) return;
+    // Holding on a settled weekend → default to the GP result (the headline).
+    if (holdingOnResults) {
+      if (scope !== 'race') setScope('race');
+      return;
+    }
     const now = Date.now();
     const t = (d?: Date | null) => (d ? d.getTime() : Infinity);
-    const sprintAt = upcomingRace.schedule.sprint ? toDate(upcomingRace.schedule.sprint) : null;
-    const qualiAt = toDate(upcomingRace.schedule.qualifying);
-    const raceAt = toDate(upcomingRace.schedule.race);
+    const sprintAt = displayRace.schedule.sprint ? toDate(displayRace.schedule.sprint) : null;
+    const qualiAt = toDate(displayRace.schedule.qualifying);
+    const raceAt = toDate(displayRace.schedule.race);
     const candidates: Array<{ key: SessionKey; t: number }> = [];
     if (hasSprintWeekend) candidates.push({ key: 'sprint', t: t(sprintAt) });
     candidates.push({ key: 'qualifying', t: t(qualiAt) });
@@ -165,7 +218,7 @@ export default function LineupScreen() {
     candidates.sort((a, b) => a.t - b.t);
     const next = candidates.find((c) => c.t > now) ?? candidates[0];
     if (next && next.key !== scope) setScope(next.key);
-  }, [sessionsAvailable, scope, scopeTouched, upcomingRace, hasSprintWeekend]);
+  }, [sessionsAvailable, scope, scopeTouched, displayRace, holdingOnResults, hasSprintWeekend]);
 
   const onPickScope = (next: SessionKey) => {
     setScopeTouched(true);
@@ -208,7 +261,7 @@ export default function LineupScreen() {
       </SafeAreaView>
     );
   }
-  if (!upcomingRace) {
+  if (!displayRace) {
     return (
       <SafeAreaView style={[styles.flex, { backgroundColor: t.bg }]} edges={['top']}>
         <TopBar recapLabel="Recap" league={primaryLeague} />
@@ -221,9 +274,9 @@ export default function LineupScreen() {
     );
   }
 
-  const qualiAt = toDate(upcomingRace.schedule.qualifying);
-  const raceAt = toDate(upcomingRace.schedule.race);
-  const sprintAt = upcomingRace.schedule.sprint ? toDate(upcomingRace.schedule.sprint) : null;
+  const qualiAt = toDate(displayRace.schedule.qualifying);
+  const raceAt = toDate(displayRace.schedule.race);
+  const sprintAt = displayRace.schedule.sprint ? toDate(displayRace.schedule.sprint) : null;
   const sessionStart = scope === 'sprint' ? sprintAt : scope === 'qualifying' ? qualiAt : raceAt;
   // Countdown targets the LOCK moment (start − buffer), so "locks in" is honest.
   const lockTarget = sessionStart ? new Date(sessionStart.getTime() - LOCK_BUFFER_MS) : null;
@@ -246,7 +299,7 @@ export default function LineupScreen() {
     if (now < start.getTime() - LOCK_BUFFER_MS) return 'open';
     const ended =
       now >= start.getTime() + SESSION_DURATION_MS[s] ||
-      (s === 'race' && (upcomingRace.status === 'completed' || !!upcomingRace.results?.raceResults?.length));
+      (s === 'race' && (displayRace.status === 'completed' || !!displayRace.results?.raceResults?.length));
     return ended ? 'complete' : 'locked';
   };
   const phase = phaseFor(scope);
@@ -278,7 +331,7 @@ export default function LineupScreen() {
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: t.bg }]} edges={['top']}>
       <TopBar
-        recapLabel={`R${upcomingRace.round} Recap`}
+        recapLabel={`R${displayRace.round} Recap`}
         league={primaryLeague}
         meta={
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
@@ -292,7 +345,7 @@ export default function LineupScreen() {
                 textTransform: 'uppercase',
               }}
             >
-              R{String(upcomingRace.round).padStart(2, '0')}
+              R{String(displayRace.round).padStart(2, '0')}
             </Text>
             <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: t.textMute, alignSelf: 'center' }} />
             <Text
@@ -306,7 +359,7 @@ export default function LineupScreen() {
               }}
               numberOfLines={1}
             >
-              {upcomingRace.country}
+              {displayRace.country}
             </Text>
           </View>
         }
@@ -323,10 +376,10 @@ export default function LineupScreen() {
         {/* Race title */}
         <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 }}>
           <Text style={{ fontFamily: t.fDisp, fontWeight: '600', fontSize: 22, letterSpacing: -0.6, color: t.text }}>
-            {upcomingRace.name}
+            {displayRace.name}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 2 }}>
-            <Text style={{ fontFamily: t.fSans, fontSize: 12, color: t.textDim }}>{upcomingRace.circuitName}</Text>
+            <Text style={{ fontFamily: t.fSans, fontSize: 12, color: t.textDim }}>{displayRace.circuitName}</Text>
             <LeagueRankPill leagueName={primaryLeague?.name ?? 'Solo'} rank={1} delta={0} onPress={() => router.push('/(tabs)/leagues')} />
           </View>
         </View>
@@ -446,9 +499,9 @@ export default function LineupScreen() {
                 result={picksDoc?.settledOutcomes?.[scope]?.[d.id] ?? null}
                 onRowPress={() => setStakeFor({ kind: 'driver', id: d.id })}
                 onFlip={() => {
-                  if (!userId || !upcomingRace) return;
+                  if (!userId || !displayRace) return;
                   const next = (pick?.side ?? 'with') === 'against' ? 'with' : 'against';
-                  void setSide(userId, upcomingRace.id, scope, d.id, next);
+                  void setSide(userId, displayRace.id, scope, d.id, next);
                 }}
               />
             );
@@ -472,9 +525,9 @@ export default function LineupScreen() {
                 result={picksDoc?.settledOutcomes?.[scope]?.[c.id] ?? null}
                 onRowPress={() => setStakeFor({ kind: 'constructor', id: c.id })}
                 onFlip={() => {
-                  if (!userId || !upcomingRace) return;
+                  if (!userId || !displayRace) return;
                   const next = (pick?.side ?? 'with') === 'against' ? 'with' : 'against';
-                  void setSide(userId, upcomingRace.id, scope, c.id, next);
+                  void setSide(userId, displayRace.id, scope, c.id, next);
                 }}
               />
             );
@@ -509,7 +562,7 @@ export default function LineupScreen() {
       </ScrollView>
 
       {/* Stake sheet */}
-      {stakeFor && upcomingRace && userId && sheetEntity ? (
+      {stakeFor && displayRace && userId && sheetEntity ? (
         <StakeSheet
           visible={!!stakeFor}
           onClose={() => setStakeFor(null)}
@@ -528,8 +581,8 @@ export default function LineupScreen() {
             // server-side and can be rejected if the bankroll can't cover it.
             // Refresh the garage afterwards so the bankroll reflects the escrow.
             try {
-              await setSide(userId, upcomingRace.id, scope, stakeFor.id, side);
-              await setStake(userId, upcomingRace.id, scope, stakeFor.id, stake);
+              await setSide(userId, displayRace.id, scope, stakeFor.id, side);
+              await setStake(userId, displayRace.id, scope, stakeFor.id, stake);
               await refreshGarage(userId);
             } catch (err) {
               await refreshGarage(userId);
@@ -542,7 +595,7 @@ export default function LineupScreen() {
           onFlipSide={(next) => {
             // Propagate the side flip to the lineup card immediately so the
             // user sees the new state without having to Save the stake first.
-            void setSide(userId, upcomingRace.id, scope, stakeFor.id, next);
+            void setSide(userId, displayRace.id, scope, stakeFor.id, next);
           }}
         />
       ) : null}
@@ -562,6 +615,7 @@ export default function LineupScreen() {
         visible={summary.open}
         scopes={summary.scopes}
         summaries={summaries}
+        season={seasonScore ?? null}
         onClose={summary.close}
       />
     </SafeAreaView>
@@ -784,6 +838,7 @@ function EntityRow(props: {
             >
               {name}
             </Text>
+            {props.line?.bestBet ? <BestBetChip /> : null}
             {hasBet ? <ActiveBetDot amount={props.pickStake} against={against} /> : null}
           </View>
           {props.line ? (
@@ -811,6 +866,29 @@ function EntityRow(props: {
           <WithAgainstToggle side={props.pickSide} onFlip={props.onFlip} />
         )}
       </View>
+    </View>
+  );
+}
+
+// "Ben's Best" chip — flags one of Ben's 3 featured picks for the GP. Betting
+// against it is boosted risk/reward (profit ×1.5 / −1 pt), spelled out in the
+// StakeSheet when the player flips to AGAINST.
+function BestBetChip() {
+  const t = useTheme();
+  return (
+    <View
+      style={{
+        paddingHorizontal: 5,
+        paddingVertical: 1.5,
+        borderRadius: 4,
+        backgroundColor: hexA(t.warn, 0.16),
+        borderWidth: 1,
+        borderColor: hexA(t.warn, 0.5),
+      }}
+    >
+      <Text style={{ fontFamily: t.fMono, fontSize: 8, fontWeight: '800', color: t.warn, letterSpacing: 0.8 }}>
+        ★ BEN'S BEST
+      </Text>
     </View>
   );
 }

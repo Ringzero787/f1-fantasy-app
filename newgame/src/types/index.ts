@@ -551,6 +551,11 @@ export interface BenLine {
   line?: number;
   withOdds: number;     // payout if WITH wins (driver finishes inside the range)
   againstOdds: number;  // payout if AGAINST wins (finishes outside the range)
+  // Ben's featured pick for the GP (race session, 3 per weekend). Betting
+  // AGAINST a best bet is boosted risk/reward: win pays profit × 1.5, loss
+  // costs −1 pt (session-weighted). Flagged by the line generator (auto top-3
+  // by confidence) or by hand when the doc has bestBetsSource: 'manual'.
+  bestBet?: boolean;
   // Filled in by the settlement Cloud Function after the session runs.
   result?: number;
   outcome?: BenSide;    // 'with' = result ∈ [lo, hi]; 'against' = outside
@@ -607,8 +612,9 @@ export interface PickOutcome {
   result: number; // realised metric (finishing position / position sum)
   outcome: BenSide; // which side actually won
   won: boolean;
-  payout: number; // gross payout (stake × odds) on a win, 0 on a loss
-  pointsCredit: number; // session-weighted points credited
+  payout: number; // gross payout on a win (incl. best-bet boost), 0 on a loss
+  pointsCredit: number; // session-weighted points credited (can be negative on a lost against-best-bet)
+  bestBet?: boolean; // graded against one of Ben's best bets
 }
 
 // All of a player's picks for one race. Sessions map keys are SessionKey values;

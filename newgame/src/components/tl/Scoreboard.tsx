@@ -30,6 +30,7 @@ export interface ScopeSummaryLine {
   pendingPayout?: number; // gross payout if a pending stake wins
   result?: number; // realised finishing position (display value; halved for constructors)
   ouLabel?: string; // Ben's predicted range for display, e.g. "P3–P5"
+  bestBet?: boolean; // one of Ben's 3 featured picks (boosted against-side terms)
 }
 
 export interface ScopeSummary {
@@ -108,6 +109,7 @@ export function summarizeScope(
           delta,
           result: resultDisp,
           ouLabel: rangeLabel(line, kind),
+          bestBet: outcome.bestBet ?? line?.bestBet,
         });
         continue;
       }
@@ -116,8 +118,12 @@ export function summarizeScope(
       if (stake <= 0) continue;
       const side = pick?.side ?? 'with';
       const odds = (side === 'against' ? line?.againstOdds : line?.withOdds) ?? 2;
+      // Pending payout mirrors settlement: against a best bet, profit × 1.5.
+      const gross = stake * odds;
+      const pendingPayout =
+        side === 'against' && line?.bestBet ? stake + (gross - stake) * 1.5 : gross;
       atRisk += stake;
-      lines.push({ id: item.id, name: item.name, kind, side, stake, settled: false, pendingPayout: stake * odds });
+      lines.push({ id: item.id, name: item.name, kind, side, stake, settled: false, pendingPayout, bestBet: line?.bestBet });
     }
   };
   collect(drivers, 'driver');

@@ -99,7 +99,16 @@ interface BenLine {
   againstOdds: number;
   result?: number;
   outcome?: BenSide;
+  // Ben's featured pick (race session). Betting AGAINST it is boosted
+  // risk/reward — see BEST_BET_* constants.
+  bestBet?: boolean;
 }
+
+// Best-bet mechanics: beat Ben on one of his 3 featured picks and the PROFIT
+// portion of the payout is multiplied; side with him being right and you take
+// a points penalty (session-weighted) on top of the normal stake loss.
+const BEST_BET_PROFIT_MULT = 1.5;
+const BEST_BET_LOSS_POINTS = -1;
 
 function lineLo(l: BenLine): number {
   if (typeof l.predictedLo === 'number') return l.predictedLo;
@@ -154,11 +163,18 @@ interface PickOutcome {
   won: boolean;
   payout: number;
   pointsCredit: number;
+  // True when this pick was graded against one of Ben's best bets (boosted
+  // profit / points penalty applied for AGAINST picks). For UI badging.
+  bestBet?: boolean;
 }
 
 // Per-pick payout calc. Odds are decimal; gross payout = stake × odds (incl.
 // stake back). Loss = forfeit. Range model: no pushes — the result either
 // falls inside [lo, hi] (WITH wins) or outside (AGAINST wins).
+//
+// Best-bet twist: betting AGAINST one of Ben's featured picks boosts the
+// profit portion ×1.5 on a win, and costs BEST_BET_LOSS_POINTS (instead of 0)
+// on a loss. WITH bets on a best bet are unchanged.
 function computePayout(
   pick: Pick,
   line: BenLine,
@@ -166,8 +182,15 @@ function computePayout(
 ): Omit<PickOutcome, 'side' | 'stake' | 'result' | 'outcome'> {
   const won = pick.side === outcome;
   const odds = pick.side === 'with' ? line.withOdds : line.againstOdds;
-  const payout = won ? Math.round(pick.stake * odds * 100) / 100 : 0;
-  const pointsCredit = won ? 1 : 0;
+  const againstBestBet = line.bestBet === true && pick.side === 'against';
+  let payout = 0;
+  if (won) {
+    const base = pick.stake * odds;
+    payout = againstBestBet
+      ? Math.round((pick.stake + (base - pick.stake) * BEST_BET_PROFIT_MULT) * 100) / 100
+      : Math.round(base * 100) / 100;
+  }
+  const pointsCredit = won ? 1 : againstBestBet && pick.stake > 0 ? BEST_BET_LOSS_POINTS : 0;
   return { won, payout, pointsCredit };
 }
 
@@ -322,6 +345,7 @@ export async function settleWeekendCore(
           won: calc.won,
           payout: calc.payout,
           pointsCredit: calc.pointsCredit * weight,
+          ...(line.bestBet ? { bestBet: true } : {}),
         };
         sessionOutcomes[entityId] = outcome;
         weekendPoints += outcome.pointsCredit;

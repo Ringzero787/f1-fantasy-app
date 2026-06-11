@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/theme';
 import { BEN_AGAINST } from './atoms';
 import type { ScopeSummary, ScopeSummaryLine } from './Scoreboard';
-import type { SessionKey } from '@/types';
+import type { SeasonScore, SessionKey } from '@/types';
 
 const SEEN_KEY = 'tl-summary-seen-v1';
 const SCOPE_LABEL: Record<SessionKey, string> = { qualifying: 'Qualifying', race: 'Race', sprint: 'Sprint' };
@@ -86,11 +86,15 @@ export function SessionSummary({
   visible,
   scopes,
   summaries,
+  season,
   onClose,
 }: {
   visible: boolean;
   scopes: SessionKey[];
   summaries: Record<string, ScopeSummary>;
+  /** Running season totals (post-settlement) — gives the weekend wrap its
+   *  week-to-week context. Null until the first settled weekend. */
+  season?: SeasonScore | null;
   onClose: () => void;
 }) {
   const t = useTheme();
@@ -128,7 +132,7 @@ export function SessionSummary({
             {cur.kind === 'scope' ? (
               <ScopePage scope={cur.scope} summary={summaries[cur.scope]} />
             ) : (
-              <WeekendPage scopes={scopes} summaries={summaries} />
+              <WeekendPage scopes={scopes} summaries={summaries} season={season} />
             )}
           </ScrollView>
 
@@ -204,7 +208,9 @@ function ScopePage({ scope, summary }: { scope: SessionKey; summary?: ScopeSumma
             <View key={`${l.kind}-${l.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: t.lineSoft, opacity: w === false ? 0.85 : 1 }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: w ? t.success : '#FFB3AC' }} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text numberOfLines={1} style={{ fontFamily: t.fSans, fontSize: 13, fontWeight: '600', color: t.text }}>{l.name}</Text>
+                <Text numberOfLines={1} style={{ fontFamily: t.fSans, fontSize: 13, fontWeight: '600', color: t.text }}>
+                  {l.bestBet ? '★ ' : ''}{l.name}
+                </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
                   <View style={{ paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3, backgroundColor: `${sideColor}24` }}>
                     <Text style={{ fontFamily: t.fMono, fontSize: 8, fontWeight: '800', color: sideColor, letterSpacing: 0.8, textTransform: 'uppercase' }}>{l.side === 'against' ? 'Against' : 'With'}</Text>
@@ -255,7 +261,15 @@ function Callout({ label, name, delta, positive }: { label: string; name: string
   );
 }
 
-function WeekendPage({ scopes, summaries }: { scopes: SessionKey[]; summaries: Record<string, ScopeSummary> }) {
+function WeekendPage({
+  scopes,
+  summaries,
+  season,
+}: {
+  scopes: SessionKey[];
+  summaries: Record<string, ScopeSummary>;
+  season?: SeasonScore | null;
+}) {
   const t = useTheme();
   const data = scopes.map((s) => ({ scope: s, summary: summaries[s] })).filter((x) => x.summary);
   const net = data.reduce((a, d) => a + d.summary.net, 0);
@@ -304,8 +318,35 @@ function WeekendPage({ scopes, summaries }: { scopes: SessionKey[]; summaries: R
         })}
       </View>
 
+      {/* Season-so-far — the week-to-week trend at a glance. */}
+      {season ? (
+        <View style={{ marginTop: 14, padding: 12, borderRadius: 10, backgroundColor: t.surface, borderWidth: 1, borderColor: t.lineSoft }}>
+          <Text style={{ fontFamily: t.fMono, fontSize: 9, fontWeight: '800', color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+            Season so far · {season.weekendsScored} weekend{season.weekendsScored === 1 ? '' : 's'}
+          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+            <View>
+              <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 0.8, textTransform: 'uppercase' }}>Net cash</Text>
+              <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 18, color: season.totalCash >= 0 ? t.success : '#FFB3AC', fontVariant: ['tabular-nums'] }}>
+                {season.totalCash >= 0 ? '+' : '−'}${Math.abs(season.totalCash).toFixed(0)}M
+              </Text>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 0.8, textTransform: 'uppercase' }}>Points</Text>
+              <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 18, color: t.text, fontVariant: ['tabular-nums'] }}>{season.totalPoints}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 0.8, textTransform: 'uppercase' }}>Calls</Text>
+              <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 18, color: t.text, fontVariant: ['tabular-nums'] }}>
+                {season.callsCorrect}–{Math.max(0, season.callsTotal - season.callsCorrect)}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.textMute, letterSpacing: 0.4, textAlign: 'center', marginTop: 16, lineHeight: 15 }}>
-        You can revisit this anytime from the Scoreboard chip.
+        Cards below hold your win/loss until Ben posts the next race's lines.
       </Text>
     </View>
   );

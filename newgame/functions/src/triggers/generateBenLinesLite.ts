@@ -162,6 +162,28 @@ interface BenLineEntity {
   sigma?: number;
   withProbability?: number;
   againstProbability?: number;
+  /** One of Ben's 3 featured picks for the GP (race session only). Betting
+   *  AGAINST a best bet is boosted risk/reward: win pays profit × 1.5, loss
+   *  costs −1 pt (session-weighted). Settled in settleWeekend. */
+  bestBet?: boolean;
+}
+
+// How many lines Ben features per Grand Prix, and how they're auto-chosen:
+// highest withProbability (Ben's most confident calls), tie-broken by lowest
+// sigma. Admins can hand-pick instead by setting `bestBetsSource: 'manual'` on
+// the ben_lines doc — the generator then leaves all bestBet flags untouched.
+const BEST_BET_COUNT = 3;
+
+function flagBestBets(entities: Record<string, BenLineEntity>): void {
+  const ranked = Object.values(entities)
+    .slice()
+    .sort(
+      (a, b) =>
+        (b.withProbability ?? 0) - (a.withProbability ?? 0) ||
+        (a.sigma ?? 99) - (b.sigma ?? 99),
+    );
+  const top = new Set(ranked.slice(0, BEST_BET_COUNT).map((e) => e.entityId));
+  for (const e of Object.values(entities)) e.bestBet = top.has(e.entityId);
 }
 
 // Probability the actual finish lands in [lo, hi] given a normal around `pred`
@@ -283,11 +305,26 @@ export const tlGenerateBenLinesLite = functions.https.onRequest(async (req, res)
     const docId = `${raceId}_${session}`;
     // Read existing to preserve any manually-edited lines.
     const existingSnap = await db.doc(`ben_lines/${docId}`).get();
-    const existingEntities = existingSnap.exists ? (existingSnap.data()?.entities || {}) : {};
+    const existingData = existingSnap.exists ? existingSnap.data() : null;
+    const existingEntities = (existingData?.entities || {}) as Record<string, BenLineEntity>;
     // For each entity, only overwrite line/odds if there's no existing OR the
     // existing was a placeholder (sourceFile present and not "manual edit").
     const merged: Record<string, BenLineEntity> = { ...existingEntities };
     for (const [id, ent] of Object.entries(entities)) merged[id] = { ...(merged[id] || {}), ...ent };
+
+    // Best bets — Ben's 3 featured picks, race session only. Auto-flag the top
+    // 3 by confidence UNLESS an admin hand-picked them (bestBetsSource:
+    // 'manual'), in which case the existing flags are restored untouched.
+    const manualBestBets = existingData?.bestBetsSource === 'manual';
+    if (session === 'race') {
+      if (manualBestBets) {
+        for (const [id, ent] of Object.entries(merged)) {
+          ent.bestBet = existingEntities[id]?.bestBet === true;
+        }
+      } else {
+        flagBestBets(merged);
+      }
+    }
 
     await db.doc(`ben_lines/${docId}`).set({
       raceId,
@@ -295,6 +332,7 @@ export const tlGenerateBenLinesLite = functions.https.onRequest(async (req, res)
       entities: merged,
       posted: true,
       vig: BOOK_VIG,
+      ...(session === 'race' && !manualBestBets ? { bestBetsSource: 'auto' } : {}),
       sourceFile: 'ben_lite_generator',
       postedAt: fs.serverTimestamp(),
       updatedAt: fs.serverTimestamp(),
