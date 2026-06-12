@@ -166,6 +166,12 @@ interface BenLineEntity {
    *  AGAINST a best bet is boosted risk/reward: win pays profit × 1.5, loss
    *  costs −1 pt (session-weighted). Settled in settleWeekend. */
   bestBet?: boolean;
+  /** Admin hand-set this entity's range/odds (e.g. one of Ben's O/U calls).
+   *  The generator preserves these entities verbatim on regeneration — it
+   *  never recomputes their line. */
+  manualLine?: boolean;
+  /** Human-readable form of the admin's call, e.g. "U 4.5" / "O 11.5". */
+  benCall?: string;
 }
 
 // How many lines Ben features per Grand Prix, and how they're auto-chosen:
@@ -310,10 +316,15 @@ export const tlGenerateBenLinesLite = functions.https.onRequest(async (req, res)
     const existingSnap = await db.doc(`ben_lines/${docId}`).get();
     const existingData = existingSnap.exists ? existingSnap.data() : null;
     const existingEntities = (existingData?.entities || {}) as Record<string, BenLineEntity>;
-    // For each entity, only overwrite line/odds if there's no existing OR the
-    // existing was a placeholder (sourceFile present and not "manual edit").
+    // Merge freshly-computed lines over existing ones — EXCEPT entities an admin
+    // hand-set (manualLine), which are preserved verbatim so a regeneration run
+    // never reverts a manual line (e.g. one of Ben's O/U calls). Brand-new and
+    // non-manual entities get the recomputed range/odds.
     const merged: Record<string, BenLineEntity> = { ...existingEntities };
-    for (const [id, ent] of Object.entries(entities)) merged[id] = { ...(merged[id] || {}), ...ent };
+    for (const [id, ent] of Object.entries(entities)) {
+      if (merged[id]?.manualLine) continue;
+      merged[id] = { ...(merged[id] || {}), ...ent };
+    }
 
     // Best bets — Ben's 3 featured picks, race session only. Auto-flag the top
     // 3 by confidence UNLESS an admin hand-picked them (bestBetsSource:
