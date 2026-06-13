@@ -59,16 +59,23 @@ export const LOCK_BONUS = {
 // ─── Scoring functions ───
 
 export function calculateLockBonus(racesHeld: number): number {
-  // racesHeld is the count BEFORE the race being scored is added (live scoring
+  // Defensive: legacy roster damage (the old client fullWrite stripped racesHeld
+  // server-side on every buy) leaves drivers with racesHeld === undefined. An
+  // undefined here propagated NaN through Math.min → NaN team points →
+  // FieldValue.increment(NaN) throws and aborts the whole scoring batch. Coerce
+  // any non-finite input to 0.
+  const held = Number.isFinite(racesHeld) ? racesHeld : 0;
+
+  // held is the count BEFORE the race being scored is added (live scoring
   // evaluates the bonus pre-increment), so a driver held from round 1 arrives at
-  // the final round of a 24-race season with racesHeld = 23. Trigger the
-  // full-season bonus at FULL_SEASON_RACES - 1 so it is actually reachable.
-  if (racesHeld >= LOCK_BONUS.FULL_SEASON_RACES - 1) {
+  // the final round of a 24-race season with held = 23. Trigger the full-season
+  // bonus at FULL_SEASON_RACES - 1 so it is actually reachable.
+  if (held >= LOCK_BONUS.FULL_SEASON_RACES - 1) {
     return LOCK_BONUS.FULL_SEASON_BONUS;
   }
 
   let bonus = 0;
-  let remaining = racesHeld;
+  let remaining = held;
 
   const tier1Races = Math.min(remaining, LOCK_BONUS.TIER_1.maxRaces);
   bonus += tier1Races * LOCK_BONUS.TIER_1.bonus;

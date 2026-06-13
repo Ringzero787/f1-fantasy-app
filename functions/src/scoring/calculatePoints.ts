@@ -862,6 +862,15 @@ export const onRaceCompleted = functions
         reconTeamPoints -= stalePenalty;
       }
 
+      // Backstop: a non-finite teamPoints (from legacy-damaged roster data)
+      // fed to FieldValue.increment() throws and aborts the ENTIRE batch — one
+      // bad team would block scoring for everyone (same failure class as the
+      // shell-team crash). Coerce to 0 and log loudly instead of crashing.
+      if (!Number.isFinite(teamPoints)) {
+        console.error(`[Phase 1] team ${teamDoc.id} produced non-finite points (${teamPoints}) — coercing to 0; investigate roster data (likely missing racesHeld/pointsScored)`);
+        teamPoints = 0;
+      }
+
       if (reconTeamPoints !== teamPoints) {
         reconMismatches.push({ teamId: teamDoc.id, expected: reconTeamPoints, got: teamPoints });
       }
