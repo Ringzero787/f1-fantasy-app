@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { db, collections, doc } from '../config/firebase';
 import {
+  getDoc,
   getDocs,
   query,
   where,
@@ -67,6 +68,26 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     console.warn('Failed to get push token:', error);
     return null;
   }
+}
+
+/**
+ * Read whether the incomplete-team reminder is enabled (default on).
+ * Server `notifyIncompleteTeams` honours users/{uid}.notificationPrefs.incompleteTeamReminder.
+ */
+export async function getIncompleteTeamReminderPref(userId: string): Promise<boolean> {
+  try {
+    const snap = await getDoc(doc(db, 'users', userId));
+    return snap.data()?.notificationPrefs?.incompleteTeamReminder !== false;
+  } catch {
+    return true;
+  }
+}
+
+/** Enable/disable the server-side incomplete-team reminder for this user. */
+export async function setIncompleteTeamReminderPref(userId: string, enabled: boolean): Promise<void> {
+  await updateDoc(doc(db, 'users', userId), {
+    'notificationPrefs.incompleteTeamReminder': enabled,
+  });
 }
 
 /**

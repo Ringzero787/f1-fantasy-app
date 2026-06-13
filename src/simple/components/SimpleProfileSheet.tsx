@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -23,6 +24,7 @@ import { useLeagueStore } from '../../store/league.store';
 import { useAdminStore } from '../../store/admin.store';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { authService } from '../../services/auth.service';
+import * as notificationService from '../../services/notification.service';
 import { generateAvatar } from '../../services/avatarGeneration.service';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -58,6 +60,24 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
   const [showInviteHistory, setShowInviteHistory] = useState(false);
   const [inviteHistoryData, setInviteHistoryData] = useState<{ email: string; status: string; createdAt: string }[]>([]);
   const [inviteHistoryLoading, setInviteHistoryLoading] = useState(false);
+  // Incomplete-team reminder opt-out (server notifyIncompleteTeams honours this). Default on.
+  const [teamReminderOn, setTeamReminderOn] = useState(true);
+
+  useEffect(() => {
+    if (!user?.id || isDemoMode) return;
+    notificationService.getIncompleteTeamReminderPref(user.id).then(setTeamReminderOn).catch(() => {});
+  }, [user?.id, isDemoMode]);
+
+  const handleToggleTeamReminder = async (next: boolean) => {
+    setTeamReminderOn(next); // optimistic
+    if (!user?.id || isDemoMode) return;
+    try {
+      await notificationService.setIncompleteTeamReminderPref(user.id, next);
+    } catch {
+      setTeamReminderOn(!next); // revert on failure
+      Alert.alert('Error', 'Could not update reminder setting. Try again.');
+    }
+  };
 
   useEffect(() => {
     const url = (user as any)?.photoURL ?? null;
@@ -992,6 +1012,18 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+
+            {/* Incomplete-team reminder toggle (server notifyIncompleteTeams honours it) */}
+            <View style={styles.scaleRow}>
+              <Ionicons name="alert-circle-outline" size={18} color={colors.text.secondary} />
+              <Text style={styles.settingsRowText}>Team reminders</Text>
+              <Switch
+                value={teamReminderOn}
+                onValueChange={handleToggleTeamReminder}
+                trackColor={{ false: '#9ca3af', true: colors.primary }}
+                thumbColor="#fff"
+              />
             </View>
 
             <TouchableOpacity
