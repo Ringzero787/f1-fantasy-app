@@ -17,7 +17,7 @@ import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { useAuthStore } from '../../store/auth.store';
 import { useAdminStore } from '../../store/admin.store';
 import { useLeagueStore } from '../../store/league.store';
-import { useTeamStore } from '../../store/team.store';
+import { useTeamStore, estimateSaleQuote } from '../../store/team.store';
 import { useLockoutStatus } from '../../hooks/useLockoutStatus';
 import { useRaceScoresStore } from '../../store/raceScores.store';
 import { TEAM_SIZE, BUDGET } from '../../config/constants';
@@ -58,7 +58,9 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
   } = useSimpleTeam();
   const lockoutInfo = useLockoutStatus();
   const locked = lockoutInfo.isLocked || !(team?.lockStatus?.canModify ?? true);
-  const aceLocked = locked;
+  // Ace locks at race start (lockoutInfo.aceLocked), not at the earlier FP3
+  // team lock — using `locked` here disabled ace changes a day early.
+  const aceLocked = lockoutInfo.aceLocked;
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [creatingSecondTeam, setCreatingSecondTeam] = useState(false);
@@ -73,7 +75,11 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
   // Fetch last race scores and league members on mount
   React.useEffect(() => { fetchLastRaceScores(); }, []);
   React.useEffect(() => {
-    if (team?.leagueId && leagueMembers.length === 0) {
+    // Always (re)load for the current team's league — the store holds one
+    // global members array, so with two teams in different leagues the rank
+    // stat would otherwise show the OTHER league's members. loadLeagueMembers
+    // is internally throttled per league, so this is cheap.
+    if (team?.leagueId) {
       loadLeagueMembers(team.leagueId);
     }
   }, [team?.leagueId]);
@@ -309,11 +315,14 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
     return scores.reduce((a, b) => a + b, 0);
   })();
 
-  // League rank
+  // League rank — match on BOTH user and league so a stale members array from
+  // the user's other league never supplies the rank.
   const userId = team!.userId;
-  const myLeagueMember = leagueMembers.find(m => m.userId === userId);
+  const myLeagueMember = leagueMembers.find(
+    m => m.userId === userId && m.leagueId === team!.leagueId,
+  );
   const myRank = myLeagueMember?.rank;
-  const leagueSize = leagueMembers.length;
+  const leagueSize = leagueMembers.filter(m => m.leagueId === team!.leagueId).length;
 
   const handleToggleAce = async (driverId: string) => {
     if (aceLocked) return;
@@ -406,13 +415,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
         />
         <View style={[styles.statItem, { marginLeft: spacing.sm }]}>
           <Text style={styles.statValue}>
-            {(() => {
-              const leaguePts = myLeagueMember?.totalPoints ?? 0;
-              const teamPts = team!.totalPoints ?? 0;
-              const computedPts = enrichedDrivers.reduce((s, d) => s + (d.pointsScored || 0), 0)
-                + (enrichedConstructor?.pointsScored || 0) + (team!.lockedPoints || 0);
-              return Math.max(leaguePts, teamPts, computedPts);
-            })()}
+            {(team!.totalPoints ?? 0) + (team!.lockedPoints ?? 0)}
           </Text>
           {lastRacePoints !== null && (
             <Text style={{ fontSize: fonts.xs, color: lastRacePoints >= 0 ? colors.positive : colors.negative, fontWeight: S_FONTS.weights.medium }}>
@@ -473,11 +476,13 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
           aceLocked={aceLocked}
           lastRacePoints={lastRaceScores[driver.driverId]?.totalPoints ?? null}
           onRemove={() => {
-            const racesLeft = (driver.contractLength ?? 3) - (driver.racesHeld ?? 0);
-            const earlyTermFee = racesLeft > 0 ? Math.round(driver.currentPrice * 0.1 * racesLeft) : 0;
+            // estimateSaleQuote mirrors the server's fee exactly (3%/race
+            // remaining, waived in grace period / for reserve picks) — the old
+            // inline 10% math here quoted ~3.3x the fee actually charged.
+            const quote = estimateSaleQuote(driver);
             Alert.alert(
               'Remove Driver',
-              `Remove ${driver.name}?\n\nSale price: $${driver.currentPrice}${earlyTermFee > 0 ? `\nEarly termination: -$${earlyTermFee}\nYou receive: $${driver.currentPrice - earlyTermFee}` : ''}`,
+              `Remove ${driver.name}?\n\nSale price: $${quote.marketPrice}${quote.earlyTermFee > 0 ? `\nEarly termination: -$${quote.earlyTermFee}\nYou receive: $${quote.saleReturn}` : '\nNo early termination fee'}`,
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Remove', style: 'destructive', onPress: () => removeDriver(driver.driverId) },
@@ -513,11 +518,11 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
           aceLocked={aceLocked}
           lastRacePoints={lastRaceScores[teamConstructor.constructorId]?.totalPoints ?? null}
           onRemove={() => {
-            const racesLeft = (teamConstructor.contractLength ?? 3) - (teamConstructor.racesHeld ?? 0);
-            const earlyTermFee = racesLeft > 0 ? Math.round(teamConstructor.currentPrice * 0.1 * racesLeft) : 0;
+            // Same shared quote as the actual charge (see driver onRemove).
+            const quote = estimateSaleQuote(enrichedConstructor);
             Alert.alert(
               'Remove Constructor',
-              `Remove ${teamConstructor.name}?\n\nSale price: $${teamConstructor.currentPrice}${earlyTermFee > 0 ? `\nEarly termination: -$${earlyTermFee}\nYou receive: $${teamConstructor.currentPrice - earlyTermFee}` : ''}`,
+              `Remove ${teamConstructor.name}?\n\nSale price: $${quote.marketPrice}${quote.earlyTermFee > 0 ? `\nEarly termination: -$${quote.earlyTermFee}\nYou receive: $${quote.saleReturn}` : '\nNo early termination fee'}`,
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Remove', style: 'destructive', onPress: () => removeConstructor() },

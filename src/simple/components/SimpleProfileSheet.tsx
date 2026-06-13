@@ -1135,9 +1135,12 @@ function RaceHistory({ team, raceResults, colors, fonts, spacing, styles }: {
     return <Text style={styles.historyEmpty}>Create a team to start tracking history.</Text>;
   }
 
+  // Sort by ROUND, not raceId string — alphabetical raceIds rendered the
+  // season as Australia → Bahrain → China regardless of calendar order.
+  const raceRoundMap = new Map(demoRaces.map(r => [r.id, r.round]));
   const completedRaces = Object.entries(raceResults)
     .filter(([_, r]) => r.isComplete)
-    .sort((a, b) => a[0].localeCompare(b[0]));
+    .sort((a, b) => (raceRoundMap.get(a[0]) ?? 999) - (raceRoundMap.get(b[0]) ?? 999));
 
   if (completedRaces.length === 0) {
     return <Text style={styles.historyEmpty}>No races completed yet.</Text>;
@@ -1152,8 +1155,13 @@ function RaceHistory({ team, raceResults, colors, fonts, spacing, styles }: {
 
         let raceTotal = 0;
         const driverBreakdown: { name: string; shortName: string; constructorId: string; pts: number }[] = [];
+        const raceRound = raceRoundMap.get(raceId) ?? 0;
 
         team.drivers?.forEach((driver: any) => {
+          // Tenure gate: don't credit the current roster for races run before
+          // the driver was bought (same rule as team.store's calculator).
+          const addedAt = driver.addedAtRace ?? (team.joinedAtRace || 0);
+          if (raceRound > 0 && raceRound <= addedAt) return;
           const dr = result.driverResults?.find((r: any) => r.driverId === driver.driverId);
           const sr = result.sprintResults?.find((r: any) => r.driverId === driver.driverId);
           const pts = (dr?.points ?? 0) + (sr?.points ?? 0);
@@ -1216,10 +1224,11 @@ function RaceHistory({ team, raceResults, colors, fonts, spacing, styles }: {
         );
       })}
 
-      {/* Running total */}
+      {/* Running total — totalPoints + lockedPoints, matching My Team and the
+          league standings (banked points from sold drivers count) */}
       <View style={styles.historyTotalRow}>
         <Text style={styles.historyTotalLabel}>Total Points</Text>
-        <Text style={styles.historyTotalValue}>{team.totalPoints ?? 0}</Text>
+        <Text style={styles.historyTotalValue}>{(team.totalPoints ?? 0) + (team.lockedPoints ?? 0)}</Text>
       </View>
       <View style={styles.historyTotalRow}>
         <Text style={styles.historyTotalLabel}>Team Value</Text>

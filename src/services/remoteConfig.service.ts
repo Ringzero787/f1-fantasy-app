@@ -2,6 +2,7 @@ import { doc, getDoc, collection, getDocs, orderBy, query } from 'firebase/fires
 import { db } from '../config/firebase';
 import { PRICING_CONFIG } from '../config/pricing.config';
 import { TEAM_COLORS, RACE_POINTS, SPRINT_POINTS, GRID_SIZE, BUDGET, TEAM_SIZE } from '../config/constants';
+import { raceService } from './race.service';
 import type { Driver, Constructor, Race } from '../types';
 
 // ─── Types ───
@@ -130,13 +131,23 @@ export const remoteConfigService = {
 
   /**
    * Fetch live race schedule from Firestore.
+   *
+   * Schedule fields are stored as Firestore Timestamps (written by the server
+   * schedule sync) and MUST be normalized to JS Dates here: the lockout and
+   * countdown code does `new Date(value).getTime()` arithmetic, and
+   * `new Date(firestoreTimestamp)` is Invalid Date — which silently disabled
+   * schedule-based locking and produced "NaNm NaNs" countdowns.
    */
   async fetchRaces(): Promise<Race[]> {
     try {
       const q = query(collection(db, 'races'), orderBy('round', 'asc'));
       const snap = await getDocs(q);
       if (!snap.empty) {
-        return snap.docs.map(d => ({ id: d.id, ...d.data() } as Race));
+        return snap.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+          schedule: raceService.parseScheduleDates(d.data().schedule),
+        } as Race));
       }
     } catch (err) {
       console.warn('[RemoteConfig] Failed to fetch races:', err);

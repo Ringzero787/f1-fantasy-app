@@ -20,8 +20,10 @@ export function BudgetBar({
 }: BudgetBarProps) {
   const theme = useTheme();
   const spent = total - remaining;
-  const spentPercentage = (spent / total) * 100;
-  const remainingPercentage = (remaining / total) * 100;
+  // Guard total <= 0: a zero total would yield NaN% width strings
+  const safeTotal = total > 0 ? total : BUDGET;
+  const spentPercentage = (spent / safeTotal) * 100;
+  const remainingPercentage = (remaining / safeTotal) * 100;
   const isOverBudget = remaining < 0;
 
   // Get gradient colors based on spending

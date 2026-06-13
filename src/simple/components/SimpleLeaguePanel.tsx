@@ -97,7 +97,7 @@ export function SimpleLeaguePanel() {
       await loadUserLeagues(userId);
     }
     if (activeLeague) {
-      await loadLeagueMembers(activeLeague.id);
+      await loadLeagueMembers(activeLeague.id, true); // force refresh, bypass cache
     }
     setRefreshing(false);
   }, [userId, activeLeague?.id]);
@@ -589,8 +589,17 @@ export function SimpleLeaguePanel() {
     );
   }
 
-  // Has league — show standings
-  const sortedMembers = [...members].sort((a, b) => b.totalPoints - a.totalPoints);
+  // Has league — show standings. Deterministic tiebreaks matching the server's
+  // rankLeagueMembers (totalPoints desc, lastRacePoints desc, userId asc) so
+  // tied members never swap order between refreshes; `|| 0` guards NaN from a
+  // member doc missing totalPoints (NaN comparator corrupts the whole sort).
+  const sortedMembers = [...members].sort((a, b) => {
+    const byTotal = (b.totalPoints || 0) - (a.totalPoints || 0);
+    if (byTotal !== 0) return byTotal;
+    const byLast = ((b as any).lastRacePoints || 0) - ((a as any).lastRacePoints || 0);
+    if (byLast !== 0) return byLast;
+    return a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0;
+  });
   const isOwner = activeLeague.ownerId === userId;
   const handleLeagueAvatarTap = () => {
     if (!isOwner) return;

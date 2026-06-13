@@ -175,7 +175,9 @@ export function SimpleMemberTeamView({ member, leagueId, onBack }: Props) {
 
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{team.totalPoints}</Text>
+              {/* totalPoints + lockedPoints: same number as the standings row
+                  the user just tapped (banked points from sold drivers count) */}
+              <Text style={styles.statValue}>{(team.totalPoints ?? 0) + (team.lockedPoints ?? 0)}</Text>
               <Text style={styles.statLabel}>Points</Text>
             </View>
             <View style={styles.statBox}>
