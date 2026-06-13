@@ -268,6 +268,15 @@ export async function handleQualifyingScoring(
       continue;
     }
 
+    // Half-created shell teams can have drivers === undefined; iterating it
+    // threw "Cannot read properties of undefined (reading 'map')" and aborted
+    // the ENTIRE scoring run (this is what silently dropped monaco_2026). Skip
+    // teams with no roster — they have nothing to score.
+    if (!Array.isArray(team.drivers)) {
+      console.log(`[Qualifying] Skipping team ${teamDoc.id} — no drivers array (empty/half-created)`);
+      continue;
+    }
+
     let teamPoints = 0;
     const aceDriverId = team.aceDriverId;
 
@@ -406,6 +415,13 @@ export async function handleSprintScoring(
     // Idempotency guard
     if (team.scoredRaces && team.scoredRaces.includes(sprintScoredKey)) {
       console.log(`[Sprint] Skipping team ${teamDoc.id} — already scored for ${sprintScoredKey}`);
+      continue;
+    }
+
+    // Skip shell teams with no roster (drivers === undefined) — see the
+    // qualifying handler note; an unguarded map() here aborted the whole run.
+    if (!Array.isArray(team.drivers)) {
+      console.log(`[Sprint] Skipping team ${teamDoc.id} — no drivers array (empty/half-created)`);
       continue;
     }
 
@@ -702,6 +718,15 @@ export const onRaceCompleted = functions
       // Idempotency guard: skip teams already scored for this race
       if (team.scoredRaces && team.scoredRaces.includes(raceId)) {
         console.log(`[Phase 1] Skipping team ${teamDoc.id} — already scored for ${raceId}`);
+        continue;
+      }
+
+      // Shell teams with no roster (drivers === undefined) crashed the
+      // `for (const driver of team.drivers)` below with "team.drivers is not
+      // iterable", aborting Phase 1 for EVERY team and leaving the race
+      // unscored (root cause of monaco_2026 never scoring). Skip them.
+      if (!Array.isArray(team.drivers)) {
+        console.log(`[Phase 1] Skipping team ${teamDoc.id} — no drivers array (empty/half-created)`);
         continue;
       }
 
