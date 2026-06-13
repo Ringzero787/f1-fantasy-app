@@ -47,6 +47,31 @@ export function calculateEarlyTerminationFee(
   return Math.floor(currentPrice * PRICING_CONFIG.EARLY_TERMINATION_RATE * racesRemaining);
 }
 
+/**
+ * Client-side estimate of sale proceeds — MUST mirror quoteSale() in
+ * functions/src/teams/teamOperations.ts exactly (3%/race remaining, floor,
+ * waived during the grace period and for reserve picks). Used for confirm
+ * dialogs and affordability checks so the number shown matches the number the
+ * server charges. The server remains authoritative at execution time.
+ */
+export function estimateSaleQuote(
+  entity: {
+    currentPrice: number;
+    contractLength?: number;
+    racesHeld?: number;
+    isReservePick?: boolean;
+  },
+  marketPrice?: number,
+): { marketPrice: number; earlyTermFee: number; saleReturn: number; feeWaived: boolean } {
+  const price = marketPrice ?? entity.currentPrice;
+  const racesHeld = entity.racesHeld || 0;
+  const contractLength = entity.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
+  const racesLeft = contractLength - racesHeld;
+  const feeWaived = racesHeld === 0 || entity.isReservePick === true || racesLeft <= 0;
+  const earlyTermFee = feeWaived ? 0 : calculateEarlyTerminationFee(price, contractLength, racesHeld);
+  return { marketPrice: price, earlyTermFee, saleReturn: price - earlyTermFee, feeWaived };
+}
+
 import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
 
 // Calculate fantasy points for a team based on race results
@@ -231,7 +256,7 @@ interface TeamState {
   loadUserTeamInLeague: (userId: string, leagueId: string) => Promise<void>;
   createTeam: (userId: string, leagueId: string | null, name: string) => Promise<FantasyTeam>;
   assignTeamToLeague: (teamId: string, leagueId: string) => Promise<void>;
-  addDriver: (driverId: string) => Promise<void>;
+  addDriver: (driverId: string, contractLength?: number) => Promise<void>;
   removeDriver: (driverId: string) => Promise<void>;
   swapDriver: (oldDriverId: string, newDriverId: string) => Promise<void>;
   setConstructor: (constructorId: string, contractLength?: number) => Promise<void>;
@@ -331,6 +356,23 @@ const updateTeamAndSync = (
   set({ currentTeam: updatedTeam, userTeams: updatedUserTeams, ...additionalState });
 };
 
+// Refresh a team from the server after a roster callable. The server is the
+// source of truth for roster/budget/points — local state adopts it wholesale.
+const refreshTeamFromServer = async (
+  get: () => TeamState,
+  set: (state: Partial<TeamState>) => void,
+  teamId: string,
+): Promise<void> => {
+  const fresh = await teamService.getTeamById(teamId);
+  if (!fresh) return;
+  const { userTeams, currentTeam } = get();
+  const updatedUserTeams = userTeams.map(t => (t.id === teamId ? fresh : t));
+  set({
+    userTeams: updatedUserTeams,
+    ...(currentTeam?.id === teamId ? { currentTeam: fresh } : {}),
+  });
+};
+
 export const useTeamStore = create<TeamState>()(
   persist(
     (set, get) => ({
@@ -366,8 +408,10 @@ export const useTeamStore = create<TeamState>()(
     }
   },
 
-  // Full sync — writes drivers/constructor too (strips pointsScored/racesHeld).
-  // Use after explicit user actions: addDriver, removeDriver, setConstructor, etc.
+  // Roster writes now go exclusively through the secure callables
+  // (addDriverSecure etc.) — the old "full sync" replaced the whole drivers
+  // array with scoring fields stripped, DELETING pointsScored/racesHeld
+  // server-side on every buy. Kept as a metadata-only sync for callers.
   fullSyncToFirebase: async () => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
     if (isDemoMode) return;
@@ -376,8 +420,8 @@ export const useTeamStore = create<TeamState>()(
     if (!currentTeam) return;
 
     try {
-      await teamService.syncTeam(currentTeam, true);
-      console.log('fullSyncToFirebase: Full sync for', currentTeam.name);
+      await teamService.syncTeam(currentTeam);
+      console.log('fullSyncToFirebase: metadata sync for', currentTeam.name);
     } catch (error) {
       errorLogService.logError('fullSyncToFirebase', error);
     }
@@ -590,60 +634,14 @@ export const useTeamStore = create<TeamState>()(
             const localMap = new Map(currentLocal.map(t => [t.id, t]));
             const newFromFirebase = firebaseTeams.filter(t => !localMap.has(t.id));
 
-            // Merge server-scored points into existing local teams
+            // Server is authoritative for roster, budget, points, and locks —
+            // every mutation goes through Cloud Functions now, so the server
+            // doc is adopted wholesale. (The old field-by-field merge kept
+            // stale local rosters and budgets alive across devices and
+            // reinstalls, which is how budgets diverged permanently.)
             const mergedLocal = currentLocal.map(localTeam => {
               const fbTeam = firebaseTeams.find(t => t.id === localTeam.id);
-              if (!fbTeam) return localTeam;
-
-              // Take the higher totalPoints (server scores via FieldValue.increment)
-              // NaN guard: typeof NaN === 'number' but NaN > x is always false, breaking the merge
-              const serverPoints = typeof fbTeam.totalPoints === 'number' && !isNaN(fbTeam.totalPoints) ? fbTeam.totalPoints : 0;
-              const localPoints = typeof localTeam.totalPoints === 'number' && !isNaN(localTeam.totalPoints) ? localTeam.totalPoints : 0;
-              const useServerPoints = serverPoints > localPoints;
-
-              // Always merge lock status from server (server is source of truth for locks)
-              const lockMerged = {
-                ...localTeam,
-                isLocked: fbTeam.isLocked ?? localTeam.isLocked,
-                lockStatus: fbTeam.lockStatus ?? localTeam.lockStatus,
-                lockedPoints: typeof fbTeam.lockedPoints === 'number' ? fbTeam.lockedPoints : localTeam.lockedPoints,
-              };
-
-              // Always merge driver/constructor points from server (even if totalPoints hasn't changed)
-              // Previously gated by useServerPoints which blocked merge when local had NaN
-              // Server is ALWAYS the source of truth for pointsScored and racesHeld
-              const mergedDrivers = localTeam.drivers.map(driver => {
-                const fbDriver = fbTeam.drivers?.find((d: FantasyDriver) => d.driverId === driver.driverId);
-                if (!fbDriver) return driver;
-                return {
-                  ...driver,
-                  pointsScored: typeof fbDriver.pointsScored === 'number' && !isNaN(fbDriver.pointsScored)
-                    ? fbDriver.pointsScored : (driver.pointsScored || 0),
-                  racesHeld: fbDriver.racesHeld ?? driver.racesHeld,
-                  currentPrice: fbDriver.currentPrice ?? driver.currentPrice,
-                };
-              });
-
-              // Merge server-scored constructor pointsScored
-              const mergedConstructor = localTeam.constructor && fbTeam.constructor
-                ? {
-                    ...localTeam.constructor,
-                    pointsScored: (typeof fbTeam.constructor.pointsScored === 'number' && !isNaN(fbTeam.constructor.pointsScored) && fbTeam.constructor.pointsScored > (localTeam.constructor.pointsScored || 0))
-                      ? fbTeam.constructor.pointsScored
-                      : localTeam.constructor.pointsScored || 0,
-                  }
-                : localTeam.constructor;
-
-              // Also merge lockedPoints and server-managed fields
-              return {
-                ...localTeam,
-                totalPoints: serverPoints,
-                drivers: mergedDrivers,
-                constructor: mergedConstructor,
-                lockedPoints: typeof fbTeam.lockedPoints === 'number' ? fbTeam.lockedPoints : localTeam.lockedPoints,
-                isLocked: fbTeam.isLocked ?? localTeam.isLocked,
-                lockStatus: fbTeam.lockStatus ?? localTeam.lockStatus,
-              };
+              return fbTeam ?? localTeam;
             });
 
             if (newFromFirebase.length > 0) {
@@ -880,7 +878,7 @@ export const useTeamStore = create<TeamState>()(
     }
   },
 
-  addDriver: async (driverId) => {
+  addDriver: async (driverId, contractLength) => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
     const { currentTeam, selectedDrivers } = get();
 
@@ -951,7 +949,7 @@ export const useTeamStore = create<TeamState>()(
           currentPrice: currentMarketPrice,
           pointsScored: 0,
           racesHeld: 0,
-          contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
+          contractLength: contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH,
           addedAtRace: currentCompletedRaces,
         };
 
@@ -969,55 +967,12 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
-      // Not in demo mode - use local-first update pattern
-      console.log('addDriver: Using local-first update');
-      let driver = selectedDrivers.find(d => d.id === driverId);
-      if (!driver) {
-        driver = demoDrivers.find(d => d.id === driverId);
-      }
-      if (!driver) {
-        throw new Error('Driver not found');
-      }
-
-      const { driverPrices } = useAdminStore.getState();
-      const priceUpdate = driverPrices[driverId];
-      const currentMarketPrice = priceUpdate?.currentPrice ?? driver.price;
-
-      // Check if adding this driver would exceed budget
-      if (currentMarketPrice > currentTeam.budget) {
-        set({ error: `Cannot afford this driver (need $${currentMarketPrice}, have $${currentTeam.budget})`, isLoading: false });
-        return;
-      }
-
-      const { raceResults: fbRaceResults } = useAdminStore.getState();
-      const fbCompletedRaces = Object.values(fbRaceResults).filter(r => r.isComplete).length;
-
-      const fantasyDriver: FantasyDriver = {
-        driverId: driver.id,
-        name: driver.name,
-        shortName: driver.shortName,
-        constructorId: driver.constructorId,
-        purchasePrice: currentMarketPrice,
-        currentPrice: currentMarketPrice,
-        pointsScored: 0,
-        racesHeld: 0,
-        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
-        addedAtRace: fbCompletedRaces,
-      };
-
-      const updatedTeam: FantasyTeam = {
-        ...currentTeam,
-        drivers: [...currentTeam.drivers, fantasyDriver],
-        totalSpent: currentTeam.totalSpent + currentMarketPrice,
-        budget: currentTeam.budget - currentMarketPrice,
-        racesSinceTransfer: 0,
-        updatedAt: new Date(),
-      };
-      console.log('addDriver: Local update successful, new driver count:', updatedTeam.drivers.length);
-      updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
-
-      // Sync updated team to Firebase in background
-      syncTeamToFirebase(updatedTeam, 'addDriver');
+      // Server-authoritative: addDriverSecure validates price, budget, lock
+      // state and lockouts in a transaction, then we adopt the server result.
+      console.log('addDriver: calling addDriverSecure');
+      await teamService.addDriver(currentTeam.id, driverId, contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH);
+      await refreshTeamFromServer(get, set, currentTeam.id);
+      set({ isLoading: false });
     } catch (error) {
       errorLogService.logError('addDriver', error);
       const message = error instanceof Error ? error.message : 'Failed to add driver';
@@ -1075,38 +1030,13 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
-      // Use local-first update pattern
-      const driverToRemove = currentTeam.drivers.find(d => d.driverId === driverId);
-      if (!driverToRemove) {
-        throw new Error('Driver not found in team');
-      }
-
-      const { driverPrices } = useAdminStore.getState();
-      const priceUpdate = driverPrices[driverId];
-      const currentMarketPrice = priceUpdate?.currentPrice ?? driverToRemove.currentPrice;
-      // V6: Early termination fee — waived for reserve picks and grace period (no races completed since addition)
-      const contractLen = driverToRemove.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const inGracePeriod = (driverToRemove.racesHeld || 0) === 0;
-      const earlyTermFee = (driverToRemove.isReservePick || inGracePeriod) ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, driverToRemove.racesHeld || 0);
-      const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
-      const newAceId = currentTeam.aceDriverId === driverId ? undefined : currentTeam.aceDriverId;
-
-      const updatedTeam: FantasyTeam = {
-        ...currentTeam,
-        drivers: currentTeam.drivers.filter(d => d.driverId !== driverId),
-        totalSpent: currentTeam.totalSpent - driverToRemove.purchasePrice,
-        budget: currentTeam.budget + saleValue,
-        aceDriverId: newAceId,
-        racesSinceTransfer: 0,
-        // V7: Bank departing driver's points
-        lockedPoints: (currentTeam.lockedPoints || 0) + (driverToRemove.pointsScored || 0),
-        updatedAt: new Date(),
-      };
-      console.log('removeDriver: Local update successful, new driver count:', updatedTeam.drivers.length);
-      updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
-
-      // Sync updated team to Firebase in background
-      syncTeamToFirebase(updatedTeam, 'removeDriver');
+      // Server-authoritative: removeDriverSecure computes the sale return with
+      // the single fee implementation and banks the driver's points correctly
+      // (lockedPoints += pts, totalPoints -= pts) in a transaction.
+      console.log('removeDriver: calling removeDriverSecure');
+      await teamService.removeDriver(currentTeam.id, driverId);
+      await refreshTeamFromServer(get, set, currentTeam.id);
+      set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove driver';
       set({ error: message, isLoading: false });
@@ -1202,73 +1132,16 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
-      // Use local-first update pattern
-      const oldDriver = currentTeam.drivers.find(d => d.driverId === oldDriverId);
-      let newDriver = selectedDrivers.find(d => d.id === newDriverId);
-      if (!newDriver) {
-        newDriver = demoDrivers.find(d => d.id === newDriverId);
+      // Server-authoritative: sell + buy as two server transactions. If the
+      // buy fails after the sell, the proceeds stay in budget (honest state) —
+      // refresh from server either way so local state never diverges.
+      console.log('swapDriver: calling removeDriverSecure + addDriverSecure');
+      try {
+        await teamService.swapDriver(currentTeam.id, oldDriverId, newDriverId);
+      } finally {
+        await refreshTeamFromServer(get, set, currentTeam.id);
       }
-
-      if (!oldDriver || !newDriver) {
-        throw new Error('Driver not found');
-      }
-
-      const { driverPrices } = useAdminStore.getState();
-      const oldDriverPriceUpdate = driverPrices[oldDriverId];
-      const newDriverPriceUpdate = driverPrices[newDriverId];
-      const oldDriverMarketPrice = oldDriverPriceUpdate?.currentPrice ?? oldDriver.currentPrice;
-      const newDriverMarketPrice = newDriverPriceUpdate?.currentPrice ?? newDriver.price;
-
-      const { raceResults: fbSwapRaceResults } = useAdminStore.getState();
-      const fbSwapCompletedRaces = Object.values(fbSwapRaceResults).filter(r => r.isComplete).length;
-
-      const fantasyDriver: FantasyDriver = {
-        driverId: newDriver.id,
-        name: newDriver.name,
-        shortName: newDriver.shortName,
-        constructorId: newDriver.constructorId,
-        purchasePrice: newDriverMarketPrice,
-        currentPrice: newDriverMarketPrice,
-        pointsScored: 0,
-        racesHeld: 0,
-        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
-        addedAtRace: fbSwapCompletedRaces,
-      };
-
-      // V6: Early termination fee — waived for reserve picks and grace period
-      const oldContractLen = oldDriver.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const oldInGracePeriod = (oldDriver.racesHeld || 0) === 0;
-      const oldEarlyTermFee = (oldDriver.isReservePick || oldInGracePeriod) ? 0 : calculateEarlyTerminationFee(oldDriverMarketPrice, oldContractLen, oldDriver.racesHeld || 0);
-      const saleValue = Math.max(0, oldDriverMarketPrice - oldEarlyTermFee);
-      const purchaseCost = newDriverMarketPrice;
-      const netCostChange = purchaseCost - saleValue;
-
-      // Check if swap would exceed budget
-      if (netCostChange > currentTeam.budget) {
-        set({ error: `Cannot afford this swap (need $${netCostChange} more, have $${currentTeam.budget})`, isLoading: false });
-        return;
-      }
-
-      const newAceId = currentTeam.aceDriverId === oldDriverId ? undefined : currentTeam.aceDriverId;
-
-      const updatedTeam: FantasyTeam = {
-        ...currentTeam,
-        drivers: currentTeam.drivers.map(d =>
-          d.driverId === oldDriverId ? fantasyDriver : d
-        ),
-        totalSpent: currentTeam.totalSpent - oldDriver.purchasePrice + purchaseCost,
-        budget: currentTeam.budget - netCostChange,
-        racesSinceTransfer: 0,
-        aceDriverId: newAceId,
-        // V7: Bank departing driver's points
-        lockedPoints: (currentTeam.lockedPoints || 0) + (oldDriver.pointsScored || 0),
-        updatedAt: new Date(),
-      };
-      console.log('swapDriver: Local update successful');
-      updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
-
-      // Sync updated team to Firebase in background
-      syncTeamToFirebase(updatedTeam, 'swapDriver');
+      set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to swap driver';
       set({ error: message, isLoading: false });
@@ -1339,59 +1212,13 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
-      // Use local-first update pattern
-      let constructor = selectedConstructor?.id === constructorId ? selectedConstructor : null;
-      if (!constructor) {
-        constructor = demoConstructors.find(c => c.id === constructorId) || null;
-      }
-      if (!constructor) {
-        throw new Error('Constructor not found');
-      }
-
-      const oldConstructorPrice = currentTeam.constructor?.purchasePrice || 0;
-      const priceDiff = constructor.price - oldConstructorPrice;
-
-      // Check if setting this constructor would exceed budget
-      if (priceDiff > currentTeam.budget) {
-        set({ error: `Cannot afford this constructor (need $${priceDiff} more, have $${currentTeam.budget})`, isLoading: false });
-        return;
-      }
-
-      const { raceResults: fbRaceResults } = useAdminStore.getState();
-      const fbCompletedRaces = Object.values(fbRaceResults).filter(r => r.isComplete).length;
-
-      // V8: Bank departing constructor's points before replacement
-      const bankedPoints = currentTeam.constructor ? (currentTeam.constructor.pointsScored || 0) : 0;
-
-      const fbClampedContractLength = Math.min(
-        PRICING_CONFIG.MAX_CONTRACT_LENGTH,
-        Math.max(PRICING_CONFIG.MIN_CONTRACT_LENGTH, contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH)
-      );
-
-      const fantasyConstructor: FantasyConstructor = {
-        constructorId: constructor.id,
-        name: constructor.name,
-        purchasePrice: constructor.price,
-        currentPrice: constructor.price,
-        pointsScored: 0,
-        racesHeld: 0,
-        contractLength: fbClampedContractLength,
-        addedAtRace: fbCompletedRaces,
-      };
-
-      const updatedTeam: FantasyTeam = {
-        ...currentTeam,
-        constructor: fantasyConstructor,
-        totalSpent: currentTeam.totalSpent + priceDiff,
-        budget: currentTeam.budget - priceDiff,
-        lockedPoints: (currentTeam.lockedPoints || 0) + bankedPoints,
-        updatedAt: new Date(),
-      };
-      console.log('setConstructor: Local update successful');
-      updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
-
-      // Sync updated team to Firebase in background
-      syncTeamToFirebase(updatedTeam, 'setConstructor');
+      // Server-authoritative: setConstructorSecure sells the current
+      // constructor (standard sale quote, points banked correctly) and buys
+      // the new one in a single transaction at server prices.
+      console.log('setConstructor: calling setConstructorSecure');
+      await teamService.setConstructor(currentTeam.id, constructorId, contractLength);
+      await refreshTeamFromServer(get, set, currentTeam.id);
+      set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to set constructor';
       set({ error: message, isLoading: false });
@@ -1441,28 +1268,12 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
-      // Use local-first update pattern
-      // V8: Early termination fee — waived for reserve picks and grace period
-      const contractLen = currentTeam.constructor!.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const cInGracePeriod = (currentTeam.constructor!.racesHeld || 0) === 0;
-      const earlyTermFee = (currentTeam.constructor!.isReservePick || cInGracePeriod) ? 0 : calculateEarlyTerminationFee(currentMarketPrice, contractLen, currentTeam.constructor!.racesHeld || 0);
-      const saleValue = Math.max(0, currentMarketPrice - earlyTermFee);
-
-      const updatedTeam: FantasyTeam = {
-        ...currentTeam,
-        constructor: null,
-        aceConstructorId: undefined, // Clear ace if removed constructor was ace
-        totalSpent: currentTeam.totalSpent - currentTeam.constructor!.purchasePrice,
-        budget: currentTeam.budget + saleValue,
-        // V8: Bank departing constructor's points
-        lockedPoints: (currentTeam.lockedPoints || 0) + (currentTeam.constructor!.pointsScored || 0),
-        updatedAt: new Date(),
-      };
-      console.log('removeConstructor: Local update successful');
-      updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
-
-      // Sync updated team to Firebase in background
-      syncTeamToFirebase(updatedTeam, 'removeConstructor');
+      // Server-authoritative: removeConstructorSecure computes the sale quote
+      // and banks the constructor's points correctly in a transaction.
+      console.log('removeConstructor: calling removeConstructorSecure');
+      await teamService.removeConstructor(currentTeam.id);
+      await refreshTeamFromServer(get, set, currentTeam.id);
+      set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove constructor';
       set({ error: message, isLoading: false });
@@ -1687,52 +1498,21 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
-      // Use local-first pattern - same as demo mode
-      const confirmCompletedRaces2 = Object.values(useAdminStore.getState().raceResults).filter(r => r.isComplete).length;
-      const fantasyDrivers: FantasyDriver[] = selectedDrivers.map((driver) => ({
-        driverId: driver.id,
-        name: driver.name,
-        shortName: driver.shortName,
-        constructorId: driver.constructorId,
-        purchasePrice: driver.price,
-        currentPrice: driver.price,
-        pointsScored: 0,
-        racesHeld: 0,
-        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
-        addedAtRace: confirmCompletedRaces2,
-      }));
-
-      const fantasyConstructor: FantasyConstructor | null = selectedConstructor ? {
-        constructorId: selectedConstructor.id,
-        name: selectedConstructor.name,
-        purchasePrice: selectedConstructor.price,
-        currentPrice: selectedConstructor.price,
-        pointsScored: 0,
-        racesHeld: 0,
-        contractLength: PRICING_CONFIG.CONTRACT_LENGTH,
-        addedAtRace: Object.values(useAdminStore.getState().raceResults).filter(r => r.isComplete).length,
-      } : null;
-
-      const totalSpent = selectionState.totalCost;
-      const updatedTeam: FantasyTeam = {
-        ...currentTeam,
-        drivers: fantasyDrivers,
-        constructor: fantasyConstructor,
-        totalSpent,
-        budget: BUDGET - totalSpent,
-        racesSinceTransfer: 0,
-        updatedAt: new Date(),
-      };
-
-      updateTeamAndSync(get, set, updatedTeam, {
+      // Server-authoritative: buildTeamSecure buys the whole roster atomically
+      // at server prices (only valid while the roster is empty).
+      console.log('confirmSelection: calling buildTeamSecure');
+      await teamService.buildTeam(
+        currentTeam.id,
+        selectedDrivers.map((d) => d.id),
+        selectedConstructor?.id || null,
+      );
+      await refreshTeamFromServer(get, set, currentTeam.id);
+      set({
         selectedDrivers: [],
         selectedConstructor: null,
         selectionState: initialSelectionState,
         isLoading: false,
       });
-
-      // Sync to Firebase in background
-      syncTeamToFirebase(updatedTeam, 'confirmSelection');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to build team';
       set({ error: message, isLoading: false });

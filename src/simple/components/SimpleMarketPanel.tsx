@@ -17,11 +17,11 @@ import { useDrivers } from '../../hooks/useDrivers';
 import { useConstructors } from '../../hooks/useConstructors';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { useLockoutStatus } from '../../hooks/useLockoutStatus';
-import { useTeamStore, isDriverLockedOut, calculateEarlyTerminationFee } from '../../store/team.store';
+import { useTeamStore, isDriverLockedOut, estimateSaleQuote } from '../../store/team.store';
 import { useAdminStore } from '../../store/admin.store';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
-import type { Driver, Constructor, FantasyDriver, FantasyConstructor, FantasyTeam } from '../../types';
+import type { Driver, Constructor } from '../../types';
 
 type SortMode = 'price' | 'points' | 'name';
 type MarketTab = 'drivers' | 'constructors';
@@ -38,7 +38,7 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
   const { colors, fonts, spacing } = useSimpleTheme();
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
-  const { team, teamConstructor, budget, driversCount, removeDriver, removeConstructor, fullSyncToFirebase } = useSimpleTeam();
+  const { team, teamConstructor, budget, driversCount, removeDriver, removeConstructor } = useSimpleTeam();
   const lockoutInfo = useLockoutStatus();
   const locked = lockoutInfo.isLocked || !(team?.lockStatus?.canModify ?? true);
 
@@ -123,16 +123,13 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
     return list;
   }, [allConstructors, search, sort, budget, teamConstructor]);
 
-  // Compute effective budget for constructors (includes sale return from current constructor)
+  // Compute effective budget for constructors (includes sale return from
+  // current constructor). estimateSaleQuote mirrors the server's quote exactly:
+  // fee on the CURRENT market price (not purchase price), waived for grace
+  // period and reserve picks — the old inline math here used neither.
   function getConstructorEffectiveBudget(): number {
     if (!teamConstructor) return budget;
-    const oldContractLen = teamConstructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-    const fee = calculateEarlyTerminationFee(
-      teamConstructor.purchasePrice,
-      oldContractLen,
-      teamConstructor.racesHeld || 0,
-    );
-    const saleReturn = Math.max(0, teamConstructor.currentPrice - fee);
+    const { saleReturn } = estimateSaleQuote(teamConstructor);
     return budget + saleReturn;
   }
 
@@ -170,35 +167,11 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
 
   const handleConfirmAddDriver = useCallback(() => {
     if (!pendingDriver || !team) return;
-    const driver = pendingDriver;
-    const completedRaceCount = useAdminStore.getState().getCompletedRaceCount();
-
-    const newFantasyDriver: FantasyDriver = {
-      driverId: driver.id,
-      name: driver.name,
-      shortName: driver.shortName,
-      constructorId: driver.constructorId,
-      purchasePrice: driver.price,
-      currentPrice: driver.price,
-      pointsScored: 0,
-      racesHeld: 0,
-      contractLength,
-      addedAtRace: completedRaceCount,
-    };
-
-    const updatedTeam: FantasyTeam = {
-      ...team,
-      drivers: [...team.drivers, newFantasyDriver],
-      totalSpent: team.totalSpent + driver.price,
-      budget: team.budget - driver.price,
-      racesSinceTransfer: 0,
-      updatedAt: new Date(),
-    };
-
-    useTeamStore.getState().setCurrentTeam(updatedTeam);
-    fullSyncToFirebase();
+    // Server-authoritative: the store action calls addDriverSecure (price,
+    // budget, lockouts validated in a transaction) and adopts the result.
+    useTeamStore.getState().addDriver(pendingDriver.id, contractLength);
     setPendingDriver(null);
-  }, [pendingDriver, team, contractLength, fullSyncToFirebase]);
+  }, [pendingDriver, team, contractLength]);
 
   const handleTapAddConstructor = useCallback(
     (item: Constructor) => {
@@ -227,47 +200,12 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
 
   const handleConfirmAddConstructor = useCallback(() => {
     if (!pendingConstructor || !team) return;
-    const item = pendingConstructor;
-    const completedRaceCount = useAdminStore.getState().getCompletedRaceCount();
-
-    const oldConstructor = (team as Record<string, any>)['constructor'] as FantasyConstructor | null;
-    let saleReturn = 0;
-    let bankedPoints = 0;
-    if (oldConstructor) {
-      const oldContractLen = oldConstructor.contractLength || PRICING_CONFIG.CONTRACT_LENGTH;
-      const fee = calculateEarlyTerminationFee(
-        oldConstructor.purchasePrice,
-        oldContractLen,
-        oldConstructor.racesHeld || 0,
-      );
-      saleReturn = Math.max(0, oldConstructor.currentPrice - fee);
-      bankedPoints = oldConstructor.pointsScored || 0;
-    }
-
-    const fantasyConstructor: FantasyConstructor = {
-      constructorId: item.id,
-      name: item.name,
-      purchasePrice: item.price,
-      currentPrice: item.price,
-      pointsScored: 0,
-      racesHeld: 0,
-      contractLength,
-      addedAtRace: completedRaceCount,
-    };
-
-    const updatedTeam: FantasyTeam = {
-      ...team,
-      constructor: fantasyConstructor,
-      totalSpent: team.totalSpent - (oldConstructor?.purchasePrice || 0) + item.price,
-      budget: team.budget + saleReturn - item.price,
-      lockedPoints: (team.lockedPoints || 0) + bankedPoints,
-      updatedAt: new Date(),
-    };
-
-    useTeamStore.getState().setCurrentTeam(updatedTeam);
-    fullSyncToFirebase();
+    // Server-authoritative: setConstructorSecure sells the current constructor
+    // (standard quote, points banked with the totalPoints decrement) and buys
+    // the new one in one transaction.
+    useTeamStore.getState().setConstructor(pendingConstructor.id, contractLength);
     setPendingConstructor(null);
-  }, [pendingConstructor, team, contractLength, fullSyncToFirebase]);
+  }, [pendingConstructor, team, contractLength]);
 
   // --- Render helpers ---
 

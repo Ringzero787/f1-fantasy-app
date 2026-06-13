@@ -13,13 +13,30 @@ import {
   serverTimestamp,
   increment,
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { BUDGET, TEAM_SIZE, EARLY_UNLOCK_FEE, SALE_COMMISSION_RATE } from '../config/constants';
+import { db, functions, httpsCallable } from '../config/firebase';
+import { BUDGET, TEAM_SIZE } from '../config/constants';
 
-// Calculate sale value after commission
-const calculateSaleValue = (currentPrice: number): number => {
-  return Math.floor(currentPrice * (1 - SALE_COMMISSION_RATE));
-};
+// ─── Server-authoritative roster callables ───
+// All roster/budget mutations go through Cloud Functions: prices are read
+// server-side inside a transaction, fees are computed by ONE implementation
+// (quoteSale in functions/src/teams/teamOperations.ts), and sold entities'
+// points are banked with the compensating totalPoints decrement. Direct
+// Firestore writes to drivers/constructor/budget/totalSpent are denied by
+// security rules.
+const callAddDriver = httpsCallable(functions, 'addDriverSecure');
+const callRemoveDriver = httpsCallable(functions, 'removeDriverSecure');
+const callSetConstructor = httpsCallable(functions, 'setConstructorSecure');
+const callRemoveConstructor = httpsCallable(functions, 'removeConstructorSecure');
+const callBuildTeam = httpsCallable(functions, 'buildTeamSecure');
+const callQuoteSale = httpsCallable(functions, 'quoteSaleSecure');
+
+export interface SaleQuote {
+  marketPrice: number;
+  earlyTermFee: number;
+  saleReturn: number;
+  feeWaived: boolean;
+  bankedPoints: number;
+}
 import type {
   FantasyTeam,
   FantasyDriver,
@@ -171,199 +188,114 @@ export const teamService = {
   },
 
   /**
-   * Add a driver to the team
-   * V3: Tracks purchasedAtRaceId for hot hand bonus, updates transfer tracking
+   * Add a driver to the team — server-authoritative via addDriverSecure.
+   * Price, budget check, lockouts, and lock state are validated server-side
+   * inside a transaction.
    */
   async addDriver(
     teamId: string,
     driverId: string,
-    currentRaceId?: string
+    contractLength?: number
   ): Promise<FantasyTeam> {
+    const res: any = await callAddDriver({ teamId, driverId, contractLength });
+
     const team = await this.getTeamById(teamId);
-    if (!team) {
-      throw new Error('Team not found');
+    if (team) {
+      this.recordTransaction({
+        userId: team.userId,
+        leagueId: team.leagueId,
+        teamId,
+        type: 'buy',
+        entityType: 'driver',
+        entityId: driverId,
+        entityName: res?.data?.driver?.name || driverId,
+        price: res?.data?.driver?.purchasePrice ?? 0,
+      }).catch(() => { /* transaction log is best-effort */ });
     }
 
-    if (!team.lockStatus.canModify) {
-      throw new Error('Team is locked and cannot be modified');
-    }
-
-    if (team.drivers.length >= TEAM_SIZE) {
-      throw new Error(`Team already has ${TEAM_SIZE} drivers`);
-    }
-
-    // Check if driver already in team
-    if (team.drivers.some((d) => d.driverId === driverId)) {
-      throw new Error('Driver already in team');
-    }
-
-    // Get driver details
-    const driver = await driverService.getDriverById(driverId);
-    if (!driver) {
-      throw new Error('Driver not found');
-    }
-
-    // Check budget
-    if (driver.price > team.budget) {
-      throw new Error('Not enough budget for this driver');
-    }
-
-    const fantasyDriver: FantasyDriver = {
-      driverId: driver.id,
-      name: driver.name,
-      shortName: driver.shortName,
-      constructorId: driver.constructorId,
-      purchasePrice: driver.price,
-      currentPrice: driver.price,
-      pointsScored: 0,
-      racesHeld: 0,
-      purchasedAtRaceId: currentRaceId, // V3: Track for hot hand bonus
-    };
-
-    const teamRef = doc(db, 'fantasyTeams', teamId);
-    await updateDoc(teamRef, {
-      drivers: [...team.drivers, fantasyDriver],
-      budget: team.budget - driver.price,
-      totalSpent: team.totalSpent + driver.price,
-      // V3: Update transfer tracking
-      lastTransferRaceId: currentRaceId || team.lastTransferRaceId,
-      racesSinceTransfer: currentRaceId ? 0 : (team.racesSinceTransfer || 0),
-      updatedAt: serverTimestamp(),
-    });
-
-    // Record transaction
-    await this.recordTransaction({
-      userId: team.userId,
-      leagueId: team.leagueId,
-      teamId,
-      type: 'buy',
-      entityType: 'driver',
-      entityId: driver.id,
-      entityName: driver.name,
-      price: driver.price,
-    });
-
-    return this.getTeamById(teamId) as Promise<FantasyTeam>;
+    if (!team) throw new Error('Team not found');
+    return team;
   },
 
   /**
-   * Remove a driver from the team
-   * V3: Clears ace if removed driver was ace, updates transfer tracking
+   * Remove (sell) a driver — server-authoritative via removeDriverSecure.
+   * The server banks the driver's points (lockedPoints += pts,
+   * totalPoints -= pts) and computes the sale return with the single
+   * authoritative fee implementation.
    */
   async removeDriver(teamId: string, driverId: string): Promise<FantasyTeam> {
+    const res: any = await callRemoveDriver({ teamId, driverId });
+
     const team = await this.getTeamById(teamId);
-    if (!team) {
-      throw new Error('Team not found');
+    if (team) {
+      this.recordTransaction({
+        userId: team.userId,
+        leagueId: team.leagueId,
+        teamId,
+        type: 'sell',
+        entityType: 'driver',
+        entityId: driverId,
+        entityName: driverId,
+        price: res?.data?.saleReturn ?? 0,
+      }).catch(() => { /* transaction log is best-effort */ });
     }
 
-    if (!team.lockStatus.canModify) {
-      throw new Error('Team is locked and cannot be modified');
-    }
-
-    const driverIndex = team.drivers.findIndex((d) => d.driverId === driverId);
-    if (driverIndex === -1) {
-      throw new Error('Driver not in team');
-    }
-
-    const driver = team.drivers[driverIndex];
-    const updatedDrivers = team.drivers.filter((d) => d.driverId !== driverId);
-
-    // Sell at current price minus 5% commission
-    const saleValue = calculateSaleValue(driver.currentPrice);
-
-    // V3: Clear ace if removed driver was ace
-    const newAceId = team.aceDriverId === driverId ? null : team.aceDriverId;
-
-    const teamRef = doc(db, 'fantasyTeams', teamId);
-    await updateDoc(teamRef, {
-      drivers: updatedDrivers,
-      budget: team.budget + saleValue,
-      totalSpent: team.totalSpent - driver.purchasePrice,
-      // V3: Update ace and transfer tracking
-      aceDriverId: newAceId,
-      racesSinceTransfer: 0,
-      updatedAt: serverTimestamp(),
-    });
-
-    // Record transaction (record the sale value received)
-    await this.recordTransaction({
-      userId: team.userId,
-      leagueId: team.leagueId,
-      teamId,
-      type: 'sell',
-      entityType: 'driver',
-      entityId: driver.driverId,
-      entityName: driver.name,
-      price: saleValue,
-    });
-
-    return this.getTeamById(teamId) as Promise<FantasyTeam>;
+    if (!team) throw new Error('Team not found');
+    return team;
   },
 
   /**
-   * Set team constructor
+   * Set (buy) team constructor — server-authoritative via setConstructorSecure.
+   * If a constructor is already held it is sold server-side in the same
+   * transaction with the standard sale quote.
    */
-  async setConstructor(teamId: string, constructorId: string): Promise<FantasyTeam> {
+  async setConstructor(teamId: string, constructorId: string, contractLength?: number): Promise<FantasyTeam> {
+    const res: any = await callSetConstructor({ teamId, constructorId, contractLength });
+
     const team = await this.getTeamById(teamId);
-    if (!team) {
-      throw new Error('Team not found');
+    if (team) {
+      this.recordTransaction({
+        userId: team.userId,
+        leagueId: team.leagueId,
+        teamId,
+        type: 'buy',
+        entityType: 'constructor',
+        entityId: constructorId,
+        entityName: res?.data?.constructor?.name || constructorId,
+        price: res?.data?.constructor?.purchasePrice ?? 0,
+      }).catch(() => { /* transaction log is best-effort */ });
     }
 
-    if (!team.lockStatus.canModify) {
-      throw new Error('Team is locked and cannot be modified');
-    }
+    if (!team) throw new Error('Team not found');
+    return team;
+  },
 
-    const constructor = await constructorService.getConstructorById(constructorId);
-    if (!constructor) {
-      throw new Error('Constructor not found');
-    }
+  /**
+   * Build the initial roster (all drivers + constructor) atomically at server
+   * prices. Only valid while the team's roster is empty.
+   */
+  async buildTeam(
+    teamId: string,
+    driverIds: string[],
+    constructorId: string | null
+  ): Promise<FantasyTeam> {
+    await callBuildTeam({ teamId, driverIds, constructorId: constructorId || undefined });
+    const team = await this.getTeamById(teamId);
+    if (!team) throw new Error('Team not found');
+    return team;
+  },
 
-    // Calculate budget with previous constructor returned
-    let availableBudget = team.budget;
-    if (team.constructor) {
-      availableBudget += team.constructor.currentPrice;
-    }
-
-    if (constructor.price > availableBudget) {
-      throw new Error('Not enough budget for this constructor');
-    }
-
-    const fantasyConstructor: FantasyConstructor = {
-      constructorId: constructor.id,
-      name: constructor.name,
-      purchasePrice: constructor.price,
-      currentPrice: constructor.price,
-      pointsScored: 0,
-      racesHeld: 0,
-    };
-
-    const newBudget = availableBudget - constructor.price;
-    const previousCost = team.constructor?.purchasePrice || 0;
-    const newTotalSpent = team.totalSpent - previousCost + constructor.price;
-
-    const teamRef = doc(db, 'fantasyTeams', teamId);
-    await updateDoc(teamRef, {
-      constructor: fantasyConstructor,
-      budget: newBudget,
-      totalSpent: newTotalSpent,
-      updatedAt: serverTimestamp(),
-    });
-
-    // Record transaction
-    await this.recordTransaction({
-      userId: team.userId,
-      leagueId: team.leagueId,
-      teamId,
-      type: team.constructor ? 'swap' : 'buy',
-      entityType: 'constructor',
-      entityId: constructor.id,
-      entityName: constructor.name,
-      price: constructor.price,
-      previousEntityId: team.constructor?.constructorId,
-      previousEntityName: team.constructor?.name,
-    });
-
-    return this.getTeamById(teamId) as Promise<FantasyTeam>;
+  /**
+   * Get the exact sale quote (fee, return, banked points) the server would
+   * apply — for confirm dialogs, so the quoted number IS the charged number.
+   */
+  async getSaleQuote(
+    teamId: string,
+    entityType: 'driver' | 'constructor',
+    driverId?: string
+  ): Promise<SaleQuote> {
+    const res: any = await callQuoteSale({ teamId, entityType, driverId });
+    return res.data as SaleQuote;
   },
 
   /**
@@ -436,128 +368,50 @@ export const teamService = {
   },
 
   /**
-   * Remove constructor from team
+   * Remove (sell) constructor — server-authoritative via removeConstructorSecure.
    */
   async removeConstructor(teamId: string): Promise<FantasyTeam> {
+    const res: any = await callRemoveConstructor({ teamId });
+
     const team = await this.getTeamById(teamId);
-    if (!team) {
-      throw new Error('Team not found');
+    if (team) {
+      this.recordTransaction({
+        userId: team.userId,
+        leagueId: team.leagueId,
+        teamId,
+        type: 'sell',
+        entityType: 'constructor',
+        entityId: 'constructor',
+        entityName: 'Constructor',
+        price: res?.data?.saleReturn ?? 0,
+      }).catch(() => { /* transaction log is best-effort */ });
     }
 
-    if (!team.lockStatus.canModify) {
-      throw new Error('Team is locked and cannot be modified');
-    }
-
-    if (!team.constructor) {
-      throw new Error('No constructor to remove');
-    }
-
-    // Sell at current price minus 5% commission
-    const saleValue = calculateSaleValue(team.constructor.currentPrice);
-    const constructorName = team.constructor.name;
-    const constructorId = team.constructor.constructorId;
-
-    const teamRef = doc(db, 'fantasyTeams', teamId);
-    await updateDoc(teamRef, {
-      constructor: null,
-      budget: team.budget + saleValue,
-      totalSpent: team.totalSpent - team.constructor.purchasePrice,
-      updatedAt: serverTimestamp(),
-    });
-
-    // Record transaction (record the sale value received)
-    await this.recordTransaction({
-      userId: team.userId,
-      leagueId: team.leagueId,
-      teamId,
-      type: 'sell',
-      entityType: 'constructor',
-      entityId: constructorId,
-      entityName: constructorName,
-      price: saleValue,
-    });
-
-    return this.getTeamById(teamId) as Promise<FantasyTeam>;
+    if (!team) throw new Error('Team not found');
+    return team;
   },
 
   /**
-   * Swap a driver in the team
+   * Swap a driver: sell + buy as two server transactions. Not atomic across
+   * the pair — if the buy fails after the sell succeeded, the user keeps the
+   * sale proceeds and an open slot (same outcome as selling then changing
+   * their mind), never an inconsistent roster.
    */
   async swapDriver(teamId: string, oldDriverId: string, newDriverId: string): Promise<FantasyTeam> {
+    await callRemoveDriver({ teamId, driverId: oldDriverId });
+    try {
+      await callAddDriver({ teamId, driverId: newDriverId });
+    } catch (err) {
+      // Sell succeeded, buy failed — surface the error with honest state.
+      const team = await this.getTeamById(teamId);
+      const message = err instanceof Error ? err.message : 'Buy failed';
+      throw new Error(`Sold ${oldDriverId} but could not buy ${newDriverId}: ${message}. ` +
+        `Sale proceeds are in your budget${team ? ` ($${team.budget})` : ''}.`);
+    }
+
     const team = await this.getTeamById(teamId);
-    if (!team) {
-      throw new Error('Team not found');
-    }
-
-    if (!team.lockStatus.canModify) {
-      throw new Error('Team is locked and cannot be modified');
-    }
-
-    const oldDriverIndex = team.drivers.findIndex((d) => d.driverId === oldDriverId);
-    if (oldDriverIndex === -1) {
-      throw new Error('Driver not in team');
-    }
-
-    const newDriver = await driverService.getDriverById(newDriverId);
-    if (!newDriver) {
-      throw new Error('New driver not found');
-    }
-
-    const oldDriver = team.drivers[oldDriverIndex];
-    // Sell old driver at current price minus 5% commission
-    const saleValue = calculateSaleValue(oldDriver.currentPrice);
-    const purchaseCost = newDriver.price;
-    const netCost = purchaseCost - saleValue;
-
-    if (netCost > team.budget) {
-      throw new Error('Not enough budget for this swap');
-    }
-
-    const fantasyDriver: FantasyDriver = {
-      driverId: newDriver.id,
-      name: newDriver.name,
-      shortName: newDriver.shortName,
-      constructorId: newDriver.constructorId,
-      purchasePrice: newDriver.price,
-      currentPrice: newDriver.price,
-      pointsScored: 0,
-      racesHeld: 0,
-      // V3: Track for hot hand bonus (will be set to current race ID in real usage)
-    };
-
-    const updatedDrivers = team.drivers.map((d, i) =>
-      i === oldDriverIndex ? fantasyDriver : d
-    );
-
-    // V3: If swapped driver was ace, clear ace
-    const newAceId = team.aceDriverId === oldDriverId ? null : team.aceDriverId;
-
-    const teamRef = doc(db, 'fantasyTeams', teamId);
-    await updateDoc(teamRef, {
-      drivers: updatedDrivers,
-      budget: team.budget - netCost,
-      totalSpent: team.totalSpent - oldDriver.purchasePrice + newDriver.price,
-      aceDriverId: newAceId,
-      // V3: Update transfer tracking
-      racesSinceTransfer: 0,
-      updatedAt: serverTimestamp(),
-    });
-
-    // Record transaction
-    await this.recordTransaction({
-      userId: team.userId,
-      leagueId: team.leagueId,
-      teamId,
-      type: 'swap',
-      entityType: 'driver',
-      entityId: newDriver.id,
-      entityName: newDriver.name,
-      price: newDriver.price,
-      previousEntityId: oldDriver.driverId,
-      previousEntityName: oldDriver.name,
-    });
-
-    return this.getTeamById(teamId) as Promise<FantasyTeam>;
+    if (!team) throw new Error('Team not found');
+    return team;
   },
 
   /**
@@ -608,19 +462,16 @@ export const teamService = {
   },
 
   /**
-   * Sync full team state to Firebase (local-first pattern)
-   * Used to push local changes to Firebase in background
+   * Sync a team's METADATA to Firestore (name, avatar, ace, leagueId, …).
+   *
+   * Roster, budget, points, and locks are server-authoritative and are NEVER
+   * written from the client — security rules deny them, and the roster
+   * callables are the only writers. (The old fullWrite mode replaced the
+   * whole drivers array with scoring fields stripped, which DELETED
+   * pointsScored/racesHeld server-side on every buy — resetting loyalty
+   * bonuses and contract clocks.)
    */
-  /**
-   * Sync a team to Firestore.
-   * Two modes:
-   * - Periodic sync (default): writes metadata only (name, avatar, ace).
-   *   Does NOT write drivers/constructor to avoid wiping server-scored pointsScored.
-   * - Full sync (fullWrite=true): writes drivers/constructor too, but strips
-   *   server-owned fields (pointsScored, racesHeld, currentPrice).
-   *   Used after explicit user actions (add/remove driver, set constructor).
-   */
-  async syncTeam(team: FantasyTeam, fullWrite: boolean = false): Promise<void> {
+  async syncTeam(team: FantasyTeam): Promise<void> {
     const teamRef = doc(db, 'fantasyTeams', team.id);
 
     // Helper to convert undefined to null recursively
@@ -638,7 +489,9 @@ export const teamService = {
       return obj;
     };
 
-    // Always strip server-authoritative fields
+    // Strip everything server-authoritative (must mirror the denied-keys list
+    // in firestore.rules — a stale local value for any of these would make the
+    // whole update fail the rules check).
     const {
       id, createdAt, updatedAt,
       totalPoints, lockedPoints,
@@ -647,24 +500,12 @@ export const teamService = {
       scoredRaces,
       drivers,
       constructor: teamCtor,
+      racesSinceTransfer,
+      driverLockouts,
       ...metadataOnly
     } = team as any;
 
-    let dataToWrite: any = { ...metadataOnly };
-
-    // Full write: include drivers/constructor but strip scoring fields
-    if (fullWrite && drivers) {
-      dataToWrite.drivers = drivers.map((d: any) => {
-        const { pointsScored, racesHeld, currentPrice, ...rest } = d;
-        return rest;
-      });
-    }
-    if (fullWrite && teamCtor) {
-      const { pointsScored, racesHeld, currentPrice, ...ctorRest } = teamCtor as any;
-      dataToWrite.constructor = ctorRest;
-    }
-
-    const sanitizedData = sanitizeForFirebase(dataToWrite);
+    const sanitizedData = sanitizeForFirebase({ ...metadataOnly });
 
     // Use updateDoc (NOT setDoc/merge): syncTeam must only ever UPDATE an existing
     // team. New teams are created via createTeam (addDoc). setDoc/merge would

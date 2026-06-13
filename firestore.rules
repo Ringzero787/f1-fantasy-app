@@ -109,8 +109,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Fantasy teams collection
-    // SECURITY: prevent userId hijacking, budget manipulation, score tampering
+    // Fantasy teams collection — SERVER-AUTHORITATIVE roster & economy (same
+    // model as tl_garages below). The owner can update metadata only (name,
+    // avatar, ace, leagueId). Everything that represents value or scoring —
+    // roster, budget, points, locks — is written exclusively by Cloud
+    // Functions (Admin SDK bypasses these rules): createTeamSecure,
+    // buildTeamSecure, addDriverSecure, removeDriverSecure,
+    // setConstructorSecure, removeConstructorSecure, onRaceCompleted.
     match /fantasyTeams/{teamId} {
       allow get: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
@@ -119,14 +124,24 @@ service cloud.firestore {
         isAdmin()
       );
       allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      // Client can only update metadata fields (name, avatar, ace, leagueId).
-      // Roster changes (drivers, constructor, budget) go through Cloud Functions.
+      // Create allowed only with a pristine financial state — a client cannot
+      // mint a team with extra budget, a pre-filled roster, or points.
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.budget == 1000
+                    && request.resource.data.totalSpent == 0
+                    && request.resource.data.totalPoints == 0
+                    && request.resource.data.drivers.size() == 0
+                    && request.resource.data.constructor == null
+                    && (!('lockedPoints' in request.resource.data) || request.resource.data.lockedPoints == 0)
+                    && (!('scoredRaces' in request.resource.data) || request.resource.data.scoredRaces.size() == 0);
       allow update: if isOwner(resource.data.userId)
                     && request.resource.data.userId == resource.data.userId
                     && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
                       'totalPoints', 'lockedPoints', 'scoredRaces',
-                      'isLocked', 'lockStatus'
+                      'isLocked', 'lockStatus',
+                      'drivers', 'constructor', 'budget', 'totalSpent',
+                      'racesSinceTransfer', 'driverLockouts'
                     ]));
       allow delete: if isOwner(resource.data.userId);
     }
@@ -237,6 +252,29 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/tl_leagues/$(leagueId)).data.ownerId == request.auth.uid;
     }
 
+    // A TL race session is locked once its scheduled start has passed (server
+    // clock) or the race is completed/cancelled. Mirrors the server-side
+    // assertSessionOpen used by the pick/bet callables, so a client can't edit a
+    // lineup after the session that scores it has begun.
+    function tlSessionLocked(raceId, session) {
+      let race = get(/databases/$(database)/documents/races/$(raceId));
+      return race != null && (
+        race.data.status == 'completed' || race.data.status == 'cancelled' ||
+        (session in race.data.schedule &&
+         race.data.schedule[session] != null &&
+         request.time >= race.data.schedule[session])
+      );
+    }
+
+    // A lineup slot is "idle" (no entries) — safe to write for an already-locked
+    // session on create, since it can't encode post-lock knowledge.
+    function tlSlotIdle(data, session) {
+      return !(session in data) || (
+        data[session].startedDriverIds.size() == 0 &&
+        data[session].get('startedConstructorId', null) == null
+      );
+    }
+
     // TL user profiles — only the owner can read/write their own
     match /tl_users/{userId} {
       allow read, write: if isAuthenticated() && isOwner(userId);
@@ -266,13 +304,32 @@ service cloud.firestore {
       }
     }
 
-    // TL lineups — doc ID is {userId}_{raceId}; userId field on doc is authoritative
+    // TL lineups — doc ID is {userId}_{raceId}; userId field on doc is authoritative.
+    // Lineups are the SCORING INPUT, so writes are time-locked against the race's
+    // own schedule: you may edit a session's slot only while that session is still
+    // open. The qualifying slot locks at qualifying start; the race slot at race
+    // start. (Enforced here because lineup writes are client-direct — unlike the
+    // cash callables, which gate via assertSessionOpen.)
     match /tl_lineups/{lineupId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Create: owner-only; a slot for an already-locked session must be idle so a
+      // first-time lineup can't be minted with post-lock knowledge.
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && (!tlSessionLocked(request.resource.data.raceId, 'qualifying')
+                        || tlSlotIdle(request.resource.data, 'qualifying'))
+                    && (!tlSessionLocked(request.resource.data.raceId, 'race')
+                        || tlSlotIdle(request.resource.data, 'race'));
+      // Update: owner-only, identity preserved; a locked session's slot must be
+      // unchanged (deep-equal). Editing the race slot before the race starts is
+      // fine even after qualifying has locked, and vice-versa.
       allow update: if isAuthenticated()
                     && resource.data.userId == request.auth.uid
-                    && request.resource.data.userId == resource.data.userId;
+                    && request.resource.data.userId == resource.data.userId
+                    && (!tlSessionLocked(resource.data.raceId, 'qualifying')
+                        || request.resource.data.qualifying == resource.data.qualifying)
+                    && (!tlSessionLocked(resource.data.raceId, 'race')
+                        || request.resource.data.race == resource.data.race);
       allow delete: if false;
     }
 
