@@ -58,8 +58,14 @@ const isNum = (v) => typeof v === 'number' && !isNaN(v);
   const wantKey = phaseArg === 'quali' ? `quali_${raceId}` : raceId;
   let scoredCount = 0, nanCount = 0;
   const teamTotalByUserLeague = {}; // `${leagueId}|${userId}` -> sum(totalPoints+lockedPoints)
+  let shellSkipped = 0;
   teams.forEach(d => {
     const t = d.data();
+    // Abandoned/half-created shells: no roster (no/empty drivers + no
+    // constructor) and never scored. Not part of scoring; the pipeline guards
+    // against them. Skip so they don't false-positive the totalPoints check.
+    const noRoster = (!Array.isArray(t.drivers) || t.drivers.length === 0) && !t.constructor;
+    if (noRoster && !(t.scoredRaces||[]).length) { shellSkipped++; return; }
     if (!isNum(t.totalPoints)) { fails.push(`team ${d.id} totalPoints is NaN/missing`); nanCount++; }
     (t.drivers||[]).forEach(dr => { if (dr.pointsScored !== undefined && !isNum(dr.pointsScored)) { fails.push(`team ${d.id} driver ${dr.driverId} pointsScored NaN`); nanCount++; } });
     if ((t.scoredRaces||[]).includes(wantKey)) scoredCount++;
@@ -69,7 +75,8 @@ const isNum = (v) => typeof v === 'number' && !isNaN(v);
     }
   });
   scoredCount > 0 ? ok.push(`${scoredCount} teams have ${wantKey} in scoredRaces`) : warns.push(`no teams scored for ${wantKey} yet`);
-  if (nanCount === 0) ok.push('no NaN totals on any team/driver');
+  if (nanCount === 0) ok.push('no NaN totals on any scored team/driver');
+  if (shellSkipped) warns.push(`${shellSkipped} empty shell team(s) skipped (no roster, never scored)`);
 
   // League member consistency: member.totalPoints == team (totalPoints+lockedPoints)
   let memberChecked = 0, memberMismatch = 0;
