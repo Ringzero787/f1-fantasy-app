@@ -53,13 +53,14 @@ export interface OpenF1Lap {
   session_key: number;
 }
 
-// App-format types matching calculatePoints.ts
+// App-format types matching scoringCore.ts
 export interface RaceResult {
   position: number;
   driverId: string;
   constructorId: string;
   gridPosition: number;
-  status: 'finished' | 'dnf' | 'dsq';
+  // 'dns' = did not start: scores 0 and takes no DNF price penalty.
+  status: 'finished' | 'dnf' | 'dsq' | 'dns';
   fastestLap: boolean;
   laps?: number;
 }
@@ -67,7 +68,14 @@ export interface RaceResult {
 export interface SprintResult {
   position: number;
   driverId: string;
-  status: 'finished' | 'dnf' | 'dsq';
+  status: 'finished' | 'dnf' | 'dsq' | 'dns';
+}
+
+export interface OpenF1StartingGridRow {
+  position: number | null;
+  driver_number: number;
+  session_key: number;
+  meeting_key: number;
 }
 
 export interface QualifyingResult {
@@ -150,17 +158,46 @@ export async function findFastestLap(sessionKey: number): Promise<string | null>
 }
 
 /**
- * Get grid positions from qualifying session results.
+ * Get grid positions for the race.
+ *
+ * Prefers OpenF1's /starting_grid for the race session — this is the ACTUAL
+ * grid including engine penalties, pit-lane starts and post-quali DSQs, which
+ * the qualifying classification is not. Falls back to qualifying results when
+ * starting_grid has no data (older seasons / data not yet published), so
+ * positionsGained stays best-effort rather than empty.
+ *
  * Returns driverId → grid position map.
  */
 export async function getGridPositions(
   sessions: OpenF1Session[],
+  raceSessionKey?: number,
 ): Promise<Record<string, number>> {
+  const grid: Record<string, number> = {};
+
+  if (raceSessionKey) {
+    try {
+      const gridRows = await fetchApi<OpenF1StartingGridRow>('/starting_grid', {
+        session_key: raceSessionKey,
+      });
+      for (const r of gridRows || []) {
+        if (r.position == null || r.driver_number == null) continue;
+        const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
+        if (driverId) {
+          grid[driverId] = r.position;
+        }
+      }
+      if (Object.keys(grid).length > 0) {
+        console.log(`[OpenF1] Using starting_grid for session ${raceSessionKey} (${Object.keys(grid).length} drivers)`);
+        return grid;
+      }
+    } catch (err) {
+      console.warn('[OpenF1] starting_grid fetch failed, falling back to qualifying:', err);
+    }
+  }
+
   const qualiSession = sessions.find(s =>
     s.session_name === 'Qualifying',
   );
-
-  const grid: Record<string, number> = {};
 
   if (!qualiSession) return grid;
 
@@ -223,13 +260,22 @@ export async function convertToRaceResults(
       continue;
     }
 
-    const isDnf = r.dnf === true || r.dns === true;
     const isDsq = r.dsq === true;
-    const position = (isDnf || isDsq || !r.position) ? 0 : r.position;
-    const status: RaceResult['status'] = isDsq ? 'dsq' : isDnf ? 'dnf' : 'finished';
+    const isDns = r.dns === true && !isDsq;
+    const isDnf = r.dnf === true && !isDsq && !isDns;
+    const position = (isDnf || isDsq || isDns || !r.position) ? 0 : r.position;
+    const status: RaceResult['status'] = isDsq ? 'dsq' : isDns ? 'dns' : isDnf ? 'dnf' : 'finished';
 
-    // Use qualifying grid position; for drivers without qualifying data
-    // (e.g. crashed in Q1, stewards' permission), place them at the back
+    // A 'finished' row with no position is a glitched/settling OpenF1 row —
+    // it would previously have produced NaN points downstream. Scoring now
+    // guards position >= 1 (scores 0), but flag it so admins review before
+    // approving results.
+    if (status === 'finished' && position === 0) {
+      warnings.push(`Driver ${r.driver_number} (${driverId}) classified 'finished' but has no position — will score 0`);
+    }
+
+    // Use grid position from starting_grid/qualifying; for drivers without
+    // data (e.g. crashed in Q1, stewards' permission), place them at the back
     const grid = gridPositions[driverId] ?? 22;
 
     if (r.number_of_laps > maxLaps) {
@@ -255,7 +301,7 @@ export async function convertToRaceResults(
   });
 
   if (Object.keys(gridPositions).length === 0) {
-    warnings.push('No qualifying data found — grid positions defaulted to finishing positions');
+    warnings.push('No starting-grid or qualifying data found — grid positions defaulted to back of grid (P22)');
   }
 
   if (!fastestLapDriverId) {
@@ -289,10 +335,11 @@ export async function convertToSprintResults(
       continue;
     }
 
-    const isDnf = r.dnf === true || r.dns === true;
     const isDsq = r.dsq === true;
-    const position = (isDnf || isDsq || !r.position) ? 0 : r.position;
-    const status: SprintResult['status'] = isDsq ? 'dsq' : isDnf ? 'dnf' : 'finished';
+    const isDns = r.dns === true && !isDsq;
+    const isDnf = r.dnf === true && !isDsq && !isDns;
+    const position = (isDnf || isDsq || isDns || !r.position) ? 0 : r.position;
+    const status: SprintResult['status'] = isDsq ? 'dsq' : isDns ? 'dns' : isDnf ? 'dnf' : 'finished';
 
     results.push({ position, driverId, status });
   }

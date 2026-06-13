@@ -154,8 +154,9 @@ async function processRace(race: {
       return;
     }
 
-    // Fetch grid positions from qualifying
-    const gridPositions = await getGridPositions(meetingSessions);
+    // Fetch grid positions — actual starting grid for the race session
+    // (includes penalties/pit-lane starts), with qualifying as fallback
+    const gridPositions = await getGridPositions(meetingSessions, raceSession.session_key);
 
     // Fetch fastest lap
     let fastestLapDriverId: string | null = null;
@@ -181,7 +182,7 @@ async function processRace(race: {
     warnings.push(...raceData.warnings);
 
     // Fetch sprint results if applicable
-    let sprintData: { results: Array<{ position: number; driverId: string; status: 'finished' | 'dnf' | 'dsq' }>; warnings: string[] } | null = null;
+    let sprintData: { results: Array<{ position: number; driverId: string; status: 'finished' | 'dnf' | 'dsq' | 'dns' }>; warnings: string[] } | null = null;
     const hasSprint = race.hasSprint || SPRINT_ROUNDS.has(race.round);
 
     if (hasSprint) {

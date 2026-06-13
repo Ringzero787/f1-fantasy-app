@@ -17,7 +17,8 @@ export interface RaceResult {
   driverId: string;
   constructorId: string;
   gridPosition: number;
-  status: 'finished' | 'dnf' | 'dsq';
+  // 'dns' = did not start (illness, withdrawal): scores 0, no DNF penalty.
+  status: 'finished' | 'dnf' | 'dsq' | 'dns';
   fastestLap: boolean;
   laps?: number;
 }
@@ -25,7 +26,7 @@ export interface RaceResult {
 export interface SprintResult {
   position: number;
   driverId: string;
-  status: 'finished' | 'dnf' | 'dsq';
+  status: 'finished' | 'dnf' | 'dsq' | 'dns';
 }
 
 export interface QualifyingResult {
@@ -58,7 +59,11 @@ export const LOCK_BONUS = {
 // ─── Scoring functions ───
 
 export function calculateLockBonus(racesHeld: number): number {
-  if (racesHeld >= LOCK_BONUS.FULL_SEASON_RACES) {
+  // racesHeld is the count BEFORE the race being scored is added (live scoring
+  // evaluates the bonus pre-increment), so a driver held from round 1 arrives at
+  // the final round of a 24-race season with racesHeld = 23. Trigger the
+  // full-season bonus at FULL_SEASON_RACES - 1 so it is actually reachable.
+  if (racesHeld >= LOCK_BONUS.FULL_SEASON_RACES - 1) {
     return LOCK_BONUS.FULL_SEASON_BONUS;
   }
 
@@ -105,7 +110,9 @@ export function calculateDriverPoints(
   let sprintPoints = 0;
 
   if (result.status === 'finished') {
-    if (result.position <= RACE_POINTS.length) {
+    // position >= 1 guard: a glitched result row (position 0/null but not
+    // flagged DNF) must score 0, not RACE_POINTS[-1] → NaN → corrupted totals.
+    if (result.position >= 1 && result.position <= RACE_POINTS.length) {
       racePoints += RACE_POINTS[result.position - 1];
     }
     const positionsGained = result.gridPosition - result.position;
@@ -127,15 +134,19 @@ export function calculateDriverPoints(
   } else if (result.status === 'dsq') {
     racePoints = -5;
   }
+  // 'dns' (did not start) intentionally scores 0 — no penalty for a driver who
+  // never took the start (illness, withdrawal, pre-race mechanical).
 
   if (sprintResult) {
-    if (sprintResult.status === 'finished' && sprintResult.position <= SPRINT_POINTS.length) {
+    if (sprintResult.status === 'finished'
+        && sprintResult.position >= 1 && sprintResult.position <= SPRINT_POINTS.length) {
       sprintPoints += SPRINT_POINTS[sprintResult.position - 1];
     } else if (sprintResult.status === 'dnf') {
       sprintPoints = SPRINT_DNF_PENALTY;
     } else if (sprintResult.status === 'dsq') {
       sprintPoints = SPRINT_DNF_PENALTY;
     }
+    // sprint 'dns' scores 0
   }
 
   let points = racePoints + sprintPoints;
