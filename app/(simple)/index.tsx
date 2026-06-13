@@ -66,7 +66,9 @@ export default function SimpleMainScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      {/* No backgroundColor: it calls the deprecated setStatusBarColor (flagged
+          by Play on API 35 edge-to-edge). barStyle sets icon contrast only. */}
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <SimpleToggleBar active={activePanel} onChange={setActivePanel} hasLeague={hasLeague} />
 
       <View style={[styles.panelContainer, isTablet && { alignItems: 'center' }]} {...panResponder.panHandlers}>
