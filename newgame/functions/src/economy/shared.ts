@@ -78,6 +78,34 @@ export function fail(
 
 export const garageRef = (uid: string) => db.doc(`tl_garages/${uid}`);
 
+// Server-authoritative session lock. Picks and side-bets must be placed BEFORE
+// the session that decides them starts; the client clock is never trusted, so
+// every cash-moving placement re-checks the race's own schedule here.
+//   pole bet      → 'qualifying' (pole is decided in qualifying)
+//   league bet    → 'race'       (decided by race-day lineup scores)
+//   pick (q/r/s)  → that same session
+// A missing race/session time is treated as OPEN (mirrors the client's
+// isScopeLocked fallback); a completed/cancelled race is always closed.
+export async function assertSessionOpen(
+  raceId: string,
+  session: 'qualifying' | 'race' | 'sprint',
+): Promise<void> {
+  const snap = await db.doc(`races/${raceId}`).get();
+  if (!snap.exists) fail('not-found', 'Race not found.');
+  const race = snap.data()!;
+  if (race.status === 'completed' || race.status === 'cancelled') {
+    fail('failed-precondition', 'This race is closed.');
+  }
+  const start = (race.schedule as Record<string, unknown> | undefined)?.[session];
+  const startMs =
+    start && typeof (start as { toMillis?: () => number }).toMillis === 'function'
+      ? (start as { toMillis: () => number }).toMillis()
+      : null;
+  if (startMs != null && Date.now() >= startMs) {
+    fail('failed-precondition', `The ${session} session is locked — it has already started.`);
+  }
+}
+
 // Normalise an older garage doc to the roster/bench shape (mirrors the client's
 // migrateGarageShape) so server transactions never read undefined arrays.
 export function normaliseGarage(raw: admin.firestore.DocumentData): Garage {

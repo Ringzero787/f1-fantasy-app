@@ -89,11 +89,14 @@ export const tlOnRaceCompleted = functions
     const wasCompleted = before.status === 'completed';
     if (wasCompleted && hashResults(before.results ?? {}) === resultsSig) return;
 
-    // Find every TL lineup for this race and score it.
+    // Find every TL lineup for this race and score it. IMPORTANT: a race can
+    // have player picks and side-bets even when nobody set a fantasy lineup, so
+    // we must NOT bail here — that would skip league standings, bet settlement,
+    // and pick auto-settlement entirely. The scoring loop below naturally no-ops
+    // on an empty lineup set; everything after it still runs.
     const lineupSnap = await db.collection('tl_lineups').where('raceId', '==', raceId).get();
     if (lineupSnap.empty) {
-      console.log(`[tl] No lineups for race ${raceId}`);
-      return;
+      console.log(`[tl] No lineups for race ${raceId} — settling picks/bets only`);
     }
 
     // Pre-fetch constructor → driver mapping so constructor scoring is cheap.
@@ -325,7 +328,9 @@ async function settleBets(
         topUserId = uid;
       }
     });
-    if (topUserId) topScorerByLeague.set(leagueId, topUserId);
+    // Only crown a top scorer when someone actually scored above zero, so a race
+    // where nobody set a lineup (or all scored 0) can't hand a league bet a win.
+    if (topUserId && topScore > 0) topScorerByLeague.set(leagueId, topUserId);
   }
 
   // Settle each bets doc in its own transaction, applying the payout DELTA vs

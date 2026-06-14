@@ -14,6 +14,7 @@ import {
   normaliseGarage,
   recordTransaction,
   getDriver,
+  assertSessionOpen,
   db,
 } from './shared';
 
@@ -33,6 +34,8 @@ export const tlPlacePoleBet = functions.https.onCall(
       fail('invalid-argument', 'raceId, driverId, stake required.');
     }
     const stake = Math.round(data.stake!);
+    // Pole is decided in qualifying — lock placement once qualifying starts.
+    await assertSessionOpen(data.raceId!, 'qualifying');
     const driver = await getDriver(data.driverId!);
     const odds = POLE_ODDS[driver.tier];
     const payoutIfWin = Math.round(stake * odds);
@@ -96,6 +99,8 @@ export const tlPlaceLeagueBet = functions.https.onCall(
     }
     if (data.targetUserId === uid) fail('failed-precondition', 'Cannot bet on yourself.');
     const stake = Math.round(data.stake!);
+    // Decided by race-day lineup scores — lock placement once the race starts.
+    await assertSessionOpen(data.raceId!, 'race');
 
     // Odds + target name are authoritative from server-read league data.
     const leagueSnap = await db.doc(`tl_leagues/${data.leagueId}`).get();
@@ -169,6 +174,10 @@ export const tlCancelBet = functions.https.onCall(
       fail('invalid-argument', 'raceId and slot (poleBet|leagueBet) required.');
     }
     const slot = data.slot!;
+    // Lock cancellation once the deciding session begins, so a player can't pull
+    // an 80% refund on a bet they can already see losing. Pole → qualifying,
+    // league → race (same sessions that gate placement).
+    await assertSessionOpen(data.raceId!, slot === 'poleBet' ? 'qualifying' : 'race');
     return db.runTransaction(async (tx) => {
       const bSnap = await tx.get(betsRef(uid, data.raceId!));
       if (!bSnap.exists) return { refund: 0, cashAfter: 0 };

@@ -15,7 +15,7 @@
 
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
-import { requireAuth, fail, garageRef, normaliseGarage, recordTransaction, db } from './shared';
+import { requireAuth, fail, garageRef, normaliseGarage, recordTransaction, assertSessionOpen, db } from './shared';
 
 type SessionKey = 'qualifying' | 'race' | 'sprint';
 const SESSIONS: SessionKey[] = ['qualifying', 'race', 'sprint'];
@@ -54,6 +54,9 @@ export const tlSetPick = functions.https.onCall(
     if (stakeProvided && (!Number.isFinite(data.stake) || (data.stake as number) < 0)) {
       fail('invalid-argument', 'stake must be a non-negative number.');
     }
+
+    // Server-side lock: a pick can't be set/changed once its session has begun.
+    await assertSessionOpen(raceId!, session!);
 
     const pickRef = db.doc(`tl_picks/${uid}_${raceId}`);
 
