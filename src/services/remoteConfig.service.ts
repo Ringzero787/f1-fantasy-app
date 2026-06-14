@@ -45,8 +45,31 @@ export interface GameConfig {
   sprintRounds: number[];
 }
 
+/**
+ * App-version gate, stored at config/app. ENTIRELY OPTIONAL and fail-open:
+ * if the doc is missing or a field is absent, that tier of gating is off.
+ *   - minVersion:    below this → hard block ("must update")
+ *   - latestVersion: below this → dismissible "update available" prompt
+ */
+export interface AppVersionConfig {
+  minVersion: string | null;
+  latestVersion: string | null;
+  updateMessage: string | null;
+  androidUrl: string | null;
+  iosUrl: string | null;
+}
+
+const DEFAULT_APP_CONFIG: AppVersionConfig = {
+  minVersion: null,
+  latestVersion: null,
+  updateMessage: null,
+  androidUrl: 'https://play.google.com/store/apps/details?id=com.undercut.app',
+  iosUrl: 'https://apps.apple.com/app/id6739999999',
+};
+
 export interface RemoteData {
   config: GameConfig;
+  appConfig: AppVersionConfig;
   drivers: Driver[];
   constructors: Constructor[];
   races: Race[];
@@ -97,6 +120,22 @@ export const remoteConfigService = {
       console.warn('[RemoteConfig] Failed to fetch config, using defaults:', err);
     }
     return DEFAULT_CONFIG;
+  },
+
+  /**
+   * Fetch the app-version gate (config/app). Fail-open: any error or missing
+   * doc returns defaults with no min/latest version → no gating.
+   */
+  async fetchAppConfig(): Promise<AppVersionConfig> {
+    try {
+      const snap = await getDoc(doc(db, 'config', 'app'));
+      if (snap.exists()) {
+        return { ...DEFAULT_APP_CONFIG, ...snap.data() } as AppVersionConfig;
+      }
+    } catch (err) {
+      console.warn('[RemoteConfig] Failed to fetch app config:', err);
+    }
+    return DEFAULT_APP_CONFIG;
   },
 
   /**
@@ -181,14 +220,15 @@ export const remoteConfigService = {
    * Fetch everything in parallel. Single call on app startup.
    */
   async fetchAll(): Promise<RemoteData> {
-    const [config, drivers, constructors, races, teamColors] = await Promise.all([
+    const [config, appConfig, drivers, constructors, races, teamColors] = await Promise.all([
       this.fetchConfig(),
+      this.fetchAppConfig(),
       this.fetchDrivers(),
       this.fetchConstructors(),
       this.fetchRaces(),
       this.fetchTeamColors(),
     ]);
-    return { config, drivers, constructors, races, teamColors };
+    return { config, appConfig, drivers, constructors, races, teamColors };
   },
 
   /**

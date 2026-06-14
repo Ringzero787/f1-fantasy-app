@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { remoteConfigService, type GameConfig, type RemoteData } from '../services/remoteConfig.service';
+import { remoteConfigService, type GameConfig, type RemoteData, type AppVersionConfig } from '../services/remoteConfig.service';
 import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
 import type { Driver, Constructor, Race } from '../types';
 import { TEAM_COLORS } from '../config/constants';
@@ -7,6 +7,7 @@ import { TEAM_COLORS } from '../config/constants';
 interface RemoteConfigState {
   // Config
   config: GameConfig;
+  appConfig: AppVersionConfig;
 
   // Live data (falls back to demoData)
   drivers: Driver[];
@@ -34,6 +35,7 @@ interface RemoteConfigState {
 
 export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
   config: remoteConfigService.getDefaults(),
+  appConfig: { minVersion: null, latestVersion: null, updateMessage: null, androidUrl: null, iosUrl: null },
   drivers: demoDrivers,
   constructors: demoConstructors,
   races: demoRaces,
@@ -50,6 +52,7 @@ export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
       const data = await remoteConfigService.fetchAll();
       set({
         config: data.config,
+        appConfig: data.appConfig,
         // Use Firestore data if available, fall back to demoData
         drivers: data.drivers.length > 0 ? data.drivers : demoDrivers,
         constructors: data.constructors.length > 0 ? data.constructors : demoConstructors,

@@ -8,6 +8,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import * as Updates from 'expo-updates';
 // import crashlytics from '@react-native-firebase/crashlytics';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { AppUpdateGate } from '../src/components/AppUpdateGate';
 import { useLayout } from '../src/hooks/useLayout';
 import { handleAmazonDeepLink } from '../src/utils/amazonSignIn';
 import { useRemoteConfigStore } from '../src/store/remoteConfig.store';
@@ -124,6 +125,9 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           </Stack>
+          {/* Remote-config version gate (config/app). Fails open: renders
+              nothing unless a min/latest version is set and this build is below it. */}
+          <AppUpdateGate />
         </QueryClientProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
