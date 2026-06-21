@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SimpleToggleBar, type SimplePanel } from '../../src/simple/components/SimpleToggleBar';
 import { SimpleCountdownBanner } from '../../src/simple/components/SimpleCountdownBanner';
 import { SimpleMyTeamPanel } from '../../src/simple/components/SimpleMyTeamPanel';
+import { WeekendRecapCard } from '../../src/simple/components/WeekendRecapCard';
 import { SimpleLeaguePanel } from '../../src/simple/components/SimpleLeaguePanel';
 import { SimpleMarketPanel } from '../../src/simple/components/SimpleMarketPanel';
 import { SimpleProfilePill } from '../../src/simple/components/SimpleProfilePill';
@@ -91,6 +92,8 @@ export default function SimpleMainScreen() {
 
       <SimpleProfilePill onPress={() => setProfileOpen(true)} />
       <SimpleProfileSheet visible={profileOpen} onClose={() => setProfileOpen(false)} />
+      {/* Self-gating: shows once per completed race the team was scored for */}
+      <WeekendRecapCard />
     </SafeAreaView>
   );
 }

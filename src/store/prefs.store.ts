@@ -24,6 +24,10 @@ interface PrefsState {
   sessionCount: number;
   incrementSession: () => void;
   markReviewPrompted: () => void;
+
+  // Weekend recap — last race the user has seen the post-weekend summary for
+  lastSeenRecapRaceId: string | null;
+  markRecapSeen: (raceId: string) => void;
 }
 
 export const usePrefsStore = create<PrefsState>()(
@@ -46,6 +50,9 @@ export const usePrefsStore = create<PrefsState>()(
       sessionCount: 0,
       incrementSession: () => set((s) => ({ sessionCount: s.sessionCount + 1 })),
       markReviewPrompted: () => set({ hasPromptedReview: true, lastReviewPromptDate: Date.now() }),
+
+      lastSeenRecapRaceId: null,
+      markRecapSeen: (raceId: string) => set({ lastSeenRecapRaceId: raceId }),
     }),
     {
       name: 'prefs-storage',

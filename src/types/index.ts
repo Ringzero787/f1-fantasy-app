@@ -192,6 +192,8 @@ export interface FantasyTeam {
   driverLockouts?: Record<string, number>; // driverId -> completedRaceCount when lockout expires
   // V7: Banked points from departed drivers (contract expiry, trade, removal)
   lockedPoints?: number;
+  // Server-written: race/quali/sprint keys this team has been scored for
+  scoredRaces?: string[];
 }
 
 export interface FantasyDriver {
