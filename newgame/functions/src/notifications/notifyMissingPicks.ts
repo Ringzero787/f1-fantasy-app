@@ -94,6 +94,12 @@ export const tlNotifyMissingPicks = onSchedule(
 
         const userSnap = await db.doc(`tl_users/${userId}`).get();
         const user = userSnap.data() ?? {};
+        // Skip simulation/persona accounts — they have synthetic emails and
+        // aren't real players to remind.
+        if (user.isBot === true) {
+          skipped++;
+          continue;
+        }
         if ((user.notificationPrefs as { missingPicksReminder?: boolean } | undefined)?.missingPicksReminder === false) {
           skipped++;
           continue;
