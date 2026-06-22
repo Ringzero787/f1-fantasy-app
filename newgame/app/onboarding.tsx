@@ -242,7 +242,7 @@ function WelcomeStage({ onNext }: { onNext: () => void }) {
               . Tap the toggle to see how it feels.
             </Text>
           </View>
-          <WithAgainstToggle side={demoSide} onFlip={() => setDemoSide((s) => (s === 'with' ? 'against' : 'with'))} />
+          <WithAgainstToggle side={demoSide} onSelect={() => setDemoSide((s) => (s === 'with' ? 'against' : 'with'))} />
         </View>
 
         <Text style={{ marginTop: 18, fontFamily: t.fSans, fontSize: 13.5, color: t.textDim, lineHeight: 20 }}>
