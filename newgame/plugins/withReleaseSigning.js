@@ -28,7 +28,11 @@ module.exports = function withReleaseSigning(config) {
     //    signingConfigs { … }. We anchor on the standard-generated debug block
     //    and append after its closing `}` (4-space indent) rather than trying
     //    to do balanced-brace matching in regex.
-    if (!/signingConfigs\s*\{[\s\S]*?\brelease\s*\{/.test(src)) {
+    //    Guard on the keystore filename (uniquely ours) — the previous guard
+    //    `signingConfigs {…release {` falsely matched the buildTypes.release
+    //    block that always appears later in the file, so the signing block was
+    //    never injected and `buildTypes.release` referenced a missing config.
+    if (!src.includes(KEYSTORE_FILE)) {
       src = src.replace(
         /(signingConfigs\s*\{[\s\S]*?\bdebug\s*\{[\s\S]*?\n        \})/,
         `$1${RELEASE_SIGNING_BLOCK}`,
