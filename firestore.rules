@@ -481,5 +481,12 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if false;
     }
+
+    // TL in-app notification history — written SERVER-ONLY (sendPushToTLUser via
+    // the Admin SDK); the owner reads their own for an in-app inbox/badge.
+    match /tl_notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
   }
 }

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@store/auth.store';
 import { authService } from '@services/auth.service';
+import { notificationsService } from '@services/notifications.service';
 import { colors } from '@/constants/theme';
 import { ThemeProvider } from '@/theme';
 import { AppConfigGate } from '@components/AppConfigGate';
@@ -48,6 +49,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [setUser]);
 
   const user = useAuthStore((s) => s.user);
+
+  // Register for push once signed in + onboarded. Fire-and-forget: denial, a
+  // simulator, or a build without FCM are all silent no-ops. The server falls
+  // back to email when there's no token.
+  useEffect(() => {
+    if (!user?.id || user.hasOnboarded === false) return;
+    notificationsService.registerForPush(user.id).catch(() => {});
+  }, [user?.id, user?.hasOnboarded]);
 
   useEffect(() => {
     if (!isHydrated) return;

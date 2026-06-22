@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Track Limits",
     slug: "track-limits",
-    version: "0.1.21",
+    version: "0.1.22",
     orientation: "portrait",
     icon: "./assets/icon.png",
     scheme: "tracklimits",
@@ -28,7 +28,7 @@ module.exports = {
       },
       package: "com.tracklimits.app",
       googleServicesFile: "./google-services.json",
-      versionCode: 22
+      versionCode: 23
     },
     web: {
       bundler: "metro",
@@ -39,6 +39,7 @@ module.exports = {
       "expo-router",
       "expo-secure-store",
       "@react-native-google-signin/google-signin",
+      "expo-notifications",
       "./plugins/withReleaseSigning"
     ],
     experiments: {
