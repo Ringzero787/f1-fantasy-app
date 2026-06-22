@@ -39,7 +39,16 @@ function sumEscrowed(picks: Record<string, Record<string, PickEntity>> | undefin
 
 export const tlSetPick = functions.https.onCall(
   async (
-    data: { raceId?: string; session?: SessionKey; entityId?: string; side?: 'with' | 'against'; stake?: number },
+    data: {
+      raceId?: string;
+      session?: SessionKey;
+      entityId?: string;
+      side?: 'with' | 'against';
+      stake?: number;
+      // Clear the pick entirely (return the entity to "no selection"). Refunds
+      // any escrowed stake. Mutually exclusive with side/stake.
+      clear?: boolean;
+    },
     context
   ) => {
     const uid = requireAuth(context);
@@ -55,10 +64,66 @@ export const tlSetPick = functions.https.onCall(
       fail('invalid-argument', 'stake must be a non-negative number.');
     }
 
-    // Server-side lock: a pick can't be set/changed once its session has begun.
+    // Server-side lock: a pick can't be set/changed/cleared once its session has
+    // begun (clearing after lock could dodge a visible loss, same as cancel).
     await assertSessionOpen(raceId!, session!);
 
     const pickRef = db.doc(`tl_picks/${uid}_${raceId}`);
+
+    // CLEAR path — remove the entity's pick and refund any escrowed stake so the
+    // entity reverts to "no selection" (default) and scores nothing.
+    if (data.clear) {
+      return db.runTransaction(async (tx) => {
+        const pickSnap = await tx.get(pickRef);
+        if (!pickSnap.exists) return { cleared: true, cashAfter: null };
+        const cur = pickSnap.data() as admin.firestore.DocumentData;
+        const allPicks = (cur.picks as Record<string, Record<string, PickEntity>> | undefined) ?? {};
+        const existing = allPicks[session!]?.[entityId!];
+        if (!existing) return { cleared: true, cashAfter: null };
+        const refund = existing.escrowed ? existing.stake ?? 0 : 0;
+
+        // Read garage before any write if cash will move back.
+        let cashAfter: number | null = null;
+        if (refund > 0) {
+          const gSnap = await tx.get(garageRef(uid));
+          if (!gSnap.exists) fail('not-found', 'Garage not found.');
+          cashAfter = normaliseGarage(gSnap.data()!).cash + refund;
+        }
+
+        // Recompute totalStaked with the entity removed.
+        const merged: Record<string, Record<string, PickEntity>> = {
+          ...allPicks,
+          [session!]: { ...(allPicks[session!] ?? {}) },
+        };
+        delete merged[session!][entityId!];
+        const totalStaked = sumEscrowed(merged);
+
+        tx.update(pickRef, {
+          [`picks.${session!}.${entityId!}`]: admin.firestore.FieldValue.delete(),
+          totalStaked,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        if (refund > 0) {
+          tx.set(
+            garageRef(uid),
+            {
+              cash: admin.firestore.FieldValue.increment(refund),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+          recordTransaction(tx, uid, {
+            type: 'bet_refund',
+            delta: refund,
+            cashAfter: cashAfter as number,
+            entityId,
+            raceId,
+            description: `Cleared pick ${entityId} (${session})`,
+          });
+        }
+        return { cleared: true, cashAfter };
+      });
+    }
 
     return db.runTransaction(async (tx) => {
       const pickSnap = await tx.get(pickRef);

@@ -1196,85 +1196,101 @@ export function BenLinePill({
 export const BEN_AGAINST = '#9CAF88';
 export const BEN_AGAINST_WASH = 'rgba(156, 175, 136, 0.16)';
 
+// Three-state pick control: NO SELECTION (default) / WITH / AGAINST.
+// Tapping a segment selects that side; tapping the already-selected segment
+// clears back to "no selection" (so an untouched entity scores nothing). Each
+// segment is its own hit target — onSelect fires with the resulting state.
 export function WithAgainstToggle({
   side,
-  onFlip,
+  onSelect,
 }: {
-  side: 'with' | 'against';
-  onFlip: () => void;
+  side: 'with' | 'against' | 'none';
+  onSelect: (next: 'with' | 'against' | 'none') => void;
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
   const against = side === 'against';
+  const withSel = side === 'with';
 
   const h = scale(isTablet ? 36 : 28);
   const halfPadH = scale(isTablet ? 14 : 10);
   const fontSize = scale(isTablet ? 13 : 10);
 
-  return (
+  const Segment = ({
+    label,
+    selected,
+    selectedBg,
+    onPress,
+  }: {
+    label: string;
+    selected: boolean;
+    selectedBg: string;
+    onPress: () => void;
+  }) => (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={against ? 'Flip to with Ben' : 'Flip to against Ben'}
-      onPress={() => {
-        Vibration.vibrate(against ? 8 : 30);
-        onFlip();
-      }}
+      accessibilityState={{ selected }}
+      accessibilityLabel={selected ? `${label} (tap to clear)` : `Pick ${label}`}
+      onPress={onPress}
       android_ripple={{ color: hexA(t.text, 0.08), borderless: false }}
       style={({ pressed }) => ({
+        paddingHorizontal: halfPadH,
+        alignItems: 'center',
+        justifyContent: 'center',
+        alignSelf: 'stretch',
+        backgroundColor: selected ? selectedBg : 'transparent',
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Text
+        style={{
+          fontFamily: t.fMono,
+          fontSize,
+          fontWeight: '800',
+          color: selected ? '#0E1116' : t.textMute,
+          letterSpacing: 0.8,
+          textTransform: 'uppercase',
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+
+  return (
+    <View
+      style={{
         flexDirection: 'row',
         alignItems: 'stretch',
         height: h,
         borderRadius: 6,
         borderWidth: 1,
-        borderColor: against ? BEN_AGAINST : t.line,
+        // Border picks up the active side's colour; neutral (dashed-feel) when
+        // nothing is selected so "no pick" reads as the resting state.
+        borderColor: against ? BEN_AGAINST : withSel ? t.accent : t.line,
         backgroundColor: t.surface,
         overflow: 'hidden',
-        opacity: pressed ? 0.85 : 1,
-      })}
+      }}
     >
-      <View
-        style={{
-          paddingHorizontal: halfPadH,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: against ? BEN_AGAINST : 'transparent',
+      <Segment
+        label="Against"
+        selected={against}
+        selectedBg={BEN_AGAINST}
+        onPress={() => {
+          Vibration.vibrate(against ? 8 : 30);
+          onSelect(against ? 'none' : 'against');
         }}
-      >
-        <Text
-          style={{
-            fontFamily: t.fMono,
-            fontSize,
-            fontWeight: '800',
-            color: against ? '#0E1116' : t.textMute,
-            letterSpacing: 0.8,
-            textTransform: 'uppercase',
-          }}
-        >
-          Against
-        </Text>
-      </View>
-      <View
-        style={{
-          paddingHorizontal: halfPadH,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: against ? 'transparent' : t.accent,
+      />
+      <Segment
+        label="With"
+        selected={withSel}
+        selectedBg={t.accent}
+        onPress={() => {
+          Vibration.vibrate(withSel ? 8 : 20);
+          onSelect(withSel ? 'none' : 'with');
         }}
-      >
-        <Text
-          style={{
-            fontFamily: t.fMono,
-            fontSize,
-            fontWeight: '800',
-            color: against ? t.textMute : '#0E1116',
-            letterSpacing: 0.8,
-            textTransform: 'uppercase',
-          }}
-        >
-          With
-        </Text>
-      </View>
-    </Pressable>
+      />
+    </View>
   );
 }
 
@@ -1286,7 +1302,7 @@ export function LockedBadge({
   stake,
   variant = 'locked',
 }: {
-  side: 'with' | 'against';
+  side: 'with' | 'against' | 'none';
   stake: number;
   // 'locked' = session running (padlock). 'complete' = session finished,
   // results pending (clock). Both keep the pick frozen + visible.
@@ -1295,7 +1311,9 @@ export function LockedBadge({
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
   const against = side === 'against';
-  const sideColor = against ? BEN_AGAINST : t.accent;
+  const none = side === 'none';
+  // No pick → muted slot (the entity scores nothing); otherwise the side colour.
+  const sideColor = none ? t.line : against ? BEN_AGAINST : t.accent;
   const h = scale(isTablet ? 36 : 28);
   const fontSize = scale(isTablet ? 13 : 10);
   const iconSize = scale(isTablet ? 13 : 11);
@@ -1327,9 +1345,9 @@ export function LockedBadge({
           </Svg>
         )}
       </View>
-      <View style={{ paddingHorizontal: scale(8), alignItems: 'center', justifyContent: 'center', backgroundColor: sideColor }}>
-        <Text style={{ fontFamily: t.fMono, fontSize, fontWeight: '800', color: '#0E1116', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-          {against ? 'Against' : 'With'}
+      <View style={{ paddingHorizontal: scale(8), alignItems: 'center', justifyContent: 'center', backgroundColor: none ? t.surface2 : sideColor }}>
+        <Text style={{ fontFamily: t.fMono, fontSize, fontWeight: '800', color: none ? t.textMute : '#0E1116', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+          {none ? 'No pick' : against ? 'Against' : 'With'}
         </Text>
       </View>
       {hasBet ? (

@@ -73,10 +73,25 @@ export const picksService = {
     });
   },
 
-  // Read a single pick out of a PicksDoc (returns the default WITH/$0 if not
-  // yet stored).
-  pickFor(picksDoc: PicksDoc | null, session: SessionKey, entityId: string): Pick {
-    const stored = picksDoc?.picks?.[session]?.[entityId];
-    return stored ?? { side: 'with', stake: 0 };
+  // Clear a pick entirely — returns the entity to "no selection" (the default).
+  // The server removes it from the picks doc and refunds any escrowed stake.
+  async clearPick(args: {
+    userId: string;
+    raceId: string;
+    session: SessionKey;
+    entityId: string;
+  }): Promise<void> {
+    await callSetPick({
+      raceId: args.raceId,
+      session: args.session,
+      entityId: args.entityId,
+      clear: true,
+    });
+  },
+
+  // Read a single pick out of a PicksDoc, or null if the player hasn't picked
+  // this entity (the default "no selection" state — scores nothing).
+  pickFor(picksDoc: PicksDoc | null, session: SessionKey, entityId: string): Pick | null {
+    return picksDoc?.picks?.[session]?.[entityId] ?? null;
   },
 };
