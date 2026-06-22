@@ -93,6 +93,7 @@ export default function LineupScreen() {
   const subscribePicks = usePicksStore((s) => s.subscribe);
   const setSide = usePicksStore((s) => s.setSide);
   const setStake = usePicksStore((s) => s.setStake);
+  const clearPick = usePicksStore((s) => s.clearPick);
 
   const [scope, setScope] = useState<SessionKey>('race');
   const [primaryLeague, setPrimaryLeague] = useState<League | null>(null);
@@ -231,24 +232,28 @@ export default function LineupScreen() {
   const tally = useMemo(() => {
     let dWith = 0;
     let dAgainst = 0;
+    let dNone = 0;
     let cWith = 0;
     let cAgainst = 0;
+    let cNone = 0;
     let totalStake = 0;
+    const count = (side: 'with' | 'against' | undefined, stake: number, isDriver: boolean) => {
+      if (side === 'against') isDriver ? dAgainst++ : cAgainst++;
+      else if (side === 'with') isDriver ? dWith++ : cWith++;
+      else isDriver ? dNone++ : cNone++;
+      totalStake += stake;
+    };
     rosteredDrivers.forEach((d) => {
       const pick = picksDoc?.picks?.[scope]?.[d.id];
-      const isAgainst = pick?.side === 'against';
-      if (isAgainst) dAgainst++;
-      else dWith++;
-      totalStake += pick?.stake ?? 0;
+      count(pick?.side, pick?.stake ?? 0, true);
     });
     rosteredConstructors.forEach((c) => {
       const pick = picksDoc?.picks?.[scope]?.[c.id];
-      const isAgainst = pick?.side === 'against';
-      if (isAgainst) cAgainst++;
-      else cWith++;
-      totalStake += pick?.stake ?? 0;
+      count(pick?.side, pick?.stake ?? 0, false);
     });
-    return { dWith, dAgainst, cWith, cAgainst, totalStake };
+    const picked = dWith + dAgainst + cWith + cAgainst;
+    const unpicked = dNone + cNone;
+    return { dWith, dAgainst, dNone, cWith, cAgainst, cNone, picked, unpicked, totalStake };
   }, [rosteredDrivers, rosteredConstructors, picksDoc, scope]);
 
   if (raceLoading || garageLoading) {
@@ -315,9 +320,14 @@ export default function LineupScreen() {
   const summaryList = sessionsAvailable.map((s) => summaries[s]);
 
   const anyAgainst = tally.dAgainst + tally.cAgainst > 0;
-  const statusLine = anyAgainst
-    ? `${tally.dAgainst + tally.cAgainst} against Ben${tally.totalStake > 0 ? ` · $${tally.totalStake} staked` : ''}`
-    : 'All picks with Ben · house defaults';
+  const noPicks = tally.picked === 0;
+  const againstN = tally.dAgainst + tally.cAgainst;
+  const statusLine = noPicks
+    ? "No picks — make a call or you score nothing"
+    : `${tally.picked} pick${tally.picked === 1 ? '' : 's'}` +
+      (anyAgainst ? ` · ${againstN} against Ben` : '') +
+      (tally.totalStake > 0 ? ` · $${tally.totalStake} staked` : '') +
+      (tally.unpicked > 0 ? ` · ${tally.unpicked} unpicked` : '');
 
   // Build the sheet props from whichever entity is open.
   const sheetEntity = stakeFor
@@ -473,7 +483,7 @@ export default function LineupScreen() {
               Ben hasn't posted lines yet
             </Text>
             <Text style={{ marginTop: 6, fontFamily: t.fSans, fontSize: 12, color: t.textMute, textAlign: 'center' }}>
-              Default: WITH Ben, no stake. Lines populate closer to the {scope === 'qualifying' ? 'qualifying' : 'session'} start.
+              No pick is the default — you score nothing unless you call it. Lines populate closer to the {scope === 'qualifying' ? 'qualifying' : 'session'} start.
             </Text>
           </View>
         ) : null}
@@ -493,15 +503,15 @@ export default function LineupScreen() {
                 kind="driver"
                 driver={d}
                 line={benSession?.entities?.[d.id] ?? null}
-                pickSide={pick?.side ?? 'with'}
+                pickSide={pick?.side ?? 'none'}
                 pickStake={pick?.stake ?? 0}
                 phase={phase}
                 result={picksDoc?.settledOutcomes?.[scope]?.[d.id] ?? null}
                 onRowPress={() => setStakeFor({ kind: 'driver', id: d.id })}
-                onFlip={() => {
+                onSelect={(next) => {
                   if (!userId || !displayRace) return;
-                  const next = (pick?.side ?? 'with') === 'against' ? 'with' : 'against';
-                  void setSide(userId, displayRace.id, scope, d.id, next);
+                  if (next === 'none') void clearPick(userId, displayRace.id, scope, d.id);
+                  else void setSide(userId, displayRace.id, scope, d.id, next);
                 }}
               />
             );
@@ -519,15 +529,15 @@ export default function LineupScreen() {
                 kind="constructor"
                 team={c}
                 line={benSession?.entities?.[c.id] ?? null}
-                pickSide={pick?.side ?? 'with'}
+                pickSide={pick?.side ?? 'none'}
                 pickStake={pick?.stake ?? 0}
                 phase={phase}
                 result={picksDoc?.settledOutcomes?.[scope]?.[c.id] ?? null}
                 onRowPress={() => setStakeFor({ kind: 'constructor', id: c.id })}
-                onFlip={() => {
+                onSelect={(next) => {
                   if (!userId || !displayRace) return;
-                  const next = (pick?.side ?? 'with') === 'against' ? 'with' : 'against';
-                  void setSide(userId, displayRace.id, scope, c.id, next);
+                  if (next === 'none') void clearPick(userId, displayRace.id, scope, c.id);
+                  else void setSide(userId, displayRace.id, scope, c.id, next);
                 }}
               />
             );
@@ -550,7 +560,7 @@ export default function LineupScreen() {
               fontFamily: t.fMono,
               fontSize: 10,
               fontWeight: '700',
-              color: anyAgainst ? BEN_AGAINST : t.textDim,
+              color: noPicks ? t.warn : anyAgainst ? BEN_AGAINST : t.textDim,
               letterSpacing: 1,
               textTransform: 'uppercase',
             }}
@@ -751,12 +761,12 @@ function EntityRow(props: {
   driver?: Driver;
   team?: Constructor;
   line: BenLine | null;
-  pickSide: 'with' | 'against';
+  pickSide: 'with' | 'against' | 'none';
   pickStake: number;
   phase?: Phase;
   result?: PickOutcome | null;
   onRowPress: () => void;
-  onFlip: () => void;
+  onSelect: (next: 'with' | 'against' | 'none') => void;
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
@@ -863,7 +873,7 @@ function EntityRow(props: {
         ) : phase === 'locked' || phase === 'complete' ? (
           <LockedBadge side={props.pickSide} stake={props.pickStake} variant={phase === 'complete' ? 'complete' : 'locked'} />
         ) : (
-          <WithAgainstToggle side={props.pickSide} onFlip={props.onFlip} />
+          <WithAgainstToggle side={props.pickSide} onSelect={props.onSelect} />
         )}
       </View>
     </View>

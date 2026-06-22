@@ -106,9 +106,12 @@ async function loadRecap(userId: string): Promise<RecapData | null> {
     const sessionSettled = picksDoc?.settledOutcomes?.[s] ?? {};
     for (const entityId of Object.keys(lines)) {
       const line = lines[entityId];
-      entityIds.add(entityId);
       const userPick = sessionPicks[entityId];
-      const side = userPick?.side ?? 'with';
+      // No-selection is the default: only show entities the player actually
+      // picked. Untouched entities score nothing and aren't part of the recap.
+      if (!userPick) continue;
+      entityIds.add(entityId);
+      const side = userPick.side;
       // Prefer the authoritative settled outcome (graded against the official
       // race results at settlement); fall back to the line's own fields for any
       // legacy/unsettled doc.

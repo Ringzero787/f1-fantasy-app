@@ -26,6 +26,16 @@ function patchPick(
   return { ...base, picks };
 }
 
+// Optimistically remove one entity's pick (return it to "no selection").
+function removePick(doc: PicksDoc | null, session: SessionKey, entityId: string): PicksDoc | null {
+  if (!doc?.picks?.[session]?.[entityId]) return doc;
+  const picks = { ...(doc.picks ?? {}) } as PicksDoc['picks'];
+  const sessionPicks = { ...(picks?.[session] ?? {}) };
+  delete sessionPicks[entityId];
+  picks[session] = sessionPicks;
+  return { ...doc, picks };
+}
+
 interface PicksState {
   byRaceId: Record<string, PicksDoc | null>;
 
@@ -35,7 +45,13 @@ interface PicksState {
    *  subscriptions, so callers must manage the cleanup. */
   subscribe: (userId: string, raceId: string) => () => void;
 
-  pickFor: (raceId: string, session: SessionKey, entityId: string) => Pick;
+  pickFor: (raceId: string, session: SessionKey, entityId: string) => Pick | null;
+  clearPick: (
+    userId: string,
+    raceId: string,
+    session: SessionKey,
+    entityId: string,
+  ) => Promise<void>;
   setSide: (
     userId: string,
     raceId: string,
@@ -66,6 +82,18 @@ export const usePicksStore = create<PicksState>((set, get) => ({
   pickFor: (raceId, session, entityId) => {
     const picks = get().byRaceId[raceId] ?? null;
     return picksService.pickFor(picks, session, entityId);
+  },
+
+  clearPick: async (userId, raceId, session, entityId) => {
+    const prior = get().byRaceId[raceId] ?? null;
+    set((s) => ({ byRaceId: { ...s.byRaceId, [raceId]: removePick(prior, session, entityId) } }));
+    try {
+      await picksService.clearPick({ userId, raceId, session, entityId });
+    } catch (err) {
+      set((s) => ({ byRaceId: { ...s.byRaceId, [raceId]: prior } }));
+      console.error('[tl] clearPick.fail', { entityId, err: err instanceof Error ? err.message : String(err) });
+      throw err;
+    }
   },
 
   setSide: async (userId, raceId, session, entityId, side) => {
