@@ -47,6 +47,7 @@ interface SessionView {
       result?: number;
       outcome?: 'with' | 'against';
       won?: boolean;
+      payout?: number; // authoritative gross payout from settlement (incl. boosts)
     }
   >;
 }
@@ -118,12 +119,13 @@ async function loadRecap(userId: string): Promise<RecapData | null> {
       const settledOutcome = sessionSettled[entityId];
       view[entityId] = {
         side,
-        stake: userPick?.stake ?? 0,
+        stake: userPick.stake ?? 0,
         result: settledOutcome?.result ?? line.result,
         outcome: settledOutcome?.outcome ?? line.outcome,
         won:
           settledOutcome?.won ??
           (line.outcome ? side === line.outcome : undefined),
+        payout: settledOutcome?.payout,
       };
     }
     sessionViews.push({ session: s, lines, picks: view });
@@ -190,6 +192,7 @@ export default function ResultsScreen() {
 
   const { race, weekendScore, sessions, driverById, constructorById } = data;
   const settled = !!weekendScore;
+  const pnl = computePnl(sessions);
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: t.bg }]} edges={['bottom']}>
@@ -204,11 +207,7 @@ export default function ResultsScreen() {
             {race.name}
           </Text>
           {settled && weekendScore ? (
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
-              <Stat label="Points" value={String(weekendScore.points)} color={t.accent} />
-              <Stat label="Cash" value={`${weekendScore.cash >= 0 ? '+' : ''}$${weekendScore.cash}`} color={weekendScore.cash >= 0 ? t.success : t.danger} />
-              <Stat label="Calls" value={`${weekendScore.callsCorrect}/${weekendScore.callsTotal}`} color={t.text} />
-            </View>
+            <WeekendPnL weekendScore={weekendScore} pnl={pnl} />
           ) : (
             <Text style={{ marginTop: 10, fontFamily: t.fSans, fontSize: 12, color: t.textDim, lineHeight: 18 }}>
               No weekend score yet. Run a race settlement to see your picks graded.
@@ -277,6 +276,85 @@ export default function ResultsScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// Aggregate winnings vs losses across all settled picks of the weekend. Wins
+// contribute their profit (payout − stake); losses contribute the staked cash.
+// Free picks (stake 0) still count toward the W/L record but move no money.
+interface WeekendPnLData {
+  winnings: number;
+  losses: number;
+  net: number;
+  won: number;
+  lost: number;
+  staked: number;
+}
+function computePnl(sessions: SessionView[]): WeekendPnLData {
+  let winnings = 0;
+  let losses = 0;
+  let won = 0;
+  let lost = 0;
+  let staked = 0;
+  for (const s of sessions) {
+    for (const p of Object.values(s.picks)) {
+      if (p.won == null) continue; // not graded (shouldn't happen on a settled weekend)
+      staked += p.stake;
+      if (p.won) {
+        won++;
+        winnings += Math.max(0, (p.payout ?? p.stake) - p.stake);
+      } else {
+        lost++;
+        losses += p.stake;
+      }
+    }
+  }
+  return { winnings, losses, net: winnings - losses, won, lost, staked };
+}
+
+function WeekendPnL({ weekendScore, pnl }: { weekendScore: WeekendScore; pnl: WeekendPnLData }) {
+  const t = useTheme();
+  const net = pnl.net;
+  const netColor = net > 0 ? t.success : net < 0 ? t.danger : t.text;
+  return (
+    <View style={{ marginTop: 14, gap: 10 }}>
+      {/* Net headline */}
+      <View style={{ padding: 14, borderRadius: 12, borderWidth: 1, borderColor: t.line, backgroundColor: t.surface }}>
+        <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontWeight: '700' }}>
+          Weekend net
+        </Text>
+        <View style={{ marginTop: 2 }}>
+          <Num size={30} weight="800" color={netColor}>
+            {`${net >= 0 ? '+' : '−'}$${Math.abs(net).toFixed(Math.abs(net) < 10 && net % 1 !== 0 ? 1 : 0)}`}
+          </Num>
+        </View>
+        {/* Winnings vs losses split */}
+        <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: t.success }} />
+            <Text style={{ fontFamily: t.fMono, fontSize: 12, fontWeight: '700', color: t.success }}>
+              +${pnl.winnings.toFixed(0)} won
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: t.danger }} />
+            <Text style={{ fontFamily: t.fMono, fontSize: 12, fontWeight: '700', color: t.danger }}>
+              −${pnl.losses.toFixed(0)} lost
+            </Text>
+          </View>
+        </View>
+      </View>
+      {/* Record + points tiles */}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <Stat label="Points" value={String(weekendScore.points)} color={t.accent} />
+        <Stat
+          label="Record"
+          value={`${pnl.won}W–${pnl.lost}L`}
+          color={pnl.won >= pnl.lost ? t.success : t.danger}
+        />
+        <Stat label="Calls" value={`${weekendScore.callsCorrect}/${weekendScore.callsTotal}`} color={t.text} />
+      </View>
+    </View>
   );
 }
 

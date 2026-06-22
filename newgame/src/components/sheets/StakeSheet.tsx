@@ -83,12 +83,14 @@ export function StakeSheet({
   const sideLabel = against ? 'Against Ben' : 'With Ben';
   const maxStake = Math.min(cash, 1000);
 
-  const flipSide = () => {
-    setSide((s) => {
-      const next: BenSide = s === 'against' ? 'with' : 'against';
-      onFlipSide?.(next);
-      return next;
-    });
+  // Staking requires a concrete side, so this control stays binary: picking a
+  // side sets it; tapping the active side (toggle reports 'none') flips to the
+  // other rather than clearing.
+  const selectSide = (next: 'with' | 'against' | 'none') => {
+    const resolved: BenSide = next === 'none' ? (side === 'with' ? 'against' : 'with') : next;
+    if (resolved === side) return;
+    setSide(resolved);
+    onFlipSide?.(resolved);
   };
 
   const commitCustom = () => {
@@ -161,7 +163,7 @@ export function StakeSheet({
         >
           Side
         </Text>
-        <WithAgainstToggle side={side} onFlip={flipSide} />
+        <WithAgainstToggle side={side} onSelect={selectSide} />
         <View
           style={{
             marginLeft: 'auto',
