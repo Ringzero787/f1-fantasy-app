@@ -29,3 +29,6 @@ export {
 export { tlPlacePoleBet, tlPlaceLeagueBet, tlCancelBet } from './economy/betCallables';
 export { tlActivateInsurance, tlDropInsurance } from './economy/insuranceCallables';
 export { tlSetPick } from './economy/pickCallables';
+
+// Scheduled reminders — nudge players who haven't picked before a race locks.
+export { tlNotifyMissingPicks } from './notifications/notifyMissingPicks';
