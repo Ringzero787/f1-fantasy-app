@@ -222,13 +222,13 @@ export const addDriverSecure = functions.https.onCall(async (data, context) => {
       addedAtRace: completedRaceCount,
     };
 
-    tx.update(teamRef, {
+    tx.set(teamRef, {
       drivers: [...drivers, fantasyDriver],
       budget: budget - price,
       totalSpent: (team.totalSpent || 0) + price,
       racesSinceTransfer: 0,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    }, { merge: true });
 
     return { driver: fantasyDriver, newBudget: budget - price };
   });
@@ -288,7 +288,13 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
       updateData.aceDriverId = null;
     }
 
-    tx.update(teamRef, updateData);
+    // set(merge), NOT update(): tx.update() expands top-level keys as field
+    // paths and the literal key `constructor` collides with
+    // Object.prototype.constructor, throwing "AssertionError: Can't merge
+    // current value into a nested object" (HTTP 500). set(merge) serializes
+    // the same way the scoring pipeline does and handles `constructor` fine.
+    // The team doc is guaranteed to exist (read + ownership-asserted above).
+    tx.set(teamRef, updateData, { merge: true });
 
     return {
       saleReturn: quote.saleReturn,
@@ -391,7 +397,13 @@ export const setConstructorSecure = functions.https.onCall(async (data, context)
       updateData.aceConstructorId = null;
     }
 
-    tx.update(teamRef, updateData);
+    // set(merge), NOT update(): tx.update() expands top-level keys as field
+    // paths and the literal key `constructor` collides with
+    // Object.prototype.constructor, throwing "AssertionError: Can't merge
+    // current value into a nested object" (HTTP 500). set(merge) serializes
+    // the same way the scoring pipeline does and handles `constructor` fine.
+    // The team doc is guaranteed to exist (read + ownership-asserted above).
+    tx.set(teamRef, updateData, { merge: true });
 
     return {
       constructor: fantasyCtor,
@@ -450,7 +462,13 @@ export const removeConstructorSecure = functions.https.onCall(async (data, conte
       updateData.aceConstructorId = null;
     }
 
-    tx.update(teamRef, updateData);
+    // set(merge), NOT update(): tx.update() expands top-level keys as field
+    // paths and the literal key `constructor` collides with
+    // Object.prototype.constructor, throwing "AssertionError: Can't merge
+    // current value into a nested object" (HTTP 500). set(merge) serializes
+    // the same way the scoring pipeline does and handles `constructor` fine.
+    // The team doc is guaranteed to exist (read + ownership-asserted above).
+    tx.set(teamRef, updateData, { merge: true });
 
     return {
       saleReturn: quote.saleReturn,
@@ -556,14 +574,16 @@ export const buildTeamSecure = functions.https.onCall(async (data, context) => {
     }
 
     const startingBudget: number = typeof team.budget === 'number' ? team.budget : BUDGET;
-    tx.update(teamRef, {
+    // set(merge), NOT update(): `constructor` in an update() payload throws a
+    // Firestore assertion (see addDriverSecure note).
+    tx.set(teamRef, {
       drivers,
       constructor: fantasyCtor,
       budget,
       totalSpent: (team.totalSpent || 0) + (startingBudget - budget),
       racesSinceTransfer: 0,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    }, { merge: true });
 
     return { drivers, constructor: fantasyCtor, newBudget: budget };
   });
