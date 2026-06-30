@@ -17,8 +17,9 @@ export interface RaceResult {
   driverId: string;
   constructorId: string;
   gridPosition: number;
-  // 'dns' = did not start (illness, withdrawal): scores 0, no DNF penalty.
-  status: 'finished' | 'dnf' | 'dsq' | 'dns';
+  // 'dns' = did not start; 'nc' = not classified (ran but outside the official
+  // classification — finished too many laps down). Both score 0, no DNF penalty.
+  status: 'finished' | 'dnf' | 'dsq' | 'dns' | 'nc';
   fastestLap: boolean;
   laps?: number;
 }
@@ -26,7 +27,7 @@ export interface RaceResult {
 export interface SprintResult {
   position: number;
   driverId: string;
-  status: 'finished' | 'dnf' | 'dsq' | 'dns';
+  status: 'finished' | 'dnf' | 'dsq' | 'dns' | 'nc';
 }
 
 export interface QualifyingResult {
@@ -116,10 +117,13 @@ export function calculateDriverPoints(
   let racePoints = 0;
   let sprintPoints = 0;
 
-  if (result.status === 'finished') {
-    // position >= 1 guard: a glitched result row (position 0/null but not
-    // flagged DNF) must score 0, not RACE_POINTS[-1] → NaN → corrupted totals.
-    if (result.position >= 1 && result.position <= RACE_POINTS.length) {
+  // Everything here is gated on position >= 1. A classified finisher always has
+  // a real position; a 'finished' row with position 0 is a malformed/not-yet-
+  // classified OpenF1 row (it should arrive as status 'nc'). Without this gate,
+  // positionsGained = gridPosition - 0 awarded phantom points equal to the grid
+  // slot (e.g. Albon: grid 18, position 0 → +18) and RACE_POINTS[-1] → NaN.
+  if (result.status === 'finished' && result.position >= 1) {
+    if (result.position <= RACE_POINTS.length) {
       racePoints += RACE_POINTS[result.position - 1];
     }
     const positionsGained = result.gridPosition - result.position;
@@ -133,7 +137,7 @@ export function calculateDriverPoints(
       racePoints += FASTEST_LAP_BONUS;
     }
     // Position bonus: all classified finishers P1-P22 get reverse-grid points
-    if (result.position >= 1 && result.position <= GRID_SIZE) {
+    if (result.position <= GRID_SIZE) {
       racePoints += GRID_SIZE + 1 - result.position;
     }
   } else if (result.status === 'dnf') {
@@ -141,8 +145,8 @@ export function calculateDriverPoints(
   } else if (result.status === 'dsq') {
     racePoints = -5;
   }
-  // 'dns' (did not start) intentionally scores 0 — no penalty for a driver who
-  // never took the start (illness, withdrawal, pre-race mechanical).
+  // 'dns' (did not start) and 'nc' (not classified — ran but outside the
+  // classification, e.g. many laps down) intentionally score 0 with no penalty.
 
   if (sprintResult) {
     if (sprintResult.status === 'finished'

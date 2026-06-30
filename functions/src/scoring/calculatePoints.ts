@@ -591,8 +591,11 @@ export const onRaceCompleted = functions
       let positionsGained = 0;
       let fastestLapBonus = 0;
 
-      if (result.status === 'finished') {
-        if (result.position >= 1 && result.position <= RACE_POINTS.length) racePoints += RACE_POINTS[result.position - 1];
+      // All gated on position >= 1 — must mirror scoringCore.calculateDriverPoints
+      // so the breakdown reconciles with team scoring. A position-0 'finished'
+      // glitch would otherwise award positionsGained = grid - 0 phantom points.
+      if (result.status === 'finished' && result.position >= 1) {
+        if (result.position <= RACE_POINTS.length) racePoints += RACE_POINTS[result.position - 1];
         positionsGained = result.gridPosition - result.position;
         if (positionsGained > 0) racePoints += positionsGained * POSITION_GAINED_BONUS;
         if (positionsGained < 0) racePoints += positionsGained;
@@ -600,7 +603,7 @@ export const onRaceCompleted = functions
           racePoints += FASTEST_LAP_BONUS;
           fastestLapBonus = FASTEST_LAP_BONUS;
         }
-        if (result.position >= 1 && result.position <= GRID_SIZE) {
+        if (result.position <= GRID_SIZE) {
           racePoints += GRID_SIZE + 1 - result.position;
         }
       } else if (result.status === 'dnf' || result.status === 'dsq') {
@@ -964,15 +967,17 @@ export const onRaceCompleted = functions
 
     for (const result of raceResults) {
       let points = 0;
-      if (result.status === 'finished') {
-        if (result.position >= 1 && result.position <= PRICING_RACE_POINTS.length) {
+      // position >= 1 gate (see scoringCore) — a P0 'finished' glitch must not
+      // earn phantom positions-gained pricing points.
+      if (result.status === 'finished' && result.position >= 1) {
+        if (result.position <= PRICING_RACE_POINTS.length) {
           points = PRICING_RACE_POINTS[result.position - 1];
         }
         const positionsGained = result.gridPosition - result.position;
         if (positionsGained > 0) points += positionsGained;
         if (result.fastestLap && result.position <= 10) points += 1;
         // Position bonus for pricing
-        if (result.position >= 1 && result.position <= GRID_SIZE) {
+        if (result.position <= GRID_SIZE) {
           points += GRID_SIZE + 1 - result.position;
         }
       } else if (result.status === 'dnf' && totalLaps > 0) {
@@ -1008,7 +1013,7 @@ export const onRaceCompleted = functions
     const participatingDrivers = new Set<string>();
     const participatingCtors = new Set<string>();
     for (const result of raceResults) {
-      if (result.status === 'dns') continue;
+      if (result.status === 'dns' || result.status === 'nc') continue;
       participatingDrivers.add(result.driverId);
       participatingCtors.add(result.constructorId);
     }

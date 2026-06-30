@@ -59,8 +59,9 @@ export interface RaceResult {
   driverId: string;
   constructorId: string;
   gridPosition: number;
-  // 'dns' = did not start: scores 0 and takes no DNF price penalty.
-  status: 'finished' | 'dnf' | 'dsq' | 'dns';
+  // 'dns' = did not start; 'nc' = not classified (ran, no finishing position).
+  // Both score 0 and take no DNF price penalty.
+  status: 'finished' | 'dnf' | 'dsq' | 'dns' | 'nc';
   fastestLap: boolean;
   laps?: number;
 }
@@ -68,7 +69,7 @@ export interface RaceResult {
 export interface SprintResult {
   position: number;
   driverId: string;
-  status: 'finished' | 'dnf' | 'dsq' | 'dns';
+  status: 'finished' | 'dnf' | 'dsq' | 'dns' | 'nc';
 }
 
 export interface OpenF1StartingGridRow {
@@ -263,15 +264,16 @@ export async function convertToRaceResults(
     const isDsq = r.dsq === true;
     const isDns = r.dns === true && !isDsq;
     const isDnf = r.dnf === true && !isDsq && !isDns;
-    const position = (isDnf || isDsq || isDns || !r.position) ? 0 : r.position;
-    const status: RaceResult['status'] = isDsq ? 'dsq' : isDns ? 'dns' : isDnf ? 'dnf' : 'finished';
+    // A row with no finishing position that isn't DNF/DSQ/DNS = "not classified"
+    // (ran but outside the official classification, e.g. many laps down — Albon
+    // in Barcelona 2026). Score it 0 with no penalty, distinct from a P0
+    // "finished" glitch that previously awarded phantom positions-gained points.
+    const isNc = (r.position == null || r.position <= 0) && !isDnf && !isDsq && !isDns;
+    const position = (isDnf || isDsq || isDns || isNc) ? 0 : (r.position as number);
+    const status: RaceResult['status'] = isDsq ? 'dsq' : isDns ? 'dns' : isDnf ? 'dnf' : isNc ? 'nc' : 'finished';
 
-    // A 'finished' row with no position is a glitched/settling OpenF1 row —
-    // it would previously have produced NaN points downstream. Scoring now
-    // guards position >= 1 (scores 0), but flag it so admins review before
-    // approving results.
-    if (status === 'finished' && position === 0) {
-      warnings.push(`Driver ${r.driver_number} (${driverId}) classified 'finished' but has no position — will score 0`);
+    if (isNc) {
+      warnings.push(`Driver ${r.driver_number} (${driverId}) not classified (no position, not DNF) — scored 0 (NC)`);
     }
 
     // Use grid position from starting_grid/qualifying; for drivers without
@@ -338,8 +340,9 @@ export async function convertToSprintResults(
     const isDsq = r.dsq === true;
     const isDns = r.dns === true && !isDsq;
     const isDnf = r.dnf === true && !isDsq && !isDns;
-    const position = (isDnf || isDsq || isDns || !r.position) ? 0 : r.position;
-    const status: SprintResult['status'] = isDsq ? 'dsq' : isDns ? 'dns' : isDnf ? 'dnf' : 'finished';
+    const isNc = (r.position == null || r.position <= 0) && !isDnf && !isDsq && !isDns;
+    const position = (isDnf || isDsq || isDns || isNc) ? 0 : (r.position as number);
+    const status: SprintResult['status'] = isDsq ? 'dsq' : isDns ? 'dns' : isDnf ? 'dnf' : isNc ? 'nc' : 'finished';
 
     results.push({ position, driverId, status });
   }
