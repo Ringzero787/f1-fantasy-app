@@ -3,6 +3,7 @@ import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
 import { sendPushToUser } from './sendPush';
+import { effectiveLockTime, lockSessionLabel } from '../utils/lockTime';
 
 const db = admin.firestore();
 
@@ -66,19 +67,24 @@ export const notifyIncompleteTeams = onSchedule(
   { schedule: 'every 30 minutes', secrets: [gmailAppPassword], timeoutSeconds: 300 },
   async () => {
     const nowMs = Date.now();
-    const nowTs = admin.firestore.Timestamp.now();
-    const windowEnd = admin.firestore.Timestamp.fromMillis(nowMs + EARLY_MAX_HOURS * 3600 * 1000);
+    const windowEndMs = nowMs + EARLY_MAX_HOURS * 3600 * 1000;
 
-    // Upcoming races whose qualifying is within the next 24h (reuses the same
-    // status+schedule.qualifying index autoLockTeams relies on).
+    // Upcoming races whose lock session (sprint qualifying on sprint
+    // weekends, otherwise qualifying) is within the next 24h. Filtered in
+    // code, matching autoLockTeams.
     const racesSnap = await db.collection('races')
       .where('status', '==', 'upcoming')
-      .where('schedule.qualifying', '>', nowTs)
-      .where('schedule.qualifying', '<=', windowEnd)
       .get();
 
-    if (racesSnap.empty) {
-      console.log('[IncompleteAlerts] No upcoming races within 24h');
+    const dueRaces = racesSnap.docs.filter((doc) => {
+      const lockAt = effectiveLockTime(doc.data());
+      if (!lockAt) return false;
+      const ms = lockAt.toMillis();
+      return ms > nowMs && ms <= windowEndMs;
+    });
+
+    if (dueRaces.length === 0) {
+      console.log('[IncompleteAlerts] No upcoming races locking within 24h');
       return;
     }
 
@@ -90,11 +96,11 @@ export const notifyIncompleteTeams = onSchedule(
       console.warn('[IncompleteAlerts] GMAIL_APP_PASSWORD not set — email fallback disabled');
     }
 
-    for (const raceDoc of racesSnap.docs) {
+    for (const raceDoc of dueRaces) {
       const race = raceDoc.data();
       const raceId = raceDoc.id;
-      const qualiMs = race.schedule?.qualifying?.toMillis?.() ?? 0;
-      const hoursUntil = (qualiMs - nowMs) / 3600000;
+      const lockMs = effectiveLockTime(race)?.toMillis() ?? 0;
+      const hoursUntil = (lockMs - nowMs) / 3600000;
       const stageForRace: 'early' | 'last' = hoursUntil <= LAST_HOURS ? 'last' : 'early';
 
       // Only unlocked teams can still be fixed.
@@ -134,7 +140,7 @@ export const notifyIncompleteTeams = onSchedule(
         const title = stageForRace === 'last' ? `Last call — ${race.name} locks soon` : `Your team isn't race-ready`;
         const body = stageForRace === 'last'
           ? `${race.name} locks in ~2 hours and you're missing ${missing}. Add now to score.`
-          : `${race.name} qualifying locks soon. Add ${missing} to earn points.`;
+          : `${race.name} ${lockSessionLabel(race)} locks soon. Add ${missing} to earn points.`;
         const data = { type: 'incomplete_team', raceId, teamId: teamDoc.id, stage: stageForRace };
 
         let delivered = false;

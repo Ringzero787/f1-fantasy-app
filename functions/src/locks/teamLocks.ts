@@ -1,14 +1,21 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
+import { effectiveLockTime, lockSessionLabel } from '../utils/lockTime';
 
 const db = admin.firestore();
 
 const BATCH_OP_LIMIT = 499;
 
+// Failsafe unlock: Phase 5 of onRaceCompleted schedules the real unlock
+// (3h after race completion). This ceiling only exists so teams don't stay
+// locked forever if a race is cancelled or results never arrive.
+const UNLOCK_FAILSAFE_MS = 24 * 60 * 60 * 1000;
+
 /**
- * Scheduled function to lock teams before qualifying
- * Runs every 15 minutes to check for upcoming qualifying sessions
+ * Scheduled function to lock teams before the weekend's first roster-scoring
+ * session: sprint qualifying on sprint weekends, otherwise qualifying.
+ * Runs every 15 minutes.
  *
  * Optimized: bulk-fetches league docs using db.getAll() instead of N+1 reads
  */
@@ -16,22 +23,30 @@ export const autoLockTeams = functions.pubsub
   .schedule('every 15 minutes')
   .onRun(async (context) => {
     const now = admin.firestore.Timestamp.now();
-    const oneHourFromNow = new Date(now.toMillis() + 60 * 60 * 1000);
+    const nowMs = now.toMillis();
+    const oneHourFromNowMs = nowMs + 60 * 60 * 1000;
 
-    // Find races with qualifying starting within the next hour
+    // Small collection (~24 docs/season): fetch upcoming races and pick the
+    // ones whose lock session starts within the next hour. Filtering in code
+    // (not the query) lets sprint weekends key off schedule.sprintQualifying.
     const racesSnapshot = await db
       .collection('races')
       .where('status', '==', 'upcoming')
-      .where('schedule.qualifying', '<=', admin.firestore.Timestamp.fromDate(oneHourFromNow))
-      .where('schedule.qualifying', '>', now)
       .get();
 
-    if (racesSnapshot.empty) {
-      console.log('No races with qualifying starting soon');
+    const dueRaces = racesSnapshot.docs.filter((doc) => {
+      const lockAt = effectiveLockTime(doc.data());
+      if (!lockAt) return false;
+      const ms = lockAt.toMillis();
+      return ms > nowMs && ms <= oneHourFromNowMs;
+    });
+
+    if (dueRaces.length === 0) {
+      console.log('No races locking soon');
       return null;
     }
 
-    for (const raceDoc of racesSnapshot.docs) {
+    for (const raceDoc of dueRaces) {
       const race = raceDoc.data();
 
       // Get all unlocked teams
@@ -74,8 +89,15 @@ export const autoLockTeams = functions.pubsub
           batch.update(teamDoc.ref, {
             isLocked: true,
             'lockStatus.canModify': false,
-            'lockStatus.lockReason': `Locked for ${race.name} qualifying`,
-            'lockStatus.nextUnlockTime': race.schedule.race,
+            'lockStatus.lockReason': `Locked for ${race.name} ${lockSessionLabel(race)}`,
+            // NOT race start: seeding nextUnlockTime with schedule.race let
+            // autoUnlockTeams free teams AT race start, hours before scoring —
+            // rosters were editable during and after the race. Phase 5 of
+            // onRaceCompleted sets the real unlock (completion + 3h); this is
+            // only a cancelled-race failsafe.
+            'lockStatus.nextUnlockTime': admin.firestore.Timestamp.fromMillis(
+              race.schedule.race.toMillis() + UNLOCK_FAILSAFE_MS
+            ),
           });
           lockedCount++;
           opsInBatch++;
@@ -316,10 +338,11 @@ export const checkLockStatus = functions.https.onCall(async (data, context) => {
 
   const race = raceDoc.data()!;
   const now = new Date();
-  const qualifyingTime = race.schedule.qualifying.toDate();
+  // Sprint weekends lock at sprint qualifying, not race qualifying.
+  const lockTime = (effectiveLockTime(race) ?? race.schedule.qualifying).toDate();
 
-  const isLockTime = now >= qualifyingTime;
-  const timeUntilLock = qualifyingTime.getTime() - now.getTime();
+  const isLockTime = now >= lockTime;
+  const timeUntilLock = lockTime.getTime() - now.getTime();
 
   let teamLockStatus = null;
   if (teamId) {
@@ -339,7 +362,10 @@ export const checkLockStatus = functions.https.onCall(async (data, context) => {
     race: {
       id: raceId,
       name: race.name,
-      qualifyingTime: qualifyingTime.toISOString(),
+      // Field name kept for client compatibility; on sprint weekends this is
+      // the sprint qualifying time (the actual lock moment).
+      qualifyingTime: lockTime.toISOString(),
+      lockSession: lockSessionLabel(race),
       status: race.status,
     },
     isLockTime,
