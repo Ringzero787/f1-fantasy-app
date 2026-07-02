@@ -859,6 +859,7 @@ function EntityRow(props: {
               ou={props.line.line}
               oddsWith={props.line.withOdds}
               oddsAgainst={props.line.againstOdds}
+              benCall={props.line.benCall}
             />
           ) : (
             <Text style={{ fontFamily: t.fMono, fontSize: isTablet ? 12 : 10, color: t.textMute, letterSpacing: 0.6 }}>

@@ -1023,6 +1023,7 @@ export function BenLinePill({
   hi,
   oddsWith,
   oddsAgainst,
+  benCall,
   kind = 'driver',
   dim = false,
   showTooltip = true,
@@ -1032,6 +1033,9 @@ export function BenLinePill({
   hi?: number;
   oddsWith?: number;
   oddsAgainst?: number;
+  // Ben's O/U call, e.g. "O 2.5". When present it's shown in place of the raw
+  // range (the range still drives the tooltip + settlement).
+  benCall?: string;
   // Constructor predictions are stored as the SUM of both drivers' finishing
   // positions (range 1–44). For display we halve and label it as an average
   // per car, so users see realistic grid positions (1–22). Math/scoring
@@ -1054,15 +1058,20 @@ export function BenLinePill({
         ? `P${rangeLo}`
         : `P${rangeLo}–P${rangeHi}`
       : '—';
-  const label = isCtor && baseLabel !== '—' ? `${baseLabel} avg` : baseLabel;
+  const rangeLabel = isCtor && baseLabel !== '—' ? `${baseLabel} avg` : baseLabel;
+  // Prefer Ben's O/U call ("O 2.5") when the line carries one; the range still
+  // backs the tooltip + settlement.
+  const call = benCall && benCall.trim() ? benCall.trim() : null;
+  const label = call ?? rangeLabel;
 
   const onInfo = () => {
+    const callLine = call ? `Ben's call: ${call}. ` : '';
     const detail = isCtor
       ? `Ben's model thinks this constructor's two cars finish in ${baseLabel} on average. (Internally the bet resolves on the sum of both finishing positions.)`
       : `Ben's model thinks this driver lands in ${baseLabel}.`;
     Alert.alert(
       "Ben's guess",
-      `${detail} Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Stake cash to amplify; free picks still score the points leaderboard.`,
+      `${callLine}${detail} Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Stake cash to amplify; free picks still score the points leaderboard.`,
     );
   };
 

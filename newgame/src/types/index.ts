@@ -551,6 +551,10 @@ export interface BenLine {
   line?: number;
   withOdds: number;     // payout if WITH wins (driver finishes inside the range)
   againstOdds: number;  // payout if AGAINST wins (finishes outside the range)
+  // Human-readable over/under call, e.g. "O 2.5" / "U 4.5" (or "O 3.5 avg" for
+  // constructors). Set when the line comes from Ben's O/U model; shown on the
+  // pill in place of the raw range. Absent on legacy two-sided lines.
+  benCall?: string;
   // Ben's featured pick for the GP (race session, 3 per weekend). Betting
   // AGAINST a best bet is boosted risk/reward: win pays profit × 1.5, loss
   // costs −1 pt (session-weighted). Flagged by the line generator (auto top-3

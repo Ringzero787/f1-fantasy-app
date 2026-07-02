@@ -497,6 +497,7 @@ function PickRow({
             ou={line.line}
             oddsWith={line.withOdds}
             oddsAgainst={line.againstOdds}
+            benCall={line.benCall}
           />
           <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 0.8 }}>
             actual {result != null ? `P${result}` : '—'}
