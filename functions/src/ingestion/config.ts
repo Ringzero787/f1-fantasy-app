@@ -40,14 +40,17 @@ export const ROUND_TO_RACE_ID: Record<number, string> = {
   24: 'abu_dhabi_2026',
 };
 
-// Real 2026 F1 sprint weekends, per the official FIA calendar:
-//   2  · China
+// Real 2026 F1 sprint weekends, verified against OpenF1 sessions
+// (session_name=Sprint, year=2026) and the Jolpica/Ergast calendar.
+// App round numbering includes the cancelled Bahrain/Saudi rounds 4-5.
+//   2  · China (Shanghai)
 //   6  · Miami
-//   12 · Belgium (Spa)
-//   19 · USA (Austin)
-//   21 · Brazil (São Paulo)
-//   23 · Qatar (Lusail)
-export const SPRINT_ROUNDS = new Set([2, 6, 12, 19, 21, 23]);
+//   7  · Canada (Montreal)
+//   11 · Britain (Silverstone)
+//   14 · Netherlands (Zandvoort)
+//   18 · Singapore
+// NOTE: {2,6,12,19,21,23} was the 2025-style list — wrong for 2026.
+export const SPRINT_ROUNDS = new Set([2, 6, 7, 11, 14, 18]);
 
 /**
  * Maps OpenF1 driver numbers to our app's driver IDs.
