@@ -77,6 +77,31 @@ export const tlOnRaceCompleted = functions
   .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
+
+    // IN-PROGRESS path — a session (e.g. the Saturday sprint) can conclude and
+    // post its results before the main race completes. Grade the bet-against-Ben
+    // PICKS against whatever session results exist now, so sprint outcomes show
+    // up Saturday instead of waiting for Sunday. Only picks settle here; lineup
+    // scoring, league standings, and side-bets are race-based and wait for the
+    // 'completed' pass below. settleWeekendCore is delta-based + idempotent, so
+    // the completion pass just re-confirms these (zero double-count).
+    if (after.status === 'in_progress') {
+      const raceId = context.params.raceId as string;
+      const results: RaceResultsBundle = after.results ?? {};
+      if (hashResults(before.results ?? {}) === hashResults(results)) return; // no new results
+      const seasonId = after.seasonId as string | undefined;
+      const round = after.round as number | undefined;
+      if (seasonId && typeof round === 'number') {
+        try {
+          const r = await settleWeekendCore(raceId, seasonId, round);
+          console.log(`[tl] In-progress settle: ${r.processed} pick docs for ${raceId} (partial results)`);
+        } catch (err) {
+          console.warn(`[tl] In-progress settle skipped for ${raceId}:`, err instanceof Error ? err.message : err);
+        }
+      }
+      return;
+    }
+
     if (after.status !== 'completed') return;
 
     const raceId = context.params.raceId as string;

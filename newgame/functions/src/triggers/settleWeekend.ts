@@ -229,10 +229,16 @@ export async function settleWeekendCore(
     throw new functions.https.HttpsError('not-found', `Race ${raceId} not found`);
   }
   const raceData = raceSnap.data() as { status?: string; results?: RaceResultsBundle };
-  if (raceData.status !== 'completed') {
+  // Allow settling once the race is under way (in_progress) or done (completed).
+  // in_progress covers sprint weekends: the sprint concludes and posts results
+  // Saturday, well before the race completes Sunday. Only sessions whose results
+  // are actually present get graded (see the per-session skip below), so a
+  // sprint-only pass settles just the sprint; the completion pass settles the
+  // rest and re-confirms the sprint (delta-based, no double-count).
+  if (raceData.status !== 'completed' && raceData.status !== 'in_progress') {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      `Race ${raceId} is not completed (status: ${raceData.status ?? 'unknown'})`
+      `Race ${raceId} is not in progress or completed (status: ${raceData.status ?? 'unknown'})`
     );
   }
   const officialResults = raceData.results ?? {};
