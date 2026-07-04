@@ -54,14 +54,21 @@ function posOf(r: ResultRow): number {
   return typeof r.position === 'number' && r.position > 0 ? r.position : FIELD_SIZE;
 }
 
-function buildSessionResults(rows: ResultRow[] | undefined): SessionResults | null {
+// `driverToCtor` maps driverId → constructorId so constructor sums can be built
+// even when a result row omits constructorId (sprint results in particular carry
+// only driverId). Race/quali rows that DO carry constructorId use it directly.
+function buildSessionResults(
+  rows: ResultRow[] | undefined,
+  driverToCtor: Record<string, string>
+): SessionResults | null {
   if (!rows || rows.length === 0) return null;
   const driver: Record<string, number> = {};
   const ctor: Record<string, number> = {};
   for (const r of rows) {
     const p = posOf(r);
     if (r.driverId) driver[r.driverId] = p;
-    if (r.constructorId) ctor[r.constructorId] = (ctor[r.constructorId] ?? 0) + p;
+    const cid = r.constructorId ?? (r.driverId ? driverToCtor[r.driverId] : undefined);
+    if (cid) ctor[cid] = (ctor[cid] ?? 0) + p;
   }
   return { driver, constructor: ctor };
 }
@@ -241,10 +248,18 @@ export async function settleWeekendCore(
       `Race ${raceId} is not in progress or completed (status: ${raceData.status ?? 'unknown'})`
     );
   }
+  // Driver → constructor map, so constructor position-sums resolve even for
+  // sessions whose result rows omit constructorId (e.g. sprint).
+  const constructorsSnap = await db.collection('constructors').get();
+  const driverToCtor: Record<string, string> = {};
+  constructorsSnap.forEach((c) => {
+    for (const dId of ((c.data().drivers as string[] | undefined) ?? [])) driverToCtor[dId] = c.id;
+  });
+
   const officialResults = raceData.results ?? {};
   const resultsBySession: Partial<Record<SessionKey, SessionResults | null>> = {};
   for (const s of sessions) {
-    resultsBySession[s] = buildSessionResults(officialResults[SESSION_RESULTS_KEY[s]]);
+    resultsBySession[s] = buildSessionResults(officialResults[SESSION_RESULTS_KEY[s]], driverToCtor);
   }
   if (!sessions.some((s) => resultsBySession[s])) {
     throw new functions.https.HttpsError(
