@@ -802,19 +802,36 @@ function EntityRow(props: {
   // the toggle.
   const togglePadRight = scale(isTablet ? 200 : 140); // toggle width + gap
 
+  // Settled outcome — drives the persistent win/loss tile highlight. Net cash =
+  // payout minus stake on a win, minus the stake on a loss; points = the
+  // session-weighted call credit. Both stay visible through the results phase.
+  const settled = phase === 'results' && !!props.result;
+  const won = settled && props.result!.won === true;
+  const lost = settled && props.result!.won === false;
+  const netCash = props.result ? (props.result.won ? props.result.payout - props.result.stake : -props.result.stake) : 0;
+  const outcomePoints = props.result?.pointsCredit ?? 0;
+
   return (
     <View
       style={{
         position: 'relative',
         backgroundColor: t.surface,
         borderRadius: isTablet ? 14 : 12,
-        borderWidth: against ? 1.5 : 1,
-        borderColor: against ? BEN_AGAINST : t.line,
+        borderWidth: won || lost || against ? 1.5 : 1,
+        borderColor: won ? t.success : lost ? t.danger : against ? BEN_AGAINST : t.line,
         overflow: 'hidden',
         opacity: phase === 'locked' || phase === 'complete' ? 0.7 : 1,
       }}
     >
-      {against ? (
+      {won || lost ? (
+        <LinearGradient
+          colors={[hexA(won ? t.success : t.danger, 0.18), 'transparent']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 0.75, y: 0.5 }}
+          pointerEvents="none"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+      ) : against ? (
         <LinearGradient
           colors={[BEN_AGAINST_WASH, 'rgba(156,175,136,0)']}
           start={{ x: 0, y: 0.5 }}
@@ -870,7 +887,7 @@ function EntityRow(props: {
       </Pressable>
       <View style={{ position: 'absolute', right: padding, top: 0, bottom: 0, justifyContent: 'center' }}>
         {phase === 'results' && props.result ? (
-          <ResultBadge won={props.result.won} payout={props.result.payout} />
+          <ResultBadge won={props.result.won} netCash={netCash} points={outcomePoints} side={props.result.side} />
         ) : phase === 'locked' || phase === 'complete' ? (
           <LockedBadge side={props.pickSide} stake={props.pickStake} variant={phase === 'complete' ? 'complete' : 'locked'} />
         ) : (

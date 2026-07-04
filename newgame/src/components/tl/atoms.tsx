@@ -1370,35 +1370,63 @@ export function LockedBadge({
   );
 }
 
-// Result badge — shown in the row's right slot once a session is settled.
-// Green "+$X" on a winning pick, coral "MISS" on a loss.
-export function ResultBadge({ won, payout }: { won: boolean; payout: number }) {
+// Result badge — the persistent settled-pick highlight in the row's right slot.
+// Shows the side taken (WITH/AGAINST), the outcome (WON/MISS), the net cash, and
+// the points awarded, so the player can see at a glance which calls paid off.
+export function ResultBadge({
+  won,
+  netCash,
+  points,
+  side,
+}: {
+  won: boolean;
+  netCash: number;
+  points: number;
+  side?: 'with' | 'against';
+}) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
   const color = won ? t.success : '#FFB3AC';
   const border = won ? t.success : 'rgba(242,92,84,0.55)';
   const bg = won ? '#0d2418' : 'rgba(242,92,84,0.12)';
-  const h = scale(isTablet ? 36 : 28);
-  const fontSize = scale(isTablet ? 13 : 11);
-  const label = won ? (payout > 0 ? `+$${payout.toFixed(payout < 10 ? 1 : 0)}` : 'WON') : 'MISS';
+  const sideColor = side === 'against' ? BEN_AGAINST : t.accent;
+  const money = (n: number) => `$${Math.abs(n).toFixed(Math.abs(n) < 10 ? 1 : 0)}`;
+  const moneyLabel = netCash > 0 ? `+${money(netCash)}` : netCash < 0 ? `−${money(netCash)}` : null;
+  const ptsNum = Number.isInteger(points) ? String(points) : String(+points.toFixed(2));
+  const ptsLabel = `${points > 0 ? '+' : ''}${ptsNum} pt`;
   return (
     <View
       style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        height: h,
-        paddingHorizontal: scale(10),
-        borderRadius: 6,
+        alignItems: 'flex-end',
+        minWidth: scale(isTablet ? 96 : 70),
+        paddingHorizontal: scale(9),
+        paddingVertical: scale(5),
+        borderRadius: 7,
         backgroundColor: bg,
-        borderWidth: 1,
+        borderWidth: 1.5,
         borderColor: border,
       }}
     >
-      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
-      <Text style={{ fontFamily: t.fMono, fontSize, fontWeight: '800', color, letterSpacing: 0.6, textTransform: 'uppercase', fontVariant: ['tabular-nums'] }}>
-        {label}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(4) }}>
+        {side ? (
+          <Text style={{ fontFamily: t.fMono, fontSize: scale(isTablet ? 9 : 7.5), fontWeight: '800', color: sideColor, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+            {side === 'against' ? 'Against' : 'With'}
+          </Text>
+        ) : null}
+        <Text style={{ fontFamily: t.fMono, fontSize: scale(isTablet ? 12 : 10), fontWeight: '800', color, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+          {won ? 'Won' : 'Miss'}
+        </Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: scale(6), marginTop: scale(2) }}>
+        {moneyLabel ? (
+          <Text style={{ fontFamily: t.fDisp, fontSize: scale(isTablet ? 15 : 13), fontWeight: '800', color, fontVariant: ['tabular-nums'] }}>
+            {moneyLabel}
+          </Text>
+        ) : null}
+        <Text style={{ fontFamily: t.fMono, fontSize: scale(isTablet ? 11 : 9), fontWeight: '700', color: points > 0 ? t.success : points < 0 ? '#FFB3AC' : t.textMute, fontVariant: ['tabular-nums'] }}>
+          {ptsLabel}
+        </Text>
+      </View>
     </View>
   );
 }
