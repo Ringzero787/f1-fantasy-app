@@ -20,9 +20,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { leagueService } from '@services/league.service';
+import { leaderboardService } from '@services/leaderboard.service';
 import { useTheme } from '@/theme';
 import { CONSTRUCTOR_COLORS } from '@/theme/tokens';
-import type { League } from '@/types';
+import type { League, SeasonScore } from '@/types';
+
+const CURRENT_SEASON = '2026';
 
 // Pick a stable accent color from the league name so each league has its own
 // identifying stripe — borrows the constructor palette since it's already on
@@ -49,12 +52,19 @@ export default function LeaguesIndexScreen() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [joining, setJoining] = useState<string | null>(null);
+  const [soloSeason, setSoloSeason] = useState<SeasonScore | null>(null);
 
   const reloadMine = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     try {
-      setMine(await leagueService.getMyLeagues(userId));
+      const leagues = await leagueService.getMyLeagues(userId);
+      setMine(leagues);
+      // Solo players (no leagues) get a self "Solo league" card instead of an
+      // empty state, so the tab always shows their standing.
+      if (leagues.length === 0) {
+        setSoloSeason(await leaderboardService.getMySeason(userId, CURRENT_SEASON).catch(() => null));
+      }
     } finally {
       setLoading(false);
     }
@@ -278,10 +288,7 @@ export default function LeaguesIndexScreen() {
           <ActivityIndicator color={t.accent} />
         </View>
       ) : mode === 'mine' && mine.length === 0 ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 }}>
-          <Text style={{ color: t.text, fontFamily: t.fDisp, fontSize: 18, fontWeight: '700' }}>No leagues yet.</Text>
-          <Text style={{ color: t.textMute, fontFamily: t.fSans, fontSize: 13 }}>Create one, join with a code, or browse public.</Text>
-        </View>
+        <SoloCard displayName={user?.displayName ?? 'You'} photoURL={user?.photoURL} season={soloSeason} />
       ) : mode === 'browse' && browse.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 }}>
           <Text style={{ color: t.text, fontFamily: t.fDisp, fontSize: 18, fontWeight: '700' }}>
@@ -316,6 +323,76 @@ export default function LeaguesIndexScreen() {
         />
       )}
     </SafeAreaView>
+  );
+}
+
+// Solo "league" — shown on the Mine tab when the player isn't in any league, so
+// the tab always has something: their own standing (season points, net cash,
+// call record), designated SOLO, plus a nudge to create/join.
+function SoloCard({
+  displayName,
+  photoURL,
+  season,
+}: {
+  displayName: string;
+  photoURL?: string | null;
+  season: SeasonScore | null;
+}) {
+  const t = useTheme();
+  const accent = t.accent;
+  const pts = season?.totalPoints ?? 0;
+  const cash = season?.totalCash ?? 0;
+  const correct = season?.callsCorrect ?? 0;
+  const total = season?.callsTotal ?? 0;
+  const weekends = season?.weekendsScored ?? 0;
+  const cashColor = cash > 0 ? t.success : cash < 0 ? t.danger : t.text;
+  const initial = (displayName || 'Y').charAt(0).toUpperCase();
+  return (
+    <View style={{ flex: 1, padding: 16 }}>
+      <View style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: t.line, overflow: 'hidden' }}>
+        <View style={{ height: 4, backgroundColor: accent }} />
+        <View style={{ padding: 14, flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+          {photoURL ? (
+            <Image source={{ uri: photoURL }} style={{ width: 52, height: 52, borderRadius: 12, borderWidth: 1.5, borderColor: accent }} resizeMode="cover" />
+          ) : (
+            <View style={{ width: 52, height: 52, borderRadius: 12, backgroundColor: `${accent}26`, borderWidth: 1.5, borderColor: accent, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontFamily: t.fDisp, fontWeight: '800', fontSize: 20, color: accent }}>{initial}</Text>
+            </View>
+          )}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text numberOfLines={1} style={{ color: t.text, fontFamily: t.fDisp, fontWeight: '700', fontSize: 18, letterSpacing: -0.4, flexShrink: 1 }}>
+                {displayName}
+              </Text>
+              <View style={{ paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, backgroundColor: t.accentSoft, borderWidth: 1, borderColor: t.accentDim }}>
+                <Text style={{ fontFamily: t.fMono, fontSize: 9, fontWeight: '800', color: t.accent, letterSpacing: 0.8 }}>SOLO</Text>
+              </View>
+            </View>
+            <Text style={{ marginTop: 4, color: t.textMute, fontFamily: t.fMono, fontSize: 10, letterSpacing: 0.4 }}>
+              Rank #1 · flying solo · {weekends} weekend{weekends === 1 ? '' : 's'}
+            </Text>
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingBottom: 14, gap: 10 }}>
+          <SoloStat label="Season pts" value={`${pts}`} color={t.accent} />
+          <SoloStat label="Net cash" value={`${cash >= 0 ? '+' : '−'}$${Math.abs(cash)}`} color={cashColor} />
+          <SoloStat label="Calls" value={`${correct}/${total}`} color={t.text} />
+        </View>
+      </View>
+      <Text style={{ marginTop: 14, color: t.textMute, fontFamily: t.fSans, fontSize: 13, textAlign: 'center', lineHeight: 19 }}>
+        You're flying solo. Create a league or join with a code above to climb a table with friends.
+      </Text>
+    </View>
+  );
+}
+
+function SoloStat({ label, value, color }: { label: string; value: string; color: string }) {
+  const t = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: t.surface2, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: t.line }}>
+      <Text style={{ fontFamily: t.fMono, fontSize: 8.5, fontWeight: '800', color: t.textMute, letterSpacing: 1, textTransform: 'uppercase' }}>{label}</Text>
+      <Text style={{ marginTop: 3, fontFamily: t.fDisp, fontWeight: '700', fontSize: 18, color, fontVariant: ['tabular-nums'] }}>{value}</Text>
+    </View>
   );
 }
 
