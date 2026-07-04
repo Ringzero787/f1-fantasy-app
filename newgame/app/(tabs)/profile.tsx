@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
@@ -16,7 +16,47 @@ import type { Palette, ThemeMode } from '@/theme';
 import { Num, PrimaryBtn, SectionLabel } from '@components/tl';
 import { usePrefsStore, DISPLAY_SCALE_OPTIONS } from '@store/prefs.store';
 
+// TEMP DIAGNOSTIC (0.1.24): catch + DISPLAY any render crash in Profile instead
+// of hard-closing the app, so an account-specific crash we can't reproduce
+// surfaces its actual error/stack on the user's own device. Revert once the
+// underlying cause is found and fixed.
+class ProfileErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[profile] render crash:', error?.message, info?.componentStack);
+  }
+  render() {
+    const err = this.state.error;
+    if (!err) return this.props.children;
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: '#0E1116' }} contentContainerStyle={{ padding: 20, paddingTop: 70 }}>
+        <Text style={{ color: '#F25C54', fontWeight: '800', fontSize: 18 }}>Profile crashed (diagnostic)</Text>
+        <Text style={{ color: '#9BA6B2', fontSize: 12, marginTop: 6 }}>
+          Copy this and send it over — then we fix it. The app won't close.
+        </Text>
+        <Text selectable style={{ color: '#FFFFFF', fontFamily: 'monospace', fontSize: 13, marginTop: 16 }}>
+          {String(err.name)}: {String(err.message)}
+        </Text>
+        <Text selectable style={{ color: '#8B98A5', fontFamily: 'monospace', fontSize: 10, marginTop: 14, lineHeight: 15 }}>
+          {String(err.stack ?? '(no stack)')}
+        </Text>
+      </ScrollView>
+    );
+  }
+}
+
 export default function ProfileScreen() {
+  return (
+    <ProfileErrorBoundary>
+      <ProfileScreenInner />
+    </ProfileErrorBoundary>
+  );
+}
+
+function ProfileScreenInner() {
   const t = useTheme();
   const { mode, palette, setMode, setPalette } = useThemePrefs();
   const user = useAuthStore((s) => s.user);
