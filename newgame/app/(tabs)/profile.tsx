@@ -15,6 +15,10 @@ import { useTheme, useThemePrefs, TL_PALETTES } from '@/theme';
 import type { Palette, ThemeMode } from '@/theme';
 import { Num, PrimaryBtn, SectionLabel } from '@components/tl';
 import { usePrefsStore, DISPLAY_SCALE_OPTIONS } from '@store/prefs.store';
+import { useQuery } from '@tanstack/react-query';
+import { leaderboardService } from '@services/leaderboard.service';
+
+const CURRENT_SEASON = '2026';
 
 // TEMP DIAGNOSTIC (0.1.24): catch + DISPLAY any render crash in Profile instead
 // of hard-closing the app, so an account-specific crash we can't reproduce
@@ -69,6 +73,16 @@ function ProfileScreenInner() {
   const refreshEntitlements = usePurchasesStore((s) => s.refresh);
   const { garage } = useGarageWithEntities();
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Season points/cash come from the PICKS ledger (tl_season_scores), not the
+  // garage — garage.totalPoints is the fantasy-lineup score, which is 0 for
+  // pick-only players. Read the real season totals here.
+  const { data: season } = useQuery({
+    queryKey: ['tl', 'profile-season', user?.id],
+    queryFn: () => (user ? leaderboardService.getMySeason(user.id, CURRENT_SEASON) : Promise.resolve(null)),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     if (user && !entitlements) loadEntitlements(user.id);
@@ -287,7 +301,7 @@ function ProfileScreenInner() {
       {garage && (
         <View style={styles.statsGrid}>
           <Stat label="Cash" value={`$${garage.cash}`} />
-          <Stat label="Season pts" value={`${garage.totalPoints}`} />
+          <Stat label="Season pts" value={`${season?.totalPoints ?? 0}`} />
           <Stat label="Earned" value={`$${garage.totalCashEarned}`} />
         </View>
       )}
