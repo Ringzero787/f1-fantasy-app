@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "tl_weekend_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "round", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "drivers",
       "queryScope": "COLLECTION",
       "fields": [
