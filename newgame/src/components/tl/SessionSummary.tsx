@@ -177,8 +177,10 @@ function ScopePage({ scope, summary }: { scope: SessionKey; summary?: ScopeSumma
         <Text style={{ fontFamily: t.fMono, fontSize: 16, color: t.textMute, fontWeight: '600' }}>M</Text>
         <View style={{ flex: 1 }} />
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={{ fontFamily: t.fMono, fontSize: 9, fontWeight: '800', color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Points</Text>
-          <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 22, color: t.text, fontVariant: ['tabular-nums'] }}>{summary.points}</Text>
+          {/* The won hero card is always dark green, so its text must be light
+              regardless of theme (t.text is dark in light theme → invisible). */}
+          <Text style={{ fontFamily: t.fMono, fontSize: 9, fontWeight: '800', color: won ? 'rgba(255,255,255,0.65)' : t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Points</Text>
+          <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 22, color: won ? '#FFFFFF' : t.text, fontVariant: ['tabular-nums'] }}>{summary.points}</Text>
         </View>
       </View>
 
@@ -295,8 +297,8 @@ function WeekendPage({
           <Text style={{ fontFamily: t.fDisp, fontSize: 22, color: t.textMute, fontWeight: '600' }}>M</Text>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.lineSoft }}>
-          <Text style={{ fontFamily: t.fMono, fontSize: 11, color: t.textDim }}>{points} pts earned</Text>
-          <Text style={{ fontFamily: t.fMono, fontSize: 11, color: t.textDim }}>{hits}W · {misses}L</Text>
+          <Text style={{ fontFamily: t.fMono, fontSize: 11, color: won ? 'rgba(255,255,255,0.8)' : t.textDim }}>{points} pts earned</Text>
+          <Text style={{ fontFamily: t.fMono, fontSize: 11, color: won ? 'rgba(255,255,255,0.8)' : t.textDim }}>{hits}W · {misses}L</Text>
         </View>
       </View>
 
