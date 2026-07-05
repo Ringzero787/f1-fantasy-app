@@ -65,7 +65,20 @@ module.exports = {
       }],
       "expo-router",
       "expo-asset",
-      "expo-font",
+      ["expo-font", {
+        // Embed the Race Day faces natively (family name = file name) so
+        // release builds don't depend on expo-font's runtime asset loading,
+        // which fails in release ("Unable to download asset from url:").
+        fonts: [
+          "./node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf",
+          "./node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf",
+          "./node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf",
+          "./node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf",
+          "./node_modules/@expo-google-fonts/space-grotesk/500Medium/SpaceGrotesk_500Medium.ttf",
+          "./node_modules/@expo-google-fonts/space-grotesk/600SemiBold/SpaceGrotesk_600SemiBold.ttf",
+          "./node_modules/@expo-google-fonts/space-grotesk/700Bold/SpaceGrotesk_700Bold.ttf",
+        ],
+      }],
       "expo-web-browser",
       "expo-image",
       [

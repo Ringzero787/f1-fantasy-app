@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { usePrefsStore } from '../../store/prefs.store';
 
 // Get current display scale — called at render time by components
@@ -129,9 +130,12 @@ export const S_FONT_FAMILY = {
 } as const;
 
 // Space Grotesk ships no italic face; the design's "italic speed type" is a
-// synthesized oblique. Android would synthesize via fontStyle but iOS won't,
-// so both platforms use this skew transform for identical rendering.
+// synthesized oblique. Android ignores skew transforms on Text (verified on
+// device) but synthesizes oblique via fontStyle; iOS/web do the reverse.
 export const S_DISPLAY_SKEW = [{ skewX: '-8deg' }] as const;
+export const S_DISPLAY_OBLIQUE = Platform.OS === 'android'
+  ? ({ fontStyle: 'italic' } as const)
+  : ({ transform: S_DISPLAY_SKEW as unknown as { skewX: string }[] } as const);
 
 export const S_FONTS = {
   regular: 'System',

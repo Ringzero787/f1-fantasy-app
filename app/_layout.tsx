@@ -57,7 +57,7 @@ export default function RootLayout() {
 
   // Race Day type system (Inter body + Space Grotesk display). Don't block
   // rendering on the load — RN falls back to the system font until ready.
-  useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -66,6 +66,10 @@ export default function RootLayout() {
     SpaceGrotesk_600SemiBold,
     SpaceGrotesk_700Bold,
   });
+  useEffect(() => {
+    if (fontError) console.warn('[fonts] load failed:', fontError.message ?? fontError);
+    else if (fontsLoaded) console.log('[fonts] loaded');
+  }, [fontsLoaded, fontError]);
 
   // Load remote config from Firestore on startup
   useEffect(() => { useRemoteConfigStore.getState().initialize(); }, []);

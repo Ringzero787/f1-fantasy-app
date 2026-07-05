@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONT_FAMILY, S_DISPLAY_SKEW, teamAccent, shadeHex } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY, S_DISPLAY_OBLIQUE, teamAccent, shadeHex } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { demoDrivers } from '../../data/demoData';
 
@@ -94,7 +94,7 @@ export function DriverTile({ driverId, shortName, constructorId, isAce, size = 4
             lineHeight: scaled(18),
             letterSpacing: -0.5,
             color: '#FFFFFF',
-            transform: S_DISPLAY_SKEW as unknown as { skewX: string }[],
+            ...S_DISPLAY_OBLIQUE,
             textShadowColor: 'rgba(0,0,0,0.25)',
             textShadowOffset: { width: 0, height: 1 },
             textShadowRadius: 2,
@@ -169,7 +169,7 @@ export function ConstructorTile({ constructorId, size = 40 }: ConstructorTilePro
           fontSize: scaled(14),
           letterSpacing: 0.5,
           color: '#FFFFFF',
-          transform: S_DISPLAY_SKEW as unknown as { skewX: string }[],
+          ...S_DISPLAY_OBLIQUE,
           textShadowColor: 'rgba(0,0,0,0.25)',
           textShadowOffset: { width: 0, height: 1 },
           textShadowRadius: 2,

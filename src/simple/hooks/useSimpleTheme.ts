@@ -6,7 +6,7 @@ import {
   S_COLORS_DARK,
   S_FONTS,
   S_FONT_FAMILY,
-  S_DISPLAY_SKEW,
+  S_DISPLAY_OBLIQUE,
   S_SPACING,
   S_RADIUS,
 } from '../theme/simpleTheme';
@@ -55,7 +55,7 @@ export function useSimpleTheme() {
       // Space Grotesk + the synthesized-oblique skew the design calls for.
       display: {
         fontFamily: S_FONT_FAMILY.display.bold,
-        transform: S_DISPLAY_SKEW as unknown as { skewX: string }[],
+        ...S_DISPLAY_OBLIQUE,
       },
       // Display face without the skew (upright headings, invite code, etc.)
       displayUpright: {
