@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useLockoutStatus } from '../../hooks/useLockoutStatus';
 
 export const SimpleCountdownBanner = React.memo(function SimpleCountdownBanner() {
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, fonts, spacing, scaled } = useSimpleTheme();
   const lockoutInfo = useLockoutStatus();
   const [now, setNow] = useState(Date.now());
   const [expanded, setExpanded] = useState(false);
@@ -20,17 +20,17 @@ export const SimpleCountdownBanner = React.memo(function SimpleCountdownBanner()
     collapsed: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      gap: 4,
+      gap: 6,
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.borderLight,
+      borderColor: colors.border,
       borderRadius: S_RADIUS.pill,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 3,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
     },
     collapsedText: {
-      fontSize: fonts.xs,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(11.5),
+      fontFamily: S_FONT_FAMILY.body.medium,
     },
     expanded: {
       backgroundColor: colors.surface,
@@ -46,14 +46,14 @@ export const SimpleCountdownBanner = React.memo(function SimpleCountdownBanner()
     },
     raceName: {
       fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.semibold,
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.primary,
       flex: 1,
     },
     timeText: {
       fontSize: fonts.sm,
       color: colors.text.muted,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.medium,
     },
     lockRow: {
       flexDirection: 'row' as const,
@@ -64,7 +64,7 @@ export const SimpleCountdownBanner = React.memo(function SimpleCountdownBanner()
     lockText: {
       fontSize: fonts.xs,
       color: colors.warning,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.medium,
     },
     lockHint: {
       fontSize: fonts.xs,
@@ -87,7 +87,7 @@ export const SimpleCountdownBanner = React.memo(function SimpleCountdownBanner()
   const secs = Math.floor((diff / 1000) % 60);
 
   let timeStr = '';
-  if (days > 0) timeStr = `${days}d ${hours}h ${mins}m ${secs}s`;
+  if (days > 0) timeStr = `${days}d ${hours}h ${mins}m`;
   else if (hours > 0) timeStr = `${hours}h ${mins}m ${secs}s`;
   else timeStr = `${mins}m ${secs}s`;
 
@@ -107,19 +107,18 @@ export const SimpleCountdownBanner = React.memo(function SimpleCountdownBanner()
     }
   }
 
-  const isClose = days <= 2; // Within 2 days = more urgent
-  const iconColor = lockoutInfo.isLocked ? colors.warning : isClose ? colors.primary : colors.text.muted;
+  const iconColor = lockoutInfo.isLocked ? colors.warning : colors.primary;
 
-  // Collapsed: compact pill with time
+  // Collapsed: compact chip — flag icon in primary red, muted time text
   if (!expanded) {
     return (
       <TouchableOpacity style={styles.collapsed} onPress={() => setExpanded(true)} activeOpacity={0.7}>
         <Ionicons
           name={lockoutInfo.isLocked ? 'lock-closed' : 'flag-outline'}
-          size={12}
+          size={13}
           color={iconColor}
         />
-        <Text style={[styles.collapsedText, { color: iconColor }]}>{timeStr}</Text>
+        <Text style={[styles.collapsedText, { color: colors.text.secondary }]}>{timeStr}</Text>
       </TouchableOpacity>
     );
   }

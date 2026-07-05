@@ -1,68 +1,78 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
+import { useAuthStore } from '../../store/auth.store';
 
 interface Props {
   onPress: () => void;
 }
 
+function initialsOf(name?: string | null): string {
+  if (!name) return '·';
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+}
+
+// Race Day profile entry — the "sliver": a slim full-width bar pinned above
+// the toggle row (replaces the old floating bottom pill).
 export const SimpleProfilePill = React.memo(function SimpleProfilePill({ onPress }: Props) {
-  const insets = useSafeAreaInsets();
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, scaled } = useSimpleTheme();
+  const user = useAuthStore((s) => s.user);
+  const initials = initialsOf(user?.displayName);
 
   const styles = useMemo(() => ({
-    wrapper: {
-      position: 'absolute' as const,
-      bottom: 0,
-      left: 0,
-      right: 0,
-      alignItems: 'center' as const,
-    },
-    pill: {
+    bar: {
+      height: scaled(30),
       backgroundColor: colors.surface,
-      borderTopLeftRadius: S_RADIUS.lg,
-      borderTopRightRadius: S_RADIUS.lg,
-      borderWidth: 1,
-      borderBottomWidth: 0,
-      borderColor: colors.border,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.md,
-      paddingHorizontal: spacing.xxl,
-      alignItems: 'center' as const,
-      minHeight: 48,
-      minWidth: 120,
-    },
-    handle: {
-      width: 40,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.border,
-      marginBottom: spacing.xs,
-    },
-    row: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      gap: 6,
+      paddingLeft: 12,
+      paddingRight: 10,
+      gap: 10,
+    },
+    chip: {
+      width: scaled(22),
+      height: scaled(22),
+      borderRadius: S_RADIUS.sm,
+      backgroundColor: colors.primary,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    chipText: {
+      fontSize: scaled(10),
+      fontFamily: S_FONT_FAMILY.display.bold,
+      letterSpacing: 0.3,
+      color: colors.text.inverse,
     },
     label: {
-      fontSize: fonts.sm,
-      color: colors.text.muted,
-      fontWeight: S_FONTS.weights.medium,
+      flex: 1,
+      fontSize: scaled(11),
+      fontFamily: S_FONT_FAMILY.body.bold,
+      letterSpacing: 4,
+      textTransform: 'uppercase' as const,
+      color: colors.text.primary,
     },
-  }), [colors, fonts, spacing]);
+    arrow: {
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.bold,
+      color: colors.text.primary,
+    },
+  }), [colors, scaled]);
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
-      <TouchableOpacity style={styles.pill} onPress={onPress} activeOpacity={0.7}>
-        <View style={styles.handle} />
-        <View style={styles.row}>
-          <Ionicons name="person-circle-outline" size={20} color={colors.text.muted} />
-          <Text style={styles.label}>Profile</Text>
-        </View>
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity style={styles.bar} onPress={onPress} activeOpacity={0.7} accessibilityLabel="Profile">
+      <View style={styles.chip}>
+        <Text style={styles.chipText}>{initials}</Text>
+      </View>
+      <Text style={styles.label}>Profile</Text>
+      <Text style={styles.arrow}>→</Text>
+    </TouchableOpacity>
   );
 });

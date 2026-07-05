@@ -6,6 +6,18 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as Updates from 'expo-updates';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
+import {
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
 // import crashlytics from '@react-native-firebase/crashlytics';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { AppUpdateGate } from '../src/components/AppUpdateGate';
@@ -42,6 +54,18 @@ function extractInviteCode(url: string): string | null {
 
 export default function RootLayout() {
   const { isTablet } = useLayout();
+
+  // Race Day type system (Inter body + Space Grotesk display). Don't block
+  // rendering on the load — RN falls back to the system font until ready.
+  useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+  });
 
   // Load remote config from Firestore on startup
   useEffect(() => { useRemoteConfigStore.getState().initialize(); }, []);

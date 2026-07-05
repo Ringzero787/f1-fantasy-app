@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { SimpleMarketRow } from './SimpleMarketRow';
 import { SimpleContractPicker } from './SimpleContractPicker';
@@ -35,7 +35,7 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
   refreshing,
   onRefresh,
 }: Props) {
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, fonts, spacing, scaled, display } = useSimpleTheme();
   const { data: allDrivers, isLoading: driversLoading } = useDrivers();
   const { data: allConstructors, isLoading: constructorsLoading } = useConstructors();
   const { team, teamConstructor, budget, driversCount, removeDriver, removeConstructor } = useSimpleTeam();
@@ -281,26 +281,28 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
     },
     teamFullText: {
       fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.semibold,
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.positive,
     },
     budgetBar: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      backgroundColor: colors.card,
+      paddingVertical: 12,
+      backgroundColor: colors.surface,
       borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
+      borderBottomColor: colors.border,
     },
     budgetLabel: {
-      fontSize: fonts.sm,
-      color: colors.text.muted,
-      marginRight: spacing.xs,
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.regular,
+      color: colors.text.secondary,
+      marginRight: 6,
     },
     budgetValue: {
-      fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.bold,
+      ...display,
+      fontSize: scaled(17),
+      letterSpacing: -0.3,
       color: colors.primary,
     },
     budgetRight: {
@@ -310,11 +312,12 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
       alignItems: 'center' as const,
     },
     slotsText: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.text.muted,
     },
     slotSep: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13),
       color: colors.text.muted,
     },
     tabRow: {
@@ -325,25 +328,27 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
       borderRadius: S_RADIUS.md,
       borderWidth: 1,
       borderColor: colors.border,
-      overflow: 'hidden' as const,
+      backgroundColor: colors.surface,
+      padding: 3,
+      gap: 2,
     },
     tabBtn: {
       flex: 1,
       alignItems: 'center' as const,
-      paddingVertical: spacing.sm,
-      backgroundColor: colors.background,
+      justifyContent: 'center' as const,
+      height: scaled(38),
+      borderRadius: S_RADIUS.md - 2,
     },
     tabBtnActive: {
       backgroundColor: colors.primary,
     },
     tabText: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.secondary,
     },
     tabTextActive: {
       color: colors.text.inverse,
-      fontWeight: S_FONTS.weights.semibold,
     },
     searchWrap: {
       flexDirection: 'row' as const,
@@ -353,16 +358,17 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: S_RADIUS.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      backgroundColor: colors.background,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      backgroundColor: colors.card,
+      gap: 10,
     },
     searchInput: {
       flex: 1,
-      fontSize: fonts.md,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.primary,
-      marginLeft: spacing.sm,
-      paddingVertical: spacing.xs,
+      padding: 0,
     },
     sortRow: {
       flexDirection: 'row' as const,
@@ -371,31 +377,33 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
       gap: spacing.sm,
     },
     sortChip: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
+      paddingHorizontal: 16,
+      paddingVertical: 7,
       borderRadius: S_RADIUS.pill,
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: colors.background,
+      backgroundColor: 'transparent',
     },
     sortChipActive: {
       backgroundColor: colors.primaryFaint,
       borderColor: colors.primary,
     },
     sortChipText: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.medium,
-      color: colors.text.muted,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      color: colors.text.secondary,
     },
     sortChipTextActive: {
       color: colors.primary,
-      fontWeight: S_FONTS.weights.semibold,
     },
     list: {
       flex: 1,
     },
     listContent: {
       paddingBottom: spacing.xxl + 40,
+      backgroundColor: colors.card,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
     },
     emptyWrap: {
       paddingVertical: spacing.xxl,
@@ -405,7 +413,7 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
       fontSize: fonts.md,
       color: colors.text.muted,
     },
-  }), [colors, fonts, spacing]);
+  }), [colors, fonts, spacing, scaled, display]);
 
   return (
     <View style={styles.root}>

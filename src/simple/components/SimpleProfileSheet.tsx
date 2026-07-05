@@ -3,11 +3,11 @@ import {
   View,
   Text,
   Modal,
+  Pressable,
   ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -29,8 +29,7 @@ import { generateAvatar } from '../../services/avatarGeneration.service';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { demoRaces } from '../../data/demoData';
-import { TEAM_COLORS } from '../../config/constants';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY, teamAccent } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 interface Props {
@@ -39,7 +38,7 @@ interface Props {
 }
 
 export function SimpleProfileSheet({ visible, onClose }: Props) {
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, fonts, spacing, scaled, displayUpright } = useSimpleTheme();
   const user = useAuthStore((s) => s.user);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const signOut = useAuthStore((s) => s.signOut);
@@ -246,7 +245,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
 
   const handlePrivacyPolicy = () => {
     WebBrowser.openBrowserAsync('https://f1-app-18077.web.app/privacy.html', {
-      controlsColor: '#14B8A6',
+      controlsColor: colors.primary,
       toolbarColor: colors.background,
     });
   };

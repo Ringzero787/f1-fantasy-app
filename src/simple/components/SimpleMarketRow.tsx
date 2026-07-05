@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY, teamAccent } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
-import { TEAM_COLORS } from '../../config/constants';
 import type { Driver, Constructor } from '../../types';
 
 interface DriverRowProps {
@@ -32,11 +31,11 @@ type Props = DriverRowProps | ConstructorRowProps;
 
 export const SimpleMarketRow = React.memo(function SimpleMarketRow(props: Props) {
   const { type, item, onTeam, canAfford, disabled, dimmed, onAdd, onRemove } = props;
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, fonts, spacing, scaled, display } = useSimpleTheme();
 
   const constructorId =
     type === 'driver' ? (item as Driver).constructorId : item.id;
-  const teamColor = TEAM_COLORS[constructorId]?.primary ?? colors.primary;
+  const teamColor = teamAccent(constructorId);
 
   const priceChange = item.price - item.previousPrice;
   const priceUp = priceChange > 0;
@@ -54,19 +53,28 @@ export const SimpleMarketRow = React.memo(function SimpleMarketRow(props: Props)
     container: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      backgroundColor: colors.background,
-      borderLeftWidth: 4,
+      backgroundColor: onTeam ? colors.primaryFaint + '55' : 'transparent',
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
+      paddingVertical: scaled(14),
+      paddingRight: spacing.lg,
+      paddingLeft: scaled(20),
+      gap: 12,
+    },
+    stripe: {
+      position: 'absolute' as const,
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 5,
+      backgroundColor: teamColor,
     },
     dimmed: {
-      opacity: 0.4,
+      opacity: 0.62,
     },
     info: {
       flex: 1,
-      marginRight: spacing.sm,
+      minWidth: 0,
     },
     nameRow: {
       flexDirection: 'row' as const,
@@ -74,8 +82,9 @@ export const SimpleMarketRow = React.memo(function SimpleMarketRow(props: Props)
       gap: spacing.sm,
     },
     name: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(15.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      letterSpacing: -0.2,
       color: colors.text.primary,
       flexShrink: 1,
     },
@@ -87,36 +96,38 @@ export const SimpleMarketRow = React.memo(function SimpleMarketRow(props: Props)
     },
     onTeamText: {
       fontSize: fonts.xs,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.primary,
     },
     sub: {
-      fontSize: fonts.sm,
+      fontSize: scaled(12.5),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
-      marginTop: 1,
+      marginTop: 2,
     },
     pointsWrap: {
       alignItems: 'center' as const,
-      marginRight: spacing.md,
-      minWidth: 36,
+      minWidth: 38,
     },
     pointsValue: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.bold,
-      color: colors.primary,
+      ...display,
+      fontSize: scaled(16),
+      lineHeight: scaled(17),
     },
     pointsLabel: {
-      fontSize: fonts.xs,
+      fontSize: scaled(11),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
+      marginTop: 2,
     },
     priceWrap: {
       alignItems: 'flex-end' as const,
-      marginRight: spacing.md,
-      minWidth: 48,
+      minWidth: 56,
     },
     price: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      ...display,
+      fontSize: scaled(17),
+      letterSpacing: -0.3,
       color: colors.text.primary,
     },
     changeRow: {
@@ -127,13 +138,13 @@ export const SimpleMarketRow = React.memo(function SimpleMarketRow(props: Props)
     },
     changeText: {
       fontSize: fonts.xs,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.medium,
     },
     addBtn: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      borderWidth: 1,
+      width: scaled(36),
+      height: scaled(36),
+      borderRadius: scaled(18),
+      borderWidth: 1.5,
       borderColor: colors.primary,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
@@ -141,16 +152,16 @@ export const SimpleMarketRow = React.memo(function SimpleMarketRow(props: Props)
     addBtnDisabled: {
       borderColor: colors.border,
     },
-  }), [colors, fonts, spacing]);
+    ownedBtn: {
+      backgroundColor: colors.positive,
+      borderColor: colors.positive,
+    },
+  }), [colors, fonts, spacing, scaled, display, teamColor, onTeam]);
 
   return (
-    <View
-      style={[
-        styles.container,
-        { borderLeftColor: teamColor },
-        dimmed && styles.dimmed,
-      ]}
-    >
+    <View style={[styles.container, dimmed && styles.dimmed]}>
+      <View style={styles.stripe} />
+
       {/* Info */}
       <View style={styles.info}>
         <View style={styles.nameRow}>
@@ -170,7 +181,14 @@ export const SimpleMarketRow = React.memo(function SimpleMarketRow(props: Props)
 
       {/* Points badge */}
       <View style={styles.pointsWrap}>
-        <Text style={styles.pointsValue}>{seasonPts}</Text>
+        <Text
+          style={[
+            styles.pointsValue,
+            { color: seasonPts > 0 ? colors.positive : seasonPts < 0 ? colors.negative : colors.text.muted },
+          ]}
+        >
+          {seasonPts}
+        </Text>
         <Text style={styles.pointsLabel}>pts</Text>
       </View>
 

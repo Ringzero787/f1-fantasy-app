@@ -1,8 +1,8 @@
-import React from 'react';
-import { Image, TouchableOpacity, StyleSheet } from 'react-native';
-
-// Single image with both states side by side — we crop to show only the active half
-const toggleImage = require('../../../assets/toggle-switch.png');
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { S_RADIUS, S_FONT_FAMILY } from '../theme/simpleTheme';
+import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 interface Props {
   activeIndex: number;
@@ -12,12 +12,6 @@ interface Props {
   onCreateSecond: () => void;
 }
 
-// Image dimensions: the source has two switches side by side
-// Left = Team 1 (on/teal), Right = Team 2 (off/gray)
-const DISPLAY_W = 36;
-const DISPLAY_H = 64;
-const SOURCE_ASPECT = 0.44; // each switch is roughly 44% as wide as tall
-
 export const SimpleTeamToggle = React.memo(function SimpleTeamToggle({
   activeIndex,
   teamCount,
@@ -25,55 +19,78 @@ export const SimpleTeamToggle = React.memo(function SimpleTeamToggle({
   onSwitch,
   onCreateSecond,
 }: Props) {
+  const { colors, scaled } = useSimpleTheme();
+
+  const styles = useMemo(() => ({
+    container: {
+      flexDirection: 'row' as const,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: S_RADIUS.pill,
+      padding: 3,
+      gap: 2,
+    },
+    segment: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 4,
+      height: scaled(28),
+      paddingHorizontal: scaled(12),
+      borderRadius: S_RADIUS.pill - 3,
+    },
+    segmentActive: {
+      backgroundColor: colors.primary,
+    },
+    segmentText: {
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      color: colors.text.secondary,
+    },
+    segmentTextActive: {
+      color: colors.text.inverse,
+    },
+  }), [colors, scaled]);
+
   if (teamCount < 2 && !canCreateSecond) return null;
 
   const hasTwo = teamCount >= 2;
-  const showTeam2 = activeIndex === 1;
 
-  const handleTap = () => {
+  const handleSecondTap = () => {
     if (hasTwo) {
-      onSwitch(activeIndex === 0 ? 1 : 0);
+      onSwitch(1);
     } else if (canCreateSecond) {
       onCreateSecond();
     }
   };
 
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={handleTap}
-      activeOpacity={0.8}
-    >
-      <Image
-        source={toggleImage}
-        style={[
-          styles.image,
-          // Crop to show only left half (team 1) or right half (team 2)
-          showTeam2 ? styles.showRight : styles.showLeft,
-        ]}
-        resizeMode="cover"
-      />
-    </TouchableOpacity>
-  );
-});
+    <View style={styles.container}>
+      <TouchableOpacity
+        style={[styles.segment, activeIndex === 0 && styles.segmentActive]}
+        onPress={() => onSwitch(0)}
+        activeOpacity={0.7}
+        accessibilityLabel="Switch to team 1"
+      >
+        <Text style={[styles.segmentText, activeIndex === 0 && styles.segmentTextActive]}>
+          Team 1
+        </Text>
+      </TouchableOpacity>
 
-const styles = StyleSheet.create({
-  container: {
-    width: DISPLAY_W,
-    height: DISPLAY_H,
-    overflow: 'hidden',
-    borderRadius: 10,
-  },
-  image: {
-    width: DISPLAY_W * 2,
-    height: DISPLAY_H,
-    position: 'absolute',
-    top: 0,
-  },
-  showLeft: {
-    left: 0,
-  },
-  showRight: {
-    left: -DISPLAY_W,
-  },
+      <TouchableOpacity
+        style={[styles.segment, hasTwo && activeIndex === 1 && styles.segmentActive]}
+        onPress={handleSecondTap}
+        activeOpacity={0.7}
+        accessibilityLabel={hasTwo ? 'Switch to team 2' : 'Create a second team'}
+      >
+        {!hasTwo && (
+          <Ionicons name="add" size={scaled(13)} color={colors.text.secondary} />
+        )}
+        <Text style={[styles.segmentText, hasTwo && activeIndex === 1 && styles.segmentTextActive]}>
+          Team 2
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 });

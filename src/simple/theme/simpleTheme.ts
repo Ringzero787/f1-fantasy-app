@@ -5,92 +5,132 @@ export function getDisplayScale(): number {
   return usePrefsStore.getState().displayScale;
 }
 
-export const S_COLORS_LIGHT = {
-  background: '#FFFFFF',
-  surface: '#F6FAFA',
-  card: '#EDF5F5',
-  cardPressed: '#E0EDED',
+// ============================================================================
+// "Race Day" theme — F1-broadcast look per design_handoff_race_day_redesign.
+// Carbon black surfaces, F1 red primary, italic Space Grotesk display type.
+// Dark is the default ("Race Day"); light is "paddock white".
+// ============================================================================
 
-  primary: '#14B8A6',     // Teal-500 (matches Undercut branding)
-  primaryDark: '#0D9488',
-  primaryLight: '#5EEAD4',
-  primaryFaint: '#E6F7F5',
+export const S_COLORS_DARK = {
+  background: '#15151E',
+  surface: '#1D1D28',
+  card: '#22222E',
+  cardPressed: '#2B2B3A',
+
+  primary: '#E10600',     // F1 red
+  primaryDark: '#B00500',
+  primaryLight: '#FF4136',
+  primaryFaint: '#3A1216',
 
   text: {
-    primary: '#1A2A2E',
-    secondary: '#4B5E63',
-    muted: '#8A9BA0',
+    primary: '#F5F5F7',
+    secondary: '#A9A9BC',
+    muted: '#6E6E82',
     inverse: '#FFFFFF',
   },
 
-  positive: '#2E7D32',
-  negative: '#C62828',
-  warning: '#E67E22',
+  positive: '#33CC66',
+  negative: '#FF5252',
+  warning: '#FFB800',
 
-  border: '#D0E0E0',
-  borderLight: '#E4EEEE',
+  border: '#32323F',
+  borderLight: '#282833',
 
-  gold: '#C5960C',
-  silver: '#757575',
-  bronze: '#8D6E63',
+  gold: '#FFD24A',
+  silver: '#B9B9C9',
+  bronze: '#D68B4F',
 
   // Ace badge
-  ace: '#C5960C',
-  aceBg: '#FFF8E1',
+  ace: '#FFD24A',
+  aceBg: '#332B12',
 
   // Lock state
-  locked: '#8A9BA0',
-  lockedBg: '#EDF5F5',
+  locked: '#6E6E82',
+  lockedBg: '#2B2B3A',
 
   // Success banner background
-  positiveFaint: '#E8F5E9',
+  positiveFaint: '#12291A',
+
+  // Sheet/modal backdrop
+  scrim: 'rgba(8,8,14,0.7)',
+
+  // Faint diagonal speed-line texture on the stat bar
+  speedLine: 'rgba(255,255,255,0.025)',
 } as const;
 
-export const S_COLORS_DARK = {
-  background: '#0F1A1C',
-  surface: '#162226',
-  card: '#1C2C30',
-  cardPressed: '#253A3F',
+export const S_COLORS_LIGHT = {
+  background: '#F4F4F6',
+  surface: '#FFFFFF',
+  card: '#FFFFFF',
+  cardPressed: '#ECECEF',
 
-  primary: '#14B8A6',     // Teal-500 — same in both themes
-  primaryDark: '#0D9488',
-  primaryLight: '#5EEAD4',
-  primaryFaint: '#0D2E2A',
+  primary: '#E10600',     // same red in both modes
+  primaryDark: '#B00500',
+  primaryLight: '#FF4136',
+  primaryFaint: '#FBE3E1',
 
   text: {
-    primary: '#E8F0F0',
-    secondary: '#A0B4B8',
-    muted: '#6B8085',
-    inverse: '#0F1A1C',
+    primary: '#15151E',
+    secondary: '#4E4E5E',
+    muted: '#8C8C9C',
+    inverse: '#FFFFFF',
   },
 
-  positive: '#4CAF50',
-  negative: '#EF5350',
-  warning: '#F0A040',
+  positive: '#1D9E4E',
+  negative: '#D0342C',
+  warning: '#C58A00',
 
-  border: '#2A3E42',
-  borderLight: '#223236',
+  border: '#E2E2E8',
+  borderLight: '#EDEDF1',
 
-  gold: '#D4A520',
-  silver: '#9E9E9E',
-  bronze: '#A1887F',
+  gold: '#C79A2A',
+  silver: '#9898A6',
+  bronze: '#B0703C',
 
   // Ace badge
-  ace: '#D4A520',
-  aceBg: '#2A2410',
+  ace: '#C79A2A',
+  aceBg: '#F7EFD8',
 
   // Lock state
-  locked: '#6B8085',
-  lockedBg: '#1C2C30',
+  locked: '#8C8C9C',
+  lockedBg: '#ECECEF',
 
   // Success banner background
-  positiveFaint: '#1A2E1A',
+  positiveFaint: '#E4F3E9',
+
+  // Sheet/modal backdrop
+  scrim: 'rgba(21,21,30,0.5)',
+
+  // Faint diagonal speed-line texture on the stat bar
+  speedLine: 'rgba(21,21,30,0.03)',
 } as const;
 
-// Backwards compatibility — light palette is the default
-export const S_COLORS = S_COLORS_LIGHT;
+// Backwards compatibility — dark ("Race Day") is the canonical palette.
+// Both palettes share the same key shape; SimpleColors covers both.
+export const S_COLORS = S_COLORS_DARK;
 
-export type SimpleColors = typeof S_COLORS_LIGHT;
+export type SimpleColors = typeof S_COLORS_DARK;
+
+// Per-weight font family names (expo-google-fonts registers one family per
+// weight — do NOT combine these with fontWeight or iOS will double-embolden).
+export const S_FONT_FAMILY = {
+  body: {
+    regular: 'Inter_400Regular',
+    medium: 'Inter_500Medium',
+    semibold: 'Inter_600SemiBold',
+    bold: 'Inter_700Bold',
+  },
+  display: {
+    medium: 'SpaceGrotesk_500Medium',
+    semibold: 'SpaceGrotesk_600SemiBold',
+    bold: 'SpaceGrotesk_700Bold',
+  },
+} as const;
+
+// Space Grotesk ships no italic face; the design's "italic speed type" is a
+// synthesized oblique. Android would synthesize via fontStyle but iOS won't,
+// so both platforms use this skew transform for identical rendering.
+export const S_DISPLAY_SKEW = [{ skewX: '-8deg' }] as const;
 
 export const S_FONTS = {
   regular: 'System',
@@ -122,7 +162,44 @@ export const S_SPACING = {
 
 export const S_RADIUS = {
   sm: 6,
-  md: 8,
+  md: 9,
   lg: 12,
-  pill: 9999,
+  sheet: 18,
+  pill: 10,      // Race Day "pill" is a squared chip, not a capsule
+  full: 9999,    // true circles/capsules (avatars, round buttons)
 } as const;
+
+// Constructor accent colors tuned for Race Day surfaces (the handoff palette).
+// Deliberately separate from src/config/constants TEAM_COLORS, which the
+// legacy (tabs) UI still consumes — e.g. Haas moves off #E10600 here so team
+// stripes never read as the primary red.
+export const S_TEAM_ACCENTS: Record<string, string> = {
+  mclaren: '#FF8000',
+  red_bull: '#1E40AF',
+  ferrari: '#DC2626',
+  mercedes: '#27F4D2',
+  williams: '#1868DB',
+  haas: '#B91C1C',
+  aston_martin: '#229971',
+  alpine: '#0093CC',
+  rb: '#6692FF',
+  racing_bulls: '#6692FF',
+  audi: '#52E252',
+  cadillac: '#C7B063',
+};
+
+export function teamAccent(constructorId?: string | null): string {
+  return (constructorId && S_TEAM_ACCENTS[constructorId]) || '#999999';
+}
+
+// Shade a hex by a fixed amount (negative = darker) — used for the driver
+// tile gradients (linear-gradient(160deg, accent, accent shaded -34)).
+export function shadeHex(hex: string, amt: number): string {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return hex;
+  const ch = (i: number) =>
+    Math.max(0, Math.min(255, parseInt(h.slice(i, i + 2), 16) + amt))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${ch(0)}${ch(2)}${ch(4)}`;
+}

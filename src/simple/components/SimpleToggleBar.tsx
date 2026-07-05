@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 export type SimplePanel = 'standings' | 'team' | 'market';
@@ -17,46 +17,57 @@ const TABS: { key: SimplePanel; label: string }[] = [
   { key: 'market', label: 'Market' },
 ];
 
+// Race Day toggle: skewed −10° uppercase tabs; labels counter-skewed +10°
+// so the type stays upright while the chip leans.
 export const SimpleToggleBar = React.memo(function SimpleToggleBar({ active, onChange, hasLeague }: Props) {
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, spacing, scaled } = useSimpleTheme();
 
   const styles = useMemo(() => ({
     container: {
       flexDirection: 'row' as const,
       backgroundColor: colors.surface,
-      borderRadius: S_RADIUS.lg,
-      padding: 3,
+      borderRadius: S_RADIUS.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 4,
+      gap: 4,
       marginHorizontal: spacing.lg,
       marginBottom: spacing.md,
     },
     tab: {
       flex: 1,
-      paddingVertical: spacing.sm + 2,
+      height: scaled(40),
       alignItems: 'center' as const,
-      borderRadius: S_RADIUS.md,
-      flexDirection: 'row' as const,
       justifyContent: 'center' as const,
-      gap: 4,
+      borderRadius: S_RADIUS.sm,
+      transform: [{ skewX: '-10deg' }],
     },
     tabActive: {
       backgroundColor: colors.primary,
     },
+    tabInner: {
+      transform: [{ skewX: '10deg' }],
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 6,
+    },
     tabText: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.medium,
-      color: colors.text.muted,
+      fontSize: scaled(12.5),
+      fontFamily: S_FONT_FAMILY.body.bold,
+      letterSpacing: 0.6,
+      textTransform: 'uppercase' as const,
+      color: colors.text.secondary,
     },
     tabTextActive: {
       color: colors.text.inverse,
-      fontWeight: S_FONTS.weights.semibold,
     },
     badge: {
       width: 6,
       height: 6,
       borderRadius: 3,
-      backgroundColor: colors.warning,
+      backgroundColor: colors.primary,
     },
-  }), [colors, fonts, spacing]);
+  }), [colors, spacing, scaled]);
 
   return (
     <View style={styles.container}>
@@ -69,12 +80,14 @@ export const SimpleToggleBar = React.memo(function SimpleToggleBar({ active, onC
             onPress={() => onChange(tab.key)}
             activeOpacity={0.7}
           >
-            <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
-              {tab.label}
-            </Text>
-            {tab.key === 'standings' && !hasLeague && (
-              <View style={styles.badge} />
-            )}
+            <View style={styles.tabInner}>
+              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
+              {tab.key === 'standings' && !hasLeague && !isActive && (
+                <View style={styles.badge} />
+              )}
+            </View>
           </TouchableOpacity>
         );
       })}

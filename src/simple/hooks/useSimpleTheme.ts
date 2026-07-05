@@ -1,7 +1,15 @@
 import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { usePrefsStore } from '../../store/prefs.store';
-import { S_COLORS_LIGHT, S_COLORS_DARK, S_FONTS, S_SPACING, S_RADIUS } from '../theme/simpleTheme';
+import {
+  S_COLORS_LIGHT,
+  S_COLORS_DARK,
+  S_FONTS,
+  S_FONT_FAMILY,
+  S_DISPLAY_SKEW,
+  S_SPACING,
+  S_RADIUS,
+} from '../theme/simpleTheme';
 
 export function useSimpleTheme() {
   const systemScheme = useColorScheme();
@@ -35,6 +43,25 @@ export function useSimpleTheme() {
       xxl: scaled(S_SPACING.xxl),
     };
 
-    return { colors, fonts, spacing, radius: S_RADIUS, isDark };
+    return {
+      colors,
+      fonts,
+      spacing,
+      radius: S_RADIUS,
+      isDark,
+      // Race Day type system
+      family: S_FONT_FAMILY,
+      // Spread into a Text style for big display numerals/headings —
+      // Space Grotesk + the synthesized-oblique skew the design calls for.
+      display: {
+        fontFamily: S_FONT_FAMILY.display.bold,
+        transform: S_DISPLAY_SKEW as unknown as { skewX: string }[],
+      },
+      // Display face without the skew (upright headings, invite code, etc.)
+      displayUpright: {
+        fontFamily: S_FONT_FAMILY.display.semibold,
+      },
+      scaled,
+    };
   }, [colors, displayScale, isDark]);
 }

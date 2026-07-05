@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Avatar } from '../../components/Avatar';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import type { LeagueMember } from '../../types';
 
@@ -20,7 +20,7 @@ export const SimpleStandingsRow = React.memo(function SimpleStandingsRow({
   showLastRace,
   lastRacePoints,
 }: Props) {
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, scaled, display } = useSimpleTheme();
 
   const rankColors: Record<number, string> = useMemo(() => ({
     1: colors.gold,
@@ -28,63 +28,67 @@ export const SimpleStandingsRow = React.memo(function SimpleStandingsRow({
     3: colors.bronze,
   }), [colors]);
 
-  const rankColor = rankColors[member.rank] ?? colors.text.secondary;
+  const rankColor = rankColors[member.rank] ?? colors.text.muted;
   const displayPoints = showLastRace ? (lastRacePoints ?? 0) : member.totalPoints;
-  const pointsColor = showLastRace
-    ? (displayPoints > 0 ? colors.positive : displayPoints < 0 ? colors.negative : colors.text.muted)
-    : colors.primary;
 
   const styles = useMemo(() => ({
     container: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      backgroundColor: colors.background,
-      borderRadius: S_RADIUS.md,
+      gap: scaled(14),
+      backgroundColor: colors.card,
+      borderRadius: S_RADIUS.lg,
       borderWidth: 1,
-      borderColor: colors.borderLight,
-      padding: spacing.md,
-      marginBottom: spacing.sm,
+      borderColor: colors.border,
+      paddingVertical: scaled(14),
+      paddingHorizontal: scaled(16),
+      marginBottom: 10,
     },
     currentUser: {
-      backgroundColor: colors.primaryFaint,
-      borderColor: colors.primaryLight,
+      backgroundColor: colors.primaryFaint + '88',
+      borderColor: colors.primary + '55',
     },
     rank: {
-      width: 28,
-      fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.bold,
+      ...display,
+      width: scaled(24),
+      fontSize: scaled(18),
+      letterSpacing: -0.3,
       textAlign: 'center' as const,
-      marginRight: spacing.sm,
     },
     info: {
       flex: 1,
-      marginLeft: spacing.sm,
+      minWidth: 0,
     },
     name: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      letterSpacing: -0.2,
       color: colors.text.primary,
     },
     displayName: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
       marginTop: 1,
     },
     stats: {
       alignItems: 'flex-end' as const,
-      marginLeft: spacing.sm,
+      minWidth: scaled(64),
+      flexShrink: 0,
     },
     points: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.bold,
+      ...display,
+      fontSize: scaled(18),
+      letterSpacing: -0.3,
       color: colors.primary,
     },
     subLabel: {
-      fontSize: fonts.xs,
+      fontSize: scaled(11.5),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
       marginTop: 1,
     },
-  }), [colors, fonts, spacing]);
+  }), [colors, scaled, display]);
 
   return (
     <TouchableOpacity
@@ -96,7 +100,7 @@ export const SimpleStandingsRow = React.memo(function SimpleStandingsRow({
 
       <Avatar
         name={member.teamName || member.displayName}
-        size="small"
+        size={40}
         imageUrl={member.teamAvatarUrl}
       />
 
@@ -110,12 +114,12 @@ export const SimpleStandingsRow = React.memo(function SimpleStandingsRow({
       </View>
 
       <View style={styles.stats}>
-        <Text style={[styles.points, { color: pointsColor }]}>
+        <Text style={styles.points} numberOfLines={1}>
           {showLastRace && displayPoints > 0 ? '+' : ''}{displayPoints} pts
         </Text>
-        {showLastRace && (
-          <Text style={styles.subLabel}>last race</Text>
-        )}
+        <Text style={styles.subLabel} numberOfLines={1}>
+          {showLastRace ? 'last race' : 'season'}
+        </Text>
       </View>
     </TouchableOpacity>
   );

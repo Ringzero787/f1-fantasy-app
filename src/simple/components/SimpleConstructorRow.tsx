@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY, teamAccent } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
-import { TEAM_COLORS } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
+import { ConstructorTile } from './RaceDayBits';
 import type { FantasyConstructor } from '../../types';
 
 interface Props {
@@ -26,52 +26,66 @@ export const SimpleConstructorRow = React.memo(function SimpleConstructorRow({
   onRemove,
   onToggleAce,
 }: Props) {
-  const { colors, fonts, spacing } = useSimpleTheme();
-  const teamColor = TEAM_COLORS[ctor.constructorId]?.primary ?? colors.primary;
+  const { colors, scaled, display } = useSimpleTheme();
+  const accent = teamAccent(ctor.constructorId);
   const contractRemaining = (ctor.contractLength ?? 3) - (ctor.racesHeld ?? 0);
   const price = ctor.currentPrice ?? ctor.purchasePrice;
   const aceEligible = price <= PRICING_CONFIG.ACE_MAX_PRICE;
   const priceChange = (ctor.currentPrice && ctor.purchasePrice) ? ctor.currentPrice - ctor.purchasePrice : 0;
 
+  const hasScoring = lastRacePoints != null || (ctor.pointsScored ?? 0) !== 0;
+  const big = lastRacePoints ?? 0;
+  const bigColor = big > 0 ? colors.positive : big < 0 ? colors.negative : colors.text.muted;
+
   const styles = useMemo(() => ({
     container: {
+      backgroundColor: colors.card,
+      borderRadius: S_RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 10,
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      backgroundColor: colors.card,
-      borderRadius: S_RADIUS.md,
-      borderLeftWidth: 4,
-      borderTopWidth: 1,
-      borderRightWidth: 1,
-      borderBottomWidth: 1,
-      borderTopColor: colors.borderLight,
-      borderRightColor: colors.borderLight,
-      borderBottomColor: colors.borderLight,
-      padding: spacing.md,
-      marginBottom: spacing.sm,
+      paddingVertical: scaled(16),
+      paddingRight: scaled(16),
+      paddingLeft: scaled(20),
+      gap: scaled(14),
+      overflow: 'hidden' as const,
+    },
+    stripe: {
+      position: 'absolute' as const,
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 5,
+      backgroundColor: accent,
     },
     aceTap: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+      width: scaled(34),
+      height: scaled(34),
+      borderRadius: scaled(17),
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      marginRight: spacing.sm,
+      marginLeft: -6,
     },
     aceActive: {
       backgroundColor: colors.aceBg,
     },
     info: {
       flex: 1,
+      minWidth: 0,
     },
     nameRow: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      gap: spacing.xs,
+      gap: 6,
     },
     name: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(16.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      letterSpacing: -0.2,
       color: colors.text.primary,
+      flexShrink: 1,
     },
     autoFillBadge: {
       backgroundColor: colors.warning + '20',
@@ -80,57 +94,74 @@ export const SimpleConstructorRow = React.memo(function SimpleConstructorRow({
       borderRadius: S_RADIUS.sm,
     },
     autoFillText: {
-      fontSize: 9,
-      fontWeight: S_FONTS.weights.bold,
+      fontSize: scaled(9),
+      fontFamily: S_FONT_FAMILY.body.bold,
       color: colors.warning,
       letterSpacing: 0.5,
     },
     meta: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
-      marginTop: 2,
+      marginTop: 3,
     },
-    stats: {
-      alignItems: 'flex-end' as const,
-      marginRight: spacing.sm,
+    numbersRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'baseline' as const,
+      gap: scaled(14),
+      marginTop: scaled(8),
     },
-    points: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
-      color: colors.primary,
+    bigDelta: {
+      ...display,
+      fontSize: scaled(22),
+      lineHeight: scaled(23),
+      letterSpacing: -0.4,
     },
-    price: {
-      fontSize: fonts.sm,
+    totalText: {
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.regular,
+      color: colors.text.muted,
+    },
+    priceText: {
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.secondary,
-      marginTop: 2,
     },
     removeBtn: {
-      padding: spacing.xs,
+      width: scaled(32),
+      height: scaled(32),
+      borderRadius: scaled(16),
+      backgroundColor: colors.negative,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
     },
-  }), [colors, fonts, spacing]);
+  }), [colors, scaled, display, accent]);
 
   return (
-    <View style={[styles.container, { borderLeftColor: teamColor }]}>
-      {aceEligible ? (
+    <View style={styles.container}>
+      <View style={styles.stripe} />
+
+      <ConstructorTile constructorId={ctor.constructorId} />
+
+      {!locked && aceEligible && (
         <TouchableOpacity
           style={[styles.aceTap, isAce && styles.aceActive]}
           onPress={onToggleAce}
           disabled={aceLocked}
           activeOpacity={0.6}
+          accessibilityLabel="Set ace"
         >
           <Ionicons
             name={isAce ? 'star' : 'star-outline'}
-            size={14}
+            size={17}
             color={isAce ? colors.ace : colors.text.muted}
           />
         </TouchableOpacity>
-      ) : (
-        <View style={styles.aceTap} />
       )}
 
       <View style={styles.info}>
         <View style={styles.nameRow}>
-          <Text style={styles.name}>{ctor.name}</Text>
+          <Text style={styles.name} numberOfLines={1}>{ctor.name}</Text>
           {ctor.isReservePick && (
             <View style={styles.autoFillBadge}>
               <Text style={styles.autoFillText}>AUTO</Text>
@@ -140,32 +171,28 @@ export const SimpleConstructorRow = React.memo(function SimpleConstructorRow({
         <Text style={styles.meta}>
           Constructor · {contractRemaining <= 0 ? 'Final race' : `${contractRemaining} race${contractRemaining !== 1 ? 's' : ''} left`}
         </Text>
-      </View>
 
-      <View style={styles.stats}>
-        {lastRacePoints != null ? (
-          <>
-            <Text style={[styles.points, { color: lastRacePoints >= 0 ? colors.primary : colors.negative }]}>
-              {lastRacePoints >= 0 ? '+' : ''}{lastRacePoints}
-            </Text>
-            <Text style={{ fontSize: fonts.xs, color: colors.text.muted }}>{ctor.pointsScored ?? 0} total</Text>
-          </>
-        ) : (
-          <Text style={styles.points}>{ctor.pointsScored ?? 0} pts</Text>
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-          <Text style={styles.price}>${price}</Text>
-          {priceChange !== 0 && (
-            <Text style={{ fontSize: fonts.xs, color: priceChange > 0 ? colors.positive : colors.negative, fontWeight: S_FONTS.weights.medium }}>
-              {priceChange > 0 ? '▲' : '▼'}{Math.abs(priceChange)}
-            </Text>
-          )}
+        <View style={styles.numbersRow}>
+          <Text style={[styles.bigDelta, { color: bigColor }]}>
+            {big > 0 ? '+' : ''}{big}
+          </Text>
+          <Text style={styles.totalText}>
+            {hasScoring ? `${ctor.pointsScored ?? 0} total` : 'no races yet'}
+          </Text>
+          <Text style={styles.priceText}>
+            ${price}
+            {priceChange !== 0 && (
+              <Text style={{ color: priceChange > 0 ? colors.positive : colors.negative }}>
+                {' '}{priceChange > 0 ? '▴' : '▾'}{Math.abs(priceChange)}
+              </Text>
+            )}
+          </Text>
         </View>
       </View>
 
       {!locked && onRemove && (
-        <TouchableOpacity style={styles.removeBtn} onPress={onRemove} activeOpacity={0.6}>
-          <Ionicons name="remove-circle" size={22} color={colors.negative} />
+        <TouchableOpacity style={styles.removeBtn} onPress={onRemove} activeOpacity={0.6} accessibilityLabel="Remove">
+          <Ionicons name="remove" size={16} color="#FFFFFF" />
         </TouchableOpacity>
       )}
     </View>

@@ -70,6 +70,9 @@ export default function SimpleMainScreen() {
       {/* No backgroundColor: it calls the deprecated setStatusBarColor (flagged
           by Play on API 35 edge-to-edge). barStyle sets icon contrast only. */}
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      {/* Race Day: profile entry is a slim sliver pinned above the toggle bar */}
+      <SimpleProfilePill onPress={() => setProfileOpen(true)} />
+      <View style={{ height: 12 }} />
       <SimpleToggleBar active={activePanel} onChange={setActivePanel} hasLeague={hasLeague} />
 
       <View style={[styles.panelContainer, isTablet && { alignItems: 'center' }]} {...panResponder.panHandlers}>
@@ -90,7 +93,6 @@ export default function SimpleMainScreen() {
         </View>
       </View>
 
-      <SimpleProfilePill onPress={() => setProfileOpen(true)} />
       <SimpleProfileSheet visible={profileOpen} onClose={() => setProfileOpen(false)} />
       {/* Self-gating: shows once per completed race the team was scored for */}
       <WeekendRecapCard />

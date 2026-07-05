@@ -25,12 +25,12 @@ import { useLeagueStore } from '../../store/league.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useAdminStore } from '../../store/admin.store';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import type { LeagueMember } from '../../types';
 
 export function SimpleLeaguePanel() {
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, fonts, spacing, scaled, displayUpright } = useSimpleTheme();
   const user = useAuthStore((s) => s.user);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const userId = user?.id ?? '';
@@ -65,6 +65,7 @@ export function SimpleLeaguePanel() {
   const [formError, setFormError] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Find the user's league (use leagueId from team, or first league)
   const activeLeague = leagueId
@@ -173,67 +174,78 @@ export function SimpleLeaguePanel() {
       padding: spacing.xl,
     },
     emptyIcon: {
-      marginBottom: spacing.lg,
+      width: scaled(80),
+      height: scaled(80),
+      borderRadius: S_RADIUS.full,
+      backgroundColor: colors.primaryFaint,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginBottom: scaled(20),
     },
     emptyTitle: {
-      fontSize: fonts.xxl,
-      fontWeight: S_FONTS.weights.bold,
+      ...displayUpright,
+      fontSize: scaled(26),
+      letterSpacing: -0.5,
       color: colors.text.primary,
+      textAlign: 'center' as const,
       marginBottom: spacing.sm,
     },
     emptySubtitle: {
-      fontSize: fonts.md,
-      color: colors.text.muted,
+      fontSize: scaled(14.5),
+      fontFamily: S_FONT_FAMILY.body.regular,
+      color: colors.text.secondary,
       textAlign: 'center' as const,
-      lineHeight: 20,
-      marginBottom: spacing.xl,
+      lineHeight: scaled(20),
+      marginBottom: scaled(28),
     },
     buttonGroup: {
       width: '100%' as any,
-      gap: spacing.sm,
+      gap: 10,
     },
     primaryButton: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
       backgroundColor: colors.primary,
-      borderRadius: S_RADIUS.md,
-      paddingVertical: spacing.md,
+      borderRadius: S_RADIUS.lg,
+      paddingVertical: scaled(14),
       gap: spacing.sm,
     },
     primaryButtonText: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      letterSpacing: 0.2,
       color: colors.text.inverse,
     },
     secondaryButton: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      backgroundColor: colors.background,
-      borderRadius: S_RADIUS.md,
-      borderWidth: 1,
+      backgroundColor: 'transparent',
+      borderRadius: S_RADIUS.lg,
+      borderWidth: 1.5,
       borderColor: colors.primary,
-      paddingVertical: spacing.md,
+      paddingVertical: scaled(14),
       gap: spacing.sm,
     },
     secondaryButtonText: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      letterSpacing: 0.2,
       color: colors.primary,
     },
     // -- Inline form --
     formCard: {
       width: '100%' as any,
-      backgroundColor: colors.surface,
-      borderRadius: S_RADIUS.md,
+      backgroundColor: colors.card,
+      borderRadius: S_RADIUS.lg,
       borderWidth: 1,
-      borderColor: colors.borderLight,
+      borderColor: colors.border,
       padding: spacing.lg,
     },
     formTitle: {
       fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.semibold,
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.primary,
       marginBottom: spacing.md,
     },
@@ -245,11 +257,13 @@ export function SimpleLeaguePanel() {
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       fontSize: fonts.md,
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.primary,
       marginBottom: spacing.md,
     },
     formError: {
       fontSize: fonts.sm,
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.negative,
       marginBottom: spacing.sm,
     },
@@ -265,7 +279,7 @@ export function SimpleLeaguePanel() {
     },
     formCancelText: {
       fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.text.muted,
     },
     formSubmit: {
@@ -282,7 +296,7 @@ export function SimpleLeaguePanel() {
     },
     formSubmitText: {
       fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.inverse,
     },
     // -- Has league state --
@@ -292,17 +306,26 @@ export function SimpleLeaguePanel() {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.md,
       paddingBottom: spacing.sm,
-      gap: spacing.sm,
+      gap: scaled(12),
     },
     leagueName: {
+      ...displayUpright,
       flex: 1,
-      fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.bold,
+      minWidth: 0,
+      fontSize: scaled(19),
+      letterSpacing: -0.3,
       color: colors.text.primary,
     },
+    memberBtn: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 4,
+      flexShrink: 0,
+    },
     memberCount: {
-      fontSize: fonts.sm,
-      color: colors.text.muted,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.medium,
+      color: colors.text.secondary,
     },
     inviteSection: {
       marginHorizontal: spacing.lg,
@@ -311,31 +334,43 @@ export function SimpleLeaguePanel() {
     codeRow: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      backgroundColor: colors.surface,
-      borderRadius: S_RADIUS.sm,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      gap: scaled(12),
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: S_RADIUS.lg,
+      paddingHorizontal: scaled(16),
+      paddingVertical: scaled(14),
     },
     codeLeft: {
       flex: 1,
     },
     codeLabel: {
-      fontSize: fonts.xs,
+      fontSize: scaled(11.5),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.text.muted,
+      letterSpacing: 0.3,
+      textTransform: 'uppercase' as const,
     },
     codeValue: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.bold,
+      ...displayUpright,
+      fontSize: scaled(22),
       color: colors.primary,
-      letterSpacing: 1.5,
+      letterSpacing: 3,
+      marginTop: 4,
     },
     codeAction: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: scaled(36),
+      height: scaled(36),
+      borderRadius: S_RADIUS.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: 'transparent',
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      marginLeft: spacing.xs,
+    },
+    codeActionCopied: {
+      backgroundColor: colors.positiveFaint,
     },
     // Points toggle: Season vs Last Race
     pointsToggleWrap: {
@@ -344,22 +379,23 @@ export function SimpleLeaguePanel() {
       backgroundColor: colors.surface,
       borderRadius: S_RADIUS.pill,
       borderWidth: 1,
-      borderColor: colors.borderLight,
-      padding: 2,
+      borderColor: colors.border,
+      padding: 3,
+      gap: 2,
       marginBottom: spacing.sm,
     },
     pointsToggleHalf: {
-      paddingVertical: 5,
-      paddingHorizontal: spacing.md,
+      paddingVertical: scaled(7),
+      paddingHorizontal: scaled(22),
       borderRadius: S_RADIUS.pill,
     },
     pointsToggleActive: {
       backgroundColor: colors.primary,
     },
     pointsToggleText: {
-      fontSize: fonts.xs,
-      fontWeight: S_FONTS.weights.semibold,
-      color: colors.text.muted,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      color: colors.text.secondary,
     },
     pointsToggleTextActive: {
       color: colors.text.inverse,
@@ -367,20 +403,22 @@ export function SimpleLeaguePanel() {
     // Email modal
     emailModalBackdrop: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.4)',
+      backgroundColor: colors.scrim,
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
     },
     emailModalSheet: {
-      backgroundColor: colors.background,
-      borderRadius: S_RADIUS.lg,
+      backgroundColor: colors.card,
+      borderRadius: S_RADIUS.sheet,
+      borderWidth: 1,
+      borderColor: colors.border,
       padding: spacing.xl,
       width: '80%' as any,
       maxWidth: 320,
     },
     emailModalTitle: {
       fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.bold,
+      fontFamily: S_FONT_FAMILY.body.bold,
       color: colors.text.primary,
       marginBottom: spacing.md,
     },
@@ -393,6 +431,7 @@ export function SimpleLeaguePanel() {
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       fontSize: fonts.lg,
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.primary,
     },
     emailModalButtons: {
@@ -409,19 +448,19 @@ export function SimpleLeaguePanel() {
     emailModalCancelText: {
       fontSize: fonts.md,
       color: colors.text.muted,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.medium,
     },
     emailSendBtn: {
       height: 36,
       paddingHorizontal: spacing.lg,
-      borderRadius: 18,
+      borderRadius: S_RADIUS.md,
       backgroundColor: colors.primary,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
     },
     emailSendBtnText: {
       fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.inverse,
     },
     emailSendBtnDisabled: {
@@ -452,9 +491,9 @@ export function SimpleLeaguePanel() {
     snackbarText: {
       color: colors.background,
       fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.medium,
     },
-  }), [colors, fonts, spacing]);
+  }), [colors, fonts, spacing, scaled, displayUpright]);
 
   // If viewing a member's team, show that overlay
   if (viewingMember && activeLeague) {
@@ -482,9 +521,9 @@ export function SimpleLeaguePanel() {
         }
       >
         <View style={styles.emptyIcon}>
-          <Ionicons name="trophy-outline" size={48} color={colors.text.muted} />
+          <Ionicons name="trophy-outline" size={scaled(38)} color={colors.primary} />
         </View>
-        <Text style={styles.emptyTitle}>Join a League</Text>
+        <Text style={styles.emptyTitle}>Join a league</Text>
         <Text style={styles.emptySubtitle}>
           Compete against friends and see who builds the best F1 fantasy team.
         </Text>
@@ -496,8 +535,8 @@ export function SimpleLeaguePanel() {
               onPress={() => { clearError(); setFormError(null); setFormMode('create'); }}
               activeOpacity={0.7}
             >
-              <Ionicons name="add-circle-outline" size={18} color={colors.text.inverse} />
-              <Text style={styles.primaryButtonText}>Create League</Text>
+              <Ionicons name="add" size={18} color={colors.text.inverse} />
+              <Text style={styles.primaryButtonText}>Create league</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -506,7 +545,7 @@ export function SimpleLeaguePanel() {
               activeOpacity={0.7}
             >
               <Ionicons name="enter-outline" size={18} color={colors.primary} />
-              <Text style={styles.secondaryButtonText}>Join with Code</Text>
+              <Text style={styles.secondaryButtonText}>Join with code</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -698,13 +737,15 @@ export function SimpleLeaguePanel() {
     <View style={styles.container}>
       <TouchableOpacity style={styles.leagueHeader} onPress={handleLeagueTap} activeOpacity={0.7}>
         <TouchableOpacity onPress={isOwner ? handleLeagueAvatarTap : undefined} activeOpacity={isOwner ? 0.7 : 1}>
-          <Avatar name={activeLeague.name} size={28} variant="team" imageUrl={(activeLeague as any).avatarUrl} />
+          <Avatar name={activeLeague.name} size={40} variant="team" imageUrl={(activeLeague as any).avatarUrl} />
         </TouchableOpacity>
         <Text style={styles.leagueName} numberOfLines={1}>{activeLeague.name}</Text>
-        <Ionicons name="chevron-down" size={14} color={colors.text.muted} />
-        <Text style={styles.memberCount}>
-          {activeLeague.memberCount ?? members.length} member{(activeLeague.memberCount ?? members.length) !== 1 ? 's' : ''}
-        </Text>
+        <View style={styles.memberBtn}>
+          <Ionicons name="chevron-down" size={14} color={colors.text.secondary} />
+          <Text style={styles.memberCount}>
+            {activeLeague.memberCount ?? members.length} member{(activeLeague.memberCount ?? members.length) !== 1 ? 's' : ''}
+          </Text>
+        </View>
       </TouchableOpacity>
 
       {/* Owner: invite code + copy/share/email */}
@@ -716,15 +757,21 @@ export function SimpleLeaguePanel() {
               <Text style={styles.codeValue}>{activeLeague.inviteCode}</Text>
             </View>
             <TouchableOpacity
-              style={styles.codeAction}
+              style={[styles.codeAction, copied && styles.codeActionCopied]}
               onPress={async () => {
                 await Clipboard.setStringAsync(activeLeague.inviteCode!);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1400);
                 setSnackbar('Invite code copied to clipboard');
                 setTimeout(() => setSnackbar(null), 2500);
               }}
               activeOpacity={0.6}
             >
-              <Ionicons name="copy-outline" size={16} color={colors.primary} />
+              <Ionicons
+                name={copied ? 'checkmark' : 'copy-outline'}
+                size={16}
+                color={copied ? colors.positive : colors.primary}
+              />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.codeAction}

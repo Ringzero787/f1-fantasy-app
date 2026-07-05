@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate, isSecondTeam, onCancel }: Props) {
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, fonts, spacing, scaled, displayUpright } = useSimpleTheme();
   const [name, setName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,28 +51,31 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
     },
     backText: {
       fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.primary,
     },
     iconWrap: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
+      width: scaled(88),
+      height: scaled(88),
+      borderRadius: S_RADIUS.full,
       backgroundColor: colors.primaryFaint,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      marginBottom: spacing.lg,
+      marginBottom: scaled(22),
     },
     title: {
-      fontSize: fonts.xxl,
-      fontWeight: S_FONTS.weights.bold,
+      ...displayUpright,
+      fontSize: scaled(28),
+      letterSpacing: -0.6,
       color: colors.text.primary,
-      marginBottom: spacing.xs,
+      textAlign: 'center' as const,
+      marginBottom: spacing.sm,
     },
     subtitle: {
-      fontSize: fonts.md,
-      color: colors.text.muted,
-      marginBottom: spacing.xl,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.regular,
+      color: colors.text.secondary,
+      marginBottom: scaled(28),
       textAlign: 'center' as const,
     },
     input: {
@@ -80,10 +83,11 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: S_RADIUS.md,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md + 2,
-      fontSize: fonts.lg,
+      borderRadius: S_RADIUS.lg,
+      paddingHorizontal: scaled(16),
+      paddingVertical: scaled(14),
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.primary,
       marginBottom: spacing.md,
     },
@@ -92,32 +96,36 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: S_RADIUS.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm + 2,
-      fontSize: fonts.md,
+      borderRadius: S_RADIUS.lg,
+      paddingHorizontal: scaled(14),
+      paddingVertical: scaled(11),
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.primary,
       marginBottom: spacing.md,
       letterSpacing: 1.5,
     },
     error: {
       fontSize: fonts.sm,
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.negative,
       marginBottom: spacing.md,
     },
     button: {
       width: '100%' as any,
       backgroundColor: colors.primary,
-      borderRadius: S_RADIUS.md,
-      paddingVertical: spacing.md + 2,
+      borderRadius: S_RADIUS.lg,
+      paddingVertical: scaled(15),
       alignItems: 'center' as const,
     },
     buttonDisabled: {
-      opacity: 0.4,
+      backgroundColor: colors.primaryFaint,
+      opacity: 0.6,
     },
     buttonText: {
-      fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(15.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      letterSpacing: 0.2,
       color: colors.text.inverse,
     },
     cancelBtn: {
@@ -125,11 +133,11 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
       paddingVertical: spacing.sm,
     },
     cancelText: {
-      fontSize: fonts.md,
-      color: colors.text.muted,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.medium,
+      color: colors.text.secondary,
     },
-  }), [colors, fonts, spacing]);
+  }), [colors, fonts, spacing, scaled, displayUpright]);
 
   return (
     <View style={styles.container}>
@@ -140,9 +148,9 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
         </TouchableOpacity>
       )}
       <View style={styles.iconWrap}>
-        <Ionicons name={isSecondTeam ? 'add-circle-outline' : 'flag-outline'} size={48} color={colors.primaryLight} />
+        <Ionicons name={isSecondTeam ? 'add-circle-outline' : 'flag-outline'} size={scaled(44)} color={colors.primary} />
       </View>
-      <Text style={styles.title}>{isSecondTeam ? 'Create Team 2' : 'Create Your Team'}</Text>
+      <Text style={styles.title}>{isSecondTeam ? 'Create Team 2' : 'Create your team'}</Text>
       <Text style={styles.subtitle}>
         {isSecondTeam ? 'Add a second team for another league' : 'Pick a name to get started'}
       </Text>
@@ -182,7 +190,7 @@ export const SimpleCreateTeam = React.memo(function SimpleCreateTeam({ onCreate,
         {loading ? (
           <ActivityIndicator color={colors.text.inverse} size="small" />
         ) : (
-          <Text style={styles.buttonText}>Create Team</Text>
+          <Text style={[styles.buttonText, !valid && { color: colors.primary }]}>Create Team</Text>
         )}
       </TouchableOpacity>
 

@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY, teamAccent } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
-import { TEAM_COLORS } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
+import { DriverTile } from './RaceDayBits';
 import type { FantasyDriver } from '../../types';
 
 interface Props {
@@ -26,52 +26,67 @@ export const SimpleDriverRow = React.memo(function SimpleDriverRow({
   onRemove,
   onToggleAce,
 }: Props) {
-  const { colors, fonts, spacing } = useSimpleTheme();
-  const teamColor = TEAM_COLORS[driver.constructorId]?.primary ?? colors.primary;
+  const { colors, scaled, display } = useSimpleTheme();
+  const accent = teamAccent(driver.constructorId);
   const contractRemaining = (driver.contractLength ?? 3) - (driver.racesHeld ?? 0);
   const price = driver.currentPrice ?? driver.purchasePrice;
   const aceEligible = price <= PRICING_CONFIG.ACE_MAX_PRICE;
   const priceChange = (driver.currentPrice && driver.purchasePrice) ? driver.currentPrice - driver.purchasePrice : 0;
 
+  const hasScoring = lastRacePoints != null || (driver.pointsScored ?? 0) !== 0;
+  const big = lastRacePoints ?? 0;
+  const bigColor = big > 0 ? colors.positive : big < 0 ? colors.negative : colors.text.muted;
+
   const styles = useMemo(() => ({
     container: {
+      backgroundColor: colors.card,
+      borderRadius: S_RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 8,
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      backgroundColor: colors.card,
-      borderRadius: S_RADIUS.md,
-      borderLeftWidth: 4,
-      borderTopWidth: 1,
-      borderRightWidth: 1,
-      borderBottomWidth: 1,
-      borderTopColor: colors.borderLight,
-      borderRightColor: colors.borderLight,
-      borderBottomColor: colors.borderLight,
-      padding: spacing.md,
-      marginBottom: spacing.sm,
+      paddingTop: scaled(10),
+      paddingBottom: scaled(10),
+      paddingRight: scaled(14),
+      paddingLeft: scaled(16),
+      gap: scaled(10),
+      overflow: 'hidden' as const,
+    },
+    stripe: {
+      position: 'absolute' as const,
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 5,
+      backgroundColor: accent,
     },
     aceTap: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+      width: scaled(30),
+      height: scaled(30),
+      borderRadius: scaled(15),
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      marginRight: spacing.sm,
+      marginLeft: -4,
     },
     aceActive: {
       backgroundColor: colors.aceBg,
     },
     info: {
       flex: 1,
+      minWidth: 0,
     },
     nameRow: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      gap: spacing.xs,
+      gap: 6,
     },
     name: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(16.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      letterSpacing: -0.2,
       color: colors.text.primary,
+      flexShrink: 1,
     },
     autoFillBadge: {
       backgroundColor: colors.warning + '20',
@@ -80,57 +95,80 @@ export const SimpleDriverRow = React.memo(function SimpleDriverRow({
       borderRadius: S_RADIUS.sm,
     },
     autoFillText: {
-      fontSize: 9,
-      fontWeight: S_FONTS.weights.bold,
+      fontSize: scaled(9),
+      fontFamily: S_FONT_FAMILY.body.bold,
       color: colors.warning,
       letterSpacing: 0.5,
     },
     meta: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
-      marginTop: 2,
+      marginTop: 3,
     },
-    stats: {
-      alignItems: 'flex-end' as const,
-      marginRight: spacing.sm,
+    // Numbers cluster — right-aligned, one shared baseline, never wraps
+    numbersRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'baseline' as const,
+      gap: scaled(8),
+      flexShrink: 0,
     },
-    points: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
-      color: colors.primary,
+    bigDelta: {
+      ...display,
+      fontSize: scaled(21),
+      lineHeight: scaled(22),
+      letterSpacing: -0.4,
     },
-    price: {
-      fontSize: fonts.sm,
+    totalText: {
+      fontSize: scaled(11.5),
+      fontFamily: S_FONT_FAMILY.body.regular,
+      color: colors.text.muted,
+    },
+    priceText: {
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.secondary,
-      marginTop: 2,
     },
     removeBtn: {
-      padding: spacing.xs,
+      width: scaled(32),
+      height: scaled(32),
+      borderRadius: scaled(16),
+      backgroundColor: colors.negative,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
     },
-  }), [colors, fonts, spacing]);
+  }), [colors, scaled, display, accent]);
 
   return (
-    <View style={[styles.container, { borderLeftColor: teamColor }]}>
-      {aceEligible ? (
+    <View style={styles.container}>
+      <View style={styles.stripe} />
+
+      <DriverTile
+        driverId={driver.driverId}
+        shortName={driver.shortName}
+        constructorId={driver.constructorId}
+        isAce={isAce}
+      />
+
+      {!locked && aceEligible && (
         <TouchableOpacity
           style={[styles.aceTap, isAce && styles.aceActive]}
           onPress={onToggleAce}
           disabled={aceLocked}
           activeOpacity={0.6}
+          accessibilityLabel="Set ace"
         >
           <Ionicons
             name={isAce ? 'star' : 'star-outline'}
-            size={14}
+            size={17}
             color={isAce ? colors.ace : colors.text.muted}
           />
         </TouchableOpacity>
-      ) : (
-        <View style={styles.aceTap} />
       )}
 
       <View style={styles.info}>
         <View style={styles.nameRow}>
-          <Text style={styles.name}>{driver.name}</Text>
+          <Text style={styles.name} numberOfLines={1}>{driver.name}</Text>
           {driver.isReservePick && (
             <View style={styles.autoFillBadge}>
               <Text style={styles.autoFillText}>AUTO</Text>
@@ -138,34 +176,30 @@ export const SimpleDriverRow = React.memo(function SimpleDriverRow({
           )}
         </View>
         <Text style={styles.meta}>
-          {driver.shortName} · {contractRemaining <= 0 ? 'Final race' : `${contractRemaining} race${contractRemaining !== 1 ? 's' : ''} left`}
+          {contractRemaining <= 0 ? 'Final race' : `${contractRemaining} race${contractRemaining !== 1 ? 's' : ''} left`}
         </Text>
       </View>
 
-      <View style={styles.stats}>
-        {lastRacePoints != null ? (
-          <>
-            <Text style={[styles.points, { color: lastRacePoints >= 0 ? colors.primary : colors.negative }]}>
-              {lastRacePoints >= 0 ? '+' : ''}{lastRacePoints}
-            </Text>
-            <Text style={{ fontSize: fonts.xs, color: colors.text.muted }}>{driver.pointsScored ?? 0} total</Text>
-          </>
-        ) : (
-          <Text style={styles.points}>{driver.pointsScored ?? 0} pts</Text>
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-          <Text style={styles.price}>${price}</Text>
-          {priceChange !== 0 && (
-            <Text style={{ fontSize: fonts.xs, color: priceChange > 0 ? colors.positive : colors.negative, fontWeight: S_FONTS.weights.medium }}>
-              {priceChange > 0 ? '▲' : '▼'}{Math.abs(priceChange)}
-            </Text>
-          )}
-        </View>
+      <View style={styles.numbersRow}>
+        <Text style={[styles.bigDelta, { color: bigColor }]} numberOfLines={1}>
+          {big > 0 ? '+' : ''}{big}
+        </Text>
+        <Text style={styles.totalText} numberOfLines={1}>
+          {hasScoring ? `${driver.pointsScored ?? 0} tot` : '—'}
+        </Text>
+        <Text
+          style={[styles.priceText, priceChange > 0 && { color: colors.positive }, priceChange < 0 && { color: colors.negative }]}
+          numberOfLines={1}
+          accessibilityLabel={priceChange !== 0 ? `Value ${priceChange > 0 ? 'up' : 'down'} ${Math.abs(priceChange)} since purchase` : undefined}
+          onLongPress={priceChange !== 0 ? () => Alert.alert('Price', `Value ${priceChange > 0 ? 'up' : 'down'} ${Math.abs(priceChange)} since purchase`) : undefined}
+        >
+          ${price}{priceChange > 0 ? ' ▴' : priceChange < 0 ? ' ▾' : ''}
+        </Text>
       </View>
 
       {!locked && onRemove && (
-        <TouchableOpacity style={styles.removeBtn} onPress={onRemove} activeOpacity={0.6}>
-          <Ionicons name="remove-circle" size={22} color={colors.negative} />
+        <TouchableOpacity style={styles.removeBtn} onPress={onRemove} activeOpacity={0.6} accessibilityLabel="Remove">
+          <Ionicons name="remove" size={16} color="#FFFFFF" />
         </TouchableOpacity>
       )}
     </View>

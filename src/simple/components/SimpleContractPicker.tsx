@@ -7,7 +7,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 interface Props {
@@ -35,97 +35,101 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
   onConfirm,
   onCancel,
 }: Props) {
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, spacing, scaled, display, displayUpright } = useSimpleTheme();
   const budgetAfter = budgetRemaining - price;
   const canAfford = budgetAfter >= 0;
 
   const styles = useMemo(() => ({
     backdrop: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.35)',
+      backgroundColor: colors.scrim,
       justifyContent: 'flex-end' as const,
     },
     sheet: {
-      backgroundColor: colors.background,
-      borderTopLeftRadius: S_RADIUS.lg,
-      borderTopRightRadius: S_RADIUS.lg,
-      paddingHorizontal: spacing.xl,
-      paddingTop: spacing.md,
-      paddingBottom: spacing.xxl + 16,
+      backgroundColor: colors.card,
+      borderTopLeftRadius: S_RADIUS.sheet,
+      borderTopRightRadius: S_RADIUS.sheet,
+      paddingHorizontal: scaled(20),
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xxl + 8,
     },
     handle: {
-      width: 36,
+      width: 40,
       height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.border,
+      borderRadius: S_RADIUS.full,
+      backgroundColor: colors.borderLight,
       alignSelf: 'center' as const,
-      marginBottom: spacing.lg,
     },
-    title: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.semibold,
+    kicker: {
+      fontSize: scaled(11.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.muted,
       textTransform: 'uppercase' as const,
-      letterSpacing: 0.8,
-      marginBottom: spacing.xs,
+      letterSpacing: 1.4,
+      marginTop: scaled(16),
     },
     name: {
-      fontSize: fonts.xl,
-      fontWeight: S_FONTS.weights.bold,
+      ...displayUpright,
+      fontSize: scaled(24),
+      letterSpacing: -0.5,
       color: colors.text.primary,
-      marginBottom: spacing.lg,
+      marginTop: scaled(6),
+      marginBottom: scaled(18),
     },
-    summaryRow: {
+    summaryCard: {
       flexDirection: 'row' as const,
-      backgroundColor: colors.card,
-      borderRadius: S_RADIUS.md,
+      justifyContent: 'space-between' as const,
+      backgroundColor: colors.surface,
+      borderRadius: S_RADIUS.lg,
       borderWidth: 1,
-      borderColor: colors.borderLight,
-      padding: spacing.md,
-      marginBottom: spacing.lg,
+      borderColor: colors.border,
+      paddingVertical: scaled(16),
+      paddingHorizontal: scaled(18),
     },
-    summaryItem: {
-      flex: 1,
-      alignItems: 'center' as const,
+    summaryItemRight: {
+      alignItems: 'flex-end' as const,
     },
     summaryLabel: {
-      fontSize: fonts.xs,
+      fontSize: scaled(12),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
-      marginBottom: 2,
+      marginBottom: 4,
     },
     summaryValue: {
-      fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.bold,
+      ...display,
+      fontSize: scaled(22),
+      letterSpacing: -0.4,
       color: colors.text.primary,
     },
     sectionLabel: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.text.secondary,
-      marginBottom: spacing.sm,
+      marginTop: scaled(22),
+      marginBottom: scaled(10),
     },
     contractRow: {
       flexDirection: 'row' as const,
-      gap: spacing.sm,
-      marginBottom: spacing.xl,
+      gap: scaled(8),
     },
     contractBtn: {
       flex: 1,
+      height: scaled(48),
       alignItems: 'center' as const,
-      paddingVertical: spacing.sm,
-      borderRadius: S_RADIUS.sm,
+      justifyContent: 'center' as const,
+      borderRadius: S_RADIUS.md,
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: colors.background,
+      backgroundColor: 'transparent',
     },
     contractBtnActive: {
       backgroundColor: colors.primary,
       borderColor: colors.primary,
     },
     contractBtnText: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
-      color: colors.text.secondary,
+      fontSize: scaled(16),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      color: colors.text.primary,
     },
     contractBtnTextActive: {
       color: colors.text.inverse,
@@ -134,30 +138,33 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      gap: spacing.sm,
+      gap: scaled(8),
       backgroundColor: colors.primary,
-      borderRadius: S_RADIUS.md,
-      paddingVertical: spacing.md + 2,
-      marginBottom: spacing.sm,
+      borderRadius: S_RADIUS.lg,
+      paddingVertical: scaled(15),
+      marginTop: scaled(22),
     },
     confirmBtnDisabled: {
-      backgroundColor: colors.card,
+      backgroundColor: colors.primaryFaint,
+      opacity: 0.6,
     },
     confirmBtnText: {
-      fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(15.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      letterSpacing: 0.2,
       color: colors.text.inverse,
     },
     cancelBtn: {
       alignItems: 'center' as const,
-      paddingVertical: spacing.md,
+      paddingVertical: scaled(12),
+      marginTop: scaled(10),
     },
     cancelBtnText: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.medium,
-      color: colors.text.muted,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.medium,
+      color: colors.text.secondary,
     },
-  }), [colors, fonts, spacing]);
+  }), [colors, spacing, scaled, display, displayUpright]);
 
   return (
     <Modal
@@ -172,18 +179,18 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
           <View style={styles.handle} />
 
           {/* Header */}
-          <Text style={styles.title}>
+          <Text style={styles.kicker}>
             Add {entityType === 'driver' ? 'Driver' : 'Constructor'}
           </Text>
           <Text style={styles.name}>{name}</Text>
 
           {/* Price summary */}
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
+          <View style={styles.summaryCard}>
+            <View>
               <Text style={styles.summaryLabel}>Price</Text>
               <Text style={styles.summaryValue}>${price}</Text>
             </View>
-            <View style={styles.summaryItem}>
+            <View style={styles.summaryItemRight}>
               <Text style={styles.summaryLabel}>Budget After</Text>
               <Text
                 style={[
@@ -197,7 +204,7 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
           </View>
 
           {/* Contract length */}
-          <Text style={styles.sectionLabel}>Contract Length (races)</Text>
+          <Text style={styles.sectionLabel}>Contract length (races)</Text>
           <View style={styles.contractRow}>
             {CONTRACT_OPTIONS.map((len) => (
               <TouchableOpacity
@@ -229,17 +236,17 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
             activeOpacity={0.7}
           >
             <Ionicons
-              name="add-circle"
-              size={18}
-              color={canAfford ? colors.text.inverse : colors.text.muted}
+              name="add"
+              size={17}
+              color={canAfford ? colors.text.inverse : colors.primary}
             />
             <Text
               style={[
                 styles.confirmBtnText,
-                !canAfford && { color: colors.text.muted },
+                !canAfford && { color: colors.primary },
               ]}
             >
-              Add to Team
+              Add to team
             </Text>
           </TouchableOpacity>
 

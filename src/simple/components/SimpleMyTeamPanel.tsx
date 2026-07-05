@@ -2,13 +2,14 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { maybeRequestReview } from '../../utils/reviewPrompt';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { SimpleDriverRow } from './SimpleDriverRow';
 import { SimpleConstructorRow } from './SimpleConstructorRow';
 import { SimpleCreateTeam } from './SimpleCreateTeam';
 import { SimpleTeamToggle } from './SimpleTeamToggle';
 import { SimpleCountdownBanner } from './SimpleCountdownBanner';
+import { SectionLabel, SpeedLines } from './RaceDayBits';
 import { Avatar } from '../../components/Avatar';
 import { generateAvatar, saveAvatarUrl } from '../../services/avatarGeneration.service';
 import * as ImagePicker from 'expo-image-picker';
@@ -35,7 +36,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
   refreshing,
   onRefresh,
 }: Props) {
-  const { colors, fonts, spacing } = useSimpleTheme();
+  const { colors, fonts, spacing, scaled, display } = useSimpleTheme();
   const {
     team,
     teamConstructor,
@@ -96,121 +97,143 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       marginBottom: spacing.md,
-      gap: spacing.sm,
+      gap: 10,
     },
-    nameRow: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: spacing.xs,
+    nameInput: {
       flex: 1,
-    },
-    teamName: {
-      fontSize: fonts.xxl,
-      fontWeight: S_FONTS.weights.bold,
+      fontSize: scaled(18),
+      fontFamily: S_FONT_FAMILY.display.semibold,
+      letterSpacing: -0.3,
       color: colors.text.primary,
-    },
-    editNameRow: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      flex: 1,
-      gap: spacing.xs,
-    },
-    editNameInput: {
-      flex: 1,
-      fontSize: fonts.xl,
-      fontWeight: S_FONTS.weights.semibold,
-      color: colors.text.primary,
+      paddingVertical: 2,
+      paddingHorizontal: 4,
       borderBottomWidth: 2,
-      borderBottomColor: colors.primary,
-      paddingVertical: spacing.xs,
+      borderBottomColor: 'transparent',
     },
-    editNameBtn: {
-      padding: spacing.xs,
+    nameInputFocused: {
+      backgroundColor: colors.surface,
+      borderBottomColor: colors.primary,
     },
     lockBadge: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      gap: 4,
+      gap: 6,
       backgroundColor: colors.lockedBg,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
       borderRadius: S_RADIUS.pill,
     },
     lockText: {
-      fontSize: fonts.xs,
+      fontSize: scaled(12),
       color: colors.locked,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.semibold,
     },
+    // Race Day stat bar — 1px border card, 4px red left edge, speed-line texture
     statsRow: {
       flexDirection: 'row' as const,
-      alignItems: 'center' as const,
+      alignItems: 'stretch' as const,
       backgroundColor: colors.card,
-      borderRadius: S_RADIUS.md,
-      paddingVertical: spacing.lg,
-      paddingHorizontal: spacing.sm,
+      borderRadius: S_RADIUS.lg,
       marginBottom: spacing.lg,
       borderWidth: 1,
-      borderColor: colors.borderLight,
+      borderColor: colors.border,
+      overflow: 'hidden' as const,
+    },
+    statsEdge: {
+      position: 'absolute' as const,
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 4,
+      backgroundColor: colors.primary,
+      zIndex: 1,
     },
     statItem: {
       flex: 1,
       alignItems: 'center' as const,
+      paddingVertical: scaled(16),
+      paddingHorizontal: 6,
+      minWidth: 0,
     },
     statDivider: {
-      borderLeftWidth: 1,
-      borderLeftColor: colors.borderLight,
+      width: 1,
+      backgroundColor: colors.border,
+      marginVertical: scaled(18),
     },
     statValue: {
-      fontSize: fonts.xl,
-      fontWeight: S_FONTS.weights.bold,
+      ...display,
+      fontSize: scaled(26),
+      lineHeight: scaled(28),
+      letterSpacing: -0.5,
       color: colors.text.primary,
     },
+    statSub: {
+      fontSize: scaled(12),
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      marginTop: 3,
+    },
     statLabel: {
-      fontSize: fonts.sm,
+      fontSize: scaled(11.5),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.text.muted,
       marginTop: 2,
-    },
-    sectionTitle: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.semibold,
-      color: colors.text.muted,
-      textTransform: 'uppercase' as const,
-      letterSpacing: 0.8,
-      marginBottom: spacing.sm,
     },
     emptySlot: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      gap: spacing.sm,
-      backgroundColor: colors.surface,
-      borderRadius: S_RADIUS.md,
-      borderWidth: 1,
-      borderColor: colors.border,
+      justifyContent: 'center' as const,
+      gap: 10,
+      backgroundColor: colors.primaryFaint + '55',
+      borderRadius: S_RADIUS.lg,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
       borderStyle: 'dashed' as const,
-      padding: spacing.md,
+      paddingVertical: scaled(16),
+      paddingHorizontal: 14,
       marginBottom: spacing.sm,
     },
+    emptySlotCircle: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
     emptySlotText: {
-      fontSize: fonts.md,
+      fontSize: scaled(15),
       color: colors.primary,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.semibold,
+      letterSpacing: -0.1,
     },
     readyBanner: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      gap: spacing.sm,
+      gap: 10,
       backgroundColor: colors.positiveFaint,
-      borderRadius: S_RADIUS.md,
-      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.positive + '33',
+      borderRadius: S_RADIUS.lg,
+      padding: 14,
       marginTop: spacing.lg,
     },
-    readyText: {
-      fontSize: fonts.md,
-      color: colors.positive,
-      fontWeight: S_FONTS.weights.medium,
-      flex: 1,
+    readyCheck: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: colors.positive,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
     },
-  }), [colors, fonts, spacing]);
+    readyText: {
+      fontSize: scaled(13.5),
+      color: colors.positive,
+      fontFamily: S_FONT_FAMILY.body.medium,
+      flex: 1,
+      lineHeight: scaled(18),
+    },
+  }), [colors, fonts, spacing, scaled, display]);
 
   if (!hasTeam) {
     return <SimpleCreateTeam onCreate={async (name, joinCode) => { await createTeam(name, joinCode); }} />;
@@ -218,20 +241,23 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
 
   // creatingSecondTeam is handled inline below with the toggle still visible
 
-  const handleEditName = () => {
+  // Inline rename (Race Day): the name is always an input styled as text;
+  // focusing shows the surface bg + primary underline, blur/submit commits.
+  const handleNameFocus = () => {
     setNewName(team!.name);
     setEditingName(true);
   };
 
-  const handleSaveName = async () => {
+  const handleNameCommit = async () => {
+    setEditingName(false);
     const trimmed = newName.trim();
+    if (trimmed === team!.name) return;
     if (trimmed.length < 2) {
       Alert.alert('Invalid', 'Team name must be at least 2 characters.');
       return;
     }
     try {
       await updateTeamName(trimmed);
-      setEditingName(false);
     } catch {
       Alert.alert('Error', 'Failed to update team name.');
     }
@@ -351,103 +377,102 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
       }
     >
-      {/* Team Header */}
+      {/* Second-team switcher (kept from the previous UI; sits above the header) */}
+      {(teamCount > 1 || canCreateSecondTeam || creatingSecondTeam) && (
+        <View style={{ marginBottom: spacing.sm, alignSelf: 'flex-start' as const }}>
+          <SimpleTeamToggle
+            activeIndex={creatingSecondTeam ? 1 : activeTeamIndex}
+            teamCount={creatingSecondTeam ? 2 : teamCount}
+            canCreateSecond={canCreateSecondTeam && !creatingSecondTeam}
+            onSwitch={(idx) => {
+              if (creatingSecondTeam && idx === 0) {
+                setCreatingSecondTeam(false);
+              } else if (!creatingSecondTeam) {
+                switchTeam(idx);
+              }
+            }}
+            onCreateSecond={() => {
+              Alert.alert(
+                'Create a Second Team?',
+                'You can have up to 2 teams — one for each league or solo play.',
+                [
+                  { text: 'Not Now', style: 'cancel' },
+                  { text: 'Create', onPress: () => setCreatingSecondTeam(true) },
+                ],
+              );
+            }}
+          />
+        </View>
+      )}
+
+      {/* Team Header — avatar · inline-editable name · lock pill / countdown */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleTeamAvatarTap} activeOpacity={0.7}>
-          <Avatar name={team!.name} size={40} variant="team" imageUrl={team!.avatarUrl} />
+          <Avatar name={team!.name} size={44} variant="team" imageUrl={team!.avatarUrl} />
         </TouchableOpacity>
-        {editingName ? (
-          <View style={styles.editNameRow}>
-            <TextInput
-              style={styles.editNameInput}
-              value={newName}
-              onChangeText={setNewName}
-              maxLength={30}
-              autoFocus
-              onSubmitEditing={handleSaveName}
-              returnKeyType="done"
-            />
-            <TouchableOpacity onPress={handleSaveName} style={styles.editNameBtn}>
-              <Ionicons name="checkmark" size={18} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setEditingName(false)} style={styles.editNameBtn}>
-              <Ionicons name="close" size={18} color={colors.text.muted} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity onPress={handleEditName} style={styles.nameRow} activeOpacity={0.7}>
-            <Text style={styles.teamName}>{team!.name}</Text>
-            <Ionicons name="pencil" size={14} color={colors.text.muted} />
-          </TouchableOpacity>
-        )}
-        <SimpleCountdownBanner />
-        {locked && (
+        <TextInput
+          style={[styles.nameInput, editingName && styles.nameInputFocused]}
+          value={editingName ? newName : team!.name}
+          onChangeText={setNewName}
+          onFocus={handleNameFocus}
+          onBlur={handleNameCommit}
+          onSubmitEditing={handleNameCommit}
+          maxLength={30}
+          returnKeyType="done"
+          numberOfLines={1}
+        />
+        {locked ? (
           <View style={styles.lockBadge}>
             <Ionicons name="lock-closed" size={12} color={colors.locked} />
             <Text style={styles.lockText}>Locked</Text>
           </View>
+        ) : (
+          <SimpleCountdownBanner />
         )}
       </View>
 
-      {/* Stats Row */}
+      {/* Race Day stat bar */}
       <View style={styles.statsRow}>
-        <SimpleTeamToggle
-          activeIndex={creatingSecondTeam ? 1 : activeTeamIndex}
-          teamCount={creatingSecondTeam ? 2 : teamCount}
-          canCreateSecond={canCreateSecondTeam && !creatingSecondTeam}
-          onSwitch={(idx) => {
-            if (creatingSecondTeam && idx === 0) {
-              setCreatingSecondTeam(false);
-            } else if (!creatingSecondTeam) {
-              switchTeam(idx);
-            }
-          }}
-          onCreateSecond={() => {
-            Alert.alert(
-              'Create a Second Team?',
-              'You can have up to 2 teams — one for each league or solo play.',
-              [
-                { text: 'Not Now', style: 'cancel' },
-                { text: 'Create', onPress: () => setCreatingSecondTeam(true) },
-              ],
-            );
-          }}
-        />
-        <View style={[styles.statItem, { marginLeft: spacing.sm }]}>
-          <Text style={styles.statValue}>
+        <SpeedLines />
+        <View style={styles.statsEdge} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue} numberOfLines={1}>
             {(team!.totalPoints ?? 0) + (team!.lockedPoints ?? 0)}
           </Text>
-          {lastRacePoints !== null && (
-            <Text style={{ fontSize: fonts.xs, color: lastRacePoints >= 0 ? colors.positive : colors.negative, fontWeight: S_FONTS.weights.medium }}>
+          {lastRacePoints !== null ? (
+            <Text style={[styles.statSub, { color: lastRacePoints >= 0 ? colors.positive : colors.negative }]}>
               {lastRacePoints >= 0 ? '+' : ''}{lastRacePoints} last
             </Text>
+          ) : (
+            <View style={{ height: scaled(15), marginTop: 3 }} />
           )}
           <Text style={styles.statLabel}>Points</Text>
         </View>
-        <View style={[styles.statItem, styles.statDivider]}>
-          {myRank ? (
-            <>
-              <Text style={styles.statValue}>{myRank}<Text style={{ fontSize: fonts.xs, color: colors.text.muted }}>/{leagueSize}</Text></Text>
-              <Text style={styles.statLabel}>Rank</Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.statValue}>—</Text>
-              <Text style={styles.statLabel}>Rank</Text>
-            </>
-          )}
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue} numberOfLines={1}>
+            {myRank ? myRank : '—'}
+            {myRank ? <Text style={{ fontSize: scaled(15), color: colors.text.muted }}>/{leagueSize}</Text> : null}
+          </Text>
+          <View style={{ height: scaled(15), marginTop: 3 }} />
+          <Text style={styles.statLabel}>Rank</Text>
         </View>
-        <View style={[styles.statItem, styles.statDivider]}>
-          <Text style={styles.statValue}>${totalValue}</Text>
-          {valueChange !== 0 && (
-            <Text style={{ fontSize: fonts.xs, color: valueChange > 0 ? colors.positive : colors.negative, fontWeight: S_FONTS.weights.medium }}>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue} numberOfLines={1}>${totalValue}</Text>
+          {valueChange !== 0 ? (
+            <Text style={[styles.statSub, { color: valueChange > 0 ? colors.positive : colors.negative }]}>
               {valueChange > 0 ? '+' : ''}{valueChange}
             </Text>
+          ) : (
+            <View style={{ height: scaled(15), marginTop: 3 }} />
           )}
           <Text style={styles.statLabel}>Value</Text>
         </View>
-        <View style={[styles.statItem, styles.statDivider]}>
-          <Text style={styles.statValue}>${budget}</Text>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue} numberOfLines={1}>${budget}</Text>
+          <View style={{ height: scaled(15), marginTop: 3 }} />
           <Text style={styles.statLabel}>Budget</Text>
         </View>
       </View>
@@ -466,7 +491,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
 
       {/* Drivers Section */}
       {!creatingSecondTeam && (<>
-      <Text style={styles.sectionTitle}>Drivers</Text>
+      <SectionLabel style={{ marginHorizontal: 0 }}>Drivers</SectionLabel>
       {enrichedDrivers.map((driver) => (
         <SimpleDriverRow
           key={driver.driverId}
@@ -501,7 +526,9 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
           disabled={locked}
           activeOpacity={0.6}
         >
-          <Ionicons name="add-circle-outline" size={22} color={locked ? colors.text.muted : colors.primary} />
+          <View style={[styles.emptySlotCircle, locked && { borderColor: colors.text.muted }]}>
+            <Ionicons name="add" size={13} color={locked ? colors.text.muted : colors.primary} />
+          </View>
           <Text style={[styles.emptySlotText, locked && { color: colors.text.muted }]}>
             Add driver ({emptyDriverSlots} slot{emptyDriverSlots !== 1 ? 's' : ''} remaining)
           </Text>
@@ -509,7 +536,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
       )}
 
       {/* Constructor Section */}
-      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Constructor</Text>
+      <SectionLabel style={{ marginHorizontal: 0 }}>Constructor</SectionLabel>
       {enrichedConstructor ? (
         <SimpleConstructorRow
           constructor={enrichedConstructor}
@@ -538,7 +565,9 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
           disabled={locked}
           activeOpacity={0.6}
         >
-          <Ionicons name="add-circle-outline" size={22} color={locked ? colors.text.muted : colors.primary} />
+          <View style={[styles.emptySlotCircle, locked && { borderColor: colors.text.muted }]}>
+            <Ionicons name="add" size={13} color={locked ? colors.text.muted : colors.primary} />
+          </View>
           <Text style={[styles.emptySlotText, locked && { color: colors.text.muted }]}>
             Add constructor
           </Text>
@@ -548,11 +577,13 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
       {/* Ready banner */}
       {isFull && !locked && (
         <View style={styles.readyBanner}>
-          <Ionicons name="checkmark-circle" size={16} color={colors.positive} />
+          <View style={styles.readyCheck}>
+            <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+          </View>
           <Text style={styles.readyText}>
             {lockoutInfo.nextRace
-              ? `Your team is full and ready for ${lockoutInfo.nextRace.name}!`
-              : 'Your team is complete!'}
+              ? `Your team is full and ready for ${lockoutInfo.nextRace.name}.`
+              : 'Your team is complete.'}
           </Text>
         </View>
       )}
