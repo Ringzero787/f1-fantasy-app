@@ -6,8 +6,9 @@ export function getDisplayScale(): number {
 }
 
 // ============================================================================
-// "Race Day" theme — F1-broadcast look per design_handoff_race_day_redesign.
-// Carbon black surfaces, F1 red primary, italic Space Grotesk display type.
+// "Race Day" theme — F1-broadcast look per design_handoff_race_day_redesign,
+// with the primary swapped from F1 red to the Undercut logo teal (user call).
+// Carbon black surfaces, teal primary, italic Space Grotesk display type.
 // Dark is the default ("Race Day"); light is "paddock white".
 // ============================================================================
 
@@ -17,10 +18,10 @@ export const S_COLORS_DARK = {
   card: '#22222E',
   cardPressed: '#2B2B3A',
 
-  primary: '#E10600',     // F1 red
-  primaryDark: '#B00500',
-  primaryLight: '#FF4136',
-  primaryFaint: '#3A1216',
+  primary: '#14B8A6',     // Undercut logo teal
+  primaryDark: '#0D9488',
+  primaryLight: '#2DD4BF',
+  primaryFaint: '#10302B',
 
   text: {
     primary: '#F5F5F7',
@@ -64,10 +65,10 @@ export const S_COLORS_LIGHT = {
   card: '#FFFFFF',
   cardPressed: '#ECECEF',
 
-  primary: '#E10600',     // same red in both modes
-  primaryDark: '#B00500',
-  primaryLight: '#FF4136',
-  primaryFaint: '#FBE3E1',
+  primary: '#0FA893',     // logo teal, darkened a touch for light-bg contrast
+  primaryDark: '#0D8478',
+  primaryLight: '#2DD4BF',
+  primaryFaint: '#D7F1EC',
 
   text: {
     primary: '#15151E',
