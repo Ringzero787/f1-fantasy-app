@@ -1386,9 +1386,11 @@ export function ResultBadge({
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
-  const color = won ? t.success : '#FFB3AC';
-  const border = won ? t.success : 'rgba(242,92,84,0.55)';
-  const bg = won ? '#0d2418' : 'rgba(242,92,84,0.12)';
+  // A missed WITH call staked nothing → soft sage "miss", not the red of a lost bet.
+  const lostMoney = !won && (side === 'against' || netCash < 0);
+  const color = won ? t.success : lostMoney ? '#FFB3AC' : BEN_AGAINST;
+  const border = won ? t.success : lostMoney ? 'rgba(242,92,84,0.55)' : 'rgba(156,175,136,0.55)';
+  const bg = won ? '#0d2418' : lostMoney ? 'rgba(242,92,84,0.12)' : 'rgba(156,175,136,0.12)';
   const sideColor = side === 'against' ? BEN_AGAINST : t.accent;
   const money = (n: number) => `$${Math.abs(n).toFixed(Math.abs(n) < 10 ? 1 : 0)}`;
   const moneyLabel = netCash > 0 ? `+${money(netCash)}` : netCash < 0 ? `−${money(netCash)}` : null;
@@ -1512,7 +1514,8 @@ export function PhaseBanner({ scope, phase }: { scope: SessionKey; phase: 'open'
 // when AGAINST. Includes a small filled dot for emphasis.
 export function ActiveBetDot({ amount, against }: { amount: number; against: boolean }) {
   const t = useTheme();
-  const color = against ? t.danger : t.success;
+  // Handoff uses sage BEN_AGAINST for every "against" treatment; match the rest of the app.
+  const color = against ? BEN_AGAINST : t.success;
   return (
     <View
       style={{

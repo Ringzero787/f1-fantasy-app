@@ -810,6 +810,10 @@ function EntityRow(props: {
   const lost = settled && props.result!.won === false;
   const netCash = props.result ? (props.result.won ? props.result.payout - props.result.stake : -props.result.stake) : 0;
   const outcomePoints = props.result?.pointsCredit ?? 0;
+  // A missed AGAINST bet actually lost cash → hard red. A missed WITH call had no
+  // money at stake, so it's just "didn't score" → softer sage, not a painful loss.
+  const lostMoney = lost && (props.result!.side === 'against' || netCash < 0);
+  const lostSoft = lost && !lostMoney;
 
   return (
     <View
@@ -818,12 +822,12 @@ function EntityRow(props: {
         backgroundColor: t.surface,
         borderRadius: isTablet ? 14 : 12,
         borderWidth: won || lost || against ? 1.5 : 1,
-        borderColor: won ? t.success : lost ? t.danger : against ? BEN_AGAINST : t.line,
+        borderColor: won ? t.success : lostMoney ? t.danger : lostSoft || against ? BEN_AGAINST : t.line,
         overflow: 'hidden',
         opacity: phase === 'locked' || phase === 'complete' ? 0.7 : 1,
       }}
     >
-      {won || lost ? (
+      {won || lostMoney ? (
         <LinearGradient
           colors={[hexA(won ? t.success : t.danger, 0.18), 'transparent']}
           start={{ x: 0, y: 0.5 }}
@@ -831,7 +835,7 @@ function EntityRow(props: {
           pointerEvents="none"
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         />
-      ) : against ? (
+      ) : lostSoft || against ? (
         <LinearGradient
           colors={[BEN_AGAINST_WASH, 'rgba(156,175,136,0)']}
           start={{ x: 0, y: 0.5 }}
