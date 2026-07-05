@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -30,8 +29,7 @@ import { generateAvatar } from '../../services/avatarGeneration.service';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { demoRaces } from '../../data/demoData';
-import { S_RADIUS, S_FONTS, S_FONT_FAMILY, teamAccent } from '../theme/simpleTheme';
-import { TEAM_COLORS } from '../../config/constants';
+import { S_RADIUS, S_FONT_FAMILY, teamAccent } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 interface Props {
@@ -308,27 +306,39 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
   };
 
   const styles = useMemo(() => ({
-    container: {
+    // Sheet chrome — opens 56px below top over a scrim, card bg, sheet radius
+    overlay: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: colors.scrim,
+    },
+    scrimTap: {
+      height: scaled(56),
+    },
+    sheet: {
+      flex: 1,
+      backgroundColor: colors.card,
+      borderTopLeftRadius: S_RADIUS.sheet,
+      borderTopRightRadius: S_RADIUS.sheet,
+      overflow: 'hidden' as const,
     },
     header: {
-      flexDirection: 'row' as const,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingTop: scaled(18),
+      paddingBottom: scaled(16),
       borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
+      borderBottomColor: colors.border,
     },
     headerTitle: {
-      fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.semibold,
+      ...displayUpright,
+      fontSize: scaled(19),
+      letterSpacing: -0.3,
       color: colors.text.primary,
     },
     closeButton: {
       position: 'absolute' as const,
-      right: spacing.lg,
+      right: scaled(16),
+      top: scaled(16),
     },
     scrollView: {
       flex: 1,
@@ -339,89 +349,100 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
     // Avatar section
     avatarSection: {
       alignItems: 'center' as const,
-      paddingVertical: spacing.xl,
+      paddingTop: scaled(28),
+      paddingBottom: scaled(24),
+      paddingHorizontal: scaled(20),
     },
     displayName: {
-      fontSize: fonts.xl,
-      fontWeight: S_FONTS.weights.bold,
+      ...displayUpright,
+      fontSize: scaled(22),
+      letterSpacing: -0.4,
       color: colors.text.primary,
-      marginTop: spacing.md,
+      marginTop: scaled(14),
+      marginBottom: scaled(4),
     },
     email: {
-      fontSize: fonts.sm,
-      color: colors.text.muted,
-      marginTop: spacing.xs,
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.regular,
+      color: colors.text.secondary,
     },
     demoBadge: {
-      marginTop: spacing.sm,
+      marginTop: scaled(12),
       backgroundColor: colors.primaryFaint,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: S_RADIUS.pill,
+      paddingHorizontal: scaled(14),
+      paddingVertical: scaled(6),
+      borderRadius: S_RADIUS.full,
     },
     demoBadgeText: {
-      fontSize: fonts.xs,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(12.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.primary,
     },
-    divider: {
-      height: 1,
-      backgroundColor: colors.borderLight,
-      marginHorizontal: spacing.lg,
-    },
-    // Section headers
-    sectionHeader: {
+    // Row pattern — 16/20 padding, 22px leading icon, 1px borderLight separator
+    row: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      justifyContent: 'space-between' as const,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      gap: scaled(14),
+      paddingVertical: scaled(16),
+      paddingHorizontal: scaled(20),
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
     },
-    sectionTitleRow: {
-      flexDirection: 'row' as const,
+    rowLast: {
+      borderBottomWidth: 0,
+    },
+    rowIcon: {
+      width: scaled(22),
       alignItems: 'center' as const,
-      gap: spacing.sm,
     },
-    sectionTitle: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+    rowLabel: {
+      flex: 1,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.primary,
     },
-    // Rules
+    dangerLabel: {
+      color: colors.negative,
+    },
+    // Collapsible content — padded left 56 to align under labels
+    collapseContent: {
+      paddingLeft: scaled(56),
+      paddingRight: scaled(20),
+      paddingBottom: scaled(16),
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
     rulesContent: {
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.md,
       gap: spacing.sm,
     },
-    ruleItem: {
+    // League block
+    leagueBlock: {
+      paddingTop: scaled(8),
+      paddingHorizontal: scaled(20),
+      paddingBottom: scaled(16),
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    leagueHeaderRow: {
       flexDirection: 'row' as const,
-      alignItems: 'flex-start' as const,
-      gap: spacing.sm,
-    },
-    ruleText: {
-      flex: 1,
-      fontSize: fonts.sm,
-      color: colors.text.secondary,
-      lineHeight: 18,
-    },
-    // League
-    leagueContent: {
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.md,
-      gap: spacing.sm,
+      alignItems: 'center' as const,
+      gap: scaled(14),
+      paddingVertical: scaled(10),
     },
     leagueInfoRow: {
       flexDirection: 'row' as const,
       justifyContent: 'space-between' as const,
       alignItems: 'center' as const,
+      paddingVertical: scaled(6),
     },
     leagueLabel: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
     },
     leagueValue: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.text.primary,
     },
     inviteCodeRow: {
@@ -430,10 +451,10 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       gap: spacing.xs,
     },
     inviteCode: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.bold,
+      ...displayUpright,
+      fontSize: scaled(15),
       color: colors.primary,
-      letterSpacing: 1.5,
+      letterSpacing: 1,
     },
     leaveButton: {
       flexDirection: 'row' as const,
@@ -443,17 +464,18 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       alignSelf: 'flex-start' as const,
     },
     leaveButtonText: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.negative,
     },
     noLeagueContent: {
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.md,
+      paddingBottom: scaled(4),
     },
     noLeagueText: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
+      lineHeight: scaled(19),
       marginBottom: spacing.md,
     },
     leagueButtonRow: {
@@ -465,36 +487,24 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       alignItems: 'center' as const,
       gap: spacing.xs,
       backgroundColor: colors.primaryFaint,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      paddingHorizontal: scaled(14),
+      paddingVertical: scaled(8),
       borderRadius: S_RADIUS.md,
     },
     leagueActionText: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.primary,
     },
-    // Settings
-    settingsContent: {
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.md,
-    },
-    scaleRow: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: spacing.md,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-    },
+    // Settings accessories
     scaleButtons: {
       flexDirection: 'row' as const,
       gap: spacing.xs,
     },
     scaleBtn: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
+      width: scaled(30),
+      height: scaled(30),
+      borderRadius: S_RADIUS.full,
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: 'center' as const,
@@ -505,38 +515,40 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       borderColor: colors.primary,
     },
     scaleBtnText: {
-      fontWeight: S_FONTS.weights.bold,
+      fontFamily: S_FONT_FAMILY.body.bold,
       color: colors.text.muted,
     },
     scaleBtnTextActive: {
       color: colors.text.inverse,
     },
-    settingsRow: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: spacing.md,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
+    // 38×22 switch — primary track when on, border when off, white 18px thumb
+    switchTrack: {
+      width: scaled(38),
+      height: scaled(22),
+      borderRadius: S_RADIUS.full,
+      backgroundColor: colors.border,
+      padding: 2,
+      justifyContent: 'center' as const,
+      alignItems: 'flex-start' as const,
     },
-    settingsRowText: {
-      flex: 1,
-      fontSize: fonts.md,
-      color: colors.text.primary,
+    switchTrackOn: {
+      backgroundColor: colors.primary,
+      alignItems: 'flex-end' as const,
     },
-    dangerRow: {
-      borderBottomWidth: 0,
-    },
-    dangerText: {
-      color: colors.negative,
+    switchThumb: {
+      width: scaled(18),
+      height: scaled(18),
+      borderRadius: S_RADIUS.full,
+      backgroundColor: '#FFFFFF',
     },
     // Version
     versionText: {
       textAlign: 'center' as const,
-      fontSize: fonts.xs,
+      fontSize: scaled(12),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
-      marginTop: spacing.xl,
-      paddingBottom: spacing.lg,
+      paddingTop: scaled(24),
+      paddingBottom: scaled(30),
     },
     avatarOverlay: {
       position: 'absolute' as const,
@@ -544,8 +556,8 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       left: 0,
       right: 0,
       bottom: 0,
-      borderRadius: 36,
-      backgroundColor: 'rgba(0,0,0,0.4)',
+      borderRadius: scaled(42),
+      backgroundColor: colors.scrim,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
     },
@@ -553,38 +565,41 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       position: 'absolute' as const,
       bottom: 0,
       right: 0,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
+      width: scaled(28),
+      height: scaled(28),
+      borderRadius: S_RADIUS.full,
       backgroundColor: colors.primary,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
       borderWidth: 2,
-      borderColor: colors.background,
+      borderColor: colors.card,
     },
     apBackdrop: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.4)',
+      backgroundColor: colors.scrim,
       justifyContent: 'flex-end' as const,
     },
     apSheet: {
-      backgroundColor: colors.background,
-      borderTopLeftRadius: S_RADIUS.lg,
-      borderTopRightRadius: S_RADIUS.lg,
+      backgroundColor: colors.card,
+      borderTopLeftRadius: S_RADIUS.sheet,
+      borderTopRightRadius: S_RADIUS.sheet,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
       paddingHorizontal: spacing.xl,
       paddingTop: spacing.lg,
       paddingBottom: spacing.xxl + 16,
     },
     apTitle: {
-      fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.bold,
+      ...displayUpright,
+      fontSize: scaled(19),
+      letterSpacing: -0.3,
       color: colors.text.primary,
       marginBottom: spacing.lg,
     },
     apOption: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      gap: spacing.md,
+      gap: scaled(14),
       paddingVertical: spacing.md,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
@@ -593,18 +608,19 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       flex: 1,
     },
     apOptionText: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.primary,
     },
     apOptionHint: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
       marginTop: 1,
     },
     apHistoryLabel: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(11.5),
+      fontFamily: S_FONT_FAMILY.body.bold,
       color: colors.text.muted,
       textTransform: 'uppercase' as const,
       letterSpacing: 0.8,
@@ -621,8 +637,8 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       marginTop: spacing.sm,
     },
     apCancelText: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(15),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.text.muted,
     },
     inviteHistoryBtn: {
@@ -633,14 +649,16 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       marginTop: spacing.xs,
     },
     inviteHistoryBtnText: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.primary,
     },
     ihSheet: {
-      backgroundColor: colors.background,
-      borderTopLeftRadius: S_RADIUS.lg,
-      borderTopRightRadius: S_RADIUS.lg,
+      backgroundColor: colors.card,
+      borderTopLeftRadius: S_RADIUS.sheet,
+      borderTopRightRadius: S_RADIUS.sheet,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
       paddingHorizontal: spacing.xl,
       paddingTop: spacing.lg,
       paddingBottom: spacing.xxl + 16,
@@ -653,12 +671,14 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       marginBottom: spacing.lg,
     },
     ihTitle: {
-      fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.bold,
+      ...displayUpright,
+      fontSize: scaled(19),
+      letterSpacing: -0.3,
       color: colors.text.primary,
     },
     ihEmpty: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
       fontStyle: 'italic' as const,
       textAlign: 'center' as const,
@@ -678,12 +698,13 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       flex: 1,
     },
     ihEmail: {
-      fontSize: fonts.md,
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.text.primary,
-      fontWeight: S_FONTS.weights.medium,
     },
     ihStatus: {
-      fontSize: fonts.xs,
+      fontSize: scaled(12),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
       marginTop: 2,
     },
@@ -694,23 +715,18 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       backgroundColor: colors.positiveFaint,
       paddingHorizontal: spacing.sm,
       paddingVertical: 3,
-      borderRadius: S_RADIUS.pill,
+      borderRadius: S_RADIUS.full,
     },
     ihJoinedText: {
-      fontSize: fonts.xs,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(12),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.positive,
     },
     historyEmpty: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13.5),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.muted,
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.md,
       fontStyle: 'italic' as const,
-    },
-    historyContent: {
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.md,
     },
     historyRace: {
       backgroundColor: colors.surface,
@@ -730,14 +746,14 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       borderBottomColor: colors.borderLight,
     },
     historyRaceName: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.primary,
       flex: 1,
     },
     historyRaceTotal: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.bold,
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.bold,
       color: colors.text.primary,
     },
     historyDriverRow: {
@@ -752,13 +768,14 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       marginRight: spacing.sm,
     },
     historyDriverName: {
-      fontSize: fonts.sm,
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.regular,
       color: colors.text.secondary,
       flex: 1,
     },
     historyDriverPts: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.semibold,
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.muted,
     },
     historyTotalRow: {
@@ -769,210 +786,205 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
       marginTop: spacing.xs,
     },
     historyTotalLabel: {
-      fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.medium,
+      fontSize: scaled(13),
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.text.muted,
     },
     historyTotalValue: {
-      fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.bold,
+      fontSize: scaled(14),
+      fontFamily: S_FONT_FAMILY.body.bold,
       color: colors.text.primary,
     },
-  }), [colors, fonts, spacing]);
+  }), [colors, fonts, spacing, scaled, displayUpright]);
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
-            <Ionicons name="close" size={24} color={colors.text.primary} />
-          </TouchableOpacity>
-        </View>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        {/* Scrim strip above the sheet — tap to dismiss */}
+        <Pressable style={styles.scrimTap} onPress={onClose} />
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Avatar Section */}
-          <View style={styles.avatarSection}>
-            <TouchableOpacity onPress={handleAvatarTap} activeOpacity={0.7} disabled={isUploading}>
-              <Avatar
-                name={displayName}
-                size={72}
-                variant="user"
-                imageUrl={avatarUrl}
-              />
-              {isUploading ? (
-                <View style={styles.avatarOverlay}>
-                  <ActivityIndicator size="small" color={colors.text.inverse} />
-                </View>
-              ) : (
-                <View style={styles.avatarEditBadge}>
-                  <Ionicons name="camera" size={12} color={colors.text.inverse} />
-                </View>
-              )}
+        <SafeAreaView style={styles.sheet} edges={['bottom']}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Profile</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
+              <Ionicons name="close" size={scaled(22)} color={colors.text.primary} />
             </TouchableOpacity>
-            <Text style={styles.displayName}>{displayName}</Text>
-            {user?.email ? (
-              <Text style={styles.email}>{user.email}</Text>
-            ) : null}
-            {isDemoMode ? (
-              <View style={styles.demoBadge}>
-                <Text style={styles.demoBadgeText}>Demo Mode</Text>
-              </View>
-            ) : null}
           </View>
 
-          <View style={styles.divider} />
-
-          {/* Game Rules Section */}
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => setRulesExpanded(!rulesExpanded)}
-            activeOpacity={0.7}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="book-outline" size={18} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Game Rules</Text>
+            {/* Avatar Section */}
+            <View style={styles.avatarSection}>
+              <TouchableOpacity onPress={handleAvatarTap} activeOpacity={0.7} disabled={isUploading}>
+                <Avatar
+                  name={displayName}
+                  size={scaled(84)}
+                  variant="user"
+                  imageUrl={avatarUrl}
+                />
+                {isUploading ? (
+                  <View style={styles.avatarOverlay}>
+                    <ActivityIndicator size="small" color={colors.text.inverse} />
+                  </View>
+                ) : (
+                  <View style={styles.avatarEditBadge}>
+                    <Ionicons name="camera" size={scaled(13)} color={colors.text.inverse} />
+                  </View>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.displayName}>{displayName}</Text>
+              {user?.email ? (
+                <Text style={styles.email}>{user.email}</Text>
+              ) : null}
+              {isDemoMode ? (
+                <View style={styles.demoBadge}>
+                  <Text style={styles.demoBadgeText}>Demo Mode</Text>
+                </View>
+              ) : null}
             </View>
-            <Ionicons
-              name={rulesExpanded ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={colors.text.muted}
-            />
-          </TouchableOpacity>
 
-          {rulesExpanded && (
-            <View style={styles.rulesContent}>
-              <RuleItem icon="wallet-outline" text="Budget: $1,000 to build your team" colors={colors} fonts={fonts} spacing={spacing} />
-              <RuleItem icon="people-outline" text="Team: 5 drivers + 1 constructor" colors={colors} fonts={fonts} spacing={spacing} />
-              <RuleItem icon="star-outline" text="Ace: Pick one under $200 for 2x points" colors={colors} fonts={fonts} spacing={spacing} />
-              <RuleItem icon="document-text-outline" text="Contracts: Choose 1-6 races per driver, auto-sells on expiry" colors={colors} fonts={fonts} spacing={spacing} />
-              <RuleItem icon="trophy-outline" text="Points: Race position, positions gained, fastest lap, position bonus" colors={colors} fonts={fonts} spacing={spacing} />
-            </View>
-          )}
-
-          <View style={styles.divider} />
-
-          {/* Race History Section */}
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => setHistoryExpanded(!historyExpanded)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="time-outline" size={18} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Race History</Text>
-            </View>
-            <Ionicons
-              name={historyExpanded ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={colors.text.muted}
-            />
-          </TouchableOpacity>
-
-          {historyExpanded && (
-            <RaceHistory team={team} raceResults={raceResults} colors={colors} fonts={fonts} spacing={spacing} styles={styles} />
-          )}
-
-          <View style={styles.divider} />
-
-          {/* League Section */}
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="shield-outline" size={18} color={colors.primary} />
-              <Text style={styles.sectionTitle}>League</Text>
-            </View>
-          </View>
-
-          {activeLeague ? (
-            <View style={styles.leagueContent}>
-              <View style={styles.leagueInfoRow}>
-                <Text style={styles.leagueLabel}>Name</Text>
-                <Text style={styles.leagueValue}>{activeLeague.name}</Text>
+            {/* Game Rules (collapsible) */}
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => setRulesExpanded(!rulesExpanded)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.rowIcon}>
+                <Ionicons name="book-outline" size={scaled(18)} color={colors.primary} />
               </View>
-              <View style={styles.leagueInfoRow}>
-                <Text style={styles.leagueLabel}>Invite Code</Text>
-                <TouchableOpacity
-                  onPress={handleCopyInviteCode}
-                  style={styles.inviteCodeRow}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.inviteCode}>{activeLeague.inviteCode}</Text>
-                  <Ionicons name="copy-outline" size={14} color={colors.primary} />
-                </TouchableOpacity>
+              <Text style={styles.rowLabel}>Game Rules</Text>
+              <Ionicons
+                name="chevron-down"
+                size={scaled(16)}
+                color={colors.text.muted}
+                style={{ transform: [{ rotate: rulesExpanded ? '180deg' : '0deg' }] }}
+              />
+            </TouchableOpacity>
+
+            {rulesExpanded && (
+              <View style={[styles.collapseContent, styles.rulesContent]}>
+                <RuleItem icon="wallet-outline" text="Budget: $1,000 to build your team" colors={colors} scaled={scaled} spacing={spacing} />
+                <RuleItem icon="people-outline" text="Team: 5 drivers + 1 constructor" colors={colors} scaled={scaled} spacing={spacing} />
+                <RuleItem icon="star-outline" text="Ace: Pick one under $200 for 2x points" colors={colors} scaled={scaled} spacing={spacing} />
+                <RuleItem icon="document-text-outline" text="Contracts: Choose 1-6 races per driver, auto-sells on expiry" colors={colors} scaled={scaled} spacing={spacing} />
+                <RuleItem icon="trophy-outline" text="Points: Race position, positions gained, fastest lap, position bonus" colors={colors} scaled={scaled} spacing={spacing} />
               </View>
-              <View style={styles.leagueInfoRow}>
-                <Text style={styles.leagueLabel}>Members</Text>
-                <Text style={styles.leagueValue}>
-                  {activeLeague.memberCount} / {activeLeague.maxMembers}
-                </Text>
+            )}
+
+            {/* Race History (collapsible) */}
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => setHistoryExpanded(!historyExpanded)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.rowIcon}>
+                <Ionicons name="time-outline" size={scaled(18)} color={colors.primary} />
               </View>
-              {activeLeague.ownerId !== user?.id && (
-                <TouchableOpacity
-                  style={styles.leaveButton}
-                  onPress={handleLeaveLeague}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="exit-outline" size={16} color={colors.negative} />
-                  <Text style={styles.leaveButtonText}>Leave League</Text>
-                </TouchableOpacity>
+              <Text style={styles.rowLabel}>Race History</Text>
+              <Ionicons
+                name="chevron-down"
+                size={scaled(16)}
+                color={colors.text.muted}
+                style={{ transform: [{ rotate: historyExpanded ? '180deg' : '0deg' }] }}
+              />
+            </TouchableOpacity>
+
+            {historyExpanded && (
+              <View style={styles.collapseContent}>
+                <RaceHistory team={team} raceResults={raceResults} colors={colors} styles={styles} />
+              </View>
+            )}
+
+            {/* League block */}
+            <View style={styles.leagueBlock}>
+              <View style={styles.leagueHeaderRow}>
+                <View style={styles.rowIcon}>
+                  <Ionicons name="shield-outline" size={scaled(18)} color={colors.primary} />
+                </View>
+                <Text style={styles.rowLabel}>League</Text>
+              </View>
+
+              {activeLeague ? (
+                <>
+                  <View style={styles.leagueInfoRow}>
+                    <Text style={styles.leagueLabel}>Name</Text>
+                    <Text style={styles.leagueValue}>{activeLeague.name}</Text>
+                  </View>
+                  <View style={styles.leagueInfoRow}>
+                    <Text style={styles.leagueLabel}>Invite code</Text>
+                    <TouchableOpacity
+                      onPress={handleCopyInviteCode}
+                      style={styles.inviteCodeRow}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.inviteCode}>{activeLeague.inviteCode}</Text>
+                      <Ionicons name="copy-outline" size={scaled(14)} color={colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.leagueInfoRow}>
+                    <Text style={styles.leagueLabel}>Members</Text>
+                    <Text style={styles.leagueValue}>
+                      {activeLeague.memberCount} / {activeLeague.maxMembers}
+                    </Text>
+                  </View>
+                  {activeLeague.ownerId !== user?.id && (
+                    <TouchableOpacity
+                      style={styles.leaveButton}
+                      onPress={handleLeaveLeague}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="exit-outline" size={scaled(16)} color={colors.negative} />
+                      <Text style={styles.leaveButtonText}>Leave League</Text>
+                    </TouchableOpacity>
+                  )}
+                  {activeLeague.ownerId === user?.id && (
+                    <TouchableOpacity
+                      style={styles.inviteHistoryBtn}
+                      onPress={() => { loadInviteHistory(); setShowInviteHistory(true); }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="mail-outline" size={scaled(16)} color={colors.primary} />
+                      <Text style={styles.inviteHistoryBtnText}>Invite History</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : (
+                <View style={styles.noLeagueContent}>
+                  <Text style={styles.noLeagueText}>
+                    You are not in a league. Join or create one from the Standings tab.
+                  </Text>
+                  <View style={styles.leagueButtonRow}>
+                    <TouchableOpacity
+                      style={styles.leagueActionButton}
+                      onPress={() => handleLeagueAction('create')}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="add-circle-outline" size={scaled(16)} color={colors.primary} />
+                      <Text style={styles.leagueActionText}>Create</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.leagueActionButton}
+                      onPress={() => handleLeagueAction('join')}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="enter-outline" size={scaled(16)} color={colors.primary} />
+                      <Text style={styles.leagueActionText}>Join</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               )}
-              {activeLeague.ownerId === user?.id && (
-                <TouchableOpacity
-                  style={styles.inviteHistoryBtn}
-                  onPress={() => { loadInviteHistory(); setShowInviteHistory(true); }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="mail-outline" size={16} color={colors.primary} />
-                  <Text style={styles.inviteHistoryBtnText}>Invite History</Text>
-                </TouchableOpacity>
-              )}
             </View>
-          ) : (
-            <View style={styles.noLeagueContent}>
-              <Text style={styles.noLeagueText}>
-                You are not in a league. Join or create one from the Standings tab.
-              </Text>
-              <View style={styles.leagueButtonRow}>
-                <TouchableOpacity
-                  style={styles.leagueActionButton}
-                  onPress={() => handleLeagueAction('create')}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
-                  <Text style={styles.leagueActionText}>Create</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.leagueActionButton}
-                  onPress={() => handleLeagueAction('join')}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="enter-outline" size={16} color={colors.primary} />
-                  <Text style={styles.leagueActionText}>Join</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
 
-          <View style={styles.divider} />
-
-          {/* Settings Section */}
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="settings-outline" size={18} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Settings</Text>
-            </View>
-          </View>
-
-          <View style={styles.settingsContent}>
             {/* Display Scale */}
-            <View style={styles.scaleRow}>
-              <Ionicons name="resize-outline" size={18} color={colors.text.secondary} />
-              <Text style={styles.settingsRowText}>Display Size</Text>
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="resize-outline" size={scaled(18)} color={colors.primary} />
+              </View>
+              <Text style={styles.rowLabel}>Display Size</Text>
               <View style={styles.scaleButtons}>
                 {[{ scale: 0.85, size: 11 }, { scale: 1.0, size: 13 }, { scale: 1.15, size: 15 }, { scale: 1.3, size: 17 }].map((s) => (
                   <TouchableOpacity
@@ -990,9 +1002,11 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             </View>
 
             {/* Theme Mode */}
-            <View style={styles.scaleRow}>
-              <Ionicons name="contrast-outline" size={18} color={colors.text.secondary} />
-              <Text style={styles.settingsRowText}>Theme</Text>
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="contrast-outline" size={scaled(18)} color={colors.primary} />
+              </View>
+              <Text style={styles.rowLabel}>Theme</Text>
               <View style={styles.scaleButtons}>
                 {([
                   { mode: 'light' as const, icon: 'sunny-outline' as const, label: 'Light' },
@@ -1008,7 +1022,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
                     <Ionicons
                       name={t.icon}
                       size={14}
-                      color={themeMode === t.mode ? '#fff' : colors.text.muted}
+                      color={themeMode === t.mode ? colors.text.inverse : colors.text.muted}
                     />
                   </TouchableOpacity>
                 ))}
@@ -1016,50 +1030,62 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             </View>
 
             {/* Incomplete-team reminder toggle (server notifyIncompleteTeams honours it) */}
-            <View style={styles.scaleRow}>
-              <Ionicons name="alert-circle-outline" size={18} color={colors.text.secondary} />
-              <Text style={styles.settingsRowText}>Team reminders</Text>
-              <Switch
-                value={teamReminderOn}
-                onValueChange={handleToggleTeamReminder}
-                trackColor={{ false: '#9ca3af', true: colors.primary }}
-                thumbColor="#fff"
-              />
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="alert-circle-outline" size={scaled(18)} color={colors.primary} />
+              </View>
+              <Text style={styles.rowLabel}>Team reminders</Text>
+              <Pressable
+                onPress={() => handleToggleTeamReminder(!teamReminderOn)}
+                hitSlop={8}
+                style={[styles.switchTrack, teamReminderOn && styles.switchTrackOn]}
+              >
+                <View style={styles.switchThumb} />
+              </Pressable>
             </View>
 
             <TouchableOpacity
-              style={styles.settingsRow}
+              style={styles.row}
               onPress={handlePrivacyPolicy}
               activeOpacity={0.7}
             >
-              <Ionicons name="lock-closed-outline" size={18} color={colors.text.secondary} />
-              <Text style={styles.settingsRowText}>Privacy Policy</Text>
-              <Ionicons name="open-outline" size={14} color={colors.text.muted} />
+              <View style={styles.rowIcon}>
+                <Ionicons name="lock-closed-outline" size={scaled(18)} color={colors.primary} />
+              </View>
+              <Text style={styles.rowLabel}>Privacy Policy</Text>
+              <Ionicons name="open-outline" size={scaled(14)} color={colors.text.muted} />
             </TouchableOpacity>
 
+            <View style={{ height: scaled(8) }} />
+
+            {/* Destructive rows */}
             <TouchableOpacity
-              style={[styles.settingsRow, styles.dangerRow]}
+              style={styles.row}
               onPress={handleDeleteAccount}
               activeOpacity={0.7}
             >
-              <Ionicons name="trash-outline" size={18} color={colors.negative} />
-              <Text style={[styles.settingsRowText, styles.dangerText]}>Delete Account</Text>
+              <View style={styles.rowIcon}>
+                <Ionicons name="trash-outline" size={scaled(18)} color={colors.negative} />
+              </View>
+              <Text style={[styles.rowLabel, styles.dangerLabel]}>Delete Account</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.settingsRow, styles.dangerRow]}
+              style={[styles.row, styles.rowLast]}
               onPress={handleSignOut}
               activeOpacity={0.7}
             >
-              <Ionicons name="log-out-outline" size={18} color={colors.negative} />
-              <Text style={[styles.settingsRowText, styles.dangerText]}>Sign Out</Text>
+              <View style={styles.rowIcon}>
+                <Ionicons name="log-out-outline" size={scaled(18)} color={colors.negative} />
+              </View>
+              <Text style={[styles.rowLabel, styles.dangerLabel]}>Sign Out</Text>
             </TouchableOpacity>
-          </View>
 
-          {/* App Version */}
-          <Text style={styles.versionText}>Undercut v{appVersion}</Text>
-        </ScrollView>
-      </SafeAreaView>
+            {/* App Version */}
+            <Text style={styles.versionText}>Undercut v{appVersion}</Text>
+          </ScrollView>
+        </SafeAreaView>
+      </View>
 
       {/* Avatar Picker Modal */}
       <Modal visible={showAvatarPicker} transparent animationType="fade" onRequestClose={() => setShowAvatarPicker(false)}>
@@ -1068,7 +1094,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             <Text style={styles.apTitle}>Change Profile Picture</Text>
 
             <TouchableOpacity style={styles.apOption} onPress={handleGenerateAI} activeOpacity={0.7}>
-              <Ionicons name="sparkles" size={20} color={colors.primary} />
+              <Ionicons name="sparkles" size={scaled(20)} color={colors.primary} />
               <View style={styles.apOptionInfo}>
                 <Text style={styles.apOptionText}>Generate with AI</Text>
                 <Text style={styles.apOptionHint}>Create a unique avatar</Text>
@@ -1076,7 +1102,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.apOption} onPress={handlePickFromLibrary} activeOpacity={0.7}>
-              <Ionicons name="image-outline" size={20} color={colors.primary} />
+              <Ionicons name="image-outline" size={scaled(20)} color={colors.primary} />
               <View style={styles.apOptionInfo}>
                 <Text style={styles.apOptionText}>Choose from Library</Text>
                 <Text style={styles.apOptionHint}>Pick a photo from your device</Text>
@@ -1110,7 +1136,7 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
             <View style={styles.ihHeader}>
               <Text style={styles.ihTitle}>Invite History</Text>
               <TouchableOpacity onPress={() => setShowInviteHistory(false)} hitSlop={8}>
-                <Ionicons name="close" size={22} color={colors.text.primary} />
+                <Ionicons name="close" size={scaled(22)} color={colors.text.primary} />
               </TouchableOpacity>
             </View>
 
@@ -1156,12 +1182,10 @@ export function SimpleProfileSheet({ visible, onClose }: Props) {
 }
 
 /** Race history showing per-race performance */
-function RaceHistory({ team, raceResults, colors, fonts, spacing, styles }: {
+function RaceHistory({ team, raceResults, colors, styles }: {
   team: any;
   raceResults: Record<string, any>;
   colors: any;
-  fonts: any;
-  spacing: any;
   styles: any;
 }) {
   if (!team) {
@@ -1182,7 +1206,7 @@ function RaceHistory({ team, raceResults, colors, fonts, spacing, styles }: {
   const raceNameMap = new Map(demoRaces.map(r => [r.id, r.name]));
 
   return (
-    <View style={styles.historyContent}>
+    <View>
       {completedRaces.map(([raceId, result]) => {
         const raceName = raceNameMap.get(raceId) ?? raceId.replace(/_/g, ' ');
 
@@ -1224,25 +1248,22 @@ function RaceHistory({ team, raceResults, colors, fonts, spacing, styles }: {
                 {raceTotal > 0 ? '+' : ''}{raceTotal} pts
               </Text>
             </View>
-            {driverBreakdown.map((d) => {
-              const color = TEAM_COLORS[d.constructorId]?.primary ?? colors.text.muted;
-              return (
-                <View key={d.shortName} style={styles.historyDriverRow}>
-                  <View style={[styles.historyDot, { backgroundColor: color }]} />
-                  <Text style={styles.historyDriverName}>{d.shortName}</Text>
-                  <Text style={[
-                    styles.historyDriverPts,
-                    d.pts > 0 && { color: colors.positive },
-                    d.pts < 0 && { color: colors.negative },
-                  ]}>
-                    {d.pts > 0 ? '+' : ''}{d.pts}
-                  </Text>
-                </View>
-              );
-            })}
+            {driverBreakdown.map((d) => (
+              <View key={d.shortName} style={styles.historyDriverRow}>
+                <View style={[styles.historyDot, { backgroundColor: teamAccent(d.constructorId) }]} />
+                <Text style={styles.historyDriverName}>{d.shortName}</Text>
+                <Text style={[
+                  styles.historyDriverPts,
+                  d.pts > 0 && { color: colors.positive },
+                  d.pts < 0 && { color: colors.negative },
+                ]}>
+                  {d.pts > 0 ? '+' : ''}{d.pts}
+                </Text>
+              </View>
+            ))}
             {ctor && (
               <View style={styles.historyDriverRow}>
-                <View style={[styles.historyDot, { backgroundColor: TEAM_COLORS[ctor.constructorId]?.primary ?? colors.text.muted }]} />
+                <View style={[styles.historyDot, { backgroundColor: teamAccent(ctor.constructorId) }]} />
                 <Text style={styles.historyDriverName}>{ctor.name?.split(' ')[0] ?? 'CTOR'}</Text>
                 <Text style={[
                   styles.historyDriverPts,
@@ -1275,11 +1296,17 @@ function RaceHistory({ team, raceResults, colors, fonts, spacing, styles }: {
 }
 
 /** Small helper component for rule items */
-function RuleItem({ icon, text, colors, fonts, spacing }: { icon: string; text: string; colors: any; fonts: any; spacing: any }) {
+function RuleItem({ icon, text, colors, scaled, spacing }: { icon: string; text: string; colors: any; scaled: (n: number) => number; spacing: any }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
-      <Ionicons name={icon as any} size={15} color={colors.primary} />
-      <Text style={{ flex: 1, fontSize: fonts.sm, color: colors.text.secondary, lineHeight: 18 }}>{text}</Text>
+      <Ionicons name={icon as any} size={scaled(15)} color={colors.primary} />
+      <Text style={{
+        flex: 1,
+        fontSize: scaled(13.5),
+        fontFamily: S_FONT_FAMILY.body.regular,
+        color: colors.text.secondary,
+        lineHeight: scaled(19),
+      }}>{text}</Text>
     </View>
   );
 }
