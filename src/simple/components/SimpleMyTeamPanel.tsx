@@ -91,11 +91,12 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
     },
     content: {
       paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.xxl + 40, // room for profile pill
+      paddingBottom: 12,
     },
     header: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
+      marginTop: 12,
       marginBottom: spacing.md,
       gap: 10,
     },
@@ -151,19 +152,19 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
     statItem: {
       flex: 1,
       alignItems: 'center' as const,
-      paddingVertical: scaled(16),
+      paddingVertical: scaled(12),
       paddingHorizontal: 6,
       minWidth: 0,
     },
     statDivider: {
       width: 1,
       backgroundColor: colors.border,
-      marginVertical: scaled(18),
+      marginVertical: scaled(14),
     },
     statValue: {
       ...display,
-      fontSize: scaled(26),
-      lineHeight: scaled(28),
+      fontSize: scaled(24),
+      lineHeight: scaled(26),
       letterSpacing: -0.5,
       color: colors.text.primary,
     },
@@ -408,7 +409,7 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
       {/* Team Header — avatar · inline-editable name · lock pill / countdown */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleTeamAvatarTap} activeOpacity={0.7}>
-          <Avatar name={team!.name} size={44} variant="team" imageUrl={team!.avatarUrl} />
+          <Avatar name={team!.name} size={40} variant="team" imageUrl={team!.avatarUrl} />
         </TouchableOpacity>
         <TextInput
           style={[styles.nameInput, editingName && styles.nameInputFocused]}

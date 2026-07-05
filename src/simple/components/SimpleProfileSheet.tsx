@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -29,7 +30,8 @@ import { generateAvatar } from '../../services/avatarGeneration.service';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { demoRaces } from '../../data/demoData';
-import { S_RADIUS, S_FONT_FAMILY, teamAccent } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS, S_FONT_FAMILY, teamAccent } from '../theme/simpleTheme';
+import { TEAM_COLORS } from '../../config/constants';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 
 interface Props {

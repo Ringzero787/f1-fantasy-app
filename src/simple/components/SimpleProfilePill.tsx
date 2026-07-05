@@ -26,9 +26,11 @@ export const SimpleProfilePill = React.memo(function SimpleProfilePill({ onPress
   const initials = initialsOf(user?.displayName);
 
   const styles = useMemo(() => ({
+    // Inverted bar per handoff: textPrimary bg (light bar on the dark theme,
+    // near-black on light) with background-colored content on top.
     bar: {
       height: scaled(30),
-      backgroundColor: colors.surface,
+      backgroundColor: colors.text.primary,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
       flexDirection: 'row' as const,
@@ -57,12 +59,12 @@ export const SimpleProfilePill = React.memo(function SimpleProfilePill({ onPress
       fontFamily: S_FONT_FAMILY.body.bold,
       letterSpacing: 4,
       textTransform: 'uppercase' as const,
-      color: colors.text.primary,
+      color: colors.background,
     },
     arrow: {
       fontSize: scaled(14),
       fontFamily: S_FONT_FAMILY.body.bold,
-      color: colors.text.primary,
+      color: colors.background,
     },
   }), [colors, scaled]);
 
