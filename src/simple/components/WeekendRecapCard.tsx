@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
-import { S_FONTS, S_RADIUS } from '../theme/simpleTheme';
+import { S_FONTS, S_RADIUS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useWeekendRecap } from '../hooks/useWeekendRecap';
 
 /**
@@ -86,19 +86,19 @@ export function WeekendRecapCard() {
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', padding: 20 },
   card: { width: '100%', maxWidth: 380, borderRadius: S_RADIUS.lg, padding: 24, alignItems: 'center' },
-  kicker: { fontSize: 11, letterSpacing: 1.5, fontWeight: S_FONTS.weights.bold },
-  title: { fontWeight: S_FONTS.weights.bold, marginTop: 2, textAlign: 'center' },
-  points: { fontSize: 40, fontWeight: S_FONTS.weights.bold, marginTop: 8 },
+  kicker: { fontSize: 11, letterSpacing: 1.5, fontFamily: S_FONT_FAMILY.body.bold },
+  title: { fontFamily: S_FONT_FAMILY.body.bold, marginTop: 2, textAlign: 'center' },
+  points: { fontSize: 40, fontFamily: S_FONT_FAMILY.body.bold, marginTop: 8 },
   rank: { marginTop: 2 },
   highlightRow: { flexDirection: 'row', gap: 12, marginTop: 16, width: '100%', justifyContent: 'center' },
   highlight: { flex: 1, alignItems: 'center', maxWidth: 150 },
-  hlName: { fontSize: 14, fontWeight: S_FONTS.weights.semibold, marginTop: 4 },
-  hlPts: { fontSize: 16, fontWeight: S_FONTS.weights.bold },
+  hlName: { fontSize: 14, fontFamily: S_FONT_FAMILY.body.semibold, marginTop: 4 },
+  hlPts: { fontSize: 16, fontFamily: S_FONT_FAMILY.body.bold },
   hlLabel: { fontSize: 11, marginTop: 2 },
   breakdown: { width: '100%', borderTopWidth: 1, marginTop: 18, paddingTop: 12, gap: 6 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   rowName: { fontSize: 13, flex: 1 },
-  rowPts: { fontSize: 13, fontWeight: S_FONTS.weights.semibold, marginLeft: 8 },
-  btn: { marginTop: 22, paddingVertical: 13, borderRadius: S_RADIUS.md, width: '100%', alignItems: 'center' },
-  btnText: { color: '#03242b', fontWeight: S_FONTS.weights.bold, fontSize: 15 },
+  rowPts: { fontSize: 13, fontFamily: S_FONT_FAMILY.body.semibold, marginLeft: 8 },
+  btn: { marginTop: 22, paddingVertical: 13, borderRadius: S_RADIUS.lg, width: '100%', alignItems: 'center' },
+  btnText: { color: '#FFFFFF', fontFamily: S_FONT_FAMILY.body.bold, fontSize: 15 },
 });

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SimpleDriverRow } from './SimpleDriverRow';
 import { SimpleConstructorRow } from './SimpleConstructorRow';
 import { teamService } from '../../services/team.service';
-import { S_RADIUS, S_FONTS } from '../theme/simpleTheme';
+import { S_RADIUS, S_FONTS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { BUDGET } from '../../config/constants';
 import type { FantasyTeam, LeagueMember } from '../../types';
@@ -69,7 +69,7 @@ export function SimpleMemberTeamView({ member, leagueId, onBack }: Props) {
     },
     backText: {
       fontSize: fonts.md,
-      fontWeight: S_FONTS.weights.medium,
+      fontFamily: S_FONT_FAMILY.body.medium,
       color: colors.primary,
       marginLeft: spacing.xs,
     },
@@ -98,7 +98,7 @@ export function SimpleMemberTeamView({ member, leagueId, onBack }: Props) {
     },
     teamName: {
       fontSize: fonts.xl,
-      fontWeight: S_FONTS.weights.bold,
+      fontFamily: S_FONT_FAMILY.body.bold,
       color: colors.text.primary,
       marginBottom: spacing.md,
     },
@@ -118,7 +118,7 @@ export function SimpleMemberTeamView({ member, leagueId, onBack }: Props) {
     },
     statValue: {
       fontSize: fonts.lg,
-      fontWeight: S_FONTS.weights.bold,
+      fontFamily: S_FONT_FAMILY.body.bold,
       color: colors.text.primary,
     },
     statLabel: {
@@ -128,7 +128,7 @@ export function SimpleMemberTeamView({ member, leagueId, onBack }: Props) {
     },
     sectionTitle: {
       fontSize: fonts.sm,
-      fontWeight: S_FONTS.weights.semibold,
+      fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.text.muted,
       textTransform: 'uppercase' as const,
       letterSpacing: 0.8,
