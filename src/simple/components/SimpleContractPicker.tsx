@@ -15,6 +15,8 @@ interface Props {
   name: string;
   price: number;
   budgetRemaining: number;
+  /** Optional caution line under the price summary (e.g. constructor-slot budget guard) */
+  warning?: string | null;
   entityType: 'driver' | 'constructor';
   contractLength: number;
   onChangeContractLength: (len: number) => void;
@@ -29,6 +31,7 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
   name,
   price,
   budgetRemaining,
+  warning,
   entityType,
   contractLength,
   onChangeContractLength,
@@ -107,6 +110,25 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
       color: colors.text.secondary,
       marginTop: scaled(22),
       marginBottom: scaled(10),
+    },
+    warningRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'flex-start' as const,
+      gap: scaled(8),
+      backgroundColor: colors.warning + '1A',
+      borderWidth: 1,
+      borderColor: colors.warning + '33',
+      borderRadius: S_RADIUS.md,
+      paddingVertical: scaled(10),
+      paddingHorizontal: scaled(12),
+      marginTop: scaled(10),
+    },
+    warningText: {
+      flex: 1,
+      fontSize: scaled(12.5),
+      fontFamily: S_FONT_FAMILY.body.medium,
+      color: colors.warning,
+      lineHeight: scaled(17),
     },
     contractRow: {
       flexDirection: 'row' as const,
@@ -202,6 +224,14 @@ export const SimpleContractPicker = React.memo(function SimpleContractPicker({
               </Text>
             </View>
           </View>
+
+          {/* Caution (e.g. buy would leave too little for a constructor) */}
+          {!!warning && (
+            <View style={styles.warningRow}>
+              <Ionicons name="warning-outline" size={scaled(15)} color={colors.warning} />
+              <Text style={styles.warningText}>{warning}</Text>
+            </View>
+          )}
 
           {/* Contract length */}
           <Text style={styles.sectionLabel}>Contract length (races)</Text>

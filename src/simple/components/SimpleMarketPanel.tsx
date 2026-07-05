@@ -266,6 +266,20 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
     ? budget
     : getConstructorEffectiveBudget();
 
+  // Constructor-slot budget guard: while the constructor slot is empty,
+  // warn when cash on hand (or a pending driver buy) can't cover the
+  // cheapest constructor on the market.
+  const cheapestConstructorPrice = useMemo(() => {
+    if (!allConstructors?.length) return null;
+    return Math.min(...allConstructors.map((c) => c.price));
+  }, [allConstructors]);
+  const constructorShort = !teamConstructor && !locked && cheapestConstructorPrice != null
+    && budget < cheapestConstructorPrice;
+  const pickerConstructorWarning = pendingDriver && !teamConstructor && cheapestConstructorPrice != null
+    && budget - pendingDriver.price < cheapestConstructorPrice
+    ? `Leaves $${budget - pendingDriver.price} — not enough for any constructor (cheapest is $${cheapestConstructorPrice}).`
+    : null;
+
   const styles = useMemo(() => ({
     root: {
       flex: 1,
@@ -283,6 +297,23 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
       fontSize: fonts.sm,
       fontFamily: S_FONT_FAMILY.body.semibold,
       color: colors.positive,
+    },
+    ctorWarnBar: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.sm,
+      paddingVertical: scaled(8),
+      paddingHorizontal: spacing.md,
+      backgroundColor: colors.warning + '1A',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.warning + '33',
+    },
+    ctorWarnText: {
+      flex: 1,
+      fontSize: fonts.sm,
+      fontFamily: S_FONT_FAMILY.body.medium,
+      color: colors.warning,
+      lineHeight: scaled(17),
     },
     budgetBar: {
       flexDirection: 'row' as const,
@@ -440,6 +471,16 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
         </View>
       </View>
 
+      {/* Constructor-slot budget warning */}
+      {constructorShort && (
+        <View style={styles.ctorWarnBar}>
+          <Ionicons name="warning-outline" size={scaled(16)} color={colors.warning} />
+          <Text style={styles.ctorWarnText}>
+            Not enough left for a constructor — cheapest is ${cheapestConstructorPrice} and you have ${budget}.
+          </Text>
+        </View>
+      )}
+
       {/* Tab toggle: Drivers | Constructors */}
       <View style={styles.tabRow}>
         <TouchableOpacity
@@ -555,6 +596,7 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
         name={pickerName}
         price={pickerPrice}
         budgetRemaining={pickerBudget}
+        warning={pickerConstructorWarning}
         entityType={pickerType}
         contractLength={contractLength}
         onChangeContractLength={setContractLength}
