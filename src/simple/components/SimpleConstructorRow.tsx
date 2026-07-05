@@ -170,8 +170,8 @@ export const SimpleConstructorRow = React.memo(function SimpleConstructorRow({
             </View>
           )}
         </View>
-        <Text style={styles.meta}>
-          Constructor · {contractRemaining <= 0 ? 'Final race' : `${contractRemaining} race${contractRemaining !== 1 ? 's' : ''} left`}
+        <Text style={styles.meta} numberOfLines={1}>
+          {contractRemaining <= 0 ? 'Final race' : `${contractRemaining} race${contractRemaining !== 1 ? 's' : ''} left`}
         </Text>
       </View>
 

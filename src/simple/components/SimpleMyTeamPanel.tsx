@@ -85,13 +85,24 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
     }
   }, [team?.leagueId]);
 
+  // Prompt for review when team is complete. Must stay above the !hasTeam
+  // early return — hooks after a conditional return crash the first render
+  // after team creation ("Rendered more hooks than during the previous render").
+  const reviewTriggered = useRef(false);
+  useEffect(() => {
+    if (isFull && !reviewTriggered.current) {
+      reviewTriggered.current = true;
+      maybeRequestReview();
+    }
+  }, [isFull]);
+
   const styles = useMemo(() => ({
     scroll: {
       flex: 1,
     },
     content: {
       paddingHorizontal: spacing.lg,
-      paddingBottom: 12,
+      paddingBottom: 8,
     },
     header: {
       flexDirection: 'row' as const,
@@ -216,23 +227,23 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
       borderWidth: 1,
       borderColor: colors.positive + '33',
       borderRadius: S_RADIUS.lg,
-      padding: 14,
-      marginTop: spacing.lg,
+      padding: 9,
+      marginTop: 10,
     },
     readyCheck: {
-      width: 22,
-      height: 22,
-      borderRadius: 11,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
       backgroundColor: colors.positive,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
     },
     readyText: {
-      fontSize: scaled(13.5),
+      fontSize: scaled(12.5),
       color: colors.positive,
       fontFamily: S_FONT_FAMILY.body.medium,
       flex: 1,
-      lineHeight: scaled(18),
+      lineHeight: scaled(16),
     },
   }), [colors, fonts, spacing, scaled, display]);
 
@@ -307,15 +318,6 @@ export const SimpleMyTeamPanel = React.memo(function SimpleMyTeamPanel({
   };
 
   const emptyDriverSlots = TEAM_SIZE - driversCount;
-
-  // Prompt for review when team is complete
-  const reviewTriggered = useRef(false);
-  useEffect(() => {
-    if (isFull && !reviewTriggered.current) {
-      reviewTriggered.current = true;
-      maybeRequestReview();
-    }
-  }, [isFull]);
 
   // Enrich drivers with live market prices
   const enrichedDrivers = (team!.drivers ?? []).map(d => {
