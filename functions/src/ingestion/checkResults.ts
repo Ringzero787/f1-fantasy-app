@@ -96,6 +96,33 @@ export const checkOpenF1Results = onSchedule(
 
         await processRace(race);
       }
+
+      // 3. Correction pass — re-check recently-completed races so stewards'
+      // penalties applied AFTER the short settle window still flow through.
+      // Re-running processRace re-fetches OpenF1 and re-approves; the write to
+      // races/{id} triggers onRaceCompleted, which is correction-aware (delta
+      // re-grade of picks + lineups + standings + bets). An unchanged re-fetch
+      // is a no-op via onRaceCompleted's results signature, so this is cheap and
+      // safe. Bounded to a window so we stop re-fetching once results are final.
+      const CORRECTION_WINDOW_HOURS = 6;
+      const completedSnap = await db.collection('races').where('status', '==', 'completed').get();
+      for (const doc of completedSnap.docs) {
+        const data = doc.data();
+        const raceTime = data.schedule?.race;
+        if (!raceTime) continue;
+        const raceMs = (raceTime instanceof admin.firestore.Timestamp
+          ? raceTime
+          : admin.firestore.Timestamp.fromDate(new Date(raceTime))).toMillis();
+        const ageMs = now.toMillis() - raceMs;
+        if (ageMs < 0 || ageMs > CORRECTION_WINDOW_HOURS * 3600 * 1000) continue; // only recently completed
+        console.log(`[Ingestion] Correction re-check ${doc.id} (completed ${(ageMs / 3600000).toFixed(1)}h ago)`);
+        await processRace({
+          raceId: doc.id,
+          round: data.round,
+          raceName: data.name || doc.id,
+          hasSprint: data.hasSprint || false,
+        });
+      }
     } catch (error) {
       console.error('[Ingestion] Fatal error:', error);
     }
