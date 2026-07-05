@@ -24,6 +24,15 @@ export default function LoginScreen() {
   const isDark = colorScheme === 'dark';
   const { signInWithGoogle, signInWithApple, signInWithAmazon, enterDemoMode, isLoading, error, clearError } = useAuth();
 
+  // TEMP dev-only: ?demo=1 on web enters demo mode for headless UI verification
+  React.useEffect(() => {
+    if (__DEV__ && typeof window !== 'undefined' && window.location?.search?.includes('demo=1')) {
+      enterDemoMode();
+      router.replace('/');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleGoogleSignIn = async (idToken: string) => {
     clearError();
     try {

@@ -337,8 +337,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.error + '25',
   },
   sellChipNeutral: {
-    backgroundColor: COLORS.text.muted + '12',
-    borderColor: COLORS.text.muted + '25',
+    // COLORS.text.muted is an rgba() string, so hex-alpha suffixes can't apply
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   sellChipText: {
     fontSize: 11,
