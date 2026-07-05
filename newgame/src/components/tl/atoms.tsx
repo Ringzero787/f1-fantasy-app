@@ -1386,11 +1386,13 @@ export function ResultBadge({
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
-  // A missed WITH call staked nothing → soft sage "miss", not the red of a lost bet.
+  // Money outcomes get the vivid colors: a staked win pays out → gold, a staked
+  // loss cost cash → red. Point-only calls stay green (WITH win) / sage (WITH miss).
+  const wonMoney = won && netCash > 0;
   const lostMoney = !won && (side === 'against' || netCash < 0);
-  const color = won ? t.success : lostMoney ? '#FFB3AC' : BEN_AGAINST;
-  const border = won ? t.success : lostMoney ? 'rgba(242,92,84,0.55)' : 'rgba(156,175,136,0.55)';
-  const bg = won ? '#0d2418' : lostMoney ? 'rgba(242,92,84,0.12)' : 'rgba(156,175,136,0.12)';
+  const color = wonMoney ? t.tierA : won ? t.success : lostMoney ? '#FFB3AC' : BEN_AGAINST;
+  const border = wonMoney ? t.tierAEdge : won ? t.success : lostMoney ? 'rgba(242,92,84,0.55)' : 'rgba(156,175,136,0.55)';
+  const bg = wonMoney ? t.tierAGlow : won ? '#0d2418' : lostMoney ? 'rgba(242,92,84,0.12)' : 'rgba(156,175,136,0.12)';
   const sideColor = side === 'against' ? BEN_AGAINST : t.accent;
   const money = (n: number) => `$${Math.abs(n).toFixed(Math.abs(n) < 10 ? 1 : 0)}`;
   const moneyLabel = netCash > 0 ? `+${money(netCash)}` : netCash < 0 ? `−${money(netCash)}` : null;
