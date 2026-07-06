@@ -36,7 +36,7 @@ const db = admin.firestore();
  * Scheduled: Check OpenF1 for new race results every 30 minutes.
  */
 export const checkOpenF1Results = onSchedule(
-  { schedule: 'every 30 minutes', timeoutSeconds: 300 },
+  { schedule: 'every 15 minutes', timeoutSeconds: 300 },
   async () => {
     console.log('[Ingestion] Checking OpenF1 for results...');
 
@@ -264,11 +264,14 @@ async function processRace(race: {
     console.log(`[Ingestion] Stored pending results for ${race.raceId} (${raceData.results.length} drivers, ${warnings.length} warnings)`);
 
     // Settle window: stewards' penalties (track-limits, unsafe release, etc.)
-    // are applied to the classification HOURS after a race ends. Auto-approving
-    // the instant results appear locks in the provisional order — that's how the
-    // Barcelona 2026 Colapinto penalty was missed. Wait until the session ended
-    // at least SETTLE_HOURS ago so OpenF1 reflects the final classification.
-    const SETTLE_HOURS = 3;
+    // are applied to the classification after a race ends, so we hold off briefly
+    // for OpenF1 to reflect them. Kept short (was 3h) so scoring lands close to
+    // the race — most penalties are applied within the hour. TRADEOFF: a penalty
+    // applied LATER than this window (rare post-race investigation) would be
+    // missed, since an approved race isn't re-fetched. Completeness is guarded
+    // separately (session date_end must exist + MIN_RESULTS_FOR_AUTO), so this is
+    // purely the penalty buffer.
+    const SETTLE_HOURS = 1;
     const sessionEndedMs = raceSession.date_end ? new Date(raceSession.date_end).getTime() : 0;
     const settled = sessionEndedMs > 0 && (Date.now() - sessionEndedMs) >= SETTLE_HOURS * 3600 * 1000;
 
