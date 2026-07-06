@@ -8,6 +8,41 @@ tagged **(server)**.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.2.0] (51) — 2026-07-06
+### Added
+- **Constructor budget guard**: while the constructor slot is empty, the
+  add-driver sheet warns when a buy would drop the budget below the cheapest
+  constructor, and the Market header shows a persistent strip once it already has.
+
+### Changed
+- **Race Day redesign** of the whole (simple) UI, from the design handoff:
+  - New theme: carbon-dark default + "paddock white" light, primary swapped
+    from F1 red to the Undercut logo teal; reds now only mean negative/remove.
+  - New type system: Inter body + Space Grotesk display with synthesized
+    oblique "speed" numerals; skewed toggle tabs; teal `///` section labels.
+  - My Team: full 5+1 roster + stat bar + header fit one phone viewport;
+    driver tiles show racing numbers on team-color gradients; per-row figures
+    (last-race delta · season total · price) right-aligned on one baseline;
+    price rises shown as a green price + ▴ (exact delta on long-press);
+    constructors use short names on roster cards; inline team rename.
+  - Market: budget strip, segmented Drivers/Constructors toggle, search, sort
+    chips, team-color row stripes, bottom-sheet add flow with 1–6 contract picker.
+  - Standings/league, profile sheet, weekend recap, member team view and
+    create-team all restyled to match.
+
+### Fixed
+- Crash ("Rendered more hooks…") on the first render after creating a team.
+- Custom fonts silently failed to load in release builds (expo-font runtime
+  asset resolution); the faces now ship natively in the Android project.
+- Android ignores skew transforms on text — the display oblique uses real
+  synthesized italics there instead.
+
+### Fixed (server)
+- Sprint weekends now lock at sprint qualifying, and teams no longer unlock
+  mid-weekend between sessions.
+- 2026 sprint calendar corrected (rounds 7/11/14/18).
+- Results ingestion re-checks recently-completed races for stewards' corrections.
+
 ## [2.1.9] (50) — 2026-06-30
 ### Changed
 - No client changes vs 2.1.8 — fresh `versionCode` for a clean Play upload.
