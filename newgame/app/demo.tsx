@@ -21,6 +21,12 @@ import { SectionLabel } from '@components/tl';
 import { SESSION_WEIGHT, benLineHits } from '@/types';
 import type { BenLine, BenSessionDoc, PicksDoc, Pick, SessionKey, BenSide } from '@/types';
 
+// Renders once, throws once — exercises the RootErrorBoundary path of the
+// crash reporter (report + fallback UI instead of a hard close).
+function ThrowOnRender(): null {
+  throw new Error('[demo] test render crash — crash reporter check');
+}
+
 export default function DemoScreen() {
   const t = useTheme();
   const user = useAuthStore((s) => s.user);
@@ -29,6 +35,7 @@ export default function DemoScreen() {
   const resetGarage = useGarageStore((s) => s.reset);
   const resetShop = useShopStore((s) => s.reset);
   const [busy, setBusy] = useState(false);
+  const [renderCrash, setRenderCrash] = useState(false);
 
   if (!user) {
     return (
@@ -388,6 +395,21 @@ export default function DemoScreen() {
 
         <SectionLabel>Diagnostics</SectionLabel>
         <Group>
+          {renderCrash ? <ThrowOnRender /> : null}
+          <Btn
+            label="Test crash reporter (render crash)"
+            sub="Throws in render — boundary should report + show the retry screen"
+            onPress={() => setRenderCrash(true)}
+            disabled={busy}
+          />
+          <Btn
+            label="Test crash reporter (fatal throw)"
+            sub="Throws in a handler — global handler reports; release build will close"
+            onPress={() => {
+              throw new Error('[demo] test fatal crash — crash reporter check');
+            }}
+            disabled={busy}
+          />
           <Btn label="Probe bet write permission" sub="Round-trips a tl_bets create+delete; shows the rule error" onPress={probeBetsPermission} disabled={busy} />
           <Btn label="Clear in-memory stores" onPress={clearLocalState} disabled={busy} />
           <Btn label="Open Onboarding screen (no flag flip)" onPress={() => router.push('/onboarding')} disabled={busy} />

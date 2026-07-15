@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Track Limits",
     slug: "track-limits",
-    version: "0.1.28",
+    version: "0.1.29",
     orientation: "portrait",
     icon: "./assets/icon.png",
     scheme: "tracklimits",
@@ -28,7 +28,7 @@ module.exports = {
       },
       package: "com.tracklimits.app",
       googleServicesFile: "./google-services.json",
-      versionCode: 29
+      versionCode: 30
     },
     web: {
       bundler: "metro",

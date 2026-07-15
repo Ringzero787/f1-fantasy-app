@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { Component, ErrorInfo, ReactNode, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,9 +7,46 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@store/auth.store';
 import { authService } from '@services/auth.service';
 import { notificationsService } from '@services/notifications.service';
+import { installCrashReporter, reportCrash } from '@services/crashReporter';
 import { colors } from '@/constants/theme';
 import { ThemeProvider } from '@/theme';
 import { AppConfigGate } from '@components/AppConfigGate';
+
+// Capture fatal JS errors from the very first render onwards. Reports land in
+// the shared errorLogs collection tagged app:'tracklimits' (see crashReporter).
+installCrashReporter();
+
+// Last-resort boundary above every provider: a render crash anywhere in the
+// tree reports its component stack and shows a retry screen instead of the
+// app hard-closing (or worse, resuming into the same broken state forever).
+// Hardcoded colors — the theme provider lives INSIDE this boundary and may
+// itself be what crashed.
+class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    void reportCrash(error, { source: 'boundary', isFatal: false, componentStack: info?.componentStack ?? undefined });
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0E1116', alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+        <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800' }}>Something went wrong</Text>
+        <Text style={{ color: '#9BA6B2', fontSize: 13, marginTop: 10, textAlign: 'center', lineHeight: 19 }}>
+          The error has been reported automatically. Tap below to reload — if it keeps happening, force-close the app and reopen.
+        </Text>
+        <Pressable
+          onPress={() => this.setState({ error: null })}
+          style={{ marginTop: 22, paddingHorizontal: 26, paddingVertical: 12, borderRadius: 10, backgroundColor: '#7B93F5' }}
+        >
+          <Text style={{ color: '#0E1116', fontSize: 15, fontWeight: '700' }}>Reload</Text>
+        </Pressable>
+      </View>
+    );
+  }
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -89,6 +126,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   return (
+    <RootErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <SafeAreaProvider>
@@ -114,5 +152,6 @@ export default function RootLayout() {
         </SafeAreaProvider>
       </ThemeProvider>
     </QueryClientProvider>
+    </RootErrorBoundary>
   );
 }
