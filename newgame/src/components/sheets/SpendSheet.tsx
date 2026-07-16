@@ -11,7 +11,7 @@ import { TierChip, TierMultBadge, DriverPortrait, Num } from '@components/tl';
 import { useShopStore } from '@store/shop.store';
 import { useGarageStore } from '@store/garage.store';
 import { useGarageWithEntities } from '@/hooks/useGarageWithEntities';
-import { garageService, garageConfig } from '@services/garage.service';
+import { garageService } from '@services/garage.service';
 import type { Driver, Constructor } from '@/types';
 
 type SpendKind = 'driver' | 'constructor';
@@ -32,33 +32,19 @@ export function SpendSheet({
   const offerDrivers = useShopStore((s) => s.drivers);
   const offerConstructors = useShopStore((s) => s.constructors);
   const offerLoading = useShopStore((s) => s.isLoading);
-  const hasInitialOffer = useShopStore((s) => s.hasInitialOffer);
-  const rollFresh = useShopStore((s) => s.rollFresh);
+  const hasLoaded = useShopStore((s) => s.hasLoaded);
+  const loadCatalog = useShopStore((s) => s.loadCatalog);
   const refreshGarage = useGarageStore((s) => s.refresh);
 
-  // Auto-roll if no offer
+  // Load the catalog on first open
   useEffect(() => {
-    if (visible && garage && !hasInitialOffer && !offerLoading) {
-      rollFresh({ excludeDriverIds: garage.ownedDriverIds, excludeConstructorIds: garage.ownedConstructorIds });
+    if (visible && garage && !hasLoaded && !offerLoading) {
+      loadCatalog({ excludeDriverIds: garage.ownedDriverIds, excludeConstructorIds: garage.ownedConstructorIds });
     }
-  }, [visible, garage, hasInitialOffer, offerLoading, rollFresh]);
+  }, [visible, garage, hasLoaded, offerLoading, loadCatalog]);
 
   if (!garage) return null;
   const cap = kind === 'driver' ? 'driver' : 'constructor';
-
-  const onReroll = async () => {
-    if (garage.cash < garageConfig.REROLL_BASE_COST) {
-      Alert.alert('Not enough cash', `Reroll costs $${garageConfig.REROLL_BASE_COST}.`);
-      return;
-    }
-    try {
-      await garageService.chargeReroll(userId);
-      await refreshGarage(userId);
-      await rollFresh({ excludeDriverIds: garage.ownedDriverIds, excludeConstructorIds: garage.ownedConstructorIds });
-    } catch (err) {
-      Alert.alert('Reroll failed', err instanceof Error ? err.message : 'Unknown');
-    }
-  };
 
   const onBuyDriver = async (driver: Driver) => {
     if (garage.cash < driver.price) {
@@ -68,7 +54,7 @@ export function SpendSheet({
     try {
       await garageService.buyDriver(userId, driver);
       await refreshGarage(userId);
-      await rollFresh({
+      await loadCatalog({
         excludeDriverIds: [...garage.ownedDriverIds, driver.id],
         excludeConstructorIds: garage.ownedConstructorIds,
       });
@@ -86,7 +72,7 @@ export function SpendSheet({
     try {
       await garageService.buyConstructor(userId, c);
       await refreshGarage(userId);
-      await rollFresh({
+      await loadCatalog({
         excludeDriverIds: garage.ownedDriverIds,
         excludeConstructorIds: [...garage.ownedConstructorIds, c.id],
       });
@@ -103,59 +89,6 @@ export function SpendSheet({
       title={`Add a ${cap}`}
       subtitle={`$${garage.cash} to spend · ${kind === 'driver' ? `${garage.ownedDriverIds.length} owned · ${(garage.rosteredDriverIds?.length ?? 0)}/${garage.rosterDriverSlots ?? 4} active` : `${garage.ownedConstructorIds.length} owned · ${(garage.rosteredConstructorIds?.length ?? 0)}/${garage.rosterConstructorSlots ?? 2} active`}`}
     >
-      {/* Reroll bar */}
-      <View
-        style={{
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          backgroundColor: t.accentSoft,
-          borderWidth: 1,
-          borderColor: t.accentDim,
-          borderRadius: 10,
-          marginBottom: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 10,
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: t.fSans, fontSize: 13, fontWeight: '600', color: t.text }}>Reroll the shop</Text>
-          <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.textDim, marginTop: 1 }}>
-            5 new drivers · 3 new teams
-          </Text>
-        </View>
-        <Pressable
-          onPress={onReroll}
-          disabled={garage.cash < garageConfig.REROLL_BASE_COST || offerLoading}
-          style={({ pressed }) => [
-            {
-              height: 34,
-              paddingHorizontal: 12,
-              borderRadius: 8,
-              backgroundColor: garage.cash < garageConfig.REROLL_BASE_COST ? 'transparent' : t.accent,
-              borderWidth: garage.cash < garageConfig.REROLL_BASE_COST ? 1 : 0,
-              borderColor: t.line,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: pressed ? 0.85 : 1,
-            },
-          ]}
-        >
-          <Text
-            style={{
-              color: garage.cash < garageConfig.REROLL_BASE_COST ? t.textMute : '#0E1116',
-              fontFamily: t.fMono,
-              fontSize: 12,
-              fontWeight: '700',
-              letterSpacing: 0.3,
-            }}
-          >
-            ${garageConfig.REROLL_BASE_COST} ↻
-          </Text>
-        </Pressable>
-      </View>
-
       {/* Offers */}
       <View style={{ gap: 8 }}>
         {kind === 'driver'

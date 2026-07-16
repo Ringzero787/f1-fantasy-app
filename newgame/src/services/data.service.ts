@@ -9,6 +9,7 @@ import {
   limit,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { withOfflineFallback, throwIfOfflineEmpty } from '../utils/offlineCache';
 import type { Driver, Constructor, Race } from '../types';
 
 // Firestore Timestamp / Date / millis-number → millis. Race.schedule.race can
@@ -54,38 +55,51 @@ function getMockUpcomingRace(): Race {
 
 export const dataService = {
   async getActiveDrivers(): Promise<Driver[]> {
-    const q = query(
-      collection(db, 'drivers'),
-      where('isActive', '==', true),
-      orderBy('price', 'desc')
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Driver[];
+    return withOfflineFallback('activeDrivers', async () => {
+      const q = query(
+        collection(db, 'drivers'),
+        where('isActive', '==', true),
+        orderBy('price', 'desc')
+      );
+      const snap = await getDocs(q);
+      throwIfOfflineEmpty(snap);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Driver[];
+    });
   },
 
   async getActiveConstructors(): Promise<Constructor[]> {
-    const q = query(
-      collection(db, 'constructors'),
-      where('isActive', '==', true),
-      orderBy('price', 'desc')
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Constructor[];
+    return withOfflineFallback('activeConstructors', async () => {
+      const q = query(
+        collection(db, 'constructors'),
+        where('isActive', '==', true),
+        orderBy('price', 'desc')
+      );
+      const snap = await getDocs(q);
+      throwIfOfflineEmpty(snap);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Constructor[];
+    });
   },
 
   async getDriversByIds(ids: string[]): Promise<Driver[]> {
     if (ids.length === 0) return [];
-    // Firestore "in" allows up to 30 ids; for now we expect <= 6.
-    const q = query(collection(db, 'drivers'), where('__name__', 'in', ids));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Driver[];
+    // Cache key sorts the ids so roster order changes don't fragment entries.
+    return withOfflineFallback(`driversByIds:${[...ids].sort().join(',')}`, async () => {
+      // Firestore "in" allows up to 30 ids; for now we expect <= 6.
+      const q = query(collection(db, 'drivers'), where('__name__', 'in', ids));
+      const snap = await getDocs(q);
+      throwIfOfflineEmpty(snap);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Driver[];
+    });
   },
 
   async getConstructorsByIds(ids: string[]): Promise<Constructor[]> {
     if (ids.length === 0) return [];
-    const q = query(collection(db, 'constructors'), where('__name__', 'in', ids));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Constructor[];
+    return withOfflineFallback(`constructorsByIds:${[...ids].sort().join(',')}`, async () => {
+      const q = query(collection(db, 'constructors'), where('__name__', 'in', ids));
+      const snap = await getDocs(q);
+      throwIfOfflineEmpty(snap);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Constructor[];
+    });
   },
 
   async getDriver(id: string): Promise<Driver | null> {
@@ -94,6 +108,18 @@ export const dataService = {
   },
 
   async getUpcomingRace(): Promise<Race | null> {
+    try {
+      return await withOfflineFallback('upcomingRace', () => this._getUpcomingRaceLive());
+    } catch (err) {
+      // Fallback B: nothing live and nothing cached — synthesized mock so the
+      // lineup screen still renders rather than crash. Caller can detect this
+      // by the synthetic id.
+      console.warn('[tl] getUpcomingRace failed with no cached copy, using mock:', err);
+      return getMockUpcomingRace();
+    }
+  },
+
+  async _getUpcomingRaceLive(): Promise<Race | null> {
     // The "current" race is the earliest race that hasn't completed yet. This
     // INCLUDES 'in_progress' — once a race weekend starts, the shared lock cron
     // (Undercut) flips the race doc to 'in_progress', and the player is still
@@ -113,6 +139,7 @@ export const dataService = {
         limit(1)
       );
       const snap = await getDocs(q);
+      throwIfOfflineEmpty(snap);
       if (!snap.empty) {
         const d = snap.docs[0];
         return { id: d.id, ...d.data() } as Race;
@@ -125,6 +152,7 @@ export const dataService = {
     try {
       const q2 = query(collection(db, 'races'), where('status', 'in', ACTIVE));
       const snap2 = await getDocs(q2);
+      throwIfOfflineEmpty(snap2);
       if (!snap2.empty) {
         const races = snap2.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Race, 'id'>) }));
         races.sort((a, b) => {
@@ -135,11 +163,11 @@ export const dataService = {
         return races[0] as Race;
       }
     } catch (err) {
-      console.warn('[tl] getUpcomingRace fallback A also failed, using mock:', err);
+      console.warn('[tl] getUpcomingRace fallback A also failed:', err);
+      throw err;
     }
-    // Fallback B: synthesized mock so the lineup screen still renders rather
-    // than crash. Caller can detect this by the synthetic id.
-    return getMockUpcomingRace();
+    // No error but no active races either — a real (cacheable) empty state.
+    return null;
   },
 
   async getCompletedRaces(seasonId: string): Promise<Race[]> {

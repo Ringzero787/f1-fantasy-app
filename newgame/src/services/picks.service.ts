@@ -9,6 +9,7 @@
 
 import { doc, getDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db, functions, httpsCallable } from '../config/firebase';
+import { withOfflineFallback } from '../utils/offlineCache';
 import type { PicksDoc, Pick, BenSide, SessionKey } from '../types';
 
 const pickDocId = (userId: string, raceId: string) => `${userId}_${raceId}`;
@@ -20,8 +21,10 @@ const callSetPick = httpsCallable(functions, 'tlSetPick');
 export const picksService = {
   // One-shot read. Live UI should use subscribe() instead so it stays in sync.
   async get(userId: string, raceId: string): Promise<PicksDoc | null> {
-    const snap = await getDoc(pickDoc(userId, raceId));
-    return snap.exists() ? ({ id: snap.id, ...snap.data() } as PicksDoc) : null;
+    return withOfflineFallback(`picks:${pickDocId(userId, raceId)}`, async () => {
+      const snap = await getDoc(pickDoc(userId, raceId));
+      return snap.exists() ? ({ id: snap.id, ...snap.data() } as PicksDoc) : null;
+    });
   },
 
   // Subscribe to a user's picks doc for a race. Fires once immediately with the

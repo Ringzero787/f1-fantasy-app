@@ -6,10 +6,10 @@ interface ShopState {
   drivers: Driver[];
   constructors: Constructor[];
   isLoading: boolean;
-  hasInitialOffer: boolean;
+  hasLoaded: boolean;
   error: string | null;
 
-  rollFresh: (opts: { excludeDriverIds: string[]; excludeConstructorIds: string[] }) => Promise<void>;
+  loadCatalog: (opts: { excludeDriverIds: string[]; excludeConstructorIds: string[] }) => Promise<void>;
   reset: () => void;
 }
 
@@ -17,18 +17,18 @@ export const useShopStore = create<ShopState>((set) => ({
   drivers: [],
   constructors: [],
   isLoading: false,
-  hasInitialOffer: false,
+  hasLoaded: false,
   error: null,
 
-  rollFresh: async (opts) => {
+  loadCatalog: async (opts) => {
     set({ isLoading: true, error: null });
     try {
-      const offer = await shopService.rollOffer(opts);
+      const catalog = await shopService.getCatalog(opts);
       set({
-        drivers: offer.drivers,
-        constructors: offer.constructors,
+        drivers: catalog.drivers,
+        constructors: catalog.constructors,
         isLoading: false,
-        hasInitialOffer: true,
+        hasLoaded: true,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Shop refresh failed';
@@ -36,5 +36,5 @@ export const useShopStore = create<ShopState>((set) => ({
     }
   },
 
-  reset: () => set({ drivers: [], constructors: [], isLoading: false, hasInitialOffer: false, error: null }),
+  reset: () => set({ drivers: [], constructors: [], isLoading: false, hasLoaded: false, error: null }),
 }));

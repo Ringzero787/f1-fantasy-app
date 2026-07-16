@@ -130,7 +130,13 @@ export const authService = {
   async getUserProfile(userId: string): Promise<TLUser | null> {
     const userDoc = await getDoc(doc(db, USERS_COLLECTION, userId));
     if (!userDoc.exists()) return null;
-    return { id: userDoc.id, ...userDoc.data() } as TLUser;
+    const data = userDoc.data();
+    // Older accounts can lack displayName; every consumer assumes it exists
+    // (profile initial, league member docs — writing undefined into Firestore
+    // throws). Normalize once here so no screen has to.
+    const displayName =
+      data.displayName || (typeof data.email === 'string' && data.email.split('@')[0]) || 'Player';
+    return { id: userDoc.id, ...data, displayName } as TLUser;
   },
 
   async updateUserProfile(

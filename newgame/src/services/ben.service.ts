@@ -4,6 +4,7 @@
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { withOfflineFallback } from '../utils/offlineCache';
 import type { BenSessionDoc, SessionKey, BenLine } from '../types';
 
 const lineDocId = (raceId: string, session: SessionKey) => `${raceId}_${session}`;
@@ -11,9 +12,11 @@ const lineDoc = (raceId: string, session: SessionKey) => doc(db, 'ben_lines', li
 
 export const benService = {
   async getLinesForSession(raceId: string, session: SessionKey): Promise<BenSessionDoc | null> {
-    const snap = await getDoc(lineDoc(raceId, session));
-    if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() } as BenSessionDoc;
+    return withOfflineFallback(`benLines:${lineDocId(raceId, session)}`, async () => {
+      const snap = await getDoc(lineDoc(raceId, session));
+      if (!snap.exists()) return null;
+      return { id: snap.id, ...snap.data() } as BenSessionDoc;
+    });
   },
 
   // Convenience: pull all three sessions in parallel. Sprint may be absent on

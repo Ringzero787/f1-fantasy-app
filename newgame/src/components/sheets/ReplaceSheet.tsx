@@ -34,18 +34,18 @@ export function ReplaceSheet({
   const offerDrivers = useShopStore((s) => s.drivers);
   const offerConstructors = useShopStore((s) => s.constructors);
   const offerLoading = useShopStore((s) => s.isLoading);
-  const hasInitialOffer = useShopStore((s) => s.hasInitialOffer);
-  const rollFresh = useShopStore((s) => s.rollFresh);
+  const hasLoaded = useShopStore((s) => s.hasLoaded);
+  const loadCatalog = useShopStore((s) => s.loadCatalog);
   const refreshGarage = useGarageStore((s) => s.refresh);
 
   const [picked, setPicked] = useState<Driver | Constructor | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (visible && garage && !hasInitialOffer && !offerLoading) {
-      rollFresh({ excludeDriverIds: garage.ownedDriverIds, excludeConstructorIds: garage.ownedConstructorIds });
+    if (visible && garage && !hasLoaded && !offerLoading) {
+      loadCatalog({ excludeDriverIds: garage.ownedDriverIds, excludeConstructorIds: garage.ownedConstructorIds });
     }
-  }, [visible, garage, hasInitialOffer, offerLoading, rollFresh]);
+  }, [visible, garage, hasLoaded, offerLoading, loadCatalog]);
 
   if (!garage) return null;
 
@@ -75,7 +75,7 @@ export function ReplaceSheet({
       // Re-roll the shop with the new owned set
       const updatedGarage = await import('@services/garage.service').then((m) => m.garageService.getGarage(userId));
       if (updatedGarage) {
-        await rollFresh({
+        await loadCatalog({
           excludeDriverIds: updatedGarage.ownedDriverIds,
           excludeConstructorIds: updatedGarage.ownedConstructorIds,
         });

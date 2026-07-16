@@ -16,6 +16,11 @@ const toDate = (v: unknown): Date | undefined => {
   if (typeof v === 'object' && v && 'toDate' in v && typeof (v as { toDate: () => Date }).toDate === 'function') {
     return (v as { toDate: () => Date }).toDate();
   }
+  // JSON-round-tripped Firestore Timestamp (offline cache) — plain object,
+  // toDate() is gone but seconds survive.
+  if (typeof v === 'object' && v && typeof (v as { seconds?: unknown }).seconds === 'number') {
+    return new Date((v as { seconds: number }).seconds * 1000);
+  }
   if (typeof v === 'string' || typeof v === 'number') return new Date(v);
   return undefined;
 };

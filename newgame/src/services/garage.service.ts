@@ -8,6 +8,7 @@ import {
   addDoc,
 } from 'firebase/firestore';
 import { db, functions, httpsCallable } from '../config/firebase';
+import { withOfflineFallback } from '../utils/offlineCache';
 import type { Driver, Constructor, Garage, TransactionType } from '../types';
 
 const STARTING_CASH = 250;
@@ -72,12 +73,16 @@ async function persistMigrationIfNeeded(userId: string, original: Garage, migrat
 
 export const garageService = {
   async getGarage(userId: string): Promise<Garage | null> {
-    const snap = await getDoc(garageDoc(userId));
-    if (!snap.exists()) return null;
-    const raw = { id: snap.id, ...snap.data() } as Garage;
-    const migrated = migrateGarageShape(raw);
-    await persistMigrationIfNeeded(userId, raw, migrated);
-    return migrated;
+    return withOfflineFallback(`garage:${userId}`, async () => {
+      const snap = await getDoc(garageDoc(userId));
+      if (!snap.exists()) return null;
+      const raw = { id: snap.id, ...snap.data() } as Garage;
+      const migrated = migrateGarageShape(raw);
+      // Best-effort: the shape migration write can wait for the next online
+      // session; a flaky connection must not fail the read.
+      await persistMigrationIfNeeded(userId, raw, migrated).catch(() => {});
+      return migrated;
+    });
   },
 
   // Silent legacy initial roll (server-rolled, $250). Idempotent.

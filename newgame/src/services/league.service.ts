@@ -14,6 +14,7 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { withOfflineFallback, throwIfOfflineEmpty } from '../utils/offlineCache';
 import type { League, LeagueLedgerConfig, LeagueMember } from '../types';
 
 const leaguesCol = collection(db, 'tl_leagues');
@@ -68,7 +69,7 @@ export const leagueService = {
     await setDoc(doc(membersCol(leagueRef.id), args.ownerId), {
       leagueId: leagueRef.id,
       userId: args.ownerId,
-      displayName: args.ownerName,
+      displayName: args.ownerName ?? 'Player',
       totalPoints: 0,
       raceWins: 0,
       rank: 1,
@@ -79,16 +80,23 @@ export const leagueService = {
   },
 
   async getLeague(id: string): Promise<League | null> {
-    const snap = await getDoc(doc(leaguesCol, id));
-    if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() } as League;
+    return withOfflineFallback(`league:${id}`, async () => {
+      const snap = await getDoc(doc(leaguesCol, id));
+      if (!snap.exists()) return null;
+      return { id: snap.id, ...snap.data() } as League;
+    });
   },
 
   async getMyLeagues(userId: string): Promise<League[]> {
+    return withOfflineFallback(`myLeagues:${userId}`, () => this._getMyLeaguesLive(userId));
+  },
+
+  async _getMyLeaguesLive(userId: string): Promise<League[]> {
     const { collectionGroup } = await import('firebase/firestore');
     const memberDocs = await getDocs(
       query(collectionGroup(db, 'members'), where('userId', '==', userId))
     );
+    throwIfOfflineEmpty(memberDocs);
     const memberLeagueIds = memberDocs.docs
       .map((d) => d.ref.parent.parent?.id)
       .filter((id): id is string => !!id);
@@ -131,7 +139,7 @@ export const leagueService = {
       tx.set(memberRef, {
         leagueId: league.id,
         userId: args.userId,
-        displayName: args.displayName,
+        displayName: args.displayName ?? 'Player',
         totalPoints: 0,
         raceWins: 0,
         rank: league.memberCount + 1,
@@ -177,8 +185,11 @@ export const leagueService = {
   },
 
   async getMembers(leagueId: string): Promise<LeagueMember[]> {
-    const snap = await getDocs(query(membersCol(leagueId), orderBy('totalPoints', 'desc')));
-    return snap.docs.map((d, i) => ({ id: d.id, ...d.data(), rank: i + 1 })) as LeagueMember[];
+    return withOfflineFallback(`leagueMembers:${leagueId}`, async () => {
+      const snap = await getDocs(query(membersCol(leagueId), orderBy('totalPoints', 'desc')));
+      throwIfOfflineEmpty(snap);
+      return snap.docs.map((d, i) => ({ id: d.id, ...d.data(), rank: i + 1 })) as LeagueMember[];
+    });
   },
 
   // Browse public leagues. Used by the Leagues tab search/browse list. Returns
@@ -216,7 +227,7 @@ export const leagueService = {
       tx.set(memberRef, {
         leagueId: league.id,
         userId: args.userId,
-        displayName: args.displayName,
+        displayName: args.displayName ?? 'Player',
         totalPoints: 0,
         raceWins: 0,
         rank: league.memberCount + 1,

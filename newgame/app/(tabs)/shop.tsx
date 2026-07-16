@@ -5,7 +5,7 @@ import { useAuthStore } from '@store/auth.store';
 import { useGarageWithEntities } from '@/hooks/useGarageWithEntities';
 import { useShopStore } from '@store/shop.store';
 import { useGarageStore } from '@store/garage.store';
-import { garageService, garageConfig } from '@services/garage.service';
+import { garageService } from '@services/garage.service';
 import {
   DriverPortrait,
   TierChip,
@@ -22,33 +22,18 @@ export default function ShopScreen() {
   const t = useTheme();
   const userId = useAuthStore((s) => s.user?.id);
   const { garage, refetch: refetchGarage } = useGarageWithEntities();
-  const offerDrivers = useShopStore((s) => s.drivers);
-  const offerConstructors = useShopStore((s) => s.constructors);
-  const offerLoading = useShopStore((s) => s.isLoading);
-  const hasInitialOffer = useShopStore((s) => s.hasInitialOffer);
-  const rollFresh = useShopStore((s) => s.rollFresh);
+  const catalogDrivers = useShopStore((s) => s.drivers);
+  const catalogConstructors = useShopStore((s) => s.constructors);
+  const catalogLoading = useShopStore((s) => s.isLoading);
+  const hasLoaded = useShopStore((s) => s.hasLoaded);
+  const loadCatalog = useShopStore((s) => s.loadCatalog);
   const refreshGarageStore = useGarageStore((s) => s.refresh);
 
   useEffect(() => {
-    if (garage && !hasInitialOffer && !offerLoading) {
-      rollFresh({ excludeDriverIds: garage.ownedDriverIds, excludeConstructorIds: garage.ownedConstructorIds });
+    if (garage && !hasLoaded && !catalogLoading) {
+      loadCatalog({ excludeDriverIds: garage.ownedDriverIds, excludeConstructorIds: garage.ownedConstructorIds });
     }
-  }, [garage, hasInitialOffer, offerLoading, rollFresh]);
-
-  const onReroll = async () => {
-    if (!userId || !garage) return;
-    if (garage.cash < garageConfig.REROLL_BASE_COST) {
-      Alert.alert('Not enough cash', `Reroll costs $${garageConfig.REROLL_BASE_COST}.`);
-      return;
-    }
-    try {
-      await garageService.chargeReroll(userId);
-      await refreshGarageStore(userId);
-      await rollFresh({ excludeDriverIds: garage.ownedDriverIds, excludeConstructorIds: garage.ownedConstructorIds });
-    } catch (err) {
-      Alert.alert('Reroll failed', err instanceof Error ? err.message : 'Unknown');
-    }
-  };
+  }, [garage, hasLoaded, catalogLoading, loadCatalog]);
 
   const onBuyDriver = async (driver: Driver) => {
     if (!userId || !garage) return;
@@ -70,7 +55,7 @@ export default function ShopScreen() {
             await refreshGarageStore(userId);
             refetchGarage();
             const refreshed = useGarageStore.getState().garage;
-            await rollFresh({
+            await loadCatalog({
               excludeDriverIds: refreshed?.ownedDriverIds ?? [...garage.ownedDriverIds, driver.id],
               excludeConstructorIds: refreshed?.ownedConstructorIds ?? garage.ownedConstructorIds,
             });
@@ -102,7 +87,7 @@ export default function ShopScreen() {
             await refreshGarageStore(userId);
             refetchGarage();
             const refreshed = useGarageStore.getState().garage;
-            await rollFresh({
+            await loadCatalog({
               excludeDriverIds: refreshed?.ownedDriverIds ?? garage.ownedDriverIds,
               excludeConstructorIds: refreshed?.ownedConstructorIds ?? [...garage.ownedConstructorIds, c.id],
             });
@@ -126,55 +111,29 @@ export default function ShopScreen() {
     <SafeAreaView style={[styles.flex, { backgroundColor: t.bg }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
-        <View style={{ padding: 20, paddingTop: 4, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>
-          <View>
-            <Text
-              style={{
-                fontFamily: t.fMono,
-                fontSize: 11,
-                color: t.textMute,
-                letterSpacing: 1.2,
-                textTransform: 'uppercase',
-              }}
-            >
-              Bankroll
-            </Text>
-            <Cash amount={garage.cash} size={36} accent />
-          </View>
-          <Pressable
-            onPress={onReroll}
-            disabled={offerLoading}
-            style={({ pressed }) => [
-              {
-                height: 56,
-                paddingHorizontal: 18,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: t.accentDim,
-                backgroundColor: t.accentSoft,
-                alignItems: 'flex-end',
-                justifyContent: 'center',
-                opacity: offerLoading ? 0.5 : pressed ? 0.85 : 1,
-              },
-            ]}
+        <View style={{ padding: 20, paddingTop: 4 }}>
+          <Text
+            style={{
+              fontFamily: t.fMono,
+              fontSize: 11,
+              color: t.textMute,
+              letterSpacing: 1.2,
+              textTransform: 'uppercase',
+            }}
           >
-            <Text style={{ fontFamily: t.fMono, fontSize: 9, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', color: t.accent, opacity: 0.7 }}>
-              ${garageConfig.REROLL_BASE_COST}
-            </Text>
-            <Text style={{ fontFamily: t.fSans, fontSize: 14, fontWeight: '600', color: t.accent, marginTop: 2 }}>
-              Reroll ↻
-            </Text>
-          </Pressable>
+            Bankroll
+          </Text>
+          <Cash amount={garage.cash} size={36} accent />
         </View>
 
         <View style={{ height: 4 }} />
 
-        <SectionLabel trailing={`${offerDrivers.length} OFFERED`}>Drivers</SectionLabel>
+        <SectionLabel trailing={`${catalogDrivers.length} AVAILABLE`}>Drivers</SectionLabel>
         <View style={{ paddingHorizontal: 16, gap: 8 }}>
-          {offerDrivers.length === 0 && !offerLoading ? (
-            <Text style={{ fontFamily: t.fMono, fontSize: 12, color: t.textMute, textAlign: 'center', padding: 20 }}>No drivers in shop.</Text>
+          {catalogDrivers.length === 0 && !catalogLoading ? (
+            <Text style={{ fontFamily: t.fMono, fontSize: 12, color: t.textMute, textAlign: 'center', padding: 20 }}>You own every driver on the grid.</Text>
           ) : (
-            offerDrivers.map((d) => (
+            catalogDrivers.map((d) => (
               <ShopDriverCard key={d.id} driver={d} cash={garage.cash} onBuy={() => onBuyDriver(d)} />
             ))
           )}
@@ -182,12 +141,12 @@ export default function ShopScreen() {
 
         <View style={{ height: 22 }} />
 
-        <SectionLabel trailing={`${offerConstructors.length} OFFERED`}>Constructors</SectionLabel>
+        <SectionLabel trailing={`${catalogConstructors.length} AVAILABLE`}>Constructors</SectionLabel>
         <View style={{ paddingHorizontal: 16, gap: 8 }}>
-          {offerConstructors.length === 0 && !offerLoading ? (
-            <Text style={{ fontFamily: t.fMono, fontSize: 12, color: t.textMute, textAlign: 'center', padding: 20 }}>No constructors in shop.</Text>
+          {catalogConstructors.length === 0 && !catalogLoading ? (
+            <Text style={{ fontFamily: t.fMono, fontSize: 12, color: t.textMute, textAlign: 'center', padding: 20 }}>You own every constructor.</Text>
           ) : (
-            offerConstructors.map((c) => (
+            catalogConstructors.map((c) => (
               <ShopConstructorCard key={c.id} constructor={c} cash={garage.cash} onBuy={() => onBuyConstructor(c)} />
             ))
           )}
