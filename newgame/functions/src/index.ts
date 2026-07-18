@@ -9,6 +9,7 @@ export { tlSeedRaces } from './triggers/seedRaces';
 export { tlBackfillBenLines } from './triggers/backfillBenLines';
 export { tlGenerateBenLinesLite } from './triggers/generateBenLinesLite';
 export { tlValidatePurchase } from './purchases/validatePurchase';
+export { tlMockPurchase, tlSelectCosmetic } from './purchases/mockPurchase';
 export {
   tlAppleSubscriptionWebhook,
   tlGoogleSubscriptionWebhook,

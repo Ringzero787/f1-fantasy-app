@@ -1,5 +1,5 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { useGarageStore } from '@store/garage.store';
@@ -74,6 +74,28 @@ function ProfileScreenInner() {
   const { garage } = useGarageWithEntities();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
+
+  const onSaveName = async () => {
+    if (!user || savingName) return;
+    const name = nameDraft.trim();
+    if (name.length < 2 || name.length > 24) {
+      Alert.alert('Pick a name', 'Name must be 2-24 characters.');
+      return;
+    }
+    setSavingName(true);
+    try {
+      await authService.updateDisplayNameEverywhere(user.id, name);
+      setUser({ ...user, displayName: name });
+      setEditingName(false);
+    } catch (err) {
+      Alert.alert('Rename failed', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const onRefresh = async () => {
     if (!user) return;
@@ -209,9 +231,42 @@ function ProfileScreenInner() {
         </Pressable>
 
         <View style={{ flex: 1 }}>
-          <Text style={{ color: t.text, fontFamily: t.fDisp, fontSize: 22, fontWeight: '700', letterSpacing: -0.4 }}>
-            {user.displayName}
-          </Text>
+          {editingName ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TextInput
+                value={nameDraft}
+                onChangeText={setNameDraft}
+                autoFocus
+                maxLength={24}
+                placeholder="Your name"
+                placeholderTextColor={t.textMute}
+                style={{
+                  flex: 1,
+                  color: t.text,
+                  fontFamily: t.fDisp,
+                  fontSize: 20,
+                  fontWeight: '700',
+                  borderBottomWidth: 1,
+                  borderBottomColor: t.accent,
+                  paddingVertical: 2,
+                }}
+                onSubmitEditing={onSaveName}
+                returnKeyType="done"
+              />
+              <Pressable onPress={onSaveName} disabled={savingName} hitSlop={8}>
+                <Text style={{ color: t.accent, fontFamily: t.fMono, fontSize: 11, fontWeight: '700' }}>
+                  {savingName ? '…' : 'SAVE'}
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => setEditingName(false)} disabled={savingName} hitSlop={8}>
+                <Text style={{ color: t.textMute, fontFamily: t.fMono, fontSize: 11, fontWeight: '700' }}>CANCEL</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={{ color: t.text, fontFamily: t.fDisp, fontSize: 22, fontWeight: '700', letterSpacing: -0.4 }}>
+              {user.displayName}
+            </Text>
+          )}
           <Text style={{ color: t.textDim, fontFamily: t.fSans, fontSize: 13, marginTop: 2 }}>{user.email}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 6 }}>
             <Pressable onPress={onUploadPhoto} disabled={uploading}>
@@ -226,6 +281,25 @@ function ProfileScreenInner() {
                 }}
               >
                 {uploading ? 'Uploading…' : 'Upload photo'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setNameDraft(user.displayName ?? '');
+                setEditingName(true);
+              }}
+            >
+              <Text
+                style={{
+                  color: t.accent,
+                  fontFamily: t.fMono,
+                  fontSize: 10,
+                  fontWeight: '700',
+                  letterSpacing: 1.2,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Edit name
               </Text>
             </Pressable>
             <Pressable onPress={() => setPickerOpen((v) => !v)}>

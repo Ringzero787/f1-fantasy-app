@@ -19,7 +19,7 @@ import {
   arrayUnion,
   increment,
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, functions, httpsCallable } from '../config/firebase';
 import { garageService } from './garage.service';
 import {
   consumableProducts,
@@ -45,10 +45,13 @@ const userDoc = (userId: string) => doc(db, 'tl_users', userId);
 
 export const purchasesService = {
   async getEntitlements(userId: string): Promise<UserEntitlements> {
+    // READ-ONLY: tl_entitlements is server-authoritative (rules deny client
+    // writes). A missing doc — or missing fields on an old doc — resolve to
+    // local defaults; the server creates/updates the doc on the first
+    // purchase or cosmetic selection (tlMockPurchase / tlSelectCosmetic).
     const snap = await getDoc(entitlementsDoc(userId));
     if (!snap.exists()) {
-      // First read — create entitlements with Foundation pack owned + default helmet active.
-      const fresh: UserEntitlements = {
+      return {
         userId,
         extraDriverSlots: 0,
         extraConstructorSlots: 0,
@@ -57,44 +60,25 @@ export const purchasesService = {
         commissionerProActive: false,
         updatedAt: new Date(),
       };
-      await setDoc(entitlementsDoc(userId), {
-        ...fresh,
-        updatedAt: serverTimestamp(),
-      });
-      // Mirror the helmet URL onto the user's tl_users doc so other UIs (leaderboards,
-      // settlements) can render avatars without round-tripping to entitlements.
-      try {
-        await updateDoc(userDoc(userId), { activeHelmetUrl: DEFAULT_HELMET_URL });
-      } catch {
-        // user doc may not exist yet during very-first signup — auth.service handles it
-      }
-      return fresh;
     }
     const ent = { userId, ...snap.data() } as UserEntitlements;
-    // Backfill missing helmet selection for existing users created before cosmetics shipped.
+    if (!ent.ownedCosmeticPacks?.length) ent.ownedCosmeticPacks = ['foundation'];
     if (!ent.activeCosmetics?.helmet_livery) {
       ent.activeCosmetics = { ...ent.activeCosmetics, helmet_livery: DEFAULT_HELMET_ITEM_ID };
-      await updateDoc(entitlementsDoc(userId), {
-        'activeCosmetics.helmet_livery': DEFAULT_HELMET_ITEM_ID,
-        updatedAt: serverTimestamp(),
-      });
-      try {
-        await updateDoc(userDoc(userId), { activeHelmetUrl: DEFAULT_HELMET_URL });
-      } catch {
-        // ignore
-      }
     }
     return ent;
   },
 
-  // Mock purchase — applies entitlements client-side without billing. Used
-  // when USE_REAL_IAP is false (dev / emulator) and as a graceful fallback
-  // when real IAP is unavailable (e.g. SKU not yet registered).
+  // Mock purchase — grants the entitlement WITHOUT billing, via the
+  // tlMockPurchase callable (entitlements are server-authoritative; client
+  // writes are rules-denied). Used while USE_REAL_IAP is false; the server
+  // disables it once real IAP goes live.
   async mockPurchase(args: {
     userId: string;
     productId: IAPProductId;
   }): Promise<{ success: true; productId: IAPProductId }> {
-    await this.applyEntitlement(args.userId, args.productId);
+    const call = httpsCallable(functions, 'tlMockPurchase');
+    await call({ productId: args.productId });
     return { success: true, productId: args.productId };
   },
 
@@ -127,102 +111,6 @@ export const purchasesService = {
     return { count: 0, errors: [], viaMock: true };
   },
 
-  // Apply an entitlement after a verified purchase. This is what tl_validatePurchase
-  // Cloud Function will call server-side; mirrored here for the mock flow.
-  async applyEntitlement(userId: string, productId: IAPProductId): Promise<void> {
-    // Garage expansion
-    if (productId === 'tl.garage.driver_slot') {
-      const ent = await this.getEntitlements(userId);
-      if (ent.extraDriverSlots >= monetizationConfig.GARAGE_DRIVER_SLOT_CAP) {
-        throw new Error('Driver slot cap reached');
-      }
-      await updateDoc(entitlementsDoc(userId), {
-        extraDriverSlots: increment(1),
-        updatedAt: serverTimestamp(),
-      });
-      // Bump active-roster slot capacity. Owned collection is unlimited; IAP
-      // expands how many drivers you can deploy per race weekend.
-      const garageRef = doc(db, 'tl_garages', userId);
-      await updateDoc(garageRef, {
-        rosterDriverSlots: increment(1),
-        updatedAt: serverTimestamp(),
-      });
-      return;
-    }
-
-    if (productId === 'tl.garage.constructor_slot') {
-      const ent = await this.getEntitlements(userId);
-      if (ent.extraConstructorSlots >= monetizationConfig.GARAGE_CONSTRUCTOR_SLOT_CAP) {
-        throw new Error('Constructor slot cap reached');
-      }
-      await updateDoc(entitlementsDoc(userId), {
-        extraConstructorSlots: increment(1),
-        updatedAt: serverTimestamp(),
-      });
-      const garageRef = doc(db, 'tl_garages', userId);
-      await updateDoc(garageRef, {
-        rosterConstructorSlots: increment(1),
-        updatedAt: serverTimestamp(),
-      });
-      return;
-    }
-
-    // Cash bundles
-    const cashProduct = consumableProducts.find((c) => c.productId === productId);
-    if (cashProduct) {
-      // Credit cash to garage. Records as a transaction so the cash leaderboard
-      // can distinguish IAP-bought cash from earned cash later if we want.
-      const garageRef = doc(db, 'tl_garages', userId);
-      const garageSnap = await getDoc(garageRef);
-      const currentCash = (garageSnap.data()?.cash as number | undefined) ?? 0;
-      await updateDoc(garageRef, {
-        cash: increment(cashProduct.cashAmount),
-        updatedAt: serverTimestamp(),
-      });
-      await garageService.recordTransaction(userId, {
-        type: 'reroll',
-        delta: cashProduct.cashAmount,
-        cashAfter: currentCash + cashProduct.cashAmount,
-        description: `Bought ${cashProduct.cashAmount} cash bundle`,
-      });
-      return;
-    }
-
-    // Subscriptions
-    if (productId === 'tl.commissioner_pro.monthly') {
-      const expires = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
-      await updateDoc(entitlementsDoc(userId), {
-        commissionerProActive: true,
-        commissionerProTier: 'monthly',
-        commissionerProExpiresAt: expires,
-        updatedAt: serverTimestamp(),
-      });
-      return;
-    }
-
-    if (productId === 'tl.commissioner_pro.yearly') {
-      const expires = new Date(Date.now() + 366 * 24 * 60 * 60 * 1000);
-      await updateDoc(entitlementsDoc(userId), {
-        commissionerProActive: true,
-        commissionerProTier: 'yearly',
-        commissionerProExpiresAt: expires,
-        updatedAt: serverTimestamp(),
-      });
-      return;
-    }
-
-    // Cosmetic packs — productId starts with 'tl.cosmetic.'
-    const pack = cosmeticPacks.find((p) => p.productId === productId);
-    if (pack) {
-      await updateDoc(entitlementsDoc(userId), {
-        ownedCosmeticPacks: arrayUnion(pack.id),
-        updatedAt: serverTimestamp(),
-      });
-      return;
-    }
-
-    throw new Error(`Unknown productId: ${productId}`);
-  },
 
   // Set the active cosmetic for a given surface (helmet, garage skin, etc.).
   // Validates that the user owns a pack containing this item. For helmets, also
@@ -234,28 +122,27 @@ export const purchasesService = {
     cosmeticItemId: string;
   }): Promise<void> {
     const ent = await this.getEntitlements(args.userId);
-    const ownsItem = cosmeticPacks
+    const pack = cosmeticPacks
       .filter((p) => ent.ownedCosmeticPacks.includes(p.id))
-      .flatMap((p) => p.items)
-      .some((i) => i.id === args.cosmeticItemId && i.surface === args.surface);
-    if (!ownsItem) {
+      .find((p) => p.items.some((i) => i.id === args.cosmeticItemId && i.surface === args.surface));
+    if (!pack) {
       throw new Error('You do not own a pack containing that cosmetic');
     }
-    await updateDoc(entitlementsDoc(args.userId), {
-      [`activeCosmetics.${args.surface}`]: args.cosmeticItemId,
-      updatedAt: serverTimestamp(),
-    });
+    // Entitlements are server-authoritative — equip via callable.
+    const call = httpsCallable(functions, 'tlSelectCosmetic');
+    await call({ surface: args.surface, cosmeticItemId: args.cosmeticItemId, packId: pack.id });
     if (args.surface === 'helmet_livery') {
       const url = getHelmetUrl(args.cosmeticItemId);
       if (url) {
         try {
           await updateDoc(userDoc(args.userId), { activeHelmetUrl: url });
         } catch {
-          // ignore — user doc may not exist briefly during first launch
+          // avatar mirror is cosmetic — ignore
         }
       }
     }
   },
+
 
   // Returns all helmets the user currently owns (across all owned packs).
   ownedHelmets(ent: UserEntitlements): { id: string; name: string; url: string }[] {

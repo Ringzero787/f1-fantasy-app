@@ -139,6 +139,28 @@ export const authService = {
     return { id: userDoc.id, ...data, displayName } as TLUser;
   },
 
+  // Rename the player everywhere their name is denormalized: the tl_users
+  // profile plus their member doc in every league (leaderboards read those).
+  async updateDisplayNameEverywhere(userId: string, displayName: string): Promise<void> {
+    const name = displayName.trim();
+    if (name.length < 2 || name.length > 24) {
+      throw new Error('Name must be 2-24 characters');
+    }
+    await this.updateUserProfile(userId, { displayName: name });
+    const { collectionGroup, getDocs, query, where, writeBatch } = await import('firebase/firestore');
+    const memberDocs = await getDocs(
+      query(collectionGroup(db, 'members'), where('userId', '==', userId))
+    );
+    // The 'members' collection-group spans BOTH apps in the shared Firestore —
+    // Undercut's leagues/*/members too. Only touch Track Limits member docs.
+    const tlDocs = memberDocs.docs.filter((d) => d.ref.parent.parent?.parent?.id === 'tl_leagues');
+    if (tlDocs.length > 0) {
+      const batch = writeBatch(db);
+      tlDocs.forEach((d) => batch.update(d.ref, { displayName: name }));
+      await batch.commit();
+    }
+  },
+
   async updateUserProfile(
     userId: string,
     data: Partial<Pick<TLUser, 'displayName' | 'photoURL' | 'settings'>>
