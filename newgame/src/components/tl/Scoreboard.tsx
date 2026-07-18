@@ -136,10 +136,10 @@ function chipAmount(summaries: ScopeSummary[]): { label: string; settled: boolea
   const anySettled = summaries.some((s) => s.settled);
   if (anySettled) {
     const net = summaries.reduce((sum, s) => sum + (s.settled ? s.net : 0), 0);
-    return { label: `${net >= 0 ? '+' : '−'}$${Math.abs(net).toFixed(0)}M`, settled: true, positive: net >= 0 };
+    return { label: `${net >= 0 ? '+' : '−'}$${Math.abs(net).toFixed(0)}`, settled: true, positive: net >= 0 };
   }
   const exposure = summaries.reduce((sum, s) => sum + s.atRisk, 0);
-  if (exposure > 0) return { label: `$${exposure}M live`, settled: false, positive: true };
+  if (exposure > 0) return { label: `$${exposure} live`, settled: false, positive: true };
   return null;
 }
 
@@ -216,7 +216,6 @@ export function Scoreboard({
               <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 38, letterSpacing: -1, color: t.text, fontVariant: ['tabular-nums'] }}>
                 {settledAny ? `${totalNet >= 0 ? '+' : '−'}$${Math.abs(totalNet).toFixed(0)}` : `$${totalExposure}`}
               </Text>
-              <Text style={{ fontFamily: t.fDisp, fontSize: 16, color: t.textMute, fontWeight: '600' }}>M</Text>
               {settledAny ? (
                 <Text style={{ fontFamily: t.fMono, fontSize: 11, color: t.textMute, fontWeight: '700', marginLeft: 8 }}>· {totalPoints} PTS</Text>
               ) : null}
@@ -272,7 +271,7 @@ function ScopeBlock({ label, summary }: { label: string; summary: ScopeSummary }
             {summary.hits}W · {summary.misses}L · {summary.points} pts
           </Text>
         ) : summary.atRisk > 0 ? (
-          <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.textDim, letterSpacing: 0.4 }}>${summary.atRisk}M at risk</Text>
+          <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.textDim, letterSpacing: 0.4 }}>${summary.atRisk} at risk</Text>
         ) : null}
       </View>
       {staked.length === 0 ? (
@@ -292,15 +291,15 @@ function ScopeBlock({ label, summary }: { label: string; summary: ScopeSummary }
                     <View style={{ paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3, backgroundColor: `${sideColor}24` }}>
                       <Text style={{ fontFamily: t.fMono, fontSize: 8, fontWeight: '800', color: sideColor, letterSpacing: 0.8, textTransform: 'uppercase' }}>{against ? 'Against' : 'With'}</Text>
                     </View>
-                    {l.stake > 0 ? <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute }}>${l.stake}M</Text> : null}
+                    {l.stake > 0 ? <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute }}>${l.stake}</Text> : null}
                   </View>
                 </View>
                 {l.settled ? (
                   <Text style={{ fontFamily: t.fMono, fontSize: 14, fontWeight: '800', color: l.won ? t.success : '#FFB3AC', fontVariant: ['tabular-nums'] }}>
-                    {l.won ? `+$${(l.delta ?? 0).toFixed((l.delta ?? 0) < 10 ? 1 : 0)}M` : `−$${Math.abs(l.delta ?? 0).toFixed(0)}M`}
+                    {l.won ? `+$${(l.delta ?? 0).toFixed((l.delta ?? 0) < 10 ? 1 : 0)}` : `−$${Math.abs(l.delta ?? 0).toFixed(0)}`}
                   </Text>
                 ) : (
-                  <Text style={{ fontFamily: t.fMono, fontSize: 11, color: t.textDim, fontVariant: ['tabular-nums'] }}>→ ${(l.pendingPayout ?? 0).toFixed(0)}M</Text>
+                  <Text style={{ fontFamily: t.fMono, fontSize: 11, color: t.textDim, fontVariant: ['tabular-nums'] }}>→ ${(l.pendingPayout ?? 0).toFixed(0)}</Text>
                 )}
               </View>
             );

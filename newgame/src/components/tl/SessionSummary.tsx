@@ -174,7 +174,6 @@ function ScopePage({ scope, summary }: { scope: SessionKey; summary?: ScopeSumma
         <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 50, color: heroColor, letterSpacing: -1.6, fontVariant: ['tabular-nums'] }}>
           {won ? '+' : '−'}${Math.abs(summary.net).toFixed(0)}
         </Text>
-        <Text style={{ fontFamily: t.fMono, fontSize: 16, color: t.textMute, fontWeight: '600' }}>M</Text>
         <View style={{ flex: 1 }} />
         <View style={{ alignItems: 'flex-end' }}>
           {/* The won hero card is always dark green, so its text must be light
@@ -189,12 +188,12 @@ function ScopePage({ scope, summary }: { scope: SessionKey; summary?: ScopeSumma
         <View style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: 'rgba(123,211,137,0.10)', borderWidth: 1, borderColor: t.success }}>
           <Text style={{ fontFamily: t.fMono, fontSize: 9, fontWeight: '800', color: t.success, letterSpacing: 1.2, textTransform: 'uppercase' }}>Hits</Text>
           <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 24, color: t.text, marginTop: 4, fontVariant: ['tabular-nums'] }}>{summary.hits}</Text>
-          <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.success, marginTop: 2 }}>+${summary.won.toFixed(1)}M won</Text>
+          <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.success, marginTop: 2 }}>+${summary.won.toFixed(1)} won</Text>
         </View>
         <View style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: 'rgba(242,92,84,0.10)', borderWidth: 1, borderColor: 'rgba(242,92,84,0.4)' }}>
           <Text style={{ fontFamily: t.fMono, fontSize: 9, fontWeight: '800', color: '#FFB3AC', letterSpacing: 1.2, textTransform: 'uppercase' }}>Misses</Text>
           <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 24, color: t.text, marginTop: 4, fontVariant: ['tabular-nums'] }}>{summary.misses}</Text>
-          <Text style={{ fontFamily: t.fMono, fontSize: 9, color: '#FFB3AC', marginTop: 2 }}>−${summary.lost.toFixed(1)}M lost</Text>
+          <Text style={{ fontFamily: t.fMono, fontSize: 9, color: '#FFB3AC', marginTop: 2 }}>−${summary.lost.toFixed(1)} lost</Text>
         </View>
       </View>
 
@@ -218,13 +217,13 @@ function ScopePage({ scope, summary }: { scope: SessionKey; summary?: ScopeSumma
                     <Text style={{ fontFamily: t.fMono, fontSize: 8, fontWeight: '800', color: sideColor, letterSpacing: 0.8, textTransform: 'uppercase' }}>{l.side === 'against' ? 'Against' : 'With'}</Text>
                   </View>
                   <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 0.4 }}>
-                    {l.stake > 0 ? `$${l.stake}M` : 'no stake'}
+                    {l.stake > 0 ? `$${l.stake}` : 'no stake'}
                     {l.ouLabel && l.result != null ? ` · ${l.ouLabel} → P${l.result}` : ''}
                   </Text>
                 </View>
               </View>
               <Text style={{ fontFamily: t.fMono, fontWeight: '800', fontSize: 13, color: w ? t.success : '#FFB3AC', fontVariant: ['tabular-nums'] }}>
-                {w ? `+$${(l.delta ?? 0).toFixed(1)}M` : l.stake > 0 ? `−$${Math.abs(l.delta ?? l.stake).toFixed(0)}M` : '—'}
+                {w ? `+$${(l.delta ?? 0).toFixed(1)}` : l.stake > 0 ? `−$${Math.abs(l.delta ?? l.stake).toFixed(0)}` : '—'}
               </Text>
             </View>
           );
@@ -257,7 +256,7 @@ function Callout({ label, name, delta, positive }: { label: string; name: string
       <Text style={{ fontFamily: t.fMono, fontSize: 9, fontWeight: '800', color, letterSpacing: 1.2, textTransform: 'uppercase' }}>{label}</Text>
       <Text numberOfLines={1} style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 16, color: t.text, marginTop: 4 }}>{name}</Text>
       <Text style={{ fontFamily: t.fMono, fontSize: 11, fontWeight: '800', color, marginTop: 2, fontVariant: ['tabular-nums'] }}>
-        {delta >= 0 ? '+' : '−'}${Math.abs(delta).toFixed(1)}M
+        {delta >= 0 ? '+' : '−'}${Math.abs(delta).toFixed(1)}
       </Text>
     </View>
   );
@@ -294,7 +293,6 @@ function WeekendPage({
           <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 60, color: heroColor, letterSpacing: -2.5, fontVariant: ['tabular-nums'] }}>
             {won ? '+' : '−'}${Math.abs(net).toFixed(0)}
           </Text>
-          <Text style={{ fontFamily: t.fDisp, fontSize: 22, color: t.textMute, fontWeight: '600' }}>M</Text>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.lineSoft }}>
           <Text style={{ fontFamily: t.fMono, fontSize: 11, color: won ? 'rgba(255,255,255,0.8)' : t.textDim }}>{points} pts earned</Text>
@@ -313,7 +311,7 @@ function WeekendPage({
                 <Text style={{ fontFamily: t.fMono, fontSize: 10, color: t.textMute, marginTop: 2 }}>{summary.hits}W · {summary.misses}L · {summary.points} pts</Text>
               </View>
               <Text style={{ fontFamily: t.fMono, fontWeight: '800', fontSize: 14, color: sw ? t.success : '#FFB3AC', fontVariant: ['tabular-nums'] }}>
-                {sw ? '+' : '−'}${Math.abs(summary.net).toFixed(0)}M
+                {sw ? '+' : '−'}${Math.abs(summary.net).toFixed(0)}
               </Text>
             </View>
           );
@@ -330,7 +328,7 @@ function WeekendPage({
             <View>
               <Text style={{ fontFamily: t.fMono, fontSize: 9, color: t.textMute, letterSpacing: 0.8, textTransform: 'uppercase' }}>Net cash</Text>
               <Text style={{ fontFamily: t.fDisp, fontWeight: '700', fontSize: 18, color: season.totalCash >= 0 ? t.success : '#FFB3AC', fontVariant: ['tabular-nums'] }}>
-                {season.totalCash >= 0 ? '+' : '−'}${Math.abs(season.totalCash).toFixed(0)}M
+                {season.totalCash >= 0 ? '+' : '−'}${Math.abs(season.totalCash).toFixed(0)}
               </Text>
             </View>
             <View style={{ alignItems: 'center' }}>
