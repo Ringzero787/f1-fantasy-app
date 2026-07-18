@@ -36,7 +36,7 @@ const db = admin.firestore();
  * Scheduled: Check OpenF1 for new race results every 30 minutes.
  */
 export const checkOpenF1Results = onSchedule(
-  { schedule: 'every 15 minutes', timeoutSeconds: 300 },
+  { schedule: 'every 10 minutes', timeoutSeconds: 300 },
   async () => {
     console.log('[Ingestion] Checking OpenF1 for results...');
 
@@ -263,26 +263,23 @@ async function processRace(race: {
     await db.collection('pendingResults').doc(race.raceId).set(pendingResult);
     console.log(`[Ingestion] Stored pending results for ${race.raceId} (${raceData.results.length} drivers, ${warnings.length} warnings)`);
 
-    // Settle window: stewards' penalties (track-limits, unsafe release, etc.)
-    // are applied to the classification after a race ends, so we hold off briefly
-    // for OpenF1 to reflect them. Kept short (was 3h) so scoring lands close to
-    // the race — most penalties are applied within the hour. TRADEOFF: a penalty
-    // applied LATER than this window (rare post-race investigation) would be
-    // missed, since an approved race isn't re-fetched. Completeness is guarded
-    // separately (session date_end must exist + MIN_RESULTS_FOR_AUTO), so this is
-    // purely the penalty buffer.
-    const SETTLE_HOURS = 1;
+    // Settle window: brief pause after session end so OpenF1's classification
+    // stabilizes before first approval. This is no longer the penalty safety
+    // net — the correction pass re-fetches completed races for 6h and
+    // onRaceCompleted delta-re-grades, so late stewards' penalties flow
+    // through regardless. (Was 1h back when approval was final.)
+    const SETTLE_MINUTES = 15;
     const sessionEndedMs = raceSession.date_end ? new Date(raceSession.date_end).getTime() : 0;
-    const settled = sessionEndedMs > 0 && (Date.now() - sessionEndedMs) >= SETTLE_HOURS * 3600 * 1000;
+    const settled = sessionEndedMs > 0 && (Date.now() - sessionEndedMs) >= SETTLE_MINUTES * 60 * 1000;
 
     // Auto-approve if configured — but only once settled and we have enough results
     const MIN_RESULTS_FOR_AUTO = 15;
     if (AUTO_APPROVE && settled && raceData.results.length >= MIN_RESULTS_FOR_AUTO) {
-      console.log(`[Ingestion] Auto-approving ${race.raceId} (settled ${SETTLE_HOURS}h+ after race)...`);
+      console.log(`[Ingestion] Auto-approving ${race.raceId} (settled ${SETTLE_MINUTES}m+ after race)...`);
       await doApprove(race.raceId, 'auto');
     } else if (AUTO_APPROVE) {
       const reason = !settled
-        ? `within ${SETTLE_HOURS}h settle window (awaiting final classification)`
+        ? `within ${SETTLE_MINUTES}m settle window (awaiting final classification)`
         : `only ${raceData.results.length} results (need ${MIN_RESULTS_FOR_AUTO}+)`;
       console.log(`[Ingestion] Not auto-approving ${race.raceId} — ${reason}. Will retry next cycle.`);
       // Set status to 'rejected' so it re-fetches next cycle (picks up penalties).
@@ -362,7 +359,7 @@ export const rejectRaceResults = onCall(
  * Runs every 30 minutes alongside race result checks.
  */
 export const checkQualifyingResults = onSchedule(
-  { schedule: 'every 30 minutes', timeoutSeconds: 120 },
+  { schedule: 'every 10 minutes', timeoutSeconds: 120 },
   async () => {
     console.log('[QualiIngestion] Checking for completed qualifying...');
 
@@ -430,7 +427,7 @@ export const checkQualifyingResults = onSchedule(
  * Runs every 30 minutes on sprint weekends (Saturday).
  */
 export const checkSprintResults = onSchedule(
-  { schedule: 'every 30 minutes', timeoutSeconds: 120 },
+  { schedule: 'every 10 minutes', timeoutSeconds: 120 },
   async () => {
     console.log('[SprintIngestion] Checking for completed sprints...');
 
