@@ -34,14 +34,17 @@ export const authService = {
     const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
     if (!credential.user) throw new Error('Authentication failed');
 
-    const userDoc = await getDoc(doc(db, USERS_COLLECTION, credential.user.uid));
-    if (!userDoc.exists()) {
+    const existing = await this.getUserProfile(credential.user.uid);
+    if (!existing) {
       return this.createUserProfile(credential.user.uid, {
         email: credential.user.email || email,
         displayName: credential.user.displayName || email.split('@')[0],
       });
     }
-    return { id: userDoc.id, ...userDoc.data() } as TLUser;
+    // getUserProfile (not a raw read) so displayName normalization applies —
+    // an un-normalized user here crashes Profile before the auth listener's
+    // refresh lands.
+    return existing;
   },
 
   async signInWithGoogle(idToken: string): Promise<TLUser> {
@@ -49,15 +52,15 @@ export const authService = {
     const result = await signInWithCredential(firebaseAuth, credential);
     if (!result.user) throw new Error('Google authentication failed');
 
-    const userDoc = await getDoc(doc(db, USERS_COLLECTION, result.user.uid));
-    if (!userDoc.exists()) {
+    const existing = await this.getUserProfile(result.user.uid);
+    if (!existing) {
       return this.createUserProfile(result.user.uid, {
         email: result.user.email || '',
         displayName: result.user.displayName || 'Track Limits Player',
         photoURL: result.user.photoURL || undefined,
       });
     }
-    return { id: userDoc.id, ...userDoc.data() } as TLUser;
+    return existing;
   },
 
   async register({ email, password, displayName }: RegisterForm): Promise<TLUser> {
