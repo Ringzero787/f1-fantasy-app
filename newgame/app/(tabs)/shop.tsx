@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@store/auth.store';
 import { useGarageWithEntities } from '@/hooks/useGarageWithEntities';
@@ -34,6 +34,20 @@ export default function ShopScreen() {
       loadCatalog({ excludeDriverIds: garage.ownedDriverIds, excludeConstructorIds: garage.ownedConstructorIds });
     }
   }, [garage, hasLoaded, catalogLoading, loadCatalog]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    if (!garage) return;
+    setRefreshing(true);
+    try {
+      if (userId) await refreshGarageStore(userId);
+      refetchGarage();
+      const g = useGarageStore.getState().garage ?? garage;
+      await loadCatalog({ excludeDriverIds: g.ownedDriverIds, excludeConstructorIds: g.ownedConstructorIds });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const onBuyDriver = async (driver: Driver) => {
     if (!userId || !garage) return;
@@ -109,7 +123,7 @@ export default function ShopScreen() {
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: t.bg }]} edges={['bottom']}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} />}>
         {/* Header */}
         <View style={{ padding: 20, paddingTop: 4 }}>
           <Text

@@ -1,5 +1,5 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { useGarageStore } from '@store/garage.store';
@@ -73,11 +73,22 @@ function ProfileScreenInner() {
   const refreshEntitlements = usePurchasesStore((s) => s.refresh);
   const { garage } = useGarageWithEntities();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    if (!user) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchSeason(), refreshEntitlements(user.id)]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Season points/cash come from the PICKS ledger (tl_season_scores), not the
   // garage — garage.totalPoints is the fantasy-lineup score, which is 0 for
   // pick-only players. Read the real season totals here.
-  const { data: season } = useQuery({
+  const { data: season, refetch: refetchSeason } = useQuery({
     queryKey: ['tl', 'profile-season', user?.id],
     queryFn: () => (user ? leaderboardService.getMySeason(user.id, CURRENT_SEASON) : Promise.resolve(null)),
     enabled: !!user,
@@ -167,7 +178,7 @@ function ProfileScreenInner() {
   if (!user) return null;
 
   return (
-    <ScrollView contentContainerStyle={[styles.root, { backgroundColor: t.bg }]}>
+    <ScrollView contentContainerStyle={[styles.root, { backgroundColor: t.bg }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} />}>
       {/* Avatar + name header */}
       <View style={[styles.header, { borderBottomColor: t.lineSoft }]}>
         <Pressable

@@ -14,8 +14,7 @@ import {
   Share,
   StyleSheet,
   Text,
-  View,
-} from 'react-native';
+  View, RefreshControl } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { leagueService } from '@services/league.service';
@@ -44,6 +43,7 @@ export default function LeagueDetailScreen() {
   const [league, setLeague] = useState<League | null>(null);
   const [members, setMembers] = useState<Enriched[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [sortBy, setSortBy] = useState<SortMode>('ben');
 
   const reload = useCallback(async () => {
@@ -66,6 +66,17 @@ export default function LeagueDetailScreen() {
       reload();
     }, [reload])
   );
+
+  // Pull-to-refresh reuses reload() but tracks its own flag so the full-screen
+  // spinner (keyed on `loading`) doesn't replace the list mid-pull.
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await reload();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [reload]);
 
   // Compute per-sort orderings + top/bottom IDs for chevron highlights.
   const sorted = useMemo(() => {
@@ -113,7 +124,9 @@ export default function LeagueDetailScreen() {
     ]);
   };
 
-  if (loading || !league) {
+  // Gate only on the FIRST load — during pull-to-refresh (and focus reloads)
+  // `league` is already populated and the list must stay mounted.
+  if (!league) {
     return (
       <View style={[styles.center, { backgroundColor: t.bg }]}>
         <ActivityIndicator color={t.accent} />
@@ -125,7 +138,7 @@ export default function LeagueDetailScreen() {
   const ledgerOn = league.ledger.enabled;
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingBottom: 80 }}>
+    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingBottom: 80 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} />}>
       {/* Header */}
       <View style={{ padding: 20, paddingTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

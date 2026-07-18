@@ -5,7 +5,7 @@
 // Layout reference: design_handoff_track_limits v2 (May 16).
 
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -76,12 +76,12 @@ export default function LineupScreen() {
     isLoading: garageLoading,
   } = useGarageWithEntities();
   const refreshGarage = useGarageStore((s) => s.refresh);
-  const { data: upcomingRace, isLoading: raceLoading } = useUpcomingRace();
+  const { data: upcomingRace, isLoading: raceLoading, refetch: refetchRace } = useUpcomingRace();
 
   // Last completed race — after settlement the screen HOLDS on it (W/L tiles +
   // weekend recap) until Ben's lines for the next race are posted, then flips
   // to the new race in the resting state.
-  const { data: lastCompletedRace } = useQuery({
+  const { data: lastCompletedRace, refetch: refetchLastCompleted } = useQuery({
     queryKey: ['tl', 'last-completed-race'],
     queryFn: () => resultsService.getMostRecentCompletedRace(),
     staleTime: 5 * 60_000,
@@ -96,9 +96,25 @@ export default function LineupScreen() {
   const clearPick = usePicksStore((s) => s.clearPick);
 
   const [scope, setScope] = useState<SessionKey>('race');
+  const [refreshing, setRefreshing] = useState(false);
   const [primaryLeague, setPrimaryLeague] = useState<League | null>(null);
   const [stakeFor, setStakeFor] = useState<{ kind: 'driver' | 'constructor'; id: string } | null>(null);
   const [scoreOpen, setScoreOpen] = useState(false);
+
+  // Pull-to-refresh: refetch races + garage + Ben lines. Picks are live
+  // (onSnapshot) and refresh themselves.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const tasks: Promise<unknown>[] = [refetchRace(), refetchLastCompleted()];
+      if (userId) tasks.push(refreshGarage(userId));
+      if (upcomingRace?.id) tasks.push(loadBen(upcomingRace.id));
+      if (lastCompletedRace?.id) tasks.push(loadBen(lastCompletedRace.id));
+      await Promise.all(tasks);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Picks: Firestore IS the source of truth. Subscribe and the snapshot
   // listener feeds byRaceId. We load lines + subscribe picks for BOTH the
@@ -381,7 +397,7 @@ export default function LineupScreen() {
           </>
         }
       />
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} />}>
         <TabletColumn>
         {/* Race title */}
         <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 }}>
