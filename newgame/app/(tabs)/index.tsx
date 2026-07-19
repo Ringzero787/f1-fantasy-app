@@ -141,11 +141,24 @@ export default function LineupScreen() {
     return unsubscribe;
   }, [userId, lastCompletedRace?.id, subscribePicks]);
 
-  // Hold decision: stay on the settled race while the next race has no lines.
+  // Hold decision: stay on the settled race while the next race has no FRESH
+  // lines. Freshness matters: a rogue May generator run pre-posted lines for
+  // every future race, which released the hold instantly after settlement and
+  // ate the weekend recap. Only lines touched after the settled race started
+  // count as "posted" — matching Ben's real weekly cadence.
   const upcomingBen = upcomingRace?.id ? benAll[upcomingRace.id] : null;
+  const lastRaceStartMs = toDate(lastCompletedRace?.schedule?.race)?.getTime() ?? 0;
   const nextLinesPosted =
     !!upcomingBen &&
-    Object.values(upcomingBen).some((d) => d && Object.keys(d.entities ?? {}).length > 0);
+    Object.values(upcomingBen).some((d) => {
+      if (!d || Object.keys(d.entities ?? {}).length === 0) return false;
+      const freshMs = Math.max(
+        toDate((d as { postedAt?: unknown }).postedAt)?.getTime() ?? 0,
+        toDate((d as { updatedAt?: unknown }).updatedAt)?.getTime() ?? 0,
+      );
+      // Legacy docs without timestamps count as posted (fail open).
+      return freshMs === 0 || freshMs > lastRaceStartMs;
+    });
   const lastPicksDoc = lastCompletedRace?.id ? picksAll[lastCompletedRace.id] : null;
   const lastRaceSettled =
     !!lastPicksDoc?.settledOutcomes && Object.keys(lastPicksDoc.settledOutcomes).length > 0;
