@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@store/auth.store';
-import { authService } from '@services/auth.service';
+import { authService, isPlaceholderName } from '@services/auth.service';
 import { notificationsService } from '@services/notifications.service';
 import { installCrashReporter, reportCrash } from '@services/crashReporter';
 import { colors } from '@/constants/theme';
@@ -110,6 +110,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       }
     } else if (isAuthenticated && user && user.hasOnboarded === false && !inOnboarding) {
       router.replace('/onboarding');
+    } else if (
+      isAuthenticated &&
+      user &&
+      user.hasOnboarded !== false &&
+      isPlaceholderName(user.displayName) &&
+      segments[0] !== 'callsign' &&
+      !inOnboarding
+    ) {
+      // Signup-era placeholder name — ask for a call sign once. The screen
+      // saves a real name (or the email fallback), so this stops matching.
+      router.push('/callsign');
     }
   }, [isAuthenticated, isHydrated, segments, router, user]);
 
@@ -142,6 +153,7 @@ export default function RootLayout() {
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              <Stack.Screen name="callsign" options={{ headerShown: false, presentation: 'modal' }} />
               <Stack.Screen name="store/index" options={{ headerShown: true, presentation: 'modal' }} />
               <Stack.Screen name="results" options={{ headerShown: true, presentation: 'modal' }} />
               <Stack.Screen name="demo" options={{ headerShown: true, presentation: 'modal' }} />

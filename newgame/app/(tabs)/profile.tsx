@@ -200,7 +200,10 @@ function ProfileScreenInner() {
   if (!user) return null;
 
   return (
-    <ScrollView contentContainerStyle={[styles.root, { backgroundColor: t.bg }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} />}>
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={[styles.root, { backgroundColor: t.bg }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} />}>
       {/* Avatar + name header */}
       <View style={[styles.header, { borderBottomColor: t.lineSoft }]}>
         <Pressable

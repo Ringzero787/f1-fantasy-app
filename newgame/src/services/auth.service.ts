@@ -29,6 +29,13 @@ const DEFAULT_SETTINGS: TLUserSettings = {
   theme: 'auto',
 };
 
+// Placeholder names that should trigger the call-sign prompt: signup-era
+// fallbacks and normalizer output, not something the player chose.
+export function isPlaceholderName(name: string | undefined | null): boolean {
+  if (!name) return true;
+  return name === 'Player' || name === 'Track Limits Player' || /^Demo [A-Z0-9]{4}$/.test(name);
+}
+
 export const authService = {
   async signIn({ email, password }: LoginForm): Promise<TLUser> {
     const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
@@ -138,7 +145,9 @@ export const authService = {
     // (profile initial, league member docs — writing undefined into Firestore
     // throws). Normalize once here so no screen has to.
     const displayName =
-      data.displayName || (typeof data.email === 'string' && data.email.split('@')[0]) || 'Player';
+      data.displayName ||
+      (typeof data.email === 'string' && data.email.split('@')[0].slice(0, 6)) ||
+      'Player';
     return { id: userDoc.id, ...data, displayName } as TLUser;
   },
 
