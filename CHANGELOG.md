@@ -8,6 +8,14 @@ tagged **(server)**.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.2.1] (52) — 2026-07-22
+### Changed
+- No client changes vs 2.2.0. Fresh versionCode to publish onto every active
+  Play track and clear the "old Google Play Billing Library" warning — the
+  library was removed in 2.1.0, but pre-2.1.0 artifacts lingering on testing
+  tracks still trigger it. (Verified: no `com.android.billingclient` classes
+  or BILLING permission in the current artifact.)
+
 ## [2.2.0] (51) — 2026-07-06
 ### Added
 - **Constructor budget guard**: while the constructor slot is empty, the
