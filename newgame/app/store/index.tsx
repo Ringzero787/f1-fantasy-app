@@ -1,10 +1,20 @@
+// Store — cosmetics-first storefront.
+//
+// 2026-07-22 redesign (store audit): visual pack cards with helmet preview
+// strips, a "My gear" section at the top (owned helmets, tap to equip —
+// optimistic, instant), sheet-based purchase flow (PurchaseSheet) instead of
+// stacked Alerts, and the Cash/Garage/Pro sections + Restore row hidden until
+// real IAP ships (USE_REAL_IAP) — mock-granting cash was an economy hole and
+// the tabs read as broken while unbuyable.
+
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { usePurchasesStore } from '@store/purchases.store';
-import { useGarageStore } from '@store/garage.store';
 import { StoreItemCard } from '@components/store/StoreItemCard';
+import { HelmetPicker } from '@components/tl/HelmetPicker';
+import { PurchaseSheet } from '@components/sheets/PurchaseSheet';
 import {
   cosmeticPacks,
   consumableProducts,
@@ -12,110 +22,87 @@ import {
   subscriptionProducts,
   monetizationConfig,
 } from '@/data/cosmeticsCatalog';
-import { USE_REAL_IAP } from '@services/purchases.service';
+import { purchasesService, USE_REAL_IAP } from '@services/purchases.service';
+import { useTheme } from '@/theme';
 import { colors, fontSize, spacing } from '@/constants/theme';
-import type { IAPProductId } from '@/types';
+import type { CosmeticPack, IAPProductId } from '@/types';
 
 type StoreSection = 'cosmetics' | 'cash' | 'garage' | 'subscription';
 
 export default function StoreScreen() {
+  const t = useTheme();
   const userId = useAuthStore((s) => s.user?.id);
   const entitlements = usePurchasesStore((s) => s.entitlements);
   const load = usePurchasesStore((s) => s.load);
   const buy = usePurchasesStore((s) => s.buy);
-  const restore = usePurchasesStore((s) => s.restore);
-  const refreshGarage = useGarageStore((s) => s.refresh);
+  const selectCosmetic = usePurchasesStore((s) => s.selectCosmetic);
   const [section, setSection] = useState<StoreSection>('cosmetics');
-  const [restoring, setRestoring] = useState(false);
+  const [buyingPack, setBuyingPack] = useState<CosmeticPack | null>(null);
 
   useEffect(() => {
     if (userId && !entitlements) load(userId);
   }, [userId, entitlements, load]);
 
-  const onBuy = async (productId: IAPProductId, label: string) => {
+  const ownedHelmets = entitlements ? purchasesService.ownedHelmets(entitlements) : [];
+  const activeHelmetId = entitlements?.activeCosmetics?.helmet_livery;
+
+  const onBuyPack = async (pack: CosmeticPack) => {
     if (!userId) return;
-    const message = USE_REAL_IAP
-      ? `Charged via App Store. Entitlement applies after server validates the receipt.`
-      : `Mock purchase — entitlement applies locally. Real IAP unlocks after SKUs are registered.`;
-    Alert.alert(`Buy ${label}?`, message, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: USE_REAL_IAP ? 'Buy' : 'Buy (mock)',
-        onPress: async () => {
-          try {
-            await buy(userId, productId);
-            await refreshGarage(userId);
-            Alert.alert('Purchase recorded', 'Entitlement applied.');
-          } catch (err) {
-            Alert.alert('Purchase failed', err instanceof Error ? err.message : 'Unknown error');
-          }
-        },
-      },
-    ]);
+    await buy(userId, pack.productId);
+    const err = usePurchasesStore.getState().error;
+    if (err) throw new Error(err);
   };
 
-  const onRestore = async () => {
-    setRestoring(true);
-    try {
-      const r = await restore();
-      if (r.viaMock) {
-        Alert.alert(
-          'Restore (mock)',
-          'Real IAP not active in this build. When live, this re-validates every store purchase against the server.'
-        );
-      } else if (r.count === 0) {
-        Alert.alert('No purchases to restore', 'Nothing to bring back.');
-      } else {
-        Alert.alert('Restored', `${r.count} purchase(s) re-applied.${r.errors.length ? `\n${r.errors.length} errors.` : ''}`);
-      }
-      if (userId) await refreshGarage(userId);
-    } catch (err) {
-      Alert.alert('Restore failed', err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setRestoring(false);
-    }
+  const onBuyOther = async (productId: IAPProductId, _label: string) => {
+    // Money sections only render when USE_REAL_IAP — real billing flow.
+    if (!userId) return;
+    await buy(userId, productId);
   };
 
   return (
     <>
       <Stack.Screen options={{ title: 'Store' }} />
       <View style={styles.container}>
-        <View style={styles.tabRow}>
-          <SectionTab label="Cosmetics" active={section === 'cosmetics'} onPress={() => setSection('cosmetics')} />
-          <SectionTab label="Cash" active={section === 'cash'} onPress={() => setSection('cash')} />
-          <SectionTab label="Garage" active={section === 'garage'} onPress={() => setSection('garage')} />
-          <SectionTab label="Pro" active={section === 'subscription'} onPress={() => setSection('subscription')} />
-        </View>
-
-        <Pressable onPress={onRestore} disabled={restoring} style={styles.restoreRow}>
-          <Text style={styles.restoreText}>{restoring ? 'Restoring...' : 'Restore purchases'}</Text>
-        </Pressable>
+        {USE_REAL_IAP && (
+          <View style={styles.tabRow}>
+            <SectionTab label="Cosmetics" active={section === 'cosmetics'} onPress={() => setSection('cosmetics')} />
+            <SectionTab label="Cash" active={section === 'cash'} onPress={() => setSection('cash')} />
+            <SectionTab label="Garage" active={section === 'garage'} onPress={() => setSection('garage')} />
+            <SectionTab label="Pro" active={section === 'subscription'} onPress={() => setSection('subscription')} />
+          </View>
+        )}
 
         <ScrollView contentContainerStyle={styles.list}>
           {section === 'cosmetics' && (
             <View style={{ gap: spacing.md }}>
-              <Text style={styles.sectionHelp}>Cosmetic packs personalize helmets, garage skin, app icon, and more. No effect on scoring.</Text>
+              {/* My gear — owned helmets, equip in place */}
+              <Text style={styles.sectionLabel}>My gear</Text>
+              <HelmetPicker
+                helmets={ownedHelmets}
+                activeId={activeHelmetId}
+                onSelect={(id) => {
+                  if (userId) selectCosmetic(userId, 'helmet_livery', id);
+                }}
+              />
+
+              <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>Packs</Text>
+              <Text style={styles.sectionHelp}>
+                Packs add helmets and garage flair. Cosmetic only — no effect on scoring.
+              </Text>
               {cosmeticPacks
                 .filter((p) => !p.isFree)
-                .map((p) => {
-                  const owned = entitlements?.ownedCosmeticPacks.includes(p.id);
-                  return (
-                    <StoreItemCard
-                      key={p.id}
-                      title={p.name}
-                      description={`${p.tagline} · ${p.items.length} items`}
-                      priceUsdCents={p.priceUsdCents}
-                      badge={p.category === 'premium' ? 'PREMIUM' : p.category === 'era' ? 'ERA' : undefined}
-                      ownedLabel={owned ? 'OWNED' : undefined}
-                      disabled={!!owned}
-                      onPress={() => onBuy(p.productId, p.name)}
-                    />
-                  );
-                })}
+                .map((p) => (
+                  <PackCard
+                    key={p.id}
+                    pack={p}
+                    owned={!!entitlements?.ownedCosmeticPacks.includes(p.id)}
+                    onPress={() => setBuyingPack(p)}
+                  />
+                ))}
             </View>
           )}
 
-          {section === 'cash' && (
+          {USE_REAL_IAP && section === 'cash' && (
             <View style={{ gap: spacing.md }}>
               <Text style={styles.sectionHelp}>
                 Buy in-game cash to spend on rerolls and driver purchases. Capped at {monetizationConfig.WEEKLY_CASH_BUNDLE_CAP} per race weekend.
@@ -127,13 +114,13 @@ export default function StoreScreen() {
                   description={c.description}
                   priceUsdCents={c.priceUsdCents}
                   badge={c.bestValueBadge ? 'BEST VALUE' : undefined}
-                  onPress={() => onBuy(c.productId, c.title)}
+                  onPress={() => onBuyOther(c.productId, c.title)}
                 />
               ))}
             </View>
           )}
 
-          {section === 'garage' && (
+          {USE_REAL_IAP && section === 'garage' && (
             <View style={{ gap: spacing.md }}>
               <Text style={styles.sectionHelp}>
                 Expand your garage to hold one extra driver and one extra constructor. Permanent upgrade.
@@ -151,21 +138,18 @@ export default function StoreScreen() {
                     priceUsdCents={g.priceUsdCents}
                     ownedLabel={owned ? 'OWNED' : undefined}
                     disabled={owned}
-                    onPress={() => onBuy(g.productId, g.title)}
+                    onPress={() => onBuyOther(g.productId, g.title)}
                   />
                 );
               })}
             </View>
           )}
 
-          {section === 'subscription' && (
+          {USE_REAL_IAP && section === 'subscription' && (
             <View style={{ gap: spacing.md }}>
               <Text style={styles.sectionHelp}>
                 Commissioner Pro unlocks larger leagues (up to {monetizationConfig.COMMISSIONER_PRO_MAX_MEMBERS} members),
                 multiple concurrent leagues, exportable ledger, and league branding.
-                {monetizationConfig.COMMISSIONER_PRO_FREE_TRIAL_DAYS > 0
-                  ? ` ${monetizationConfig.COMMISSIONER_PRO_FREE_TRIAL_DAYS}-day free trial.`
-                  : ''}
               </Text>
               {entitlements?.commissionerProActive && (
                 <View style={styles.activeBox}>
@@ -181,23 +165,101 @@ export default function StoreScreen() {
                   description={s.description}
                   priceUsdCents={s.priceUsdCents}
                   badge={s.bestValueBadge ? 'BEST VALUE' : undefined}
-                  onPress={() => onBuy(s.productId, s.title)}
+                  onPress={() => onBuyOther(s.productId, s.title)}
                 />
               ))}
             </View>
           )}
         </ScrollView>
+
+        <PurchaseSheet
+          pack={buyingPack && !entitlements?.ownedCosmeticPacks.includes(buyingPack.id) ? buyingPack : null}
+          onClose={() => setBuyingPack(null)}
+          onBuy={onBuyPack}
+        />
       </View>
     </>
   );
 }
 
+// Visual pack card: helmet preview strip + name/tagline + price or OWNED.
+function PackCard({ pack, owned, onPress }: { pack: CosmeticPack; owned: boolean; onPress: () => void }) {
+  const t = useTheme();
+  const helmets = pack.items.filter((i) => i.surface === 'helmet_livery' && i.previewURL);
+  const price = (pack.priceUsdCents / 100).toFixed(2);
+  return (
+    <Pressable
+      onPress={owned ? undefined : onPress}
+      style={({ pressed }) => [
+        {
+          backgroundColor: t.surface,
+          borderWidth: 1,
+          borderColor: t.line,
+          borderRadius: 14,
+          padding: 14,
+          opacity: pressed && !owned ? 0.9 : 1,
+        },
+      ]}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        {helmets.length > 0 && (
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {helmets.slice(0, 2).map((h) => (
+              <View
+                key={h.id}
+                style={{
+                  width: 54,
+                  height: 54,
+                  backgroundColor: t.surface2,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: t.line,
+                  padding: 6,
+                }}
+              >
+                <Image source={{ uri: h.previewURL }} style={{ flex: 1, width: '100%' }} resizeMode="contain" />
+              </View>
+            ))}
+          </View>
+        )}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ color: t.text, fontFamily: t.fDisp, fontSize: 16, fontWeight: '600', letterSpacing: -0.3 }}>
+            {pack.name}
+          </Text>
+          <Text style={{ color: t.textDim, fontFamily: t.fSans, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+            {pack.tagline} · {pack.items.length} items
+          </Text>
+        </View>
+        <View
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 10,
+            backgroundColor: owned ? 'transparent' : t.accent,
+            borderWidth: owned ? 1 : 0,
+            borderColor: t.line,
+          }}
+        >
+          <Text
+            style={{
+              color: owned ? t.textMute : '#0E1116',
+              fontFamily: t.fMono,
+              fontSize: 12,
+              fontWeight: '700',
+              letterSpacing: 0.4,
+            }}
+          >
+            {owned ? 'OWNED' : USE_REAL_IAP ? `$${price}` : 'GET'}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 function SectionTab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <Text
-      onPress={onPress}
-      style={[styles.tab, active && styles.tabActive]}
-    >
+    <Text onPress={onPress} style={[styles.tab, active && styles.tabActive]}>
       {label}
     </Text>
   );
@@ -209,14 +271,7 @@ const styles = StyleSheet.create({
   tab: { color: colors.textMuted, fontSize: fontSize.body, fontWeight: '700', paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   tabActive: { color: colors.accent, borderBottomColor: colors.accent, borderBottomWidth: 2 },
   list: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  restoreRow: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    alignItems: 'flex-end',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  restoreText: { color: colors.accent, fontSize: fontSize.caption, fontWeight: '700' },
+  sectionLabel: { color: colors.textMuted, fontSize: fontSize.caption, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
   sectionHelp: { color: colors.textMuted, fontSize: fontSize.caption, lineHeight: 18, marginBottom: spacing.sm },
   activeBox: {
     backgroundColor: colors.success + '22',

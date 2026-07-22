@@ -9,6 +9,7 @@ import { useGarageWithEntities } from '@/hooks/useGarageWithEntities';
 import { authService } from '@services/auth.service';
 import { purchasesService } from '@services/purchases.service';
 import { invalidateHelmetCache } from '@components/HelmetAvatar';
+import { HelmetPicker } from '@components/tl/HelmetPicker';
 import { avatarsService } from '@services/avatars.service';
 import { getHelmetUrl } from '@/data/cosmeticsCatalog';
 import { useTheme, useThemePrefs, TL_PALETTES } from '@/theme';
@@ -71,6 +72,7 @@ function ProfileScreenInner() {
   const entitlements = usePurchasesStore((s) => s.entitlements);
   const loadEntitlements = usePurchasesStore((s) => s.load);
   const refreshEntitlements = usePurchasesStore((s) => s.refresh);
+  const selectCosmeticAction = usePurchasesStore((s) => s.selectCosmetic);
   const { garage } = useGarageWithEntities();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -149,10 +151,10 @@ function ProfileScreenInner() {
   const onSelectHelmet = async (itemId: string) => {
     if (!user) return;
     try {
-      await purchasesService.selectCosmetic({ userId: user.id, surface: 'helmet_livery', cosmeticItemId: itemId });
+      // Optimistic store action — ACTIVE ring moves instantly; server call
+      // settles in the background (purchases.store rolls back on failure).
+      await selectCosmeticAction(user.id, 'helmet_livery', itemId);
       invalidateHelmetCache(user.id);
-      await refreshEntitlements(user.id);
-      setPickerOpen(false);
     } catch (err) {
       Alert.alert('Could not switch helmet', err instanceof Error ? err.message : 'Unknown error');
     }
@@ -326,62 +328,7 @@ function ProfileScreenInner() {
       {/* Helmet picker */}
       {pickerOpen && (
         <View style={[styles.helmetGrid, { backgroundColor: t.surface, borderColor: t.line }]}>
-          {ownedHelmets.length === 0 ? (
-            <Text style={{ color: t.textMute, fontFamily: t.fSans, fontSize: 13, padding: 16, textAlign: 'center' }}>
-              You don't own any helmets yet.
-            </Text>
-          ) : (
-            ownedHelmets.map((h) => {
-              const active = activeHelmetId === h.id;
-              return (
-                <Pressable
-                  key={h.id}
-                  onPress={() => onSelectHelmet(h.id)}
-                  style={{
-                    flexBasis: '30%',
-                    flexGrow: 1,
-                    aspectRatio: 1,
-                    backgroundColor: t.surface2,
-                    borderRadius: 10,
-                    borderWidth: active ? 2 : 1,
-                    borderColor: active ? t.accent : t.line,
-                    padding: 8,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 4,
-                  }}
-                >
-                  <Image source={{ uri: h.url }} style={{ flex: 1, width: '100%' }} resizeMode="contain" />
-                  <Text
-                    style={{
-                      color: t.text,
-                      fontFamily: t.fMono,
-                      fontSize: 9,
-                      fontWeight: '600',
-                      letterSpacing: 0.4,
-                      textAlign: 'center',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {h.name}
-                  </Text>
-                  {active ? (
-                    <Text
-                      style={{
-                        color: t.accent,
-                        fontFamily: t.fMono,
-                        fontSize: 8,
-                        fontWeight: '800',
-                        letterSpacing: 1,
-                      }}
-                    >
-                      ACTIVE
-                    </Text>
-                  ) : null}
-                </Pressable>
-              );
-            })
-          )}
+          <HelmetPicker helmets={ownedHelmets} activeId={activeHelmetId} onSelect={onSelectHelmet} />
         </View>
       )}
 

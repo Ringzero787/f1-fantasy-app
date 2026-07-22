@@ -65,12 +65,24 @@ export const usePurchasesStore = create<PurchasesState>((set, get) => ({
   },
 
   selectCosmetic: async (userId, surface, cosmeticItemId) => {
+    // Optimistic: flip the active cosmetic immediately so the UI responds on
+    // tap; the server call (cold starts can take seconds) settles in the
+    // background and we roll back on failure.
+    const prev = get().entitlements;
+    if (prev) {
+      set({
+        entitlements: {
+          ...prev,
+          activeCosmetics: { ...prev.activeCosmetics, [surface]: cosmeticItemId },
+        },
+        error: null,
+      });
+    }
     try {
-      await purchasesService.selectCosmetic({ userId, surface, cosmeticItemId });
-      await get().refresh(userId);
+      await purchasesService.selectCosmetic({ userId, surface, cosmeticItemId, entitlements: prev ?? undefined });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not apply cosmetic';
-      set({ error: message });
+      set({ entitlements: prev, error: message });
     }
   },
 

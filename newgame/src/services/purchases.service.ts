@@ -120,8 +120,11 @@ export const purchasesService = {
     userId: string;
     surface: CosmeticSurface;
     cosmeticItemId: string;
+    // Pass the already-loaded entitlements to skip a network read — equip
+    // latency was 4 sequential round-trips before this.
+    entitlements?: UserEntitlements;
   }): Promise<void> {
-    const ent = await this.getEntitlements(args.userId);
+    const ent = args.entitlements ?? (await this.getEntitlements(args.userId));
     const pack = cosmeticPacks
       .filter((p) => ent.ownedCosmeticPacks.includes(p.id))
       .find((p) => p.items.some((i) => i.id === args.cosmeticItemId && i.surface === args.surface));
