@@ -8,6 +8,14 @@ tagged **(server)**.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.2.2] (53) — 2026-07-25
+### Changed
+- `targetSdkVersion` 35 → 36 (Android 16) for the Play Store Aug 30, 2026
+  target-API requirement. No other client changes. Also supersedes stale
+  pre-2.1.0 artifacts on testing tracks for the Billing Library warning
+  (re-verified: no `com.android.billingclient` classes or BILLING permission
+  in this artifact).
+
 ## [2.2.1] (52) — 2026-07-22
 ### Changed
 - No client changes vs 2.2.0. Fresh versionCode to publish onto every active
