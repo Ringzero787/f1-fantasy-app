@@ -1,4 +1,4 @@
-import { Component, ErrorInfo, ReactNode, useEffect, useState } from 'react';
+import { Component, ErrorInfo, ReactNode, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -78,9 +78,18 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Subscribe to Firebase auth changes — always refresh from Firestore so server
   // updates (e.g. hasOnboarded flag flipped admin-side) propagate on next launch.
+  // The profile as loaded from Firestore THIS session. The zustand store also
+  // holds a snapshot hydrated from secureStorage, which can be stale (and on
+  // some devices stays stale forever when the secure-store write-back fails
+  // silently) — the call-sign gate below must never trust it, or players who
+  // already chose a name get re-prompted on every launch.
+  const [serverUser, setServerUser] = useState<ReturnType<typeof useAuthStore.getState>['user']>(null);
+  const promptedCallSign = useRef(false);
+
   useEffect(() => {
     const unsub = authService.onAuthStateChanged((user) => {
       setUser(user);
+      setServerUser(user);
     });
     return unsub;
   }, [setUser]);
@@ -114,15 +123,21 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       isAuthenticated &&
       user &&
       user.hasOnboarded !== false &&
-      isPlaceholderName(user.displayName) &&
+      serverUser &&
+      isPlaceholderName(serverUser.displayName) &&
+      !promptedCallSign.current &&
       segments[0] !== 'callsign' &&
       !inOnboarding
     ) {
-      // Signup-era placeholder name — ask for a call sign once. The screen
-      // saves a real name (or the email fallback), so this stops matching.
+      // Signup-era placeholder name — ask for a call sign once. Decided ONLY
+      // from serverUser (fresh Firestore read), never the hydrated snapshot,
+      // and at most once per session: saving updates the profile server-side,
+      // so a player who has chosen a name is never asked again. Renames after
+      // that live in Profile → Edit name.
+      promptedCallSign.current = true;
       router.push('/callsign');
     }
-  }, [isAuthenticated, isHydrated, segments, router, user]);
+  }, [isAuthenticated, isHydrated, segments, router, user, serverUser]);
 
   if (!isHydrated) {
     return (

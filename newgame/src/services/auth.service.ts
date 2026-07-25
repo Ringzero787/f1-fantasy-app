@@ -205,8 +205,14 @@ export const authService = {
   onAuthStateChanged(callback: (user: TLUser | null) => void) {
     return onAuthStateChanged(firebaseAuth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        const profile = await this.getUserProfile(firebaseUser.uid);
-        callback(profile);
+        try {
+          const profile = await this.getUserProfile(firebaseUser.uid);
+          callback(profile);
+        } catch {
+          // Transient read failure at launch (cold start before network is up).
+          // Keep whatever state the app already has rather than reporting a
+          // bogus signed-out/placeholder profile.
+        }
       } else {
         callback(null);
       }

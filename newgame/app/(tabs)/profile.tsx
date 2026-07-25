@@ -1,6 +1,7 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
+import Constants from 'expo-constants';
 import { useAuthStore } from '@store/auth.store';
 import { useGarageStore } from '@store/garage.store';
 import { useShopStore } from '@store/shop.store';
@@ -381,7 +382,7 @@ function ProfileScreenInner() {
       </View>
 
       <Text style={{ color: t.textMute, fontFamily: t.fMono, fontSize: 10, textAlign: 'center', marginTop: 24, letterSpacing: 1 }}>
-        TRACK LIMITS · v0.1.19
+        TRACK LIMITS · v{Constants.expoConfig?.version ?? '?'}
       </Text>
     </ScrollView>
   );
