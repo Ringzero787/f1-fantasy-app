@@ -153,7 +153,19 @@
       "mcp__plugin_firebase_firebase__firestore_get_document",
       "Bash(node:*)",
       "mcp__plugin_firebase_firebase__firestore_query_collection",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Read(//mnt/**)",
+      "Read(//data/**)",
+      "Bash(mount)",
+      "WebFetch(domain:indieappsanta.com)",
+      "WebFetch(domain:humannpc.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "WebFetch(domain:nvidia.wd5.myworkdayjobs.com)",
+      "WebFetch(domain:job-boards.greenhouse.io)",
+      "WebFetch(domain:www.remoterocketship.com)",
+      "WebFetch(domain:jobs.careers.microsoft.com)",
+      "WebFetch(domain:careers.oracle.com)",
+      "Bash(sort -t/ -k5)"
     ]
   }
 }

@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 // @ts-ignore getReactNativePersistence exists in RN bundle but not in TS types
 import { initializeAuth, getAuth, getReactNativePersistence, Auth } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getFunctions, httpsCallable, Functions } from 'firebase/functions';
 import {
@@ -37,10 +38,16 @@ let firebaseAuth: Auth;
 
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
-  // initializeAuth must be called right after initializeApp (only once)
-  firebaseAuth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
+  // initializeAuth must be called right after initializeApp (only once).
+  // getReactNativePersistence only exists in the RN entrypoint of
+  // firebase/auth — on web (dev QA harness) fall back to default persistence.
+  if (Platform.OS === 'web' || typeof getReactNativePersistence !== 'function') {
+    firebaseAuth = getAuth(app);
+  } else {
+    firebaseAuth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  }
 } else {
   app = getApp();
   firebaseAuth = getAuth(app);
