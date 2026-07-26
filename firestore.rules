@@ -275,9 +275,17 @@ service cloud.firestore {
       );
     }
 
-    // TL user profiles — only the owner can read/write their own
+    // TL user profiles — only the owner can read/write their own.
+    // Updates may not set displayName to a signup placeholder: 0.1.34/0.1.35
+    // builds could save the literal "Player" over a real name (stale local
+    // snapshot with no email degraded the call-sign fallback), re-arming the
+    // call-sign prompt forever. Create stays unrestricted — guest sign-in
+    // legitimately creates "Demo XXXX" profiles.
     match /tl_users/{userId} {
-      allow read, write: if isAuthenticated() && isOwner(userId);
+      allow read, create, delete: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && isOwner(userId)
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['displayName'].toSet())
+                        || !(request.resource.data.displayName in ['Player', 'Track Limits Player']));
     }
 
     // TL garage — SERVER-AUTHORITATIVE economy. The owner can read their garage

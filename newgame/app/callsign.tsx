@@ -12,7 +12,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
-import { authService } from '@services/auth.service';
+import { authService, isPlaceholderName } from '@services/auth.service';
 import { useTheme } from '@/theme';
 
 export default function CallSignScreen() {
@@ -20,21 +20,36 @@ export default function CallSignScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
-  const emailFallback = (user?.email ?? '').split('@')[0].slice(0, 6) || 'Player';
+  // Email comes from Firebase Auth, NOT the store — the store user can be a
+  // stale hydrated snapshot with no email, and the old fallback then degraded
+  // to the literal "Player", which the save wrote server-side: a placeholder
+  // overwriting the player's real name, re-arming this prompt forever.
+  const email = authService.getCurrentUser()?.email ?? user?.email ?? '';
+  const prefix = email.split('@')[0].slice(0, 6);
+  // No usable suggestion → empty fallback; commit() then insists on typing.
+  const emailFallback = prefix && !isPlaceholderName(prefix) ? prefix : '';
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
 
   const commit = async (chosen: string) => {
-    if (!user || saving) return;
+    if (saving) return;
+    const uid = authService.getCurrentUser()?.uid ?? user?.id;
+    if (!uid) return;
     const finalName = chosen.trim();
     if (finalName.length < 2 || finalName.length > 24) {
       Alert.alert('Pick a call sign', 'Between 2 and 24 characters.');
       return;
     }
+    // Belt & braces: never let a placeholder be SAVED as the chosen name —
+    // that both defeats the point and re-triggers this prompt on next launch.
+    if (isPlaceholderName(finalName)) {
+      Alert.alert('Pick a call sign', 'Type a name of your own for the leaderboards.');
+      return;
+    }
     setSaving(true);
     try {
-      await authService.updateDisplayNameEverywhere(user.id, finalName);
-      setUser({ ...user, displayName: finalName });
+      await authService.updateDisplayNameEverywhere(uid, finalName);
+      if (user) setUser({ ...user, displayName: finalName });
       router.back();
     } catch (err) {
       Alert.alert('Could not save', err instanceof Error ? err.message : 'Unknown error');
@@ -61,7 +76,7 @@ export default function CallSignScreen() {
             onChangeText={setName}
             autoFocus
             maxLength={24}
-            placeholder={emailFallback}
+            placeholder={emailFallback || 'e.g. Maverick'}
             placeholderTextColor={t.textMute}
             style={{
               marginTop: 28,
@@ -96,7 +111,7 @@ export default function CallSignScreen() {
             ]}
           >
             <Text style={{ fontFamily: t.fSans, fontSize: 16, fontWeight: '700', color: '#0E1116' }}>
-              {saving ? 'Saving…' : name.trim() ? 'Lock it in' : `Use "${emailFallback}"`}
+              {saving ? 'Saving…' : name.trim() || !emailFallback ? 'Lock it in' : `Use "${emailFallback}"`}
             </Text>
           </Pressable>
         </View>
