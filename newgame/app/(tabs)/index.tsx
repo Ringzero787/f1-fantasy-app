@@ -655,7 +655,8 @@ export default function LineupScreen() {
         scopes={summary.scopes}
         summaries={summaries}
         season={seasonScore ?? null}
-        onClose={summary.close}
+        onClose={summary.acknowledge}
+        onDismiss={summary.dismiss}
       />
     </SafeAreaView>
   );

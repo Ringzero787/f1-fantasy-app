@@ -26,6 +26,21 @@ export const leaderboardService = {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as WeekendScore);
   },
 
+  // Every settled weekend for one player in a season, newest round first.
+  // Equality-only filters (no orderBy) so no composite index is needed; the
+  // handful of rounds per season sorts client-side.
+  async getMemberWeekends(userId: string, seasonId: string): Promise<WeekendScore[]> {
+    const q = query(
+      collection(db, 'tl_weekend_scores'),
+      where('userId', '==', userId),
+      where('seasonId', '==', seasonId)
+    );
+    const snap = await getDocs(q);
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as WeekendScore)
+      .sort((a, b) => b.round - a.round);
+  },
+
   // Top N players in a season, ranked by total points (tiebreak: total cash).
   async getSeason(seasonId: string, top = 100): Promise<SeasonScore[]> {
     const q = query(

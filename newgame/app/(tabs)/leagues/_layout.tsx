@@ -21,6 +21,7 @@ export default function LeaguesStack() {
       <Stack.Screen name="[id]/settlements" options={{ title: 'Settlements' }} />
       <Stack.Screen name="[id]/payout" options={{ title: 'Create payout', presentation: 'modal' }} />
       <Stack.Screen name="[id]/settings" options={{ title: 'League settings' }} />
+      <Stack.Screen name="[id]/member" options={{ title: 'Member results' }} />
     </Stack>
   );
 }

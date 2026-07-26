@@ -379,17 +379,23 @@ export default function LeagueDetailScreen() {
                     : `${m.callsCorrect}W vs Ben · ${m.totalPoints} pts`;
 
               return (
-                <View
+                <Pressable
                   key={m.id}
-                  style={{
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(tabs)/leagues/[id]/member',
+                      params: { id: league.id, uid: m.userId, name: m.displayName, seasonId },
+                    })
+                  }
+                  style={({ pressed }) => ({
                     padding: 14,
-                    backgroundColor: isMe ? t.accentSoft : 'transparent',
+                    backgroundColor: pressed ? t.surface2 : isMe ? t.accentSoft : 'transparent',
                     borderBottomWidth: isLast ? 0 : 1,
                     borderBottomColor: t.lineSoft,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 10,
-                  }}
+                  })}
                 >
                   <Text
                     style={{
@@ -444,7 +450,7 @@ export default function LeagueDetailScreen() {
                       </Text>
                     ) : null}
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>

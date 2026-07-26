@@ -11,7 +11,11 @@ import { BEN_AGAINST } from './atoms';
 import type { ScopeSummary, ScopeSummaryLine } from './Scoreboard';
 import type { SeasonScore, SessionKey } from '@/types';
 
-const SEEN_KEY = 'tl-summary-seen-v1';
+// v2: v1 entries could be marked seen by the Android back button while the
+// sheet was buried under another modal (the 0.1.34 call-sign trap ate the R13
+// recap this way). Bumping the key resurfaces any recap that was never truly
+// acknowledged; genuinely-seen ones re-pop once and clear on GOT IT.
+const SEEN_KEY = 'tl-summary-seen-v2';
 const SCOPE_LABEL: Record<SessionKey, string> = { qualifying: 'Qualifying', race: 'Race', sprint: 'Sprint' };
 
 // Detect newly-settled scopes and drive the auto-pop. `settledScopes` is the
@@ -66,11 +70,22 @@ export function useSessionSummary(raceId: string | undefined, settledScopes: Ses
     [seen, raceId],
   );
 
-  const close = useCallback(() => {
+  // Deliberate close (GOT IT / ×): marks the auto-popped scopes seen so the
+  // recap stays away for good.
+  const acknowledge = useCallback(() => {
     setOpen(false);
     if (!manualScopes) persistSeen(unseen); // only persist when it auto-popped
     setManualScopes(null);
   }, [manualScopes, unseen, persistSeen]);
+
+  // Soft dismissal (Android back button): hide for this session but do NOT
+  // mark seen — the recap must keep coming back until the player actually
+  // closes it. A back press aimed at some other modal stacked on top must
+  // never be able to eat the recap.
+  const dismiss = useCallback(() => {
+    setOpen(false);
+    setManualScopes(null);
+  }, []);
 
   // Reopen on demand with all settled scopes (even already-seen ones).
   const openManually = useCallback(() => {
@@ -79,7 +94,7 @@ export function useSessionSummary(raceId: string | undefined, settledScopes: Ses
     setOpen(true);
   }, [settledKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { open, scopes: manualScopes ?? unseen, close, openManually };
+  return { open, scopes: manualScopes ?? unseen, acknowledge, dismiss, openManually };
 }
 
 export function SessionSummary({
@@ -88,6 +103,7 @@ export function SessionSummary({
   summaries,
   season,
   onClose,
+  onDismiss,
 }: {
   visible: boolean;
   scopes: SessionKey[];
@@ -95,7 +111,11 @@ export function SessionSummary({
   /** Running season totals (post-settlement) — gives the weekend wrap its
    *  week-to-week context. Null until the first settled weekend. */
   season?: SeasonScore | null;
+  /** Deliberate close (GOT IT / ×) — marks the recap seen. */
   onClose: () => void;
+  /** Soft dismissal (hardware back) — hides without marking seen, so the
+   *  recap returns next launch. Defaults to onClose for standalone use. */
+  onDismiss?: () => void;
 }) {
   const t = useTheme();
   const [page, setPage] = useState(0);
@@ -115,7 +135,7 @@ export function SessionSummary({
   const prev = () => page > 0 && setPage((p) => p - 1);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss ?? onClose}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
         <View style={{ width: '100%', maxWidth: 400, height: '92%', maxHeight: 760, backgroundColor: t.bg, borderRadius: 18, borderWidth: 1, borderColor: t.line, overflow: 'hidden' }}>
           {/* progress dots */}
