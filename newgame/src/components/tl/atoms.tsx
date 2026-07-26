@@ -1071,7 +1071,7 @@ export function BenLinePill({
       : `Ben's model thinks this driver lands in ${baseLabel}.`;
     Alert.alert(
       "Ben's guess",
-      `${callLine}${detail} Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Stake cash to amplify; free picks still score the points leaderboard.`,
+      `${callLine}${detail} Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Every correct call pays $10 even with nothing staked; stake cash to amplify.`,
     );
   };
 

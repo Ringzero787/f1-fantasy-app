@@ -116,6 +116,10 @@ interface BenLine {
 // a points penalty (session-weighted) on top of the normal stake loss.
 const BEST_BET_PROFIT_MULT = 1.5;
 const BEST_BET_LOSS_POINTS = -1;
+// Flat cash reward for every correct call, staked or not — a free pick that
+// wins pays this, and a staked win pays it on top of stake × odds. Applied
+// after the best-bet profit multiplier (the bonus itself is never multiplied).
+const WIN_BONUS = 10;
 
 function lineLo(l: BenLine): number {
   if (typeof l.predictedLo === 'number') return l.predictedLo;
@@ -176,8 +180,9 @@ interface PickOutcome {
 }
 
 // Per-pick payout calc. Odds are decimal; gross payout = stake × odds (incl.
-// stake back). Loss = forfeit. Range model: no pushes — the result either
-// falls inside [lo, hi] (WITH wins) or outside (AGAINST wins).
+// stake back) + WIN_BONUS flat on every correct call (so a zero-stake pick
+// still pays WIN_BONUS when it wins). Loss = forfeit. Range model: no pushes —
+// the result either falls inside [lo, hi] (WITH wins) or outside (AGAINST wins).
 //
 // Best-bet twist: betting AGAINST one of Ben's featured picks boosts the
 // profit portion ×1.5 on a win, and costs BEST_BET_LOSS_POINTS (instead of 0)
@@ -193,9 +198,10 @@ function computePayout(
   let payout = 0;
   if (won) {
     const base = pick.stake * odds;
-    payout = againstBestBet
-      ? Math.round((pick.stake + (base - pick.stake) * BEST_BET_PROFIT_MULT) * 100) / 100
-      : Math.round(base * 100) / 100;
+    const staked = againstBestBet
+      ? pick.stake + (base - pick.stake) * BEST_BET_PROFIT_MULT
+      : base;
+    payout = Math.round((staked + WIN_BONUS) * 100) / 100;
   }
   const pointsCredit = won ? 1 : againstBestBet && pick.stake > 0 ? BEST_BET_LOSS_POINTS : 0;
   return { won, payout, pointsCredit };
