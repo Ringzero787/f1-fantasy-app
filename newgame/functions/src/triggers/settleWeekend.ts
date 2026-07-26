@@ -120,6 +120,11 @@ const BEST_BET_LOSS_POINTS = -1;
 // wins pays this, and a staked win pays it on top of stake × odds. Applied
 // after the best-bet profit multiplier (the bonus itself is never multiplied).
 const WIN_BONUS = 10;
+// The balancing sink: every wrong call costs this flat, on top of any stake
+// forfeited. Counts fully in weekend/season P&L (leaderboards), but the
+// garage debit is floored so spendable cash never goes below $0 — you can't
+// owe what you don't have.
+const LOSS_PENALTY = 10;
 
 function lineLo(l: BenLine): number {
   if (typeof l.predictedLo === 'number') return l.predictedLo;
@@ -161,6 +166,11 @@ interface PicksDoc {
   settleSig?: string;
   weekendPoints?: number;
   weekendCash?: number;
+  // Garage cash actually credited/debited for this race at last settlement —
+  // can differ from raw P&L because loss penalties are floored at $0 cash.
+  // Corrections delta against this; docs settled before the field existed
+  // fall back to reconstructing from settledOutcomes.
+  garageApplied?: number;
   callsCorrect?: number;
   callsTotal?: number;
   settledOutcomes?: Partial<Record<SessionKey, Record<string, PickOutcome>>>;
@@ -174,6 +184,10 @@ interface PickOutcome {
   won: boolean;
   payout: number;
   pointsCredit: number;
+  // Flat cash penalty charged for a wrong call (LOSS_PENALTY at grading time).
+  // Stored per-outcome so corrections re-grade against what was actually
+  // assessed; absent on wins and on outcomes settled before the sink existed.
+  penalty?: number;
   // True when this pick was graded against one of Ben's best bets (boosted
   // profit / points penalty applied for AGAINST picks). For UI badging.
   bestBet?: boolean;
@@ -181,8 +195,9 @@ interface PickOutcome {
 
 // Per-pick payout calc. Odds are decimal; gross payout = stake × odds (incl.
 // stake back) + WIN_BONUS flat on every correct call (so a zero-stake pick
-// still pays WIN_BONUS when it wins). Loss = forfeit. Range model: no pushes —
-// the result either falls inside [lo, hi] (WITH wins) or outside (AGAINST wins).
+// still pays WIN_BONUS when it wins). Loss = stake forfeited + LOSS_PENALTY
+// flat (garage debit floored at $0 downstream). Range model: no pushes — the
+// result either falls inside [lo, hi] (WITH wins) or outside (AGAINST wins).
 //
 // Best-bet twist: betting AGAINST one of Ben's featured picks boosts the
 // profit portion ×1.5 on a win, and costs BEST_BET_LOSS_POINTS (instead of 0)
@@ -204,7 +219,7 @@ function computePayout(
     payout = Math.round((staked + WIN_BONUS) * 100) / 100;
   }
   const pointsCredit = won ? 1 : againstBestBet && pick.stake > 0 ? BEST_BET_LOSS_POINTS : 0;
-  return { won, payout, pointsCredit };
+  return { won, payout, pointsCredit, ...(won ? {} : { penalty: LOSS_PENALTY }) };
 }
 
 // Decide which side of Ben's predicted range the actual (official) result fell
@@ -315,6 +330,21 @@ export async function settleWeekendCore(
     }
   }
 
+  // 2b. Garage balances for the same players, needed to floor loss-penalty
+  // debits at $0 cash. Snapshot-read; a concurrent spend between this read and
+  // the batch commit can still nudge cash slightly negative — rare and small,
+  // and the next settlement's floor math self-corrects.
+  const garageCashById: Record<string, number> = {};
+  for (let i = 0; i < userIds.length; i += 300) {
+    const refs = userIds.slice(i, i + 300).map((uid) => db.doc(`tl_garages/${uid}`));
+    if (refs.length === 0) continue;
+    const snaps = await db.getAll(...refs);
+    for (const s of snaps) {
+      const c = s.data()?.cash;
+      garageCashById[s.id] = typeof c === 'number' && Number.isFinite(c) ? c : 0;
+    }
+  }
+
   // Chunked batch: Firestore caps a batch at 500 writes, and each player adds up
   // to 4 writes (pick + weekend score + season score + garage). We commit every
   // ~450 ops, ALWAYS at a player boundary, so a player's writes never straddle a
@@ -369,6 +399,7 @@ export async function settleWeekendCore(
         if (actualResult == null) continue; // entity not in the official results
         const decidedOutcome = decideOutcome(line, actualResult);
         const calc = computePayout(pick, line, decidedOutcome);
+        const penalty = calc.penalty ?? 0;
         const outcome: PickOutcome = {
           side: pick.side,
           stake,
@@ -377,19 +408,22 @@ export async function settleWeekendCore(
           won: calc.won,
           payout: calc.payout,
           pointsCredit: calc.pointsCredit * weight,
+          ...(penalty ? { penalty } : {}),
           ...(line.bestBet ? { bestBet: true } : {}),
         };
         sessionOutcomes[entityId] = outcome;
         weekendPoints += outcome.pointsCredit;
-        // Net P&L is the same regardless of when the stake was taken.
-        weekendCash += calc.won ? calc.payout - stake : -stake;
+        // Net P&L is the same regardless of when the stake was taken. A wrong
+        // call costs the flat penalty on top of any forfeited stake.
+        weekendCash += calc.won ? calc.payout - stake : -stake - penalty;
         // Cash to actually move now: escrowed picks already had their stake
-        // debited at placement, so credit gross payout on a win, nothing on a
-        // loss. Legacy (pre-escrow) picks are still debited their stake here.
+        // debited at placement, so credit gross payout on a win and charge only
+        // the penalty on a loss. Legacy (pre-escrow) picks are still debited
+        // their stake here.
         if (pick.escrowed) {
-          garageDelta += calc.won ? calc.payout : 0;
+          garageDelta += calc.won ? calc.payout : -penalty;
         } else {
-          garageDelta += calc.won ? calc.payout - stake : -stake;
+          garageDelta += calc.won ? calc.payout - stake : -stake - penalty;
         }
         if (calc.won) callsCorrect++;
         callsTotal++;
@@ -397,16 +431,24 @@ export async function settleWeekendCore(
       if (Object.keys(sessionOutcomes).length > 0) outcomesBySession[session] = sessionOutcomes;
     }
 
-    // Reconstruct what this race previously contributed (for a re-grade on
-    // corrected results); zero for a first settlement. Garage credit is rebuilt
-    // from the stored outcomes + the per-entity escrowed flag so it matches the
-    // escrow-aware math used originally.
+    // What this race previously moved in the garage (for a re-grade on
+    // corrected results); zero for a first settlement. Prefer the stored
+    // applied amount (exact, floor-aware); docs settled before garageApplied
+    // existed rebuild it from the stored outcomes + per-entity escrowed flag,
+    // matching the escrow/penalty-aware math used originally.
     let oldGarageDelta = 0;
-    if (isResettle && pickDoc.settledOutcomes) {
-      for (const [s, outs] of Object.entries(pickDoc.settledOutcomes)) {
-        for (const [e, o] of Object.entries(outs)) {
-          const escrowed = pickDoc.picks?.[s as SessionKey]?.[e]?.escrowed;
-          oldGarageDelta += escrowed ? (o.won ? o.payout : 0) : o.won ? o.payout - o.stake : -o.stake;
+    if (isResettle) {
+      if (typeof pickDoc.garageApplied === 'number' && Number.isFinite(pickDoc.garageApplied)) {
+        oldGarageDelta = pickDoc.garageApplied;
+      } else if (pickDoc.settledOutcomes) {
+        for (const [s, outs] of Object.entries(pickDoc.settledOutcomes)) {
+          for (const [e, o] of Object.entries(outs)) {
+            const escrowed = pickDoc.picks?.[s as SessionKey]?.[e]?.escrowed;
+            const pen = o.won ? 0 : o.penalty ?? 0;
+            oldGarageDelta += escrowed
+              ? o.won ? o.payout : -pen
+              : o.won ? o.payout - o.stake : -o.stake - pen;
+          }
         }
       }
     }
@@ -419,6 +461,15 @@ export async function settleWeekendCore(
     const displayName = displayNameById[userId] ?? 'Anonymous';
     const roundCash = Math.round(weekendCash * 100) / 100;
 
+    // Floor the garage movement so loss penalties never drive spendable cash
+    // below $0 (P&L above stays un-floored — leaderboards count full losses).
+    // The clamp applies to the whole diff, so a correction clawback is likewise
+    // limited to cash on hand.
+    const rawDiff = Math.round((garageDelta - oldGarageDelta) * 100) / 100;
+    const cashNow = garageCashById[userId] ?? 0;
+    const cashDelta = Math.max(rawDiff, -Math.max(0, Math.round(cashNow * 100) / 100));
+    const garageApplied = Math.round((oldGarageDelta + cashDelta) * 100) / 100;
+
     // Pick doc — overwrite outcomes + stamp the results signature used so an
     // unchanged re-run no-ops and a correction re-grades.
     batch.update(pickSnap.ref, {
@@ -427,6 +478,7 @@ export async function settleWeekendCore(
       settleSig: resultsSig,
       weekendPoints,
       weekendCash: roundCash,
+      garageApplied,
       callsCorrect,
       callsTotal,
       settledOutcomes: outcomesBySession,
@@ -472,9 +524,8 @@ export async function settleWeekendCore(
     );
     opCount++;
 
-    // Garage cash — apply the DELTA vs what was previously credited for this
-    // race (claws back / tops up when a correction flips outcomes).
-    const cashDelta = Math.round((garageDelta - oldGarageDelta) * 100) / 100;
+    // Garage cash — apply the floored DELTA vs what was previously credited
+    // for this race (claws back / tops up when a correction flips outcomes).
     if (cashDelta !== 0) {
       batch.update(db.doc(`tl_garages/${userId}`), {
         cash: admin.firestore.FieldValue.increment(cashDelta),
