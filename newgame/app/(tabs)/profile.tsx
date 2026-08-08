@@ -1,5 +1,5 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import { useAuthStore } from '@store/auth.store';
@@ -377,6 +377,7 @@ function ProfileScreenInner() {
         <ActionRow label="Standings" onPress={() => router.push('/standings')} />
         <ActionRow label="Store" onPress={() => router.push('/store')} />
         <ActionRow label="Demo & debug" onPress={() => router.push('/demo')} />
+        <ActionRow label="Privacy policy" onPress={() => Linking.openURL('https://humannpc.com/tracklimits/privacy')} />
         <ActionRow label="Sign out" onPress={onSignOut} />
         <ActionRow label="Delete account" destructive onPress={onDeleteAccount} />
       </View>
