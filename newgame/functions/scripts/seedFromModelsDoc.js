@@ -14,8 +14,13 @@
 //
 // Usage:
 //   node seedFromModelsDoc.js --doc=/mnt/smb/share/tracklimits/MODELS_5.md \
-//     --race=hungary_2026 [--source=ben_model_R13] [--write]
+//     --race=hungary_2026 [--source=ben_model_R13] [--sprint] [--write]
 //   (dry-run prints the docs without --write)
+//
+// --sprint additionally writes {raceId}_sprint with the same entities as the
+// race doc: the model publishes no sprint-specific lines (sprint O/U output
+// is identical to race O/U per MODELS spec), matching how britain R11 was
+// seeded.
 
 const fs = require('fs');
 const admin = require('../node_modules/firebase-admin');
@@ -151,7 +156,9 @@ admin.initializeApp({ projectId: 'f1-app-18077' });
 const db = admin.firestore();
 (async () => {
   const source = args.source ?? 'ben_model_doc';
-  for (const [session, entities] of [['race', raceEntities], ['qualifying', qualiEntities]]) {
+  const sessions = [['race', raceEntities], ['qualifying', qualiEntities]];
+  if (args.sprint) sessions.push(['sprint', raceEntities]);
+  for (const [session, entities] of sessions) {
     await db.doc(`ben_lines/${args.race}_${session}`).set(
       {
         raceId: args.race,
