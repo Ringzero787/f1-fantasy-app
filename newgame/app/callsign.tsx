@@ -7,7 +7,7 @@
 // longer a placeholder... unless their email starts with "player", which we
 // accept as fate).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -30,6 +30,28 @@ export default function CallSignScreen() {
   const emailFallback = prefix && !isPlaceholderName(prefix) ? prefix : '';
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Self-defense: if the server profile already has a real name, this prompt
+  // should never have opened — dismiss instead of tempting the player into
+  // overwriting their chosen name with the email-prefix suggestion (the
+  // 2026-07-26 "Player" and 2026-08-23 "nathan" incidents, both from stale
+  // local state on old builds).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const uid = authService.getCurrentUser()?.uid;
+      if (!uid) return;
+      try {
+        const profile = await authService.getUserProfile(uid);
+        if (!cancelled && profile && !isPlaceholderName(profile.displayName)) router.back();
+      } catch {
+        // Offline/read failure: leave the prompt up; saving still works.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const commit = async (chosen: string) => {
     if (saving) return;
