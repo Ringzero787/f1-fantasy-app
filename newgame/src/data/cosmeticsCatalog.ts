@@ -10,6 +10,23 @@ const STORAGE_BASE = 'https://storage.googleapis.com/f1-app-18077.firebasestorag
 export const DEFAULT_HELMET_ITEM_ID = 'track_limits_classic';
 export const DEFAULT_HELMET_URL = `${STORAGE_BASE}/track_limits_classic.png`;
 
+// Garage-cash price per pack — MIRROR of the server's authoritative table in
+// functions/src/purchases/buyCosmeticPack.ts (PACK_PRICES_GAME_CASH). Display
+// only; the server re-checks on purchase. Priced at parity with the future
+// real-money path: a $2.99-tier pack costs what a ~$2.99 cash bundle buys.
+export const PACK_PRICE_GAME_CASH: Record<string, number> = {
+  monaco_gold: 75,
+  vegas_neon: 75,
+  suzuka_blossom: 75,
+  imola_crimson: 75,
+  spa_forest: 75,
+  brazil_tribute: 75,
+  midnight_strip: 75,
+  senna_era: 150,
+  hybrid_era: 150,
+  strategist_premium: 350,
+};
+
 export const cosmeticPacks: CosmeticPack[] = [
   {
     id: 'foundation',

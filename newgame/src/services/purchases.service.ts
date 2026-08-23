@@ -82,6 +82,18 @@ export const purchasesService = {
     return { success: true, productId: args.productId };
   },
 
+  // Buy a cosmetic pack with GARAGE CASH via the tlBuyCosmeticPack callable —
+  // the only way cosmetics are acquired (cash is won at settlements; real
+  // money will eventually buy cash bundles, never packs directly). Returns
+  // the post-purchase balance so callers can update the garage store without
+  // a re-read.
+  async buyPackWithGameCash(packId: string): Promise<{ cashAfter: number }> {
+    const call = httpsCallable(functions, 'tlBuyCosmeticPack');
+    const res = await call({ packId });
+    const cashAfter = (res.data as { cashAfter?: number })?.cashAfter;
+    return { cashAfter: typeof cashAfter === 'number' ? cashAfter : NaN };
+  },
+
   // Public purchase entry point — picks real or mock based on the toggle and
   // module availability.
   async requestPurchase(args: {

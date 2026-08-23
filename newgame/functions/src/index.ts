@@ -10,6 +10,7 @@ export { tlBackfillBenLines } from './triggers/backfillBenLines';
 export { tlGenerateBenLinesLite } from './triggers/generateBenLinesLite';
 export { tlValidatePurchase } from './purchases/validatePurchase';
 export { tlMockPurchase, tlSelectCosmetic } from './purchases/mockPurchase';
+export { tlBuyCosmeticPack } from './purchases/buyCosmeticPack';
 export {
   tlAppleSubscriptionWebhook,
   tlGoogleSubscriptionWebhook,

@@ -10,6 +10,8 @@ interface PurchasesState {
   load: (userId: string) => Promise<void>;
   refresh: (userId: string) => Promise<void>;
   buy: (userId: string, productId: string) => Promise<void>;
+  // Cosmetic packs only — pays with garage cash via tlBuyCosmeticPack.
+  buyPack: (userId: string, packId: string) => Promise<void>;
   restore: () => Promise<{ count: number; errors: string[]; viaMock?: boolean }>;
   selectCosmetic: (userId: string, surface: CosmeticSurface, cosmeticItemId: string) => Promise<void>;
   reset: () => void;
@@ -46,6 +48,23 @@ export const usePurchasesStore = create<PurchasesState>((set, get) => ({
     try {
       await purchasesService.requestPurchase({ userId, productId: productId as never });
       await get().refresh(userId);
+      set({ isLoading: false });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Purchase failed';
+      set({ error: message, isLoading: false });
+      throw err;
+    }
+  },
+
+  buyPack: async (userId, packId) => {
+    set({ isLoading: true, error: null });
+    try {
+      await purchasesService.buyPackWithGameCash(packId);
+      await get().refresh(userId);
+      // The purchase debited garage cash server-side; refresh the garage store
+      // so the bankroll shown everywhere reflects it immediately.
+      const { useGarageStore } = require('./garage.store');
+      useGarageStore.getState().refresh(userId).catch(() => {});
       set({ isLoading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Purchase failed';

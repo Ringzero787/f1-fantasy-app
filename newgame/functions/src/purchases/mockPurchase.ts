@@ -27,15 +27,18 @@ export const tlMockPurchase = functions
       throw new functions.https.HttpsError('failed-precondition', 'Mock purchases are disabled — use the store billing flow');
     }
     const productId = String(data?.productId ?? '');
-    // Mock purchases are limited to product classes that are either cosmetic
-    // or hard-capped server-side. Cash bundles and subscriptions are excluded:
-    // applyEntitlement has no weekly-cap check, so a free mock cash bundle
-    // would be an unlimited money printer for any signed-in user.
-    const MOCKABLE = /^tl\.(cosmetic\.|garage\.)/;
+    // Mock purchases are limited to hard-capped product classes. Cash bundles
+    // and subscriptions are excluded (no weekly-cap check server-side — a free
+    // mock cash bundle would be an unlimited money printer), and cosmetic
+    // packs are excluded since 0.1.41: they are bought with garage cash via
+    // tlBuyCosmeticPack, never granted free.
+    const MOCKABLE = /^tl\.garage\./;
     if (!MOCKABLE.test(productId)) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        'This product is not available until real purchases go live'
+        /^tl\.cosmetic\./.test(productId)
+          ? 'Cosmetic packs are bought with garage cash — update the app to the latest version'
+          : 'This product is not available until real purchases go live'
       );
     }
 

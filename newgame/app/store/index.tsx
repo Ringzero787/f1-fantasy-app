@@ -12,15 +12,18 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Stack } from 'expo-router';
 import { useAuthStore } from '@store/auth.store';
 import { usePurchasesStore } from '@store/purchases.store';
+import { useGarageStore } from '@store/garage.store';
 import { StoreItemCard } from '@components/store/StoreItemCard';
 import { HelmetPicker } from '@components/tl/HelmetPicker';
 import { PurchaseSheet } from '@components/sheets/PurchaseSheet';
+import { Cash } from '@components/tl';
 import {
   cosmeticPacks,
   consumableProducts,
   garageExpansionProducts,
   subscriptionProducts,
   monetizationConfig,
+  PACK_PRICE_GAME_CASH,
 } from '@/data/cosmeticsCatalog';
 import { purchasesService, USE_REAL_IAP } from '@services/purchases.service';
 import { useTheme } from '@/theme';
@@ -35,7 +38,10 @@ export default function StoreScreen() {
   const entitlements = usePurchasesStore((s) => s.entitlements);
   const load = usePurchasesStore((s) => s.load);
   const buy = usePurchasesStore((s) => s.buy);
+  const buyPack = usePurchasesStore((s) => s.buyPack);
   const selectCosmetic = usePurchasesStore((s) => s.selectCosmetic);
+  const garageCash = useGarageStore((s) => s.garage?.cash ?? 0);
+  const refreshGarage = useGarageStore((s) => s.refresh);
   const [section, setSection] = useState<StoreSection>('cosmetics');
   const [buyingPack, setBuyingPack] = useState<CosmeticPack | null>(null);
 
@@ -43,14 +49,17 @@ export default function StoreScreen() {
     if (userId && !entitlements) load(userId);
   }, [userId, entitlements, load]);
 
+  // Packs cost garage cash — make sure the bankroll shown is current.
+  useEffect(() => {
+    if (userId) refreshGarage(userId).catch(() => {});
+  }, [userId, refreshGarage]);
+
   const ownedHelmets = entitlements ? purchasesService.ownedHelmets(entitlements) : [];
   const activeHelmetId = entitlements?.activeCosmetics?.helmet_livery;
 
   const onBuyPack = async (pack: CosmeticPack) => {
     if (!userId) return;
-    await buy(userId, pack.productId);
-    const err = usePurchasesStore.getState().error;
-    if (err) throw new Error(err);
+    await buyPack(userId, pack.id);
   };
 
   const onBuyOther = async (productId: IAPProductId, _label: string) => {
@@ -75,6 +84,12 @@ export default function StoreScreen() {
         <ScrollView contentContainerStyle={styles.list}>
           {section === 'cosmetics' && (
             <View style={{ gap: spacing.md }}>
+              {/* Bankroll — packs are bought with garage cash */}
+              <View style={{ marginBottom: spacing.sm }}>
+                <Text style={styles.sectionLabel}>Bankroll</Text>
+                <Cash amount={garageCash} size={28} accent />
+              </View>
+
               {/* My gear — owned helmets, equip in place */}
               <Text style={styles.sectionLabel}>My gear</Text>
               <HelmetPicker
@@ -87,7 +102,8 @@ export default function StoreScreen() {
 
               <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>Packs</Text>
               <Text style={styles.sectionHelp}>
-                Packs add helmets and garage flair. Cosmetic only — no effect on scoring.
+                Packs add helmets and garage flair, paid from your bankroll. Cosmetic only — no
+                effect on scoring.
               </Text>
               {cosmeticPacks
                 .filter((p) => !p.isFree)
@@ -96,6 +112,7 @@ export default function StoreScreen() {
                     key={p.id}
                     pack={p}
                     owned={!!entitlements?.ownedCosmeticPacks.includes(p.id)}
+                    cash={garageCash}
                     onPress={() => setBuyingPack(p)}
                   />
                 ))}
@@ -174,6 +191,7 @@ export default function StoreScreen() {
 
         <PurchaseSheet
           pack={buyingPack && !entitlements?.ownedCosmeticPacks.includes(buyingPack.id) ? buyingPack : null}
+          cash={garageCash}
           onClose={() => setBuyingPack(null)}
           onBuy={onBuyPack}
         />
@@ -182,11 +200,12 @@ export default function StoreScreen() {
   );
 }
 
-// Visual pack card: helmet preview strip + name/tagline + price or OWNED.
-function PackCard({ pack, owned, onPress }: { pack: CosmeticPack; owned: boolean; onPress: () => void }) {
+// Visual pack card: helmet preview strip + name/tagline + garage-cash price or OWNED.
+function PackCard({ pack, owned, cash, onPress }: { pack: CosmeticPack; owned: boolean; cash: number; onPress: () => void }) {
   const t = useTheme();
   const helmets = pack.items.filter((i) => i.surface === 'helmet_livery' && i.previewURL);
-  const price = (pack.priceUsdCents / 100).toFixed(2);
+  const price = PACK_PRICE_GAME_CASH[pack.id] ?? 0;
+  const canAfford = cash >= price;
   return (
     <Pressable
       onPress={owned ? undefined : onPress}
@@ -235,21 +254,22 @@ function PackCard({ pack, owned, onPress }: { pack: CosmeticPack; owned: boolean
             paddingHorizontal: 12,
             paddingVertical: 8,
             borderRadius: 10,
-            backgroundColor: owned ? 'transparent' : t.accent,
-            borderWidth: owned ? 1 : 0,
+            backgroundColor: owned || !canAfford ? 'transparent' : t.accent,
+            borderWidth: owned || !canAfford ? 1 : 0,
             borderColor: t.line,
           }}
         >
           <Text
             style={{
-              color: owned ? t.textMute : '#0E1116',
+              color: owned || !canAfford ? t.textMute : '#0E1116',
               fontFamily: t.fMono,
               fontSize: 12,
               fontWeight: '700',
               letterSpacing: 0.4,
+              fontVariant: ['tabular-nums'],
             }}
           >
-            {owned ? 'OWNED' : USE_REAL_IAP ? `$${price}` : 'GET'}
+            {owned ? 'OWNED' : `$${price}`}
           </Text>
         </View>
       </View>

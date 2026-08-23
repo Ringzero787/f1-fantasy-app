@@ -1,15 +1,15 @@
 // Purchase confirmation sheet — replaces the old double-Alert buy flow.
 // Shows the pack's helmet previews + item list, one Buy button with an
-// in-button loading state, success flash, inline errors. No billing jargon:
-// while real IAP is off the server grants cosmetics without charge, so the
-// button simply says "Get pack".
+// in-button loading state, success flash, inline errors. Packs are paid with
+// garage cash (won at settlements) — the sheet shows the price and the
+// bankroll it leaves behind, and blocks the buy when cash is short.
 
 import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
 import { Sheet } from './Sheet';
 import { useTheme } from '../../theme';
 import type { CosmeticPack } from '../../types';
-import { USE_REAL_IAP } from '../../services/purchases.service';
+import { PACK_PRICE_GAME_CASH } from '../../data/cosmeticsCatalog';
 
 const SURFACE_LABEL: Record<string, string> = {
   helmet_livery: 'Helmet',
@@ -21,10 +21,12 @@ const SURFACE_LABEL: Record<string, string> = {
 
 export function PurchaseSheet({
   pack,
+  cash,
   onClose,
   onBuy,
 }: {
   pack: CosmeticPack | null;
+  cash: number;
   onClose: () => void;
   onBuy: (pack: CosmeticPack) => Promise<void>;
 }) {
@@ -34,7 +36,8 @@ export function PurchaseSheet({
 
   const helmets = pack?.items.filter((i) => i.surface === 'helmet_livery' && i.previewURL) ?? [];
   const others = pack?.items.filter((i) => !(i.surface === 'helmet_livery' && i.previewURL)) ?? [];
-  const price = pack ? (pack.priceUsdCents / 100).toFixed(2) : '0.00';
+  const price = pack ? PACK_PRICE_GAME_CASH[pack.id] ?? 0 : 0;
+  const canAfford = cash >= price;
 
   const buy = async () => {
     if (!pack || state !== 'idle') return;
@@ -113,29 +116,50 @@ export function PurchaseSheet({
         </View>
       )}
 
+      <Text
+        style={{
+          color: t.textDim,
+          fontFamily: t.fMono,
+          fontSize: 12,
+          marginBottom: 10,
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {canAfford
+          ? `Bankroll $${cash} → $${Math.round((cash - price) * 100) / 100} after purchase`
+          : `Bankroll $${cash} — you need $${Math.round((price - cash) * 100) / 100} more. Win it on race weekend.`}
+      </Text>
+
       {error ? (
         <Text style={{ color: '#F25C54', fontFamily: t.fSans, fontSize: 13, marginBottom: 10 }}>{error}</Text>
       ) : null}
 
       <Pressable
         onPress={buy}
-        disabled={state !== 'idle'}
+        disabled={state !== 'idle' || !canAfford}
         style={({ pressed }) => [
           {
             height: 52,
             borderRadius: 12,
-            backgroundColor: state === 'done' ? t.success : t.accent,
+            backgroundColor: state === 'done' ? t.success : canAfford ? t.accent : t.surface2,
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: pressed && state === 'idle' ? 0.85 : 1,
+            opacity: pressed && state === 'idle' && canAfford ? 0.85 : 1,
           },
         ]}
       >
         {state === 'buying' ? (
           <ActivityIndicator color="#0E1116" />
         ) : (
-          <Text style={{ color: '#0E1116', fontFamily: t.fSans, fontSize: 16, fontWeight: '700' }}>
-            {state === 'done' ? 'Added to your gear ✓' : USE_REAL_IAP ? `Buy · $${price}` : 'Get pack'}
+          <Text
+            style={{
+              color: canAfford || state === 'done' ? '#0E1116' : t.textMute,
+              fontFamily: t.fSans,
+              fontSize: 16,
+              fontWeight: '700',
+            }}
+          >
+            {state === 'done' ? 'Added to your gear ✓' : canAfford ? `Buy · $${price}` : `Need $${price}`}
           </Text>
         )}
       </Pressable>
