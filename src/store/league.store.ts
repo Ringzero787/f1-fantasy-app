@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { League, LeagueMember, CreateLeagueForm, LeagueSettings } from '../types';
 import { leagueService } from '../services/league.service';
 import { useAuthStore } from './auth.store';
@@ -48,6 +50,13 @@ interface LeagueState {
   pendingLeagueIds: string[]; // League IDs where user is pending approval
   pendingMembers: LeagueMember[]; // Pending members for admin view
   isLoading: boolean;
+  // Last-known members per league, persisted to disk. Standings render from
+  // this immediately on open while the network refresh runs behind it, so the
+  // screen never shows an empty spinner for a league the user has seen before.
+  membersByLeague: Record<string, LeagueMember[]>;
+  // True only while a background refresh is in flight over already-visible
+  // data. Distinct from isLoading, which means "nothing to show yet".
+  isRefreshingMembers: boolean;
   error: string | null;
   membersLastFetched: Record<string, number>; // leagueId -> timestamp of last fetch
 
@@ -104,7 +113,9 @@ interface LeagueState {
 // Module-level ref for the active Firestore listener (only one at a time)
 let activeMembersUnsubscribe: (() => void) | null = null;
 
-export const useLeagueStore = create<LeagueState>()((set, get) => ({
+export const useLeagueStore = create<LeagueState>()(
+  persist(
+    (set, get) => ({
   leagues: [],
   currentLeague: null,
   recentlyCreatedLeague: null,
@@ -113,6 +124,8 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
   pendingLeagueIds: [],
   pendingMembers: [],
   isLoading: false,
+  membersByLeague: {},
+  isRefreshingMembers: false,
   membersLastFetched: {},
   error: null,
   pendingCountsByLeague: {},
@@ -122,7 +135,13 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
   setLeagues: (leagues) => set({ leagues }),
   setCurrentLeague: (league) => set({ currentLeague: league }),
   setRecentlyCreatedLeague: (league) => set({ recentlyCreatedLeague: league }),
-  setMembers: (members) => set({ members }),
+  setMembers: (members) => {
+    const leagueId = get().currentLeague?.id;
+    set({
+      members,
+      ...(leagueId ? { membersByLeague: { ...get().membersByLeague, [leagueId]: members } } : {}),
+    });
+  },
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error, isLoading: false }),
   clearError: () => set({ error: null }),
@@ -250,12 +269,32 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       const isRaceWeekend = day === 0 || day === 6;
       const cacheTTL = isRaceWeekend ? 30_000 : 60_000;
 
-      if (lastFetch && now - lastFetch < cacheTTL && get().members.length > 0) {
+      // Check THIS league's cache, not the ambient `members` array — that may
+      // still hold the previously-viewed league, in which case the early return
+      // would leave its standings on screen under the new league's name.
+      const fresh = get().membersByLeague[leagueId];
+      if (lastFetch && now - lastFetch < cacheTTL && fresh && fresh.length > 0) {
+        if (get().members !== fresh) set({ members: fresh });
         return; // Use cached data
       }
     }
 
-    set({ isLoading: true, error: null });
+    // Stale-while-revalidate: paint the last-known standings for this league
+    // immediately (from disk on a cold start), then refresh behind them. Only
+    // block with a spinner when there is genuinely nothing to render — a
+    // 2-3s blank screen over data we already have reads as a failure.
+    const cached = get().membersByLeague[leagueId];
+    const hasCache = !!cached && cached.length > 0;
+
+    set({
+      // Clearing when this league has no cache is deliberate: leaving the
+      // previous league's rows up would show the wrong table under the right
+      // name, which is worse than a spinner.
+      members: hasCache ? cached : [],
+      isLoading: !hasCache,
+      isRefreshingMembers: hasCache,
+      error: null,
+    });
     try {
       if (isDemoMode) {
         // In demo mode, find all teams assigned to this league
@@ -338,9 +377,9 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
             });
           }
 
-          set({ members, isLoading: false });
+          set({ members, isLoading: false, isRefreshingMembers: false });
         } else {
-          set({ members: [], isLoading: false });
+          set({ members: [], isLoading: false, isRefreshingMembers: false });
         }
         return;
       }
@@ -349,12 +388,22 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
       set({
         members,
         isLoading: false,
+        isRefreshingMembers: false,
+        membersByLeague: { ...get().membersByLeague, [leagueId]: members },
         membersLastFetched: { ...get().membersLastFetched, [leagueId]: Date.now() },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load members';
       errorLogService.logError('loadLeagueMembers', error);
-      set({ error: message, isLoading: false });
+      // Keep whatever is on screen. Surfacing an error over stale-but-valid
+      // standings is worse than quietly leaving them up; the next refresh or a
+      // pull-to-refresh will correct it.
+      const stillHasRows = get().members.length > 0;
+      set({
+        error: stillHasRows ? null : message,
+        isLoading: false,
+        isRefreshingMembers: false,
+      });
     }
   },
 
@@ -375,7 +424,10 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     const unsubscribe = leagueService.subscribeToLeagueMembers(
       leagueId,
       (members) => {
-        set({ members });
+        set({
+          members,
+          membersByLeague: { ...get().membersByLeague, [leagueId]: members },
+        });
       },
       (error) => {
         console.error('League members subscription error:', error);
@@ -1028,4 +1080,43 @@ export const useLeagueStore = create<LeagueState>()((set, get) => ({
     if (currentLeague.ownerId === userId) return true;
     return currentLeague.coAdminIds?.includes(userId) || false;
   },
-}));
+    }),
+    {
+      name: 'league-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      // Only the parts worth surviving a restart: the league list and the
+      // standings rows. Transient flags, errors and pending-approval state are
+      // deliberately excluded so a stale error can't outlive the session, and
+      // membersLastFetched is dropped so a fresh launch always revalidates
+      // rather than trusting a TTL from a previous run.
+      partialize: (state) => ({
+        leagues: state.leagues,
+        currentLeague: state.currentLeague,
+        membersByLeague: state.membersByLeague,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Seed the visible list from the cache for whichever league was open,
+        // so the very first paint after launch already has rows.
+        const leagueId = state.currentLeague?.id;
+        // JSON has no Date type — joinedAt comes back as a string. Restore it
+        // so anything reading it gets what the LeagueMember type promises.
+        const reviveMember = (m: LeagueMember): LeagueMember => ({
+          ...m,
+          joinedAt: m.joinedAt instanceof Date ? m.joinedAt : new Date(m.joinedAt as unknown as string),
+        });
+        state.membersByLeague = Object.fromEntries(
+          Object.entries(state.membersByLeague || {}).map(([id, list]) => [
+            id,
+            (list || []).map(reviveMember),
+          ]),
+        );
+        const cached = leagueId ? state.membersByLeague?.[leagueId] : undefined;
+        if (cached && cached.length > 0) state.members = cached;
+        state.isLoading = false;
+        state.isRefreshingMembers = false;
+        state.error = null;
+      },
+    },
+  ),
+);

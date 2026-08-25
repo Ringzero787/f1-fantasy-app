@@ -169,7 +169,15 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
     if (!pendingDriver || !team) return;
     // Server-authoritative: the store action calls addDriverSecure (price,
     // budget, lockouts validated in a transaction) and adopts the result.
-    useTeamStore.getState().addDriver(pendingDriver.id, contractLength);
+    // Pass the market row through so the store can paint the roster change
+    // immediately instead of waiting on the callable + refetch round-trips.
+    useTeamStore.getState().addDriver(pendingDriver.id, contractLength, {
+      id: pendingDriver.id,
+      name: pendingDriver.name,
+      shortName: pendingDriver.shortName,
+      constructorId: pendingDriver.constructorId,
+      price: pendingDriver.price,
+    });
     setPendingDriver(null);
   }, [pendingDriver, team, contractLength]);
 

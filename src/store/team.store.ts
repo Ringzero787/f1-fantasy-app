@@ -256,7 +256,14 @@ interface TeamState {
   loadUserTeamInLeague: (userId: string, leagueId: string) => Promise<void>;
   createTeam: (userId: string, leagueId: string | null, name: string) => Promise<FantasyTeam>;
   assignTeamToLeague: (teamId: string, leagueId: string) => Promise<void>;
-  addDriver: (driverId: string, contractLength?: number) => Promise<void>;
+  addDriver: (
+    driverId: string,
+    contractLength?: number,
+    // Market metadata for the optimistic row. The caller (market panel) already
+    // holds the full Driver; passing it lets the roster paint before the server
+    // answers. Omit it and the call still works, just without the optimistic step.
+    meta?: { id: string; name: string; shortName: string; constructorId: string; price: number },
+  ) => Promise<void>;
   removeDriver: (driverId: string) => Promise<void>;
   swapDriver: (oldDriverId: string, newDriverId: string) => Promise<void>;
   setConstructor: (constructorId: string, contractLength?: number) => Promise<void>;
@@ -345,6 +352,10 @@ const syncTeamToFirebase = (team: FantasyTeam, context: string) => {
 };
 
 // Helper to update currentTeam and sync to userTeams
+// Roster mutations in flight, keyed `${op}:${teamId}:${entityId}`. Prevents a
+// double-tap from firing two callables while the first is still resolving.
+const inFlightRosterOps = new Set<string>();
+
 const updateTeamAndSync = (
   get: () => TeamState,
   set: (state: Partial<TeamState>) => void,
@@ -878,7 +889,7 @@ export const useTeamStore = create<TeamState>()(
     }
   },
 
-  addDriver: async (driverId, contractLength) => {
+  addDriver: async (driverId, contractLength, meta) => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
     const { currentTeam, selectedDrivers } = get();
 
@@ -909,6 +920,14 @@ export const useTeamStore = create<TeamState>()(
       set({ error: 'Driver is locked out for 1 race after contract expiry' });
       return;
     }
+
+    // Without a visible disabled state on the market rows, a double-tap used to
+    // fire two buys. Cheap in-flight guard keyed to the team + driver.
+    const rosterOpKey = `add:${currentTeam.id}:${driverId}`;
+    if (inFlightRosterOps.has(rosterOpKey)) return;
+    inFlightRosterOps.add(rosterOpKey);
+
+    let rolledBackTeam: FantasyTeam | null = null;
 
     set({ isLoading: true, error: null });
     try {
@@ -969,6 +988,41 @@ export const useTeamStore = create<TeamState>()(
 
       // Server-authoritative: addDriverSecure validates price, budget, lock
       // state and lockouts in a transaction, then we adopt the server result.
+      //
+      // Optimistic first. The call below is two sequential round-trips (the
+      // callable, then a fresh read of the team) and nothing on screen moved
+      // for the 2-3s they took, which reads as a failure. This optimistic team
+      // is local only — refreshTeamFromServer replaces it wholesale a moment
+      // later — so it cannot put a wrong roster or budget on the server.
+      if (meta) {
+        const optimisticPrice =
+          useAdminStore.getState().driverPrices[driverId]?.currentPrice ?? meta.price;
+        const optimisticTeam: FantasyTeam = {
+          ...currentTeam,
+          drivers: [
+            ...currentTeam.drivers,
+            {
+              driverId: meta.id,
+              name: meta.name,
+              shortName: meta.shortName,
+              constructorId: meta.constructorId,
+              purchasePrice: optimisticPrice,
+              currentPrice: optimisticPrice,
+              pointsScored: 0,
+              racesHeld: 0,
+              contractLength: contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH,
+              addedAtRace: useAdminStore.getState().getCompletedRaceCount(),
+            },
+          ],
+          totalSpent: currentTeam.totalSpent + optimisticPrice,
+          budget: currentTeam.budget - optimisticPrice,
+          racesSinceTransfer: 0,
+          updatedAt: new Date(),
+        };
+        rolledBackTeam = currentTeam;
+        updateTeamAndSync(get, set, optimisticTeam, { isLoading: false });
+      }
+
       console.log('addDriver: calling addDriverSecure');
       await teamService.addDriver(currentTeam.id, driverId, contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH);
       await refreshTeamFromServer(get, set, currentTeam.id);
@@ -976,7 +1030,12 @@ export const useTeamStore = create<TeamState>()(
     } catch (error) {
       errorLogService.logError('addDriver', error);
       const message = error instanceof Error ? error.message : 'Failed to add driver';
+      // Put the pre-optimistic roster back so a rejected buy (budget, lockout,
+      // locked team) doesn't leave a driver on screen the server never accepted.
+      if (rolledBackTeam) updateTeamAndSync(get, set, rolledBackTeam);
       set({ error: message, isLoading: false });
+    } finally {
+      inFlightRosterOps.delete(rosterOpKey);
     }
   },
 
@@ -988,6 +1047,12 @@ export const useTeamStore = create<TeamState>()(
       set({ error: 'No team loaded' });
       return;
     }
+
+    const rosterOpKey = `remove:${currentTeam.id}:${driverId}`;
+    if (inFlightRosterOps.has(rosterOpKey)) return;
+    inFlightRosterOps.add(rosterOpKey);
+
+    let rolledBackTeam: FantasyTeam | null = null;
 
     set({ isLoading: true, error: null });
     try {
@@ -1033,13 +1098,31 @@ export const useTeamStore = create<TeamState>()(
       // Server-authoritative: removeDriverSecure computes the sale return with
       // the single fee implementation and banks the driver's points correctly
       // (lockedPoints += pts, totalPoints -= pts) in a transaction.
+      //
+      // Optimistic: drop the row now so the tap registers immediately. Budget
+      // is deliberately NOT adjusted here — the sale return depends on the
+      // early-termination fee, which only the server computes. Showing a
+      // guessed figure that then jumps is worse than showing the old one for
+      // the moment it takes refreshTeamFromServer to land.
+      rolledBackTeam = currentTeam;
+      updateTeamAndSync(get, set, {
+        ...currentTeam,
+        drivers: currentTeam.drivers.filter(d => d.driverId !== driverId),
+        racesSinceTransfer: 0,
+        updatedAt: new Date(),
+      }, { isLoading: false });
+
       console.log('removeDriver: calling removeDriverSecure');
       await teamService.removeDriver(currentTeam.id, driverId);
       await refreshTeamFromServer(get, set, currentTeam.id);
       set({ isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove driver';
+      // Restore the driver the server refused to sell (locked team, etc.).
+      if (rolledBackTeam) updateTeamAndSync(get, set, rolledBackTeam);
       set({ error: message, isLoading: false });
+    } finally {
+      inFlightRosterOps.delete(rosterOpKey);
     }
   },
 
