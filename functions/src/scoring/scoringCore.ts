@@ -41,6 +41,62 @@ export interface QualifyingResult {
 export const RACE_POINTS = [45, 37, 33, 29, 26, 23, 20, 17, 14, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 export const SPRINT_POINTS = [5, 4, 3, 3, 2, 2, 1, 1];
 export const SPRINT_DNF_PENALTY = -3;
+
+// ─── DNF penalty ───
+//
+// A retirement used to cost a flat -5 no matter when it happened, so a car that
+// broke on the last lap was punished exactly as hard as one that crashed at
+// turn 1. The pricing model already scaled its DNF hit by race progress
+// (calculateDnfPricePenalty, -24 early to -2 late); scoring was the outlier.
+// These constants bring scoring in line: linear in race distance completed,
+// same shape as pricing, midpoint still ~-5 so the season's scale is unchanged.
+//
+// Deliberately NOT keyed off "was the driver classified". OpenF1 reports a
+// finishing position for some retirements and not others (Albon was classified
+// P17 at Zandvoort on lap 66; Bottas retiring on lap 61 was not), and honouring
+// that would put a 15-point cliff on a 5-lap difference. Race distance is
+// continuous, so there is no boundary to land on the wrong side of.
+export const DNF_PENALTY = -5;        // flat legacy value; pre-switch + fallback
+export const DNF_PENALTY_LATE = -2;   // retired at the chequered flag
+export const DNF_PENALTY_EARLY = -8;  // retired before completing a lap
+
+// Rounds before this keep the flat -5 so already-banked races stay exactly
+// reproducible if repair ever replays them. 15 = Monza 2026, the first race
+// after the change shipped.
+export const DNF_PROPORTIONAL_FROM_ROUND = 15;
+
+/**
+ * Penalty for a retirement, scaled by how much of the race distance was covered.
+ *
+ * Falls back to the flat DNF_PENALTY whenever the inputs can't support the
+ * proportional form — an earlier round, missing lap data, or a malformed
+ * totalLaps — so no caller can accidentally produce a softer penalty from
+ * incomplete data.
+ */
+export function calculateDnfPenalty(
+  laps?: number,
+  totalLaps?: number,
+  round?: number,
+): number {
+  if (!Number.isFinite(round as number) || (round as number) < DNF_PROPORTIONAL_FROM_ROUND) {
+    return DNF_PENALTY;
+  }
+  if (!Number.isFinite(totalLaps as number) || (totalLaps as number) <= 1) return DNF_PENALTY;
+  if (!Number.isFinite(laps as number)) return DNF_PENALTY;
+
+  const done = laps as number;
+  const total = totalLaps as number;
+  if (done <= 0) return DNF_PENALTY_EARLY;
+  if (done >= total) return DNF_PENALTY_LATE;
+
+  const progress = (done - 1) / (total - 1);
+  const late = Math.abs(DNF_PENALTY_LATE);
+  const early = Math.abs(DNF_PENALTY_EARLY);
+  // Round (not ceil, which pricing uses) so the light end of the range is
+  // actually reachable rather than collapsing onto the next step down.
+  return -Math.round(late + (early - late) * (1 - progress));
+}
+
 export const FASTEST_LAP_BONUS = 1;
 export const POSITION_GAINED_BONUS = 1;
 export const GRID_SIZE = 22;
@@ -108,11 +164,21 @@ export function calculateQualifyingPoints(position: number): number {
   return 0;
 }
 
+/**
+ * Per-race context the DNF penalty needs. Optional so existing callers keep the
+ * flat penalty until they opt in by passing it.
+ */
+export interface RaceContext {
+  totalLaps?: number;
+  round?: number;
+}
+
 export function calculateDriverPoints(
   result: RaceResult,
   sprintResult: SprintResult | null,
   racesHeld: number,
-  isAce: boolean
+  isAce: boolean,
+  raceContext?: RaceContext
 ): number {
   let racePoints = 0;
   let sprintPoints = 0;
@@ -141,9 +207,11 @@ export function calculateDriverPoints(
       racePoints += GRID_SIZE + 1 - result.position;
     }
   } else if (result.status === 'dnf') {
-    racePoints = -5;
+    racePoints = calculateDnfPenalty(result.laps, raceContext?.totalLaps, raceContext?.round);
   } else if (result.status === 'dsq') {
-    racePoints = -5;
+    // Disqualification is a stewards' decision, not a distance outcome — it
+    // stays flat regardless of when in the race it happened.
+    racePoints = DNF_PENALTY;
   }
   // 'dns' (did not start) and 'nc' (not classified — ran but outside the
   // classification, e.g. many laps down) intentionally score 0 with no penalty.

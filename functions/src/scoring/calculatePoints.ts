@@ -13,6 +13,7 @@ import {
   calculateLockBonus,
   calculateQualifyingPoints,
   calculateDriverPoints,
+  calculateDnfPenalty,
   RaceResult,
   SprintResult,
   QualifyingResult,
@@ -639,7 +640,11 @@ export const onRaceCompleted = functions
         if (result.position <= GRID_SIZE) {
           racePoints += GRID_SIZE + 1 - result.position;
         }
-      } else if (result.status === 'dnf' || result.status === 'dsq') {
+      } else if (result.status === 'dnf') {
+        // Must stay identical to scoringCore.calculateDriverPoints — the recon
+        // guard below compares team points against this breakdown.
+        racePoints = calculateDnfPenalty(result.laps, afterData.totalLaps, afterData.round);
+      } else if (result.status === 'dsq') {
         racePoints = -5;
       }
 
@@ -791,7 +796,10 @@ export const onRaceCompleted = functions
 
         let driverPoints = 0;
         if (raceResult) {
-          driverPoints = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce);
+          driverPoints = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce, {
+            totalLaps: afterData.totalLaps,
+            round: afterData.round,
+          });
         }
 
         // Qualifying points (quarter-rate bonus, all weekends) — only when quali
@@ -1674,6 +1682,7 @@ export const repairTeamScoring = functions
     const completedRaces: Array<{
       raceId: string;
       round: number;
+      totalLaps: number;
       hasSprint: boolean;
       qualifyingScored: boolean;
       raceResults: RaceResult[];
@@ -1687,6 +1696,9 @@ export const repairTeamScoring = functions
       completedRaces.push({
         raceId: raceDoc.id,
         round: rd.round,
+        // Needed by the proportional DNF penalty so a repair replays a race
+        // with the same inputs live scoring had.
+        totalLaps: rd.totalLaps || 0,
         hasSprint: rd.hasSprint === true,
         qualifyingScored: rd.qualifyingScored === true,
         raceResults: rd.results?.raceResults || [],
@@ -1853,7 +1865,10 @@ export const repairTeamScoring = functions
 
           let driverPts = 0;
           if (raceResult) {
-            driverPts = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce);
+            driverPts = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce, {
+              totalLaps: race.totalLaps,
+              round: race.round,
+            });
           }
 
           if (includeQuali) {
