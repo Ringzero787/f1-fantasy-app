@@ -27,6 +27,7 @@ import {
   convertToSprintResults,
   convertToQualifyingResults,
   deriveRoundNumbers,
+  isUnmappedDriverWarning,
 } from './openf1Client';
 import { handleQualifyingScoring, handleSprintScoring } from '../scoring/calculatePoints';
 
@@ -232,6 +233,13 @@ async function processRace(race: {
       warnings.push('No qualifying session found');
     }
 
+    // An unmapped driver number means the converters dropped a car from every
+    // session it appeared in, so the stored grid is silently short and any
+    // constructor aggregate built from it under-counts. Never auto-approve that
+    // — park it for an admin instead. (Zandvoort 2026 auto-approved with
+    // Tsunoda missing and Racing Bulls scored 23 instead of 47.)
+    const unmappedDrivers = warnings.filter(isUnmappedDriverWarning);
+
     // Build pending result document
     const pendingResult: Record<string, unknown> = {
       raceId: race.raceId,
@@ -239,6 +247,11 @@ async function processRace(race: {
       raceName: race.raceName,
       status: 'pending',
       warnings,
+      // Surfaced in the admin panel so a blocked race is visible rather than
+      // just quietly un-approved.
+      ...(unmappedDrivers.length > 0
+        ? { blockedReason: `Unmapped driver number(s) — grid is incomplete: ${unmappedDrivers.join('; ')}` }
+        : {}),
       results: {
         raceResults: raceData.results,
         ...(sprintData && sprintData.results.length > 0
@@ -274,7 +287,17 @@ async function processRace(race: {
 
     // Auto-approve if configured — but only once settled and we have enough results
     const MIN_RESULTS_FOR_AUTO = 15;
-    if (AUTO_APPROVE && settled && raceData.results.length >= MIN_RESULTS_FOR_AUTO) {
+    if (AUTO_APPROVE && unmappedDrivers.length > 0) {
+      // Leave status 'pending': the scheduler skips 'pending' races, so this
+      // stops the re-fetch loop and the race sits in the admin panel with its
+      // warnings until someone adds the mapping and re-approves. Deliberately
+      // louder than publishing an incomplete grid, which is permanent and
+      // invisible; this is temporary and visible.
+      console.error(
+        `[Ingestion] BLOCKED auto-approval of ${race.raceId} — ${unmappedDrivers.length} unmapped driver number(s): ${unmappedDrivers.join('; ')}. ` +
+        'Add the mapping to DRIVER_NUMBER_TO_ID and re-approve; results are held as pending.'
+      );
+    } else if (AUTO_APPROVE && settled && raceData.results.length >= MIN_RESULTS_FOR_AUTO) {
       console.log(`[Ingestion] Auto-approving ${race.raceId} (settled ${SETTLE_MINUTES}m+ after race)...`);
       await doApprove(race.raceId, 'auto');
     } else if (AUTO_APPROVE) {
@@ -404,6 +427,20 @@ export const checkQualifyingResults = onSchedule(
           console.log(`[QualiIngestion] Warnings for round ${round}:`, qualiData.warnings);
         }
 
+        // Unmapped driver → the grid is short a car and the constructor
+        // qualifying aggregate would under-count. Skip standalone scoring and
+        // leave qualifyingScored false; onRaceCompleted folds qualifying in at
+        // race time (the `scoreQualifying` path), and that write is itself
+        // gated on the same check. Nothing is lost by waiting.
+        const qualiUnmapped = qualiData.warnings.filter(isUnmappedDriverWarning);
+        if (qualiUnmapped.length > 0) {
+          console.error(
+            `[QualiIngestion] SKIPPING ${raceId} — unmapped driver number(s): ${qualiUnmapped.join('; ')}. ` +
+            'Qualifying will be scored at race time once the mapping exists.'
+          );
+          continue;
+        }
+
         // Write qualifying results to race doc
         await raceDoc.ref.update({
           'results.qualifyingResults': qualiData.results,
@@ -471,6 +508,18 @@ export const checkSprintResults = onSchedule(
 
         if (sprintData.warnings.length > 0) {
           console.log(`[SprintIngestion] Warnings for round ${round}:`, sprintData.warnings);
+        }
+
+        // Same guard as qualifying: never bank a sprint that is missing a car.
+        // Leaving sprintScored false makes onRaceCompleted fold the sprint in at
+        // race time instead (the `sprintAlreadyScored` path).
+        const sprintUnmapped = sprintData.warnings.filter(isUnmappedDriverWarning);
+        if (sprintUnmapped.length > 0) {
+          console.error(
+            `[SprintIngestion] SKIPPING ${raceId} — unmapped driver number(s): ${sprintUnmapped.join('; ')}. ` +
+            'Sprint will be scored at race time once the mapping exists.'
+          );
+          continue;
         }
 
         // Write sprint results to race doc and mark as scored

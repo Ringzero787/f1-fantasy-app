@@ -67,6 +67,15 @@ export const DRIVER_NUMBER_TO_ID: Record<number, string> = {
   14: 'alonso',
   16: 'leclerc',
   18: 'stroll',
+  // One-off Zandvoort (round 14) stand-in: Hadjar sat out, Lawson moved up to
+  // Red Bull and Tsunoda took the Racing Bulls seat. Unmapped, he was dropped
+  // from all three sessions and Racing Bulls scored with a single car (23 pts
+  // instead of 47). He has no drivers/ doc, so he stays unpurchasable and
+  // unpriced — this mapping exists only so his result reaches the constructor
+  // aggregate. Verified against every 2026 scored session: he is the only
+  // driver number outside this map that appears in a Race/Sprint/Qualifying
+  // session (the FP1 rookie numbers never do).
+  22: 'tsunoda',
   23: 'albon',
   27: 'hulkenberg',
   30: 'lawson',

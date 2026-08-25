@@ -189,6 +189,39 @@ function sanitizeForFirestore(obj: any): any {
   return result;
 }
 
+/**
+ * Turn update()-style dotted keys into the nested maps set({merge:true}) needs.
+ *
+ * commitInBatches writes with set/merge, where a key like
+ * 'lockStatus.nextUnlockTime' is a literal field name rather than a path — the
+ * write lands somewhere nothing reads, silently. Under merge:true a nested map
+ * is deep-merged, so expanding here is exactly equivalent to what update()
+ * would have done, and callers can use either style safely.
+ */
+function expandDottedKeys(data: Record<string, any>): Record<string, any> {
+  if (!Object.keys(data).some(k => k.includes('.'))) return data;
+
+  const out: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (!key.includes('.')) {
+      out[key] = value;
+      continue;
+    }
+    console.warn(`[commitInBatches] expanded dotted key "${key}" into a nested map (set/merge does not treat dots as paths)`);
+    const parts = key.split('.');
+    let cursor = out;
+    for (let p = 0; p < parts.length - 1; p++) {
+      const part = parts[p];
+      if (typeof cursor[part] !== 'object' || cursor[part] === null || Array.isArray(cursor[part])) {
+        cursor[part] = {};
+      }
+      cursor = cursor[part];
+    }
+    cursor[parts[parts.length - 1]] = value;
+  }
+  return out;
+}
+
 async function commitInBatches(
   ops: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }>
 ): Promise<void> {
@@ -196,7 +229,7 @@ async function commitInBatches(
     const batch = db.batch();
     const chunk = ops.slice(i, i + BATCH_OP_LIMIT);
     for (const op of chunk) {
-      batch.set(op.ref, sanitizeForFirestore(op.data), { merge: true });
+      batch.set(op.ref, sanitizeForFirestore(expandDottedKeys(op.data)), { merge: true });
     }
     await batch.commit();
   }
@@ -1503,9 +1536,19 @@ export const onRaceCompleted = functions
 
       unlockOps.push({
         ref: teamDoc.ref,
+        // NESTED, not dotted: commitInBatches writes with set({merge:true}),
+        // which does NOT expand dot paths the way update() does — a key of
+        // 'lockStatus.nextUnlockTime' becomes a LITERAL field of that name and
+        // the real lockStatus.nextUnlockTime keeps autoLockTeams' race+24h
+        // failsafe, so autoUnlockTeams (which queries the nested path) never
+        // sees the real unlock time. That left every team locked ~18h past the
+        // intended completion+3h. merge:true deep-merges maps, so canModify and
+        // isSeasonLocked survive this write untouched.
         data: {
-          'lockStatus.nextUnlockTime': unlockTime,
-          'lockStatus.lockReason': 'Results processed — unlocking soon',
+          lockStatus: {
+            nextUnlockTime: unlockTime,
+            lockReason: 'Results processed — unlocking soon',
+          },
         },
       });
     }

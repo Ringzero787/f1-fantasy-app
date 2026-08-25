@@ -85,6 +85,23 @@ export interface QualifyingResult {
   constructorId: string;
 }
 
+/**
+ * Prefix shared by every "driver number is not in DRIVER_NUMBER_TO_ID" warning
+ * the converters below emit.
+ *
+ * An unmapped number is silently destructive: the converter drops the row, so
+ * the field shrinks by a car and any constructor aggregate built from it is
+ * short one driver — with no error, no NaN and no failed write. Zandvoort 2026
+ * lost Tsunoda (#22) this way and Racing Bulls scored 23 instead of 47.
+ * Callers use `isUnmappedDriverWarning` to refuse to publish such a result set
+ * rather than auto-approving a quietly incomplete grid.
+ */
+export const UNMAPPED_DRIVER_WARNING_PREFIX = 'Unknown driver number';
+
+export function isUnmappedDriverWarning(warning: string): boolean {
+  return warning.startsWith(UNMAPPED_DRIVER_WARNING_PREFIX);
+}
+
 async function fetchApi<T>(endpoint: string, params?: Record<string, string | number>): Promise<T[]> {
   const now = Date.now();
   const timeSince = now - lastRequestTime;
@@ -251,7 +268,7 @@ export async function convertToRaceResults(
 
     const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
     if (!driverId) {
-      warnings.push(`Unknown driver number: ${r.driver_number}`);
+      warnings.push(`${UNMAPPED_DRIVER_WARNING_PREFIX}: ${r.driver_number}`);
       continue;
     }
 
@@ -333,7 +350,7 @@ export async function convertToSprintResults(
 
     const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
     if (!driverId) {
-      warnings.push(`Unknown driver number in sprint: ${r.driver_number}`);
+      warnings.push(`${UNMAPPED_DRIVER_WARNING_PREFIX} in sprint: ${r.driver_number}`);
       continue;
     }
 
@@ -390,7 +407,7 @@ export async function convertToQualifyingResults(
 
     const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
     if (!driverId) {
-      warnings.push(`Unknown driver number in qualifying: ${r.driver_number}`);
+      warnings.push(`${UNMAPPED_DRIVER_WARNING_PREFIX} in qualifying: ${r.driver_number}`);
       continue;
     }
 
