@@ -13,7 +13,8 @@
 // --picks goes back to its model line: range from ouLine (±1.5 per car), odds
 // from the stored model probability at the model's 4.7% hold.
 // Refuses once the race has locked: settlement grades already-placed picks
-// against whatever the doc says at settle time.
+// against whatever the doc says at settle time. --after-lock="<reason>"
+// overrides, and the reason lands in the operation's log.
 
 const FIELD_SIZE = 22;
 const BEST_BET_ODDS = 1.9;
@@ -21,11 +22,15 @@ const HOLD = 1.047; // same hold as seedFromModelsDoc
 const round2 = (x) => Math.round(x * 100) / 100;
 const offered = (p) => round2(1 / (p * HOLD));
 
+// Entity ids become Firestore field paths (entities.<id>.<field>), so only the
+// plain ids the app uses are accepted — a dot would address a nested field.
 function parsePicks(s) {
   return String(s).split(',').map((x) => x.trim()).filter(Boolean).map((x) => {
     const i = x.indexOf(':');
     if (i < 1) throw new Error(`pick "${x}": use <entityId>:<call>, e.g. hamilton:P2-P5`);
-    return { id: x.slice(0, i), call: x.slice(i + 1).replace(/\s+/g, '') };
+    const id = x.slice(0, i);
+    if (!/^[a-z0-9_]+$/.test(id)) throw new Error(`pick "${x}": entity ids are lowercase letters, digits and _`);
+    return { id, call: x.slice(i + 1).replace(/\s+/g, '') };
   });
 }
 
@@ -68,7 +73,7 @@ async function main() {
     const m = a.match(/^--([^=]+)(?:=(.*))?$/);
     return m ? [m[1], m[2] ?? true] : [a, true];
   }));
-  if (!args.race || !args.picks) throw new Error('usage: setBestBets.js --race=<raceId> --picks=<id>:<call>,… [--write] [--after-lock]');
+  if (!args.race || !args.picks) throw new Error('usage: setBestBets.js --race=<raceId> --picks=<id>:<call>,… [--write] [--after-lock="<reason>"]');
   const admin = require('../node_modules/firebase-admin');
   admin.initializeApp({ projectId: 'f1-app-18077' });
   const db = admin.firestore();
@@ -77,8 +82,10 @@ async function main() {
   const race = (await db.doc(`races/${args.race}`).get()).data();
   if (!race) throw new Error(`races/${args.race} not found`);
   const lockAt = race.schedule?.race?.toMillis?.();
-  if (lockAt && Date.now() > lockAt && !args['after-lock']) {
-    throw new Error(`the race locked at ${new Date(lockAt).toISOString()}; changing best bets now changes how already-placed picks settle (--after-lock overrides)`);
+  if (lockAt && Date.now() > lockAt) {
+    const reason = typeof args['after-lock'] === 'string' ? args['after-lock'].trim() : '';
+    if (!reason) throw new Error(`the race locked at ${new Date(lockAt).toISOString()}; changing best bets now changes how already-placed picks settle (--after-lock="<reason>" overrides)`);
+    console.log(`AFTER LOCK (race locked ${new Date(lockAt).toISOString()}): ${reason}`);
   }
   const ref = db.doc(`ben_lines/${args.race}_race`);
   const doc = (await ref.get()).data();
@@ -97,6 +104,7 @@ async function main() {
   }
   for (const e of Object.values(doc.entities)) {
     if (!e.bestBet || picks.some((p) => p.id === e.entityId)) continue;
+    if (!/^[a-z0-9_]+$/.test(e.entityId)) throw new Error(`current best bet "${e.entityId}" has an id that cannot be updated safely — fix it by hand`);
     const m = modelLine(e);
     for (const [k, v] of Object.entries(m)) upd[`entities.${e.entityId}.${k}`] = v;
     upd[`entities.${e.entityId}.bestBet`] = del;

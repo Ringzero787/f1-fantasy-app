@@ -8,6 +8,8 @@ test('parsePicks splits id:call pairs', () => {
     { id: 'hamilton', call: 'P2-P5' }, { id: 'sainz', call: 'O14.5' }, { id: 'aston_martin', call: 'U17.5' },
   ]);
   assert.throws(() => parsePicks('hamilton'), /<entityId>:<call>/);
+  assert.throws(() => parsePicks('ham.ilton:P2-P5'), /entity ids/);
+  assert.throws(() => parsePicks('Hamilton:P2-P5'), /entity ids/);
 });
 
 test('driver calls', () => {
