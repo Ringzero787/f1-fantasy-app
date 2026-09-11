@@ -6,13 +6,14 @@
 //   predicted, predictedLo/Hi (doc bounds), line (band midpoint), sigma
 //   (zone rule), under/overProbability (doc percents), withProbability
 //   (in-band normal CDF), offered odds = 1 / (p × 1.047)  (~4.7% hold —
-//   verified to reproduce britain's stored odds).
+//   verified to reproduce britain's stored odds), capped so they stay above
+//   1.00 and finite (scripts/_pricing.js).
 //
 // Constructor tables are in AVG-finish space since MODELS_5; the app settles
 // on the SUM of both drivers' positions (halved only for display), so avg
 // values are doubled on write.
 //
-// Usage:
+// Usage (normally through the tl-lines-seed / tl-lines-seed-sprint aidlc op kinds):
 //   node seedFromModelsDoc.js --doc=/mnt/smb/share/tracklimits/MODELS_5.md \
 //     --race=hungary_2026 [--source=ben_model_R13] [--sprint] [--write]
 //   (dry-run prints the docs without --write)
@@ -23,22 +24,7 @@
 // seeded.
 
 const fs = require('fs');
-const admin = require('../node_modules/firebase-admin');
-
-const args = Object.fromEntries(
-  process.argv.slice(2).map((a) => {
-    const m = a.match(/^--([^=]+)(?:=(.*))?$/);
-    return m ? [m[1], m[2] ?? true] : [a, true];
-  })
-);
-if (!args.doc || !args.race) {
-  console.error('Usage: node seedFromModelsDoc.js --doc=<path> --race=<raceId> [--source=<tag>] [--write]');
-  process.exit(1);
-}
-
-const HOLD = 1.047;
-const md = fs.readFileSync(args.doc, 'utf8');
-const lines = md.split('\n');
+const { offered, round2 } = require('./_pricing');
 
 const phi = (z) => 0.5 * (1 + erf(z / Math.SQRT2));
 function erf(x) {
@@ -49,11 +35,9 @@ function erf(x) {
   return s * y;
 }
 const zoneSigma = (pred) => (pred < 7.5 ? 2.0 : pred < 14.5 ? 5.0 : 2.0);
-const round2 = (x) => Math.round(x * 100) / 100;
-const offered = (p) => round2(1 / (p * HOLD));
 
 // Grab the markdown table that follows the section heading matching `re`.
-function tableAfter(re) {
+function tableAfter(lines, re) {
   const start = lines.findIndex((l) => re.test(l));
   if (start < 0) throw new Error('section not found: ' + re);
   const rows = [];
@@ -73,7 +57,7 @@ const pct = (s) => parseInt(s, 10) / 100;
 const pos = (s) => parseInt(String(s).replace(/^P/, ''), 10);
 const ouLine = (s) => parseFloat(String(s).replace(/^O\/U\s*/, ''));
 
-function driverEntity(row, session) {
+function driverEntity(row) {
   const [_, id, predS, lineS, underS, __, overS, ___, upS, loS] = row;
   const predicted = parseFloat(predS);
   const lo = pos(upS);
@@ -126,35 +110,50 @@ function constructorEntity(row, driverSigmaByName) {
   }];
 }
 
-// ---- parse ----
-const raceRows = tableAfter(/^## Race O\/U Table/);
-const qualiRows = tableAfter(/Full output .*n=8 window/);
-const ctorRows = tableAfter(/^## Constructor O\/U/);
-
-const raceEntities = Object.fromEntries(raceRows.map((r) => driverEntity(r, 'race')));
-const qualiEntities = Object.fromEntries(qualiRows.map((r) => driverEntity(r, 'qualifying')));
-const driverSigmaByName = Object.fromEntries(
-  Object.values(raceEntities).map((e) => [e.entityId, e.sigma])
-);
-for (const r of ctorRows) {
-  const [id, ent] = constructorEntity(r, driverSigmaByName);
-  raceEntities[id] = ent;
+// MODELS doc text → race entities (drivers + constructors, SUM space) and qualifying entities.
+function parseModels(md) {
+  const lines = md.split('\n');
+  const raceRows = tableAfter(lines, /^## Race O\/U Table/);
+  const qualiRows = tableAfter(lines, /Full output .*n=8 window/);
+  const ctorRows = tableAfter(lines, /^## Constructor O\/U/);
+  const race = Object.fromEntries(raceRows.map((r) => driverEntity(r)));
+  const qualifying = Object.fromEntries(qualiRows.map((r) => driverEntity(r)));
+  const driverSigmaByName = Object.fromEntries(Object.values(race).map((e) => [e.entityId, e.sigma]));
+  for (const r of ctorRows) {
+    const [id, ent] = constructorEntity(r, driverSigmaByName);
+    race[id] = ent;
+  }
+  return { race, qualifying, raceRows, qualiRows, ctorRows };
 }
 
-console.log(`race: ${Object.keys(raceEntities).length} entities (incl. ${ctorRows.length} constructors)`);
-console.log(`qualifying: ${Object.keys(qualiEntities).length} entities`);
-console.log('sample race driver:', JSON.stringify(raceEntities[raceRows[0][1]]));
-console.log('sample constructor:', JSON.stringify(raceEntities[ctorRows[0][1]]));
-console.log('sample quali driver:', JSON.stringify(qualiEntities[qualiRows[0][1]]));
+async function main() {
+  const args = Object.fromEntries(
+    process.argv.slice(2).map((a) => {
+      const m = a.match(/^--([^=]+)(?:=(.*))?$/);
+      return m ? [m[1], m[2] ?? true] : [a, true];
+    })
+  );
+  if (!args.doc || !args.race) {
+    console.error('Usage: node seedFromModelsDoc.js --doc=<path> --race=<raceId> [--source=<tag>] [--sprint] [--write]');
+    process.exit(1);
+  }
+  if (!/^[a-z0-9_]+$/.test(args.race)) throw new Error(`race id "${args.race}" is not a plain id`);
 
-if (!args.write) {
-  console.log('\nDRY RUN — pass --write to seed Firestore');
-  process.exit(0);
-}
+  const { race: raceEntities, qualifying: qualiEntities, raceRows, qualiRows, ctorRows } = parseModels(fs.readFileSync(args.doc, 'utf8'));
+  console.log(`race: ${Object.keys(raceEntities).length} entities (incl. ${ctorRows.length} constructors)`);
+  console.log(`qualifying: ${Object.keys(qualiEntities).length} entities`);
+  console.log('sample race driver:', JSON.stringify(raceEntities[raceRows[0][1]]));
+  console.log('sample constructor:', JSON.stringify(raceEntities[ctorRows[0][1]]));
+  console.log('sample quali driver:', JSON.stringify(qualiEntities[qualiRows[0][1]]));
 
-admin.initializeApp({ projectId: 'f1-app-18077' });
-const db = admin.firestore();
-(async () => {
+  if (!args.write) {
+    console.log('\nDRY RUN — pass --write to seed Firestore');
+    return;
+  }
+
+  const admin = require('../node_modules/firebase-admin');
+  admin.initializeApp({ projectId: 'f1-app-18077' });
+  const db = admin.firestore();
   const source = args.source ?? 'ben_model_doc';
   const sessions = [['race', raceEntities], ['qualifying', qualiEntities]];
   if (args.sprint) sessions.push(['sprint', raceEntities]);
@@ -173,5 +172,10 @@ const db = admin.firestore();
     );
     console.log(`wrote ben_lines/${args.race}_${session} (${Object.keys(entities).length} entities)`);
   }
-  process.exit(0);
-})().catch((e) => { console.error(e.message); process.exit(1); });
+}
+
+module.exports = { parseModels, driverEntity, constructorEntity, zoneSigma, tableAfter };
+
+if (require.main === module) {
+  main().then(() => process.exit(0)).catch((e) => { console.error(e.message); process.exit(1); });
+}

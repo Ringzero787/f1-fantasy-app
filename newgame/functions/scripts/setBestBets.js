@@ -18,9 +18,7 @@
 
 const FIELD_SIZE = 22;
 const BEST_BET_ODDS = 1.9;
-const HOLD = 1.047; // same hold as seedFromModelsDoc
-const round2 = (x) => Math.round(x * 100) / 100;
-const offered = (p) => round2(1 / (p * HOLD));
+const { offered } = require('./_pricing'); // same capped pricing as seedFromModelsDoc
 
 // Entity ids become Firestore field paths (entities.<id>.<field>), so only the
 // plain ids the app uses are accepted — a dot would address a nested field.

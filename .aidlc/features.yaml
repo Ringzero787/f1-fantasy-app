@@ -339,9 +339,10 @@ features:
     shipped_at: 2026-09-11
   - id: F-041
     name: "TL: Offered odds stay above 1.00"
-    summary: seedFromModelsDoc prices below 1.00 when the model probability exceeds 0.955 and the generator can emit exactly
-      1.00; clamp offered odds and cover it with tests
-    status: planned
+    summary: seedFromModelsDoc (and setBestBets' model-line revert) priced 1/(p×1.047) uncapped — below 1.00 once the model
+      probability passes ~0.955, infinite at 0. Shared capped pricing (scripts/_pricing.js, same cap as triggers/_odds.ts,
+      whose generator floor is 1.01), plus MODELS parser tests. (Registered as "generator can emit 1.00" — it cannot.)
+    status: building
     spec: .aidlc/specs/F-041.md
     created_at: 2026-09-11
     keywords:
