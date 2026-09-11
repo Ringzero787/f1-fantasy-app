@@ -1,0 +1,12 @@
+id: OP-001
+title: "Madrid R16 best bets: Ben's in-range calls"
+kind: tl-best-bets
+status: applied
+params:
+  race: madrid_2026
+  picks: hamilton:P2-P5,gasly:P8-P11,bortoleto:P9-P12
+manual: true
+note: "Done by hand before aidlc op existed (Claude Code session). ben_lines/madrid_2026_race: hamilton, gasly, bortoleto set bestBet with their model ranges (P2-P5, P8-P11, P9-P12) at 1.90/1.90, benCall removed; the auto-picked leclerc O4.5, sainz O14.5, bearman O14.5 reverted to MODELS_7 model lines. No existing picks affected (one 0-stake qualifying pick on leclerc). Backup of the six entities: /mnt/smb/f1-app/aidlc-ops/OP-001/backup-entities-before.json"
+created_at: 2026-09-10
+by: nathan
+steps: []
