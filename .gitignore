@@ -75,3 +75,7 @@ expo-env.d.ts
 # @end expo-cli
 AppstoreAuthenticationKey.pem
 *.pem
+
+# AIDLC scratch (verdicts under .aidlc/runs are committed by release only)
+.aidlc/tmp/
+.aidlc/runs/

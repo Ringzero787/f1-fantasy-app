@@ -1,0 +1,14 @@
+# Mirror of the Google Play Data Safety form for BOTH apps (com.undercut.app, com.tracklimits.app). Verify against Play Console before the next release.
+collects_data: true
+shares_data: false
+sells_data: false
+processors: [Google Firebase (Auth, Firestore, Cloud Functions, FCM), Expo (EAS Update, push)]
+data_types:
+  - { type: email, category: personal_info, purpose: account, shared: false, optional: false, notes: "Google / Apple sign-in" }
+  - { type: name, category: personal_info, purpose: account, shared: false, optional: true, notes: "display name / call sign" }
+  - { type: user_ids, category: personal_info, purpose: account, shared: false, optional: false }
+  - { type: user_generated_content, category: app_activity, purpose: app_functionality, shared: false, optional: true, notes: "teams, picks, league chat (Undercut)" }
+  - { type: device_or_push_token, category: device_ids, purpose: push_notifications, shared: false, optional: true }
+  - { type: crash_logs, category: app_info_performance, purpose: reliability, shared: false, optional: false }
+not_collected: [location, financial, health, contacts, calendar, sms, photos_videos, browsing_history]
+security_practices: { encrypted_in_transit: true, deletion_request: true, in_app_deletion: false }

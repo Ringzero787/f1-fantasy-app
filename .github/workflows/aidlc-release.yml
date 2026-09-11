@@ -1,0 +1,19 @@
+name: aidlc-release
+on:
+  workflow_dispatch:
+    inputs: { version: { description: "semver (blank = derive from commits)", required: false, default: "" } }
+jobs:
+  release:
+    permissions: { contents: write, id-token: write, pull-requests: write }
+    uses: Ringzero787/aidlc/.github/workflows/aidlc-release.yml@main
+    with:
+      aidlc_ref: main
+      version: ${{ inputs.version }}
+      setup: |
+        (cd newgame && npm ci)
+        (cd newgame/functions && npm ci --ignore-scripts)
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      AIDLC_DEPLOY_KEY: ${{ secrets.AIDLC_DEPLOY_KEY }}
+      COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+      COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
