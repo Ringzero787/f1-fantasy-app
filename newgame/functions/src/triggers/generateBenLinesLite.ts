@@ -13,16 +13,17 @@
 // 7. Constructor line = sum of team's two drivers' predicted positions
 // 8. Write ben_lines/{raceId}_{session} (qualifying + race; sprint optional)
 //
-// HTTPS endpoint gated by the shared SEED_SECRET. Idempotent (merges over
-// existing entities so manually-edited lines aren't clobbered).
+// Admin-only HTTPS endpoint (Firebase ID token with the `admin` claim — see
+// _adminAuth.ts). Idempotent (merges over existing entities so
+// manually-edited lines aren't clobbered).
 
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { applyCors } from './_cors';
+import { requireAdmin } from './_adminAuth';
 import { offeredOddsFromFairProb, BOOK_VIG } from './_odds';
 
 const db = admin.firestore();
-const SEED_SECRET = 'tl-seed-races-2026-shared-secret';
 
 type SessionKey = 'qualifying' | 'race' | 'sprint';
 const SESSION_RESULTS_KEY: Record<SessionKey, string> = {
@@ -260,10 +261,7 @@ function buildConstructorLines(drivers: DriverPrediction[], session: SessionKey)
 
 export const tlGenerateBenLinesLite = functions.https.onRequest(async (req, res) => {
   if (applyCors(req, res)) return;
-  if (req.query.key !== SEED_SECRET) {
-    res.status(401).send('Unauthorized');
-    return;
-  }
+  if (!(await requireAdmin(req, res))) return;
   const raceId = String(req.query.raceId || '');
   if (!raceId) {
     res.status(400).json({ error: 'raceId query param required' });

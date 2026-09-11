@@ -2,9 +2,9 @@
 // humannpc.com calls these cross-origin; without these headers the browser
 // blocks the POST with "Failed to fetch".
 //
-// Wide open for now (Allow-Origin: *) since each endpoint is independently
-// gated by a shared secret in the query string. Tighten to a specific origin
-// list when the seed-secret is rotated out.
+// Wide open (Allow-Origin: *) is safe: each endpoint requires an admin
+// Firebase ID token in the Authorization header (see _adminAuth.ts), and no
+// cookies or ambient credentials are involved.
 
 import * as express from 'express';
 
