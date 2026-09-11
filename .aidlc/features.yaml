@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Ringzero787/aidlc/main/schemas/features.schema.json
 # Two apps in one repo. Prefix: "TL:" Track Limits (newgame/), "UC:" Undercut (root). Seeded from release notes, CHANGELOG.md and ROADMAP.md.
-next_id: 34
+next_id: 37
 features:
   - { id: F-001, name: Pre-AIDLC baseline, status: baseline, created_at: 2026-09-11, summary: Everything shipped before AIDLC adoption. }
   - { id: F-002, name: "TL: Weekend picks with WITH/AGAINST stakes", status: shipped, created_at: 2026-09-11, version_shipped: 0.1.15, summary: "StakeSheet, side flip, sage AGAINST treatment", keywords: [stake, picks, with, against] }
@@ -35,3 +35,6 @@ features:
   - { id: F-031, name: "UC: useDrivers cache key fix", status: planned, created_at: 2026-09-11, summary: "ROADMAP economy (S)" }
   - { id: F-032, name: "UC: Price-history dedupe", status: planned, created_at: 2026-09-11, summary: "ROADMAP economy (S)" }
   - { id: F-033, name: "Repo hygiene: tracked stray files", status: planned, created_at: 2026-09-11, summary: "Root holds ~350 untracked artifacts (tmp_*.js, APKs, screenshots, credentials.json, keystores, .pem). Extend .gitignore, move scripts under scripts/, keep secrets out of the tree.", keywords: [gitignore, cleanup, secrets] }
+  - { id: F-034, name: "UC: ESLint configuration", status: planned, created_at: 2026-09-11, summary: "npm run lint fails: no ESLint config file at the root (eslint-config-expo is installed). Add eslint.config.js, fix findings, then set hygiene lint back to npm run lint.", keywords: [eslint, lint] }
+  - { id: F-035, name: "UC: TypeScript errors and root tsconfig scope", status: planned, created_at: 2026-09-11, summary: "Root tsc reports 8 errors (ThemeColors.text/danger in src/admin/AdminContent.tsx, expo-file-system EncodingType in src/simple/*) and its include sweeps newgame/ so alias imports fail there. Exclude newgame/ and functions/ from the root tsconfig, fix the 8, then make root typecheck blocking.", keywords: [typescript, tsconfig, typecheck] }
+  - { id: F-036, name: "UC: Failing jest suites", status: planned, created_at: 2026-09-11, summary: "20 of 240 tests fail (scoring.balance, scoring.service, league.team, team.validation, pricing.config), stale since the 2026-06 server-authoritative scoring overhaul; ROADMAP also wants the dead client scoring service deleted (F-023). Fix or delete, then make npm test blocking.", keywords: [jest, tests, scoring] }
