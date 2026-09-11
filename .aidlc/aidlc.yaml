@@ -23,8 +23,8 @@ overrides:
     lint: ""
     typecheck: "(cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
     # node:test, no deps: Track Limits operator scripts, settlement and odds math on the compiled functions (F-040),
-    # and the aidlc op helpers.
-    test: "npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js scripts/ops/*.test.js"
+    # the release-signing plugin (F-033), and the aidlc op helpers.
+    test: "npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js scripts/ops/*.test.js"
     advisory:
       - "npm run lint"
       - "npx tsc --noEmit"

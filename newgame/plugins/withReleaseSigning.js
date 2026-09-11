@@ -1,26 +1,53 @@
-// withReleaseSigning — Expo config plugin that injects the Track Limits
-// release signing config + versionCode/versionName into android/app/build.gradle
-// after `expo prebuild` regenerates the native project. Without this, every
-// prebuild wipes the signing config and the next release build is signed with
-// debug.keystore (and Play Console rejects the upload).
+// withReleaseSigning — Expo config plugin that injects the Track Limits release
+// signing config into android/app/build.gradle after `expo prebuild`
+// regenerates the native project. Without this, every prebuild wipes the
+// signing config and the next release build is signed with debug.keystore
+// (and Play Console rejects the upload).
 //
-// Keystore details mirror /data/f1-app/newgame/KEYSTORE.md.
+// The keystore password is not in this public repo. It comes from
+// TL_KEYSTORE_PASSWORD in the environment, or from the untracked, owner-only
+// .signing.env at the repo root (KEY=VALUE lines, parsed, never shell-sourced).
+// It is read only inside the build.gradle mod, i.e. during an Android prebuild:
+// `expo export` / `expo config` (CI) evaluate this plugin without needing it.
+// Keystore details: newgame/KEYSTORE.md (untracked).
 
+const fs = require('fs');
+const path = require('path');
 const { withAppBuildGradle } = require('@expo/config-plugins');
 
 const KEYSTORE_FILE = '../../tracklimits-release.keystore';
 const KEYSTORE_ALIAS = 'tracklimits';
-const KEYSTORE_PASSWORD = 'Fn1hbkSfcIXimxsrPRIn+pueV80E';
+const SIGNING_ENV = path.resolve(__dirname, '..', '..', '.signing.env');
 
-const RELEASE_SIGNING_BLOCK = `
+function readSigningEnv(file = SIGNING_ENV) {
+  if (!fs.existsSync(file)) return {};
+  return Object.fromEntries(
+    fs.readFileSync(file, 'utf8').split('\n')
+      .filter((l) => l.includes('=') && !l.trimStart().startsWith('#'))
+      .map((l) => {
+        const i = l.indexOf('=');
+        return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+      }),
+  );
+}
+
+function keystorePassword(env = process.env, file = SIGNING_ENV) {
+  const pw = env.TL_KEYSTORE_PASSWORD || readSigningEnv(file).TL_KEYSTORE_PASSWORD;
+  if (!pw) throw new Error(`withReleaseSigning: no TL_KEYSTORE_PASSWORD — set it in the environment or in ${file} (see newgame/KEYSTORE.md)`);
+  // It lands inside a single-quoted Groovy string in build.gradle.
+  if (/['\\\n]/.test(pw)) throw new Error('withReleaseSigning: the keystore password cannot contain quotes, backslashes or newlines');
+  return pw;
+}
+
+const signingBlock = (pw) => `
         release {
             storeFile file('${KEYSTORE_FILE}')
-            storePassword '${KEYSTORE_PASSWORD}'
+            storePassword '${pw}'
             keyAlias '${KEYSTORE_ALIAS}'
-            keyPassword '${KEYSTORE_PASSWORD}'
+            keyPassword '${pw}'
         }`;
 
-module.exports = function withReleaseSigning(config) {
+function withReleaseSigning(config) {
   return withAppBuildGradle(config, (cfg) => {
     let src = cfg.modResults.contents;
 
@@ -35,7 +62,7 @@ module.exports = function withReleaseSigning(config) {
     if (!src.includes(KEYSTORE_FILE)) {
       src = src.replace(
         /(signingConfigs\s*\{[\s\S]*?\bdebug\s*\{[\s\S]*?\n        \})/,
-        `$1${RELEASE_SIGNING_BLOCK}`,
+        `$1${signingBlock(keystorePassword())}`,
       );
     }
 
@@ -48,4 +75,8 @@ module.exports = function withReleaseSigning(config) {
     cfg.modResults.contents = src;
     return cfg;
   });
-};
+}
+
+module.exports = withReleaseSigning;
+module.exports.keystorePassword = keystorePassword;
+module.exports.readSigningEnv = readSigningEnv;
