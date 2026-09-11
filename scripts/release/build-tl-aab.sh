@@ -41,7 +41,7 @@ if [ "${TL_SKIP_PUBLISH:-}" = 1 ]; then
   echo "built $NAME at $AAB (signed CN=TrackLimits, Track Limits bundle); TL_SKIP_PUBLISH=1, not copied"
   exit 0
 fi
-cp "$AAB" "/mnt/smb/share/$NAME"
+cp "$AAB" "/mnt/smb/share/tracklimits/$NAME"
 if ! scp -q -o BatchMode=yes "$AAB" "natha@10.0.25.60:Downloads/$NAME"; then
   echo "warning: could not copy to the Windows upload box; $NAME is on the share" >&2
 fi
