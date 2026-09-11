@@ -1,4 +1,4 @@
-next_id: 42
+next_id: 43
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -340,8 +340,9 @@ features:
   - id: F-041
     name: "TL: Offered odds stay above 1.00"
     summary: seedFromModelsDoc (and setBestBets' model-line revert) priced 1/(p×1.047) uncapped — below 1.00 once the model
-      probability passes ~0.955, infinite at 0. Shared capped pricing (scripts/_pricing.js, same cap as triggers/_odds.ts,
-      whose generator floor is 1.01), plus MODELS parser tests. (Registered as "generator can emit 1.00" — it cannot.)
+      probability passes ~0.955, infinite at 0. Shared capped pricing (scripts/_pricing.js, same cap as
+      triggers/_odds.ts, whose generator floor is 1.01), plus MODELS parser tests. (Registered as "generator can emit
+      1.00" — it cannot.)
     status: building
     spec: .aidlc/specs/F-041.md
     created_at: 2026-09-11
@@ -350,3 +351,16 @@ features:
       - odds
       - stay
       - above
+  - id: F-042
+    name: "TL: Ben lines calibration backtest report"
+    summary: "Advisory report on how well Ben's lines predicted results: landed vs stated chance by bucket, Brier score and
+      skill, returns for backing WITH/AGAINST, zone/kind/session splits, best-bet record, the book's settled P&L and
+      settlement consistency; G15 lookback check"
+    status: planned
+    spec: .aidlc/specs/F-042.md
+    created_at: 2026-09-11
+    keywords:
+      - lines
+      - calibration
+      - backtest
+      - report
