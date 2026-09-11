@@ -117,13 +117,14 @@ features:
       - profile
   - id: F-014
     name: "TL: Release signing plugin"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-014.md
     created_at: 2026-09-11
-    version_shipped: 0.1.23
-    summary: plugins/withReleaseSigning; keystore documented in newgame/KEYSTORE.md (not committed). Extension planned
-      (G01 partial, 2026-09-11) — AIDLC release tier builds the AAB locally with gradle instead of EAS, checks the
-      bundle holds Track Limits JS (vc28 guard) and the signer is CN=TrackLimits.
+    version_shipped: 0.1.43
+    summary: plugins/withReleaseSigning; keystore documented in newgame/KEYSTORE.md (not committed). Extension planned (G01
+      partial, 2026-09-11) — AIDLC release tier builds the AAB locally with gradle instead of EAS, checks the bundle
+      holds Track Limits JS (vc28 guard) and the signer is CN=TrackLimits.
+    shipped_at: 2026-09-11
   - id: F-015
     name: "TL: Real in-app purchases"
     status: idea
@@ -241,9 +242,9 @@ features:
     spec: .aidlc/specs/F-033.md
     created_at: 2026-09-11
     summary: Root holds ~350 untracked artifacts (tmp_*.js, APKs, screenshots, credentials.json, keystores, .pem). Extend
-      .gitignore, move scripts under scripts/, keep secrets out of the tree. Includes (G01 partial, 2026-09-11) the release
-      keystore passwords committed in newgame/plugins/withReleaseSigning.js and scripts/fix-android-build.sh — move to
-      untracked env config.
+      .gitignore, move scripts under scripts/, keep secrets out of the tree. Includes (G01 partial, 2026-09-11) the
+      release keystore passwords committed in newgame/plugins/withReleaseSigning.js and scripts/fix-android-build.sh —
+      move to untracked env config.
     keywords:
       - gitignore
       - cleanup
@@ -283,7 +284,7 @@ features:
     name: "TL: Seed endpoints secret out of source"
     summary: Replace the shared SEED_SECRET on tlSeedRaces, tlBackfillBenLines and tlGenerateBenLinesLite with Firebase
       ID-token plus admin-claim auth; remove the key from the app demo screen and the humannpc admin page
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-037.md
     created_at: 2026-09-11
     keywords:
@@ -291,11 +292,13 @@ features:
       - endpoints
       - secret
       - source
+    version_shipped: 0.1.43
+    shipped_at: 2026-09-11
   - id: F-038
     name: "Repo: Production operations via aidlc op"
     summary: Firestore data writes, seeding, best bets, repairs and Firebase rules/indexes/functions deploys for both apps
       run as aidlc op kinds (dry-run, backup, G14/G15 gates, verify, rollback) that wrap the existing scripts
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-038.md
     created_at: 2026-09-11
     keywords:
@@ -303,11 +306,13 @@ features:
       - production
       - operations
       - aidlc
+    version_shipped: 0.1.43
+    shipped_at: 2026-09-11
   - id: F-039
     name: "TL: Ben lines invariant checker gate"
     summary: "checkBenLines.js as the G15 domain check on ben_lines: range bounds, odds above 1.00, book margin, exactly 3
       race best bets, roster coverage, freshness, edits after lock"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-039.md
     created_at: 2026-09-11
     keywords:
@@ -315,11 +320,13 @@ features:
       - invariant
       - checker
       - gate
+    version_shipped: 0.1.43
+    shipped_at: 2026-09-11
   - id: F-040
     name: "TL: Unit test harness for settlement and odds"
     summary: node:test suite in newgame/functions for computePayout, decideOutcome, odds pricing, the MODELS doc parser and
       the lines checker, blocking in AIDLC hygiene
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-040.md
     created_at: 2026-09-11
     keywords:
@@ -328,6 +335,8 @@ features:
       - harness
       - settlement
       - odds
+    version_shipped: 0.1.43
+    shipped_at: 2026-09-11
   - id: F-041
     name: "TL: Offered odds stay above 1.00"
     summary: seedFromModelsDoc prices below 1.00 when the model probability exceeds 0.955 and the generator can emit exactly
