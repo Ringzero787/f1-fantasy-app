@@ -1,7 +1,25 @@
 // node --test newgame/functions/scripts/ — call parsing and model-line rebuild, no Firestore.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parsePicks, rangeFor, modelLine } = require('./setBestBets');
+const { parsePicks, rangeFor, modelLine, raceLockMillis, checkLock } = require('./setBestBets');
+
+test('race lock: open before the race starts, then only with a stated reason', () => {
+  const lock = Date.parse('2026-09-13T13:00:00Z');
+  assert.equal(checkLock(lock, lock - 1, undefined), null);
+  assert.equal(checkLock(lock, lock, undefined), null);
+  assert.throws(() => checkLock(lock, lock + 1, undefined), /locked at 2026-09-13T13:00:00\.000Z/);
+  assert.throws(() => checkLock(lock, lock + 1, true), /--after-lock="<reason>"/);
+  assert.throws(() => checkLock(lock, lock + 1, '  '), /locked at/);
+  assert.equal(checkLock(lock, lock + 1, ' results correction '), 'results correction');
+  assert.equal(checkLock(null, Date.now(), undefined), null);
+});
+
+test('raceLockMillis reads Firestore Timestamps and ISO strings', () => {
+  assert.equal(raceLockMillis({ schedule: { race: { toMillis: () => 42 } } }), 42);
+  assert.equal(raceLockMillis({ schedule: { race: '2026-09-13T13:00:00Z' } }), Date.parse('2026-09-13T13:00:00Z'));
+  assert.equal(raceLockMillis({ schedule: {} }), null);
+  assert.equal(raceLockMillis(undefined), null);
+});
 
 test('parsePicks splits id:call pairs', () => {
   assert.deepEqual(parsePicks('hamilton:P2-P5, sainz:O14.5,aston_martin:U 17.5'), [

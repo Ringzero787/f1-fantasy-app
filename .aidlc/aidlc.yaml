@@ -53,13 +53,15 @@ overrides:
     project: f1-app-18077
     artifact_dir: /mnt/smb/f1-app/aidlc-ops
     kinds:
-      # Firebase deploys run through the credentials wrapper. deploy: true (HEAD must be on origin, tree
-      # clean) and the dry-run diff come from the firebase profile; only the apply command changes here.
+      # Firebase rules/index/storage deploys run through the credentials wrapper. deploy: true (HEAD must be on
+      # origin, tree clean) and the dry-run diff come from the firebase profile; only the apply command changes here.
       rules-deploy: { apply: "scripts/ops/firebase-deploy.sh --only firestore:rules --project {project}" }
       indexes-deploy: { apply: "scripts/ops/firebase-deploy.sh --only firestore:indexes --project {project}" }
       storage-rules-deploy: { apply: "scripts/ops/firebase-deploy.sh --only storage --project {project}" }
       functions-deploy:
         summary: "Undercut functions (only = functions, or functions:<name>,functions:<name>)"
+        deploy: true
+        params: [ only ]
         paths: [ functions/src, functions/package.json, firebase.json ]
         dryrun: "git --no-pager diff --stat {last_sha} HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build"
         apply: "scripts/ops/firebase-deploy.sh --only {only} --project {project}"
@@ -114,7 +116,8 @@ overrides:
       - { name: ben-lines-before, command: "node newgame/functions/scripts/checkBenLines.js", kinds: [ tl-best-bets ], phases: [ pre ] }
       - { name: ben-lines-after, command: "node newgame/functions/scripts/checkBenLines.js", kinds: [ tl-lines-seed, tl-lines-seed-sprint, tl-best-bets ], phases: [ post ] }
 gates:
-  # G06 hit its 8000-token output cap on the F-038 diff (PR #34) and crashed; give it room.
+  # G05 and G06 ran out of their 8000-token budgets (thinking + answer) on the F-038 diff and crashed; give them room.
+  G05: { max_tokens: 16000 }
   G06: { max_tokens: 16000 }
   G09: { blocking: warn }
 trademark:

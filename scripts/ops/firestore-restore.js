@@ -10,36 +10,45 @@
 // backup file cannot reach other collections. Documents that appeared later in
 // a backed-up collection are left alone — other users may have created them.
 const fs = require('fs');
-const { db, project, decode, parseArgs } = require('./_firestore');
 const { validFirestorePath, withinRoots } = require('./_paths');
 
-async function main() {
-  const { flags } = parseArgs(process.argv.slice(2));
-  if (typeof flags.from !== 'string') throw new Error('usage: firestore-restore.js --from=<backup.json> --only=<paths> [--write]');
-  const only = typeof flags.only === 'string' ? flags.only.split(',').map((s) => s.trim()).filter(Boolean) : [];
-  if (flags.write && !only.length) throw new Error('--write needs --only=<the paths the operation touched>');
+// Pure: what a restore of `backup` would do, or why it is refused.
+function planRestore(backup, only, project) {
   const badRoots = only.filter((r) => !validFirestorePath(r));
   if (badRoots.length) throw new Error(`not a plain Firestore path in --only: ${badRoots.join(', ')}`);
-
-  const backup = JSON.parse(fs.readFileSync(flags.from, 'utf8'));
   if (backup.project !== project) throw new Error(`backup is from ${backup.project}, target is ${project}`);
   const entries = Object.entries(backup.docs || {});
   const outside = entries.map(([p]) => p).filter((p) => !validFirestorePath(p) || (only.length && !withinRoots(p, only)));
   if (outside.length) throw new Error(`backup names ${outside.length} document(s) outside --only, refusing: ${outside.slice(0, 5).join(', ')}`);
+  return entries.map(([path, data]) => ({ path, action: data === null ? 'delete' : 'overwrite', data }));
+}
 
-  const deletes = entries.filter(([, data]) => data === null).length;
-  for (const [p, data] of entries) console.log(`${data === null ? 'delete   ' : 'overwrite'} ${p}`);
-  console.log(`${entries.length - deletes} overwrite(s), ${deletes} delete(s) from the backup taken ${backup.taken_at}`);
+async function main() {
+  const { db, project, decode, parseArgs } = require('./_firestore');
+  const { flags } = parseArgs(process.argv.slice(2));
+  if (typeof flags.from !== 'string') throw new Error('usage: firestore-restore.js --from=<backup.json> --only=<paths> [--write]');
+  const only = typeof flags.only === 'string' ? flags.only.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  if (flags.write && !only.length) throw new Error('--write needs --only=<the paths the operation touched>');
+
+  const backup = JSON.parse(fs.readFileSync(flags.from, 'utf8'));
+  const plan = planRestore(backup, only, project);
+  const deletes = plan.filter((s) => s.action === 'delete').length;
+  for (const s of plan) console.log(`${s.action.padEnd(9)} ${s.path}`);
+  console.log(`${plan.length - deletes} overwrite(s), ${deletes} delete(s) from the backup taken ${backup.taken_at}`);
   if (!flags.write) { console.log('DRY RUN — pass --write to restore'); return; }
   let batch = db.batch();
   let n = 0;
-  for (const [p, data] of entries) {
-    if (data === null) batch.delete(db.doc(p));
-    else batch.set(db.doc(p), decode(data));
+  for (const s of plan) {
+    if (s.action === 'delete') batch.delete(db.doc(s.path));
+    else batch.set(db.doc(s.path), decode(s.data));
     if (++n % 400 === 0) { await batch.commit(); batch = db.batch(); }
   }
   await batch.commit();
   console.log(`restored ${n} document(s) from ${flags.from}`);
 }
 
-main().catch((e) => { console.error(`firestore-restore: ${e.message}`); process.exit(1); });
+module.exports = { planRestore };
+
+if (require.main === module) {
+  main().catch((e) => { console.error(`firestore-restore: ${e.message}`); process.exit(1); });
+}

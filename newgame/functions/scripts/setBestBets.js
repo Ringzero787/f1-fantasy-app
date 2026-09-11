@@ -66,6 +66,22 @@ function modelLine(e) {
   return { predictedLo: lo, predictedHi: hi, line: Math.round((lo + hi) / 2), withOdds: offered(withP), againstOdds: offered(againstP) };
 }
 
+// When best bets stop being editable: the race session start (Timestamp or ISO string), or null.
+function raceLockMillis(race) {
+  const t = race?.schedule?.race;
+  if (t && typeof t.toMillis === 'function') return t.toMillis();
+  if (typeof t === 'string') return Date.parse(t) || null;
+  return null;
+}
+
+// Throws unless best bets may change at `now`; returns the override reason when past lock.
+function checkLock(lockAt, now, afterLock) {
+  if (!lockAt || now <= lockAt) return null;
+  const reason = typeof afterLock === 'string' ? afterLock.trim() : '';
+  if (!reason) throw new Error(`the race locked at ${new Date(lockAt).toISOString()}; changing best bets now changes how already-placed picks settle (--after-lock="<reason>" overrides)`);
+  return reason;
+}
+
 const show = (e) => `P${e.predictedLo}–P${e.predictedHi} ${e.withOdds}/${e.againstOdds}${e.bestBet ? ' ★' : ''}${e.benCall ? ` "${e.benCall}"` : ''}`;
 
 async function main() {
@@ -81,12 +97,9 @@ async function main() {
 
   const race = (await db.doc(`races/${args.race}`).get()).data();
   if (!race) throw new Error(`races/${args.race} not found`);
-  const lockAt = race.schedule?.race?.toMillis?.();
-  if (lockAt && Date.now() > lockAt) {
-    const reason = typeof args['after-lock'] === 'string' ? args['after-lock'].trim() : '';
-    if (!reason) throw new Error(`the race locked at ${new Date(lockAt).toISOString()}; changing best bets now changes how already-placed picks settle (--after-lock="<reason>" overrides)`);
-    console.log(`AFTER LOCK (race locked ${new Date(lockAt).toISOString()}): ${reason}`);
-  }
+  const lockAt = raceLockMillis(race);
+  const overrideReason = checkLock(lockAt, Date.now(), args['after-lock']);
+  if (overrideReason) console.log(`AFTER LOCK (race locked ${new Date(lockAt).toISOString()}): ${overrideReason}`);
   const ref = db.doc(`ben_lines/${args.race}_race`);
   const doc = (await ref.get()).data();
   if (!doc?.entities || !Object.keys(doc.entities).length) throw new Error(`no race lines posted for ${args.race} — run tl-lines-seed first`);
@@ -119,7 +132,7 @@ async function main() {
   console.log(`\nwrote ben_lines/${args.race}_race: ${picks.length} best bet(s), ${rows.length - picks.length} reverted`);
 }
 
-module.exports = { parsePicks, rangeFor, modelLine };
+module.exports = { parsePicks, rangeFor, modelLine, raceLockMillis, checkLock };
 
 if (require.main === module) {
   main().then(() => process.exit(0)).catch((e) => { console.error(`setBestBets: ${e.message}`); process.exit(1); });
