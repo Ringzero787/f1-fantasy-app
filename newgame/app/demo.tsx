@@ -6,7 +6,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, deleteDoc, doc, getDoc, getDocs, increment, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import { db, firebaseAuth } from '@/config/firebase';
 import { useAuthStore } from '@store/auth.store';
 import { useGarageStore } from '@store/garage.store';
 import { useShopStore } from '@store/shop.store';
@@ -174,8 +174,12 @@ export default function DemoScreen() {
     wrap('Generate Ben-Lite (upcoming race)', async () => {
       const race = await dataService.getUpcomingRace();
       if (!race) throw new Error('No upcoming race');
-      const url = `https://us-central1-f1-app-18077.cloudfunctions.net/tlGenerateBenLinesLite?key=tl-seed-races-2026-shared-secret&raceId=${encodeURIComponent(race.id)}${race.hasSprint ? '&sprint=1' : ''}`;
-      const resp = await fetch(url, { method: 'POST' });
+      // Admin-only endpoint: authorizes with the signed-in user's ID token
+      // (needs the `admin` custom claim; everyone else gets 403).
+      const idToken = await firebaseAuth.currentUser?.getIdToken(true);
+      if (!idToken) throw new Error('Not signed in');
+      const url = `https://us-central1-f1-app-18077.cloudfunctions.net/tlGenerateBenLinesLite?raceId=${encodeURIComponent(race.id)}${race.hasSprint ? '&sprint=1' : ''}`;
+      const resp = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${idToken}` } });
       const text = await resp.text();
       if (!resp.ok) throw new Error(text);
       const out = JSON.parse(text);

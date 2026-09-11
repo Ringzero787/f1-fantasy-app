@@ -1,23 +1,21 @@
 // tlSeedRaces — HTTPS endpoint that writes the 2026 race calendar into
-// `races/{raceId}`. Idempotent (merges over existing). Gated by a shared
-// secret in the query string so it can be invoked once with curl from the
-// operator's machine without standing up a full auth flow.
+// `races/{raceId}`. Idempotent (merges over existing). Admin only: callers
+// send a Firebase ID token carrying the `admin` claim (see _adminAuth.ts).
 //
 // Source data: src/data/demoData.ts demoRaces — copied into
 // triggers/_seedRacesData.json by the operator before deploy.
 //
 // Usage:
-//   curl -X POST 'https://us-central1-f1-app-18077.cloudfunctions.net/tlSeedRaces?key=YOUR_SECRET'
+//   curl -X POST -H "Authorization: Bearer $ID_TOKEN" \
+//     'https://us-central1-f1-app-18077.cloudfunctions.net/tlSeedRaces'
 
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import racesData from './_seedRacesData.json';
 import { applyCors } from './_cors';
+import { requireAdmin } from './_adminAuth';
 
 const db = admin.firestore();
-
-// Hardcoded one-shot secret. Rotate or delete the function after seeding.
-const SEED_SECRET = 'tl-seed-races-2026-shared-secret';
 
 interface SeedRace {
   id: string;
@@ -45,10 +43,7 @@ function toTimestamps(schedule: Record<string, string>): Record<string, admin.fi
 
 export const tlSeedRaces = functions.https.onRequest(async (req, res) => {
   if (applyCors(req, res)) return;
-  if (req.query.key !== SEED_SECRET) {
-    res.status(401).send('Unauthorized');
-    return;
-  }
+  if (!(await requireAdmin(req, res))) return;
   const races = racesData as unknown as SeedRace[];
   const batch = db.batch();
   let count = 0;

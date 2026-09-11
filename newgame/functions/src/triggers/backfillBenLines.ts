@@ -8,17 +8,19 @@
 // Idempotent (merge). Skips sessions where no results exist. Skips entities
 // that already have a line in the doc (preserves Ben's own posted lines).
 //
-// Gated by the same SEED_SECRET as tlSeedRaces. Usage:
-//   curl -X POST 'https://us-central1-f1-app-18077.cloudfunctions.net/tlBackfillBenLines?key=YOUR_SECRET'
+// Admin only, like tlSeedRaces (Firebase ID token with the `admin` claim —
+// see _adminAuth.ts). Usage:
+//   curl -X POST -H "Authorization: Bearer $ID_TOKEN" \
+//     'https://us-central1-f1-app-18077.cloudfunctions.net/tlBackfillBenLines'
 // (Or the Cloud Run URL for gen-2 functions — firebase deploy prints it.)
 
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { applyCors } from './_cors';
+import { requireAdmin } from './_adminAuth';
 import { offeredOddsFromFairProb } from './_odds';
 
 const db = admin.firestore();
-const SEED_SECRET = 'tl-seed-races-2026-shared-secret';
 
 type SessionKey = 'qualifying' | 'race' | 'sprint';
 const SESSIONS: SessionKey[] = ['qualifying', 'race', 'sprint'];
@@ -49,10 +51,7 @@ function decideOutcomeFromRange(lo: number, hi: number, result: number): 'with' 
 
 export const tlBackfillBenLines = functions.https.onRequest(async (req, res) => {
   if (applyCors(req, res)) return;
-  if (req.query.key !== SEED_SECRET) {
-    res.status(401).send('Unauthorized');
-    return;
-  }
+  if (!(await requireAdmin(req, res))) return;
 
   const racesSnap = await db.collection('races')
     .where('status', '==', 'completed')
