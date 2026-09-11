@@ -2,7 +2,7 @@
 name: f1-fantasy-app
 description: Two Expo apps in one repo — Undercut (F1 fantasy, repo root, com.undercut.app) and Track Limits (newgame/, com.tracklimits.app) — each with Firebase Cloud Functions.
 public: true
-profiles: [mobile-react-native]
+profiles: [ mobile-react-native ]
 aidlc: { repo: Ringzero787/aidlc, ref: main }
 # Public repo: cannot call the private engine's reusable workflows, so `aidlc sync` renders standalone copies into .github/workflows/.
 standalone:
@@ -32,22 +32,22 @@ overrides:
     command: "npx expo export --platform android --output-dir .aidlc/tmp/export-undercut && (cd newgame && npx expo export --platform android --output-dir ../.aidlc/tmp/export-tracklimits)"
     output: .aidlc/tmp/export-tracklimits
     targets:
-      android: { command: "cd newgame && npx eas build --platform android --profile production --non-interactive --no-wait", artifact: "", runner: ubuntu-latest, tiers: [release] }
-      ios:     { command: "cd newgame && npx eas build --platform ios --profile production --non-interactive --no-wait", artifact: "", runner: ubuntu-latest, tiers: [release] }
+      android: { command: "cd newgame && npx eas build --platform android --profile production --non-interactive --no-wait", artifact: "", runner: ubuntu-latest, tiers: [ release ] }
+      ios: { command: "cd newgame && npx eas build --platform ios --profile production --non-interactive --no-wait", artifact: "", runner: ubuntu-latest, tiers: [ release ] }
     manifests:
       android: newgame/app.config.js
       ios: newgame/app.config.js
   security:
-    semgrep_config: [p/default, p/owasp-top-ten, p/secrets, p/typescript, p/react, p/nodejs]
+    semgrep_config: [ p/default, p/owasp-top-ten, p/secrets, p/typescript, p/react, p/nodejs ]
   privacy:
-    ios_privacy_manifest: ""      # Expo generates PrivacyInfo.xcprivacy at prebuild
+    ios_privacy_manifest: "" # Expo generates PrivacyInfo.xcprivacy at prebuild
     android_data_safety: .aidlc/data-safety.yaml
   release:
-    stores: [google_play, apple, amazon]
+    stores: [ google_play, apple, amazon ]
 gates:
   G09: { blocking: warn }
 trademark:
   # F1 marks are aggressively enforced. Fine as descriptive text; never in an app, feature, pack or league name.
-  watchlist: ["Formula 1", "Formula One", "F1", "FIA", "Grand Prix"]
-  nice_classes: [9, 41, 42]
+  watchlist: [ "Formula 1", "Formula One", "F1", "FIA", "Grand Prix" ]
+  nice_classes: [ 9, 41, 42 ]
 stores: { google_play: true, apple: true, amazon: true }

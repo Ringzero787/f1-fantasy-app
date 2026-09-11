@@ -14,11 +14,11 @@ jobs:
         run: |
           if [ -z "$T" ]; then echo "::error::AIDLC_DEPLOY_KEY secret is missing — the read-only deploy key for Ringzero787/aidlc (see README: Adopt in a project)"; exit 1; fi
           if [ -z "$K" ]; then echo "::warning::ANTHROPIC_API_KEY secret is missing — model gates will be skipped; deterministic gates still run"; fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { repository: Ringzero787/aidlc, ref: "main", ssh-key: "${{ secrets.AIDLC_DEPLOY_KEY }}", path: .aidlc-engine }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: "22" }
       - run: cd .aidlc-engine && npm ci --ignore-scripts && npm run build
       - name: Install scanners (best effort)
@@ -27,7 +27,7 @@ jobs:
         run: |
           set +e
           (pipx install semgrep >/dev/null 2>&1 || pip install --quiet semgrep) && echo "semgrep ok" || echo "::warning::semgrep install failed"
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin >/dev/null 2>&1 && echo "syft ok" || echo "::warning::syft install failed"
+          gh release download --repo anchore/syft --pattern 'syft_*_linux_amd64.tar.gz' --output /tmp/syft.tgz --clobber && sudo tar -xzf /tmp/syft.tgz -C /usr/local/bin syft && echo "syft ok" || echo "::warning::syft install failed"
           gh release download --repo gitleaks/gitleaks --pattern 'gitleaks_*_linux_x64.tar.gz' --output /tmp/gitleaks.tgz --clobber && sudo tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks && echo "gitleaks ok" || echo "::warning::gitleaks install failed"
           gh release download --repo google/osv-scanner --pattern 'osv-scanner_linux_amd64' --output /tmp/osv-scanner --clobber && sudo install -m 755 /tmp/osv-scanner /usr/local/bin/osv-scanner && echo "osv-scanner ok" || echo "::warning::osv-scanner install failed"
           gh release download --repo sigstore/cosign --pattern 'cosign-linux-amd64' --output /tmp/cosign --clobber && sudo install -m 755 /tmp/cosign /usr/local/bin/cosign && echo "cosign ok" || echo "::warning::cosign install failed"
@@ -50,7 +50,14 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
           COSIGN_EXPERIMENTAL: "1"
           AIDLC_BENCH: "1"
-        run: node .aidlc-engine/cli/dist/index.js run --tier release ${{ inputs.version != '' && format('--version {0}', inputs.version) || '' }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          ARGS=""
+          if [ -n "$RELEASE_VERSION" ]; then
+            case "$RELEASE_VERSION" in *[!0-9.]*|"") echo "::error::version must be semver digits and dots, got '$RELEASE_VERSION'"; exit 1;; esac
+            ARGS="--version $RELEASE_VERSION"
+          fi
+          node .aidlc-engine/cli/dist/index.js run --tier release $ARGS
       - name: Commit records, tag, and publish GitHub release
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |

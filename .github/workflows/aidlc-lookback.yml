@@ -14,11 +14,11 @@ jobs:
         run: |
           if [ -z "$T" ]; then echo "::error::AIDLC_DEPLOY_KEY secret is missing — the read-only deploy key for Ringzero787/aidlc (see README: Adopt in a project)"; exit 1; fi
           if [ -z "$K" ]; then echo "::warning::ANTHROPIC_API_KEY secret is missing — model gates will be skipped; deterministic gates still run"; fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { repository: Ringzero787/aidlc, ref: "main", ssh-key: "${{ secrets.AIDLC_DEPLOY_KEY }}", path: .aidlc-engine }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: "22" }
       - run: cd .aidlc-engine && npm ci --ignore-scripts && npm run build
       - name: Install project deps
