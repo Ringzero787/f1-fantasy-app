@@ -22,8 +22,9 @@ overrides:
     # typecheck (8 errors + root tsconfig sweeps newgame/, F-035) and jest (20 failing, F-036) run as advisory until fixed.
     lint: ""
     typecheck: "(cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
-    # node:test, no deps: Track Limits operator scripts and the aidlc op helpers; the full TL harness is F-040.
-    test: "node --test newgame/functions/scripts/*.test.js scripts/ops/*.test.js"
+    # node:test, no deps: Track Limits operator scripts, settlement and odds math on the compiled functions (F-040),
+    # and the aidlc op helpers.
+    test: "npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js scripts/ops/*.test.js"
     advisory:
       - "npm run lint"
       - "npx tsc --noEmit"
