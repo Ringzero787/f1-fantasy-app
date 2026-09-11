@@ -23,19 +23,19 @@ overrides:
     lint: ""
     typecheck: "(cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
     # node:test, no deps: Track Limits operator scripts, settlement and odds math on the compiled functions (F-040),
-    # the release-signing plugin (F-033), and the aidlc op helpers.
-    test: "npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js scripts/ops/*.test.js"
+    # the release-signing plugin (F-033), the aidlc op helpers and the release scripts (F-014).
+    test: "npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js scripts/ops/*.test.js scripts/release/*.test.js"
     advisory:
       - "npm run lint"
       - "npx tsc --noEmit"
       - "npm test -- --ci"
   build:
-    # JS bundle export proves both apps compile without a native build. Store builds go through EAS at release only.
+    # PRs: the JS bundle export proves both apps compile without a native build. Store builds are local, never EAS:
+    # `aidlc run --tier release --unit tracklimits --version X.Y.Z` on the Linux build box runs tl-android (F-014).
     command: "npx expo export --platform android --output-dir .aidlc/tmp/export-undercut && (cd newgame && npx expo export --platform android --output-dir ../.aidlc/tmp/export-tracklimits)"
     output: .aidlc/tmp/export-tracklimits
     targets:
-      android: { command: "cd newgame && npx eas build --platform android --profile production --non-interactive --no-wait", artifact: "", runner: ubuntu-latest, tiers: [ release ] }
-      ios: { command: "cd newgame && npx eas build --platform ios --profile production --non-interactive --no-wait", artifact: "", runner: ubuntu-latest, tiers: [ release ] }
+      tl-android: { command: "scripts/release/build-tl-aab.sh", artifact: "newgame/android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
     manifests:
       android: newgame/app.config.js
       ios: newgame/app.config.js
@@ -126,3 +126,21 @@ trademark:
   watchlist: [ "Formula 1", "Formula One", "F1", "FIA", "Grand Prix" ]
   nice_classes: [ 9, 41, 42 ]
 stores: { google_play: true, apple: true, amazon: true }
+# Release units (F-014): the two apps version and release independently, on the Linux build box.
+# `aidlc run --tier release --unit tracklimits --version 0.1.43` → bump, local AAB build + checks, notes, tag tl-v0.1.43.
+releases:
+  tracklimits:
+    tag_prefix: tl-v
+    paths: [ newgame/ ]
+    changelog: newgame/CHANGELOG.md
+    targets: [ tl-android ]
+    features_prefix: [ "TL:", "Repo:" ]
+    bump: patch
+  undercut:
+    tag_prefix: uc-v
+    paths: [ app/, src/, functions/, app.config.js, package.json, eas.json ]
+    changelog: CHANGELOG.md
+    # Undercut store builds (gradle here, xcodebuild on the Mac Mini) are not wired as targets yet.
+    targets: []
+    features_prefix: [ "UC:" ]
+    bump: patch
