@@ -556,3 +556,10 @@ export const tlSettleWeekend = functions.https.onCall(async (data: SettleArgs, c
   }
   return settleWeekendCore(raceId, seasonId, round);
 });
+
+// Pure grading helpers, exported for newgame/functions/test (F-040). index.ts
+// re-exports only the functions above, so these never become deployed endpoints.
+export {
+  SESSION_WEIGHT, FIELD_SIZE, WIN_BONUS, LOSS_PENALTY, BEST_BET_PROFIT_MULT, BEST_BET_LOSS_POINTS,
+  buildSessionResults, sigOfResults, lineLo, lineHi, computePayout, decideOutcome,
+};
