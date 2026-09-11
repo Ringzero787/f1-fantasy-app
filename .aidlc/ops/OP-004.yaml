@@ -1,0 +1,55 @@
+id: OP-004
+title: Madrid R16 best bets re-applied (first end-to-end aidlc op)
+kind: tl-best-bets
+status: verified
+params:
+  race: madrid_2026
+  picks: hamilton:P2-P5,gasly:P8-P11,bortoleto:P9-P12
+created_at: 2026-09-11T19:03:10.380Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-11T19:03:10.686Z
+    head_sha: e5acf5ca6d3acb403fa8f470381c82eb5fac5126
+    command: cd newgame/functions && node scripts/setBestBets.js --race='madrid_2026' --picks='hamilton:P2-P5,gasly:P8-P11,bortoleto:P9-P12'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-004/dry-run-2026-09-11T19-03-10-686Z.log
+    log_sha256: 705c2b54e26241a7b885a821c3869a8c6b6370aef06668e5ce204fdcf279f98d
+    lines: 7
+  - step: backup
+    at: 2026-09-11T19:03:11.454Z
+    head_sha: e5acf5ca6d3acb403fa8f470381c82eb5fac5126
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-004'/backup.json ben_lines/'madrid_2026'_race
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-004/backup-2026-09-11T19-03-11-454Z.log
+    log_sha256: 29e691ab1709458a0d1f33952a135a1a3151a36284b025e698f425516ce9b756
+    lines: 3
+  - step: gates
+    at: 2026-09-11T19:03:13.113Z
+    head_sha: e5acf5ca6d3acb403fa8f470381c82eb5fac5126
+    exit: 0
+    gates:
+      G14: pass
+      G15: pass
+  - step: apply
+    at: 2026-09-11T19:03:13.116Z
+    head_sha: e5acf5ca6d3acb403fa8f470381c82eb5fac5126
+    command: cd newgame/functions && node scripts/setBestBets.js --race='madrid_2026' --picks='hamilton:P2-P5,gasly:P8-P11,bortoleto:P9-P12' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-004/apply-2026-09-11T19-03-13-116Z.log
+    log_sha256: 4bad693f5e1d8dde0334adff9f48bdce052c5e543cd9df0768f2d123074aae33
+    lines: 7
+  - step: verify
+    at: 2026-09-11T19:03:13.743Z
+    head_sha: e5acf5ca6d3acb403fa8f470381c82eb5fac5126
+    command: node newgame/functions/scripts/checkBenLines.js --race='madrid_2026' --fail-on=high
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-004/verify-2026-09-11T19-03-13-743Z.log
+    log_sha256: dfdfdfec309a009d1037790403dc651ed78cb8d43e630e0e1d27afbb85bb9409
+    lines: 4
+  - step: gates
+    at: 2026-09-11T19:03:15.646Z
+    head_sha: e5acf5ca6d3acb403fa8f470381c82eb5fac5126
+    exit: 0
+    gates:
+      G15: pass
