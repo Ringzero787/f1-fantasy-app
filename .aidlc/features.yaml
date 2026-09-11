@@ -1,4 +1,4 @@
-next_id: 38
+next_id: 42
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -120,7 +120,9 @@ features:
     status: shipped
     created_at: 2026-09-11
     version_shipped: 0.1.23
-    summary: plugins/withReleaseSigning; keystore documented in newgame/KEYSTORE.md (not committed)
+    summary: plugins/withReleaseSigning; keystore documented in newgame/KEYSTORE.md (not committed). Extension planned
+      (G01 partial, 2026-09-11) — AIDLC release tier builds the AAB locally with gradle instead of EAS, checks the
+      bundle holds Track Limits JS (vc28 guard) and the signer is CN=TrackLimits.
   - id: F-015
     name: "TL: Real in-app purchases"
     status: idea
@@ -237,7 +239,9 @@ features:
     status: planned
     created_at: 2026-09-11
     summary: Root holds ~350 untracked artifacts (tmp_*.js, APKs, screenshots, credentials.json, keystores, .pem). Extend
-      .gitignore, move scripts under scripts/, keep secrets out of the tree.
+      .gitignore, move scripts under scripts/, keep secrets out of the tree. Includes (G01 partial, 2026-09-11) the release
+      keystore passwords committed in newgame/plugins/withReleaseSigning.js and scripts/fix-android-build.sh — move to
+      untracked env config.
     keywords:
       - gitignore
       - cleanup
@@ -277,7 +281,7 @@ features:
     name: "TL: Seed endpoints secret out of source"
     summary: Replace the shared SEED_SECRET on tlSeedRaces, tlBackfillBenLines and tlGenerateBenLinesLite with Firebase
       ID-token plus admin-claim auth; remove the key from the app demo screen and the humannpc admin page
-    status: planned
+    status: building
     spec: .aidlc/specs/F-037.md
     created_at: 2026-09-11
     keywords:
@@ -285,3 +289,52 @@ features:
       - endpoints
       - secret
       - source
+  - id: F-038
+    name: "Repo: Production operations via aidlc op"
+    summary: Firestore data writes, seeding, best bets, repairs and Firebase rules/indexes/functions deploys for both apps
+      run as aidlc op kinds (dry-run, backup, G14/G15 gates, verify, rollback) that wrap the existing scripts
+    status: planned
+    spec: .aidlc/specs/F-038.md
+    created_at: 2026-09-11
+    keywords:
+      - repo
+      - production
+      - operations
+      - aidlc
+  - id: F-039
+    name: "TL: Ben lines invariant checker gate"
+    summary: "checkBenLines.js as the G15 domain check on ben_lines: range bounds, odds above 1.00, book margin, exactly 3
+      race best bets, roster coverage, freshness, edits after lock"
+    status: planned
+    spec: .aidlc/specs/F-039.md
+    created_at: 2026-09-11
+    keywords:
+      - lines
+      - invariant
+      - checker
+      - gate
+  - id: F-040
+    name: "TL: Unit test harness for settlement and odds"
+    summary: node:test suite in newgame/functions for computePayout, decideOutcome, odds pricing, the MODELS doc parser and
+      the lines checker, blocking in AIDLC hygiene
+    status: planned
+    spec: .aidlc/specs/F-040.md
+    created_at: 2026-09-11
+    keywords:
+      - unit
+      - test
+      - harness
+      - settlement
+      - odds
+  - id: F-041
+    name: "TL: Offered odds stay above 1.00"
+    summary: seedFromModelsDoc prices below 1.00 when the model probability exceeds 0.955 and the generator can emit exactly
+      1.00; clamp offered odds and cover it with tests
+    status: planned
+    spec: .aidlc/specs/F-041.md
+    created_at: 2026-09-11
+    keywords:
+      - offered
+      - odds
+      - stay
+      - above

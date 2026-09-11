@@ -2,7 +2,7 @@
 name: f1-fantasy-app
 description: Two Expo apps in one repo — Undercut (F1 fantasy, repo root, com.undercut.app) and Track Limits (newgame/, com.tracklimits.app) — each with Firebase Cloud Functions.
 public: true
-profiles: [ mobile-react-native ]
+profiles: [ mobile-react-native, firebase ]
 aidlc: { repo: Ringzero787/aidlc, ref: main }
 # Public repo: cannot call the private engine's reusable workflows, so `aidlc sync` renders standalone copies into .github/workflows/.
 standalone:
@@ -22,7 +22,8 @@ overrides:
     # typecheck (8 errors + root tsconfig sweeps newgame/, F-035) and jest (20 failing, F-036) run as advisory until fixed.
     lint: ""
     typecheck: "(cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
-    test: ""
+    # node:test, no deps: Track Limits operator scripts and the aidlc op helpers; the full TL harness is F-040.
+    test: "node --test newgame/functions/scripts/*.test.js scripts/ops/*.test.js"
     advisory:
       - "npm run lint"
       - "npx tsc --noEmit"
@@ -44,7 +45,80 @@ overrides:
     android_data_safety: .aidlc/data-safety.yaml
   release:
     stores: [ google_play, apple, amazon ]
+  # Production operations (aidlc op → G14/G15), F-038. Both apps share Firebase project f1-app-18077.
+  # Credentials stay on the Linux build box (service-account key; SA_KEY in ~/.config/aidlc/env); CI has
+  # none. Logs and backups go to the SMB share because this repo is public and backups can hold user data.
+  # Parameters are single-quoted by the engine; the helper scripts also reject anything but plain names/paths.
+  ops:
+    project: f1-app-18077
+    artifact_dir: /mnt/smb/f1-app/aidlc-ops
+    kinds:
+      # Firebase rules/index/storage deploys run through the credentials wrapper. deploy: true (HEAD must be on
+      # origin, tree clean) and the dry-run diff come from the firebase profile; only the apply command changes here.
+      rules-deploy: { apply: "scripts/ops/firebase-deploy.sh --only firestore:rules --project {project}" }
+      indexes-deploy: { apply: "scripts/ops/firebase-deploy.sh --only firestore:indexes --project {project}" }
+      storage-rules-deploy: { apply: "scripts/ops/firebase-deploy.sh --only storage --project {project}" }
+      functions-deploy:
+        summary: "Undercut functions (only = functions, or functions:<name>,functions:<name>)"
+        deploy: true
+        params: [ only ]
+        paths: [ functions/src, functions/package.json, firebase.json ]
+        dryrun: "git --no-pager diff --stat {last_sha} HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build"
+        apply: "scripts/ops/firebase-deploy.sh --only {only} --project {project}"
+      tl-functions-deploy:
+        summary: "Track Limits functions (only = functions:tracklimits, or functions:tracklimits:<name>,…)"
+        deploy: true
+        params: [ only ]
+        paths: [ newgame/functions/src, newgame/functions/package.json, newgame/firebase.json ]
+        dryrun: "git --no-pager diff --stat {last_sha} HEAD -- newgame/functions/src newgame/functions/package.json newgame/firebase.json && npm --prefix newgame/functions run build"
+        apply: "npm --prefix newgame/functions run build && cd newgame && ../scripts/ops/firebase-deploy.sh --only {only} --project {project}"
+      tl-lines-seed:
+        summary: "Post Ben's weekly lines from a MODELS doc (race = madrid_2026, doc = path, source = ben_model_R16)"
+        params: [ race, doc, source ]
+        dryrun: "cd newgame/functions && node scripts/seedFromModelsDoc.js --doc={doc} --race={race} --source={source}"
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json ben_lines/{race}_race ben_lines/{race}_qualifying ben_lines/{race}_sprint"
+        apply: "cd newgame/functions && node scripts/seedFromModelsDoc.js --doc={doc} --race={race} --source={source} --write"
+        verify: "node newgame/functions/scripts/checkBenLines.js --race={race} --fail-on=high"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=ben_lines/{race}_race,ben_lines/{race}_qualifying,ben_lines/{race}_sprint --write"
+      tl-lines-seed-sprint:
+        summary: "tl-lines-seed on a sprint weekend: also writes {race}_sprint from the race lines"
+        params: [ race, doc, source ]
+        dryrun: "cd newgame/functions && node scripts/seedFromModelsDoc.js --doc={doc} --race={race} --source={source} --sprint"
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json ben_lines/{race}_race ben_lines/{race}_qualifying ben_lines/{race}_sprint"
+        apply: "cd newgame/functions && node scripts/seedFromModelsDoc.js --doc={doc} --race={race} --source={source} --sprint --write"
+        verify: "node newgame/functions/scripts/checkBenLines.js --race={race} --fail-on=high"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=ben_lines/{race}_race,ben_lines/{race}_qualifying,ben_lines/{race}_sprint --write"
+      tl-best-bets:
+        summary: "Ben's race best bets (picks = id:call,… — P2-P5 in range, O14.5 over, U17.5 under)"
+        params: [ race, picks ]
+        dryrun: "cd newgame/functions && node scripts/setBestBets.js --race={race} --picks={picks}"
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json ben_lines/{race}_race"
+        apply: "cd newgame/functions && node scripts/setBestBets.js --race={race} --picks={picks} --write"
+        verify: "node newgame/functions/scripts/checkBenLines.js --race={race} --fail-on=high"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=ben_lines/{race}_race --write"
+      uc-script:
+        summary: "Undercut repair/backfill script that dry-runs by default and writes with --apply (script = file name in functions/scripts; backup = comma-separated doc/collection paths it touches)"
+        params: [ script, backup ]
+        dryrun: "node scripts/ops/run-script.js undercut {script}"
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json {backup}"
+        apply: "node scripts/ops/run-script.js undercut {script} --apply"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only={backup} --write"
+      tl-script:
+        summary: "Track Limits script that dry-runs by default and writes with --write (script = file name in newgame/functions/scripts; backup = comma-separated paths)"
+        params: [ script, backup ]
+        dryrun: "node scripts/ops/run-script.js tracklimits {script}"
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json {backup}"
+        apply: "node scripts/ops/run-script.js tracklimits {script} --write"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only={backup} --write"
+  # G15 domain checks: Ben's odds model invariants (F-039) around every operation that writes lines.
+  checks:
+    domain:
+      - { name: ben-lines-before, command: "node newgame/functions/scripts/checkBenLines.js", kinds: [ tl-best-bets ], phases: [ pre ] }
+      - { name: ben-lines-after, command: "node newgame/functions/scripts/checkBenLines.js", kinds: [ tl-lines-seed, tl-lines-seed-sprint, tl-best-bets ], phases: [ post ] }
 gates:
+  # G05 and G06 ran out of their 8000-token budgets (thinking + answer) on the F-038 diff and crashed; give them room.
+  G05: { max_tokens: 16000 }
+  G06: { max_tokens: 16000 }
   G09: { blocking: warn }
 trademark:
   # F1 marks are aggressively enforced. Fine as descriptive text; never in an app, feature, pack or league name.

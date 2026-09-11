@@ -1,0 +1,12 @@
+id: OP-003
+title: Deploy F-037 admin-token auth for the seed endpoints
+kind: tl-functions-deploy
+status: applied
+params:
+  only: functions:tracklimits:tlSeedRaces,functions:tracklimits:tlBackfillBenLines,functions:tracklimits:tlGenerateBenLinesLite
+manual: true
+note: "Deployed from master 6e18812 (PR #33) with scripts/ops/firebase-deploy.sh before the tl-functions-deploy kind existed. Acceptance 17/17 against the live endpoints: 401 for no token, garbage token and the old ?key=; 403 for a non-admin token; 404 for an admin token on an unknown race; 204 preflight; no probe documents written."
+created_at: 2026-09-11
+by: nathan
+steps: []
+feature: F-037

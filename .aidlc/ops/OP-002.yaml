@@ -1,0 +1,12 @@
+id: OP-002
+title: Madrid R16 lines locked against the generator (manualLine)
+kind: tl-manual-write
+status: applied
+params:
+  race: madrid_2026
+manual: true
+note: "Done by hand while the seed secret was public (F-037 stopgap): manualLine=true on all 55 madrid_2026 entities (33 race, 22 qualifying) so tlGenerateBenLinesLite would skip them. No odds, ranges or best bets changed; updatedAt not bumped. Harmless to keep. Full pre-lock docs: /mnt/smb/f1-app/aidlc-ops/OP-002/"
+created_at: 2026-09-11
+by: nathan
+steps: []
+feature: F-037
