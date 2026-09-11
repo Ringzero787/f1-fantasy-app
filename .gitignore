@@ -79,3 +79,6 @@ AppstoreAuthenticationKey.pem
 # AIDLC scratch (verdicts under .aidlc/runs are committed by release only)
 .aidlc/tmp/
 .aidlc/runs/
+
+# Release keystore passwords (F-033): untracked, owner-only, KEY=VALUE
+.signing.env
