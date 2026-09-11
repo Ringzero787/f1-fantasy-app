@@ -117,6 +117,10 @@ overrides:
     domain:
       - { name: ben-lines-before, command: "node newgame/functions/scripts/checkBenLines.js", kinds: [ tl-best-bets ], phases: [ pre ] }
       - { name: ben-lines-after, command: "node newgame/functions/scripts/checkBenLines.js", kinds: [ tl-lines-seed, tl-lines-seed-sprint, tl-best-bets ], phases: [ post ] }
+      # F-042: monthly calibration backtest of Ben's lines (advisory). Runs on the build box with
+      # `aidlc run --tier lookback --gates G15`; in CI it skips (no Firestore credentials). The report goes to the
+      # private share, never this public repo — it shows where players beat the book.
+      - { name: ben-lines-calibration, command: "(npm --prefix newgame/functions run build >/dev/null 2>&1 || true) && node newgame/functions/scripts/calibrateBenLines.js --json --report=/mnt/smb/f1-app/aidlc-ops/reports/calibration-latest.md", tiers: [ lookback ], blocking: false }
 gates:
   # G05 and G06 ran out of their 8000-token budgets (thinking + answer) on the F-038 diff and crashed; give them room.
   G05: { max_tokens: 16000 }
