@@ -32,10 +32,11 @@ overrides:
   build:
     # PRs: the JS bundle export proves both apps compile without a native build. Store builds are local, never EAS:
     # `aidlc run --tier release --unit tracklimits --version X.Y.Z` on the Linux build box runs tl-android (F-014).
+    # Shell scripts are invoked through `bash` so they work whatever file mode a checkout gives them.
     command: "npx expo export --platform android --output-dir .aidlc/tmp/export-undercut && (cd newgame && npx expo export --platform android --output-dir ../.aidlc/tmp/export-tracklimits)"
     output: .aidlc/tmp/export-tracklimits
     targets:
-      tl-android: { command: "scripts/release/build-tl-aab.sh", artifact: "newgame/android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
+      tl-android: { command: "bash scripts/release/build-tl-aab.sh", artifact: "newgame/android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
     manifests:
       android: newgame/app.config.js
       ios: newgame/app.config.js
@@ -56,23 +57,23 @@ overrides:
     kinds:
       # Firebase rules/index/storage deploys run through the credentials wrapper. deploy: true (HEAD must be on
       # origin, tree clean) and the dry-run diff come from the firebase profile; only the apply command changes here.
-      rules-deploy: { apply: "scripts/ops/firebase-deploy.sh --only firestore:rules --project {project}" }
-      indexes-deploy: { apply: "scripts/ops/firebase-deploy.sh --only firestore:indexes --project {project}" }
-      storage-rules-deploy: { apply: "scripts/ops/firebase-deploy.sh --only storage --project {project}" }
+      rules-deploy: { apply: "bash scripts/ops/firebase-deploy.sh --only firestore:rules --project {project}" }
+      indexes-deploy: { apply: "bash scripts/ops/firebase-deploy.sh --only firestore:indexes --project {project}" }
+      storage-rules-deploy: { apply: "bash scripts/ops/firebase-deploy.sh --only storage --project {project}" }
       functions-deploy:
         summary: "Undercut functions (only = functions, or functions:<name>,functions:<name>)"
         deploy: true
         params: [ only ]
         paths: [ functions/src, functions/package.json, firebase.json ]
         dryrun: "git --no-pager diff --stat {last_sha} HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build"
-        apply: "scripts/ops/firebase-deploy.sh --only {only} --project {project}"
+        apply: "bash scripts/ops/firebase-deploy.sh --only {only} --project {project}"
       tl-functions-deploy:
         summary: "Track Limits functions (only = functions:tracklimits, or functions:tracklimits:<name>,…)"
         deploy: true
         params: [ only ]
         paths: [ newgame/functions/src, newgame/functions/package.json, newgame/firebase.json ]
         dryrun: "git --no-pager diff --stat {last_sha} HEAD -- newgame/functions/src newgame/functions/package.json newgame/firebase.json && npm --prefix newgame/functions run build"
-        apply: "npm --prefix newgame/functions run build && cd newgame && ../scripts/ops/firebase-deploy.sh --only {only} --project {project}"
+        apply: "npm --prefix newgame/functions run build && cd newgame && bash ../scripts/ops/firebase-deploy.sh --only {only} --project {project}"
       tl-lines-seed:
         summary: "Post Ben's weekly lines from a MODELS doc (race = madrid_2026, doc = path, source = ben_model_R16)"
         params: [ race, doc, source ]
