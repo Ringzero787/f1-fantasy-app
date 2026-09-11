@@ -90,6 +90,7 @@ async function main() {
     return m ? [m[1], m[2] ?? true] : [a, true];
   }));
   if (!args.race || !args.picks) throw new Error('usage: setBestBets.js --race=<raceId> --picks=<id>:<call>,… [--write] [--after-lock="<reason>"]');
+  if (!/^[a-z0-9_]+$/.test(args.race)) throw new Error(`race id "${args.race}" is not a plain id`);
   const admin = require('../node_modules/firebase-admin');
   admin.initializeApp({ projectId: 'f1-app-18077' });
   const db = admin.firestore();

@@ -3,9 +3,11 @@
 // stdout (progress on stderr) and exits 0 unless it could not run at all.
 //
 // Usage (from newgame/functions):
-//   node scripts/checkBenLines.js [--race=<raceId>]
+//   node scripts/checkBenLines.js [--race=<raceId>] [--fail-on=<severity>]
 // Race: --race, else AIDLC_OP_PARAMS.race when run by `aidlc op`, else the
 // next race that is not completed. Credentials: GOOGLE_APPLICATION_CREDENTIALS.
+// --fail-on=<info|low|medium|high|critical>: exit 2 when a finding is at least
+// that severe, so an aidlc op `verify` step can use the checker directly.
 //
 // What it guards (each one a way settlement pays out wrongly or the app shows
 // no lines): inverted or unreachable ranges, ranges one side can never win,
@@ -16,6 +18,7 @@
 // grades against the current doc, not a lock-time snapshot).
 
 const FIELD_SIZE = 22;
+const RANK = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 
 const ms = (v) => (v && typeof v.toMillis === 'function' ? v.toMillis() : typeof v === 'string' ? Date.parse(v) || 0 : typeof v === 'number' ? v : v && typeof v.seconds === 'number' ? v.seconds * 1000 : 0);
 const iso = (t) => (t ? new Date(t).toISOString() : 'never');
@@ -91,14 +94,26 @@ function checkLines({ race, docs, drivers, constructors, lastCompletedRaceStart 
   return findings;
 }
 
+// Strict, so a typo can never turn a verify step into a silent pass.
+function parseFailOn(argv) {
+  const a = argv.find((x) => x === '--fail-on' || x.startsWith('--fail-on='));
+  if (!a) return null;
+  const v = a.slice('--fail-on='.length);
+  if (!Object.prototype.hasOwnProperty.call(RANK, v)) throw new Error(`--fail-on needs one of ${Object.keys(RANK).join(', ')}`);
+  return v;
+}
+
 async function main() {
+  const argv = process.argv.slice(2);
+  const failOn = parseFailOn(argv);
+  const arg = argv.find((a) => a.startsWith('--race='));
+  let raceId = arg ? arg.slice('--race='.length) : '';
+  if (!raceId && process.env.AIDLC_OP_PARAMS) raceId = JSON.parse(process.env.AIDLC_OP_PARAMS).race || '';
+  if (raceId && !/^[a-z0-9_]+$/.test(raceId)) throw new Error(`race id "${raceId}" is not a plain id`);
+
   const admin = require('../node_modules/firebase-admin');
   admin.initializeApp({ projectId: 'f1-app-18077' });
   const db = admin.firestore();
-  const arg = process.argv.slice(2).find((a) => a.startsWith('--race='));
-  let raceId = arg ? arg.slice('--race='.length) : '';
-  if (!raceId && process.env.AIDLC_OP_PARAMS) raceId = JSON.parse(process.env.AIDLC_OP_PARAMS).race || '';
-
   const races = (await db.collection('races').get()).docs.map((d) => ({ id: d.id, ...d.data() }));
   const next = races.filter((r) => r.status !== 'completed' && r.status !== 'cancelled').sort((a, b) => a.round - b.round)[0];
   if (!raceId) raceId = next?.id || '';
@@ -118,14 +133,10 @@ async function main() {
   const findings = checkLines({ race, docs, drivers, constructors, lastCompletedRaceStart: ms(lastCompleted?.schedule?.race), expectLines });
   console.error(`checkBenLines ${race.id} (R${race.round}, ${race.status}): ${Object.keys(docs).join('+') || 'no docs'}, ${findings.length} finding(s)`);
   process.stdout.write(JSON.stringify({ findings }) + '\n');
-  // --fail-on=<severity>: exit 2 when a finding is at least that severe, so an
-  // aidlc op `verify` step can use the checker directly.
-  const failOn = (process.argv.slice(2).find((a) => a.startsWith('--fail-on=')) || '').slice('--fail-on='.length);
-  const RANK = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
   return failOn && findings.some((f) => RANK[f.severity] >= RANK[failOn]) ? 2 : 0;
 }
 
-module.exports = { checkLines, FIELD_SIZE };
+module.exports = { checkLines, parseFailOn, FIELD_SIZE };
 
 if (require.main === module) {
   main().then((code) => process.exit(code)).catch((e) => { console.error(`checkBenLines: ${e.message}`); process.exit(1); });

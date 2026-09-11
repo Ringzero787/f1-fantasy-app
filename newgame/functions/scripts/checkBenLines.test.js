@@ -1,7 +1,15 @@
 // node --test newgame/functions/scripts/ — pure checks, no Firestore.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { checkLines } = require('./checkBenLines');
+const { checkLines, parseFailOn } = require('./checkBenLines');
+
+test('--fail-on is strict: a missing or unknown severity is an error, never a silent pass', () => {
+  assert.equal(parseFailOn([]), null);
+  assert.equal(parseFailOn(['--race=x', '--fail-on=high']), 'high');
+  assert.throws(() => parseFailOn(['--fail-on=hgih']), /--fail-on needs one of/);
+  assert.throws(() => parseFailOn(['--fail-on']), /--fail-on needs one of/);
+  assert.throws(() => parseFailOn(['--fail-on=toString']), /--fail-on needs one of/);
+});
 
 const drivers = [{ id: 'a', isActive: true }, { id: 'b', isActive: true }, { id: 'c', isActive: true }];
 const constructors = [{ id: 't1', isActive: true }];

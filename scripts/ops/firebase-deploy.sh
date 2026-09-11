@@ -25,6 +25,10 @@ if [ -e "$BAK" ]; then
   echo "$BAK exists: an earlier deploy did not restore the ADC file. Put the right file back at $ADC, delete $BAK, then retry." >&2
   exit 2
 fi
+if [ -L "$ADC" ]; then
+  echo "$ADC is a symlink; refusing to write the service-account key through it." >&2
+  exit 2
+fi
 mkdir -p "$(dirname "$ADC")"
 had_adc=0
 if [ -f "$ADC" ]; then cp -p "$ADC" "$BAK"; had_adc=1; fi

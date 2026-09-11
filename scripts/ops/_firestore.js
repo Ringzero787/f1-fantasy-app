@@ -35,7 +35,11 @@ function decode(v) {
   if (Array.isArray(v)) return v.map(decode);
   if (v && typeof v === 'object') {
     if (v.__type === 'timestamp') return new admin.firestore.Timestamp(v.seconds, v.nanoseconds);
-    if (v.__type === 'ref') return db.doc(v.path);
+    if (v.__type === 'ref') {
+      const { validFirestorePath } = require('./_paths');
+      if (!validFirestorePath(v.path) || String(v.path).split('/').length % 2 !== 0) throw new Error(`backup holds a document reference with a bad path: ${v.path}`);
+      return db.doc(v.path);
+    }
     if (v.__type === 'geopoint') return new admin.firestore.GeoPoint(v.latitude, v.longitude);
     return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, decode(x)]));
   }
