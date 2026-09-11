@@ -1,0 +1,66 @@
+# Reusable PR pipeline. Satellites call this from .github/workflows/aidlc-pr.yml.
+# Rendered by `aidlc sync` from Ringzero787/aidlc@main — do not edit by hand; edit .aidlc/aidlc.yaml and re-run `aidlc sync`.
+name: aidlc-pr
+on:
+  pull_request: { types: [opened, synchronize, reopened, ready_for_review] }
+permissions: { contents: read, pull-requests: write, checks: write }
+concurrency:
+  group: aidlc-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  gates:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check secrets
+        env: { T: "${{ secrets.AIDLC_DEPLOY_KEY }}", K: "${{ secrets.ANTHROPIC_API_KEY }}" }
+        run: |
+          if [ -z "$T" ]; then echo "::error::AIDLC_DEPLOY_KEY secret is missing — the read-only deploy key for Ringzero787/aidlc (see README: Adopt in a project)"; exit 1; fi
+          if [ -z "$K" ]; then echo "::warning::ANTHROPIC_API_KEY secret is missing — model gates will be skipped; deterministic gates still run"; fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { repository: Ringzero787/aidlc, ref: "main", ssh-key: "${{ secrets.AIDLC_DEPLOY_KEY }}", path: .aidlc-engine }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: .aidlc-engine/package-lock.json }
+      - name: Install engine
+        run: cd .aidlc-engine && npm ci --ignore-scripts && npm run build
+      - name: Install scanners (best effort)
+        continue-on-error: true
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set +e
+          (pipx install semgrep >/dev/null 2>&1 || pip install --quiet semgrep) && echo "semgrep ok" || echo "::warning::semgrep install failed"
+          gh release download --repo anchore/syft --pattern 'syft_*_linux_amd64.tar.gz' --output /tmp/syft.tgz --clobber && sudo tar -xzf /tmp/syft.tgz -C /usr/local/bin syft && echo "syft ok" || echo "::warning::syft install failed"
+          gh release download --repo gitleaks/gitleaks --pattern 'gitleaks_*_linux_x64.tar.gz' --output /tmp/gitleaks.tgz --clobber && sudo tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks && echo "gitleaks ok" || echo "::warning::gitleaks install failed"
+          gh release download --repo google/osv-scanner --pattern 'osv-scanner_linux_amd64' --output /tmp/osv-scanner --clobber && sudo install -m 755 /tmp/osv-scanner /usr/local/bin/osv-scanner && echo "osv-scanner ok" || echo "::warning::osv-scanner install failed"
+          exit 0
+      - name: Project setup
+        run: |
+          (cd newgame && npm ci)
+          (cd newgame/functions && npm ci --ignore-scripts)
+          (cd functions && npm ci --ignore-scripts) || true
+      - name: Install project deps
+        run: |
+          if [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable
+          elif [ -f package-lock.json ]; then npm ci
+          elif [ -f package.json ]; then npm install; fi
+      - name: Run PR gates
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          USPTO_API_KEY: ${{ secrets.USPTO_API_KEY }}
+          EUIPO_CLIENT_ID: ${{ secrets.EUIPO_CLIENT_ID }}
+          EUIPO_CLIENT_SECRET: ${{ secrets.EUIPO_CLIENT_SECRET }}
+          GH_TOKEN: ${{ github.token }}
+          AIDLC_PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          AIDLC_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          AIDLC_PREVIEW_URL: 
+        run: node .aidlc-engine/cli/dist/index.js run --tier pr --pr-comment
+      - name: Upload verdicts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: aidlc-verdicts, path: .aidlc/runs, if-no-files-found: ignore }

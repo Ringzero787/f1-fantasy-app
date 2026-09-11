@@ -1,0 +1,40 @@
+# Rendered by `aidlc sync` from Ringzero787/aidlc@main — do not edit by hand; edit .aidlc/aidlc.yaml and re-run `aidlc sync`.
+name: aidlc-lookback
+on:
+  schedule: [{ cron: "0 6 1 * *" }]
+  workflow_dispatch:
+permissions: { contents: write, pull-requests: write, actions: read }
+jobs:
+  lookback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check secrets
+        env: { T: "${{ secrets.AIDLC_DEPLOY_KEY }}", K: "${{ secrets.ANTHROPIC_API_KEY }}" }
+        run: |
+          if [ -z "$T" ]; then echo "::error::AIDLC_DEPLOY_KEY secret is missing — the read-only deploy key for Ringzero787/aidlc (see README: Adopt in a project)"; exit 1; fi
+          if [ -z "$K" ]; then echo "::warning::ANTHROPIC_API_KEY secret is missing — model gates will be skipped; deterministic gates still run"; fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { repository: Ringzero787/aidlc, ref: "main", ssh-key: "${{ secrets.AIDLC_DEPLOY_KEY }}", path: .aidlc-engine }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: "22" }
+      - run: cd .aidlc-engine && npm ci --ignore-scripts && npm run build
+      - name: Install project deps
+        run: |
+          if [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable
+          elif [ -f package-lock.json ]; then npm ci
+          elif [ -f package.json ]; then npm install; fi
+      - name: Waste & load lookback
+        env: { ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}", GH_TOKEN: "${{ github.token }}" }
+        run: node .aidlc-engine/cli/dist/index.js run --tier lookback --no-fail-fast || true
+      - name: Open proposal PR
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          D=$(date +%F); B="aidlc/lookback-${D}"
+          git config user.name "aidlc[bot]"; git config user.email "aidlc@users.noreply.github.com"
+          git checkout -b "$B"; git add .aidlc/lookback .aidlc/runs; git commit -m "chore(aidlc): waste & load lookback ${D}" || exit 0
+          git push -u origin "$B"
+          gh pr create --title "AIDLC lookback ${D}: consolidation proposal" --body-file ".aidlc/lookback/${D}-plan.md" --label aidlc-lookback || true

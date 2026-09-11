@@ -1,0 +1,68 @@
+# Rendered by `aidlc sync` from Ringzero787/aidlc@main — do not edit by hand; edit .aidlc/aidlc.yaml and re-run `aidlc sync`.
+name: aidlc-release
+on:
+  workflow_dispatch:
+    inputs: { version: { description: "semver (blank = derive from commits)", required: false, default: "" } }
+permissions: { contents: write, id-token: write, pull-requests: write }
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check secrets
+        env: { T: "${{ secrets.AIDLC_DEPLOY_KEY }}", K: "${{ secrets.ANTHROPIC_API_KEY }}" }
+        run: |
+          if [ -z "$T" ]; then echo "::error::AIDLC_DEPLOY_KEY secret is missing — the read-only deploy key for Ringzero787/aidlc (see README: Adopt in a project)"; exit 1; fi
+          if [ -z "$K" ]; then echo "::warning::ANTHROPIC_API_KEY secret is missing — model gates will be skipped; deterministic gates still run"; fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { repository: Ringzero787/aidlc, ref: "main", ssh-key: "${{ secrets.AIDLC_DEPLOY_KEY }}", path: .aidlc-engine }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: "22" }
+      - run: cd .aidlc-engine && npm ci --ignore-scripts && npm run build
+      - name: Install scanners (best effort)
+        continue-on-error: true
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set +e
+          (pipx install semgrep >/dev/null 2>&1 || pip install --quiet semgrep) && echo "semgrep ok" || echo "::warning::semgrep install failed"
+          gh release download --repo anchore/syft --pattern 'syft_*_linux_amd64.tar.gz' --output /tmp/syft.tgz --clobber && sudo tar -xzf /tmp/syft.tgz -C /usr/local/bin syft && echo "syft ok" || echo "::warning::syft install failed"
+          gh release download --repo gitleaks/gitleaks --pattern 'gitleaks_*_linux_x64.tar.gz' --output /tmp/gitleaks.tgz --clobber && sudo tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks && echo "gitleaks ok" || echo "::warning::gitleaks install failed"
+          gh release download --repo google/osv-scanner --pattern 'osv-scanner_linux_amd64' --output /tmp/osv-scanner --clobber && sudo install -m 755 /tmp/osv-scanner /usr/local/bin/osv-scanner && echo "osv-scanner ok" || echo "::warning::osv-scanner install failed"
+          gh release download --repo sigstore/cosign --pattern 'cosign-linux-amd64' --output /tmp/cosign --clobber && sudo install -m 755 /tmp/cosign /usr/local/bin/cosign && echo "cosign ok" || echo "::warning::cosign install failed"
+          sudo apt-get install -y -qq binutils >/dev/null 2>&1 || true
+          exit 0
+      - run: |
+          (cd newgame && npm ci)
+          (cd newgame/functions && npm ci --ignore-scripts)
+      - name: Install project deps
+        run: |
+          if [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable
+          elif [ -f package-lock.json ]; then npm ci
+          elif [ -f package.json ]; then npm install; fi
+      - name: Run release gates
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          COSIGN_EXPERIMENTAL: "1"
+          AIDLC_BENCH: "1"
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          ARGS=""
+          if [ -n "$RELEASE_VERSION" ]; then
+            case "$RELEASE_VERSION" in *[!0-9.]*|"") echo "::error::version must be semver digits and dots, got '$RELEASE_VERSION'"; exit 1;; esac
+            ARGS="--version $RELEASE_VERSION"
+          fi
+          node .aidlc-engine/cli/dist/index.js run --tier release $ARGS
+      - name: Commit records, tag, and publish GitHub release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          V=$(node -e "console.log(require('./.aidlc/tmp/release.json').version)")
+          git config user.name "aidlc[bot]"; git config user.email "aidlc@users.noreply.github.com"
+          git add .aidlc CHANGELOG.md; git commit -m "chore(release): v${V} [skip ci]" || true
+          git tag -a "v${V}" -m "v${V}"; git push --follow-tags
+          gh release create "v${V}" --title "v${V}" --notes-file ".aidlc/releases/v${V}.md" $(ls build/bin/* target/release/*.{dmg,msi,AppImage,deb} src-tauri/target/release/bundle/**/* 2>/dev/null | head -50 || true)

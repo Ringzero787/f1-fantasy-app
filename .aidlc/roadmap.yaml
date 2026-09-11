@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Ringzero787/aidlc/main/schemas/roadmap.schema.json
+milestones:
+  - { id: M-01, name: "Track Limits 0.1.42 (vc43)", version: 0.1.42, status: active, confidence: high, features: [F-006, F-007, F-009], notes: "current Play build" }
+  - { id: M-02, name: "Track Limits next", version: 0.1.43, status: planned, confidence: medium, features: [], notes: "add features with `aidlc feature add` as they are planned" }
+  - { id: M-03, name: "Undercut correctness and safety", version: 2.3.0, status: planned, confidence: high, features: [F-020, F-021, F-022, F-023] }
+  - { id: M-04, name: "Undercut observability and ops", version: 2.4.0, status: planned, confidence: medium, features: [F-024, F-025, F-026, F-027] }
+  - { id: M-05, name: "Undercut economy polish", version: 2.5.0, status: planned, confidence: medium, features: [F-028, F-029, F-030, F-031, F-032] }

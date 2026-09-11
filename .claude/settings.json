@@ -1,0 +1,13 @@
+{
+  "enabledPlugins": {
+    "aidlc@ringzero787": true
+  },
+  "extraKnownMarketplaces": {
+    "ringzero787": {
+      "source": {
+        "source": "github",
+        "repo": "Ringzero787/aidlc"
+      }
+    }
+  }
+}
