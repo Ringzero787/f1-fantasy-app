@@ -4,46 +4,16 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "src/*"
-      ],
-      "@components/*": [
-        "src/components/*"
-      ],
-      "@config/*": [
-        "src/config/*"
-      ],
-      "@hooks/*": [
-        "src/hooks/*"
-      ],
-      "@services/*": [
-        "src/services/*"
-      ],
-      "@store/*": [
-        "src/store/*"
-      ],
-      "@types/*": [
-        "src/types/*"
-      ],
-      "@utils/*": [
-        "src/utils/*"
-      ]
+      "@/*": ["src/*"],
+      "@components/*": ["src/components/*"],
+      "@config/*": ["src/config/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@services/*": ["src/services/*"],
+      "@store/*": ["src/store/*"],
+      "@types/*": ["src/types/*"],
+      "@utils/*": ["src/utils/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "newgame",
-    "functions",
-    "dist",
-    "android",
-    "android-bundle",
-    "undercut-site",
-    ".expo/web"
-  ]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["node_modules", "newgame", "functions", "dist", "android", "android-bundle", "undercut-site"]
 }
