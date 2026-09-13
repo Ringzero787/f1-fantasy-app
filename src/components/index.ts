@@ -2,6 +2,7 @@ export * from './Button';
 export * from './Card';
 export * from './Input';
 export * from './Loading';
+export * from './PurchaseModal';
 export * from './DriverCard';
 export * from './ConstructorCard';
 export * from './RaceCard';

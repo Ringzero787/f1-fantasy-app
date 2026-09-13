@@ -4,7 +4,6 @@ export * from './constructor.service';
 export * from './league.service';
 export * from './team.service';
 export * from './race.service';
-export * from './scoring.service';
 export * from './pricing.service';
 export * from './avatarGeneration.service';
 export * from './profileImage.service';

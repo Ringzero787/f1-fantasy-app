@@ -1105,14 +1105,14 @@ export default function AdminContent() {
         <View style={[styles.pendingSection, { backgroundColor: theme.card }]}>
           <View style={styles.pendingSectionHeader}>
             <Ionicons name="hourglass-outline" size={18} color={COLORS.warning} />
-            <Text style={[styles.pendingSectionTitle, { color: theme.text }]}>
+            <Text style={[styles.pendingSectionTitle, { color: COLORS.text.primary }]}>
               Pending Results ({pendingResults.length})
             </Text>
           </View>
           {pendingResults.map(pr => (
             <View key={pr.raceId} style={[styles.pendingCard, { borderColor: COLORS.border.default }]}>
               <View style={styles.pendingCardHeader}>
-                <Text style={[styles.pendingRaceName, { color: theme.text }]}>
+                <Text style={[styles.pendingRaceName, { color: COLORS.text.primary }]}>
                   R{pr.round} {pr.raceName}
                 </Text>
                 <Text style={styles.pendingDriverCount}>
@@ -1356,7 +1356,7 @@ export default function AdminContent() {
                     { backgroundColor: theme.card },
                     selectedRaceId === race.id && [styles.raceChipSelected, { backgroundColor: theme.primary, borderColor: theme.primary }],
                     isComplete && styles.raceChipComplete,
-                    isCancelled && { opacity: 0.4, borderColor: COLORS.danger },
+                    isCancelled && { opacity: 0.4, borderColor: COLORS.error },
                     race.hasSprint && styles.raceChipSprint,
                   ]}
                   onPress={() => isCancelled ? null : handleSelectRace(race.id)}
@@ -1396,7 +1396,7 @@ export default function AdminContent() {
                       R{race.round}
                     </Text>
                     {isCancelled && (
-                      <Ionicons name="close-circle" size={10} color={COLORS.danger} />
+                      <Ionicons name="close-circle" size={10} color={COLORS.error} />
                     )}
                     {!isCancelled && race.hasSprint && (
                       <Ionicons
@@ -1418,7 +1418,7 @@ export default function AdminContent() {
                   </Text>
                   <View style={styles.raceChipBadges}>
                     {isCancelled && (
-                      <Text style={{ fontSize: 8, color: COLORS.danger }}>CANCELLED</Text>
+                      <Text style={{ fontSize: 8, color: COLORS.error }}>CANCELLED</Text>
                     )}
                     {!isCancelled && isComplete && (
                       <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />

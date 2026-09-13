@@ -97,7 +97,7 @@ export default function TabLayout() {
               <NotificationBell />
             </View>
           ),
-          tabBarTestID: 'tab-home',
+          tabBarButtonTestID: 'tab-home',
           tabBarAccessibilityLabel: 'Home tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={28} color={color} />
@@ -121,7 +121,7 @@ export default function TabLayout() {
             />
           ),
           // @ts-ignore tabBarTestID for E2E testing
-          tabBarTestID: 'tab-my-team',
+          tabBarButtonTestID: 'tab-my-team',
           tabBarAccessibilityLabel: 'My Team tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" size={28} color={color} />
@@ -145,7 +145,7 @@ export default function TabLayout() {
             />
           ),
           // @ts-ignore tabBarTestID for E2E testing
-          tabBarTestID: 'tab-market',
+          tabBarButtonTestID: 'tab-market',
           tabBarAccessibilityLabel: 'Market tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cart" size={28} color={color} />
@@ -169,7 +169,7 @@ export default function TabLayout() {
             />
           ),
           // @ts-ignore tabBarTestID for E2E testing
-          tabBarTestID: 'tab-leagues',
+          tabBarButtonTestID: 'tab-leagues',
           tabBarAccessibilityLabel: 'Leagues tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trophy" size={28} color={color} />
@@ -182,7 +182,7 @@ export default function TabLayout() {
           title: 'Calendar',
           headerShown: false,
           // @ts-ignore tabBarTestID for E2E testing
-          tabBarTestID: 'tab-calendar',
+          tabBarButtonTestID: 'tab-calendar',
           tabBarAccessibilityLabel: 'Calendar tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar" size={28} color={color} />
@@ -197,7 +197,7 @@ export default function TabLayout() {
           // Show when user has leagues (non-admins, or demo mode where both admin + chat show)
           href: ((!isAdmin || isDemoMode) && hasLeagues) ? ('/(tabs)/chat' as unknown as '/') : null,
           // @ts-ignore tabBarTestID for E2E testing
-          tabBarTestID: 'tab-chat',
+          tabBarButtonTestID: 'tab-chat',
           tabBarAccessibilityLabel: 'Chat tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles" size={28} color={color} />
@@ -213,7 +213,7 @@ export default function TabLayout() {
           // Only show admin tab for admins or demo mode
           href: (isAdmin || isDemoMode) ? ('/(tabs)/admin' as unknown as '/') : null,
           // @ts-ignore tabBarTestID for E2E testing
-          tabBarTestID: 'tab-admin',
+          tabBarButtonTestID: 'tab-admin',
           tabBarAccessibilityLabel: 'Admin tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings" size={28} color={color} />
@@ -231,7 +231,7 @@ export default function TabLayout() {
           },
           headerShadowVisible: false,
           // @ts-ignore tabBarTestID for E2E testing
-          tabBarTestID: 'tab-profile',
+          tabBarButtonTestID: 'tab-profile',
           tabBarAccessibilityLabel: 'Profile tab',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={28} color={color} />
