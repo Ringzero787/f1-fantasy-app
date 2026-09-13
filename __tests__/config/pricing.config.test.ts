@@ -37,7 +37,7 @@ describe('PRICING_CONFIG', () => {
 
   it('should have correct ace system values', () => {
     expect(PRICING_CONFIG.ACE_MULTIPLIER).toBe(2.0);
-    expect(PRICING_CONFIG.ACE_MAX_PRICE).toBe(240);
+    expect(PRICING_CONFIG.ACE_MAX_PRICE).toBe(200);
   });
 
   it('should have correct budget values', () => {

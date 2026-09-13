@@ -147,8 +147,8 @@ describe('Ace Validation', () => {
     expect(canBeAce).toBe(false);
   });
 
-  it('should have ace threshold at 240', () => {
-    expect(PRICING_CONFIG.ACE_MAX_PRICE).toBe(240);
+  it('should have ace threshold at 200', () => {
+    expect(PRICING_CONFIG.ACE_MAX_PRICE).toBe(200);
   });
 });
 

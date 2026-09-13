@@ -18,17 +18,15 @@ baseline_sha: 3a63cf1eeec2dcfd28059fb0c58bf7b949f40ddb
 budgets: { pr_tokens: 150000, release_tokens: 500000, lookback_tokens: 200000 }
 overrides:
   hygiene:
-    # Blocking checks cover Track Limits (newgame/), which is clean. Undercut's root lint (no ESLint config, F-034),
-    # typecheck (8 errors + root tsconfig sweeps newgame/, F-035) and jest (20 failing, F-036) run as advisory until fixed.
+    # Both apps block on typecheck; Undercut's jest suite blocks (180 tests). Root ESLint is advisory until the
+    # 4 rules-of-hooks errors are fixed (F-034); its 242 warnings are debt, not gates.
     lint: ""
-    typecheck: "(cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
-    # node:test, no deps: Track Limits operator scripts, settlement and odds math on the compiled functions (F-040),
-    # the release-signing plugin (F-033), the aidlc op helpers and the release scripts (F-014).
-    test: "npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js scripts/ops/*.test.js scripts/release/*.test.js"
+    typecheck: "npx tsc --noEmit && (cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
+    # Undercut: jest (unit). Track Limits + repo: node:test on the compiled functions, the release-signing plugin,
+    # the aidlc op helpers and the release scripts (F-040, F-033, F-014).
+    test: "npx jest --ci && npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js scripts/ops/*.test.js scripts/release/*.test.js"
     advisory:
       - "npm run lint"
-      - "npx tsc --noEmit"
-      - "npm test -- --ci"
   build:
     # PRs: the JS bundle export proves both apps compile without a native build. Store builds are local, never EAS:
     # `aidlc run --tier release --unit tracklimits --version X.Y.Z` on the Linux build box runs tl-android (F-014).

@@ -1,366 +1,367 @@
 next_id: 43
 features:
-  - id: F-001
-    name: Pre-AIDLC baseline
-    status: baseline
-    created_at: 2026-09-11
-    summary: Everything shipped before AIDLC adoption.
-  - id: F-002
-    name: "TL: Weekend picks with WITH/AGAINST stakes"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 0.1.15
-    summary: StakeSheet, side flip, sage AGAINST treatment
-    keywords:
-      - stake
-      - picks
-      - with
-      - against
-  - id: F-003
-    name: "TL: Live weekend state (open/locked/results)"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 0.1.18
-    keywords:
-      - weekend
-      - lock
-      - sprint
-  - id: F-004
-    name: "TL: Weekend recap"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 0.1.39
-    summary: One page per settled scope, seen-tracking v2, soft back dismissal
-    keywords:
-      - recap
-      - wrap
-  - id: F-005
-    name: "TL: Weekly recap P&L and missing-picks reminders"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 0.1.23
-    keywords:
-      - reminder
-      - notification
-      - pnl
-  - id: F-006
-    name: "TL: Garage cash economy"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 0.1.41
-    summary: Bankroll won on race weekends; wrong calls cost $10; server-authoritative ledger
-    keywords:
-      - garage
-      - cash
-      - bankroll
-      - economy
-  - id: F-007
-    name: "TL: Store and cosmetic packs"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 0.1.41
-    summary: Helmet/heritage/era/premium packs bought with garage cash; PurchaseSheet; My gear
-    keywords:
-      - store
-      - shop
-      - packs
-      - cosmetics
-      - helmets
-      - purchase
-  - id: F-008
-    name: "TL: Leagues and leaderboards"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 0.1.39
-    summary: League leaderboards; tap a member for season results and per-weekend breakdown
-    keywords:
-      - league
-      - leaderboard
-  - id: F-009
-    name: "TL: Call-sign onboarding"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 0.1.41
-    summary: Call-sign prompt with server re-check so it never overwrites a chosen name
-    keywords:
-      - callsign
-      - onboarding
-      - name
-  - id: F-010
-    name: "TL: Standings and results screens"
-    status: shipped
-    created_at: 2026-09-11
-    keywords:
-      - standings
-      - results
-  - id: F-011
-    name: "TL: Crash safety"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 0.1.29
-    summary: Global fatal-error handler, root error boundary, demo screen test buttons
-  - id: F-012
-    name: "TL: Push notifications"
-    status: shipped
-    created_at: 2026-09-11
-    keywords:
-      - notifications
-      - push
-      - expo-notifications
-  - id: F-013
-    name: "TL: Google sign-in and profile"
-    status: shipped
-    created_at: 2026-09-11
-    keywords:
-      - auth
-      - google
-      - profile
-  - id: F-014
-    name: "TL: Release signing plugin"
-    status: shipped
-    spec: .aidlc/specs/F-014.md
-    created_at: 2026-09-11
-    version_shipped: 0.1.43
-    summary: plugins/withReleaseSigning; keystore documented in newgame/KEYSTORE.md (not committed). Extension planned (G01
-      partial, 2026-09-11) — AIDLC release tier builds the AAB locally with gradle instead of EAS, checks the bundle
-      holds Track Limits JS (vc28 guard) and the signer is CN=TrackLimits.
-    shipped_at: 2026-09-11
-  - id: F-015
-    name: "TL: Real in-app purchases"
-    status: idea
-    created_at: 2026-09-11
-    summary: Cosmetics-only until real IAP (0.1.35 note); functions/purchases scaffolding exists
-    keywords:
-      - iap
-      - purchases
-      - billing
-  - id: F-016
-    name: "UC: Server-authoritative scoring and economy"
-    status: shipped
-    created_at: 2026-09-11
-    summary: 2026-06 scoring overhaul verified against three live races
-    keywords:
-      - scoring
-      - economy
-  - id: F-017
-    name: "UC: Team, market, leagues, calendar, chat, profile"
-    status: shipped
-    created_at: 2026-09-11
-    summary: Core app surfaces covered by Maestro e2e flows
-    keywords:
-      - team
-      - market
-      - leagues
-      - calendar
-      - chat
-      - profile
-  - id: F-018
-    name: "UC: Optimistic roster edits and cached standings"
-    status: shipped
-    created_at: 2026-09-11
-  - id: F-019
-    name: "UC: Target SDK 36"
-    status: shipped
-    created_at: 2026-09-11
-    version_shipped: 2.2.2
-  - id: F-020
-    name: "UC: Lock teams created inside the quali window"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP Now (S)
-    keywords:
-      - lock
-      - quali
-      - autoLockTeams
-  - id: F-021
-    name: "UC: Gate Phase 1 scoring on addedAtRace"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP Now (M)
-  - id: F-022
-    name: "UC: Reconciliation guard alert"
-    status: planned
-    created_at: 2026-09-11
-    summary: "ROADMAP Now (S): push/email/Slack instead of console.error"
-  - id: F-023
-    name: "UC: Delete dead client scoring service"
-    status: planned
-    created_at: 2026-09-11
-    summary: "ROADMAP Now (S): src/services/scoring.service.ts"
-  - id: F-024
-    name: "UC: Scheduled post-race verifier"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP Next (M)
-  - id: F-025
-    name: "UC: Automated results cross-check"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP Next (M)
-  - id: F-026
-    name: "UC: One-command functions deploy"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP Next (S)
-  - id: F-027
-    name: "UC: Dependency bump pass (Dependabot alerts)"
-    status: planned
-    created_at: 2026-09-11
-    summary: "ROADMAP Next (M): ~70 alerts"
-    keywords:
-      - dependabot
-      - security
-      - deps
-  - id: F-028
-    name: "UC: Post-race penalty re-score path"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP economy (M)
-  - id: F-029
-    name: "UC: Per-race roster and ace snapshots"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP economy (M)
-  - id: F-030
-    name: "UC: Live-price member and profile views"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP economy (S)
-  - id: F-031
-    name: "UC: useDrivers cache key fix"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP economy (S)
-  - id: F-032
-    name: "UC: Price-history dedupe"
-    status: planned
-    created_at: 2026-09-11
-    summary: ROADMAP economy (S)
-  - id: F-033
-    name: "Repo hygiene: tracked stray files"
-    status: building
-    spec: .aidlc/specs/F-033.md
-    created_at: 2026-09-11
-    summary: Root holds ~350 untracked artifacts (tmp_*.js, APKs, screenshots, credentials.json, keystores, .pem). Extend
-      .gitignore, move scripts under scripts/, keep secrets out of the tree. Includes (G01 partial, 2026-09-11) the
-      release keystore passwords committed in newgame/plugins/withReleaseSigning.js and scripts/fix-android-build.sh —
-      move to untracked env config.
-    keywords:
-      - gitignore
-      - cleanup
-      - secrets
-  - id: F-034
-    name: "UC: ESLint configuration"
-    status: planned
-    created_at: 2026-09-11
-    summary: "npm run lint fails: no ESLint config file at the root (eslint-config-expo is installed). Add eslint.config.js,
-      fix findings, then set hygiene lint back to npm run lint."
-    keywords:
-      - eslint
-      - lint
-  - id: F-035
-    name: "UC: TypeScript errors and root tsconfig scope"
-    status: planned
-    created_at: 2026-09-11
-    summary: Root tsc reports 8 errors (ThemeColors.text/danger in src/admin/AdminContent.tsx, expo-file-system EncodingType
-      in src/simple/*) and its include sweeps newgame/ so alias imports fail there. Exclude newgame/ and functions/ from
-      the root tsconfig, fix the 8, then make root typecheck blocking.
-    keywords:
-      - typescript
-      - tsconfig
-      - typecheck
-  - id: F-036
-    name: "UC: Failing jest suites"
-    status: planned
-    created_at: 2026-09-11
-    summary: 20 of 240 tests fail (scoring.balance, scoring.service, league.team, team.validation, pricing.config), stale
-      since the 2026-06 server-authoritative scoring overhaul; ROADMAP also wants the dead client scoring service
-      deleted (F-023). Fix or delete, then make npm test blocking.
-    keywords:
-      - jest
-      - tests
-      - scoring
-  - id: F-037
-    name: "TL: Seed endpoints secret out of source"
-    summary: Replace the shared SEED_SECRET on tlSeedRaces, tlBackfillBenLines and tlGenerateBenLinesLite with Firebase
-      ID-token plus admin-claim auth; remove the key from the app demo screen and the humannpc admin page
-    status: shipped
-    spec: .aidlc/specs/F-037.md
-    created_at: 2026-09-11
-    keywords:
-      - seed
-      - endpoints
-      - secret
-      - source
-    version_shipped: 0.1.43
-    shipped_at: 2026-09-11
-  - id: F-038
-    name: "Repo: Production operations via aidlc op"
-    summary: Firestore data writes, seeding, best bets, repairs and Firebase rules/indexes/functions deploys for both apps
-      run as aidlc op kinds (dry-run, backup, G14/G15 gates, verify, rollback) that wrap the existing scripts
-    status: shipped
-    spec: .aidlc/specs/F-038.md
-    created_at: 2026-09-11
-    keywords:
-      - repo
-      - production
-      - operations
-      - aidlc
-    version_shipped: 0.1.43
-    shipped_at: 2026-09-11
-  - id: F-039
-    name: "TL: Ben lines invariant checker gate"
-    summary: "checkBenLines.js as the G15 domain check on ben_lines: range bounds, odds above 1.00, book margin, exactly 3
-      race best bets, roster coverage, freshness, edits after lock"
-    status: shipped
-    spec: .aidlc/specs/F-039.md
-    created_at: 2026-09-11
-    keywords:
-      - lines
-      - invariant
-      - checker
-      - gate
-    version_shipped: 0.1.43
-    shipped_at: 2026-09-11
-  - id: F-040
-    name: "TL: Unit test harness for settlement and odds"
-    summary: node:test suite in newgame/functions for computePayout, decideOutcome, odds pricing, the MODELS doc parser and
-      the lines checker, blocking in AIDLC hygiene
-    status: shipped
-    spec: .aidlc/specs/F-040.md
-    created_at: 2026-09-11
-    keywords:
-      - unit
-      - test
-      - harness
-      - settlement
-      - odds
-    version_shipped: 0.1.43
-    shipped_at: 2026-09-11
-  - id: F-041
-    name: "TL: Offered odds stay above 1.00"
-    summary: seedFromModelsDoc (and setBestBets' model-line revert) priced 1/(p×1.047) uncapped — below 1.00 once the model
-      probability passes ~0.955, infinite at 0. Shared capped pricing (scripts/_pricing.js, same cap as
-      triggers/_odds.ts, whose generator floor is 1.01), plus MODELS parser tests. (Registered as "generator can emit
-      1.00" — it cannot.)
-    status: building
-    spec: .aidlc/specs/F-041.md
-    created_at: 2026-09-11
-    keywords:
-      - offered
-      - odds
-      - stay
-      - above
-  - id: F-042
-    name: "TL: Ben lines calibration backtest report"
-    summary: "Advisory report on how well Ben's lines predicted results: landed vs stated chance by bucket, Brier score and
-      skill, returns for backing WITH/AGAINST, zone/kind/session splits, best-bet record, the book's settled P&L and
-      settlement consistency; G15 lookback check"
-    status: planned
-    spec: .aidlc/specs/F-042.md
-    created_at: 2026-09-11
-    keywords:
-      - lines
-      - calibration
-      - backtest
-      - report
+- id: F-001
+  name: Pre-AIDLC baseline
+  status: baseline
+  created_at: 2026-09-11
+  summary: Everything shipped before AIDLC adoption.
+- id: F-002
+  name: 'TL: Weekend picks with WITH/AGAINST stakes'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 0.1.15
+  summary: StakeSheet, side flip, sage AGAINST treatment
+  keywords:
+  - stake
+  - picks
+  - with
+  - against
+- id: F-003
+  name: 'TL: Live weekend state (open/locked/results)'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 0.1.18
+  keywords:
+  - weekend
+  - lock
+  - sprint
+- id: F-004
+  name: 'TL: Weekend recap'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 0.1.39
+  summary: One page per settled scope, seen-tracking v2, soft back dismissal
+  keywords:
+  - recap
+  - wrap
+- id: F-005
+  name: 'TL: Weekly recap P&L and missing-picks reminders'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 0.1.23
+  keywords:
+  - reminder
+  - notification
+  - pnl
+- id: F-006
+  name: 'TL: Garage cash economy'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 0.1.41
+  summary: Bankroll won on race weekends; wrong calls cost $10; server-authoritative ledger
+  keywords:
+  - garage
+  - cash
+  - bankroll
+  - economy
+- id: F-007
+  name: 'TL: Store and cosmetic packs'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 0.1.41
+  summary: Helmet/heritage/era/premium packs bought with garage cash; PurchaseSheet; My gear
+  keywords:
+  - store
+  - shop
+  - packs
+  - cosmetics
+  - helmets
+  - purchase
+- id: F-008
+  name: 'TL: Leagues and leaderboards'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 0.1.39
+  summary: League leaderboards; tap a member for season results and per-weekend breakdown
+  keywords:
+  - league
+  - leaderboard
+- id: F-009
+  name: 'TL: Call-sign onboarding'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 0.1.41
+  summary: Call-sign prompt with server re-check so it never overwrites a chosen name
+  keywords:
+  - callsign
+  - onboarding
+  - name
+- id: F-010
+  name: 'TL: Standings and results screens'
+  status: shipped
+  created_at: 2026-09-11
+  keywords:
+  - standings
+  - results
+- id: F-011
+  name: 'TL: Crash safety'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 0.1.29
+  summary: Global fatal-error handler, root error boundary, demo screen test buttons
+- id: F-012
+  name: 'TL: Push notifications'
+  status: shipped
+  created_at: 2026-09-11
+  keywords:
+  - notifications
+  - push
+  - expo-notifications
+- id: F-013
+  name: 'TL: Google sign-in and profile'
+  status: shipped
+  created_at: 2026-09-11
+  keywords:
+  - auth
+  - google
+  - profile
+- id: F-014
+  name: 'TL: Release signing plugin'
+  status: shipped
+  spec: .aidlc/specs/F-014.md
+  created_at: 2026-09-11
+  version_shipped: 0.1.43
+  summary: plugins/withReleaseSigning; keystore documented in newgame/KEYSTORE.md (not committed). Extension planned (G01
+    partial, 2026-09-11) — AIDLC release tier builds the AAB locally with gradle instead of EAS, checks the bundle holds Track
+    Limits JS (vc28 guard) and the signer is CN=TrackLimits.
+  shipped_at: 2026-09-11
+- id: F-015
+  name: 'TL: Real in-app purchases'
+  status: idea
+  created_at: 2026-09-11
+  summary: Cosmetics-only until real IAP (0.1.35 note); functions/purchases scaffolding exists
+  keywords:
+  - iap
+  - purchases
+  - billing
+- id: F-016
+  name: 'UC: Server-authoritative scoring and economy'
+  status: shipped
+  created_at: 2026-09-11
+  summary: 2026-06 scoring overhaul verified against three live races
+  keywords:
+  - scoring
+  - economy
+- id: F-017
+  name: 'UC: Team, market, leagues, calendar, chat, profile'
+  status: shipped
+  created_at: 2026-09-11
+  summary: Core app surfaces covered by Maestro e2e flows
+  keywords:
+  - team
+  - market
+  - leagues
+  - calendar
+  - chat
+  - profile
+- id: F-018
+  name: 'UC: Optimistic roster edits and cached standings'
+  status: shipped
+  created_at: 2026-09-11
+- id: F-019
+  name: 'UC: Target SDK 36'
+  status: shipped
+  created_at: 2026-09-11
+  version_shipped: 2.2.2
+- id: F-020
+  name: 'UC: Lock teams created inside the quali window'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP Now (S)
+  keywords:
+  - lock
+  - quali
+  - autoLockTeams
+- id: F-021
+  name: 'UC: Gate Phase 1 scoring on addedAtRace'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP Now (M)
+- id: F-022
+  name: 'UC: Reconciliation guard alert'
+  status: planned
+  created_at: 2026-09-11
+  summary: 'ROADMAP Now (S): push/email/Slack instead of console.error'
+- id: F-023
+  name: 'UC: Delete dead client scoring service'
+  status: building
+  created_at: 2026-09-11
+  summary: 'ROADMAP Now (S): src/services/scoring.service.ts'
+- id: F-024
+  name: 'UC: Scheduled post-race verifier'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP Next (M)
+- id: F-025
+  name: 'UC: Automated results cross-check'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP Next (M)
+- id: F-026
+  name: 'UC: One-command functions deploy'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP Next (S)
+- id: F-027
+  name: 'UC: Dependency bump pass (Dependabot alerts)'
+  status: planned
+  created_at: 2026-09-11
+  summary: 'ROADMAP Next (M): ~70 alerts'
+  keywords:
+  - dependabot
+  - security
+  - deps
+- id: F-028
+  name: 'UC: Post-race penalty re-score path'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP economy (M)
+- id: F-029
+  name: 'UC: Per-race roster and ace snapshots'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP economy (M)
+- id: F-030
+  name: 'UC: Live-price member and profile views'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP economy (S)
+- id: F-031
+  name: 'UC: useDrivers cache key fix'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP economy (S)
+- id: F-032
+  name: 'UC: Price-history dedupe'
+  status: planned
+  created_at: 2026-09-11
+  summary: ROADMAP economy (S)
+- id: F-033
+  name: 'Repo hygiene: tracked stray files'
+  status: building
+  spec: .aidlc/specs/F-033.md
+  created_at: 2026-09-11
+  summary: Root holds ~350 untracked artifacts (tmp_*.js, APKs, screenshots, credentials.json, keystores, .pem). Extend .gitignore,
+    move scripts under scripts/, keep secrets out of the tree. Includes (G01 partial, 2026-09-11) the release keystore passwords
+    committed in newgame/plugins/withReleaseSigning.js and scripts/fix-android-build.sh — move to untracked env config.
+  keywords:
+  - gitignore
+  - cleanup
+  - secrets
+- id: F-034
+  name: 'UC: ESLint configuration'
+  status: building
+  created_at: 2026-09-11
+  summary: 'npm run lint fails: no ESLint config file at the root (eslint-config-expo is installed). Add eslint.config.js,
+    fix findings, then set hygiene lint back to npm run lint.'
+  keywords:
+  - eslint
+  - lint
+  spec: .aidlc/specs/F-034.md
+- id: F-035
+  name: 'UC: TypeScript errors and root tsconfig scope'
+  status: building
+  created_at: 2026-09-11
+  summary: Root tsc reports 8 errors (ThemeColors.text/danger in src/admin/AdminContent.tsx, expo-file-system EncodingType
+    in src/simple/*) and its include sweeps newgame/ so alias imports fail there. Exclude newgame/ and functions/ from the
+    root tsconfig, fix the 8, then make root typecheck blocking.
+  keywords:
+  - typescript
+  - tsconfig
+  - typecheck
+  spec: .aidlc/specs/F-035.md
+- id: F-036
+  name: 'UC: Failing jest suites'
+  status: building
+  created_at: 2026-09-11
+  summary: 20 of 240 tests fail (scoring.balance, scoring.service, league.team, team.validation, pricing.config), stale since
+    the 2026-06 server-authoritative scoring overhaul; ROADMAP also wants the dead client scoring service deleted (F-023).
+    Fix or delete, then make npm test blocking.
+  keywords:
+  - jest
+  - tests
+  - scoring
+  spec: .aidlc/specs/F-036.md
+- id: F-037
+  name: 'TL: Seed endpoints secret out of source'
+  summary: Replace the shared SEED_SECRET on tlSeedRaces, tlBackfillBenLines and tlGenerateBenLinesLite with Firebase ID-token
+    plus admin-claim auth; remove the key from the app demo screen and the humannpc admin page
+  status: shipped
+  spec: .aidlc/specs/F-037.md
+  created_at: 2026-09-11
+  keywords:
+  - seed
+  - endpoints
+  - secret
+  - source
+  version_shipped: 0.1.43
+  shipped_at: 2026-09-11
+- id: F-038
+  name: 'Repo: Production operations via aidlc op'
+  summary: Firestore data writes, seeding, best bets, repairs and Firebase rules/indexes/functions deploys for both apps run
+    as aidlc op kinds (dry-run, backup, G14/G15 gates, verify, rollback) that wrap the existing scripts
+  status: shipped
+  spec: .aidlc/specs/F-038.md
+  created_at: 2026-09-11
+  keywords:
+  - repo
+  - production
+  - operations
+  - aidlc
+  version_shipped: 0.1.43
+  shipped_at: 2026-09-11
+- id: F-039
+  name: 'TL: Ben lines invariant checker gate'
+  summary: 'checkBenLines.js as the G15 domain check on ben_lines: range bounds, odds above 1.00, book margin, exactly 3 race
+    best bets, roster coverage, freshness, edits after lock'
+  status: shipped
+  spec: .aidlc/specs/F-039.md
+  created_at: 2026-09-11
+  keywords:
+  - lines
+  - invariant
+  - checker
+  - gate
+  version_shipped: 0.1.43
+  shipped_at: 2026-09-11
+- id: F-040
+  name: 'TL: Unit test harness for settlement and odds'
+  summary: node:test suite in newgame/functions for computePayout, decideOutcome, odds pricing, the MODELS doc parser and
+    the lines checker, blocking in AIDLC hygiene
+  status: shipped
+  spec: .aidlc/specs/F-040.md
+  created_at: 2026-09-11
+  keywords:
+  - unit
+  - test
+  - harness
+  - settlement
+  - odds
+  version_shipped: 0.1.43
+  shipped_at: 2026-09-11
+- id: F-041
+  name: 'TL: Offered odds stay above 1.00'
+  summary: seedFromModelsDoc (and setBestBets' model-line revert) priced 1/(p×1.047) uncapped — below 1.00 once the model
+    probability passes ~0.955, infinite at 0. Shared capped pricing (scripts/_pricing.js, same cap as triggers/_odds.ts, whose
+    generator floor is 1.01), plus MODELS parser tests. (Registered as "generator can emit 1.00" — it cannot.)
+  status: building
+  spec: .aidlc/specs/F-041.md
+  created_at: 2026-09-11
+  keywords:
+  - offered
+  - odds
+  - stay
+  - above
+- id: F-042
+  name: 'TL: Ben lines calibration backtest report'
+  summary: 'Advisory report on how well Ben''s lines predicted results: landed vs stated chance by bucket, Brier score and
+    skill, returns for backing WITH/AGAINST, zone/kind/session splits, best-bet record, the book''s settled P&L and settlement
+    consistency; G15 lookback check'
+  status: planned
+  spec: .aidlc/specs/F-042.md
+  created_at: 2026-09-11
+  keywords:
+  - lines
+  - calibration
+  - backtest
+  - report
