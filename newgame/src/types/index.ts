@@ -39,7 +39,9 @@ export interface AppConfig {
   // only mislead them. Read with appConfigPackPrice().
   packPrices?: Record<string, number>;
   // Player-facing copy overrides, keyed by a stable string. Absent keys fall
-  // back to the bundled English. Read with appConfigCopy().
+  // back to the bundled English. Read with appConfigCopy(). Known keys:
+  //   benGuessRules           — prediction-pill explainer
+  //   onboardingBankrollText  — onboarding bankroll paragraph; `{cash}` → starting cash
   copy?: Record<string, string>;
 }
 

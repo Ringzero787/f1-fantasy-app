@@ -32,7 +32,7 @@ import { pickN, rollInitialDriverMix } from '@utils/rarity';
 import { useTheme } from '@/theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useAppConfig } from '@/hooks/useAppConfig';
-import { appConfigEconomy } from '@services/config.service';
+import { appConfigCopy, appConfigEconomy } from '@services/config.service';
 import { CONSTRUCTOR_COLORS } from '@/theme/tokens';
 import { TierChip, PrimaryBtn, Num, WithAgainstToggle } from '@components/tl';
 import type { Driver, Constructor } from '@/types';
@@ -183,6 +183,8 @@ function WelcomeStage({ onNext }: { onNext: () => void }) {
   const t = useTheme();
   const { data: appConfig } = useAppConfig();
   const startingCash = appConfigEconomy(appConfig, 'rollStartingCash', DEFAULT_STARTING_CASH);
+  // Copy override for the bankroll paragraph (F-047). Empty = bundled English below.
+  const bankrollCopy = appConfigCopy(appConfig, 'onboardingBankrollText', '');
   const [demoSide, setDemoSide] = useState<'with' | 'against'>('with');
   return (
     <View style={{ flex: 1, paddingHorizontal: 24, paddingVertical: 32, justifyContent: 'space-between' }}>
@@ -256,7 +258,14 @@ function WelcomeStage({ onNext }: { onNext: () => void }) {
         </View>
 
         <Text style={{ marginTop: 18, fontFamily: t.fSans, fontSize: 13.5, color: t.textDim, lineHeight: 20 }}>
-          Stake real virtual cash if you're confident — or play free, points still count either way. Roll your starting hand next: <Text style={{ color: t.text, fontWeight: '700' }}>4 drivers + 2 constructors</Text>. You start with <Text style={{ color: t.text, fontWeight: '700' }}>${startingCash}</Text> to spend in the shop.
+          {bankrollCopy ? (
+            // Server override (config.copy.onboardingBankrollText); `{cash}` is replaced with the live starting cash.
+            bankrollCopy.replace(/\{cash\}/g, String(startingCash))
+          ) : (
+            <>
+              Stake real virtual cash if you're confident — or play free, points still count either way. Roll your starting hand next: <Text style={{ color: t.text, fontWeight: '700' }}>4 drivers + 2 constructors</Text>. You start with <Text style={{ color: t.text, fontWeight: '700' }}>${startingCash}</Text> to spend in the shop.
+            </>
+          )}
         </Text>
       </View>
 
