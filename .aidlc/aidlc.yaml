@@ -30,13 +30,15 @@ overrides:
   build:
     # PRs: the JS bundle export proves both apps compile without a native build. Store builds are local, never EAS:
     # `aidlc run --tier release --unit tracklimits --version X.Y.Z` on the Linux build box runs tl-android (F-014);
-    # `--unit undercut` runs uc-android the same way (F-048).
+    # `--unit undercut` runs uc-android, uc-amazon and uc-ios the same way (F-048, F-049).
     # Shell scripts are invoked through `bash` so they work whatever file mode a checkout gives them.
     command: "npx expo export --platform android --output-dir .aidlc/tmp/export-undercut && (cd newgame && npx expo export --platform android --output-dir ../.aidlc/tmp/export-tracklimits)"
     output: .aidlc/tmp/export-tracklimits
     targets:
       tl-android: { command: "bash scripts/release/build-tl-aab.sh", artifact: "newgame/android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
       uc-android: { command: "bash scripts/release/build-uc-aab.sh", artifact: "android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
+      uc-amazon: { command: "bash scripts/release/build-uc-apk-amazon.sh", artifact: "android/app/build/outputs/apk/release/app-release.apk", runner: ubuntu-latest, tiers: [ release ] }
+      uc-ios: { command: "bash scripts/release/build-uc-ios.sh", artifact: ".aidlc/tmp/undercut-ios", runner: ubuntu-latest, tiers: [ release ] }
     manifests:
       android: newgame/app.config.js
       ios: newgame/app.config.js
@@ -145,7 +147,8 @@ releases:
     tag_prefix: uc-v
     paths: [ app/, src/, functions/, app.config.js, package.json, eas.json ]
     changelog: CHANGELOG.md
-    # Android: uc-android (gradle on the Linux build box, F-048). iOS (xcodebuild on the Mac Mini) is not wired.
-    targets: [ uc-android ]
+    # Play AAB and Amazon APK build here with gradle (F-048/F-049); uc-ios drives the Mac Mini over SSH and
+    # uploads to App Store Connect (F-049). Order: the two Android variants share android/, iOS goes last.
+    targets: [ uc-android, uc-amazon, uc-ios ]
     features_prefix: [ "UC:" ]
     bump: patch
