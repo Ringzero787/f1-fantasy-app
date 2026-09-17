@@ -19,6 +19,8 @@ test('constants the app and economy depend on', () => {
   assert.equal(sw.BEST_BET_PROFIT_MULT, 1.5);
   assert.equal(sw.BEST_BET_LOSS_POINTS, -1);
   assert.equal(sw.FIELD_SIZE, 22);
+  assert.equal(sw.STAKE_BONUS_RATE, 0.5);
+  assert.equal(sw.STAKE_BONUS_MAX, 25);
 });
 
 test('decideOutcome: WITH iff the result is inside [lo, hi], bounds inclusive', () => {
@@ -37,19 +39,39 @@ test('legacy lines: a lone `line` settles on ±1; no range at all never lets WIT
   assert.equal(sw.decideOutcome(empty, 1), 'against');
 });
 
-test('computePayout: stake × odds plus the flat bonus on a win; stake plus penalty on a loss', () => {
-  assert.deepEqual(sw.computePayout({ side: 'with', stake: 10 }, line(), 'with'), { won: true, payout: 29, pointsCredit: 1 });
+test('computePayout: stake × odds plus the win bonus; stake plus penalty on a loss', () => {
+  // stake 10 × 1.9 = 19, bonus 10 + 50% of 10 = 15 → 34.
+  assert.deepEqual(sw.computePayout({ side: 'with', stake: 10 }, line(), 'with'), { won: true, payout: 34, pointsCredit: 1 });
   assert.deepEqual(sw.computePayout({ side: 'with', stake: 10 }, line(), 'against'), { won: false, payout: 0, pointsCredit: 0, penalty: 10 });
+  // A free call is untouched by F-043: still exactly WIN_BONUS.
   assert.deepEqual(sw.computePayout({ side: 'against', stake: 0 }, line(), 'against'), { won: true, payout: 10, pointsCredit: 1 });
+});
+
+test('stake bonus (F-043): 50% of stake on top, capped at $25, free calls unchanged', () => {
+  assert.equal(sw.winBonus(0), 10);
+  assert.equal(sw.winBonus(10), 15);
+  assert.equal(sw.winBonus(25), 22.5);
+  // The cap binds exactly at a $50 stake and never grows past it.
+  assert.equal(sw.winBonus(50), 35);
+  assert.equal(sw.winBonus(100), 35);
+  assert.equal(sw.winBonus(1e6), 35);
+  // Defensive: a missing or negative stake can never pay more than the flat bonus.
+  assert.equal(sw.winBonus(undefined), 10);
+  assert.equal(sw.winBonus(-50), 10);
+  // End to end: stake 50 × 1.9 = 95, plus the capped 35 → 130.
+  assert.deepEqual(sw.computePayout({ side: 'with', stake: 50 }, line(), 'with'), { won: true, payout: 130, pointsCredit: 1 });
+  // A loss pays nothing regardless of how big the stake was.
+  assert.deepEqual(sw.computePayout({ side: 'with', stake: 100 }, line(), 'against'), { won: false, payout: 0, pointsCredit: 0, penalty: 10 });
 });
 
 test('best bets: AGAINST profit ×1.5 on a win, −1 point on a staked loss; WITH unchanged', () => {
   const bb = line({ bestBet: true });
-  // base 10 × 1.9 = 19 → stake 10 + profit 9 × 1.5 = 23.5, plus the 10 bonus.
-  assert.deepEqual(sw.computePayout({ side: 'against', stake: 10 }, bb, 'against'), { won: true, payout: 33.5, pointsCredit: 1 });
+  // base 10 × 1.9 = 19 → stake 10 + profit 9 × 1.5 = 23.5, plus the 15 bonus.
+  // The bonus itself is never multiplied by BEST_BET_PROFIT_MULT.
+  assert.deepEqual(sw.computePayout({ side: 'against', stake: 10 }, bb, 'against'), { won: true, payout: 38.5, pointsCredit: 1 });
   assert.deepEqual(sw.computePayout({ side: 'against', stake: 10 }, bb, 'with'), { won: false, payout: 0, pointsCredit: -1, penalty: 10 });
   assert.deepEqual(sw.computePayout({ side: 'against', stake: 0 }, bb, 'with'), { won: false, payout: 0, pointsCredit: 0, penalty: 10 });
-  assert.deepEqual(sw.computePayout({ side: 'with', stake: 10 }, bb, 'with'), { won: true, payout: 29, pointsCredit: 1 });
+  assert.deepEqual(sw.computePayout({ side: 'with', stake: 10 }, bb, 'with'), { won: true, payout: 34, pointsCredit: 1 });
 });
 
 test('buildSessionResults: constructor sums fill in from the roster; a missing position counts as last', () => {
