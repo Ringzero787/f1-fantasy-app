@@ -211,7 +211,11 @@ export const SimpleMarketPanel = React.memo(function SimpleMarketPanel({
     // Server-authoritative: setConstructorSecure sells the current constructor
     // (standard quote, points banked with the totalPoints decrement) and buys
     // the new one in one transaction.
-    useTeamStore.getState().setConstructor(pendingConstructor.id, contractLength);
+    useTeamStore.getState().setConstructor(pendingConstructor.id, contractLength, {
+      id: pendingConstructor.id,
+      name: pendingConstructor.name,
+      price: pendingConstructor.price,
+    });
     setPendingConstructor(null);
   }, [pendingConstructor, team, contractLength]);
 

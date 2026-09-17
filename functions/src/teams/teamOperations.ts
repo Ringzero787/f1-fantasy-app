@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { projectTeam } from './projectTeam';
 
 const db = admin.firestore();
 
@@ -222,15 +223,16 @@ export const addDriverSecure = functions.https.onCall(async (data, context) => {
       addedAtRace: completedRaceCount,
     };
 
-    tx.set(teamRef, {
+    const updateData = {
       drivers: [...drivers, fantasyDriver],
       budget: budget - price,
       totalSpent: (team.totalSpent || 0) + price,
       racesSinceTransfer: 0,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    };
+    tx.set(teamRef, updateData, { merge: true });
 
-    return { driver: fantasyDriver, newBudget: budget - price };
+    return { driver: fantasyDriver, newBudget: budget - price, team: projectTeam(teamId, team, updateData) };
   });
 
   return { success: true, ...result };
@@ -302,6 +304,10 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
       feeWaived: quote.feeWaived,
       bankedPoints,
       newBudget: (team.budget || 0) + quote.saleReturn,
+      team: projectTeam(teamId, team, updateData, {
+        lockedPoints: (team.lockedPoints || 0) + bankedPoints,
+        totalPoints: (team.totalPoints || 0) - bankedPoints,
+      }),
     };
   });
 
@@ -411,6 +417,10 @@ export const setConstructorSecure = functions.https.onCall(async (data, context)
       saleReturn,
       earlyTermFee,
       bankedPoints,
+      team: projectTeam(teamId, team, updateData, bankedPoints > 0 ? {
+        lockedPoints: (team.lockedPoints || 0) + bankedPoints,
+        totalPoints: (team.totalPoints || 0) - bankedPoints,
+      } : {}),
     };
   });
 
@@ -476,6 +486,10 @@ export const removeConstructorSecure = functions.https.onCall(async (data, conte
       feeWaived: quote.feeWaived,
       bankedPoints,
       newBudget: (team.budget || 0) + quote.saleReturn,
+      team: projectTeam(teamId, team, updateData, {
+        lockedPoints: (team.lockedPoints || 0) + bankedPoints,
+        totalPoints: (team.totalPoints || 0) - bankedPoints,
+      }),
     };
   });
 

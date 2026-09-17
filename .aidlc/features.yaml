@@ -1,4 +1,4 @@
-next_id: 45
+next_id: 46
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -393,3 +393,15 @@ features:
       - autoLockTeams
       - contract expiry
       - value
+  - id: F-045
+    name: "UC: Faster roster edits and standings"
+    status: planned
+    spec: .aidlc/specs/F-045.md
+    created_at: 2026-09-17
+    summary: Roster callables return the updated team so the app adopts it without refetching; constructor edits become optimistic; the full-screen loading flash on edits is gone; leagues load stale-while-revalidate and standings follow a live listener.
+    keywords:
+      - roster
+      - optimistic
+      - standings
+      - onSnapshot
+      - callable
