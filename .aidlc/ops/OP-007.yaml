@@ -1,0 +1,38 @@
+id: OP-007
+title: F-043 stake bonus
+kind: tl-functions-deploy
+status: applied
+params:
+  only: functions:tracklimits:tlSettleWeekend
+created_at: 2026-09-17T15:15:55.925Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-17T15:15:56.097Z
+    head_sha: 245cf93d8e5406a3b65ef16110a9742a71c42679
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- newgame/functions/src newgame/functions/package.json newgame/firebase.json && npm --prefix newgame/functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-007/dry-run-2026-09-17T15-15-56-097Z.log
+    log_sha256: d854f6497314ddf991278380bc72b43f4140515cfec46cc23758a85bd57d2758
+    lines: 31
+  - step: gates
+    at: 2026-09-17T15:16:54.836Z
+    head_sha: 245cf93d8e5406a3b65ef16110a9742a71c42679
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-17T15:16:54.841Z
+    head_sha: 245cf93d8e5406a3b65ef16110a9742a71c42679
+    command: npm --prefix newgame/functions run build && cd newgame && bash ../scripts/ops/firebase-deploy.sh --only 'functions:tracklimits:tlSettleWeekend' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-007/apply-2026-09-17T15-16-54-841Z.log
+    log_sha256: 1752db4c593d58f14426ca10c8bb927bcdb32de29bffa56ef291a49e0d697845
+    lines: 31
+  - step: gates
+    at: 2026-09-17T15:19:40.033Z
+    head_sha: 245cf93d8e5406a3b65ef16110a9742a71c42679
+    exit: 0
+    gates:
+      G15: skip
