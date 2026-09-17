@@ -1,0 +1,56 @@
+id: OP-005
+title: R17 Baku lines
+kind: tl-lines-seed
+status: verified
+params:
+  race: azerbaijan_2026
+  doc: /mnt/smb/share/tracklimits/MODELS_8.md
+  source: ben_model_R17
+created_at: 2026-09-17T13:58:11.863Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-17T13:58:20.765Z
+    head_sha: f75282608d79c5bb4463e2942a7253ad6f68525d
+    command: cd newgame/functions && node scripts/seedFromModelsDoc.js --doc='/mnt/smb/share/tracklimits/MODELS_8.md' --race='azerbaijan_2026' --source='ben_model_R17'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-005/dry-run-2026-09-17T13-58-20-765Z.log
+    log_sha256: 6bb3ba0a9ed0500457beb85d67ad602640aee21c6c0cb5ad068d2e0e280d6d50
+    lines: 6
+  - step: backup
+    at: 2026-09-17T14:00:17.686Z
+    head_sha: f75282608d79c5bb4463e2942a7253ad6f68525d
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-005'/backup.json ben_lines/'azerbaijan_2026'_race ben_lines/'azerbaijan_2026'_qualifying ben_lines/'azerbaijan_2026'_sprint
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-005/backup-2026-09-17T14-00-17-686Z.log
+    log_sha256: 2a728cf5168537405679297efc6712d869976be56f4d743a7ba6bbc122b525d5
+    lines: 3
+  - step: gates
+    at: 2026-09-17T14:00:20.005Z
+    head_sha: f75282608d79c5bb4463e2942a7253ad6f68525d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-17T14:00:20.005Z
+    head_sha: f75282608d79c5bb4463e2942a7253ad6f68525d
+    command: cd newgame/functions && node scripts/seedFromModelsDoc.js --doc='/mnt/smb/share/tracklimits/MODELS_8.md' --race='azerbaijan_2026' --source='ben_model_R17' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-005/apply-2026-09-17T14-00-20-005Z.log
+    log_sha256: 1509a895a2c096d330d26d63831430934c0f754b42b4cd39502c0239dc8c79e0
+    lines: 9
+  - step: verify
+    at: 2026-09-17T14:00:21.394Z
+    head_sha: f75282608d79c5bb4463e2942a7253ad6f68525d
+    command: node newgame/functions/scripts/checkBenLines.js --race='azerbaijan_2026' --fail-on=high
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-005/verify-2026-09-17T14-00-21-394Z.log
+    log_sha256: 01cfab3e665444c88692ef1a869807fc0cbc50e0bd8e8cebc30c3520424e6d65
+    lines: 4
+  - step: gates
+    at: 2026-09-17T14:00:27.715Z
+    head_sha: f75282608d79c5bb4463e2942a7253ad6f68525d
+    exit: 0
+    gates:
+      G15: warn
