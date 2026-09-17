@@ -31,6 +31,8 @@ import { useGarageStore } from '@store/garage.store';
 import { pickN, rollInitialDriverMix } from '@utils/rarity';
 import { useTheme } from '@/theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
+import { useAppConfig } from '@/hooks/useAppConfig';
+import { appConfigCopy, appConfigEconomy } from '@services/config.service';
 import { CONSTRUCTOR_COLORS } from '@/theme/tokens';
 import { TierChip, PrimaryBtn, Num, WithAgainstToggle } from '@components/tl';
 import type { Driver, Constructor } from '@/types';
@@ -40,7 +42,10 @@ const WORDMARK_BLACK = require('../assets/wordmark-black.png');
 
 const DRIVER_SLOTS = garageConfig.ROSTER_DRIVER_SLOTS; // 4
 const CONSTRUCTOR_SLOTS = garageConfig.ROSTER_CONSTRUCTOR_SLOTS; // 2
-const STARTING_CASH = garageConfig.ROLL_STARTING_CASH; // $100 flat
+// Bundled fallback. The figure actually shown comes from tl_config/app
+// (economy.rollStartingCash) so it can be corrected without a build (F-047).
+// The SERVER sets the real balance in tlCommitRoll — this is display only.
+const DEFAULT_STARTING_CASH = garageConfig.ROLL_STARTING_CASH; // $100 flat
 const MACRO_REROLLS = garageConfig.ROLL_MACRO_REROLLS; // 3 re-rolls
 
 // Shake/rattle timing. SHAKE_DURATION is total wall-clock; PIP_INTERVAL is
@@ -88,6 +93,8 @@ function rollHand(allDrivers: Driver[], allConstructors: Constructor[]): Hand {
 
 export default function OnboardingScreen() {
   const t = useTheme();
+  const { data: appConfig } = useAppConfig();
+  const startingCash = appConfigEconomy(appConfig, 'rollStartingCash', DEFAULT_STARTING_CASH);
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const [stage, setStage] = useState<Stage>('welcome');
@@ -135,8 +142,9 @@ export default function OnboardingScreen() {
     try {
       const driverIds = hand.drivers.map((d) => d.id);
       const constructorIds = hand.constructors.map((c) => c.id);
-      // Flat $100 starting bankroll — roll itself isn't budget-constrained.
-      await garageService.commitRoll(user.id, driverIds, constructorIds, STARTING_CASH);
+      // The roll itself isn't budget-constrained. The server sets the starting
+      // bankroll itself; `startingCash` here is display-only (config-driven copy).
+      await garageService.commitRoll(user.id, driverIds, constructorIds);
       await useGarageStore.getState().loadOrInitialize(user.id);
       await authService.markOnboarded(user.id);
       setUser({ ...user, hasOnboarded: true });
@@ -173,6 +181,10 @@ export default function OnboardingScreen() {
 
 function WelcomeStage({ onNext }: { onNext: () => void }) {
   const t = useTheme();
+  const { data: appConfig } = useAppConfig();
+  const startingCash = appConfigEconomy(appConfig, 'rollStartingCash', DEFAULT_STARTING_CASH);
+  // Copy override for the bankroll paragraph (F-047). Empty = bundled English below.
+  const bankrollCopy = appConfigCopy(appConfig, 'onboardingBankrollText', '');
   const [demoSide, setDemoSide] = useState<'with' | 'against'>('with');
   return (
     <View style={{ flex: 1, paddingHorizontal: 24, paddingVertical: 32, justifyContent: 'space-between' }}>
@@ -246,7 +258,14 @@ function WelcomeStage({ onNext }: { onNext: () => void }) {
         </View>
 
         <Text style={{ marginTop: 18, fontFamily: t.fSans, fontSize: 13.5, color: t.textDim, lineHeight: 20 }}>
-          Stake real virtual cash if you're confident — or play free, points still count either way. Roll your starting hand next: <Text style={{ color: t.text, fontWeight: '700' }}>4 drivers + 2 constructors</Text>. You start with <Text style={{ color: t.text, fontWeight: '700' }}>${STARTING_CASH}</Text> to spend in the shop.
+          {bankrollCopy ? (
+            // Server override (config.copy.onboardingBankrollText); `{cash}` is replaced with the live starting cash.
+            bankrollCopy.replace(/\{cash\}/g, String(startingCash))
+          ) : (
+            <>
+              Stake real virtual cash if you're confident — or play free, points still count either way. Roll your starting hand next: <Text style={{ color: t.text, fontWeight: '700' }}>4 drivers + 2 constructors</Text>. You start with <Text style={{ color: t.text, fontWeight: '700' }}>${startingCash}</Text> to spend in the shop.
+            </>
+          )}
         </Text>
       </View>
 
@@ -278,6 +297,8 @@ function RollStage({
 }) {
   const t = useTheme();
   const { isTablet } = useDeviceLayout();
+  const { data: appConfig } = useAppConfig();
+  const startingCash = appConfigEconomy(appConfig, 'rollStartingCash', DEFAULT_STARTING_CASH);
   const [phase, setPhase] = useState<RollPhase>(hand ? 'showing' : 'idle');
   const [diceFace, setDiceFace] = useState(6);
 
@@ -471,7 +492,7 @@ function RollStage({
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 1 }}>
             <Text style={{ fontFamily: t.fDisp, fontSize: isTablet ? 22 : 14, color: t.textDim, fontWeight: '500' }}>$</Text>
             <Num size={isTablet ? 48 : 30} weight="800">
-              {STARTING_CASH}
+              {startingCash}
             </Num>
           </View>
         </View>
@@ -555,7 +576,7 @@ function RollStage({
               marginTop: isTablet ? 4 : 0,
             }}
           >
-            Hand worth ${cost} · you start with ${STARTING_CASH} for the shop.
+            Hand worth ${cost} · you start with ${startingCash} for the shop.
           </Text>
         </View>
       ) : null}

@@ -24,6 +24,25 @@ export interface AppConfig {
   };
   // Open-ended feature flags. Read with appConfigFlag(config, key, default).
   features?: Record<string, boolean>;
+  // Economy numbers the app DISPLAYS. The server stays authoritative for what
+  // it actually pays and charges (economy/shared.ts, triggers/settleWeekend.ts);
+  // these exist so the figures shown to players can be corrected without a
+  // build. Absent fields fall back to the bundled constants in
+  // services/garage.service.ts. Read with appConfigEconomy().
+  economy?: {
+    startingCash?: number;
+    rollStartingCash?: number;
+  };
+  // Cosmetic pack prices by pack id. MUST match the server's authoritative
+  // PACK_PRICES_GAME_CASH (functions/src/purchases/buyCosmeticPack.ts), which
+  // re-checks on purchase — so a mismatch here cannot overcharge anyone, it can
+  // only mislead them. Read with appConfigPackPrice().
+  packPrices?: Record<string, number>;
+  // Player-facing copy overrides, keyed by a stable string. Absent keys fall
+  // back to the bundled English. Read with appConfigCopy(). Known keys:
+  //   benGuessRules           — prediction-pill explainer
+  //   onboardingBankrollText  — onboarding bankroll paragraph; `{cash}` → starting cash
+  copy?: Record<string, string>;
 }
 
 // ============================================

@@ -26,6 +26,8 @@ import {
   PACK_PRICE_GAME_CASH,
 } from '@/data/cosmeticsCatalog';
 import { purchasesService, USE_REAL_IAP } from '@services/purchases.service';
+import { useAppConfig } from '@/hooks/useAppConfig';
+import { appConfigFlag, appConfigPackPrice } from '@services/config.service';
 import { useTheme } from '@/theme';
 import { colors, fontSize, spacing } from '@/constants/theme';
 import type { CosmeticPack, IAPProductId } from '@/types';
@@ -34,6 +36,10 @@ type StoreSection = 'cosmetics' | 'cash' | 'garage' | 'subscription';
 
 export default function StoreScreen() {
   const t = useTheme();
+  const { data: appConfig } = useAppConfig();
+  // Remote kill-switch for pack buying (F-047). Defaults true, so a missing or
+  // unreadable config leaves the store exactly as it was.
+  const storeEnabled = appConfigFlag(appConfig, 'store_enabled', true);
   const userId = useAuthStore((s) => s.user?.id);
   const entitlements = usePurchasesStore((s) => s.entitlements);
   const load = usePurchasesStore((s) => s.load);
@@ -105,17 +111,24 @@ export default function StoreScreen() {
                 Packs add helmets and garage flair, paid from your bankroll. Cosmetic only — no
                 effect on scoring.
               </Text>
-              {cosmeticPacks
-                .filter((p) => !p.isFree)
-                .map((p) => (
-                  <PackCard
-                    key={p.id}
-                    pack={p}
-                    owned={!!entitlements?.ownedCosmeticPacks.includes(p.id)}
-                    cash={garageCash}
-                    onPress={() => setBuyingPack(p)}
-                  />
-                ))}
+              {!storeEnabled ? (
+                <Text style={styles.sectionHelp}>
+                  Pack purchases are temporarily unavailable. Anything you already own stays
+                  yours and is still equippable above.
+                </Text>
+              ) : (
+                cosmeticPacks
+                  .filter((p) => !p.isFree)
+                  .map((p) => (
+                    <PackCard
+                      key={p.id}
+                      pack={p}
+                      owned={!!entitlements?.ownedCosmeticPacks.includes(p.id)}
+                      cash={garageCash}
+                      onPress={() => setBuyingPack(p)}
+                    />
+                  ))
+              )}
             </View>
           )}
 
@@ -203,8 +216,10 @@ export default function StoreScreen() {
 // Visual pack card: helmet preview strip + name/tagline + garage-cash price or OWNED.
 function PackCard({ pack, owned, cash, onPress }: { pack: CosmeticPack; owned: boolean; cash: number; onPress: () => void }) {
   const t = useTheme();
+  const { data: appConfig } = useAppConfig();
   const helmets = pack.items.filter((i) => i.surface === 'helmet_livery' && i.previewURL);
-  const price = PACK_PRICE_GAME_CASH[pack.id] ?? 0;
+  // Config price with the bundled table as fallback; the server re-checks on buy.
+  const price = appConfigPackPrice(appConfig, pack.id, PACK_PRICE_GAME_CASH[pack.id] ?? 0);
   const canAfford = cash >= price;
   return (
     <Pressable

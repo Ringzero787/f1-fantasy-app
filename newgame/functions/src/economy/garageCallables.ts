@@ -26,7 +26,7 @@ import {
   db,
 } from './shared';
 
-const ROLL_STARTING_CASH = 100; // flat bankroll after the (free) opening roll
+export const ROLL_STARTING_CASH = 100; // flat bankroll after the (free) opening roll — never taken from the client
 
 interface DriverLite { id: string; price: number; tier: 'A' | 'B' | 'C'; shortName?: string; }
 interface ConstructorLite { id: string; price: number; shortName?: string; }
