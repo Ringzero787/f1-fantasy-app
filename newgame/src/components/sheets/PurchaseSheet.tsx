@@ -10,6 +10,8 @@ import { Sheet } from './Sheet';
 import { useTheme } from '../../theme';
 import type { CosmeticPack } from '../../types';
 import { PACK_PRICE_GAME_CASH } from '../../data/cosmeticsCatalog';
+import { useAppConfig } from '../../hooks/useAppConfig';
+import { appConfigPackPrice } from '../../services/config.service';
 
 const SURFACE_LABEL: Record<string, string> = {
   helmet_livery: 'Helmet',
@@ -31,12 +33,15 @@ export function PurchaseSheet({
   onBuy: (pack: CosmeticPack) => Promise<void>;
 }) {
   const t = useTheme();
+  const { data: appConfig } = useAppConfig();
   const [state, setState] = useState<'idle' | 'buying' | 'done'>('idle');
   const [error, setError] = useState<string | null>(null);
 
   const helmets = pack?.items.filter((i) => i.surface === 'helmet_livery' && i.previewURL) ?? [];
   const others = pack?.items.filter((i) => !(i.surface === 'helmet_livery' && i.previewURL)) ?? [];
-  const price = pack ? PACK_PRICE_GAME_CASH[pack.id] ?? 0 : 0;
+  // Config price with the bundled table as fallback. The server re-checks the
+  // real price in tlBuyCosmeticPack, so this only affects what we display.
+  const price = pack ? appConfigPackPrice(appConfig, pack.id, PACK_PRICE_GAME_CASH[pack.id] ?? 0) : 0;
   const canAfford = cash >= price;
 
   const buy = async () => {

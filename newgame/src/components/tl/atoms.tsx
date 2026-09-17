@@ -5,7 +5,18 @@ import { Alert, Pressable, StyleProp, StyleSheet, Text, TextStyle, TouchableOpac
 import { useTheme } from '@/theme';
 import { hexA } from '@/theme/tokens';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
+import { useAppConfig } from '@/hooks/useAppConfig';
+import { appConfigCopy } from '@/services/config.service';
 import type { SessionKey } from '@/types';
+
+// Bundled English for the "Ben's guess" rules tail. Overridable from
+// tl_config/app under copy.benGuessRules so the payout rules can be corrected
+// without an app build (F-047) — the dynamic call/range text around it is
+// always computed locally.
+const DEFAULT_BEN_GUESS_RULES =
+  "Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. " +
+  'Correct calls pay $10, wrong calls cost $10 — even with nothing staked (your cash never drops below $0). ' +
+  'Back it with cash and a correct call pays another 50% of your stake on top, up to $25 extra.';
 
 // ---- TierChip — A is gold-filled; B/C outlined ----
 export function TierChip({ tier, size = 'sm' }: { tier: 'A' | 'B' | 'C'; size?: 'sm' | 'md' }) {
@@ -1046,6 +1057,7 @@ export function BenLinePill({
 }) {
   const t = useTheme();
   const { isTablet, scale } = useDeviceLayout();
+  const { data: appConfig } = useAppConfig();
   // Resolve to a range. If only `ou` was given (legacy), fall back to ±1.
   const rawLo = lo != null ? lo : ou != null ? Math.max(1, Math.round(ou - 1)) : null;
   const rawHi = hi != null ? hi : ou != null ? Math.round(ou + 1) : null;
@@ -1069,10 +1081,8 @@ export function BenLinePill({
     const detail = isCtor
       ? `Ben's model thinks this constructor's two cars finish in ${baseLabel} on average. (Internally the bet resolves on the sum of both finishing positions.)`
       : `Ben's model thinks this driver lands in ${baseLabel}.`;
-    Alert.alert(
-      "Ben's guess",
-      `${callLine}${detail} Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Correct calls pay $10, wrong calls cost $10 — even with nothing staked (your cash never drops below $0). Back it with cash and a correct call pays another 50% of your stake on top, up to $25 extra.`,
-    );
+    const rules = appConfigCopy(appConfig, 'benGuessRules', DEFAULT_BEN_GUESS_RULES);
+    Alert.alert("Ben's guess", `${callLine}${detail} ${rules}`);
   };
 
   // Tablet sizing: pill needs presence so the user can actually read the
