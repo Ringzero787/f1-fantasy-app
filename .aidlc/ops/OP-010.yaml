@@ -1,0 +1,47 @@
+id: OP-010
+title: Arm the TL remote app config (F-047)
+kind: tl-script
+status: applied
+params:
+  script: setAppConfig.js
+  backup: tl_config/app
+created_at: 2026-09-17T17:02:32.997Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-17T17:02:33.175Z
+    head_sha: 6bc0a03ba6e4e0f20e6b41b32b145e0fb13419f5
+    command: node scripts/ops/run-script.js tracklimits 'setAppConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-010/dry-run-2026-09-17T17-02-33-175Z.log
+    log_sha256: 445094795aae4228ec22900151ee98acb17f18b85d5a9054c1adc27d6886462a
+    lines: 12
+  - step: backup
+    at: 2026-09-17T17:02:59.641Z
+    head_sha: 6bc0a03ba6e4e0f20e6b41b32b145e0fb13419f5
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-010'/backup.json 'tl_config/app'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-010/backup-2026-09-17T17-02-59-641Z.log
+    log_sha256: c3cda87c3f810fc1684ef2f1ccdd06bec32fccf7d1e381757aac36315d93a8d8
+    lines: 3
+  - step: gates
+    at: 2026-09-17T17:03:00.214Z
+    head_sha: 6bc0a03ba6e4e0f20e6b41b32b145e0fb13419f5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-17T17:03:00.214Z
+    head_sha: 6bc0a03ba6e4e0f20e6b41b32b145e0fb13419f5
+    command: node scripts/ops/run-script.js tracklimits 'setAppConfig.js' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-010/apply-2026-09-17T17-03-00-214Z.log
+    log_sha256: c5e1939c80b2b6b406d279db106e459bea3aa140939f2a9759c3d18a1b2b8eec
+    lines: 12
+  - step: gates
+    at: 2026-09-17T17:03:00.961Z
+    head_sha: 6bc0a03ba6e4e0f20e6b41b32b145e0fb13419f5
+    exit: 0
+    gates:
+      G15: skip
