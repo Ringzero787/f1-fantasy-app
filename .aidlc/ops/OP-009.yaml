@@ -1,0 +1,38 @@
+id: OP-009
+title: F-046 auto-fill log args + price clamp
+kind: functions-deploy
+status: applied
+params:
+  only: functions:autoLockTeams
+created_at: 2026-09-17T16:52:20.158Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-17T16:52:20.326Z
+    head_sha: fd445c988a8770318d727b327419cbbd655d01f7
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-009/dry-run-2026-09-17T16-52-20-326Z.log
+    log_sha256: 0eb8823c94fdf51232a57049f22b8fa06e38bf37c5874abdd502bd0474174a10
+    lines: 36
+  - step: gates
+    at: 2026-09-17T16:52:32.222Z
+    head_sha: fd445c988a8770318d727b327419cbbd655d01f7
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-17T16:52:32.227Z
+    head_sha: fd445c988a8770318d727b327419cbbd655d01f7
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:autoLockTeams' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-009/apply-2026-09-17T16-52-32-227Z.log
+    log_sha256: 3e7b31d7f2054b4d66c0438d8c940be9ee791023fdfe708fe812316cc2c32087
+    lines: 35
+  - step: gates
+    at: 2026-09-17T16:54:38.789Z
+    head_sha: fd445c988a8770318d727b327419cbbd655d01f7
+    exit: 0
+    gates:
+      G15: skip
