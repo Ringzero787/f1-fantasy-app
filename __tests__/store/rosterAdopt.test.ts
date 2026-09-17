@@ -219,6 +219,18 @@ describe('constructor edits', () => {
     expect(useTeamStore.getState().currentTeam!.budget).toBe(620);
   });
 
+  it('removeConstructor rolls back on failure', async () => {
+    removeConstructor.mockRejectedValue(new Error('Team is locked'));
+
+    await useTeamStore.getState().removeConstructor();
+
+    const s = useTeamStore.getState();
+    expect(s.currentTeam!.constructor!.constructorId).toBe('audi');
+    expect(s.userTeams[0].constructor!.constructorId).toBe('audi');
+    expect(s.error).toBe('Team is locked');
+    expect(s.isSavingRoster).toBe(false);
+  });
+
   it('ignores a double tap while a constructor edit is in flight', async () => {
     let resolve: (t: FantasyTeam) => void = () => {};
     setConstructor.mockImplementation(() => new Promise<FantasyTeam>((r) => { resolve = r; }));

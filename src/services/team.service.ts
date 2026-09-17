@@ -37,10 +37,12 @@ function toDate(v: unknown): Date | undefined {
   return undefined;
 }
 
-export function teamFromCallable(raw: unknown): FantasyTeam | null {
+export function teamFromCallable(raw: unknown, expectedTeamId: string): FantasyTeam | null {
   if (!raw || typeof raw !== 'object') return null;
   const t = raw as Record<string, unknown>;
-  if (typeof t.id !== 'string' || !Array.isArray(t.drivers)) return null;
+  // Shape and identity: a payload for another team (a mis-deployed function
+  // version, a wrong-team response) must fall through to the rules-checked read.
+  if (t.id !== expectedTeamId || !Array.isArray(t.drivers)) return null;
   const createdAt = toDate(t.createdAt);
   const updatedAt = toDate(t.updatedAt);
   return {
@@ -232,7 +234,7 @@ export const teamService = {
     contractLength?: number
   ): Promise<FantasyTeam> {
     const res: any = await callAddDriver({ teamId, driverId, contractLength });
-    const team = teamFromCallable(res?.data?.team) ?? await this.getTeamById(teamId);
+    const team = teamFromCallable(res?.data?.team, teamId) ?? await this.getTeamById(teamId);
     if (team) {
       this.recordTransaction({
         userId: team.userId,
@@ -258,7 +260,7 @@ export const teamService = {
    */
   async removeDriver(teamId: string, driverId: string): Promise<FantasyTeam> {
     const res: any = await callRemoveDriver({ teamId, driverId });
-    const team = teamFromCallable(res?.data?.team) ?? await this.getTeamById(teamId);
+    const team = teamFromCallable(res?.data?.team, teamId) ?? await this.getTeamById(teamId);
     if (team) {
       this.recordTransaction({
         userId: team.userId,
@@ -283,7 +285,7 @@ export const teamService = {
    */
   async setConstructor(teamId: string, constructorId: string, contractLength?: number): Promise<FantasyTeam> {
     const res: any = await callSetConstructor({ teamId, constructorId, contractLength });
-    const team = teamFromCallable(res?.data?.team) ?? await this.getTeamById(teamId);
+    const team = teamFromCallable(res?.data?.team, teamId) ?? await this.getTeamById(teamId);
     if (team) {
       this.recordTransaction({
         userId: team.userId,
@@ -403,7 +405,7 @@ export const teamService = {
    */
   async removeConstructor(teamId: string): Promise<FantasyTeam> {
     const res: any = await callRemoveConstructor({ teamId });
-    const team = teamFromCallable(res?.data?.team) ?? await this.getTeamById(teamId);
+    const team = teamFromCallable(res?.data?.team, teamId) ?? await this.getTeamById(teamId);
     if (team) {
       this.recordTransaction({
         userId: team.userId,

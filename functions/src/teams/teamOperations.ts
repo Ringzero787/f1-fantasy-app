@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { projectTeam } from './projectTeam';
 
 const db = admin.firestore();
 
@@ -84,29 +85,6 @@ function getTeamCtor(team: Record<string, any>): Record<string, any> | null {
 async function getCompletedRaceCount(): Promise<number> {
   const snap = await db.collection('races').where('status', '==', 'completed').get();
   return snap.size;
-}
-
-/**
- * The team as it will read after `updateData` lands, so a callable can hand
- * the app its new roster without a follow-up read. FieldValue sentinels
- * (increments, server timestamps) are resolved from the pre-write snapshot.
- * The extra round-trips this replaced were most of the "slow" in a transfer.
- */
-function projectTeam(
-  teamId: string,
-  before: FirebaseFirestore.DocumentData,
-  updateData: Record<string, any>,
-  numeric: { lockedPoints?: number; totalPoints?: number } = {},
-): Record<string, any> {
-  const after: Record<string, any> = { ...before, id: teamId };
-  for (const [k, v] of Object.entries(updateData)) {
-    if (k === 'updatedAt' || k === 'lockedPoints' || k === 'totalPoints') continue;
-    after[k] = v;
-  }
-  if (numeric.lockedPoints !== undefined) after.lockedPoints = numeric.lockedPoints;
-  if (numeric.totalPoints !== undefined) after.totalPoints = numeric.totalPoints;
-  after.updatedAt = new Date().toISOString();
-  return after;
 }
 
 /**
