@@ -142,3 +142,12 @@ test('hasEverFielded: banked points or spend count as having played, even with n
   assert.equal(hasEverFielded({ drivers: [], constructor: null, totalSpent: 900 }), true);
   assert.equal(hasEverFielded({ drivers: [], constructor: null, budget: 1000 }), false);
 });
+
+test('money conservation: the debit equals the sum of the stamped purchase prices', () => {
+  const team = { drivers: [], constructor: null, budget: 900, scoredRaces: ['x'] };
+  const plan = planAutoFill(team, CTX);
+  const stamped = plan.drivers.reduce((a, d) => a + d.purchasePrice, 0) + (plan.constructor ? plan.constructor.purchasePrice : 0);
+  assert.equal(plan.cost, stamped);
+  assert.equal(plan.budget, 900 - stamped);
+  assert.ok(plan.drivers.every((d) => Number.isInteger(d.purchasePrice)));
+});

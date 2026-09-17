@@ -52,7 +52,9 @@ export const autoLockTeams = functions.pubsub
     }
 
     // Market + form are loaded once per run, and only if some team needs it.
+    // A failed load is not retried per team: the teams still lock as-is.
     let fillCtx: FillContext | null = null;
+    let fillCtxFailed = false;
 
     for (const raceDoc of dueRaces) {
       const race = raceDoc.data();
@@ -98,9 +100,16 @@ export const autoLockTeams = functions.pubsub
           // Fill forgotten seats first, in a transaction of its own so a
           // last-minute edit is honoured and one corrupt roster cannot abort
           // the lock run for everyone else. The lock itself follows in the batch.
-          if (isIncomplete(team)) {
+          if (isIncomplete(team) && !fillCtxFailed) {
             try {
-              if (!fillCtx) fillCtx = await loadFillContext(db);
+              if (!fillCtx) {
+                try {
+                  fillCtx = await loadFillContext(db);
+                } catch (err) {
+                  fillCtxFailed = true;
+                  throw err;
+                }
+              }
               const plan = await autoFillTeamTx(db, teamDoc.ref, fillCtx, raceDoc.id);
               if (plan) {
                 filledCount++;

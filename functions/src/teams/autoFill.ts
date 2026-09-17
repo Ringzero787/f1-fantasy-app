@@ -255,7 +255,9 @@ export async function loadFillContext(db: admin.firestore.Firestore): Promise<Fi
       name: data.name || '',
       shortName: data.shortName || '',
       constructorId: data.constructorId || '',
-      price,
+      // Whole dollars, rounded up, so the knapsack weight, the debit from the
+      // bank and the purchasePrice stamped on the roster row are one number.
+      price: Math.ceil(price),
       form: formOf(doc.id),
     };
   };
@@ -294,8 +296,10 @@ export function planAutoFill(team: Record<string, any>, ctx: FillContext): AutoF
 
   const eligible = ctx.drivers.filter((c) => {
     if (onTeam.has(c.id)) return false;
-    const expiry = lockouts[c.id];
-    if (expiry !== undefined && ctx.completedRaceCount < expiry) return false;
+    // Own-property read: a driver id that happens to name something on
+    // Object.prototype must not read as a lockout (or as "not locked out").
+    const expiry = Object.prototype.hasOwnProperty.call(lockouts, c.id) ? lockouts[c.id] : undefined;
+    if (typeof expiry === 'number' && ctx.completedRaceCount < expiry) return false;
     return true;
   });
 
@@ -311,8 +315,8 @@ export function planAutoFill(team: Record<string, any>, ctx: FillContext): AutoF
   const stamp = (c: FillCandidate, withCtorId: boolean) => ({
     ...(withCtorId ? { driverId: c.id, shortName: c.shortName, constructorId: c.constructorId } : { constructorId: c.id }),
     name: c.name,
-    purchasePrice: c.price,
-    currentPrice: c.price,
+    purchasePrice: Math.ceil(c.price),
+    currentPrice: Math.ceil(c.price),
     pointsScored: 0,
     racesHeld: 0,
     contractLength: CONTRACT_LENGTH_DEFAULT,
