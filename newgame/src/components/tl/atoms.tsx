@@ -1071,7 +1071,7 @@ export function BenLinePill({
       : `Ben's model thinks this driver lands in ${baseLabel}.`;
     Alert.alert(
       "Ben's guess",
-      `${callLine}${detail} Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Correct calls pay $10, wrong calls cost $10 — even with nothing staked (your cash never drops below $0). Stake cash to amplify.`,
+      `${callLine}${detail} Tap WITH if you think Ben's right, AGAINST if you think they'll fall outside that range. Correct calls pay $10, wrong calls cost $10 — even with nothing staked (your cash never drops below $0). Back it with cash and a correct call pays another 50% of your stake on top, up to $25 extra.`,
     );
   };
 

@@ -120,6 +120,13 @@ const BEST_BET_LOSS_POINTS = -1;
 // wins pays this, and a staked win pays it on top of stake × odds. Applied
 // after the best-bet profit multiplier (the bonus itself is never multiplied).
 const WIN_BONUS = 10;
+// Conviction top-up (F-043): a correct call that had money on it earns this
+// share of the stake on top of WIN_BONUS, capped so a large stake can't mint
+// cash. The cap binds at a $50 stake. Free calls still pay exactly WIN_BONUS,
+// so this rewards risk rather than volume — 71 of the 83 calls graded since
+// the flat bonus landed carried no stake at all.
+const STAKE_BONUS_RATE = 0.5;
+const STAKE_BONUS_MAX = 25;
 // The balancing sink: every wrong call costs this flat, on top of any stake
 // forfeited. Counts fully in weekend/season P&L (leaderboards), but the
 // garage debit is floored so spendable cash never goes below $0 — you can't
@@ -193,9 +200,19 @@ interface PickOutcome {
   bestBet?: boolean;
 }
 
+// Cash bonus on a correct call: the flat WIN_BONUS every right call earns,
+// plus a capped share of whatever was staked. Kept deliberately outside the
+// best-bet multiplier below — the bonus is never multiplied, only the profit
+// on the stake is. A zero (or missing) stake yields exactly WIN_BONUS.
+function winBonus(stake: number): number {
+  const staked = Math.max(0, stake) || 0;
+  return WIN_BONUS + Math.min(STAKE_BONUS_MAX, STAKE_BONUS_RATE * staked);
+}
+
 // Per-pick payout calc. Odds are decimal; gross payout = stake × odds (incl.
-// stake back) + WIN_BONUS flat on every correct call (so a zero-stake pick
-// still pays WIN_BONUS when it wins). Loss = stake forfeited + LOSS_PENALTY
+// stake back) + winBonus(stake) on every correct call (so a zero-stake pick
+// still pays WIN_BONUS when it wins, and a staked win adds the conviction
+// top-up). Loss = stake forfeited + LOSS_PENALTY
 // flat (garage debit floored at $0 downstream). Range model: no pushes — the
 // result either falls inside [lo, hi] (WITH wins) or outside (AGAINST wins).
 //
@@ -216,7 +233,7 @@ function computePayout(
     const staked = againstBestBet
       ? pick.stake + (base - pick.stake) * BEST_BET_PROFIT_MULT
       : base;
-    payout = Math.round((staked + WIN_BONUS) * 100) / 100;
+    payout = Math.round((staked + winBonus(pick.stake)) * 100) / 100;
   }
   const pointsCredit = won ? 1 : againstBestBet && pick.stake > 0 ? BEST_BET_LOSS_POINTS : 0;
   return { won, payout, pointsCredit, ...(won ? {} : { penalty: LOSS_PENALTY }) };
@@ -561,5 +578,6 @@ export const tlSettleWeekend = functions.https.onCall(async (data: SettleArgs, c
 // re-exports only the functions above, so these never become deployed endpoints.
 export {
   SESSION_WEIGHT, FIELD_SIZE, WIN_BONUS, LOSS_PENALTY, BEST_BET_PROFIT_MULT, BEST_BET_LOSS_POINTS,
-  buildSessionResults, sigOfResults, lineLo, lineHi, computePayout, decideOutcome,
+  STAKE_BONUS_RATE, STAKE_BONUS_MAX,
+  buildSessionResults, sigOfResults, lineLo, lineHi, computePayout, decideOutcome, winBonus,
 };
