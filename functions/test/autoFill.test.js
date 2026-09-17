@@ -151,3 +151,13 @@ test('money conservation: the debit equals the sum of the stamped purchase price
   assert.equal(plan.budget, 900 - stamped);
   assert.ok(plan.drivers.every((d) => Number.isInteger(d.purchasePrice)));
 });
+
+test('a zero or negative constructor price can never credit the bank', () => {
+  const bad = [D('freebie', -50, 20), D('zero', 0, 5)];
+  const r = selectValueFill({ budget: 300, driverSlots: 2, needConstructor: true, drivers: MARKET, constructors: bad });
+  assert.ok(r.constructor);
+  const driversCost = r.drivers.reduce((a, d) => a + d.price, 0);
+  assert.ok(r.cost >= driversCost, `cost ${r.cost} must not be below the drivers' ${driversCost}`);
+  assert.equal(r.constructor.id, 'freebie'); // best form, costs nothing
+  assert.equal(r.cost, driversCost);
+});
