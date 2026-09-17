@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { keystorePassword, readSigningEnv } = require('./withReleaseSigning');
+const { keystorePassword, readSigningEnv, injectReleaseSigning } = require('./withReleaseSigning');
 
 const tmpEnv = (body) => {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'signing-')), '.signing.env');
@@ -31,4 +31,46 @@ test('a missing password stops the prebuild with a pointer to where it goes', ()
 test('a password that would break the Groovy string is refused', () => {
   assert.throws(() => keystorePassword({ UC_KEYSTORE_PASSWORD: "it's" }, missing), /cannot contain quotes/);
   assert.throws(() => keystorePassword({ UC_KEYSTORE_PASSWORD: 'a\\b' }, missing), /cannot contain quotes/);
+});
+
+// A slice of the build.gradle that `expo prebuild` generates (AGP 8 template).
+const GENERATED = `android {
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            signingConfig signingConfigs.debug
+            shrinkResources false
+        }
+    }
+}
+`;
+
+test('injects the Undercut release signing block and points buildTypes.release at it', () => {
+  const out = injectReleaseSigning(GENERATED, 'pw#1');
+  assert.match(out, /signingConfigs \{[\s\S]*debug \{[\s\S]*\}\n        release \{\n            storeFile file\('\.\.\/\.\.\/undercut-release\.keystore'\)/);
+  assert.match(out, /keyAlias 'undercut'/);
+  assert.match(out, /storePassword 'pw#1'/);
+  assert.match(out, /buildTypes \{[\s\S]*release \{\n            signingConfig signingConfigs\.release/);
+  assert.match(out, /debug \{\n            signingConfig signingConfigs\.debug/); // debug build type untouched
+});
+
+test('is idempotent on a file that already carries the block', () => {
+  const once = injectReleaseSigning(GENERATED, 'pw');
+  assert.equal(injectReleaseSigning(once, 'pw'), once);
+});
+
+test('refuses to silently no-op when the template it anchors on is gone', () => {
+  assert.throws(() => injectReleaseSigning('android {\n  buildTypes { release { signingConfig signingConfigs.debug } }\n}\n', 'pw'), /could not find the generated signingConfigs\.debug block/);
+  const noRelease = GENERATED.replace(/release \{\n            signingConfig signingConfigs\.debug\n            shrinkResources false\n        \}\n/, '');
+  assert.throws(() => injectReleaseSigning(noRelease, 'pw'), /buildTypes\.release still does not use/);
 });

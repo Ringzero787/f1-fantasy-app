@@ -47,32 +47,42 @@ const signingBlock = (pw) => `
             keyPassword '${pw}'
         }`;
 
+/**
+ * Pure string transform, so the mutation is testable without a prebuild.
+ * Throws if the generated build.gradle does not look like the template this
+ * anchors on: a silent no-op here means a debug-signed store build, which
+ * Play rejects only after the upload.
+ */
+function injectReleaseSigning(src, pw) {
+  let out = src;
+  // 1. Inject the release signing block as a sibling of `debug` inside
+  //    signingConfigs { … }. Anchor on the standard-generated debug block and
+  //    append after its closing `}` (4-space indent) rather than balanced-brace
+  //    matching. Guard on the keystore filename (uniquely ours) — a guard on
+  //    `signingConfigs {…release {` falsely matched buildTypes.release.
+  if (!out.includes(KEYSTORE_FILE)) {
+    out = out.replace(
+      /(signingConfigs\s*\{[\s\S]*?\bdebug\s*\{[\s\S]*?\n        \})/,
+      `$1${signingBlock(pw)}`,
+    );
+    if (!out.includes(KEYSTORE_FILE)) {
+      throw new Error('withReleaseSigning: could not find the generated signingConfigs.debug block to inject after — the Android template changed; update the anchor');
+    }
+  }
+  // 2. Switch buildTypes.release to use signingConfigs.release instead of debug.
+  out = out.replace(
+    /(buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?signingConfig\s+)signingConfigs\.debug/,
+    '$1signingConfigs.release',
+  );
+  if (!/buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?signingConfig\s+signingConfigs\.release/.test(out)) {
+    throw new Error('withReleaseSigning: buildTypes.release still does not use signingConfigs.release — the Android template changed; update the anchor');
+  }
+  return out;
+}
+
 function withReleaseSigning(config) {
   return withAppBuildGradle(config, (cfg) => {
-    let src = cfg.modResults.contents;
-
-    // 1. Inject the release signing block as a sibling of `debug` inside
-    //    signingConfigs { … }. We anchor on the standard-generated debug block
-    //    and append after its closing `}` (4-space indent) rather than trying
-    //    to do balanced-brace matching in regex.
-    //    Guard on the keystore filename (uniquely ours) — the previous guard
-    //    `signingConfigs {…release {` falsely matched the buildTypes.release
-    //    block that always appears later in the file, so the signing block was
-    //    never injected and `buildTypes.release` referenced a missing config.
-    if (!src.includes(KEYSTORE_FILE)) {
-      src = src.replace(
-        /(signingConfigs\s*\{[\s\S]*?\bdebug\s*\{[\s\S]*?\n        \})/,
-        `$1${signingBlock(keystorePassword())}`,
-      );
-    }
-
-    // 2. Switch buildTypes.release to use signingConfigs.release instead of debug.
-    src = src.replace(
-      /(buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?signingConfig\s+)signingConfigs\.debug/,
-      '$1signingConfigs.release',
-    );
-
-    cfg.modResults.contents = src;
+    cfg.modResults.contents = injectReleaseSigning(cfg.modResults.contents, keystorePassword());
     return cfg;
   });
 }
@@ -80,3 +90,4 @@ function withReleaseSigning(config) {
 module.exports = withReleaseSigning;
 module.exports.keystorePassword = keystorePassword;
 module.exports.readSigningEnv = readSigningEnv;
+module.exports.injectReleaseSigning = injectReleaseSigning;
