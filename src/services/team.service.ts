@@ -16,6 +16,40 @@ import {
 import { db, functions, httpsCallable } from '../config/firebase';
 import { BUDGET, TEAM_SIZE } from '../config/constants';
 
+/**
+ * A roster callable returns the team as it reads after the write (see
+ * projectTeam in functions/src/teams/teamOperations.ts). Adopting it saves the
+ * getDoc round-trip that used to follow every transfer. Timestamps cross the
+ * callable boundary as {_seconds,_nanoseconds} or ISO strings; normalise the
+ * two the app reads to Dates like createTeam does.
+ */
+function toDate(v: unknown): Date | undefined {
+  if (v instanceof Date) return v;
+  if (typeof v === 'string' || typeof v === 'number') {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  }
+  if (v && typeof v === 'object') {
+    const o = v as { _seconds?: number; seconds?: number };
+    const secs = o._seconds ?? o.seconds;
+    if (typeof secs === 'number') return new Date(secs * 1000);
+  }
+  return undefined;
+}
+
+export function teamFromCallable(raw: unknown): FantasyTeam | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const t = raw as Record<string, unknown>;
+  if (typeof t.id !== 'string' || !Array.isArray(t.drivers)) return null;
+  const createdAt = toDate(t.createdAt);
+  const updatedAt = toDate(t.updatedAt);
+  return {
+    ...t,
+    ...(createdAt ? { createdAt } : {}),
+    ...(updatedAt ? { updatedAt } : {}),
+  } as unknown as FantasyTeam;
+}
+
 // ─── Server-authoritative roster callables ───
 // All roster/budget mutations go through Cloud Functions: prices are read
 // server-side inside a transaction, fees are computed by ONE implementation
@@ -198,8 +232,7 @@ export const teamService = {
     contractLength?: number
   ): Promise<FantasyTeam> {
     const res: any = await callAddDriver({ teamId, driverId, contractLength });
-
-    const team = await this.getTeamById(teamId);
+    const team = teamFromCallable(res?.data?.team) ?? await this.getTeamById(teamId);
     if (team) {
       this.recordTransaction({
         userId: team.userId,
@@ -225,8 +258,7 @@ export const teamService = {
    */
   async removeDriver(teamId: string, driverId: string): Promise<FantasyTeam> {
     const res: any = await callRemoveDriver({ teamId, driverId });
-
-    const team = await this.getTeamById(teamId);
+    const team = teamFromCallable(res?.data?.team) ?? await this.getTeamById(teamId);
     if (team) {
       this.recordTransaction({
         userId: team.userId,
@@ -251,8 +283,7 @@ export const teamService = {
    */
   async setConstructor(teamId: string, constructorId: string, contractLength?: number): Promise<FantasyTeam> {
     const res: any = await callSetConstructor({ teamId, constructorId, contractLength });
-
-    const team = await this.getTeamById(teamId);
+    const team = teamFromCallable(res?.data?.team) ?? await this.getTeamById(teamId);
     if (team) {
       this.recordTransaction({
         userId: team.userId,
@@ -372,8 +403,7 @@ export const teamService = {
    */
   async removeConstructor(teamId: string): Promise<FantasyTeam> {
     const res: any = await callRemoveConstructor({ teamId });
-
-    const team = await this.getTeamById(teamId);
+    const team = teamFromCallable(res?.data?.team) ?? await this.getTeamById(teamId);
     if (team) {
       this.recordTransaction({
         userId: team.userId,

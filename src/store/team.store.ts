@@ -218,6 +218,9 @@ interface TeamState {
   currentTeam: FantasyTeam | null;
   userTeams: FantasyTeam[]; // All teams for the user
   isLoading: boolean;
+  // A transfer is in flight. Distinct from isLoading (which the My Team
+  // screen treats as "nothing to show" and replaces with a spinner).
+  isSavingRoster: boolean;
   error: string | null;
   hasHydrated: boolean; // Track if persist has rehydrated
   lastSyncTime: number | null; // Timestamp of last successful sync
@@ -266,7 +269,11 @@ interface TeamState {
   ) => Promise<void>;
   removeDriver: (driverId: string) => Promise<void>;
   swapDriver: (oldDriverId: string, newDriverId: string) => Promise<void>;
-  setConstructor: (constructorId: string, contractLength?: number) => Promise<void>;
+  setConstructor: (
+    constructorId: string,
+    contractLength?: number,
+    meta?: { id: string; name: string; price: number },
+  ) => Promise<void>;
   // V3: Ace system (replaces star driver) — one of driver or constructor
   setAce: (driverId: string) => Promise<void>;
   setAceConstructor: (constructorId: string) => Promise<void>;
@@ -390,6 +397,7 @@ export const useTeamStore = create<TeamState>()(
   currentTeam: null,
   userTeams: [],
   isLoading: false,
+  isSavingRoster: false,
   error: null,
   hasHydrated: false,
   lastSyncTime: null,
@@ -929,7 +937,7 @@ export const useTeamStore = create<TeamState>()(
 
     let rolledBackTeam: FantasyTeam | null = null;
 
-    set({ isLoading: true, error: null });
+    set({ isSavingRoster: true, error: null });
     try {
       if (isDemoMode) {
         // In demo mode, update team locally
@@ -953,7 +961,7 @@ export const useTeamStore = create<TeamState>()(
 
         // Check if adding this driver would exceed budget
         if (currentMarketPrice > currentTeam.budget) {
-          set({ error: `Cannot afford this driver (need $${currentMarketPrice}, have $${currentTeam.budget})`, isLoading: false });
+          set({ error: `Cannot afford this driver (need $${currentMarketPrice}, have $${currentTeam.budget})`, isSavingRoster: false });
           return;
         }
 
@@ -982,7 +990,7 @@ export const useTeamStore = create<TeamState>()(
           updatedAt: new Date(),
         };
         console.log('addDriver: Updating team, new driver count:', updatedTeam.drivers.length);
-        updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
+        updateTeamAndSync(get, set, updatedTeam, { isSavingRoster: false });
         return;
       }
 
@@ -1020,20 +1028,19 @@ export const useTeamStore = create<TeamState>()(
           updatedAt: new Date(),
         };
         rolledBackTeam = currentTeam;
-        updateTeamAndSync(get, set, optimisticTeam, { isLoading: false });
+        updateTeamAndSync(get, set, optimisticTeam, { isSavingRoster: false });
       }
 
       console.log('addDriver: calling addDriverSecure');
-      await teamService.addDriver(currentTeam.id, driverId, contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH);
-      await refreshTeamFromServer(get, set, currentTeam.id);
-      set({ isLoading: false });
+      const fresh = await teamService.addDriver(currentTeam.id, driverId, contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH);
+      updateTeamAndSync(get, set, fresh, { isSavingRoster: false });
     } catch (error) {
       errorLogService.logError('addDriver', error);
       const message = error instanceof Error ? error.message : 'Failed to add driver';
       // Put the pre-optimistic roster back so a rejected buy (budget, lockout,
       // locked team) doesn't leave a driver on screen the server never accepted.
       if (rolledBackTeam) updateTeamAndSync(get, set, rolledBackTeam);
-      set({ error: message, isLoading: false });
+      set({ error: message, isSavingRoster: false });
     } finally {
       inFlightRosterOps.delete(rosterOpKey);
     }
@@ -1054,7 +1061,7 @@ export const useTeamStore = create<TeamState>()(
 
     let rolledBackTeam: FantasyTeam | null = null;
 
-    set({ isLoading: true, error: null });
+    set({ isSavingRoster: true, error: null });
     try {
       if (isDemoMode) {
         // In demo mode, update team locally
@@ -1091,7 +1098,7 @@ export const useTeamStore = create<TeamState>()(
           lockedPoints: (currentTeam.lockedPoints || 0) + (driverToRemove.pointsScored || 0),
           updatedAt: new Date(),
         };
-        updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
+        updateTeamAndSync(get, set, updatedTeam, { isSavingRoster: false });
         return;
       }
 
@@ -1110,17 +1117,16 @@ export const useTeamStore = create<TeamState>()(
         drivers: currentTeam.drivers.filter(d => d.driverId !== driverId),
         racesSinceTransfer: 0,
         updatedAt: new Date(),
-      }, { isLoading: false });
+      }, { isSavingRoster: false });
 
       console.log('removeDriver: calling removeDriverSecure');
-      await teamService.removeDriver(currentTeam.id, driverId);
-      await refreshTeamFromServer(get, set, currentTeam.id);
-      set({ isLoading: false });
+      const fresh = await teamService.removeDriver(currentTeam.id, driverId);
+      updateTeamAndSync(get, set, fresh, { isSavingRoster: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove driver';
       // Restore the driver the server refused to sell (locked team, etc.).
       if (rolledBackTeam) updateTeamAndSync(get, set, rolledBackTeam);
-      set({ error: message, isLoading: false });
+      set({ error: message, isSavingRoster: false });
     } finally {
       inFlightRosterOps.delete(rosterOpKey);
     }
@@ -1231,7 +1237,7 @@ export const useTeamStore = create<TeamState>()(
     }
   },
 
-  setConstructor: async (constructorId, contractLength) => {
+  setConstructor: async (constructorId, contractLength, meta) => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
     const { currentTeam, selectedConstructor } = get();
 
@@ -1240,7 +1246,11 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
-    set({ isLoading: true, error: null });
+    const rosterOpKey = `ctor:${currentTeam.id}`;
+    if (inFlightRosterOps.has(rosterOpKey)) return;
+    inFlightRosterOps.add(rosterOpKey);
+    let rolledBackTeam: FantasyTeam | null = null;
+    set({ isSavingRoster: true, error: null });
     try {
       if (isDemoMode) {
         // In demo mode, set constructor locally
@@ -1258,7 +1268,7 @@ export const useTeamStore = create<TeamState>()(
 
         // Check if setting this constructor would exceed budget
         if (priceDiff > currentTeam.budget) {
-          set({ error: `Cannot afford this constructor (need $${priceDiff} more, have $${currentTeam.budget})`, isLoading: false });
+          set({ error: `Cannot afford this constructor (need $${priceDiff} more, have $${currentTeam.budget})`, isSavingRoster: false });
           return;
         }
 
@@ -1291,7 +1301,7 @@ export const useTeamStore = create<TeamState>()(
           lockedPoints: (currentTeam.lockedPoints || 0) + bankedPoints,
           updatedAt: new Date(),
         };
-        updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
+        updateTeamAndSync(get, set, updatedTeam, { isSavingRoster: false });
         return;
       }
 
@@ -1299,12 +1309,34 @@ export const useTeamStore = create<TeamState>()(
       // constructor (standard sale quote, points banked correctly) and buys
       // the new one in a single transaction at server prices.
       console.log('setConstructor: calling setConstructorSecure');
-      await teamService.setConstructor(currentTeam.id, constructorId, contractLength);
-      await refreshTeamFromServer(get, set, currentTeam.id);
-      set({ isLoading: false });
+      if (meta) {
+        // Paint the swap immediately; the bank is left to the server because
+        // the old constructor's sale return depends on its termination fee.
+        rolledBackTeam = currentTeam;
+        updateTeamAndSync(get, set, {
+          ...currentTeam,
+          constructor: {
+            constructorId: meta.id,
+            name: meta.name,
+            purchasePrice: meta.price,
+            currentPrice: meta.price,
+            pointsScored: 0,
+            racesHeld: 0,
+            contractLength: contractLength ?? PRICING_CONFIG.CONTRACT_LENGTH,
+            addedAtRace: useAdminStore.getState().getCompletedRaceCount(),
+          },
+          racesSinceTransfer: 0,
+          updatedAt: new Date(),
+        }, { isSavingRoster: false });
+      }
+      const fresh = await teamService.setConstructor(currentTeam.id, constructorId, contractLength);
+      updateTeamAndSync(get, set, fresh, { isSavingRoster: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to set constructor';
-      set({ error: message, isLoading: false });
+      if (rolledBackTeam) updateTeamAndSync(get, set, rolledBackTeam);
+      set({ error: message, isSavingRoster: false });
+    } finally {
+      inFlightRosterOps.delete(rosterOpKey);
     }
   },
 
@@ -1322,7 +1354,11 @@ export const useTeamStore = create<TeamState>()(
       return;
     }
 
-    set({ isLoading: true, error: null });
+    const rosterOpKey = `ctor:${currentTeam.id}`;
+    if (inFlightRosterOps.has(rosterOpKey)) return;
+    inFlightRosterOps.add(rosterOpKey);
+    let rolledBackTeam: FantasyTeam | null = null;
+    set({ isSavingRoster: true, error: null });
     try {
       // Get live market price from admin store
       const { constructorPrices } = useAdminStore.getState();
@@ -1347,19 +1383,28 @@ export const useTeamStore = create<TeamState>()(
           lockedPoints: (currentTeam.lockedPoints || 0) + (currentTeam.constructor.pointsScored || 0),
           updatedAt: new Date(),
         };
-        updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
+        updateTeamAndSync(get, set, updatedTeam, { isSavingRoster: false });
         return;
       }
 
       // Server-authoritative: removeConstructorSecure computes the sale quote
       // and banks the constructor's points correctly in a transaction.
       console.log('removeConstructor: calling removeConstructorSecure');
-      await teamService.removeConstructor(currentTeam.id);
-      await refreshTeamFromServer(get, set, currentTeam.id);
-      set({ isLoading: false });
+      rolledBackTeam = currentTeam;
+      updateTeamAndSync(get, set, {
+        ...currentTeam,
+        constructor: null,
+        racesSinceTransfer: 0,
+        updatedAt: new Date(),
+      }, { isSavingRoster: false });
+      const fresh = await teamService.removeConstructor(currentTeam.id);
+      updateTeamAndSync(get, set, fresh, { isSavingRoster: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove constructor';
-      set({ error: message, isLoading: false });
+      if (rolledBackTeam) updateTeamAndSync(get, set, rolledBackTeam);
+      set({ error: message, isSavingRoster: false });
+    } finally {
+      inFlightRosterOps.delete(rosterOpKey);
     }
   },
 

@@ -87,6 +87,29 @@ async function getCompletedRaceCount(): Promise<number> {
 }
 
 /**
+ * The team as it will read after `updateData` lands, so a callable can hand
+ * the app its new roster without a follow-up read. FieldValue sentinels
+ * (increments, server timestamps) are resolved from the pre-write snapshot.
+ * The extra round-trips this replaced were most of the "slow" in a transfer.
+ */
+function projectTeam(
+  teamId: string,
+  before: FirebaseFirestore.DocumentData,
+  updateData: Record<string, any>,
+  numeric: { lockedPoints?: number; totalPoints?: number } = {},
+): Record<string, any> {
+  const after: Record<string, any> = { ...before, id: teamId };
+  for (const [k, v] of Object.entries(updateData)) {
+    if (k === 'updatedAt' || k === 'lockedPoints' || k === 'totalPoints') continue;
+    after[k] = v;
+  }
+  if (numeric.lockedPoints !== undefined) after.lockedPoints = numeric.lockedPoints;
+  if (numeric.totalPoints !== undefined) after.totalPoints = numeric.totalPoints;
+  after.updatedAt = new Date().toISOString();
+  return after;
+}
+
+/**
  * Server-side team creation with validation.
  * Enforces max 2 teams per user.
  */
@@ -222,15 +245,16 @@ export const addDriverSecure = functions.https.onCall(async (data, context) => {
       addedAtRace: completedRaceCount,
     };
 
-    tx.set(teamRef, {
+    const updateData = {
       drivers: [...drivers, fantasyDriver],
       budget: budget - price,
       totalSpent: (team.totalSpent || 0) + price,
       racesSinceTransfer: 0,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    };
+    tx.set(teamRef, updateData, { merge: true });
 
-    return { driver: fantasyDriver, newBudget: budget - price };
+    return { driver: fantasyDriver, newBudget: budget - price, team: projectTeam(teamId, team, updateData) };
   });
 
   return { success: true, ...result };
@@ -302,6 +326,10 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
       feeWaived: quote.feeWaived,
       bankedPoints,
       newBudget: (team.budget || 0) + quote.saleReturn,
+      team: projectTeam(teamId, team, updateData, {
+        lockedPoints: (team.lockedPoints || 0) + bankedPoints,
+        totalPoints: (team.totalPoints || 0) - bankedPoints,
+      }),
     };
   });
 
@@ -411,6 +439,10 @@ export const setConstructorSecure = functions.https.onCall(async (data, context)
       saleReturn,
       earlyTermFee,
       bankedPoints,
+      team: projectTeam(teamId, team, updateData, bankedPoints > 0 ? {
+        lockedPoints: (team.lockedPoints || 0) + bankedPoints,
+        totalPoints: (team.totalPoints || 0) - bankedPoints,
+      } : {}),
     };
   });
 
@@ -476,6 +508,10 @@ export const removeConstructorSecure = functions.https.onCall(async (data, conte
       feeWaived: quote.feeWaived,
       bankedPoints,
       newBudget: (team.budget || 0) + quote.saleReturn,
+      team: projectTeam(teamId, team, updateData, {
+        lockedPoints: (team.lockedPoints || 0) + bankedPoints,
+        totalPoints: (team.totalPoints || 0) - bankedPoints,
+      }),
     };
   });
 

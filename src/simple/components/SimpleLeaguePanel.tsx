@@ -49,6 +49,7 @@ export function SimpleLeaguePanel() {
   const loadUserLeagues = useLeagueStore((s) => s.loadUserLeagues);
   const loadLeague = useLeagueStore((s) => s.loadLeague);
   const loadLeagueMembers = useLeagueStore((s) => s.loadLeagueMembers);
+  const subscribeToLeagueMembers = useLeagueStore((s) => s.subscribeToLeagueMembers);
   const createLeague = useLeagueStore((s) => s.createLeague);
   const joinLeagueByCode = useLeagueStore((s) => s.joinLeagueByCode);
   const leaveLeague = useLeagueStore((s) => s.leaveLeague);
@@ -83,14 +84,21 @@ export function SimpleLeaguePanel() {
     }
   }, [userId, leagueId]);
 
-  // When we have a league, load its members
+  // When we have a league, follow its standings live. The listener paints the
+  // persisted table first, then every server change (race scored, member
+  // joined) without a pull-to-refresh. Demo mode has no server — it builds the
+  // table from local teams.
   useEffect(() => {
-    if (activeLeague) {
-      clearError();
-      loadLeague(activeLeague.id).catch(() => {});
+    if (!activeLeague) return;
+    clearError();
+    loadLeague(activeLeague.id).catch(() => {});
+    if (isDemoMode) {
       loadLeagueMembers(activeLeague.id).catch(() => {});
+      return;
     }
-  }, [activeLeague?.id]);
+    const unsubscribe = subscribeToLeagueMembers(activeLeague.id);
+    return unsubscribe;
+  }, [activeLeague?.id, isDemoMode]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

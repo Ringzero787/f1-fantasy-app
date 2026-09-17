@@ -161,7 +161,11 @@ export const useLeagueStore = create<LeagueState>()(
   loadUserLeagues: async (userId) => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
 
-    set({ isLoading: true, error: null });
+    // Stale-while-revalidate: the persisted league list renders straight
+    // away and refreshes underneath. isLoading (which gates the standings
+    // spinner) only flips when there is nothing to show yet.
+    const hasCached = get().leagues.length > 0;
+    set({ isLoading: !hasCached, error: null });
     try {
       if (isDemoMode) {
         // In demo mode, just return the current leagues from store
@@ -171,18 +175,17 @@ export const useLeagueStore = create<LeagueState>()(
 
       const leagues = await leagueService.getUserLeagues(userId);
 
-      // Detect which leagues the user is pending in
-      const pendingIds: string[] = [];
-      for (const league of leagues) {
+      // Detect which leagues the user is pending in — one parallel round-trip
+      // for all leagues instead of one per league in series.
+      const pendingChecks = await Promise.all(leagues.map(async (league) => {
         try {
           const pending = await leagueService.getPendingMembers(league.id);
-          if (pending.some(m => m.userId === userId)) {
-            pendingIds.push(league.id);
-          }
+          return pending.some(m => m.userId === userId) ? league.id : null;
         } catch {
-          // Ignore errors checking pending status
+          return null; // Ignore errors checking pending status
         }
-      }
+      }));
+      const pendingIds = pendingChecks.filter((id): id is string => !!id);
 
       set({ leagues, pendingLeagueIds: pendingIds, isLoading: false });
 
@@ -421,12 +424,20 @@ export const useLeagueStore = create<LeagueState>()(
       activeMembersUnsubscribe = null;
     }
 
+    // Key the visible list to THIS league before the first snapshot lands:
+    // the persisted copy if we have one, otherwise empty — never another
+    // league's table under this league's name.
+    set({ members: get().membersByLeague[leagueId] ?? [], isRefreshingMembers: true });
+
     const unsubscribe = leagueService.subscribeToLeagueMembers(
       leagueId,
       (members) => {
         set({
           members,
+          isLoading: false,
+          isRefreshingMembers: false,
           membersByLeague: { ...get().membersByLeague, [leagueId]: members },
+          membersLastFetched: { ...get().membersLastFetched, [leagueId]: Date.now() },
         });
       },
       (error) => {
