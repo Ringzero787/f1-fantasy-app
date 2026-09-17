@@ -1,0 +1,38 @@
+id: OP-008
+title: F-044 value auto-fill + F-045 roster callables return team
+kind: functions-deploy
+status: applied
+params:
+  only: functions:autoLockTeams,functions:onRaceCompleted,functions:repairTeamScoring,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure
+created_at: 2026-09-17T16:39:14.917Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-17T16:39:18.700Z
+    head_sha: 2d67ae077ac68687837444bf3ab91264e328d79f
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-008/dry-run-2026-09-17T16-39-18-700Z.log
+    log_sha256: 48486a57f6798587ffd0ce5ffed6820b32c167ce3763f798bdc78250cd001bca
+    lines: 36
+  - step: gates
+    at: 2026-09-17T16:39:29.382Z
+    head_sha: 2d67ae077ac68687837444bf3ab91264e328d79f
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-17T16:39:29.387Z
+    head_sha: 2d67ae077ac68687837444bf3ab91264e328d79f
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:autoLockTeams,functions:onRaceCompleted,functions:repairTeamScoring,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-008/apply-2026-09-17T16-39-29-387Z.log
+    log_sha256: dfdc84a03b93ce322bae44713dbc9b278b86d82f89fcb8b3245e4ef6505739e9
+    lines: 47
+  - step: gates
+    at: 2026-09-17T16:42:53.815Z
+    head_sha: 2d67ae077ac68687837444bf3ab91264e328d79f
+    exit: 0
+    gates:
+      G15: skip
