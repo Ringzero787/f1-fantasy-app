@@ -238,17 +238,18 @@ const SECTIONS: RuleSection[] = [
     content: [
       {
         type: 'paragraph',
-        text: 'If your team drops below 5 drivers (e.g. after contracts expire), the system automatically fills empty slots so you never miss scoring.',
+        text: 'When a contract expires the seat stays open so you can choose the replacement. If a seat is still empty when the weekend locks, Undercut fills it for you so you never miss scoring.',
       },
       { type: 'heading', text: 'How It Works' },
       {
         type: 'bullets',
         items: [
-          'Triggers when contracts expire and leave empty slots',
-          'Picks the cheapest available drivers you can afford',
-          'Auto-filled drivers are marked as reserve picks',
+          'Expired contracts free the seat and return the sale price to your bank',
+          'Open seats stay open until the weekend locks (you get reminders)',
+          'At the lock, empty seats are filled with the best-value combination your bank can afford \u2014 highest points per race over the last 5 rounds',
+          'Auto-filled drivers are marked as reserve picks and can be sold with no fee',
           'Same applies if you\u2019re missing a constructor',
-          'Won\u2019t fill if you have active lockouts pending',
+          'Locked-out drivers are never auto-filled',
         ],
       },
     ],

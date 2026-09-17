@@ -47,7 +47,6 @@ const DNF_PRICE_PENALTY_MIN = 2;
 // Contract system
 const CONTRACT_LENGTH_DEFAULT = 3;
 const CONTRACT_LOCKOUT_RACES = 1;
-const TEAM_SIZE = 5;
 
 // Firestore batch limit
 const BATCH_OP_LIMIT = 499;
@@ -1234,8 +1233,12 @@ export const onRaceCompleted = functions
     await commitInBatches(teamPriceOps);
     console.log(`[Phase 3] Updated prices for ${freshTeamsSnap.size} teams`);
 
-    // ─── PHASE 3.5: Contract expiry + auto-fill ───
-    console.log(`[Phase 3.5] Processing contract expiry and auto-fill`);
+    // ─── PHASE 3.5: Contract expiry (seats stay open; auto-fill moved to autoLockTeams, F-044) ───
+    // Expiry frees the seat and banks the points; it no longer re-buys the
+    // cheapest car on the grid. Open seats stay open — the incomplete-team
+    // reminders nudge the owner, and autoLockTeams fills whatever is still
+    // empty at the lock with the best-value cars the bank affords (F-044).
+    console.log(`[Phase 3.5] Processing contract expiry`);
 
     const completedRacesSnap = await db.collection('races').where('status', '==', 'completed').get();
     const completedRaceCount = completedRacesSnap.size;
@@ -1243,32 +1246,9 @@ export const onRaceCompleted = functions
     // Reuse freshTeamsSnap from Phase 3 (no re-query needed)
     const contractOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
 
-    // Reuse pre-fetched snapshots with updated prices from Phase 2
-    const allDriversList: Array<{ id: string; name: string; shortName: string; constructorId: string; price: number }> = [];
-    for (const d of driverPriceSnap.docs) {
-      const data = d.data();
-      if (!data.isActive) continue;
-      allDriversList.push({
-        id: d.id,
-        name: data.name || '',
-        shortName: data.shortName || '',
-        constructorId: data.constructorId || '',
-        price: driverPrices.get(d.id) || data.price || 0,
-      });
-    }
-    allDriversList.sort((a, b) => a.price - b.price);
-
-    const allCtorsList: Array<{ id: string; name: string; price: number }> = [];
-    for (const c of ctorPriceSnap.docs) {
-      const data = c.data();
-      if (!data.isActive) continue;
-      allCtorsList.push({ id: c.id, name: data.name || '', price: ctorPrices.get(c.id) || data.price || 0 });
-    }
-    allCtorsList.sort((a, b) => a.price - b.price);
 
     let totalExpiredDrivers = 0;
     let totalExpiredConstructors = 0;
-    let totalAutoFilled = 0;
 
     for (const teamDoc of freshTeamsSnap.docs) {
       const team = teamDoc.data() as FantasyTeam & Record<string, unknown>;
@@ -1285,7 +1265,6 @@ export const onRaceCompleted = functions
       const lockouts: Record<string, number> = { ...(team.driverLockouts || {}) };
 
       let saleReturns = 0;
-      let autoFillCosts = 0;
       const expiredDriverIds: string[] = [];
       let constructorExpired = false;
 
@@ -1309,14 +1288,12 @@ export const onRaceCompleted = functions
       drivers = remainingDrivers;
 
       // (b) Constructor contract expiry
-      let expiredConstructorId: string | undefined;
       if (teamCtor) {
         const cContractLen = teamCtor.contractLength || CONTRACT_LENGTH_DEFAULT;
         if (teamCtor.racesHeld >= cContractLen) {
           saleReturns += teamCtor.currentPrice;
           lockedPoints += teamCtor.pointsScored;
           newlyBanked += teamCtor.pointsScored;
-          expiredConstructorId = teamCtor.constructorId;
           if (aceConstructorId === teamCtor.constructorId) aceConstructorId = undefined;
           teamCtor = null;
           constructorExpired = true;
@@ -1352,69 +1329,11 @@ export const onRaceCompleted = functions
         }
       }
 
-      // (d) Auto-fill drivers (only if drivers expired this pass)
-      if (expiredDriverIds.length > 0) {
-        const teamDriverIds = new Set(drivers.map(d => d.driverId));
-        const expiredSet = new Set(expiredDriverIds);
-        let fillBudget = budget + saleReturns - autoFillCosts;
 
-        for (const candidate of allDriversList) {
-          if (drivers.length >= TEAM_SIZE) break;
-          if (candidate.price > fillBudget) break;
-          if (teamDriverIds.has(candidate.id)) continue;
-          if (expiredSet.has(candidate.id)) continue;
-          // Check lockout
-          const lockExpiry = lockouts[candidate.id];
-          if (lockExpiry !== undefined && completedRaceCount < lockExpiry) continue;
+      // (d) Budget = original budget + sale returns (seats stay open)
+      const newBudget = budget + saleReturns;
 
-          drivers.push({
-            driverId: candidate.id,
-            name: candidate.name,
-            shortName: candidate.shortName,
-            constructorId: candidate.constructorId,
-            purchasePrice: candidate.price,
-            currentPrice: candidate.price,
-            pointsScored: 0,
-            racesHeld: 0,
-            contractLength: CONTRACT_LENGTH_DEFAULT,
-            isReservePick: true,
-            addedAtRace: completedRaceCount,
-          });
-          teamDriverIds.add(candidate.id);
-          autoFillCosts += candidate.price;
-          fillBudget -= candidate.price;
-          totalAutoFilled++;
-        }
-      }
-
-      // (e) Auto-fill constructor (only if constructor expired this pass)
-      if (constructorExpired) {
-        let fillBudget = budget + saleReturns - autoFillCosts;
-        for (const candidate of allCtorsList) {
-          if (candidate.price > fillBudget) break;
-          if (candidate.id === expiredConstructorId) continue;
-
-          teamCtor = {
-            constructorId: candidate.id,
-            name: candidate.name,
-            purchasePrice: candidate.price,
-            currentPrice: candidate.price,
-            pointsScored: 0,
-            racesHeld: 0,
-            contractLength: CONTRACT_LENGTH_DEFAULT,
-            isReservePick: true,
-            addedAtRace: completedRaceCount,
-          };
-          autoFillCosts += candidate.price;
-          totalAutoFilled++;
-          break;
-        }
-      }
-
-      // (f) Budget = original budget + sale returns - auto-fill costs
-      const newBudget = budget + saleReturns - autoFillCosts;
-
-      // (g) Ace auto-clear if price > $200
+      // (e) Ace auto-clear if price > $200
       if (aceDriverId) {
         const aceDriver = drivers.find(d => d.driverId === aceDriverId);
         if (aceDriver && aceDriver.currentPrice > ACE_MAX_PRICE) {
@@ -1445,7 +1364,7 @@ export const onRaceCompleted = functions
     }
 
     await commitInBatches(contractOps);
-    console.log(`[Phase 3.5] Expired ${totalExpiredDrivers} drivers, ${totalExpiredConstructors} constructors, auto-filled ${totalAutoFilled} slots`);
+    console.log(`[Phase 3.5] Expired ${totalExpiredDrivers} drivers, ${totalExpiredConstructors} constructors (seats left open for the owner)`);
     } // end market phases (2, 3, 3.5) idempotency gate
 
     // ─── PHASE 4: Update league rankings ───
@@ -1727,27 +1646,6 @@ export const repairTeamScoring = functions
     ctorPriceSnap.docs.forEach((d) => ctorPriceMap.set(d.id, d.data().price || 0));
 
     // Build sorted driver/constructor lists for auto-fill
-    const allDriversList: Array<{ id: string; name: string; shortName: string; constructorId: string; price: number }> = [];
-    for (const d of driverPriceSnap.docs) {
-      const dd = d.data();
-      if (!dd.isActive) continue;
-      allDriversList.push({
-        id: d.id,
-        name: dd.name || '',
-        shortName: dd.shortName || '',
-        constructorId: dd.constructorId || '',
-        price: driverPriceMap.get(d.id) || dd.price || 0,
-      });
-    }
-    allDriversList.sort((a, b) => a.price - b.price);
-
-    const allCtorsList: Array<{ id: string; name: string; price: number }> = [];
-    for (const c of ctorPriceSnap.docs) {
-      const cd = c.data();
-      if (!cd.isActive) continue;
-      allCtorsList.push({ id: c.id, name: cd.name || '', price: ctorPriceMap.get(c.id) || cd.price || 0 });
-    }
-    allCtorsList.sort((a, b) => a.price - b.price);
 
     // ─── Process each team ───
     const teamsSnap = await db.collection('fantasyTeams').get();
@@ -1964,9 +1862,7 @@ export const repairTeamScoring = functions
       budget = 1000 - totalSpent; // Reset to original budget (BUDGET = 1000)
 
       let saleReturns = 0;
-      let autoFillCosts = 0;
       const expiredDriverIds: string[] = [];
-      let constructorExpired = false;
 
       const remainingDrivers: FantasyDriver[] = [];
       for (const driver of drivers) {
@@ -1990,18 +1886,15 @@ export const repairTeamScoring = functions
       }
       drivers = remainingDrivers;
 
-      let expiredConstructorId: string | undefined;
       if (teamCtor) {
         const cContractLen = teamCtor.contractLength || CONTRACT_LENGTH_DEFAULT;
         if (teamCtor.racesHeld >= cContractLen) {
           const currentPrice = ctorPriceMap.get(teamCtor.constructorId) || teamCtor.currentPrice;
           saleReturns += currentPrice;
           lockedPoints += teamCtor.pointsScored;
-          expiredConstructorId = teamCtor.constructorId;
           if (aceConstructorId === teamCtor.constructorId) aceConstructorId = undefined;
           changes.push(`Expired constructor ${teamCtor.name} (pts=${teamCtor.pointsScored}, price=$${currentPrice})`);
           teamCtor = null;
-          constructorExpired = true;
         } else if (teamCtor) {
           teamCtor = {
             ...teamCtor,
@@ -2010,67 +1903,10 @@ export const repairTeamScoring = functions
         }
       }
 
-      // Auto-fill expired driver slots
-      if (expiredDriverIds.length > 0) {
-        const teamDriverIds = new Set(drivers.map(d => d.driverId));
-        const expiredSet = new Set(expiredDriverIds);
-        let fillBudget = budget + saleReturns - autoFillCosts;
 
-        for (const candidate of allDriversList) {
-          if (drivers.length >= TEAM_SIZE) break;
-          if (candidate.price > fillBudget) break;
-          if (teamDriverIds.has(candidate.id)) continue;
-          if (expiredSet.has(candidate.id)) continue;
-          const lockExpiry = lockouts[candidate.id];
-          if (lockExpiry !== undefined && completedRaceCount < lockExpiry) continue;
-
-          drivers.push({
-            driverId: candidate.id,
-            name: candidate.name,
-            shortName: candidate.shortName,
-            constructorId: candidate.constructorId,
-            purchasePrice: candidate.price,
-            currentPrice: candidate.price,
-            pointsScored: 0,
-            racesHeld: 0,
-            contractLength: CONTRACT_LENGTH_DEFAULT,
-            isReservePick: true,
-            addedAtRace: completedRaceCount,
-          });
-          teamDriverIds.add(candidate.id);
-          autoFillCosts += candidate.price;
-          fillBudget -= candidate.price;
-          changes.push(`Auto-filled driver ${candidate.shortName} ($${candidate.price})`);
-        }
-      }
-
-      // Auto-fill expired constructor slot
-      if (constructorExpired) {
-        let fillBudget = budget + saleReturns - autoFillCosts;
-        for (const candidate of allCtorsList) {
-          if (candidate.price > fillBudget) break;
-          if (candidate.id === expiredConstructorId) continue;
-
-          teamCtor = {
-            constructorId: candidate.id,
-            name: candidate.name,
-            purchasePrice: candidate.price,
-            currentPrice: candidate.price,
-            pointsScored: 0,
-            racesHeld: 0,
-            contractLength: CONTRACT_LENGTH_DEFAULT,
-            isReservePick: true,
-            addedAtRace: completedRaceCount,
-          };
-          autoFillCosts += candidate.price;
-          changes.push(`Auto-filled constructor ${candidate.name} ($${candidate.price})`);
-          break;
-        }
-      }
-
+      // Seats freed by expiry stay open (auto-fill happens at lock, F-044).
       // newBudget computed but not written — manual recalc is read-only for roster/budget
-      void (budget + saleReturns - autoFillCosts);
-
+      void (budget + saleReturns);
       // Ace auto-clear if price exceeded
       if (aceDriverId) {
         const aceDriver = drivers.find(d => d.driverId === aceDriverId);

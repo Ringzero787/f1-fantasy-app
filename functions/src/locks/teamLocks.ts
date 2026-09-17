@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
 import { effectiveLockTime, lockSessionLabel } from '../utils/lockTime';
+import { FillContext, autoFillTeamTx, isIncomplete, loadFillContext } from '../teams/autoFill';
 
 const db = admin.firestore();
 
@@ -16,6 +17,10 @@ const UNLOCK_FAILSAFE_MS = 24 * 60 * 60 * 1000;
  * Scheduled function to lock teams before the weekend's first roster-scoring
  * session: sprint qualifying on sprint weekends, otherwise qualifying.
  * Runs every 15 minutes.
+ *
+ * Seats a player left empty (contract expiry frees them; see F-044) are filled
+ * here, at the last moment before the lock, with the best-value cars the bank
+ * affords — so a forgotten team still fields a competitive roster.
  *
  * Optimized: bulk-fetches league docs using db.getAll() instead of N+1 reads
  */
@@ -45,6 +50,11 @@ export const autoLockTeams = functions.pubsub
       console.log('No races locking soon');
       return null;
     }
+
+    // Market + form are loaded once per run, and only if some team needs it.
+    // A failed load is not retried per team: the teams still lock as-is.
+    let fillCtx: FillContext | null = null;
+    let fillCtxFailed = false;
 
     for (const raceDoc of dueRaces) {
       const race = raceDoc.data();
@@ -79,6 +89,7 @@ export const autoLockTeams = functions.pubsub
       // Lock teams in batches
       let batch = db.batch();
       let lockedCount = 0;
+      let filledCount = 0;
       let opsInBatch = 0;
 
       for (const teamDoc of teamsSnapshot.docs) {
@@ -86,6 +97,29 @@ export const autoLockTeams = functions.pubsub
         const lockDeadline = leagueSettings.get(team.leagueId) || 'qualifying';
 
         if (lockDeadline === 'qualifying') {
+          // Fill forgotten seats first, in a transaction of its own so a
+          // last-minute edit is honoured and one corrupt roster cannot abort
+          // the lock run for everyone else. The lock itself follows in the batch.
+          if (isIncomplete(team) && !fillCtxFailed) {
+            try {
+              if (!fillCtx) {
+                try {
+                  fillCtx = await loadFillContext(db);
+                } catch (err) {
+                  fillCtxFailed = true;
+                  throw err;
+                }
+              }
+              const plan = await autoFillTeamTx(db, teamDoc.ref, fillCtx, raceDoc.id);
+              if (plan) {
+                filledCount++;
+                console.log(`Auto-filled team ${teamDoc.id} for ${race.name}: ` +
+                  `${plan.filledDriverIds.join(',') || '-'} / ${plan.filledConstructorId || '-'} ($${plan.cost})`);
+              }
+            } catch (err) {
+              console.error(`Auto-fill failed for team ${teamDoc.id}; locking it as-is`, err);
+            }
+          }
           batch.update(teamDoc.ref, {
             isLocked: true,
             'lockStatus.canModify': false,
@@ -115,7 +149,7 @@ export const autoLockTeams = functions.pubsub
       }
 
       if (lockedCount > 0) {
-        console.log(`Locked ${lockedCount} teams for race ${race.name}`);
+        console.log(`Locked ${lockedCount} teams for race ${race.name} (auto-filled ${filledCount})`);
       }
 
       // Update race status
