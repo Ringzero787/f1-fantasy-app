@@ -1,0 +1,55 @@
+id: OP-006
+title: R17 Baku best bets
+kind: tl-best-bets
+status: verified
+params:
+  race: azerbaijan_2026
+  picks: leclerc:P2-P5,albon:O15.5,aston_martin:O16.5
+created_at: 2026-09-17T14:20:45.658Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-17T14:21:20.147Z
+    head_sha: eebc601c09a7e739d625016c74701efecd45a90b
+    command: cd newgame/functions && node scripts/setBestBets.js --race='azerbaijan_2026' --picks='leclerc:P2-P5,albon:O15.5,aston_martin:O16.5'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-006/dry-run-2026-09-17T14-21-20-147Z.log
+    log_sha256: 3fea667066be7e3c74a11f4f0ba5102fc2a44f8e01476701f49990e258bc82ae
+    lines: 7
+  - step: backup
+    at: 2026-09-17T14:21:42.410Z
+    head_sha: eebc601c09a7e739d625016c74701efecd45a90b
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-006'/backup.json ben_lines/'azerbaijan_2026'_race
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-006/backup-2026-09-17T14-21-42-410Z.log
+    log_sha256: 92727b5327b530194d64e88b672e15da7d7e90e4a8e719632e1a3fa1780df72a
+    lines: 3
+  - step: gates
+    at: 2026-09-17T14:21:44.007Z
+    head_sha: eebc601c09a7e739d625016c74701efecd45a90b
+    exit: 0
+    gates:
+      G14: pass
+      G15: warn
+  - step: apply
+    at: 2026-09-17T14:21:44.010Z
+    head_sha: eebc601c09a7e739d625016c74701efecd45a90b
+    command: cd newgame/functions && node scripts/setBestBets.js --race='azerbaijan_2026' --picks='leclerc:P2-P5,albon:O15.5,aston_martin:O16.5' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-006/apply-2026-09-17T14-21-44-010Z.log
+    log_sha256: 49160480bd44f1a30c1bf428bd96694909ba949b40055ec66680c12322105366
+    lines: 7
+  - step: verify
+    at: 2026-09-17T14:21:44.661Z
+    head_sha: eebc601c09a7e739d625016c74701efecd45a90b
+    command: node newgame/functions/scripts/checkBenLines.js --race='azerbaijan_2026' --fail-on=high
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-006/verify-2026-09-17T14-21-44-661Z.log
+    log_sha256: 03c3e3d4e0c4effe26faa25f92062d4e99424046da35f57f77b51f1a418f819a
+    lines: 4
+  - step: gates
+    at: 2026-09-17T14:21:46.594Z
+    head_sha: eebc601c09a7e739d625016c74701efecd45a90b
+    exit: 0
+    gates:
+      G15: pass
