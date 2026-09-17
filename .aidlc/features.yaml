@@ -1,4 +1,4 @@
-next_id: 48
+next_id: 49
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -431,3 +431,14 @@ features:
       - economy
       - values
       - copy
+  - id: F-048
+    name: "UC: Android release target (uc-android)"
+    status: planned
+    spec: .aidlc/specs/F-048.md
+    created_at: 2026-09-17
+    summary: Undercut store builds run through the AIDLC release unit like Track Limits — a root withReleaseSigning plugin so prebuild --clean keeps the release signing, scripts/release/build-uc-aab.sh, and the uc-android target.
+    keywords:
+      - release
+      - uc-android
+      - withReleaseSigning
+      - gradle

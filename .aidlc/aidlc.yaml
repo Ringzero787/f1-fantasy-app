@@ -24,17 +24,19 @@ overrides:
     typecheck: "npx tsc --noEmit && (cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
     # Undercut: jest (unit). Track Limits + repo: node:test on the compiled functions, the release-signing plugin,
     # the aidlc op helpers and the release scripts (F-040, F-033, F-014).
-    test: "npx jest --ci && npm --prefix functions run build >/dev/null && node --test functions/test/*.test.js && npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js scripts/ops/*.test.js scripts/release/*.test.js"
+    test: "npx jest --ci && npm --prefix functions run build >/dev/null && node --test functions/test/*.test.js && npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js plugins/*.test.js scripts/ops/*.test.js scripts/release/*.test.js"
     advisory:
       - "npm run lint"
   build:
     # PRs: the JS bundle export proves both apps compile without a native build. Store builds are local, never EAS:
-    # `aidlc run --tier release --unit tracklimits --version X.Y.Z` on the Linux build box runs tl-android (F-014).
+    # `aidlc run --tier release --unit tracklimits --version X.Y.Z` on the Linux build box runs tl-android (F-014);
+    # `--unit undercut` runs uc-android the same way (F-048).
     # Shell scripts are invoked through `bash` so they work whatever file mode a checkout gives them.
     command: "npx expo export --platform android --output-dir .aidlc/tmp/export-undercut && (cd newgame && npx expo export --platform android --output-dir ../.aidlc/tmp/export-tracklimits)"
     output: .aidlc/tmp/export-tracklimits
     targets:
       tl-android: { command: "bash scripts/release/build-tl-aab.sh", artifact: "newgame/android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
+      uc-android: { command: "bash scripts/release/build-uc-aab.sh", artifact: "android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
     manifests:
       android: newgame/app.config.js
       ios: newgame/app.config.js
@@ -143,7 +145,7 @@ releases:
     tag_prefix: uc-v
     paths: [ app/, src/, functions/, app.config.js, package.json, eas.json ]
     changelog: CHANGELOG.md
-    # Undercut store builds (gradle here, xcodebuild on the Mac Mini) are not wired as targets yet.
-    targets: []
+    # Android: uc-android (gradle on the Linux build box, F-048). iOS (xcodebuild on the Mac Mini) is not wired.
+    targets: [ uc-android ]
     features_prefix: [ "UC:" ]
     bump: patch

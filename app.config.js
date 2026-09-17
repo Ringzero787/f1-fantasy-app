@@ -49,6 +49,10 @@ module.exports = {
       favicon: "./assets/favicon.png"
     },
     plugins: [
+      // Re-injects the Undercut release signing config that `expo prebuild
+      // --clean` wipes from android/app/build.gradle (F-048). Password from
+      // UC_KEYSTORE_PASSWORD or the untracked .signing.env, read only at prebuild.
+      "./plugins/withReleaseSigning",
       ["expo-build-properties", {
         ios: {
           useFrameworks: "static",
