@@ -217,14 +217,10 @@ export const garageService = {
   },
 
   // Onboarding wizard commit — server validates the hand and sets the flat
-  // starting bankroll. driverIds/constructorIds come from the (free) opening
-  // roll the player locked in. Idempotent.
-  async commitRoll(
-    userId: string,
-    driverIds: string[],
-    constructorIds: string[],
-    _cashRemaining: number
-  ): Promise<Garage> {
+  // starting bankroll itself (ROLL_STARTING_CASH in garageCallables.ts); the
+  // client sends only the hand, never a cash amount. driverIds/constructorIds
+  // come from the (free) opening roll the player locked in. Idempotent.
+  async commitRoll(userId: string, driverIds: string[], constructorIds: string[]): Promise<Garage> {
     const r = await callCommitRoll({ driverIds, constructorIds });
     return r.data as Garage;
   },

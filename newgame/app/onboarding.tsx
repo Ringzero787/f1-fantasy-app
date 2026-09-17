@@ -142,9 +142,9 @@ export default function OnboardingScreen() {
     try {
       const driverIds = hand.drivers.map((d) => d.id);
       const constructorIds = hand.constructors.map((c) => c.id);
-      // Flat starting bankroll — the roll itself isn't budget-constrained, and
-      // the server sets the real balance regardless of what we pass here.
-      await garageService.commitRoll(user.id, driverIds, constructorIds, startingCash);
+      // The roll itself isn't budget-constrained. The server sets the starting
+      // bankroll itself; `startingCash` here is display-only (config-driven copy).
+      await garageService.commitRoll(user.id, driverIds, constructorIds);
       await useGarageStore.getState().loadOrInitialize(user.id);
       await authService.markOnboarded(user.id);
       setUser({ ...user, hasOnboarded: true });
