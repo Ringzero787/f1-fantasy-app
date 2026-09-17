@@ -18,12 +18,21 @@ PROFILE="${UC_IOS_PROFILE:-Undercut AppStore Distribution}"
 BUNDLE_ID="${UC_IOS_BUNDLE_ID:-com.undercut.app}"
 KEY_ID="${UC_ASC_KEY_ID:-84Y9W9865G}"
 ISSUER="${UC_ASC_ISSUER:-3eda16c0-c433-4d59-bd7e-1d88d02017f7}"
-KC=/tmp/uc-build.keychain
-KC_PW=build
+# Throwaway keychain: private dir under $HOME (not /tmp), random name and
+# password, deleted on exit. The distribution private key lives in it only
+# for the length of the build.
+KC_DIR=$(mktemp -d "$HOME/.uc-build-keychain.XXXXXX")
+chmod 700 "$KC_DIR"
+KC="$KC_DIR/build.keychain"
+KC_PW=$(head -c 24 /dev/urandom | base64 | tr -d '/+=')
+ORIG_KEYCHAINS=$(security list-keychains -d user | tr -d '"' | tr -d ' ')
 
 cleanup() {
-  security list-keychains -d user -s "$HOME/Library/Keychains/login.keychain-db" >/dev/null 2>&1 || true
+  # Restore the search list exactly as it was, then drop the keychain and its dir.
+  # shellcheck disable=SC2086
+  security list-keychains -d user -s $ORIG_KEYCHAINS >/dev/null 2>&1 || true
   security delete-keychain "$KC" >/dev/null 2>&1 || true
+  rm -rf "$KC_DIR"
 }
 trap cleanup EXIT
 
@@ -38,7 +47,6 @@ echo "== pod install"
 (cd ios && pod install)
 
 echo "== keychain"
-security delete-keychain "$KC" >/dev/null 2>&1 || true
 security create-keychain -p "$KC_PW" "$KC"
 security set-keychain-settings -lut 21600 "$KC"
 security unlock-keychain -p "$KC_PW" "$KC"
@@ -46,7 +54,8 @@ security import "$HOME/ZP6VK29GWR.cer" -k "$KC" -T /usr/bin/codesign -T /usr/bin
 # The .p12 was exported without a password.
 security import "$HOME/ZP6VK29GWR.p12" -k "$KC" -P "" -T /usr/bin/codesign -T /usr/bin/security >/dev/null
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PW" "$KC" >/dev/null
-security list-keychains -d user -s "$KC" "$HOME/Library/Keychains/login.keychain-db"
+# shellcheck disable=SC2086
+security list-keychains -d user -s "$KC" $ORIG_KEYCHAINS
 # Capture, then grep: under `set -o pipefail` a `grep -q` that exits early
 # SIGPIPEs the producer and fails the pipeline even on a match.
 IDENTITIES=$(security find-identity -v -p codesigning "$KC")

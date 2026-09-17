@@ -45,8 +45,10 @@ if (require.main === module) {
   }
   try {
     const r = bump(fs.readFileSync(file, 'utf8'), version);
-    if (r.changed) fs.writeFileSync(file, r.source);
+    // Validate before touching the file: a refused --ios call must not leave
+    // a bumped versionCode behind.
     if (ios && r.buildNumber === null) throw new Error('app.config.js has no ios buildNumber');
+    if (r.changed) fs.writeFileSync(file, r.source);
     console.error(`${file}: version ${version}, versionCode ${r.versionCode}${r.buildNumber !== null ? `, buildNumber ${r.buildNumber}` : ''}${r.changed ? '' : ' (already set)'}`);
     console.log(ios ? r.buildNumber : r.versionCode);
   } catch (e) {

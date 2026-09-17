@@ -27,11 +27,14 @@ BUILD=$(node "$ROOT/scripts/release/bump-app-version.js" "$ROOT/app.config.js" "
 
 cd "$ROOT"
 # node_modules, android/ and ios/ are the Mac's own; --delete keeps the rest in
-# lockstep with this checkout. Untracked GoogleService-Info.plist rides along.
+# lockstep with this checkout. Untracked GoogleService-Info.plist rides along;
+# the Android signing material (keystore, its password file, credentials.json)
+# has no business on the Mac and is filtered out explicitly.
 rsync -a --delete \
   --exclude .git --exclude node_modules --exclude android --exclude ios --exclude newgame \
   --exclude functions/lib --exclude functions/node_modules --exclude .aidlc/tmp --exclude .aidlc/runs \
   --exclude android-bundle --exclude .expo --exclude build \
+  --exclude '*.keystore' --exclude .signing.env --exclude credentials.json --exclude '*.p12' --exclude '*.pem' \
   ./ "$MAC:$MAC_DIR/"
 
 ssh -o BatchMode=yes -o ServerAliveInterval=30 "$MAC" \

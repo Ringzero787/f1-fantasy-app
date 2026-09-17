@@ -39,3 +39,17 @@ test('an ios buildNumber moves with the version and holds on a re-run', () => {
   // Track Limits has no iOS block: buildNumber is simply absent.
   assert.equal(bump('version: "0.1.0", versionCode: 1', '0.1.1').buildNumber, null);
 });
+
+test('CLI --ios against a config without an ios block refuses and leaves the file untouched', () => {
+  const { execFileSync } = require('child_process');
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'bump-')), 'app.config.js');
+  const src = 'export default { version: "0.1.0", android: { versionCode: 5 } }';
+  fs.writeFileSync(file, src);
+  assert.throws(() => execFileSync('node', [path.join(__dirname, 'bump-app-version.js'), file, '0.1.1', '--ios'], { stdio: 'pipe' }), /no ios buildNumber/);
+  assert.equal(fs.readFileSync(file, 'utf8'), src);
+  const out = execFileSync('node', [path.join(__dirname, 'bump-app-version.js'), file, '0.1.1'], { stdio: 'pipe' }).toString().trim();
+  assert.equal(out, '6');
+});
