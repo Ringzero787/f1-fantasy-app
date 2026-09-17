@@ -24,9 +24,15 @@ import * as admin from 'firebase-admin';
 export const TEAM_SIZE = 5;
 export const FORM_WINDOW = 5;
 const CONTRACT_LENGTH_DEFAULT = 3;
-// Bitmask selection tracking caps the candidate pool; 22 drivers + a rookie
-// pool never gets near this, but the top-N-by-form cut keeps it safe.
+// Bitmask selection tracking (1 << i) is only valid for i < 31, so the
+// candidate pool is hard-capped here and asserted in bestDrivers; a 22-car
+// grid never gets near it, the top-N-by-form cut keeps larger pools safe.
 const MAX_CANDIDATES = 30;
+// The DP is sized by the bank in whole dollars. A whole roster at the price
+// ceiling ($700 × 6) is $4,200, so anything past this is a corrupt or
+// hostile budget field, not a bigger shopping list — clamp rather than
+// allocate millions of cells from an untrusted number.
+const MAX_FILL_BUDGET = 10_000;
 
 export interface FillCandidate {
   id: string;
@@ -66,8 +72,9 @@ const NEG = Number.NEGATIVE_INFINITY;
  * (seat count, form, -cost) in that order.
  */
 function bestDrivers(cands: FillCandidate[], slots: number, budget: number): DriverPick {
-  const B = Math.max(0, Math.floor(budget));
+  const B = Math.min(MAX_FILL_BUDGET, Math.max(0, Math.floor(budget)));
   const n = cands.length;
+  if (n > MAX_CANDIDATES) throw new Error(`bestDrivers: ${n} candidates exceeds bitmask limit ${MAX_CANDIDATES}`);
   if (n === 0 || slots <= 0 || B <= 0) return { indexes: [], form: 0, cost: 0 };
 
   // form[j][b], cost[j][b], mask[j][b]: best subset of exactly j drivers with
@@ -120,8 +127,8 @@ function topByForm(cands: FillCandidate[]): FillCandidate[] {
  * locked out, active). Returns the seats to fill; never touches Firestore.
  */
 export function selectValueFill(req: FillRequest): FillResult {
-  const budget = Math.max(0, Math.floor(req.budget));
-  const slots = Math.max(0, req.driverSlots);
+  const budget = Math.min(MAX_FILL_BUDGET, Math.max(0, Math.floor(Number(req.budget) || 0)));
+  const slots = Math.min(TEAM_SIZE, Math.max(0, Math.floor(Number(req.driverSlots) || 0)));
   const drivers = topByForm(req.drivers.filter((d) => d.price <= budget));
 
   const driverOnly = (): FillResult => {
@@ -178,10 +185,19 @@ export function getTeamCtor(team: Record<string, any>): Record<string, any> | nu
   return null;
 }
 
+/**
+ * The roster rows we can trust: objects with a string driverId. A null or
+ * primitive entry in a corrupt doc must not throw inside the lock loop.
+ */
+export function rosterDrivers(team: Record<string, any>): Record<string, any>[] {
+  const raw = Array.isArray(team.drivers) ? team.drivers : [];
+  return raw.filter((d: unknown): d is Record<string, any> =>
+    !!d && typeof d === 'object' && typeof (d as Record<string, any>).driverId === 'string');
+}
+
 /** True when the roster has an empty driver seat or no constructor. */
 export function isIncomplete(team: Record<string, any>): boolean {
-  const drivers = Array.isArray(team.drivers) ? team.drivers : [];
-  return drivers.length < TEAM_SIZE || !getTeamCtor(team);
+  return rosterDrivers(team).length < TEAM_SIZE || !getTeamCtor(team);
 }
 
 /**
@@ -191,10 +207,14 @@ export function isIncomplete(team: Record<string, any>): boolean {
  * scored before are the ones expiry can hollow out.
  */
 export function hasEverFielded(team: Record<string, any>): boolean {
-  const drivers = Array.isArray(team.drivers) ? team.drivers : [];
-  if (drivers.length > 0 || getTeamCtor(team)) return true;
+  if (rosterDrivers(team).length > 0 || getTeamCtor(team)) return true;
+  // Phase 1 of onRaceCompleted stamps scoredRaces on every team it scores;
+  // the money and banked-points fields are belt-and-braces for docs that
+  // predate it or were repaired.
   const scored = Array.isArray(team.scoredRaces) ? team.scoredRaces : [];
-  return scored.length > 0;
+  if (scored.length > 0) return true;
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  return n(team.lockedPoints) > 0 || n(team.totalSpent) > 0 || n(team.totalPoints) !== 0;
 }
 
 /**
@@ -265,11 +285,12 @@ export interface AutoFillPlan {
 export function planAutoFill(team: Record<string, any>, ctx: FillContext): AutoFillPlan | null {
   if (!isIncomplete(team) || !hasEverFielded(team)) return null;
 
-  const drivers: Record<string, any>[] = Array.isArray(team.drivers) ? team.drivers : [];
+  const drivers = rosterDrivers(team);
   const ctor = getTeamCtor(team);
   const budget = typeof team.budget === 'number' && Number.isFinite(team.budget) ? team.budget : 0;
   const onTeam = new Set(drivers.map((d) => d.driverId));
-  const lockouts: Record<string, number> = team.driverLockouts || {};
+  const lockouts: Record<string, number> =
+    team.driverLockouts && typeof team.driverLockouts === 'object' ? team.driverLockouts : {};
 
   const eligible = ctx.drivers.filter((c) => {
     if (onTeam.has(c.id)) return false;
@@ -307,4 +328,42 @@ export function planAutoFill(team: Record<string, any>, ctx: FillContext): AutoF
     filledDriverIds: result.drivers.map((c) => c.id),
     filledConstructorId: result.constructor ? result.constructor.id : null,
   };
+}
+
+/**
+ * Fill one team inside a transaction: re-read the doc so a last-minute edit
+ * between the lock query and this write is honoured, write budget and
+ * totalSpent as absolutes from that same read, and stamp lastAutoFill. Returns
+ * the plan applied, or null when there was nothing to do.
+ */
+export async function autoFillTeamTx(
+  db: admin.firestore.Firestore,
+  ref: admin.firestore.DocumentReference,
+  ctx: FillContext,
+  raceId: string,
+): Promise<AutoFillPlan | null> {
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return null;
+    const team = snap.data() as Record<string, any>;
+    if (team.isLocked) return null;
+    const plan = planAutoFill(team, ctx);
+    if (!plan) return null;
+    const totalSpent = typeof team.totalSpent === 'number' && Number.isFinite(team.totalSpent) ? team.totalSpent : 0;
+    tx.update(ref, {
+      drivers: plan.drivers,
+      ...(plan.constructor ? { constructor: plan.constructor } : {}),
+      budget: plan.budget,
+      totalSpent: Math.round(totalSpent + plan.cost),
+      lastAutoFill: {
+        raceId,
+        driverIds: plan.filledDriverIds,
+        constructorId: plan.filledConstructorId,
+        cost: plan.cost,
+        at: admin.firestore.Timestamp.now(),
+      },
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return plan;
+  });
 }

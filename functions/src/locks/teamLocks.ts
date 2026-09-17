@@ -2,7 +2,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
 import { effectiveLockTime, lockSessionLabel } from '../utils/lockTime';
-import { FillContext, isIncomplete, loadFillContext, planAutoFill } from '../teams/autoFill';
+import { FillContext, autoFillTeamTx, isIncomplete, loadFillContext } from '../teams/autoFill';
 
 const db = admin.firestore();
 
@@ -51,6 +51,9 @@ export const autoLockTeams = functions.pubsub
       return null;
     }
 
+    // Market + form are loaded once per run, and only if some team needs it.
+    let fillCtx: FillContext | null = null;
+
     for (const raceDoc of dueRaces) {
       const race = raceDoc.data();
 
@@ -86,39 +89,29 @@ export const autoLockTeams = functions.pubsub
       let lockedCount = 0;
       let filledCount = 0;
       let opsInBatch = 0;
-      // Market + form are loaded once per run, and only if some team needs it.
-      let fillCtx: FillContext | null = null;
 
       for (const teamDoc of teamsSnapshot.docs) {
         const team = teamDoc.data();
         const lockDeadline = leagueSettings.get(team.leagueId) || 'qualifying';
 
         if (lockDeadline === 'qualifying') {
-          let fill: Record<string, unknown> = {};
+          // Fill forgotten seats first, in a transaction of its own so a
+          // last-minute edit is honoured and one corrupt roster cannot abort
+          // the lock run for everyone else. The lock itself follows in the batch.
           if (isIncomplete(team)) {
-            if (!fillCtx) fillCtx = await loadFillContext(db);
-            const plan = planAutoFill(team, fillCtx);
-            if (plan) {
-              fill = {
-                drivers: plan.drivers,
-                ...(plan.constructor ? { constructor: plan.constructor } : {}),
-                budget: plan.budget,
-                totalSpent: admin.firestore.FieldValue.increment(plan.cost),
-                lastAutoFill: {
-                  raceId: raceDoc.id,
-                  driverIds: plan.filledDriverIds,
-                  constructorId: plan.filledConstructorId,
-                  cost: plan.cost,
-                  at: now,
-                },
-              };
-              filledCount++;
-              console.log(`Auto-filled team ${teamDoc.id} for ${race.name}: ` +
-                `${plan.filledDriverIds.join(',') || '-'} / ${plan.filledConstructorId || '-'} ($${plan.cost})`);
+            try {
+              if (!fillCtx) fillCtx = await loadFillContext(db);
+              const plan = await autoFillTeamTx(db, teamDoc.ref, fillCtx, raceDoc.id);
+              if (plan) {
+                filledCount++;
+                console.log(`Auto-filled team ${teamDoc.id} for ${race.name}: ` +
+                  `${plan.filledDriverIds.join(',') || '-'} / ${plan.filledConstructorId || '-'} ($${plan.cost})`);
+              }
+            } catch (err) {
+              console.error(`Auto-fill failed for team ${teamDoc.id}; locking it as-is`, err);
             }
           }
           batch.update(teamDoc.ref, {
-            ...fill,
             isLocked: true,
             'lockStatus.canModify': false,
             'lockStatus.lockReason': `Locked for ${race.name} ${lockSessionLabel(race)}`,

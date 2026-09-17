@@ -123,3 +123,22 @@ test('planAutoFill: keeps held drivers, fills only the open seats, never duplica
   assert.deepEqual(ids.slice(0, 2), ['lawson', 'gasly']);
   assert.ok(plan.cost <= 300);
 });
+
+test('hardening: absurd budget is clamped, malformed roster rows are ignored, huge pools are cut', () => {
+  const big = selectValueFill({ budget: 1e9, driverSlots: 5, needConstructor: false, drivers: MARKET, constructors: [] });
+  assert.equal(big.drivers.length, 5);
+  const corrupt = { drivers: [null, 42, { name: 'no id' }, held('lawson')], constructor: null, budget: 500, scoredRaces: ['x'] };
+  const plan = planAutoFill(corrupt, CTX);
+  assert.ok(plan);
+  assert.equal(plan.drivers.filter((d) => d && d.driverId).length, plan.drivers.length);
+  assert.ok(plan.drivers.some((d) => d.driverId === 'lawson'));
+  const pool = Array.from({ length: 60 }, (_, i) => D(`d${i}`, 10 + i, i));
+  const many = selectValueFill({ budget: 400, driverSlots: 5, needConstructor: false, drivers: pool, constructors: [] });
+  assert.equal(many.drivers.length, 5);
+});
+
+test('hasEverFielded: banked points or spend count as having played, even with no scoredRaces', () => {
+  assert.equal(hasEverFielded({ drivers: [], constructor: null, lockedPoints: 300 }), true);
+  assert.equal(hasEverFielded({ drivers: [], constructor: null, totalSpent: 900 }), true);
+  assert.equal(hasEverFielded({ drivers: [], constructor: null, budget: 1000 }), false);
+});
