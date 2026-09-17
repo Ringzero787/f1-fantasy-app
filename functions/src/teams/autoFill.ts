@@ -153,12 +153,15 @@ export function selectValueFill(req: FillRequest): FillResult {
   };
 
   for (const ctor of req.constructors) {
-    if (ctor.price > budget) continue;
-    const pick = bestDrivers(drivers, slots, budget - ctor.price);
+    // Same normalisation as the driver weights: a zero or negative price on a
+    // constructor doc must not credit the bank.
+    const ctorPrice = Math.max(0, Math.ceil(ctor.price));
+    if (ctorPrice > budget) continue;
+    const pick = bestDrivers(drivers, slots, budget - ctorPrice);
     const r: FillResult = {
       drivers: pick.indexes.map((i) => drivers[i]),
       constructor: ctor,
-      cost: pick.cost + ctor.price,
+      cost: pick.cost + ctorPrice,
       form: pick.form + ctor.form,
     };
     if (better(r, best)) best = r;
@@ -255,9 +258,10 @@ export async function loadFillContext(db: admin.firestore.Firestore): Promise<Fi
       name: data.name || '',
       shortName: data.shortName || '',
       constructorId: data.constructorId || '',
-      // Whole dollars, rounded up, so the knapsack weight, the debit from the
-      // bank and the purchasePrice stamped on the roster row are one number.
-      price: Math.ceil(price),
+      // Whole dollars, rounded up and never below zero, so the knapsack
+      // weight, the debit from the bank and the purchasePrice stamped on the
+      // roster row are one number — and a bad price can only cost, never pay.
+      price: Math.max(0, Math.ceil(price)),
       form: formOf(doc.id),
     };
   };
@@ -315,8 +319,8 @@ export function planAutoFill(team: Record<string, any>, ctx: FillContext): AutoF
   const stamp = (c: FillCandidate, withCtorId: boolean) => ({
     ...(withCtorId ? { driverId: c.id, shortName: c.shortName, constructorId: c.constructorId } : { constructorId: c.id }),
     name: c.name,
-    purchasePrice: Math.ceil(c.price),
-    currentPrice: Math.ceil(c.price),
+    purchasePrice: Math.max(0, Math.ceil(c.price)),
+    currentPrice: Math.max(0, Math.ceil(c.price)),
     pointsScored: 0,
     racesHeld: 0,
     contractLength: CONTRACT_LENGTH_DEFAULT,

@@ -113,11 +113,13 @@ export const autoLockTeams = functions.pubsub
               const plan = await autoFillTeamTx(db, teamDoc.ref, fillCtx, raceDoc.id);
               if (plan) {
                 filledCount++;
-                console.log(`Auto-filled team ${teamDoc.id} for ${race.name}: ` +
-                  `${plan.filledDriverIds.join(',') || '-'} / ${plan.filledConstructorId || '-'} ($${plan.cost})`);
+                // Values from Firestore docs go in as arguments, never in the
+                // format string: a "%s" in a race name must not forge the log line.
+                console.log('Auto-filled team %s for %s: %s / %s ($%d)',
+                  teamDoc.id, race.name, plan.filledDriverIds.join(',') || '-', plan.filledConstructorId || '-', plan.cost);
               }
             } catch (err) {
-              console.error(`Auto-fill failed for team ${teamDoc.id}; locking it as-is`, err);
+              console.error('Auto-fill failed for team %s; locking it as-is', teamDoc.id, err);
             }
           }
           batch.update(teamDoc.ref, {
