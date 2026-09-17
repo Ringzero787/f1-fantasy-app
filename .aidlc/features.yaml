@@ -1,4 +1,4 @@
-next_id: 44
+next_id: 45
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -382,3 +382,14 @@ features:
       - bonus
     version_shipped: 0.1.44
     shipped_at: 2026-09-17
+  - id: F-044
+    name: "UC: Auto-fill by value at lock time"
+    status: planned
+    spec: .aidlc/specs/F-044.md
+    created_at: 2026-09-17
+    summary: Expired contracts leave seats open until the weekend locks; autoLockTeams then fills forgotten seats with the best-value combination the bank affords instead of the cheapest drivers.
+    keywords:
+      - auto-fill
+      - autoLockTeams
+      - contract expiry
+      - value

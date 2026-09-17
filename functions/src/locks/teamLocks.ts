@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
 import { effectiveLockTime, lockSessionLabel } from '../utils/lockTime';
+import { FillContext, isIncomplete, loadFillContext, planAutoFill } from '../teams/autoFill';
 
 const db = admin.firestore();
 
@@ -16,6 +17,10 @@ const UNLOCK_FAILSAFE_MS = 24 * 60 * 60 * 1000;
  * Scheduled function to lock teams before the weekend's first roster-scoring
  * session: sprint qualifying on sprint weekends, otherwise qualifying.
  * Runs every 15 minutes.
+ *
+ * Seats a player left empty (contract expiry frees them; see F-044) are filled
+ * here, at the last moment before the lock, with the best-value cars the bank
+ * affords — so a forgotten team still fields a competitive roster.
  *
  * Optimized: bulk-fetches league docs using db.getAll() instead of N+1 reads
  */
@@ -79,14 +84,41 @@ export const autoLockTeams = functions.pubsub
       // Lock teams in batches
       let batch = db.batch();
       let lockedCount = 0;
+      let filledCount = 0;
       let opsInBatch = 0;
+      // Market + form are loaded once per run, and only if some team needs it.
+      let fillCtx: FillContext | null = null;
 
       for (const teamDoc of teamsSnapshot.docs) {
         const team = teamDoc.data();
         const lockDeadline = leagueSettings.get(team.leagueId) || 'qualifying';
 
         if (lockDeadline === 'qualifying') {
+          let fill: Record<string, unknown> = {};
+          if (isIncomplete(team)) {
+            if (!fillCtx) fillCtx = await loadFillContext(db);
+            const plan = planAutoFill(team, fillCtx);
+            if (plan) {
+              fill = {
+                drivers: plan.drivers,
+                ...(plan.constructor ? { constructor: plan.constructor } : {}),
+                budget: plan.budget,
+                totalSpent: admin.firestore.FieldValue.increment(plan.cost),
+                lastAutoFill: {
+                  raceId: raceDoc.id,
+                  driverIds: plan.filledDriverIds,
+                  constructorId: plan.filledConstructorId,
+                  cost: plan.cost,
+                  at: now,
+                },
+              };
+              filledCount++;
+              console.log(`Auto-filled team ${teamDoc.id} for ${race.name}: ` +
+                `${plan.filledDriverIds.join(',') || '-'} / ${plan.filledConstructorId || '-'} ($${plan.cost})`);
+            }
+          }
           batch.update(teamDoc.ref, {
+            ...fill,
             isLocked: true,
             'lockStatus.canModify': false,
             'lockStatus.lockReason': `Locked for ${race.name} ${lockSessionLabel(race)}`,
@@ -115,7 +147,7 @@ export const autoLockTeams = functions.pubsub
       }
 
       if (lockedCount > 0) {
-        console.log(`Locked ${lockedCount} teams for race ${race.name}`);
+        console.log(`Locked ${lockedCount} teams for race ${race.name} (auto-filled ${filledCount})`);
       }
 
       // Update race status

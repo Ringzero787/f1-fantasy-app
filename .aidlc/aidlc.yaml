@@ -24,7 +24,7 @@ overrides:
     typecheck: "npx tsc --noEmit && (cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
     # Undercut: jest (unit). Track Limits + repo: node:test on the compiled functions, the release-signing plugin,
     # the aidlc op helpers and the release scripts (F-040, F-033, F-014).
-    test: "npx jest --ci && npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js scripts/ops/*.test.js scripts/release/*.test.js"
+    test: "npx jest --ci && npm --prefix functions run build >/dev/null && node --test functions/test/*.test.js && npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js scripts/ops/*.test.js scripts/release/*.test.js"
     advisory:
       - "npm run lint"
   build:
