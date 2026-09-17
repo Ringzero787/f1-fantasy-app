@@ -8,6 +8,20 @@ tagged **(server)**.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.2.3] (54) — 2026-09-17
+### Changed
+- Roster edits adopt the team the server returns: no follow-up reads and no
+  full-screen spinner while a transfer saves. Constructor add/remove paint
+  immediately and roll back if the server refuses. (F-045)
+- League standings follow a live listener seeded from the cached table, and the
+  league list loads stale-while-revalidate. (F-045)
+- Rules Guide: the Auto-Fill section describes the lock-time, value-based fill. (F-044)
+### Server
+- **(server)** Contract expiry leaves the seat open; `autoLockTeams` fills seats
+  still empty at the lock with the best-value cars the bank affords, instead of
+  re-buying the cheapest driver at expiry. (F-044, F-046)
+- **(server)** The four roster callables return the updated team. (F-045)
+
 ## [2.2.2] (53) — 2026-07-25
 ### Changed
 - `targetSdkVersion` 35 → 36 (Android 16) for the Play Store Aug 30, 2026
