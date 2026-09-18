@@ -38,7 +38,7 @@ overrides:
       tl-android: { command: "bash scripts/release/build-tl-aab.sh", artifact: "newgame/android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
       uc-android: { command: "bash scripts/release/build-uc-aab.sh", artifact: "android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
       uc-amazon: { command: "bash scripts/release/build-uc-apk-amazon.sh", artifact: "android/app/build/outputs/apk/release/app-release.apk", runner: ubuntu-latest, tiers: [ release ] }
-      uc-ios: { command: "bash scripts/release/build-uc-ios.sh", artifact: ".aidlc/tmp/undercut-ios", runner: ubuntu-latest, tiers: [ release ] }
+      uc-ios: { command: "bash scripts/release/build-uc-ios.sh", artifact: ".aidlc/tmp/undercut-ios/*.ipa", runner: ubuntu-latest, tiers: [ release ] }
     manifests:
       android: newgame/app.config.js
       ios: newgame/app.config.js
