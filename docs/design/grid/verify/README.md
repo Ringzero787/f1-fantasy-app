@@ -13,5 +13,8 @@ Expo-web renders (Playwright, headless Chromium, 396×856 @2x, demo mode) taken 
 | `F-051-standings-dark.png` | F-051 | Standings with the viewer's row in red |
 | `F-052-profile-dark.png` / `-light.png` | F-052 | Profile: identity, rows, pills, stat cards |
 | `F-052-profile-history-light.png` | F-052 | Profile scrolled: RACE HISTORY expanded, PRIVACY POLICY |
+| `F-053-login-dark.png` | F-053 | Sign-in: wordmark, social pills |
+| `F-053-register-light.png` | F-053 | Create account: social pills + email fields |
+| `F-053-create-team-dark.png` | F-053 | First run: Name your team |
 
 Recipe: see the session notes — `npx expo start --web --clear` on a free port, then `PORT=<port> node shot*.js <outdir> dark|light`.

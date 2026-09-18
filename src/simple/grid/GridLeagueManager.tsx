@@ -40,7 +40,6 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const leagues = useLeagueStore((s) => s.leagues);
   const members = useLeagueStore((s) => s.members);
   const loadUserLeagues = useLeagueStore((s) => s.loadUserLeagues);
-  const loadLeague = useLeagueStore((s) => s.loadLeague);
   const createLeague = useLeagueStore((s) => s.createLeague);
   const joinLeagueByCode = useLeagueStore((s) => s.joinLeagueByCode);
   const leaveLeague = useLeagueStore((s) => s.leaveLeague);

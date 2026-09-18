@@ -1,191 +1,49 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/hooks/useAuth';
-import { Input, Button } from '../../src/components';
-import { COLORS, SPACING, FONTS } from '../../src/config/constants';
+import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
+import { AuthShell, AuthError, GridField } from '../../src/simple/grid/GridAuthBits';
+import { MonoLabel, PillButton } from '../../src/simple/grid/GridBits';
 import { isValidEmail } from '../../src/utils/validation';
 
 export default function ForgotPasswordScreen() {
+  const { colors, family, scaled } = useSimpleTheme();
   const { resetPassword, isLoading, error, clearError } = useAuth();
   const [email, setEmail] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const handleResetPassword = async () => {
-    clearError();
-    setValidationError(null);
-
-    if (!email.trim()) {
-      setValidationError('Email is required');
-      return;
-    }
-
-    if (!isValidEmail(email)) {
-      setValidationError('Please enter a valid email');
-      return;
-    }
-
-    try {
-      await resetPassword(email.trim());
-      setSuccess(true);
-    } catch (err) {
-      // Error is handled by the store
-    }
+  const handleReset = async () => {
+    clearError(); setValidationError(null);
+    if (!email.trim()) { setValidationError('Email is required'); return; }
+    if (!isValidEmail(email)) { setValidationError('Please enter a valid email'); return; }
+    try { await resetPassword(email.trim()); setSuccess(true); } catch { /* store holds the error */ }
   };
 
-  if (success) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.successContainer}>
-          <Text style={styles.successTitle}>Check Your Email</Text>
-          <Text style={styles.successText}>
-            We've sent a password reset link to {email}. Please check your inbox
-            and follow the instructions to reset your password.
-          </Text>
-          <Button
-            title="Back to Sign In"
-            onPress={() => router.back()}
-            fullWidth
-            style={styles.button}
-          />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const title = { fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(26), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase' as const, color: colors.text.primary };
+  const body = { fontFamily: family.ui.regular, fontSize: scaled(12), lineHeight: scaled(18), color: colors.text.muted };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.form}>
-            <Text style={styles.title}>Reset Password</Text>
-            <Text style={styles.description}>
-              Enter your email address and we'll send you a link to reset your
-              password.
-            </Text>
-
-            {(error || validationError) && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error || validationError}</Text>
-              </View>
-            )}
-
-            <Input
-              label="Email"
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={setEmail}
-              leftIcon="mail-outline"
-            />
-
-            <Button
-              title="Send Reset Link"
-              onPress={handleResetPassword}
-              loading={isLoading}
-              fullWidth
-              style={styles.button}
-            />
-
-            <Button
-              title="Back to Sign In"
-              onPress={() => router.back()}
-              variant="ghost"
-              fullWidth
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <AuthShell caption={success ? 'EMAIL SENT' : 'RESET PASSWORD'}>
+      {success ? (
+        <View style={{ gap: 14 }}>
+          <Text style={title}>Check your email</Text>
+          <Text style={body}>We sent a reset link to {email}. Follow it to choose a new password.</Text>
+          <PillButton label="BACK TO SIGN IN" variant="inverse" onPress={() => router.back()} style={{ marginTop: 6 }} />
+        </View>
+      ) : (
+        <View style={{ gap: 14 }}>
+          <Text style={title}>Reset password</Text>
+          <Text style={body}>Enter the email on your account and we'll send a reset link.</Text>
+          <AuthError messages={[...(validationError ? [validationError] : []), ...(error ? [error] : [])]} />
+          <GridField label="EMAIL" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} mono />
+          <PillButton label={isLoading ? 'SENDING…' : 'SEND RESET LINK'} variant="primary" disabled={isLoading} onPress={handleReset} style={{ marginTop: 6 }} />
+          <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingVertical: 12 }} accessibilityRole="button" accessibilityLabel="Back">
+            <MonoLabel color={colors.text.muted}>BACK</MonoLabel>
+          </Pressable>
+        </View>
+      )}
+    </AuthShell>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-
-  keyboardView: {
-    flex: 1,
-  },
-
-  scrollContent: {
-    flexGrow: 1,
-    padding: SPACING.xl,
-  },
-
-  form: {
-    width: '100%',
-  },
-
-  title: {
-    fontSize: FONTS.sizes.xxl,
-    fontWeight: 'bold',
-    color: COLORS.gray[900],
-    marginBottom: SPACING.xs,
-  },
-
-  description: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
-    marginBottom: SPACING.xl,
-    lineHeight: 22,
-  },
-
-  errorContainer: {
-    backgroundColor: COLORS.error + '15',
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.md,
-  },
-
-  errorText: {
-    color: COLORS.error,
-    fontSize: FONTS.sizes.sm,
-  },
-
-  button: {
-    marginTop: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-
-  successContainer: {
-    flex: 1,
-    padding: SPACING.xl,
-    justifyContent: 'center',
-  },
-
-  successTitle: {
-    fontSize: FONTS.sizes.xxl,
-    fontWeight: 'bold',
-    color: COLORS.gray[900],
-    marginBottom: SPACING.md,
-    textAlign: 'center',
-  },
-
-  successText: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.gray[600],
-    marginBottom: SPACING.xl,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-});
