@@ -1,0 +1,45 @@
+id: OP-013
+title: "F-054 rules: best-race fields are server-owned"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-09-18T17:52:29.426Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-18T17:52:29.601Z
+    head_sha: b653366c6c302851e826b7e69218fab2a5608842
+    command: git --no-pager diff '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-013/dry-run-2026-09-18T17-52-29-601Z.log
+    log_sha256: c83929811ef2acaef5fb64aee1b7efa16ff38e4b4dedc7195ad1aae778f55dac
+    lines: 507
+  - step: dry-run
+    at: 2026-09-18T18:42:02.404Z
+    head_sha: e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24
+    command: git --no-pager diff '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-013/dry-run-2026-09-18T18-42-02-404Z.log
+    log_sha256: c83929811ef2acaef5fb64aee1b7efa16ff38e4b4dedc7195ad1aae778f55dac
+    lines: 507
+  - step: gates
+    at: 2026-09-18T18:42:03.444Z
+    head_sha: e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-18T18:42:03.449Z
+    head_sha: e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-013/apply-2026-09-18T18-42-03-449Z.log
+    log_sha256: 626b185fa89197eeb73eeb3abcc7a65485f4f728635ff65e9171c317b2211e49
+    lines: 13
+  - step: gates
+    at: 2026-09-18T18:42:06.600Z
+    head_sha: e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,52 @@
+id: OP-012
+title: F-054 standings movement + best-race fields
+kind: functions-deploy
+status: applied
+params:
+  only: functions:onRaceCompleted,functions:repairTeamScoring,functions:calculatePointsManually,functions:checkQualifyingResults,functions:checkSprintResults
+created_at: 2026-09-18T17:52:14.224Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-18T17:52:21.702Z
+    head_sha: b653366c6c302851e826b7e69218fab2a5608842
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-012/dry-run-2026-09-18T17-52-21-702Z.log
+    log_sha256: bd79e1d5e90325a6672f7af7e5713e7c40b3d5f69ef7595b2cbcf98aea50adda
+    lines: 37
+  - step: gates
+    at: 2026-09-18T18:38:56.548Z
+    head_sha: e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24
+    exit: 1
+    gates:
+      G14: fail
+  - step: dry-run
+    at: 2026-09-18T18:39:08.997Z
+    head_sha: e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-012/dry-run-2026-09-18T18-39-08-997Z.log
+    log_sha256: bd79e1d5e90325a6672f7af7e5713e7c40b3d5f69ef7595b2cbcf98aea50adda
+    lines: 37
+  - step: gates
+    at: 2026-09-18T18:39:12.038Z
+    head_sha: e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-18T18:39:12.044Z
+    head_sha: e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:onRaceCompleted,functions:repairTeamScoring,functions:calculatePointsManually,functions:checkQualifyingResults,functions:checkSprintResults' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-012/apply-2026-09-18T18-39-12-044Z.log
+    log_sha256: a78443ccd3ae50860bac5beb414fae46b4e708d7429dee894403e93abf97fe31
+    lines: 43
+  - step: gates
+    at: 2026-09-18T18:41:56.431Z
+    head_sha: e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24
+    exit: 0
+    gates:
+      G15: skip
