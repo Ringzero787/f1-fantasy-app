@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, writeBatch, collection, query, where, limit, increment, serverTimestamp } = require('firebase/firestore');
+const { doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, writeBatch, collection, query, where, limit, increment, serverTimestamp } = require('firebase/firestore');
 
 let env;
 const OWNER = 'owner1', ALICE = 'alice', BOB = 'bob', MALLORY = 'mallory';
@@ -143,7 +143,7 @@ test('league doc: no ownership transfer, no shrinking capacity, no count games',
   await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'L1'), { maxMembers: 5 }));
   const outsider = doc(db(MALLORY), 'leagues', 'L1');
   await assertFails(updateDoc(outsider, { memberCount: increment(1), updatedAt: serverTimestamp() }));   // not a member
-  await assertFails(updateDoc(outsider, { memberCount: 0, updatedAt: serverTimestamp() }));          // floor of 1
+  await assertFails(updateDoc(outsider, { updatedAt: serverTimestamp() }));                          // no free writes
   await assertFails(updateDoc(outsider, { memberCount: 40, updatedAt: serverTimestamp() }));
   await assertFails(updateDoc(outsider, { name: 'pwned' }));
   await assertFails(updateDoc(doc(db(ALICE), 'leagues', 'L1'), { memberCount: increment(-1), updatedAt: serverTimestamp() })); // still a member
@@ -151,11 +151,50 @@ test('league doc: no ownership transfer, no shrinking capacity, no count games',
   await assertFails(updateDoc(doc(db(ALICE), 'leagues', 'L1'), { maxMembers: 999 }));
 });
 
-test('known residual: a non-member can nudge memberCount down by one (never below 1) — same shape as a real leaver', async () => {
+test('known residual: a non-member can nudge memberCount down by one (never below 0) — same shape as a real leaver', async () => {
   await seedLeague('L1', { memberCount: 3 });
   const outsider = doc(db(MALLORY), 'leagues', 'L1');
   await assertSucceeds(updateDoc(outsider, { memberCount: increment(-1), updatedAt: serverTimestamp() }));
   await assertFails(updateDoc(outsider, { memberCount: increment(-2), updatedAt: serverTimestamp() }));
+});
+
+test('a drifted count never strands a leaver: the decrement to 0 is allowed', async () => {
+  await seedLeague('L1', { memberCount: 1 }); await seedMember('L1', ALICE);
+  const d = db(ALICE);
+  await assertSucceeds(deleteDoc(doc(d, 'leagues', 'L1', 'members', ALICE)));
+  await assertSucceeds(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(-1), updatedAt: serverTimestamp() }));
+});
+
+test('a pending member reads (so released clients can detect pending) but has no write privileges', async () => {
+  await seedLeague('L1', { settings: { requireApproval: true } });
+  await seedMember('L1', ALICE, { status: 'pending', totalPoints: 0, rank: 0 });
+  const d = db(ALICE);
+  await assertSucceeds(getDocs(query(collection(d, 'leagues', 'L1', 'members'), where('status', '==', 'pending'))));
+  await assertFails(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() }));
+  await assertFails(addDoc(collection(d, 'leagues', 'L1', 'messages'), { senderId: ALICE, text: 'hi' }));
+  await assertFails(addDoc(collection(d, 'leagues', 'L1', 'invites'), { email: 'x@example.com', status: 'pending', sentBy: ALICE, createdAt: 'now' }));
+});
+
+test('approved members chat and invite (both invite shapes released clients send); count cannot pass capacity', async () => {
+  await seedLeague('L1', { maxMembers: 2, memberCount: 2 }); await seedMember('L1', ALICE);
+  const d = db(ALICE);
+  await assertSucceeds(addDoc(collection(d, 'leagues', 'L1', 'messages'), { senderId: ALICE, text: 'hi' }));
+  await assertSucceeds(addDoc(collection(d, 'leagues', 'L1', 'invites'), { email: 'x@example.com', status: 'pending', sentBy: ALICE, createdAt: 'now' }));
+  await assertSucceeds(addDoc(collection(d, 'leagues', 'L1', 'invites'), { email: 'y@example.com', status: 'pending', createdAt: serverTimestamp(), expiresAt: new Date() }));
+  await assertFails(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() }));
+});
+
+test('owner updates still work on a legacy member doc without role or status; bad join ranks are refused', async () => {
+  await seedLeague();
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'leagues', 'L1', 'members', BOB), { leagueId: 'L1', userId: BOB, totalPoints: 40 }); });
+  await assertSucceeds(updateDoc(doc(db(OWNER), 'leagues', 'L1', 'members', BOB), { rank: 2 }));
+  await assertFails(setDoc(doc(db(ALICE), 'leagues', 'L1', 'members', ALICE), joinMember('L1', ALICE, 'approved', -1)));
+  await assertFails(setDoc(doc(db(ALICE), 'leagues', 'L1', 'members', ALICE), joinMember('L1', ALICE, 'approved', 'first')));
+});
+
+test('a league with settings: null still accepts joins', async () => {
+  await seedLeague('L1', { settings: null });
+  await assertSucceeds(setDoc(doc(db(ALICE), 'leagues', 'L1', 'members', ALICE), joinMember('L1', ALICE)));
 });
 
 test('unauthenticated users get nothing', async () => {
