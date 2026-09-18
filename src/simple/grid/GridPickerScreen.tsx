@@ -168,15 +168,20 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   }, [sheet, pending, contract]);
 
   // Commit: sells first (frees budget), then driver buys, then the constructor.
+  // Each step is its own server transaction, so a failure part-way leaves the
+  // earlier steps applied; the alert says exactly what went through and the
+  // pending lineup re-seeds from what the server now holds.
   const applyPlan = useCallback(async () => {
     if (!plan || !pending || !current || !team) return;
     setApplying(true);
     const store = useTeamStore.getState();
+    const done: string[] = [];
     const step = async (label: string, fn: () => Promise<void>) => {
       useTeamStore.setState({ error: null });
       await fn();
       const err = useTeamStore.getState().error;
-      if (err) throw new Error(`${label}: ${err}`);
+      if (err) throw new Error(`${label} failed: ${err}`);
+      done.push(label);
     };
     try {
       for (const s of plan.sells.filter((x) => x.kind === 'driver')) {
@@ -198,8 +203,11 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       router.back();
     } catch (e) {
       setSummaryOpen(false);
-      Alert.alert('Lineup not saved', e instanceof Error ? e.message : 'Something went wrong. Your roster shows what the server has.');
-      setPending(pendingFromCurrent(current));
+      const reason = e instanceof Error ? e.message : 'Something went wrong.';
+      const applied = done.length ? `Already applied: ${done.join(', ')}.\n\n` : '';
+      Alert.alert('Lineup partly saved', `${applied}${reason}\n\nYour roster below shows what the server holds.`);
+      const latest = useTeamStore.getState().currentTeam;
+      if (latest) setSeededFor(null); // re-seed pending from the server's roster
     } finally {
       setApplying(false);
     }
