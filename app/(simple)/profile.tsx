@@ -1,16 +1,7 @@
 import React from 'react';
-import { View } from 'react-native';
-import { router } from 'expo-router';
-import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
-import { SimpleProfileSheet } from '../../src/simple/components/SimpleProfileSheet';
+import { GridProfileScreen } from '../../src/simple/grid/GridProfileScreen';
 
-// Interim Profile route: hosts the existing profile sheet full-screen until
-// F-052 replaces it with the Grid Profile screen.
+// Profile — pushed from the avatar chip on the Team and League screens.
 export default function ProfileScreen() {
-  const { colors } = useSimpleTheme();
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
-      <SimpleProfileSheet visible onClose={() => router.back()} />
-    </View>
-  );
+  return <GridProfileScreen />;
 }
