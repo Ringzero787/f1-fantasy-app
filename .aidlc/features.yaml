@@ -1,4 +1,4 @@
-next_id: 50
+next_id: 57
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -526,3 +526,23 @@ features:
       - pick
       - team
       - screen
+    summary: The undercut release unit builds all three stores — Play AAB, Amazon APK (EXPO_PUBLIC_STORE=amazon), and the
+      iOS archive/export/upload driven on the Mac Mini over SSH — from one aidlc run; bump-app-version also moves
+      ios.buildNumber.
+  - id: F-056
+    name: "UC: Firestore rules — league member create and team list scoping"
+    summary: "Security follow-up from the Grid reviews: leagues/{id}/members create is open to any authenticated user,
+      fantasyTeams allow list lets any user query any team, maxMembers is client-writable; scope them or move to
+      callables"
+    status: planned
+    spec: .aidlc/specs/F-056.md
+    created_at: 2026-09-18
+    keywords:
+      - firestore
+      - rules
+      - league
+      - member
+      - create
+      - team
+      - list
+      - scoping
