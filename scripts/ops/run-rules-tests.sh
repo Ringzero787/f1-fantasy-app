@@ -9,6 +9,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+# The memberCount integration test loads the compiled functions.
+npm --prefix functions run build >/dev/null
+
 JAR="$(ls "$HOME"/.cache/firebase/emulators/cloud-firestore-emulator-*.jar 2>/dev/null | sort -V | tail -1 || true)"
 if [ -z "$JAR" ]; then
   exec firebase emulators:exec --only firestore --project demo-uc-rules "node --test rules-tests/*.test.js"
