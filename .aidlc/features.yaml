@@ -549,7 +549,7 @@ features:
     name: "UC: Profile photo upload path matches storage rules"
     summary: uploadProfileImage wrote to profile-images/, which storage.rules denies; write to avatars/{uid}/user/
       (owner-scoped, 5 MB, image/*) so Choose from library works
-    status: planned
+    status: building
     spec: .aidlc/specs/F-057.md
     created_at: 2026-09-18
     keywords:
