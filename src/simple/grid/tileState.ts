@@ -18,6 +18,12 @@ export function trendOf(last: number | null | undefined, prev: number | null | u
   return { trend: 'flat', glyph: '•', last };
 }
 
+/** Last token of a full name ("Lando Norris" → "Norris"); the name itself when single-word. */
+export function surnameOf(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return parts[parts.length - 1] || name;
+}
+
 /** 19px, stepping to 17 over 7 chars and 15 over 8 (Verstappen, Antonelli). */
 export function tileNameSize(name: string): 19 | 17 | 15 {
   const n = name.trim().length;
@@ -69,7 +75,7 @@ export interface TileContext {
 }
 
 function driverTile(d: FantasyDriver, team: FantasyTeam, ctx: TileContext): GridTile {
-  const surname = d.name.split(' ').slice(-1)[0] || d.name;
+  const surname = surnameOf(d.name);
   const num = ctx.numbers[d.driverId];
   return {
     kind: 'driver',
