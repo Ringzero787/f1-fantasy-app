@@ -184,9 +184,11 @@ features:
     summary: "ROADMAP Now (S): push/email/Slack instead of console.error"
   - id: F-023
     name: "UC: Delete dead client scoring service"
-    status: building
+    status: shipped
     created_at: 2026-09-11
     summary: "ROADMAP Now (S): src/services/scoring.service.ts"
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-024
     name: "UC: Scheduled post-race verifier"
     status: planned
@@ -251,7 +253,7 @@ features:
       - secrets
   - id: F-034
     name: "UC: ESLint configuration"
-    status: building
+    status: shipped
     created_at: 2026-09-11
     summary: "npm run lint fails: no ESLint config file at the root (eslint-config-expo is installed). Add eslint.config.js,
       fix findings, then set hygiene lint back to npm run lint."
@@ -259,9 +261,11 @@ features:
       - eslint
       - lint
     spec: .aidlc/specs/F-034.md
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-035
     name: "UC: TypeScript errors and root tsconfig scope"
-    status: building
+    status: shipped
     created_at: 2026-09-11
     summary: Root tsc reports 8 errors (ThemeColors.text/danger in src/admin/AdminContent.tsx, expo-file-system EncodingType
       in src/simple/*) and its include sweeps newgame/ so alias imports fail there. Exclude newgame/ and functions/ from
@@ -271,9 +275,11 @@ features:
       - tsconfig
       - typecheck
     spec: .aidlc/specs/F-035.md
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-036
     name: "UC: Failing jest suites"
-    status: building
+    status: shipped
     created_at: 2026-09-11
     summary: 20 of 240 tests fail (scoring.balance, scoring.service, league.team, team.validation, pricing.config), stale
       since the 2026-06 server-authoritative scoring overhaul; ROADMAP also wants the dead client scoring service
@@ -283,6 +289,8 @@ features:
       - tests
       - scoring
     spec: .aidlc/specs/F-036.md
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-037
     name: "TL: Seed endpoints secret out of source"
     summary: Replace the shared SEED_SECRET on tlSeedRaces, tlBackfillBenLines and tlGenerateBenLinesLite with Firebase
@@ -433,7 +441,7 @@ features:
       - copy
   - id: F-048
     name: "UC: Android release target (uc-android)"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-048.md
     created_at: 2026-09-17
     summary: Undercut store builds run through the AIDLC release unit like Track Limits — a root withReleaseSigning plugin
@@ -443,6 +451,8 @@ features:
       - uc-android
       - withReleaseSigning
       - gradle
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-049
     name: "UC: Amazon and iOS release targets (uc-amazon, uc-ios)"
     status: planned
@@ -460,7 +470,7 @@ features:
   - id: F-050
     name: "UC: Grid theme, fonts, routes and Team screen"
     summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-050.md
     created_at: 2026-09-18
     keywords:
@@ -470,10 +480,12 @@ features:
       - routes
       - team
       - screen
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-051
     name: "UC: Grid League standings and League Manager"
     summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-051.md
     created_at: 2026-09-18
     keywords:
@@ -482,20 +494,24 @@ features:
       - standings
       - league
       - manager
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-052
     name: "UC: Grid Profile screen"
     summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-052.md
     created_at: 2026-09-18
     keywords:
       - grid
       - profile
       - screen
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-053
     name: "UC: Grid sign-in and create-team reskin"
     summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-053.md
     created_at: 2026-09-18
     keywords:
@@ -504,10 +520,12 @@ features:
       - create
       - team
       - reskin
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-054
     name: "UC: Standings movement and best-race fields"
     summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-054.md
     created_at: 2026-09-18
     keywords:
@@ -516,11 +534,13 @@ features:
       - best
       - race
       - fields
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-055
     name: "UC: Grid Pick Team screen"
     summary: "Grid redesign: Picker replaces the Market panel — driver/constructor sub-tabs, budget line, contract sheet,
       save summary with sell fees"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-055.md
     created_at: 2026-09-18
     keywords:
@@ -528,6 +548,8 @@ features:
       - pick
       - team
       - screen
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18
   - id: F-056
     name: "UC: Firestore rules — league member create and team list scoping"
     summary: "Security follow-up from the Grid reviews: leagues/{id}/members create is open to any authenticated user,
@@ -549,7 +571,7 @@ features:
     name: "UC: Profile photo upload path matches storage rules"
     summary: uploadProfileImage wrote to profile-images/, which storage.rules denies; write to avatars/{uid}/user/
       (owner-scoped, 5 MB, image/*) so Choose from library works
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-057.md
     created_at: 2026-09-18
     keywords:
@@ -560,3 +582,5 @@ features:
       - matches
       - storage
       - rules
+    version_shipped: 2.3.0
+    shipped_at: 2026-09-18

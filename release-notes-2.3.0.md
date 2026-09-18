@@ -1,4 +1,4 @@
-# Undercut 2.3.0 — the Grid redesign
+# Undercut 2.3.0 (versionCode 55, iOS build 38) — 2026-09-18 — the Grid redesign
 
 ## Play Console "What's new" (short)
 

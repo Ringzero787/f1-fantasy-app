@@ -1,5 +1,31 @@
 # Changelog
 
+## uc-v2.3.0 — 2026-09-18
+
+Undercut 2.3.0: Grid redesign complete with standings tracking and profile photo fixes.
+
+## Added
+
+- **Grid redesign** across sign-in, team creation, league standings, league manager, profile, and team selection screens with new theme and typography
+- Standings movement indicators and best-race fields to track league progression
+- Android release automation with secure signing for Play Store builds
+
+## Changed
+
+- Profile photo uploads now write to owner-scoped avatars path (storage rules compliant)
+- Team screen layout, typography, and visual theme refreshed
+
+## Fixed
+
+- Profile photo uploads (Choose from library now works)
+- TypeScript compilation errors in theme colors and file system types
+- ESLint configuration and 20+ failing test suites
+- Dead client-side scoring service removed
+
+## Security
+
+- Profile photos now upload to owner-scoped avatars/{uid}/user/ path with 5 MB limit and image/* type enforcement
+
 All notable changes to **Undercut** (the root app; Track Limits lives in `newgame/`).
 
 Versions are Android `versionName (versionCode)`. Many fixes are **Cloud Functions**
