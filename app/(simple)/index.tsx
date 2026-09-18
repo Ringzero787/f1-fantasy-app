@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StatusBar, Animated, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { GridTeamPanel } from '../../src/simple/grid/GridTeamPanel';
 import { SegmentPill } from '../../src/simple/grid/GridBits';
 import { WeekendRecapCard } from '../../src/simple/components/WeekendRecapCard';
-import { SimpleLeaguePanel } from '../../src/simple/components/SimpleLeaguePanel';
+import { GridLeaguePanel } from '../../src/simple/grid/GridLeaguePanel';
 import { useSimpleTeam } from '../../src/simple/hooks/useSimpleTeam';
 import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
 import { useAdminStore } from '../../src/store/admin.store';
@@ -32,8 +32,12 @@ export default function SimpleMainScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
   }, []);
 
-  // A join deep link lands on the LEAGUE tab.
-  useEffect(() => { if (params.join) setTab('league'); }, [params.join, params.code]);
+  // A join deep link lands on the LEAGUE tab and opens the join form with the code.
+  useEffect(() => {
+    if (!params.join) return;
+    setTab('league');
+    if (params.code) router.push({ pathname: '/(simple)/league-manager', params: { step: 'join', code: params.code } } as never);
+  }, [params.join, params.code]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -66,7 +70,7 @@ export default function SimpleMainScreen() {
           <Animated.View
             style={{ ...absoluteFill, opacity: leagueOpacity, paddingTop: 12, zIndex: tab === 'league' ? 2 : 1, pointerEvents: tab === 'league' ? 'auto' : 'none' }}
           >
-            <SimpleLeaguePanel joinCode={params.join ? params.code : undefined} />
+            <GridLeaguePanel />
           </Animated.View>
         </View>
       </View>
