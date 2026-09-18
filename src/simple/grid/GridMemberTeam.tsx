@@ -3,6 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, useWindowDimensions } from '
 import { router } from 'expo-router';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { teamService } from '../../services/team.service';
+import { useTeamStore } from '../../store/team.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useRaceScoresStore } from '../../store/raceScores.store';
 import { TEAM_SIZE } from '../../config/constants';
@@ -30,14 +31,18 @@ export function GridMemberTeam({ member, leagueId }: Props) {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
+  const userTeams = useTeamStore((s) => s.userTeams);
   useEffect(() => {
     let cancelled = false;
     setState('loading');
+    // Own row: the roster is already in the store (and demo mode has no server).
+    const mine = userTeams.find((t) => t.userId === member.userId && t.leagueId === leagueId);
+    if (mine) { setTeam(mine); setState('ready'); return; }
     teamService.getUserTeamInLeague(member.userId, leagueId)
       .then((t) => { if (!cancelled) { setTeam(t); setState('ready'); } })
       .catch(() => { if (!cancelled) setState('error'); });
     return () => { cancelled = true; };
-  }, [member.userId, leagueId]);
+  }, [member.userId, leagueId, userTeams]);
 
   const tiles = useMemo(() => {
     if (!team) return [];
