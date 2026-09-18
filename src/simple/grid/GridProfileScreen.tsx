@@ -209,7 +209,7 @@ export function GridProfileScreen() {
           </View>
           <View style={row}>
             <MonoLabel>DISPLAY SIZE</MonoLabel>
-            <SegmentPill value={scaleKey} onChange={(k) => setDisplayScale(DISPLAY_SCALES.find((s) => s.key === k)!.scale)} size={10} padY={8} style={{ padding: 3, width: scaled(200) }} segments={DISPLAY_SCALES.map((s) => ({ key: s.key, label: s.key }))} />
+            <SegmentPill value={scaleKey} onChange={(k) => setDisplayScale(DISPLAY_SCALES.find((s) => s.key === k)!.scale)} size={10} padY={8} style={{ padding: 3, width: scaled(230) }} segments={DISPLAY_SCALES.map((s) => ({ key: s.key, label: s.key }))} />
           </View>
           <Pressable onPress={toggleReminders} accessibilityRole="switch" accessibilityState={{ checked: reminders }} style={({ pressed }) => [row, { opacity: pressed ? 0.7 : 1 }]}>
             <MonoLabel>TEAM REMINDERS</MonoLabel>

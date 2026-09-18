@@ -184,11 +184,13 @@ export const S_RADIUS = {
 } as const;
 
 // Display-size steps offered in Profile (multiply every px value).
-export const S_DISPLAY_SCALES: { key: 'S' | 'M' | 'L' | 'XL'; scale: number }[] = [
+// Same steps as the legacy tabs profile so a saved scale always has a segment.
+export const S_DISPLAY_SCALES: { key: 'S' | 'M' | 'L' | 'XL' | 'XXL'; scale: number }[] = [
   { key: 'S', scale: 0.85 },
   { key: 'M', scale: 1.0 },
   { key: 'L', scale: 1.15 },
   { key: 'XL', scale: 1.3 },
+  { key: 'XXL', scale: 1.5 },
 ];
 
 // Constructor accents — the handoff hexes for the seven teams it draws, ours

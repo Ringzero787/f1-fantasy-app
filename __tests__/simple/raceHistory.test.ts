@@ -25,6 +25,14 @@ describe('teamRaceHistory', () => {
     expect(h[1].drivers).toEqual([{ shortName: 'AAA', pts: 30 }, { shortName: 'BBB', pts: 12 }]);
     expect(h[1].total).toBe(30 + 12 + 20);
   });
+  it('skips races before the team joined and doubles the current ace', () => {
+    const late = { ...team, joinedAtRace: 1, aceDriverId: 'a', aceConstructorId: 'apex' };
+    const h = teamRaceHistory(late, results, races);
+    expect(h.map((x) => x.name)).toEqual(['Third']);          // race 1 predates the team
+    expect(h[0].drivers[0]).toEqual({ shortName: 'AAA', pts: 60 });   // 30 × 2
+    expect(h[0].constructor).toEqual({ name: 'Apex', pts: 40 });      // 20 × 2
+    expect(h[0].total).toBe(60 + 12 + 40);
+  });
   it('handles no team and unknown races', () => {
     expect(teamRaceHistory(null, results, races)).toEqual([]);
     const h = teamRaceHistory({ drivers: [], constructor: null }, { mystery_gp: { isComplete: true } }, []);

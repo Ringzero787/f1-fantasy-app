@@ -1,8 +1,11 @@
 /**
  * Per-race points for the current roster, for the Profile's RACE HISTORY row
- * and stat cards — pure. Mirrors the tenure rule in team.store's calculator:
- * a driver is not credited for races run before they were bought.
+ * and stat cards — pure. Mirrors team.store's calculateTeamPointsFromRaces:
+ * races before the team joined are skipped outright, a driver is not
+ * credited for races run before they were bought, and the *current* ace pick
+ * is doubled (a client estimate — the server totals are authoritative).
  */
+import { PRICING_CONFIG } from '../../config/pricing.config';
 export interface HistoryRaceResult {
   isComplete?: boolean;
   driverResults?: { driverId: string; points: number }[];
@@ -13,6 +16,8 @@ export interface HistoryRaceResult {
 
 export interface HistoryTeam {
   joinedAtRace?: number;
+  aceDriverId?: string;
+  aceConstructorId?: string;
   drivers?: { driverId: string; shortName: string; addedAtRace?: number }[];
   constructor?: { constructorId: string; name: string } | null;
 }
@@ -31,9 +36,11 @@ export interface HistoryEntry {
 export function teamRaceHistory(team: HistoryTeam | null, results: Record<string, HistoryRaceResult>, races: HistoryRace[]): HistoryEntry[] {
   if (!team) return [];
   const byId = new Map(races.map((r) => [r.id, r]));
+  const joinedAt = team.joinedAtRace ?? 0;
   const completed = Object.entries(results)
     .filter(([, r]) => r.isComplete)
     .map(([raceId, r]) => ({ raceId, r, round: byId.get(raceId)?.round ?? 999, name: byId.get(raceId)?.name ?? raceId.replace(/_/g, ' ') }))
+    .filter(({ round }) => !(round > 0 && round <= joinedAt))
     .sort((a, b) => a.round - b.round);
   return completed.map(({ raceId, r, round, name }) => {
     let total = 0;
@@ -41,16 +48,18 @@ export function teamRaceHistory(team: HistoryTeam | null, results: Record<string
     for (const d of team.drivers ?? []) {
       const addedAt = d.addedAtRace ?? team.joinedAtRace ?? 0;
       if (round > 0 && round <= addedAt) continue;
-      const pts = (r.driverResults?.find((x) => x.driverId === d.driverId)?.points ?? 0)
+      const base = (r.driverResults?.find((x) => x.driverId === d.driverId)?.points ?? 0)
         + (r.sprintResults?.find((x) => x.driverId === d.driverId)?.points ?? 0);
+      const pts = team.aceDriverId === d.driverId ? base * PRICING_CONFIG.ACE_MULTIPLIER : base;
       total += pts;
       drivers.push({ shortName: d.shortName, pts });
     }
     let constructor: HistoryEntry['constructor'] = null;
     const c = team.constructor;
     if (c && typeof c === 'object') {
-      const pts = (r.constructorResults?.find((x) => x.constructorId === c.constructorId)?.points ?? 0)
+      const base = (r.constructorResults?.find((x) => x.constructorId === c.constructorId)?.points ?? 0)
         + (r.sprintConstructorResults?.find((x) => x.constructorId === c.constructorId)?.points ?? 0);
+      const pts = team.aceConstructorId === c.constructorId ? base * PRICING_CONFIG.ACE_MULTIPLIER : base;
       total += pts;
       constructor = { name: c.name, pts };
     }
