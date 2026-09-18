@@ -930,7 +930,8 @@ export const onRaceCompleted = functions
           totalPoints: admin.firestore.FieldValue.increment(teamPoints),
           racesSinceTransfer: admin.firestore.FieldValue.increment(1),
           scoredRaces: admin.firestore.FieldValue.arrayUnion(raceId),
-          // F-054: best single race weekend for the Profile's BEST card
+          // F-054: best race-day score for the Profile's BEST card (Phase 1's
+          // teamPoints — qualifying/sprint count only when not scored standalone)
           ...bestRaceUpdate(team, raceId, teamPoints),
         },
       });
