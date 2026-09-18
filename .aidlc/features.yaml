@@ -555,7 +555,7 @@ features:
     summary: "Security follow-up from the Grid reviews: leagues/{id}/members create is open to any authenticated user,
       fantasyTeams allow list lets any user query any team, maxMembers is client-writable; scope them or move to
       callables"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-056.md
     created_at: 2026-09-18
     keywords:
