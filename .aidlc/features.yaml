@@ -455,3 +455,74 @@ features:
       - uc-ios
       - altool
       - buildNumber
+  - id: F-050
+    name: "UC: Grid theme, fonts, routes and Team screen"
+    summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
+    status: planned
+    spec: .aidlc/specs/F-050.md
+    created_at: 2026-09-18
+    keywords:
+      - grid
+      - theme
+      - fonts
+      - routes
+      - team
+      - screen
+  - id: F-051
+    name: "UC: Grid League standings and League Manager"
+    summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
+    status: planned
+    spec: .aidlc/specs/F-051.md
+    created_at: 2026-09-18
+    keywords:
+      - grid
+      - league
+      - standings
+      - league
+      - manager
+  - id: F-052
+    name: "UC: Grid Profile screen"
+    summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
+    status: planned
+    spec: .aidlc/specs/F-052.md
+    created_at: 2026-09-18
+    keywords:
+      - grid
+      - profile
+      - screen
+  - id: F-053
+    name: "UC: Grid sign-in and create-team reskin"
+    summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
+    status: planned
+    spec: .aidlc/specs/F-053.md
+    created_at: 2026-09-18
+    keywords:
+      - grid
+      - sign
+      - create
+      - team
+      - reskin
+  - id: F-054
+    name: "UC: Standings movement and best-race fields"
+    summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
+    status: planned
+    spec: .aidlc/specs/F-054.md
+    created_at: 2026-09-18
+    keywords:
+      - standings
+      - movement
+      - best
+      - race
+      - fields
+  - id: F-055
+    name: "UC: Grid Pick Team screen"
+    summary: "Grid redesign: Picker replaces the Market panel — driver/constructor sub-tabs, budget line, contract sheet,
+      ace, save summary with sell fees"
+    status: planned
+    spec: .aidlc/specs/F-055.md
+    created_at: 2026-09-18
+    keywords:
+      - grid
+      - pick
+      - team
+      - screen
