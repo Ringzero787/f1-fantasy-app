@@ -11,7 +11,7 @@ import { useRaceScoresStore } from '../../store/raceScores.store';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
 import { maybeRequestReview } from '../../utils/reviewPrompt';
-import { SimpleCreateTeam } from '../components/SimpleCreateTeam';
+import { GridCreateTeam } from './GridCreateTeam';
 import { constructorShortName, driverNumber } from '../components/RaceDayBits';
 import { GridAvatar, MonoLabel, ScreenHeader } from './GridBits';
 import { GridTile } from './GridTile';
@@ -139,7 +139,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   };
 
   if (!hasTeam) {
-    return <SimpleCreateTeam onCreate={async (name, joinCode) => { await createTeam(name, joinCode); }} />;
+    return <GridCreateTeam onCreate={async (name, joinCode) => { await createTeam(name, joinCode); }} />;
   }
 
   const status = lineupStatus(open, locked);
@@ -206,7 +206,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
       )}
 
       {creatingSecondTeam ? (
-        <SimpleCreateTeam
+        <GridCreateTeam
           isSecondTeam
           onCreate={async (name, joinCode) => { await createTeam(name, joinCode); setCreatingSecondTeam(false); }}
           onCancel={() => setCreatingSecondTeam(false)}

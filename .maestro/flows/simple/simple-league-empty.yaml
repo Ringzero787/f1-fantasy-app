@@ -3,21 +3,16 @@ tags:
   - simple
   - league
 ---
-# Test league panel when user has no league
-- runFlow: setup-simple-demo.yaml
-
-# Switch to Standings panel
-- tapOn: "Standings"
-- waitForAnimationToEnd
-
-# Should show no-league prompt
+# LEAGUE tab without a league shows "Racing solo." and the Create / Join cards.
+- runFlow: simple-create-team.yaml
+- tapOn: "LEAGUE"
 - extendedWaitUntil:
-    visible: "Join a League"
+    visible: "RACING"
     timeout: 5000
-
-# Should show create option too
-- assertVisible: "Create League"
-
-# Switch back
-- tapOn: "My Team"
-- waitForAnimationToEnd
+- assertVisible: "CREATE A LEAGUE"
+- assertVisible: "JOIN A LEAGUE"
+- tapOn: "JOIN A LEAGUE"
+- extendedWaitUntil:
+    visible: "ENTER CODE"
+    timeout: 5000
+- tapOn: "← BACK"

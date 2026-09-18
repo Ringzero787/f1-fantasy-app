@@ -1,0 +1,32 @@
+appId: com.undercut.app
+tags:
+  - simple
+  - team
+  - picker
+---
+# EDIT → opens Pick Team; add a driver through the contract sheet and save.
+- runFlow: simple-create-team.yaml
+- tapOn: "EDIT →"
+- extendedWaitUntil:
+    visible: "PICK TEAM"
+    timeout: 8000
+- assertVisible: "BUDGET $1000"
+- tapOn:
+    text: "PTS"
+- scrollUntilVisible:
+    element:
+      text: "LINDBLAD"
+    direction: DOWN
+    timeout: 8000
+- tapOn: "LINDBLAD"
+- extendedWaitUntil:
+    visible: "ADD DRIVER"
+    timeout: 5000
+- tapOn:
+    text: "ADD"
+    index: 0
+- assertVisible: "PICK 5 MORE"
+- tapOn: "← CANCEL"
+- extendedWaitUntil:
+    visible: "LINEUP · 6 OPEN"
+    timeout: 5000
