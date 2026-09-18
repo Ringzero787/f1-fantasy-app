@@ -17,7 +17,7 @@ import { PRICING_CONFIG } from '../../config/pricing.config';
 import { constructorShortName } from '../components/RaceDayBits';
 import { ColorBar, MonoLabel, PillButton, ScreenHeader, SegmentPill } from './GridBits';
 import { formatLockStatus } from './lockStatus';
-import { trendOf } from './tileState';
+import { trendOf, surnameOf as surname } from './tileState';
 import {
   planLineup, pendingFromCurrent, canAffordAdd, constructorSwapBudget, saveLabel,
   type PendingLineup, type CurrentLineup, type MarketEntry, type LineupPlan, type Kind,
@@ -44,11 +44,6 @@ interface Row {
 const CONTRACTS = [1, 2, 3, 4, 5, 6];
 const LOW_BUDGET = 50;
 
-function surname(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return parts[parts.length - 1] || name;
-}
-
 interface Props {
   initialTab?: Tab;
 }
@@ -74,7 +69,11 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const [contract, setContract] = useState<number>(PRICING_CONFIG.CONTRACT_LENGTH);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [now] = useState(() => new Date());
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Current roster in planner shape.
   const current = useMemo<CurrentLineup | null>(() => {
@@ -167,7 +166,9 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     setSheet(null);
   }, [sheet, pending, contract]);
 
-  // Commit: sells first (frees budget), then driver buys, then the constructor.
+  // Commit: driver sells first (frees budget), then the constructor change (a
+  // downgrade's proceeds fund driver buys; an upgrade is covered by the sells),
+  // then driver buys.
   // Each step is its own server transaction, so a failure part-way leaves the
   // earlier steps applied; the alert says exactly what went through and the
   // pending lineup re-seeds from what the server now holds.
@@ -190,14 +191,14 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       if (current.constructor && !pending.constructorId) {
         await step(`Sell ${current.constructor.name}`, () => store.removeConstructor());
       }
-      for (const b of plan.buys.filter((x) => x.kind === 'driver')) {
-        const d = (allDrivers ?? []).find((x) => x.id === b.id);
-        await step(`Add ${b.name}`, () => store.addDriver(b.id, b.contract, d ? { id: d.id, name: d.name, shortName: d.shortName, constructorId: d.constructorId, price: d.price } : undefined));
-      }
       const ctorBuy = plan.buys.find((x) => x.kind === 'constructor');
       if (ctorBuy) {
         const c = (allConstructors ?? []).find((x) => x.id === ctorBuy.id);
         await step(`Add ${ctorBuy.name}`, () => store.setConstructor(ctorBuy.id, ctorBuy.contract, c ? { id: c.id, name: c.name, price: c.price } : undefined));
+      }
+      for (const b of plan.buys.filter((x) => x.kind === 'driver')) {
+        const d = (allDrivers ?? []).find((x) => x.id === b.id);
+        await step(`Add ${b.name}`, () => store.addDriver(b.id, b.contract, d ? { id: d.id, name: d.name, shortName: d.shortName, constructorId: d.constructorId, price: d.price } : undefined));
       }
       setSummaryOpen(false);
       router.back();
