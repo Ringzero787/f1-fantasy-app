@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, Image, type StyleProp, type ViewStyle, type TextStyle } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
+import { getInitials } from '../../utils/avatarColors';
 
 // ── Mono section label ─────────────────────────────────────────────────────
 // 11px JetBrains Mono 700, tracking 0.18em, uppercase, muted by default.
@@ -26,14 +27,7 @@ export function MonoLabel({ children, color, size, style, numberOfLines }: {
 // ── Avatar chip ────────────────────────────────────────────────────────────
 // text.primary fill with inverse initials; shows the photo when there is one.
 export function initialsOf(name?: string | null): string {
-  if (!name) return '·';
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
+  return name ? getInitials(name) : '·';
 }
 
 export function GridAvatar({ name, imageUrl, size = 36, onPress, style }: {
