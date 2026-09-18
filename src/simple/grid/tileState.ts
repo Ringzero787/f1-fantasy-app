@@ -43,6 +43,8 @@ export type GridTile =
       pts: number;
       auto: boolean;
       ace: boolean;
+      /** may be chosen as Ace: live price at or under the cap */
+      aceEligible: boolean;
       dots: ContractDots;
       trend: TrendInfo;
     }
@@ -55,6 +57,7 @@ export type GridTile =
       pts: number;
       auto: boolean;
       ace: boolean;
+      aceEligible: boolean;
       dots: ContractDots;
       trend: TrendInfo;
     }
@@ -72,6 +75,16 @@ export interface TileContext {
   showCarNumbers: boolean;
   /** short display names keyed by constructor id */
   constructorNames?: Record<string, string>;
+  /** live market prices keyed by entity id (falls back to the roster's currentPrice) */
+  prices?: Record<string, number | undefined>;
+  /** picks priced above this cannot be Ace; omit for no cap */
+  aceMaxPrice?: number;
+}
+
+function aceEligible(id: string, rosterPrice: number | undefined, ctx: TileContext): boolean {
+  if (ctx.aceMaxPrice == null) return true;
+  const price = ctx.prices?.[id] ?? rosterPrice ?? 0;
+  return price <= ctx.aceMaxPrice;
 }
 
 function driverTile(d: FantasyDriver, team: FantasyTeam, ctx: TileContext): GridTile {
@@ -87,6 +100,7 @@ function driverTile(d: FantasyDriver, team: FantasyTeam, ctx: TileContext): Grid
     pts: d.pointsScored ?? 0,
     auto: !!d.isReservePick,
     ace: team.aceDriverId === d.driverId,
+    aceEligible: aceEligible(d.driverId, d.currentPrice ?? d.purchasePrice, ctx),
     dots: contractDots(d.contractLength, d.racesHeld, ctx.defaultContract),
     trend: trendOf(ctx.lastRace[d.driverId], ctx.prevRace[d.driverId]),
   };
@@ -103,9 +117,23 @@ function constructorTile(c: FantasyConstructor, team: FantasyTeam, ctx: TileCont
     pts: c.pointsScored ?? 0,
     auto: !!c.isReservePick,
     ace: team.aceConstructorId === c.constructorId,
+    aceEligible: aceEligible(c.constructorId, c.currentPrice ?? c.purchasePrice, ctx),
     dots: contractDots(c.contractLength, c.racesHeld, ctx.defaultContract),
     trend: trendOf(ctx.lastRace[c.constructorId], ctx.prevRace[c.constructorId]),
   };
+}
+
+/**
+ * The roster's constructor pick. The field is literally named `constructor`,
+ * which every JS object also inherits (its class function), so only an OWN,
+ * object-valued property with a constructorId counts.
+ */
+export function rosterConstructor(team: unknown): FantasyConstructor | null {
+  if (!team || typeof team !== 'object') return null;
+  if (!Object.prototype.hasOwnProperty.call(team, 'constructor')) return null;
+  const c = (team as Record<string, unknown>)['constructor'];
+  if (!c || typeof c !== 'object' || typeof (c as { constructorId?: unknown }).constructorId !== 'string') return null;
+  return c as FantasyConstructor;
 }
 
 /** The six tiles of the Team grid: drivers, open driver slots, then the constructor. */
@@ -113,8 +141,8 @@ export function computeTiles(team: FantasyTeam, ctx: TileContext): GridTile[] {
   const drivers = team.drivers ?? [];
   const tiles: GridTile[] = drivers.map((d) => driverTile(d, team, ctx));
   for (let i = drivers.length; i < ctx.teamSize; i++) tiles.push({ kind: 'empty', slot: 'driver' });
-  const c = (team as unknown as { constructor?: FantasyConstructor | null }).constructor;
-  if (c && typeof c === 'object' && c.constructorId) tiles.push(constructorTile(c, team, ctx));
+  const c = rosterConstructor(team);
+  if (c) tiles.push(constructorTile(c, team, ctx));
   else tiles.push({ kind: 'empty', slot: 'constructor' });
   return tiles;
 }
@@ -135,7 +163,7 @@ export function rosterRacePoints(team: FantasyTeam, scores: Record<string, numbe
   if (Object.keys(scores).length === 0) return null;
   let total = 0;
   for (const d of team.drivers ?? []) total += scores[d.driverId] ?? 0;
-  const c = (team as unknown as { constructor?: FantasyConstructor | null }).constructor;
-  if (c && typeof c === 'object' && c.constructorId) total += scores[c.constructorId] ?? 0;
+  const c = rosterConstructor(team);
+  if (c) total += scores[c.constructorId] ?? 0;
   return total;
 }

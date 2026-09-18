@@ -11,7 +11,8 @@ import { PRICING_CONFIG } from '../../config/pricing.config';
 import { constructorShortName, driverNumber } from './entityNames';
 import { MonoLabel, ScreenHeader } from './GridBits';
 import { GridTile } from './GridTile';
-import { computeTiles, rosterRacePoints, openSlotCount, lineupStatus } from './tileState';
+import { GridTileSheet, sheetTargetFor, type SheetTarget } from './GridTileSheet';
+import { computeTiles, rosterRacePoints, openSlotCount, lineupStatus, rosterConstructor } from './tileState';
 import type { FantasyTeam, LeagueMember } from '../../types';
 
 interface Props {
@@ -29,6 +30,7 @@ export function GridMemberTeam({ member, leagueId }: Props) {
   const fetchLastRaceScores = useRaceScoresStore((s) => s.fetchLastRaceScores);
   const [team, setTeam] = useState<FantasyTeam | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [sheet, setSheet] = useState<SheetTarget | null>(null);
 
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
   const userTeams = useTeamStore((s) => s.userTeams);
@@ -53,9 +55,9 @@ export function GridMemberTeam({ member, leagueId }: Props) {
     for (const [id, s] of Object.entries(lastRaceScores)) last[id] = s.totalPoints;
     const prev: Record<string, number> = {};
     for (const [id, s] of Object.entries(prevRaceScores)) prev[id] = s.totalPoints;
-    const c = (team as unknown as { constructor?: { constructorId: string; name: string } | null }).constructor;
+    const c = rosterConstructor(team);
     const constructorNames: Record<string, string> = {};
-    if (c && typeof c === 'object') constructorNames[c.constructorId] = constructorShortName(c.constructorId, c.name);
+    if (c) constructorNames[c.constructorId] = constructorShortName(c.constructorId, c.name);
     return computeTiles(team, { teamSize: TEAM_SIZE, defaultContract: PRICING_CONFIG.CONTRACT_LENGTH, lastRace: last, prevRace: prev, numbers, showCarNumbers: true, constructorNames });
   }, [team, remoteDrivers, lastRaceScores, prevRaceScores]);
 
@@ -109,12 +111,25 @@ export function GridMemberTeam({ member, leagueId }: Props) {
           <View style={{ paddingHorizontal: gutter, paddingTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {tiles.map((tile, i) => (
               <View key={tile.kind === 'empty' ? `empty-${i}` : tile.id} style={isTablet ? { width: '31%', flexGrow: 1 } : { width: tileWidth }}>
-                <GridTile tile={tile} locked aceLocked readOnly />
+                <GridTile
+                  tile={tile}
+                  locked
+                  aceLocked
+                  readOnly
+                  onOpen={(t) => {
+                    if (t.kind === 'empty' || !team) return;
+                    const d = (team.drivers ?? []).find((x) => x.driverId === t.id);
+                    const c = rosterConstructor(team);
+                    if (d) setSheet(sheetTargetFor('driver', d, { number: t.kind === 'driver' ? t.tag : undefined, isAce: team.aceDriverId === t.id }));
+                    else if (c && c.constructorId === t.id) setSheet(sheetTargetFor('constructor', c, { isAce: team.aceConstructorId === t.id }));
+                  }}
+                />
               </View>
             ))}
           </View>
         </>
       )}
+      <GridTileSheet target={sheet} onClose={() => setSheet(null)} />
     </ScrollView>
   );
 }

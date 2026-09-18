@@ -80,6 +80,8 @@ export const useRaceScoresStore = create<RaceScoresState>((set, get) => ({
       return scores;
     } catch (e) {
       console.warn('[RaceScores] Failed to fetch entity history:', e);
+      // Record the miss so callers stop showing a loading state.
+      set(state => ({ entityHistory: { ...state.entityHistory, [entityId]: state.entityHistory[entityId] ?? [] } }));
       return [];
     }
   },
