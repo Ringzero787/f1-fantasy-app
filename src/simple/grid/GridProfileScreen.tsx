@@ -162,6 +162,7 @@ export function GridProfileScreen() {
   const row = { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const, paddingVertical: scaled(20), borderBottomWidth: 1, borderBottomColor: colors.borderLight, gap: 12 };
   const value = { fontFamily: family.ui.bold, fontSize: scaled(14), letterSpacing: -scaled(14) * 0.02, textTransform: 'uppercase' as const, color: colors.text.primary };
   const chevron = <Text style={{ color: colors.text.muted, fontSize: scaled(14) }}>›</Text>;
+  const stackPills = displayScale > 1.15;
   const scaleKey = (DISPLAY_SCALES.find((s) => Math.abs(s.scale - displayScale) < 0.01) ?? DISPLAY_SCALES[1]).key;
 
   const LinkRow = ({ label, valueText, onPress, danger, accent }: { label: string; valueText?: string; onPress: () => void; danger?: boolean; accent?: boolean }) => (
@@ -187,7 +188,7 @@ export function GridProfileScreen() {
               : <GridAvatar name={user?.displayName} imageUrl={user?.photoURL} size={72} />}
           </Pressable>
           <View style={{ gap: 6, flexShrink: 1 }}>
-            <Text numberOfLines={1} style={{ fontFamily: family.ui.black, fontSize: scaled(20), lineHeight: scaled(21), letterSpacing: -scaled(20) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{user?.displayName || 'Player'}</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(20), lineHeight: scaled(21), letterSpacing: -scaled(20) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{user?.displayName || 'Player'}</Text>
             <MonoLabel color={colors.primary} style={{ letterSpacing: scaled(11) * 0.14 }}>{isDemoMode ? 'DEMO MODE' : profileStatusLine(me?.rank ?? null, league?.name ?? null)}</MonoLabel>
           </View>
         </View>
@@ -203,13 +204,14 @@ export function GridProfileScreen() {
           </View>
           <LinkRow label="AVATAR" valueText={user?.photoURL ? 'Change' : 'Add'} onPress={() => setAvatarOpen(true)} />
           <LinkRow label="LEAGUE" valueText={league ? league.name : 'Join or create'} accent={!league} onPress={() => router.push('/(simple)/league-manager' as never)} />
-          <View style={row}>
+          {/* At large display sizes the pills stack under their labels so every segment stays on screen */}
+          <View style={[row, stackPills && { flexDirection: 'column', alignItems: 'stretch' }]}>
             <MonoLabel>APPEARANCE</MonoLabel>
-            <SegmentPill<ThemeMode> value={themeMode} onChange={setThemeMode} size={10} padY={8} style={{ padding: 3, width: scaled(200) }} segments={[{ key: 'system', label: 'AUTO' }, { key: 'dark', label: 'DARK' }, { key: 'light', label: 'LIGHT' }]} />
+            <SegmentPill<ThemeMode> value={themeMode} onChange={setThemeMode} size={10} padY={8} style={[{ padding: 3 }, stackPills ? null : { width: scaled(200) }]} segments={[{ key: 'system', label: 'AUTO' }, { key: 'dark', label: 'DARK' }, { key: 'light', label: 'LIGHT' }]} />
           </View>
-          <View style={row}>
+          <View style={[row, stackPills && { flexDirection: 'column', alignItems: 'stretch' }]}>
             <MonoLabel>DISPLAY SIZE</MonoLabel>
-            <SegmentPill value={scaleKey} onChange={(k) => setDisplayScale(DISPLAY_SCALES.find((s) => s.key === k)!.scale)} size={10} padY={8} style={{ padding: 3, width: scaled(230) }} segments={DISPLAY_SCALES.map((s) => ({ key: s.key, label: s.key }))} />
+            <SegmentPill value={scaleKey} onChange={(k) => setDisplayScale(DISPLAY_SCALES.find((s) => s.key === k)!.scale)} size={10} padY={8} style={[{ padding: 3 }, stackPills ? null : { width: scaled(230) }]} segments={DISPLAY_SCALES.map((s) => ({ key: s.key, label: s.key }))} />
           </View>
           <Pressable onPress={toggleReminders} accessibilityRole="switch" accessibilityState={{ checked: reminders }} style={({ pressed }) => [row, { opacity: pressed ? 0.7 : 1 }]}>
             <MonoLabel>TEAM REMINDERS</MonoLabel>

@@ -102,7 +102,7 @@ export function SegmentPill<T extends string>({ segments, value, onChange, size 
               opacity: pressed && !active ? 0.6 : 1,
             })}
           >
-            <Text style={{ fontFamily: family.ui.black, fontSize, letterSpacing: fontSize * 0.08, color: active ? colors.text.inverse : colors.text.muted }}>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ flexShrink: 1, fontFamily: family.ui.black, fontSize, letterSpacing: fontSize * 0.08, color: active ? colors.text.inverse : colors.text.muted }}>
               {seg.label}
             </Text>
             {seg.badge && !active ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary }} /> : null}
@@ -182,7 +182,7 @@ export function ScreenHeader({ statusLeft, statusRight, statusRightAccent = true
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         {titleNode ?? (
-          <Text style={[titleStyle, { flex: 1, minWidth: 0 }]} numberOfLines={1}>{title}</Text>
+          <Text style={[titleStyle, { flex: 1, minWidth: 0 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{title}</Text>
         )}
         {right ? <View style={{ flexShrink: 0 }}>{right}</View> : null}
       </View>

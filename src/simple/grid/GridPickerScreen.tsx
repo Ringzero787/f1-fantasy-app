@@ -11,6 +11,7 @@ import { useTeamStore, isDriverLockedOut } from '../../store/team.store';
 import { useAdminStore } from '../../store/admin.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useRaceScoresStore } from '../../store/raceScores.store';
+import { usePrefsStore } from '../../store/prefs.store';
 import { teamAccent } from '../theme/simpleTheme';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
@@ -60,6 +61,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const lastRaceScores = useRaceScoresStore((s) => s.lastRaceScores);
   const prevRaceScores = useRaceScoresStore((s) => s.prevRaceScores);
   const completedRaceCount = useAdminStore((s) => s.getCompletedRaceCount());
+  const displayScale = usePrefsStore((s) => s.displayScale);
 
   const locked = lockoutInfo.isLocked || !(team?.lockStatus?.canModify ?? true);
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -225,6 +227,8 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const complete = pickedCount >= TEAM_SIZE && ctorCount === 1;
   const budgetAfter = plan?.budgetAfter ?? budget;
   const gutter = spacing.xl;
+  // Large display sizes: fewer scaled columns so names keep their room.
+  const compact = displayScale > 1.15;
 
   const renderRow = useCallback(({ item }: { item: Row }) => {
     const t = trendOf(lastRaceScores[item.id]?.totalPoints, prevRaceScores[item.id]?.totalPoints);
@@ -242,7 +246,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           opacity: item.blocked ? 0.35 : pressed ? 0.7 : 1,
         })}
       >
-        <Text style={[mono(12), { width: scaled(36), color: colors.text.muted }]}>{item.num}</Text>
+        <Text style={[mono(12), { width: compact ? 34 : scaled(36), color: colors.text.muted }]}>{item.num}</Text>
         <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>
             {item.name}
@@ -254,15 +258,19 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         </View>
         <View style={{ alignItems: 'flex-end', gap: 4 }}>
           <Text style={mono(15)}>{item.pts}</Text>
-          <Text style={[mono(10), { color: trendColor }]}>{t.glyph} {t.last ?? '–'}</Text>
+          {compact
+            ? <Text style={[mono(11), { color: item.selected ? colors.text.primary : colors.text.muted }]}>${item.price}</Text>
+            : <Text style={[mono(10), { color: trendColor }]}>{t.glyph} {t.last ?? '–'}</Text>}
         </View>
-        <Text style={[mono(13), { minWidth: scaled(46), textAlign: 'right', color: item.selected ? colors.text.primary : colors.text.muted }]}>${item.price}</Text>
-        <View style={{ width: scaled(28), height: scaled(28), borderRadius: 999, borderWidth: 1, borderColor: item.selected ? colors.text.primary : colors.borderStrong, backgroundColor: item.selected ? colors.text.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-          {item.selected ? <Text style={{ fontFamily: family.ui.black, fontSize: scaled(12), color: colors.text.inverse }}>✓</Text> : null}
+        {compact ? null : (
+          <Text style={[mono(13), { minWidth: scaled(46), textAlign: 'right', color: item.selected ? colors.text.primary : colors.text.muted }]}>${item.price}</Text>
+        )}
+        <View style={{ width: compact ? 30 : scaled(28), height: compact ? 30 : scaled(28), borderRadius: 999, borderWidth: 1, borderColor: item.selected ? colors.text.primary : colors.borderStrong, backgroundColor: item.selected ? colors.text.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+          {item.selected ? <Text style={{ fontFamily: family.ui.black, fontSize: compact ? 13 : scaled(12), color: colors.text.inverse }}>✓</Text> : null}
         </View>
       </Pressable>
     );
-  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress]);
+  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress, compact]);
 
   const sheetBudgetAfter = sheet && plan ? (sheet.kind === 'driver' ? plan.budgetAfter - sheet.entry.price : ctorSwapBudget - sheet.entry.price) : 0;
 
@@ -276,10 +284,10 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           statusRight={lockStatus}
           titleNode={
             <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
-              <Text style={{ fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(26), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ flexShrink: 1, fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(28), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>
                 {locked ? 'Locked' : 'Pick Team'}
               </Text>
-              <Text style={[mono(13), { color: complete ? colors.positive : colors.text.primary }]}>{pickedCount}/{TEAM_SIZE} · {ctorCount}/1</Text>
+              <Text numberOfLines={1} style={[mono(13), { flexShrink: 0, color: complete ? colors.positive : colors.text.primary }]}>{pickedCount}/{TEAM_SIZE} · {ctorCount}/1</Text>
             </View>
           }
         >
@@ -290,13 +298,13 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         </ScreenHeader>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 8, marginHorizontal: gutter, marginTop: 18 }}>
+      <View style={{ flexDirection: compact ? 'column' : 'row', gap: 8, marginHorizontal: gutter, marginTop: 18 }}>
         <SegmentPill<Tab>
           value={tab}
           onChange={setTab}
           size={10}
           padY={12}
-          style={{ flex: 1 }}
+          style={compact ? undefined : { flex: 1 }}
           segments={[{ key: 'drivers', label: 'DRIVERS' }, { key: 'constructors', label: 'CONSTRUCTOR' }]}
         />
         <SegmentPill<Sort>
@@ -304,7 +312,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           onChange={setSort}
           size={10}
           padY={12}
-          style={{ width: scaled(92) }}
+          style={compact ? { alignSelf: 'flex-end', width: 140 } : { width: scaled(92) }}
           segments={[{ key: 'pts', label: 'PTS' }, { key: 'price', label: '$' }]}
         />
       </View>
