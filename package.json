@@ -19,7 +19,8 @@
     "test:e2e:chat": "maestro test .maestro/flows/chat/",
     "test:e2e:profile": "maestro test .maestro/flows/profile/",
     "test:e2e:navigation": "maestro test .maestro/flows/navigation/",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "test:rules": "bash scripts/ops/run-rules-tests.sh"
   },
   "dependencies": {
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
@@ -67,6 +68,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.0.10",
     "eslint": "^8.57.0",

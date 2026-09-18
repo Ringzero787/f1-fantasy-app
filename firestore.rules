@@ -22,6 +22,25 @@ service cloud.firestore {
       return request.auth.token.admin == true;
     }
 
+    // F-056: write privileges inside a league (chat, invites, replies, count)
+    // need an APPROVED member; a join still awaiting approval does not count.
+    // Reads keep using isLeagueMember: released clients detect their own
+    // pending state by querying the members list.
+    function isApprovedLeagueMember(leagueId) {
+      let path = /databases/$(database)/documents/leagues/$(leagueId)/members/$(request.auth.uid);
+      return exists(path) && get(path).data.get('status', 'approved') != 'pending';
+    }
+
+    // F-056: joining a league — it must exist, have room, and the new member's
+    // status must match the league's approval setting.
+    function memberMayJoin(leagueId, status) {
+      let league = get(/databases/$(database)/documents/leagues/$(leagueId)).data;
+      let settings = league.get('settings', {});
+      let needsApproval = settings is map && settings.get('requireApproval', false) == true;
+      return league.memberCount < league.maxMembers
+             && ((needsApproval && status == 'pending') || (!needsApproval && status == 'approved'));
+    }
+
     // Users collection — only the owner can read/write their own profile
     // SECURITY: prevent users from setting isAdmin field on themselves
     match /users/{userId} {
@@ -37,9 +56,30 @@ service cloud.firestore {
     match /leagues/{leagueId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
+      // F-056: the owner edits league details but can never hand the league to
+      // someone else, and capacity never shrinks under the current head count.
+      // Everyone else may only move memberCount by one, and only in step with
+      // their own member doc (join: approved member, within capacity; leave: doc gone), never below 0.
+      // Residual: released clients delete their member doc BEFORE decrementing, so
+      // a leaver is indistinguishable from an outsider here, and a member can
+      // re-join to push the count up; it stays a client-maintained hint until a
+      // Cloud Function owns it (F-059).
       allow update: if isAuthenticated() && (
-        isLeagueOwner(leagueId) ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'updatedAt'])
+        (
+          isLeagueOwner(leagueId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.maxMembers >= resource.data.maxMembers
+        ) || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'updatedAt'])
+          && (
+            (request.resource.data.memberCount == resource.data.memberCount + 1
+                && isApprovedLeagueMember(leagueId)
+                && request.resource.data.memberCount <= resource.data.maxMembers)
+            || (request.resource.data.memberCount == resource.data.memberCount - 1
+                && !isLeagueMember(leagueId)
+                && request.resource.data.memberCount >= 0)
+          )
+        )
       );
       allow delete: if isLeagueOwner(leagueId);
 
@@ -50,8 +90,46 @@ service cloud.firestore {
           isLeagueOwner(leagueId) ||
           isOwner(memberId)
         );
-        allow create: if isAuthenticated();
-        allow update: if isLeagueOwner(leagueId) || isOwner(memberId);
+        // F-056: a member doc can only be created BY that user FOR that user,
+        // with a clean scoring state. `owner` is reserved for the league's own
+        // owner (createLeague writes league + owner member in one batch, hence
+        // getAfter). Joining respects capacity and the approval setting.
+        // Points, ranks and movement fields are written by Cloud Functions.
+        allow create: if isAuthenticated()
+                      && isOwner(memberId)
+                      && request.resource.data.keys().hasOnly(
+                           ['leagueId', 'userId', 'displayName', 'role', 'status', 'totalPoints', 'rank', 'joinedAt'])
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.leagueId == leagueId
+                      && request.resource.data.totalPoints == 0
+                      && request.resource.data.displayName is string
+                      && request.resource.data.displayName.size() <= 60
+                      && request.resource.data.rank is int
+                      && request.resource.data.rank >= 0
+                      && (
+                        (
+                          request.resource.data.role == 'owner'
+                          && getAfter(/databases/$(database)/documents/leagues/$(leagueId)).data.ownerId == request.auth.uid
+                        ) || (
+                          request.resource.data.role == 'member'
+                          && memberMayJoin(leagueId, request.resource.data.status)
+                        )
+                      );
+        // The owner manages role, approval and rank; a member may only fix
+        // their own display name. Nobody on a client touches points.
+        allow update: if isAuthenticated() && (
+          (
+            isLeagueOwner(leagueId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'status', 'rank'])
+            && request.resource.data.get('role', 'member') in ['owner', 'admin', 'member']
+            && (request.resource.data.get('role', 'member') == 'owner') == (resource.data.get('role', 'member') == 'owner')
+          ) || (
+            isOwner(memberId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName'])
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() <= 60
+          )
+        );
         allow delete: if isLeagueOwner(leagueId) || isOwner(memberId);
       }
 
@@ -59,8 +137,8 @@ service cloud.firestore {
       // SECURITY: limit invite doc size to prevent abuse
       match /invites/{inviteId} {
         allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId));
-        allow create: if isLeagueMember(leagueId)
-                      && request.resource.data.keys().hasOnly(['email', 'status', 'sentBy', 'createdAt'])
+        allow create: if isApprovedLeagueMember(leagueId)
+                      && request.resource.data.keys().hasOnly(['email', 'status', 'sentBy', 'createdAt', 'expiresAt'])
                       && request.resource.data.email is string
                       && request.resource.data.email.size() < 256;
         allow update, delete: if isLeagueOwner(leagueId);
@@ -75,7 +153,7 @@ service cloud.firestore {
 
         match /replies/{replyId} {
           allow read: if isAuthenticated() && isLeagueMember(leagueId);
-          allow create, update: if isAuthenticated() && isLeagueMember(leagueId);
+          allow create, update: if isAuthenticated() && isApprovedLeagueMember(leagueId);
           allow delete: if false;
         }
       }
@@ -83,9 +161,9 @@ service cloud.firestore {
       // Chat messages subcollection
       match /messages/{messageId} {
         allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId) || isAdmin());
-        allow create: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId))
+        allow create: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId))
                       && request.resource.data.senderId == request.auth.uid;
-        allow update: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId))
+        allow update: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId))
                       && (resource.data.senderId == request.auth.uid
                           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
         allow delete: if isAuthenticated()
