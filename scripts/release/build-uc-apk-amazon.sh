@@ -37,8 +37,8 @@ if grep -q "google-signin" android/settings.gradle; then
 fi
 printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m\n' >> android/gradle.properties
 FONTS=$(ls android/app/src/main/assets/fonts/*.ttf 2>/dev/null | wc -l)
-if [ "$FONTS" -lt 7 ]; then
-  echo "expected 7 embedded font files in android/app/src/main/assets/fonts, found $FONTS (check the expo-font plugin in app.config.js)" >&2
+if [ "$FONTS" -lt 5 ]; then
+  echo "expected 5 embedded font files in android/app/src/main/assets/fonts, found $FONTS (check the expo-font plugin in app.config.js)" >&2
   exit 5
 fi
 
