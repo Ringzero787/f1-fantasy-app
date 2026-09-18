@@ -56,34 +56,15 @@ service cloud.firestore {
     match /leagues/{leagueId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      // F-056: the owner edits league details but can never hand the league to
-      // someone else, and capacity never shrinks under the current head count.
-      // Everyone else may only move memberCount by one, and only in step with
-      // their own member doc (join: approved member, within capacity; leave: doc gone), never below 0.
-      // Residual: released clients delete their member doc BEFORE decrementing, so
-      // a leaver is indistinguishable from an outsider here, and a member can
-      // re-join to push the count up; it stays a client-maintained hint until a
-      // Cloud Function owns it (F-059).
-      allow update: if isAuthenticated() && (
-        (
-          isLeagueOwner(leagueId)
-          && request.resource.data.ownerId == resource.data.ownerId
-          && request.resource.data.maxMembers >= resource.data.maxMembers
-        ) || (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'updatedAt'])
-          && (
-            (request.resource.data.memberCount == resource.data.memberCount + 1
-                && isApprovedLeagueMember(leagueId)
-                // +1 of slack: once the server recount is live (F-059) it may land before a
-                // released client's own increment at the last free slot; the recount then
-                // puts the truth back.
-                && request.resource.data.memberCount <= resource.data.maxMembers + 1)
-            || (request.resource.data.memberCount == resource.data.memberCount - 1
-                && !isLeagueMember(leagueId)
-                && request.resource.data.memberCount >= 0)
-          )
-        )
-      );
+      // F-059 step B: only the owner edits a league. memberCount is server-owned
+      // (onLeagueMemberWritten recounts approved members), so no other client
+      // write to a league document is accepted any more. The owner still cannot
+      // hand the league over or shrink its capacity.
+      // GATED: deploy only once config/app.minVersion is at or above the first
+      // client release that stopped writing memberCount (F-059 step A).
+      allow update: if isLeagueOwner(leagueId)
+                    && request.resource.data.ownerId == resource.data.ownerId
+                    && request.resource.data.maxMembers >= resource.data.maxMembers;
       allow delete: if isLeagueOwner(leagueId);
 
       // League members subcollection
@@ -204,7 +185,16 @@ service cloud.firestore {
         isLeagueOwner(resource.data.leagueId) ||
         isAdmin()
       );
-      allow list: if isAuthenticated();
+      // F-059 step B: queries are scoped like gets — your own teams, teams in a
+      // league you belong to, or admin. A query must be constrained so that
+      // holds (where userId == me, or where leagueId == a league I am in).
+      // GATED: released builds before F-059 step A probe team-name uniqueness
+      // with a global query, which this denies.
+      allow list: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isLeagueMember(resource.data.leagueId) ||
+        isAdmin()
+      );
       // Create allowed only with a pristine financial state — a client cannot
       // mint a team with extra budget, a pre-filled roster, or points.
       allow create: if isAuthenticated()
