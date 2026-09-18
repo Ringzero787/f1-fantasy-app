@@ -13,6 +13,8 @@ const isExpoGo = Constants.appOwnership === 'expo';
 // ── Shell: surface background, wordmark header, centred content ────────────
 export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?: string; onWordmarkLongPress?: () => void; children: React.ReactNode }) {
   const { colors, family, spacing, scaled, isDark } = useSimpleTheme();
+  // The long-press demo entry is a testing hook: dev and Expo Go builds only.
+  const longPress = __DEV__ || isExpoGo ? onWordmarkLongPress : undefined;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
@@ -21,7 +23,7 @@ export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <MonoLabel>{caption ?? 'FANTASY · SEASON ' + new Date().getFullYear()}</MonoLabel>
           </View>
-          <Pressable onLongPress={onWordmarkLongPress} delayLongPress={1200} accessibilityRole="header" accessibilityLabel="Undercut">
+          <Pressable onLongPress={longPress} delayLongPress={1200} accessibilityRole="header" accessibilityLabel="Undercut">
             <Text style={{ fontFamily: family.ui.black, fontSize: scaled(40), lineHeight: scaled(40), letterSpacing: -scaled(40) * 0.05, textTransform: 'uppercase', color: colors.text.primary, marginTop: 10 }}>
               Under<Text style={{ color: colors.primary }}>cut</Text>
             </Text>
@@ -121,10 +123,12 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
       {isAmazonBuild && onAmazonSignIn
         ? pill('#FF9900', '#FF9900', '#111111', <Ionicons name="cart" size={18} color="#111111" />, 'CONTINUE WITH AMAZON', amazon, 'amazon')
         : null}
-      {/* Google: light button with the G mark, per Google's sign-in branding */}
-      {pill('#FFFFFF', '#D6D6D2', '#1F1F1F', <Ionicons name="logo-google" size={18} color="#1F1F1F" />, 'CONTINUE WITH GOOGLE', google, 'google')}
-      {/* Apple: black on light, white on dark, per the HIG */}
-      {Platform.OS !== 'android'
+      {/* Google: light button with the G mark, per Google's sign-in branding; not on Amazon builds */}
+      {!isAmazonBuild
+        ? pill('#FFFFFF', '#D6D6D2', '#1F1F1F', <Ionicons name="logo-google" size={18} color="#1F1F1F" />, 'CONTINUE WITH GOOGLE', google, 'google')
+        : null}
+      {/* Apple: black on light, white on dark, per the HIG; iOS only */}
+      {Platform.OS === 'ios' && !isAmazonBuild
         ? pill(colors.text.primary, colors.text.primary, colors.text.inverse, <Ionicons name="logo-apple" size={18} color={colors.text.inverse} />, 'CONTINUE WITH APPLE', apple, 'apple')
         : null}
       {isExpoGo ? <Text style={[mono(10, 'medium'), { color: colors.text.muted, textAlign: 'center', marginTop: 6 }]}>USE DEMO MODE IN EXPO GO</Text> : null}
