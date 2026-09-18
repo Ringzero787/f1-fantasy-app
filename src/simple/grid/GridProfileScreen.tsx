@@ -19,7 +19,8 @@ import { generateAvatar } from '../../services/avatarGeneration.service';
 import { RulesGuide } from '../../components/RulesGuide';
 import { GridAvatar, MonoLabel, PillButton, ScreenHeader, SegmentPill } from './GridBits';
 import { profileStatusLine } from './standings';
-import { teamRaceHistory, historyStats, DISPLAY_SCALES } from './raceHistory';
+import { teamRaceHistory, historyStats, scoredRaceCount } from './raceHistory';
+import { S_DISPLAY_SCALES as DISPLAY_SCALES } from '../theme/simpleTheme';
 
 const PRIVACY_URL = 'https://f1-app-18077.web.app/privacy.html';
 
@@ -64,7 +65,7 @@ export function GridProfileScreen() {
   const me = league ? members.find((m) => m.leagueId === league.id && m.userId === user?.id) : undefined;
   const seasonPoints = (team?.totalPoints ?? 0) + (team?.lockedPoints ?? 0);
   const history = useMemo(() => teamRaceHistory(team as never, raceResults as never, races), [team, raceResults, races]);
-  const stats = useMemo(() => historyStats(history, seasonPoints, (team as unknown as { bestRacePoints?: number })?.bestRacePoints ?? null), [history, seasonPoints, team]);
+  const stats = useMemo(() => historyStats(history, seasonPoints, scoredRaceCount(team?.scoredRaces), team?.bestRacePoints ?? null), [history, seasonPoints, team]);
   const seasonLength = useMemo(() => {
     const id = races[races.length - 1]?.seasonId;
     return id ? races.filter((r) => r.seasonId === id).length : races.length;
@@ -272,7 +273,7 @@ export function GridProfileScreen() {
           <Pressable onPress={() => {}} style={{ backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border, padding: gutter, paddingBottom: Math.max(insets.bottom, 12) + 22, gap: 12 }}>
             <MonoLabel>AVATAR</MonoLabel>
             <PillButton label="GENERATE WITH AI" variant="primary" onPress={generate} />
-            <PillButton label="CHOOSE A PHOTO" variant="outline" onPress={pickPhoto} />
+            <PillButton label="CHOOSE FROM LIBRARY" variant="outline" onPress={pickPhoto} />
             {recent.length > 0 && (
               <View style={{ gap: 8, marginTop: 4 }}>
                 <MonoLabel size={10}>RECENT</MonoLabel>

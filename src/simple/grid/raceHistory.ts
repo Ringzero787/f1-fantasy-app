@@ -58,17 +58,21 @@ export function teamRaceHistory(team: HistoryTeam | null, results: Record<string
   });
 }
 
-/** RACES / AVG / BEST stat cards from a history (BEST reads the server field when F-054 lands). */
-export function historyStats(history: HistoryEntry[], seasonPoints: number, bestFromServer?: number | null) {
-  const races = history.length;
-  const avg = races > 0 ? seasonPoints / races : null;
-  const best = bestFromServer ?? (races > 0 ? Math.max(...history.map((h) => h.total)) : null);
-  return { races, avg, best };
+/** Race keys in `scoredRaces` are plain race ids; quali/sprint carry a prefix. */
+export function scoredRaceCount(scoredRaces: string[] | undefined | null): number | null {
+  if (!Array.isArray(scoredRaces)) return null;
+  return new Set(scoredRaces.filter((k) => !k.startsWith('quali_') && !k.startsWith('sprint_'))).size;
 }
 
-export const DISPLAY_SCALES: { key: 'S' | 'M' | 'L' | 'XL'; scale: number }[] = [
-  { key: 'S', scale: 0.85 },
-  { key: 'M', scale: 1.0 },
-  { key: 'L', scale: 1.15 },
-  { key: 'XL', scale: 1.3 },
-];
+/**
+ * RACES / AVG / BEST stat cards. RACES = races the team was scored for
+ * (server-stamped `scoredRaces`), falling back to the local history when the
+ * stamp is missing; BEST comes only from the server field (F-054) and shows
+ * `—` until then.
+ */
+export function historyStats(history: HistoryEntry[], seasonPoints: number, racesScored: number | null, bestFromServer?: number | null) {
+  const races = racesScored ?? history.length;
+  const avg = races > 0 ? seasonPoints / races : null;
+  const best = bestFromServer ?? null;
+  return { races, avg, best };
+}

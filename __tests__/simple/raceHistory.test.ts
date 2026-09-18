@@ -1,4 +1,4 @@
-import { teamRaceHistory, historyStats } from '../../src/simple/grid/raceHistory';
+import { teamRaceHistory, historyStats, scoredRaceCount } from '../../src/simple/grid/raceHistory';
 
 const races = [
   { id: 'r1', round: 1, name: 'Opener' },
@@ -30,10 +30,14 @@ describe('teamRaceHistory', () => {
     const h = teamRaceHistory({ drivers: [], constructor: null }, { mystery_gp: { isComplete: true } }, []);
     expect(h[0]).toMatchObject({ name: 'mystery gp', total: 0, constructor: null });
   });
-  it('derives the stat cards', () => {
+  it('derives the stat cards from scored races, with BEST only from the server', () => {
     const h = teamRaceHistory(team, results, races);
-    expect(historyStats(h, 85)).toEqual({ races: 2, avg: 42.5, best: 62 });
-    expect(historyStats(h, 85, 70).best).toBe(70);
-    expect(historyStats([], 0)).toEqual({ races: 0, avg: null, best: null });
+    expect(scoredRaceCount(['r1', 'quali_r1', 'sprint_r1', 'r3', 'r3'])).toBe(2);
+    expect(scoredRaceCount(undefined)).toBeNull();
+    // late joiner: scored for one race although two are complete
+    expect(historyStats(h, 40, 1)).toEqual({ races: 1, avg: 40, best: null });
+    expect(historyStats(h, 85, null)).toEqual({ races: 2, avg: 42.5, best: null });
+    expect(historyStats(h, 85, 2, 70).best).toBe(70);
+    expect(historyStats([], 0, null)).toEqual({ races: 0, avg: null, best: null });
   });
 });

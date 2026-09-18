@@ -183,6 +183,14 @@ export const S_RADIUS = {
   full: 999,
 } as const;
 
+// Display-size steps offered in Profile (multiply every px value).
+export const S_DISPLAY_SCALES: { key: 'S' | 'M' | 'L' | 'XL'; scale: number }[] = [
+  { key: 'S', scale: 0.85 },
+  { key: 'M', scale: 1.0 },
+  { key: 'L', scale: 1.15 },
+  { key: 'XL', scale: 1.3 },
+];
+
 // Constructor accents — the handoff hexes for the seven teams it draws, ours
 // for the rest of the 2026 grid (one source: TEAM_COLORS, which also seeds the
 // remote-config store). Used only for the 28×3 / 20×3 colour bars. A
