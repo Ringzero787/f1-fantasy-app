@@ -18,6 +18,7 @@ import {
   SprintResult,
   QualifyingResult,
 } from './scoringCore';
+import { rankWrites, bestRaceUpdate } from './standingsFields';
 
 const db = admin.firestore();
 
@@ -101,6 +102,9 @@ interface FantasyTeam {
   lockedPoints?: number;
   totalSpent?: number;
   scoredRaces?: string[];
+  // F-054: best single race weekend (Phase 1 keeps it current)
+  bestRacePoints?: number;
+  bestRaceId?: string;
 }
 
 type PerformanceTier = 'great' | 'good' | 'poor' | 'terrible';
@@ -236,24 +240,22 @@ async function commitInBatches(
 }
 
 /**
- * Deterministic league ranking: totalPoints desc, lastRacePoints desc, then
- * member id asc as a stable final tiebreak. Firestore orderBy alone leaves
- * tied members in arbitrary (doc-id-internal) order, so ranks of tied players
- * could swap between scoring events.
+ * Deterministic league ranking (see standingsFields.orderMembers): totalPoints
+ * desc, lastRacePoints desc, then member id asc as a stable final tiebreak.
+ * Pass the weekend's raceId so the first ranking pass of that weekend
+ * snapshots previousRank for the client's ▲/▼ movement (F-054).
  */
-async function rankLeagueMembers(leagueId: string): Promise<void> {
+async function rankLeagueMembers(leagueId: string, raceId?: string): Promise<void> {
   const membersSnap = await db.collection('leagues').doc(leagueId).collection('members').get();
-  const sorted = [...membersSnap.docs].sort((a, b) => {
-    const ad = a.data();
-    const bd = b.data();
-    const byTotal = (bd.totalPoints || 0) - (ad.totalPoints || 0);
-    if (byTotal !== 0) return byTotal;
-    const byLastRace = (bd.lastRacePoints || 0) - (ad.lastRacePoints || 0);
-    if (byLastRace !== 0) return byLastRace;
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  });
-  const rankOps = sorted.map((d, index) => ({ ref: d.ref, data: { rank: index + 1 } }));
-  await commitInBatches(rankOps);
+  const refs = new Map(membersSnap.docs.map((d) => [d.id, d.ref]));
+  const writes = rankWrites(
+    membersSnap.docs.map((d) => {
+      const m = d.data();
+      return { id: d.id, totalPoints: m.totalPoints, lastRacePoints: m.lastRacePoints, rank: m.rank, previousRankRaceId: m.previousRankRaceId };
+    }),
+    raceId,
+  );
+  await commitInBatches(writes.map((w) => ({ ref: refs.get(w.id)!, data: w.data })));
 }
 
 // ─── Qualifying scoring (standalone) ───
@@ -405,7 +407,7 @@ export async function handleQualifyingScoring(
       if (pts !== undefined) memberOps.push({ ref: d.ref, data: { totalPoints: pts } });
     });
     await commitInBatches(memberOps);
-    await rankLeagueMembers(leagueId);
+    await rankLeagueMembers(leagueId, raceId);
   }
 
   console.log(`[Qualifying] Updated rankings for ${affectedLeagues.length} leagues`);
@@ -530,7 +532,7 @@ export async function handleSprintScoring(
       if (pts !== undefined) memberOps.push({ ref: d.ref, data: { totalPoints: pts } });
     });
     await commitInBatches(memberOps);
-    await rankLeagueMembers(leagueId);
+    await rankLeagueMembers(leagueId, raceId);
   }
 
   console.log(`[Sprint] Updated rankings for ${affectedLeagues.length} leagues`);
@@ -928,6 +930,8 @@ export const onRaceCompleted = functions
           totalPoints: admin.firestore.FieldValue.increment(teamPoints),
           racesSinceTransfer: admin.firestore.FieldValue.increment(1),
           scoredRaces: admin.firestore.FieldValue.arrayUnion(raceId),
+          // F-054: best single race weekend for the Profile's BEST card
+          ...bestRaceUpdate(team, raceId, teamPoints),
         },
       });
 
@@ -1440,7 +1444,7 @@ export const onRaceCompleted = functions
       await commitInBatches(memberOps);
 
       // Recalculate rankings (deterministic, with tiebreaks)
-      await rankLeagueMembers(leagueId);
+      await rankLeagueMembers(leagueId, raceId);
     }
 
     console.log(`[Phase 4] Synced rankings for ${affectedLeagues.length} leagues`);
