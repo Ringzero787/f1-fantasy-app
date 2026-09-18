@@ -8,7 +8,7 @@ import { MonoLabel, PillButton } from '../../src/simple/grid/GridBits';
 import { isValidEmail } from '../../src/utils/validation';
 
 export default function ForgotPasswordScreen() {
-  const { colors, family, scaled } = useSimpleTheme();
+  const { colors, family, scaled, title } = useSimpleTheme();
   const { resetPassword, isLoading, error, clearError } = useAuth();
   const [email, setEmail] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -21,7 +21,6 @@ export default function ForgotPasswordScreen() {
     try { await resetPassword(email.trim()); setSuccess(true); } catch { /* store holds the error */ }
   };
 
-  const title = { fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(26), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase' as const, color: colors.text.primary };
   const body = { fontFamily: family.ui.regular, fontSize: scaled(12), lineHeight: scaled(18), color: colors.text.muted };
 
   return (

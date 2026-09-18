@@ -13,7 +13,7 @@ interface Props {
 // First run: one-field "Name your team" in the League Manager form style,
 // with the optional league code kept. Lands on the Team grid with 6 open slots.
 export const GridCreateTeam = React.memo(function GridCreateTeam({ onCreate, isSecondTeam, onCancel }: Props) {
-  const { colors, family, spacing, scaled } = useSimpleTheme();
+  const { colors, family, spacing, scaled, title } = useSimpleTheme();
   const [name, setName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export const GridCreateTeam = React.memo(function GridCreateTeam({ onCreate, isS
         <MonoLabel>{isSecondTeam ? 'SECOND TEAM' : 'FIRST RUN'}</MonoLabel>
         <MonoLabel>{`SEASON ${new Date().getFullYear()}`}</MonoLabel>
       </View>
-      <Text style={{ fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(26), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>Name your team</Text>
+      <Text style={title}>Name your team</Text>
       <Text style={{ fontFamily: family.ui.regular, fontSize: scaled(12), lineHeight: scaled(18), color: colors.text.muted, marginBottom: 8 }}>
         Five drivers, one constructor, a $1,000 budget. You can rename it any time from your profile.
       </Text>

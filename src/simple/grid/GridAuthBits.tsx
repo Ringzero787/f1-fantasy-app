@@ -18,12 +18,12 @@ export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: 24, paddingBottom: 34 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <MonoLabel>{caption ?? 'FANTASY · SEASON ' + new Date().getFullYear()}</MonoLabel>
           </View>
-          <Pressable onLongPress={longPress} delayLongPress={1200} accessibilityRole="header" accessibilityLabel="Undercut">
+          <Pressable onLongPress={longPress} accessibilityRole="header" accessibilityLabel="Undercut">
             <Text style={{ fontFamily: family.ui.black, fontSize: scaled(40), lineHeight: scaled(40), letterSpacing: -scaled(40) * 0.05, textTransform: 'uppercase', color: colors.text.primary, marginTop: 10 }}>
               Under<Text style={{ color: colors.primary }}>cut</Text>
             </Text>
@@ -121,7 +121,7 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
   return (
     <View style={{ gap: 10 }}>
       {isAmazonBuild && onAmazonSignIn
-        ? pill('#FF9900', '#FF9900', '#111111', <Ionicons name="cart" size={18} color="#111111" />, 'CONTINUE WITH AMAZON', amazon, 'amazon')
+        ? pill('#FF9900', '#FF9900', '#111111', <Ionicons name="cart" size={18} color="#111111" />, 'LOGIN WITH AMAZON', amazon, 'amazon')
         : null}
       {/* Google: light button with the G mark, per Google's sign-in branding; not on Amazon builds */}
       {!isAmazonBuild

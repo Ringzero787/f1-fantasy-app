@@ -8,7 +8,7 @@ import { MonoLabel, PillButton } from '../../src/simple/grid/GridBits';
 import { validateDisplayName, validatePassword, isValidEmail } from '../../src/utils/validation';
 
 export default function RegisterScreen() {
-  const { colors, family, scaled } = useSimpleTheme();
+  const { colors, family, scaled, title } = useSimpleTheme();
   const { signUp, signInWithGoogle, signInWithApple, isLoading, error, clearError } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -38,7 +38,7 @@ export default function RegisterScreen() {
   return (
     <AuthShell caption="CREATE ACCOUNT">
       <View style={{ gap: 14 }}>
-        <Text style={{ fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(26), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>New here</Text>
+        <Text style={title}>New here</Text>
         <AuthError messages={[...validationErrors, ...(error ? [error] : [])]} />
         <GridSocialButtons
           onGoogleSignIn={(t) => social(() => signInWithGoogle(t))()}

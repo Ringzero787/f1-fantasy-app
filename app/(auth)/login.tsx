@@ -10,7 +10,7 @@ import { amazonSignIn } from '../../src/utils/amazonSignIn';
 import { functions } from '../../src/config/firebase';
 
 export default function LoginScreen() {
-  const { colors, family, scaled, mono } = useSimpleTheme();
+  const { colors, family, scaled, mono, title } = useSimpleTheme();
   const { signInWithGoogle, signInWithApple, signInWithAmazon, enterDemoMode, isLoading, error, clearError } = useAuth();
 
   // TEMP dev-only: ?demo=1 on web enters demo mode for headless UI verification
@@ -47,7 +47,7 @@ export default function LoginScreen() {
     <AuthShell onWordmarkLongPress={() => { enterDemoMode(); router.replace('/'); }}>
       <View style={{ gap: 18 }}>
         <View style={{ gap: 8 }}>
-          <Text style={{ fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(26), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>Welcome</Text>
+          <Text style={title}>Welcome</Text>
           <Text style={{ fontFamily: family.ui.regular, fontSize: scaled(12), lineHeight: scaled(18), color: colors.text.muted }}>
             Sign in to build your lineup, pick an ace and race your friends.
           </Text>
