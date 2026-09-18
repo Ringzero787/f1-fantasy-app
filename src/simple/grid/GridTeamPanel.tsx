@@ -89,7 +89,9 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
     if (isFull && !reviewed.current) { reviewed.current = true; maybeRequestReview(); }
   }, [isFull]);
 
-  const seasonLength = races.length;
+  // One season only: the races collection is ordered by round, not filtered.
+  const seasonId = lockoutInfo.nextRace?.seasonId ?? races[races.length - 1]?.seasonId;
+  const seasonLength = seasonId ? races.filter((r) => r.seasonId === seasonId).length : races.length;
   const nextRound = lockoutInfo.nextRace?.round ?? null;
   const completedRounds = nextRound ? nextRound - 1 : seasonLength;
   const roundStatus = formatRoundStatus(nextRound, seasonLength, lockoutInfo.nextRace?.city || lockoutInfo.nextRace?.country);

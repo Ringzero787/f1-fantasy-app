@@ -66,7 +66,7 @@ export default function SimpleMainScreen() {
           <Animated.View
             style={{ ...absoluteFill, opacity: leagueOpacity, paddingTop: 12, zIndex: tab === 'league' ? 2 : 1, pointerEvents: tab === 'league' ? 'auto' : 'none' }}
           >
-            <SimpleLeaguePanel />
+            <SimpleLeaguePanel joinCode={params.join ? params.code : undefined} />
           </Animated.View>
         </View>
       </View>

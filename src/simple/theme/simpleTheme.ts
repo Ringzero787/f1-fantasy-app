@@ -1,5 +1,6 @@
 import { usePrefsStore } from '../../store/prefs.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
+import { TEAM_COLORS } from '../../config/constants';
 
 // Get current display scale — called at render time by components
 export function getDisplayScale(): number {
@@ -183,22 +184,12 @@ export const S_RADIUS = {
 } as const;
 
 // Constructor accents — the handoff hexes for the seven teams it draws, ours
-// for the rest of the 2026 grid. Used only for the 28×3 / 20×3 colour bars.
-// Remote config wins when a constructor doc carries `colors.primary`.
-export const S_TEAM_ACCENTS: Record<string, string> = {
-  mclaren: '#FF8000',
-  ferrari: '#E80020',
-  red_bull: '#3671C6',
-  mercedes: '#27F4D2',
-  williams: '#64C4FF',
-  aston_martin: '#229971',
-  rb: '#6692FF',
-  racing_bulls: '#6692FF',
-  alpine: '#0093CC',
-  haas: '#B6BABD',
-  audi: '#52E252',
-  cadillac: '#C7B063',
-};
+// for the rest of the 2026 grid (one source: TEAM_COLORS, which also seeds the
+// remote-config store). Used only for the 28×3 / 20×3 colour bars. A
+// constructor doc's `colors.primary` wins when remote config has loaded it.
+export const S_TEAM_ACCENTS: Record<string, string> = Object.fromEntries(
+  Object.entries(TEAM_COLORS).map(([id, c]) => [id, c.primary]),
+);
 
 const NEUTRALS = new Set(['#FFFFFF', '#000000', '#FFF', '#000']);
 

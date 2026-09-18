@@ -95,6 +95,13 @@ describe('tiles', () => {
     expect(rosterRacePoints(team, ctx.lastRace)).toBe(25 + 12 + 0 + 15 + 43);
     expect(rosterRacePoints(team, {})).toBeNull();
   });
+  it('reads SET with no open slots for a full lineup', () => {
+    const full = { ...team, drivers: [...team.drivers, { driverId: 'piastri', name: 'Oscar Piastri', shortName: 'PIA', constructorId: 'mclaren', purchasePrice: 300, currentPrice: 300, pointsScored: 298, racesHeld: 0, contractLength: 3 }] } as unknown as FantasyTeam;
+    const tiles = computeTiles(full, ctx);
+    expect(tiles).toHaveLength(6);
+    expect(openSlotCount(tiles)).toBe(0);
+    expect(lineupStatus(openSlotCount(tiles), false)).toEqual({ text: 'SET', accent: false });
+  });
   it('shows six open slots for a fresh team', () => {
     const fresh = { ...team, drivers: [], constructor: null } as unknown as FantasyTeam;
     expect(openSlotCount(computeTiles(fresh, ctx))).toBe(6);
