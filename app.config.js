@@ -70,17 +70,15 @@ module.exports = {
       "expo-router",
       "expo-asset",
       ["expo-font", {
-        // Embed the Race Day faces natively (family name = file name) so
+        // Embed the Grid faces natively (family name = file name) so
         // release builds don't depend on expo-font's runtime asset loading,
         // which fails in release ("Unable to download asset from url:").
         fonts: [
-          "./node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf",
-          "./node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf",
-          "./node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf",
-          "./node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf",
-          "./node_modules/@expo-google-fonts/space-grotesk/500Medium/SpaceGrotesk_500Medium.ttf",
-          "./node_modules/@expo-google-fonts/space-grotesk/600SemiBold/SpaceGrotesk_600SemiBold.ttf",
-          "./node_modules/@expo-google-fonts/space-grotesk/700Bold/SpaceGrotesk_700Bold.ttf",
+          "./node_modules/@expo-google-fonts/unbounded/400Regular/Unbounded_400Regular.ttf",
+          "./node_modules/@expo-google-fonts/unbounded/700Bold/Unbounded_700Bold.ttf",
+          "./node_modules/@expo-google-fonts/unbounded/900Black/Unbounded_900Black.ttf",
+          "./node_modules/@expo-google-fonts/jetbrains-mono/500Medium/JetBrainsMono_500Medium.ttf",
+          "./node_modules/@expo-google-fonts/jetbrains-mono/700Bold/JetBrainsMono_700Bold.ttf",
         ],
       }],
       "expo-web-browser",

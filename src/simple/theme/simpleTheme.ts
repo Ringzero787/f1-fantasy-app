@@ -1,5 +1,5 @@
-import { Platform } from 'react-native';
 import { usePrefsStore } from '../../store/prefs.store';
+import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 
 // Get current display scale — called at render time by components
 export function getDisplayScale(): number {
@@ -7,107 +7,91 @@ export function getDisplayScale(): number {
 }
 
 // ============================================================================
-// "Race Day" theme — F1-broadcast look per design_handoff_race_day_redesign,
-// with the primary swapped from F1 red to the Undercut logo teal (user call).
-// Carbon black surfaces, teal primary, italic Space Grotesk display type.
-// Dark is the default ("Race Day"); light is "paddock white".
+// "Grid" theme — design_handoff_grid_redesign (2026-09-18), TRANSITION.md §3.
+// Black / grey / one red. No gradients, italics, shadows or skews. Unbounded
+// for every piece of UI text, JetBrains Mono for every label, number, code
+// and caption. Dark is the default; light is a straight inversion.
 // ============================================================================
 
 export const S_COLORS_DARK = {
-  background: '#15151E',
-  surface: '#1D1D28',
-  card: '#22222E',
-  cardPressed: '#2B2B3A',
+  background: '#050505',   // app canvas (behind screens)
+  surface: '#0E0E0E',      // screen background
+  card: '#1A1A1A',         // tiles, pills, inputs
+  cardPressed: '#232323',
 
-  primary: '#14B8A6',     // Undercut logo teal
-  primaryDark: '#0D9488',
-  primaryLight: '#2DD4BF',
-  primaryFaint: '#10302B',
+  primary: '#FF2E2E',      // the one accent
+  primaryDark: '#D91F1F',
+  primaryLight: '#FF5A5A',
+  primaryFaint: '#2A0F0F',
 
   text: {
-    primary: '#F5F5F7',
-    secondary: '#A9A9BC',
-    muted: '#6E6E82',
-    inverse: '#FFFFFF',
+    primary: '#F2F2F2',
+    secondary: '#B3B3B3',
+    muted: '#7A7A7A',      // ≥ 4.5:1 on #0E0E0E
+    inverse: '#050505',    // text on text.primary fills
   },
 
-  positive: '#33CC66',
-  negative: '#FF5252',
+  positive: '#4ADE80',
+  negative: '#FF2E2E',
   warning: '#FFB800',
 
-  border: '#32323F',
-  borderLight: '#282833',
+  border: '#232323',       // screen edge, section rules
+  borderLight: '#1E1E1E',  // row separators
+  borderStrong: '#333333', // dashed open slots, outline buttons, unselected rings
 
-  gold: '#FFD24A',
-  silver: '#B9B9C9',
-  bronze: '#D68B4F',
-
-  // Ace badge
-  ace: '#FFD24A',
-  aceBg: '#332B12',
-
-  // Lock state
-  locked: '#6E6E82',
-  lockedBg: '#2B2B3A',
-
-  // Success banner background
-  positiveFaint: '#12291A',
-
-  // Sheet/modal backdrop
-  scrim: 'rgba(8,8,14,0.7)',
-
-  // Faint diagonal speed-line texture on the stat bar
-  speedLine: 'rgba(255,255,255,0.025)',
+  // Legacy keys still read by the Race Day panels until F-051/F-052/F-055
+  // replace them. Monochrome by design — no gold/silver/bronze podium colours.
+  gold: '#F2F2F2',
+  silver: '#B3B3B3',
+  bronze: '#7A7A7A',
+  ace: '#FF2E2E',
+  aceBg: '#2A0F0F',
+  locked: '#7A7A7A',
+  lockedBg: '#1A1A1A',
+  positiveFaint: '#0F2618',
+  scrim: 'rgba(5,5,5,0.78)',
+  speedLine: 'transparent',
 } as const;
 
 export const S_COLORS_LIGHT = {
-  background: '#F4F4F6',
-  surface: '#FFFFFF',
-  card: '#FFFFFF',
-  cardPressed: '#ECECEF',
+  background: '#FFFFFF',
+  surface: '#F4F4F2',
+  card: '#E8E8E5',
+  cardPressed: '#DDDDD9',
 
-  primary: '#0FA893',     // logo teal, darkened a touch for light-bg contrast
-  primaryDark: '#0D8478',
-  primaryLight: '#2DD4BF',
-  primaryFaint: '#D7F1EC',
+  primary: '#FF2E2E',
+  primaryDark: '#D91F1F',
+  primaryLight: '#FF5A5A',
+  primaryFaint: '#FFE4E4',
 
   text: {
-    primary: '#15151E',
-    secondary: '#4E4E5E',
-    muted: '#8C8C9C',
+    primary: '#0A0A0A',
+    secondary: '#3F3F3F',
+    muted: '#6B6B6B',
     inverse: '#FFFFFF',
   },
 
-  positive: '#1D9E4E',
-  negative: '#D0342C',
-  warning: '#C58A00',
+  positive: '#15803D',
+  negative: '#FF2E2E',
+  warning: '#B45309',
 
-  border: '#E2E2E8',
-  borderLight: '#EDEDF1',
+  border: '#D6D6D2',
+  borderLight: '#DDDDD9',
+  borderStrong: '#C8C8C4',
 
-  gold: '#C79A2A',
-  silver: '#9898A6',
-  bronze: '#B0703C',
-
-  // Ace badge
-  ace: '#C79A2A',
-  aceBg: '#F7EFD8',
-
-  // Lock state
-  locked: '#8C8C9C',
-  lockedBg: '#ECECEF',
-
-  // Success banner background
-  positiveFaint: '#E4F3E9',
-
-  // Sheet/modal backdrop
-  scrim: 'rgba(21,21,30,0.5)',
-
-  // Faint diagonal speed-line texture on the stat bar
-  speedLine: 'rgba(21,21,30,0.03)',
+  gold: '#0A0A0A',
+  silver: '#3F3F3F',
+  bronze: '#6B6B6B',
+  ace: '#FF2E2E',
+  aceBg: '#FFE4E4',
+  locked: '#6B6B6B',
+  lockedBg: '#E8E8E5',
+  positiveFaint: '#DDF3E4',
+  scrim: 'rgba(10,10,10,0.5)',
+  speedLine: 'transparent',
 } as const;
 
-// Backwards compatibility — dark ("Race Day") is the canonical palette.
+// Backwards compatibility — dark is the canonical palette.
 // Both palettes share the same key shape; SimpleColors covers both.
 export const S_COLORS = S_COLORS_DARK;
 
@@ -115,38 +99,60 @@ export type SimpleColors = typeof S_COLORS_DARK;
 
 // Per-weight font family names (expo-google-fonts registers one family per
 // weight — do NOT combine these with fontWeight or iOS will double-embolden).
+// `body`/`display` keep their old key shape so the not-yet-migrated Race Day
+// panels pick up the new faces without edits; new Grid code uses `ui`/`mono`.
 export const S_FONT_FAMILY = {
+  ui: {
+    regular: 'Unbounded_400Regular',
+    bold: 'Unbounded_700Bold',
+    black: 'Unbounded_900Black',
+  },
+  mono: {
+    medium: 'JetBrainsMono_500Medium',
+    bold: 'JetBrainsMono_700Bold',
+  },
   body: {
-    regular: 'Inter_400Regular',
-    medium: 'Inter_500Medium',
-    semibold: 'Inter_600SemiBold',
-    bold: 'Inter_700Bold',
+    regular: 'Unbounded_400Regular',
+    medium: 'Unbounded_400Regular',
+    semibold: 'Unbounded_700Bold',
+    bold: 'Unbounded_700Bold',
   },
   display: {
-    medium: 'SpaceGrotesk_500Medium',
-    semibold: 'SpaceGrotesk_600SemiBold',
-    bold: 'SpaceGrotesk_700Bold',
+    medium: 'Unbounded_700Bold',
+    semibold: 'Unbounded_700Bold',
+    bold: 'Unbounded_900Black',
   },
 } as const;
 
-// Space Grotesk ships no italic face; the design's "italic speed type" is a
-// synthesized oblique. Android ignores skew transforms on Text (verified on
-// device) but synthesizes oblique via fontStyle; iOS/web do the reverse.
-export const S_DISPLAY_SKEW = [{ skewX: '-8deg' }] as const;
-export const S_DISPLAY_OBLIQUE = Platform.OS === 'android'
-  ? ({ fontStyle: 'italic' } as const)
-  : ({ transform: S_DISPLAY_SKEW as unknown as { skewX: string }[] } as const);
+// Grid has no oblique display type. Kept as an empty style so the legacy
+// panels that spread it compile until they are replaced.
+export const S_DISPLAY_SKEW = [] as const;
+export const S_DISPLAY_OBLIQUE = {} as const;
+
+// Type scale from TRANSITION.md §3 (px, before display scaling).
+export const S_TYPE = {
+  sectionLabel: 11,   // mono 700, tracking 0.18em, uppercase, muted
+  caption: 10,        // mono, the only text allowed under 11px
+  screenTitle: 26,    // Unbounded 900, tracking -0.03em, uppercase
+  tileName: 19,       // steps to 17 (>7 chars) and 15 (>8 chars)
+  seasonPoints: 56,   // 900, line-height 0.9, tracking -0.05em
+  lastRace: 22,
+  standingsRank: 30,
+  playerName: 16,
+  points: 18,         // mono 700
+  tab: 12,            // 900, tracking 0.08em
+} as const;
 
 export const S_FONTS = {
   regular: 'System',
   sizes: {
     xs: 10,
-    sm: 12,
-    md: 14,
+    sm: 11,
+    md: 13,
     lg: 16,
-    xl: 18,
-    xxl: 22,
-    hero: 28,
+    xl: 19,
+    xxl: 26,
+    hero: 56,
   },
   weights: {
     normal: '400' as const,
@@ -160,45 +166,50 @@ export const S_SPACING = {
   xs: 4,
   sm: 8,
   md: 12,
-  lg: 16,
-  xl: 24,
-  xxl: 32,
+  lg: 18,   // row padding
+  xl: 24,   // screen gutter
+  xxl: 34,  // bottom safe margin under the tab pill
 } as const;
 
+// Radii from §3: tiles 18 · small stat cards 14 · inputs 14 · chips 12 ·
+// all pills/buttons/avatars 999.
 export const S_RADIUS = {
-  sm: 6,
-  md: 9,
-  lg: 12,
+  sm: 12,     // chips
+  md: 14,     // inputs, small stat cards
+  lg: 18,     // tiles, cards
   sheet: 18,
-  pill: 10,      // Race Day "pill" is a squared chip, not a capsule
-  full: 9999,    // true circles/capsules (avatars, round buttons)
+  pill: 999,
+  full: 999,
 } as const;
 
-// Constructor accent colors tuned for Race Day surfaces (the handoff palette).
-// Deliberately separate from src/config/constants TEAM_COLORS, which the
-// legacy (tabs) UI still consumes — e.g. Haas moves off #E10600 here so team
-// stripes never read as the primary red.
+// Constructor accents — the handoff hexes for the seven teams it draws, ours
+// for the rest of the 2026 grid. Used only for the 28×3 / 20×3 colour bars.
+// Remote config wins when a constructor doc carries `colors.primary`.
 export const S_TEAM_ACCENTS: Record<string, string> = {
   mclaren: '#FF8000',
-  red_bull: '#1E40AF',
-  ferrari: '#DC2626',
+  ferrari: '#E80020',
+  red_bull: '#3671C6',
   mercedes: '#27F4D2',
-  williams: '#1868DB',
-  haas: '#B91C1C',
+  williams: '#64C4FF',
   aston_martin: '#229971',
-  alpine: '#0093CC',
   rb: '#6692FF',
   racing_bulls: '#6692FF',
+  alpine: '#0093CC',
+  haas: '#B6BABD',
   audi: '#52E252',
   cadillac: '#C7B063',
 };
 
+const NEUTRALS = new Set(['#FFFFFF', '#000000', '#FFF', '#000']);
+
 export function teamAccent(constructorId?: string | null): string {
-  return (constructorId && S_TEAM_ACCENTS[constructorId]) || '#999999';
+  if (!constructorId) return '#999999';
+  const remote = useRemoteConfigStore.getState().teamColors?.[constructorId]?.primary;
+  if (remote && !NEUTRALS.has(remote.toUpperCase())) return remote;
+  return S_TEAM_ACCENTS[constructorId] ?? '#999999';
 }
 
-// Shade a hex by a fixed amount (negative = darker) — used for the driver
-// tile gradients (linear-gradient(160deg, accent, accent shaded -34)).
+// Shade a hex by a fixed amount (negative = darker).
 export function shadeHex(hex: string, amt: number): string {
   const h = hex.replace('#', '');
   if (h.length !== 6) return hex;

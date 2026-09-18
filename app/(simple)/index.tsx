@@ -1,113 +1,93 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, StatusBar, PanResponder, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { SimpleToggleBar, type SimplePanel } from '../../src/simple/components/SimpleToggleBar';
-import { SimpleCountdownBanner } from '../../src/simple/components/SimpleCountdownBanner';
-import { SimpleMyTeamPanel } from '../../src/simple/components/SimpleMyTeamPanel';
+import { View, StatusBar, Animated, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams } from 'expo-router';
+import { GridTeamPanel } from '../../src/simple/grid/GridTeamPanel';
+import { SegmentPill } from '../../src/simple/grid/GridBits';
 import { WeekendRecapCard } from '../../src/simple/components/WeekendRecapCard';
 import { SimpleLeaguePanel } from '../../src/simple/components/SimpleLeaguePanel';
-import { SimpleMarketPanel } from '../../src/simple/components/SimpleMarketPanel';
-import { SimpleProfilePill } from '../../src/simple/components/SimpleProfilePill';
-import { SimpleProfileSheet } from '../../src/simple/components/SimpleProfileSheet';
 import { useSimpleTeam } from '../../src/simple/hooks/useSimpleTeam';
 import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
 import { useAdminStore } from '../../src/store/admin.store';
+import { useRaceScoresStore } from '../../src/store/raceScores.store';
+
+type Tab = 'team' | 'league';
+const FADE_MS = 150;
 
 export default function SimpleMainScreen() {
-  const { colors, isDark } = useSimpleTheme();
-  const [activePanel, setActivePanel] = useState<SimplePanel>('team');
+  const { colors, isDark, spacing } = useSimpleTheme();
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ join?: string; code?: string }>();
+  const [tab, setTab] = useState<Tab>(params.join ? 'league' : 'team');
   const [refreshing, setRefreshing] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const { team, loadUserTeams } = useSimpleTeam();
   const syncCompletedRaces = useAdminStore((s) => s.syncCompletedRaces);
   const loadMarketCache = useAdminStore((s) => s.loadMarketCache);
+  const fetchLastRaceScores = useRaceScoresStore((s) => s.fetchLastRaceScores);
 
-  // Initial data load
   useEffect(() => {
     loadUserTeams();
     syncCompletedRaces();
     loadMarketCache();
   }, []);
 
+  // A join deep link lands on the LEAGUE tab.
+  useEffect(() => { if (params.join) setTab('league'); }, [params.join, params.code]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      loadUserTeams(),
-      syncCompletedRaces(),
-      loadMarketCache(),
-    ]);
+    await Promise.all([loadUserTeams(), syncCompletedRaces(), loadMarketCache(), fetchLastRaceScores(true)]);
     setRefreshing(false);
   }, []);
 
-  const hasLeague = !!team?.leagueId;
+  // Both panels stay mounted; switching is a 150 ms cross-fade.
+  const teamOpacity = useRef(new Animated.Value(tab === 'team' ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.timing(teamOpacity, { toValue: tab === 'team' ? 1 : 0, duration: FADE_MS, useNativeDriver: true }).start();
+  }, [tab, teamOpacity]);
+  const leagueOpacity = teamOpacity.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+
   const { width } = useWindowDimensions();
   const isTablet = width >= 600;
-  const contentMaxWidth = isTablet ? 540 : undefined;
-
-  // Swipe gesture for panel switching
-  const PANELS: SimplePanel[] = ['standings', 'team', 'market'];
-  const panelRef = useRef(activePanel);
-  panelRef.current = activePanel;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 30 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
-      onPanResponderRelease: (_, gesture) => {
-        if (Math.abs(gesture.dx) < 50) return;
-        const idx = PANELS.indexOf(panelRef.current);
-        if (gesture.dx < 0 && idx < PANELS.length - 1) {
-          setActivePanel(PANELS[idx + 1]);
-        } else if (gesture.dx > 0 && idx > 0) {
-          setActivePanel(PANELS[idx - 1]);
-        }
-      },
-    })
-  ).current;
+  const contentMaxWidth = isTablet ? 640 : undefined;
+  const hasLeague = !!team?.leagueId;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* No backgroundColor: it calls the deprecated setStatusBarColor (flagged
-          by Play on API 35 edge-to-edge). barStyle sets icon contrast only. */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }} edges={['top']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      {/* Race Day: profile entry is a slim sliver pinned above the toggle bar */}
-      <SimpleProfilePill onPress={() => setProfileOpen(true)} />
-      <View style={{ height: 12 }} />
-      <SimpleToggleBar active={activePanel} onChange={setActivePanel} hasLeague={hasLeague} />
-
-      <View style={[styles.panelContainer, isTablet && { alignItems: 'center' }]} {...panResponder.panHandlers}>
+      <View style={[{ flex: 1 }, isTablet && { alignItems: 'center' }]}>
         <View style={[{ flex: 1, width: '100%' }, contentMaxWidth ? { maxWidth: contentMaxWidth } : null]}>
-        {activePanel === 'team' && (
-          <SimpleMyTeamPanel
-            onNavigateToMarket={() => setActivePanel('market')}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-          />
-        )}
-        {activePanel === 'standings' && (
-          <SimpleLeaguePanel />
-        )}
-        {activePanel === 'market' && (
-          <SimpleMarketPanel refreshing={refreshing} onRefresh={onRefresh} />
-        )}
+          <Animated.View
+            pointerEvents={tab === 'team' ? 'auto' : 'none'}
+            style={{ ...absoluteFill, opacity: teamOpacity, paddingTop: 12 }}
+          >
+            <GridTeamPanel refreshing={refreshing} onRefresh={onRefresh} />
+          </Animated.View>
+          <Animated.View
+            pointerEvents={tab === 'league' ? 'auto' : 'none'}
+            style={{ ...absoluteFill, opacity: leagueOpacity, paddingTop: 12 }}
+          >
+            <SimpleLeaguePanel />
+          </Animated.View>
         </View>
       </View>
 
-      <SimpleProfileSheet visible={profileOpen} onClose={() => setProfileOpen(false)} />
+      {/* TEAM / LEAGUE tab pill */}
+      <View style={[{ paddingHorizontal: spacing.xl, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 12) + 22, backgroundColor: colors.surface, width: '100%' }, isTablet && { maxWidth: contentMaxWidth, alignSelf: 'center' }]}>
+        <SegmentPill<Tab>
+          value={tab}
+          onChange={setTab}
+          segments={[
+            { key: 'team', label: 'TEAM' },
+            { key: 'league', label: 'LEAGUE', badge: !hasLeague },
+          ]}
+        />
+      </View>
+
       {/* Self-gating: shows once per completed race the team was scored for */}
       <WeekendRecapCard />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  panelContainer: {
-    flex: 1,
-  },
-  placeholder: {
-    flex: 1,
-  },
-});
+const absoluteFill = { position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0 };

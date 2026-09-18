@@ -35,12 +35,12 @@ npx expo prebuild --platform android --clean --no-install
 # echo >> would glue this onto that value and break the build.
 printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m\n' >> android/gradle.properties
 
-# The Race Day faces must be embedded natively: expo-font's runtime asset
+# The Grid faces must be embedded natively: expo-font's runtime asset
 # loading fails in release builds. The expo-font plugin in app.config.js puts
 # them here at prebuild; fail loudly if that ever stops happening.
 FONTS=$(ls android/app/src/main/assets/fonts/*.ttf 2>/dev/null | wc -l)
-if [ "$FONTS" -lt 7 ]; then
-  echo "expected 7 embedded font files in android/app/src/main/assets/fonts, found $FONTS (check the expo-font plugin in app.config.js)" >&2
+if [ "$FONTS" -lt 5 ]; then
+  echo "expected 5 embedded font files in android/app/src/main/assets/fonts, found $FONTS (check the expo-font plugin in app.config.js)" >&2
   exit 5
 fi
 

@@ -6,9 +6,9 @@ import {
   S_COLORS_DARK,
   S_FONTS,
   S_FONT_FAMILY,
-  S_DISPLAY_OBLIQUE,
   S_SPACING,
   S_RADIUS,
+  S_TYPE,
 } from '../theme/simpleTheme';
 
 export function useSimpleTheme() {
@@ -17,7 +17,7 @@ export function useSimpleTheme() {
   const themeMode = usePrefsStore((s) => s.themeMode);
 
   const isDark = themeMode === 'system'
-    ? (systemScheme ?? 'light') === 'dark'
+    ? (systemScheme ?? 'dark') === 'dark'
     : themeMode === 'dark';
   const colors = isDark ? S_COLORS_DARK : S_COLORS_LIGHT;
 
@@ -43,24 +43,52 @@ export function useSimpleTheme() {
       xxl: scaled(S_SPACING.xxl),
     };
 
+    // Section label: 11px mono 700, letter-spacing 0.18em, uppercase, muted.
+    const label = {
+      fontFamily: S_FONT_FAMILY.mono.bold,
+      fontSize: scaled(S_TYPE.sectionLabel),
+      letterSpacing: scaled(S_TYPE.sectionLabel) * 0.18,
+      textTransform: 'uppercase' as const,
+      color: colors.text.muted,
+    };
+
+    // Mono data text (numbers, codes, captions).
+    const mono = (size: number, weight: 'medium' | 'bold' = 'bold') => ({
+      fontFamily: S_FONT_FAMILY.mono[weight],
+      fontSize: scaled(size),
+      color: colors.text.primary,
+    });
+
+    // UI text (Unbounded). 900 for names/titles/numerals, 700 for values.
+    const ui = (size: number, weight: 'regular' | 'bold' | 'black' = 'black') => ({
+      fontFamily: S_FONT_FAMILY.ui[weight],
+      fontSize: scaled(size),
+      color: colors.text.primary,
+    });
+
     return {
       colors,
       fonts,
       spacing,
       radius: S_RADIUS,
       isDark,
-      // Race Day type system
       family: S_FONT_FAMILY,
-      // Spread into a Text style for big display numerals/headings —
-      // Space Grotesk + the synthesized-oblique skew the design calls for.
-      display: {
-        fontFamily: S_FONT_FAMILY.display.bold,
-        ...S_DISPLAY_OBLIQUE,
+      type: S_TYPE,
+      label,
+      mono,
+      ui,
+      // Screen title: 26px Unbounded 900, tracking -0.03em, uppercase.
+      title: {
+        fontFamily: S_FONT_FAMILY.ui.black,
+        fontSize: scaled(S_TYPE.screenTitle),
+        lineHeight: scaled(S_TYPE.screenTitle),
+        letterSpacing: -scaled(S_TYPE.screenTitle) * 0.03,
+        textTransform: 'uppercase' as const,
+        color: colors.text.primary,
       },
-      // Display face without the skew (upright headings, invite code, etc.)
-      displayUpright: {
-        fontFamily: S_FONT_FAMILY.display.semibold,
-      },
+      // Legacy aliases used by the Race Day panels until they are replaced.
+      display: { fontFamily: S_FONT_FAMILY.ui.black },
+      displayUpright: { fontFamily: S_FONT_FAMILY.ui.bold },
       scaled,
     };
   }, [colors, displayScale, isDark]);
