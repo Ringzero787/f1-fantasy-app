@@ -49,7 +49,9 @@ export function rankStandings(members: StandingsMember[], sortBy: StandingsSort,
     const rank = i + 1;
     const v = value(m);
     const gap = lead - v;
-    const mv = !byLast && m.previousRank != null ? m.previousRank - rank : null;
+    // Movement compares two server-written ranks (the server ranks every member
+    // doc, withdrawn included), never the client's filtered index.
+    const mv = !byLast && m.previousRank != null && m.rank != null ? m.previousRank - m.rank : null;
     return {
       userId: m.userId,
       rank,
