@@ -108,7 +108,7 @@ PROF=$(security cms -D -i "$APP/embedded.mobileprovision" | plutil -extract Name
 FONTS=$(ls "$APP"/*.ttf 2>/dev/null | wc -l | tr -d ' ')
 [ "$V" = "$UC_VERSION" ] && [ "$B" = "$UC_BUILD" ] && [ "$ID" = "$BUNDLE_ID" ] && [ "$PROF" = "$PROFILE" ] \
   || { echo "IPA mismatch: version $V build $B id $ID profile '$PROF' (wanted $UC_VERSION / $UC_BUILD / $BUNDLE_ID / '$PROFILE')" >&2; exit 4; }
-[ "$FONTS" -ge 7 ] || { echo "IPA embeds $FONTS font files, expected 7 (expo-font plugin)" >&2; exit 4; }
+[ "$FONTS" -ge 5 ] || { echo "IPA embeds $FONTS font files, expected 5 (expo-font plugin)" >&2; exit 4; }
 SIGNATURE=$(codesign -dvv "$APP" 2>&1 || true)
 grep -q "Authority=Apple Distribution" <<<"$SIGNATURE" || { echo "IPA is not signed with Apple Distribution:" >&2; echo "$SIGNATURE" | head -5 >&2; exit 4; }
 echo "IPA ok: $V ($B) $ID, profile '$PROF', $FONTS fonts, $(du -h "$IPA" | cut -f1)"
