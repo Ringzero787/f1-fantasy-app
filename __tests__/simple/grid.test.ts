@@ -55,16 +55,16 @@ describe('tiles', () => {
     drivers: [
       { driverId: 'varga', name: 'Rafael Varga', shortName: 'VAR', constructorId: 'apex', purchasePrice: 400, currentPrice: 420, pointsScored: 312, racesHeld: 0, contractLength: 4 },
       { driverId: 'kowalczyk', name: 'Tomasz Kowalczyk', shortName: 'KOW', constructorId: 'cobalt_racing', purchasePrice: 400, currentPrice: 420, pointsScored: 251, racesHeld: 2, contractLength: 3 },
-      { driverId: 'bakkerud', name: 'Sander Bakkerud', shortName: 'BAK', constructorId: 'silverline', purchasePrice: 100, currentPrice: 90, pointsScored: 62, racesHeld: 0, contractLength: 3, isReservePick: true },
+      { driverId: 'lindqvist', name: 'Sander Lindqvist', shortName: 'BAK', constructorId: 'silverline', purchasePrice: 100, currentPrice: 90, pointsScored: 62, racesHeld: 0, contractLength: 3, isReservePick: true },
       { driverId: 'fiorini', name: 'Mateo Fiorini', shortName: 'FIO', constructorId: 'scarlet_gp', purchasePrice: 300, currentPrice: 300, pointsScored: 224, racesHeld: 1, contractLength: 4 },
     ],
     constructor: { constructorId: 'apex', name: 'Apex Motorsport', purchasePrice: 200, currentPrice: 210, pointsScored: 610, racesHeld: 1, contractLength: 4 },
   } as unknown as FantasyTeam;
   const ctx = {
     teamSize: 5, defaultContract: 3, showCarNumbers: true,
-    lastRace: { varga: 25, kowalczyk: 12, bakkerud: 0, fiorini: 15, apex: 43 },
-    prevRace: { varga: 18, kowalczyk: 15, bakkerud: 6, fiorini: 12, apex: 43 },
-    numbers: { varga: 4, kowalczyk: 1, bakkerud: 12, fiorini: 16 },
+    lastRace: { varga: 25, kowalczyk: 12, lindqvist: 0, fiorini: 15, apex: 43 },
+    prevRace: { varga: 18, kowalczyk: 15, lindqvist: 6, fiorini: 12, apex: 43 },
+    numbers: { varga: 4, kowalczyk: 1, lindqvist: 12, fiorini: 16 },
     constructorNames: { apex: 'Apex' },
   };
 
@@ -80,7 +80,7 @@ describe('tiles', () => {
     const [varga, ver, ant, lec, , mcl] = computeTiles(team, ctx);
     expect(varga).toMatchObject({ name: 'Varga', nameSize: 19, tag: '04', trend: { glyph: '▲', last: 25 }, dots: { left: 4 } });
     expect(ver).toMatchObject({ name: 'Kowalczyk', nameSize: 15, tag: '01', trend: { glyph: '▼' }, dots: { left: 1, critical: true } });
-    expect(ant).toMatchObject({ name: 'Bakkerud', nameSize: 15, auto: true, trend: { glyph: '▼', last: 0 } });
+    expect(ant).toMatchObject({ name: 'Lindqvist', nameSize: 15, auto: true, trend: { glyph: '▼', last: 0 } });
     expect(lec).toMatchObject({ ace: true, dots: { left: 3 } });
     expect(mcl).toMatchObject({ kind: 'constructor', name: 'Apex', trend: { glyph: '•', last: 43 } });
   });
@@ -88,15 +88,15 @@ describe('tiles', () => {
     const [varga] = computeTiles(team, { ...ctx, showCarNumbers: false, prevRace: {} });
     expect(varga).toMatchObject({ tag: '', trend: { glyph: '•', last: 25 } });
     expect(trendOf(null, 5).last).toBeNull();
-    expect(tileNameSize('Marchetti')).toBe(19);
-    expect(tileNameSize('Castellano')).toBe(17);
+    expect(tileNameSize('Moreira')).toBe(19);
+    expect(tileNameSize('Castelli')).toBe(17);
   });
   it('sums roster points for the last race', () => {
     expect(rosterRacePoints(team, ctx.lastRace)).toBe(25 + 12 + 0 + 15 + 43);
     expect(rosterRacePoints(team, {})).toBeNull();
   });
   it('reads SET with no open slots for a full lineup', () => {
-    const full = { ...team, drivers: [...team.drivers, { driverId: 'marchetti', name: 'Eli Marchetti', shortName: 'MAR', constructorId: 'apex', purchasePrice: 300, currentPrice: 300, pointsScored: 298, racesHeld: 0, contractLength: 3 }] } as unknown as FantasyTeam;
+    const full = { ...team, drivers: [...team.drivers, { driverId: 'moreira', name: 'Eli Moreira', shortName: 'MAR', constructorId: 'apex', purchasePrice: 300, currentPrice: 300, pointsScored: 298, racesHeld: 0, contractLength: 3 }] } as unknown as FantasyTeam;
     const tiles = computeTiles(full, ctx);
     expect(tiles).toHaveLength(6);
     expect(openSlotCount(tiles)).toBe(0);
