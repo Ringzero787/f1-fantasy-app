@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+body{--ink0:#050505;--screen:#0E0E0E;--surface:#1A1A1A;--line:#232323;--line2:#1E1E1E;--line3:#333333;--muted:#7A7A7A;--fg:#F2F2F2;--up:#4ADE80;--grid:#0d0d0d;margin:0;background:var(--ink0);font-family:'Unbounded',sans-serif;color:var(--fg);-webkit-font-smoothing:antialiased;transition:background .2s}
+body.light{--ink0:#FFFFFF;--screen:#F4F4F2;--surface:#E8E8E5;--line:#D6D6D2;--line2:#DDDDD9;--line3:#C8C8C4;--muted:#6B6B6B;--fg:#0A0A0A;--up:#15803D;--grid:#EDEDEA}
+a{color:var(--fg);text-decoration:none}a:hover{color:#FF2E2E}
+</style>
+</helmet>
+<div style="display:flex;gap:64px;padding:80px;align-items:flex-start;min-height:100vh;width:max-content;min-width:100%;box-sizing:border-box;background:var(--ink0);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:48px 48px">
+
+  <!-- TEAM -->
+  <div data-screen-label="Team" style="width:390px;height:844px;background:var(--screen);border-radius:44px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;position:relative;flex:none">
+    <div style="padding:64px 24px 0;display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted);display:flex;justify-content:space-between">
+        <span>RD 17 / 36 · BAKU</span><span style="color:#FF2E2E">{{ lockLabel }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:26px;font-weight:900;line-height:1;letter-spacing:-0.03em;text-transform:uppercase">Apex Predators</div>
+        <a href="#profile" style="width:36px;height:36px;border-radius:999px;background:var(--fg);color:var(--ink0);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex:none">MV</a>
+      </div>
+      <div style="height:3px;background:var(--surface);border-radius:2px;margin-top:8px;overflow:hidden"><div style="width:47%;height:100%;background:var(--fg)"></div></div>
+    </div>
+
+    <div style="margin:22px 24px 0;display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:18px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.18em;color:var(--muted);font-weight:700">SEASON PTS</div>
+        <div style="font-size:56px;font-weight:900;line-height:0.9;letter-spacing:-0.05em">1,284</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.18em;color:var(--muted);font-weight:700">LAST RACE</div>
+        <div style="font-size:22px;font-weight:700;line-height:1;color:#FF2E2E;letter-spacing:-0.02em">+86</div>
+      </div>
+    </div>
+    <div style="margin:14px 24px 0;display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted)">
+      <span>LINEUP · {{ lineupStatus }}</span><a href="#picker" style="color:{{ editColor }};border-bottom:1px solid {{ editColor }};padding-bottom:2px">{{ editLabel }}</a>
+    </div>
+
+    <div style="padding:10px 24px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;align-content:start">
+      <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="6">
+        <div style="background:{{ t.bg }};border:1px {{ t.borderStyle }} {{ t.borderColor }};border-radius:18px;padding:14px 14px 12px;display:flex;flex-direction:column;justify-content:space-between;height:132px;box-sizing:border-box;position:relative;overflow:hidden">
+          <sc-if value="{{ t.filled }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="display:flex;align-items:center;gap:6px">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.14em;color:{{ t.tagColor }}">{{ t.tag }}</div>
+                <sc-if value="{{ t.auto }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.12em;color:#FF2E2E;border:1px solid #FF2E2E;border-radius:999px;padding:2px 6px;line-height:1">AUTO</div>
+                </sc-if>
+              </div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--fg)">{{ t.pts }}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:{{ t.nameSize }};font-weight:900;line-height:1;letter-spacing:-0.04em;text-transform:uppercase;white-space:nowrap">{{ t.name }}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="height:3px;width:28px;border-radius:2px;background:{{ t.color }}"></div>
+                  <div style="display:flex;gap:3px">
+                    <sc-for list="{{ t.dots }}" as="dot" hint-placeholder-count="4">
+                      <div style="width:4px;height:4px;border-radius:999px;background:{{ dot }}"></div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;white-space:nowrap;flex:none;color:{{ t.trendColor }}">{{ t.trend }} {{ t.last }}</div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ t.empty }}" hint-placeholder-val="{{ false }}">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--muted)">{{ t.tag }}</div>
+            <a href="#picker" style="display:flex;flex-direction:column;gap:6px;color:var(--muted)">
+              <div style="font-size:22px;font-weight:900;line-height:1;color:#FF2E2E">+</div>
+              <div style="font-size:11px;font-weight:900;letter-spacing:0.06em;line-height:1.2;text-transform:uppercase">{{ t.name }}</div>
+            </a>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="margin:0 24px 34px;display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border-radius:999px;padding:4px">
+      <div style="text-align:center;padding:14px 0;border-radius:999px;background:var(--fg);color:var(--ink0);font-size:12px;font-weight:900;letter-spacing:0.08em">TEAM</div>
+      <a href="#league" style="text-align:center;padding:14px 0;border-radius:999px;color:var(--muted);font-size:12px;font-weight:900;letter-spacing:0.08em">LEAGUE</a>
+    </div>
+  </div>
+
+  <!-- LEAGUE -->
+  <div id="league" data-screen-label="League" style="width:390px;height:844px;background:var(--screen);border-radius:44px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;flex:none">
+    <div style="padding:64px 24px 0;display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted);display:flex;justify-content:space-between">
+        <span>{{ leagueHeaderName }}</span><span>{{ leagueHeaderCount }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:26px;font-weight:900;line-height:1;letter-spacing:-0.03em;text-transform:uppercase">{{ leagueTitle }}</div>
+        <a href="#profile" style="width:36px;height:36px;border-radius:999px;background:var(--fg);color:var(--ink0);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex:none">MV</a>
+      </div>
+    </div>
+
+    <sc-if value="{{ noLeague }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;padding:0 24px;display:flex;flex-direction:column;justify-content:center;gap:12px">
+        <div style="font-size:40px;font-weight:900;line-height:0.95;letter-spacing:-0.05em;text-transform:uppercase;margin-bottom:8px">Racing<br>solo.</div>
+        <div style="font-size:12px;line-height:1.5;color:var(--muted);margin-bottom:12px;max-width:280px">Standings show up here once you're in a league with friends.</div>
+        <a href="#leaguemgr" onClick="{{ lmGoCreate }}" style="background:var(--surface);border-radius:18px;padding:22px 20px;display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:18px;font-weight:900;letter-spacing:-0.03em;text-transform:uppercase">Create a league</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);font-weight:500">You run it. Invite friends.</div>
+          </div>
+          <div style="font-size:22px;font-weight:900;color:#FF2E2E">+</div>
+        </a>
+        <a href="#leaguemgr" onClick="{{ lmGoJoin }}" style="border:1px solid var(--line3);border-radius:18px;padding:22px 20px;display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:18px;font-weight:900;letter-spacing:-0.03em;text-transform:uppercase">Join a league</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);font-weight:500">Got a code? Enter it.</div>
+          </div>
+          <div style="font-size:18px;font-weight:900;color:var(--muted)">›</div>
+        </a>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasLeague }}" hint-placeholder-val="{{ true }}">
+    <div style="margin:22px 24px 0;display:flex;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.18em;color:var(--muted);font-weight:700;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--line)">
+      <span>POS · PLAYER</span><span>{{ sortLabel }}</span>
+    </div>
+
+    <div style="flex:1;padding:0 24px;display:flex;flex-direction:column">
+      <sc-for list="{{ players }}" as="p" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:12px;padding:18px 0;border-bottom:1px solid var(--line2)">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:30px;font-weight:900;line-height:1;letter-spacing:-0.05em;color:{{ p.rankColor }}">{{ p.rank }}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:{{ p.moveColor }}">{{ p.move }}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+            <div style="font-size:16px;font-weight:900;line-height:1;letter-spacing:-0.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase">{{ p.team }}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;letter-spacing:-0.02em">{{ p.shown }}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:{{ p.deltaColor }}">{{ p.delta }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+
+    <div style="margin:0 24px 34px;display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border-radius:999px;padding:4px">
+      <a href="#" style="text-align:center;padding:14px 0;border-radius:999px;color:var(--muted);font-size:12px;font-weight:900;letter-spacing:0.08em">TEAM</a>
+      <div style="text-align:center;padding:14px 0;border-radius:999px;background:var(--fg);color:var(--ink0);font-size:12px;font-weight:900;letter-spacing:0.08em">LEAGUE</div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div id="profile" data-screen-label="Profile" style="width:390px;height:844px;background:var(--screen);border-radius:44px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;flex:none">
+    <div style="padding:64px 24px 0;display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted);display:flex;justify-content:space-between">
+        <a href="#" style="color:var(--muted)">← BACK</a><span>SEASON 2026</span>
+      </div>
+      <div style="font-size:26px;font-weight:900;line-height:1;letter-spacing:-0.03em;text-transform:uppercase">Profile</div>
+    </div>
+
+    <div style="margin:28px 24px 0;display:flex;align-items:center;gap:16px">
+      <div style="width:72px;height:72px;border-radius:999px;background:var(--fg);color:var(--ink0);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;flex:none">MV</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:20px;font-weight:900;line-height:1;letter-spacing:-0.03em;text-transform:uppercase">Marco V.</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.14em;color:#FF2E2E">P1 · PADDOCK PALS</div>
+      </div>
+    </div>
+
+    <div style="margin:28px 24px 0;display:flex;flex-direction:column;flex:1">
+      <sc-for list="{{ fields }}" as="f" hint-placeholder-count="4">
+        <a href="{{ f.href }}" style="display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-bottom:1px solid var(--line2);gap:12px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted);flex:none">{{ f.label }}</div>
+          <div style="display:flex;align-items:center;gap:12px;min-width:0">
+            <div style="font-size:14px;font-weight:700;letter-spacing:-0.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ f.color }}">{{ f.value }}</div>
+            <div style="color:var(--muted);font-size:14px;flex:none">›</div>
+          </div>
+        </a>
+      </sc-for>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-bottom:1px solid var(--line2);gap:12px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted)">APPEARANCE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border-radius:999px;padding:3px">
+          <div onClick="{{ setDark }}" style="padding:8px 14px;border-radius:999px;background:{{ darkBg }};color:{{ darkFg }};font-size:10px;font-weight:900;letter-spacing:0.08em;cursor:pointer">DARK</div>
+          <div onClick="{{ setLight }}" style="padding:8px 14px;border-radius:999px;background:{{ lightBg }};color:{{ lightFg }};font-size:10px;font-weight:900;letter-spacing:0.08em;cursor:pointer">LIGHT</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:24px">
+        <div style="background:var(--surface);border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;color:var(--muted);font-weight:700">RACES</div>
+          <div style="font-size:22px;font-weight:900;line-height:1;letter-spacing:-0.04em">17<span style="font-size:12px;color:var(--muted)">/36</span></div>
+        </div>
+        <div style="background:var(--surface);border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;color:var(--muted);font-weight:700">AVG / RACE</div>
+          <div style="font-size:22px;font-weight:900;line-height:1;letter-spacing:-0.04em">75.5</div>
+        </div>
+        <div style="background:var(--surface);border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;color:var(--muted);font-weight:700">BEST</div>
+          <div style="font-size:22px;font-weight:900;line-height:1;letter-spacing:-0.04em">128</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin:0 24px 34px;text-align:center;padding:18px 0;border-radius:999px;border:1px solid var(--line3);color:var(--muted);font-size:12px;font-weight:900;letter-spacing:0.08em">SIGN OUT</div>
+  </div>
+
+  <!-- PICKER -->
+  <div id="picker" data-screen-label="Picker" style="width:390px;height:844px;background:var(--screen);border-radius:44px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;flex:none">
+    <div style="padding:64px 24px 0;display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted);display:flex;justify-content:space-between">
+        <a href="#" style="color:var(--muted)">← CANCEL</a><span style="color:#FF2E2E">{{ lockLabel }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div style="font-size:26px;font-weight:900;line-height:1;letter-spacing:-0.03em;text-transform:uppercase">{{ pickerTitle }}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;flex:none;white-space:nowrap;color:{{ slotsColor }}">{{ pickedCount }}/5 · {{ ctorCount }}/1</div>
+      </div>
+    </div>
+
+    <div style="margin:18px 24px 0;display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border-radius:999px;padding:4px">
+      <div onClick="{{ showDrivers }}" style="text-align:center;padding:12px 0;border-radius:999px;background:{{ tabDriversBg }};color:{{ tabDriversFg }};font-size:11px;font-weight:900;letter-spacing:0.08em;cursor:pointer">DRIVERS</div>
+      <div onClick="{{ showCtors }}" style="text-align:center;padding:12px 0;border-radius:999px;background:{{ tabCtorsBg }};color:{{ tabCtorsFg }};font-size:11px;font-weight:900;letter-spacing:0.08em;cursor:pointer">CONSTRUCTOR</div>
+    </div>
+
+    <div style="flex:1;overflow:auto;scrollbar-width:none;padding:12px 24px 0;display:flex;flex-direction:column">
+      <sc-for list="{{ pool }}" as="o" hint-placeholder-count="8">
+        <div onClick="{{ o.toggle }}" style="display:grid;grid-template-columns:36px 1fr auto 28px;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line2);cursor:pointer;opacity:{{ o.opacity }}">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--muted)">{{ o.num }}</div>
+          <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+            <div style="font-size:16px;font-weight:900;line-height:1;letter-spacing:-0.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="height:3px;width:20px;border-radius:2px;background:{{ o.color }}"></div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase">{{ o.team }}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700">{{ o.pts }}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:{{ o.trendColor }}">{{ o.trend }} {{ o.last }}</div>
+          </div>
+          <div style="width:28px;height:28px;border-radius:999px;border:1px solid {{ o.ringColor }};background:{{ o.ringBg }};color:var(--ink0);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">{{ o.mark }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="margin:12px 24px 34px;text-align:center;padding:18px 0;border-radius:999px;background:{{ saveBg }};color:{{ saveFg }};font-size:12px;font-weight:900;letter-spacing:0.08em">{{ saveLabel }}</div>
+  </div>
+<!-- LEAGUE MANAGER -->
+  <div id="leaguemgr" data-screen-label="League Manager" style="width:390px;height:844px;background:var(--screen);border-radius:44px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;flex:none">
+    <div style="padding:64px 24px 0;display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted);display:flex;justify-content:space-between">
+        <a href="#profile" style="color:var(--muted)">← PROFILE</a><span>{{ lmStep }}</span>
+      </div>
+      <div style="font-size:26px;font-weight:900;line-height:1;letter-spacing:-0.03em;text-transform:uppercase">{{ lmTitle }}</div>
+      <div style="font-size:12px;font-weight:400;line-height:1.5;color:var(--muted);margin-top:4px">{{ lmSub }}</div>
+    </div>
+
+    <div style="flex:1;padding:28px 24px 0;display:flex;flex-direction:column;gap:12px">
+      <sc-if value="{{ lmNone }}" hint-placeholder-val="{{ true }}">
+        <div onClick="{{ lmGoCreate }}" style="background:var(--surface);border-radius:18px;padding:22px 20px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:18px;font-weight:900;letter-spacing:-0.03em;text-transform:uppercase">Create a league</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);font-weight:500">You run it. Invite friends.</div>
+          </div>
+          <div style="font-size:22px;font-weight:900;color:#FF2E2E">+</div>
+        </div>
+        <div onClick="{{ lmGoJoin }}" style="border:1px solid var(--line3);border-radius:18px;padding:22px 20px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:18px;font-weight:900;letter-spacing:-0.03em;text-transform:uppercase">Join a league</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);font-weight:500">Got a code? Enter it.</div>
+          </div>
+          <div style="font-size:18px;font-weight:900;color:var(--muted)">›</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ lmJoin }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted)">LEAGUE CODE</div>
+          <input value="{{ lmCode }}" onChange="{{ lmSetCode }}" placeholder="XXX-0000" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;letter-spacing:0.12em;color:var(--fg);text-transform:uppercase;outline:none">
+        </div>
+        <div onClick="{{ lmDoJoin }}" style="margin-top:8px;text-align:center;padding:18px 0;border-radius:999px;background:{{ lmJoinBg }};color:{{ lmJoinFg }};font-size:12px;font-weight:900;letter-spacing:0.08em;cursor:pointer">JOIN LEAGUE</div>
+        <div onClick="{{ lmGoNone }}" style="text-align:center;padding:12px 0;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--muted);cursor:pointer">BACK</div>
+      </sc-if>
+
+      <sc-if value="{{ lmCreate }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted)">LEAGUE NAME</div>
+          <input value="{{ lmName }}" onChange="{{ lmSetName }}" placeholder="Paddock Pals" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;font-family:'Unbounded',sans-serif;font-size:16px;font-weight:700;color:var(--fg);outline:none">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted)">MAX PLAYERS</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <sc-for list="{{ lmSizes }}" as="s" hint-placeholder-count="4">
+              <div onClick="{{ s.pick }}" style="text-align:center;padding:14px 0;border-radius:12px;background:{{ s.bg }};color:{{ s.fg }};border:1px solid {{ s.border }};font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;cursor:pointer">{{ s.n }}</div>
+            </sc-for>
+          </div>
+        </div>
+        <div onClick="{{ lmDoCreate }}" style="margin-top:8px;text-align:center;padding:18px 0;border-radius:999px;background:{{ lmCreateBg }};color:{{ lmCreateFg }};font-size:12px;font-weight:900;letter-spacing:0.08em;cursor:pointer">CREATE LEAGUE</div>
+        <div onClick="{{ lmGoNone }}" style="text-align:center;padding:12px 0;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--muted);cursor:pointer">BACK</div>
+      </sc-if>
+
+      <sc-if value="{{ lmDone }}" hint-placeholder-val="{{ false }}">
+        <div style="background:var(--ink0);border:1px solid #FF2E2E;border-radius:18px;padding:22px 20px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:#FF2E2E">INVITE CODE</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:700;letter-spacing:0.08em;line-height:1">{{ lmFinalCode }}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);font-weight:500">{{ lmMembers }}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div style="text-align:center;padding:16px 0;border-radius:14px;background:var(--surface);font-size:11px;font-weight:900;letter-spacing:0.08em;cursor:pointer">EMAIL</div>
+          <div style="text-align:center;padding:16px 0;border-radius:14px;background:var(--surface);font-size:11px;font-weight:900;letter-spacing:0.08em;cursor:pointer">SMS</div>
+          <div onClick="{{ lmCopy }}" style="text-align:center;padding:16px 0;border-radius:14px;background:var(--fg);color:var(--ink0);font-size:11px;font-weight:900;letter-spacing:0.08em;cursor:pointer">{{ lmCopyLabel }}</div>
+        </div>
+        <div style="margin-top:12px;display:flex;flex-direction:column">
+          <sc-for list="{{ lmSettings }}" as="r" hint-placeholder-count="3">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 0;border-bottom:1px solid var(--line2)">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--muted)">{{ r.label }}</div>
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="font-size:13px;font-weight:700;letter-spacing:-0.02em;text-transform:uppercase">{{ r.value }}</div>
+                <div style="color:var(--muted);font-size:14px">›</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div onClick="{{ lmLeave }}" style="margin-top:auto;text-align:center;padding:14px 0;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.14em;color:#FF2E2E;cursor:pointer">{{ lmLeaveLabel }}</div>
+      </sc-if>
+    </div>
+    <div style="height:34px"></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;dark&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;tsType&quot;:&quot;'dark' | 'light'&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;leagueState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;join&quot;,&quot;create&quot;,&quot;done&quot;],&quot;tsType&quot;:&quot;'none' | 'join' | 'create' | 'done'&quot;,&quot;section&quot;:&quot;League&quot;},&quot;locked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Team&quot;},&quot;showCarNumbers&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Team&quot;},&quot;sortLeagueBy&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;season&quot;,&quot;options&quot;:[&quot;season&quot;,&quot;last&quot;],&quot;tsType&quot;:&quot;'season' | 'last'&quot;,&quot;section&quot;:&quot;League&quot;}}">
+class Component extends DCLogic {
+  state = { tab: "drivers", picked: ["04", "81", "16", "63", "12"], ctor: "MCL", theme: null, lm: { step: null, code: "", name: "", size: 8, role: null, copied: false } };
+  applyTheme() {
+    const t = this.state.theme ?? this.props.theme ?? "dark";
+    if (typeof document !== "undefined") document.body.classList.toggle("light", t === "light");
+    return t;
+  }
+  componentDidMount() { this.applyTheme(); }
+  componentDidUpdate() { this.applyTheme(); }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? "dark";
+    const light = theme === "light";
+    const themeVals = {
+      setDark: () => this.setState({ theme: "dark" }),
+      setLight: () => this.setState({ theme: "light" }),
+      darkBg: light ? "transparent" : "var(--fg)", darkFg: light ? "var(--muted)" : "var(--ink0)",
+      lightBg: light ? "var(--fg)" : "transparent", lightFg: light ? "var(--ink0)" : "var(--muted)",
+    };
+    const trendOf = (last, prev) => {
+      const up = last > prev, down = last < prev;
+      return { trend: up ? "▲" : down ? "▼" : "•", trendColor: up ? "var(--up)" : down ? "#FF2E2E" : "var(--muted)" };
+    };
+    const allDrivers = [
+      { num: "04", name: "Norris", team: "McLaren", pts: 312, last: 25, prev: 18, color: "#FF8000", left: 4 },
+      { num: "81", name: "Piastri", team: "McLaren", pts: 298, last: 18, prev: 25, color: "#FF8000", left: 2 },
+      { num: "01", name: "Verstappen", team: "Red Bull", pts: 251, last: 12, prev: 15, color: "#3671C6" },
+      { num: "16", name: "Leclerc", team: "Ferrari", pts: 224, last: 15, prev: 12, color: "#E80020", left: 3 },
+      { num: "44", name: "Hamilton", team: "Ferrari", pts: 190, last: 8, prev: 8, color: "#E80020" },
+      { num: "63", name: "Russell", team: "Mercedes", pts: 176, last: 10, prev: 10, color: "#27F4D2", left: 1 },
+      { num: "12", name: "Antonelli", team: "Mercedes", pts: 62, last: 0, prev: 6, color: "#27F4D2", left: 4, auto: true },
+      { num: "14", name: "Alonso", team: "Aston Martin", pts: 48, last: 6, prev: 0, color: "#229971" },
+      { num: "55", name: "Sainz", team: "Williams", pts: 41, last: 4, prev: 2, color: "#64C4FF" },
+      { num: "23", name: "Albon", team: "Williams", pts: 39, last: 2, prev: 4, color: "#64C4FF" },
+      { num: "06", name: "Hadjar", team: "Racing Bulls", pts: 22, last: 1, prev: 0, color: "#6692FF" },
+      { num: "30", name: "Lawson", team: "Racing Bulls", pts: 14, last: 0, prev: 1, color: "#6692FF" },
+    ];
+    const allCtors = [
+      { num: "MCL", name: "McLaren", team: "Mercedes power", pts: 610, last: 43, prev: 43, color: "#FF8000", left: 3 },
+      { num: "FER", name: "Ferrari", team: "Ferrari power", pts: 414, last: 23, prev: 20, color: "#E80020" },
+      { num: "RBR", name: "Red Bull", team: "Honda power", pts: 302, last: 12, prev: 21, color: "#3671C6" },
+      { num: "MER", name: "Mercedes", team: "Mercedes power", pts: 238, last: 10, prev: 16, color: "#27F4D2" },
+      { num: "WIL", name: "Williams", team: "Mercedes power", pts: 80, last: 6, prev: 6, color: "#64C4FF" },
+      { num: "AMR", name: "Aston Martin", team: "Honda power", pts: 52, last: 6, prev: 0, color: "#229971" },
+      { num: "RBT", name: "Racing Bulls", team: "Honda power", pts: 36, last: 1, prev: 1, color: "#6692FF" },
+    ];
+    const { tab, picked, ctor } = this.state;
+    const locked = this.props.locked ?? false;
+    const isD = tab === "drivers";
+    const full = picked.length >= 5;
+    const CONTRACT = 4;
+    const dotsFor = (o) => Array.from({ length: CONTRACT }, (_, i) => {
+      const left = o.left ?? CONTRACT;
+      if (i >= left) return "var(--line3)";
+      return left <= 1 ? "#FF2E2E" : "var(--fg)";
+    });
+    const tileOf = (o, tag, tagColor) => ({
+      ...o, ...trendOf(o.last, o.prev), filled: true, empty: false, auto: !!o.auto, tag, tagColor,
+      nameSize: o.name.length > 8 ? "15px" : o.name.length > 7 ? "17px" : "19px",
+      dots: dotsFor(o), bg: "var(--surface)", borderStyle: "solid", borderColor: "var(--surface)",
+    });
+    const emptyOf = (tag, name) => ({ filled: false, empty: true, tag, name, bg: "transparent", borderStyle: "dashed", borderColor: "var(--line3)", dots: [] });
+    const pickedDrivers = allDrivers.filter(d => picked.includes(d.num));
+    const tiles = [
+      ...pickedDrivers.map(d => tileOf(d, this.props.showCarNumbers ?? true ? d.num : "", "var(--muted)")),
+      ...Array.from({ length: Math.max(0, 5 - pickedDrivers.length) }, () => emptyOf("DRIVER", "Add driver")),
+    ];
+    const c = allCtors.find(x => x.num === ctor);
+    if (c) { const t = tileOf(c, "TEAM", "#FF2E2E"); t.bg = "var(--ink0)"; t.borderColor = "#FF2E2E"; tiles.push(t); }
+    else tiles.push(emptyOf("TEAM", "Add constructor"));
+    const missing = (5 - pickedDrivers.length) + (c ? 0 : 1);
+    const teamVals = {
+      tiles,
+      lockLabel: locked ? "LOCKED · QUALI IN 9H" : "LOCKS IN 2D 14H",
+      lineupStatus: locked ? "LOCKED" : missing > 0 ? `${missing} OPEN` : "SET",
+      editLabel: locked ? "LOCKED" : "EDIT →",
+      editColor: locked ? "var(--muted)" : missing > 0 ? "#FF2E2E" : "var(--fg)",
+      pickerTitle: locked ? "Locked" : "Pick Team",
+    };
+    const pool = (isD ? allDrivers : allCtors).map(o => {
+      const on = isD ? picked.includes(o.num) : ctor === o.num;
+      const blocked = locked || (isD && !on && full);
+      return {
+        ...o, ...trendOf(o.last, o.prev),
+        mark: on ? "✓" : "",
+        ringColor: on ? "var(--fg)" : "var(--line3)",
+        ringBg: on ? "var(--fg)" : "transparent",
+        opacity: blocked ? 0.35 : 1,
+        toggle: () => {
+          if (locked) return;
+          if (isD) {
+            if (on) this.setState({ picked: picked.filter(n => n !== o.num) });
+            else if (!full) this.setState({ picked: [...picked, o.num] });
+          } else this.setState({ ctor: o.num });
+        },
+      };
+    });
+    const ready = full && !!ctor;
+    const pickerVals = {
+      pool,
+      pickedCount: picked.length,
+      ctorCount: ctor ? 1 : 0,
+      slotsColor: ready ? "var(--up)" : "var(--fg)",
+      showDrivers: () => this.setState({ tab: "drivers" }),
+      showCtors: () => this.setState({ tab: "ctors" }),
+      tabDriversBg: isD ? "var(--fg)" : "transparent", tabDriversFg: isD ? "var(--ink0)" : "var(--muted)",
+      tabCtorsBg: isD ? "transparent" : "var(--fg)", tabCtorsFg: isD ? "var(--muted)" : "var(--ink0)",
+      saveBg: !locked && ready ? "#FF2E2E" : "var(--surface)", saveFg: !locked && ready ? "#F2F2F2" : "var(--muted)",
+      saveLabel: locked ? "LOCKED · AUTO-FILL ON" : ready ? "SAVE LINEUP" : `PICK ${5 - picked.length} MORE`,
+    };
+    const drivers = [
+      { num: "04", name: "Norris", pts: 312, last: 25, prev: 18, color: "#FF8000" },
+      { num: "81", name: "Piastri", pts: 298, last: 18, prev: 25, color: "#FF8000" },
+      { num: "16", name: "Leclerc", pts: 224, last: 15, prev: 12, color: "#E80020" },
+      { num: "63", name: "Russell", pts: 176, last: 10, prev: 10, color: "#27F4D2" },
+      { num: "12", name: "Antonelli", pts: 62, last: 0, prev: 6, color: "#27F4D2" },
+    ].map(d => {
+      const up = d.last > d.prev, down = d.last < d.prev;
+      return { ...d, trend: up ? "▲" : down ? "▼" : "•", trendColor: up ? "var(--up)" : down ? "#FF2E2E" : "var(--muted)" };
+    });
+    // prevRank = position before last race
+    const raw = [
+      { name: "Marco V.", team: "Apex Predators", pts: 1284, last: 86, prevRank: 2, me: true },
+      { name: "Sofia R.", team: "Late Brakers", pts: 1251, last: 71, prevRank: 1 },
+      { name: "Dev K.", team: "DRS Enjoyers", pts: 1190, last: 94, prevRank: 3 },
+      { name: "Hannah L.", team: "Box Box Box", pts: 1102, last: 48, prevRank: 4 },
+      { name: "Tomás A.", team: "Undercut Kings", pts: 987, last: 66, prevRank: 6 },
+      { name: "Jules M.", team: "Slow Puncture", pts: 812, last: 23, prevRank: 5 },
+    ];
+    const byLast = (this.props.sortLeagueBy ?? "season") === "last";
+    const sorted = [...raw].sort((a, b) => byLast ? b.last - a.last : b.pts - a.pts);
+    const lead = byLast ? sorted[0].last : sorted[0].pts;
+    const players = sorted.map((p, i) => {
+      const v = byLast ? p.last : p.pts;
+      const gap = lead - v;
+      const mv = p.prevRank - (i + 1);
+      return {
+        ...p,
+        move: mv > 0 ? "▲ " + mv : mv < 0 ? "▼ " + (-mv) : "—",
+        moveColor: mv > 0 ? "var(--up)" : mv < 0 ? "#FF2E2E" : "var(--muted)",
+        rank: String(i + 1).padStart(2, "0"),
+        rankColor: p.me ? "#FF2E2E" : "var(--fg)",
+        shown: byLast ? "+" + v : v.toLocaleString(),
+        delta: gap === 0 ? "LEADER" : "-" + gap.toLocaleString(),
+        deltaColor: gap === 0 ? "#FF2E2E" : "var(--muted)",
+      };
+    });
+    const lm = this.state.lm;
+    const step = lm.step ?? this.props.leagueState ?? "none";
+    const setLm = (patch) => this.setState(s => ({ lm: { ...s.lm, ...patch } }));
+    const finalName = lm.name || "Paddock Pals";
+    const finalCode = step === "done" && lm.role === "joined" ? (lm.code || "PDK-4471").toUpperCase() : "PDK-4471";
+    const inLeague = step === "done";
+    const leagueRowValue = inLeague ? finalName : "Join or create";
+    const leagueRowColor = inLeague ? "var(--fg)" : "#FF2E2E";
+    const lmVals = {
+      noLeague: !inLeague, hasLeague: inLeague,
+      leagueHeaderName: inLeague ? finalName.toUpperCase() : "LEAGUE",
+      leagueHeaderCount: inLeague ? (lm.role === "joined" ? "6 PLAYERS" : "1 / " + lm.size + " PLAYERS") : "NOT JOINED",
+      leagueTitle: inLeague ? "Standings" : "No league",
+      lmNone: step === "none", lmJoin: step === "join", lmCreate: step === "create", lmDone: inLeague,
+      lmStep: step === "none" ? "NO LEAGUE" : step === "join" ? "JOIN" : step === "create" ? "CREATE" : "MANAGE",
+      lmTitle: step === "none" ? "Your league" : step === "join" ? "Enter code" : step === "create" ? "New league" : finalName,
+      lmSub: step === "none" ? "You're racing solo right now. Play against friends by creating a league or joining one with a code."
+        : step === "join" ? "Ask the league owner for their invite code."
+        : step === "create" ? "You can change these later from your profile."
+        : (lm.role === "joined" ? "You joined this league. Share the code to bring more friends in." : "You own this league. Share the code to invite friends."),
+      lmCode: lm.code, lmName: lm.name,
+      lmSetCode: (e) => setLm({ code: e.target.value }),
+      lmSetName: (e) => setLm({ name: e.target.value }),
+      lmGoCreate: () => setLm({ step: "create" }),
+      lmGoJoin: () => setLm({ step: "join" }),
+      lmGoNone: () => setLm({ step: "none" }),
+      lmDoJoin: () => { if (lm.code.trim().length >= 6) setLm({ step: "done", role: "joined" }); },
+      lmDoCreate: () => { if (lm.name.trim()) setLm({ step: "done", role: "owner" }); },
+      lmJoinBg: lm.code.trim().length >= 6 ? "#FF2E2E" : "var(--surface)", lmJoinFg: lm.code.trim().length >= 6 ? "#F2F2F2" : "var(--muted)",
+      lmCreateBg: lm.name.trim() ? "#FF2E2E" : "var(--surface)", lmCreateFg: lm.name.trim() ? "#F2F2F2" : "var(--muted)",
+      lmSizes: [6, 8, 10, 12].map(n => ({ n, pick: () => setLm({ size: n }), bg: lm.size === n ? "var(--fg)" : "transparent", fg: lm.size === n ? "var(--ink0)" : "var(--muted)", border: lm.size === n ? "var(--fg)" : "var(--line3)" })),
+      lmFinalCode: finalCode,
+      lmMembers: lm.role === "joined" ? "6 / " + lm.size + " PLAYERS" : "1 / " + lm.size + " PLAYERS · JUST YOU SO FAR",
+      lmCopy: () => { try { navigator.clipboard && navigator.clipboard.writeText(finalCode); } catch (e) {} setLm({ copied: true }); setTimeout(() => setLm({ copied: false }), 1500); },
+      lmCopyLabel: lm.copied ? "COPIED" : "COPY",
+      lmSettings: lm.role === "joined"
+        ? [{ label: "OWNER", value: "Sofia R." }, { label: "PLAYERS", value: "6 / " + lm.size }]
+        : [{ label: "NAME", value: finalName }, { label: "MAX PLAYERS", value: String(lm.size) }, { label: "SCORING", value: "Standard" }],
+      lmLeave: () => setLm({ step: "none", role: null, code: "", name: "" }),
+      lmLeaveLabel: lm.role === "joined" ? "LEAVE LEAGUE" : "DELETE LEAGUE",
+    };
+    return {
+      ...lmVals,
+      ...pickerVals,
+      ...themeVals,
+      ...teamVals,
+      drivers,
+      players,
+      showNumbers: this.props.showCarNumbers ?? true,
+      sortLabel: byLast ? "LAST RACE" : "SEASON PTS",
+      fields: [
+        { label: "NAME", value: "Marco V." },
+        { label: "TEAM NAME", value: "Apex Predators" },
+        { label: "AVATAR", value: "MV" },
+        { label: "LEAGUE", value: leagueRowValue, color: leagueRowColor, href: "#leaguemgr" },
+      ].map(f => ({ href: "#profile", color: "var(--fg)", ...f })),
+    };
+  }
+}
+</script>
+</body>
+</html>
