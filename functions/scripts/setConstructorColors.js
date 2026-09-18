@@ -15,8 +15,18 @@
  */
 
 const admin = require('firebase-admin');
-const KEY = process.env.SA_KEY || '/mnt/smb/f1-app/files/f1-app-18077-firebase-adminsdk-fbsvc-2b824e0c37.json';
-admin.initializeApp({ credential: admin.credential.cert(require(KEY)) });
+const EXPECTED_PROJECT = 'f1-app-18077';
+const KEY = process.env.SA_KEY;
+if (!KEY) {
+  console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
+  process.exit(2);
+}
+const cred = require(KEY);
+if (cred.project_id !== EXPECTED_PROJECT) {
+  console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`);
+  process.exit(2);
+}
+admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
 const db = admin.firestore();
 
 const APPLY = process.argv.includes('--apply');

@@ -1,2 +1,10 @@
-# Waivers: `aidlc waive G05 "finding title or id" -r "why"`. Solo project: your word is the record.
-waivers: []
+waivers:
+  - gate: G05
+    finding: GHSA-
+    file: functions/package-lock.json
+    reason: Pre-existing advisories in the Undercut functions lockfile (F-027
+      dependency bump pass); this PR changes only the root lockfile (font
+      packages). Expires so the bump is revisited.
+    by: nathan
+    date: 2026-09-18
+    expires: 2026-10-31
