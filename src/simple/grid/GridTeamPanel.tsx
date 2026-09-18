@@ -189,13 +189,13 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
           {Array.from({ length: creatingSecondTeam ? 2 : teamCount }, (_, i) => {
             const active = creatingSecondTeam ? i === 1 : i === activeTeamIndex;
             return (
-              <Pressable key={i} hitSlop={8} onPress={() => { if (creatingSecondTeam && i === 0) setCreatingSecondTeam(false); else if (!creatingSecondTeam) switchTeam(i); }}>
+              <Pressable key={i} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Team ${i + 1}`} accessibilityState={{ selected: active }} onPress={() => { if (creatingSecondTeam && i === 0) setCreatingSecondTeam(false); else if (!creatingSecondTeam) switchTeam(i); }}>
                 <MonoLabel color={active ? colors.text.primary : colors.text.muted}>{active ? '● ' : '○ '}TEAM {i + 1}</MonoLabel>
               </Pressable>
             );
           })}
           {canCreateSecondTeam && !creatingSecondTeam && (
-            <Pressable hitSlop={8} onPress={() => Alert.alert('Create a second team?', 'You can have up to 2 teams — one for each league or solo play.', [
+            <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel="New team" onPress={() => Alert.alert('Create a second team?', 'You can have up to 2 teams — one for each league or solo play.', [
               { text: 'Not now', style: 'cancel' },
               { text: 'Create', onPress: () => setCreatingSecondTeam(true) },
             ])}>

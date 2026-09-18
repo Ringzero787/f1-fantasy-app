@@ -171,7 +171,7 @@ export function ScreenHeader({ statusLeft, statusRight, statusRightAccent = true
     <View style={{ paddingHorizontal: spacing.xl, gap: 6 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         {onStatusLeftPress ? (
-          <Pressable onPress={onStatusLeftPress} hitSlop={12} accessibilityRole="button">{left}</Pressable>
+          <Pressable onPress={onStatusLeftPress} hitSlop={12} accessibilityRole="button" accessibilityLabel={statusLeft.replace(/^[←→]\s*/, '')}>{left}</Pressable>
         ) : left}
         {statusRight ? (
           <MonoLabel color={statusRightAccent ? colors.primary : colors.text.muted} numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right' }}>

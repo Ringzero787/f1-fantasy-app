@@ -4,7 +4,7 @@
 Full visual redesign of the Undercut fantasy F1 app's live `(simple)` UI. Five screens: Team, League (standings), Pick Team (replaces Market), Profile, League Manager (join / create / invite). Dark and light themes. Scope of features, gap review against the current app, and every token/spec is in **TRANSITION.md** — read it first.
 
 ## About the Design Files
-`grid-prototype.dc.html` is a **design reference built in HTML** (open it in a browser; `support.js` is its runtime). It is an interactive prototype showing intended look and behavior, **not production code**. Recreate the screens in the existing Undercut stack (Expo / React Native, `src/simple/**`, `useSimpleTheme()` tokens) using its established patterns. Do not touch `app/(tabs)/**` or `src/config/themes.ts`.
+The interactive prototype (`F1 Fantasy.dc.html` + its `support.js` runtime) is **not committed** — open it from the handoff zip on the share (`Z:\share\undercut\F1 Fantasy App Design.zip`, `/mnt/smb/share/undercut/` on the build box). It is a **design reference built in HTML**. It is an interactive prototype showing intended look and behavior, **not production code**. Recreate the screens in the existing Undercut stack (Expo / React Native, `src/simple/**`, `useSimpleTheme()` tokens) using its established patterns. Do not touch `app/(tabs)/**` or `src/config/themes.ts`.
 
 ## Fidelity
 **High-fidelity.** Colors, type, spacing, radii and states are final. Recreate pixel-perfectly. Exact values are in TRANSITION.md §3–§4; the HTML is the tie-breaker when the doc and the prototype differ.
@@ -29,6 +29,5 @@ TRANSITION.md §3. Fonts: Unbounded (400/700/900) and JetBrains Mono (500/700) f
 None. No icons or bitmaps; arrows/checks/triangles are text glyphs (`→ ← › + ✓ ▲ ▼ •`). Team colours from existing `TEAM_COLORS`.
 
 ## Files
-- `grid-prototype.dc.html` — the prototype (all 5 screens, both themes, all states)
-- `support.js` — runtime needed to open the prototype locally
+- prototype + runtime — in the handoff zip on the share (see above)
 - `TRANSITION.md` — gap review, screen map, tokens, component spec, behavior, work order

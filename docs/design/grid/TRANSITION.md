@@ -1,6 +1,6 @@
 # Undercut → "Grid" redesign: gap review & transition guide
 
-Source of truth for the new look: `grid-prototype.dc.html` (5 screens, dark + light). This document maps the current live UI (`(simple)` panels: Standings · My Team · Market, profile sheet) onto the new design, flags what was left out, and gives implementation instructions.
+Source of truth for the new look: the prototype in the handoff zip on the share (5 screens, dark + light; not committed). This document maps the current live UI (`(simple)` panels: Standings · My Team · Market, profile sheet) onto the new design, flags what was left out, and gives implementation instructions.
 
 ---
 
