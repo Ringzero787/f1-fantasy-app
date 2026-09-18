@@ -11,6 +11,7 @@ import { PRICING_CONFIG } from '../../config/pricing.config';
 import { constructorShortName, driverNumber } from './entityNames';
 import { MonoLabel, ScreenHeader } from './GridBits';
 import { GridTile } from './GridTile';
+import { GridTileSheet, sheetTargetFor, type SheetTarget } from './GridTileSheet';
 import { computeTiles, rosterRacePoints, openSlotCount, lineupStatus } from './tileState';
 import type { FantasyTeam, LeagueMember } from '../../types';
 
@@ -29,6 +30,7 @@ export function GridMemberTeam({ member, leagueId }: Props) {
   const fetchLastRaceScores = useRaceScoresStore((s) => s.fetchLastRaceScores);
   const [team, setTeam] = useState<FantasyTeam | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [sheet, setSheet] = useState<SheetTarget | null>(null);
 
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
   const userTeams = useTeamStore((s) => s.userTeams);
@@ -109,12 +111,25 @@ export function GridMemberTeam({ member, leagueId }: Props) {
           <View style={{ paddingHorizontal: gutter, paddingTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {tiles.map((tile, i) => (
               <View key={tile.kind === 'empty' ? `empty-${i}` : tile.id} style={isTablet ? { width: '31%', flexGrow: 1 } : { width: tileWidth }}>
-                <GridTile tile={tile} locked aceLocked readOnly />
+                <GridTile
+                  tile={tile}
+                  locked
+                  aceLocked
+                  readOnly
+                  onOpen={(t) => {
+                    if (t.kind === 'empty' || !team) return;
+                    const d = (team.drivers ?? []).find((x) => x.driverId === t.id);
+                    const c = (team as unknown as { constructor?: { constructorId: string; name: string; purchasePrice: number; currentPrice: number } | null }).constructor;
+                    if (d) setSheet(sheetTargetFor('driver', d, { number: t.kind === 'driver' ? t.tag : undefined, isAce: team.aceDriverId === t.id }));
+                    else if (c && c.constructorId === t.id) setSheet(sheetTargetFor('constructor', c, { isAce: team.aceConstructorId === t.id }));
+                  }}
+                />
               </View>
             ))}
           </View>
         </>
       )}
+      <GridTileSheet target={sheet} onClose={() => setSheet(null)} />
     </ScrollView>
   );
 }

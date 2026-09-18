@@ -14,10 +14,12 @@ interface Props {
   readOnly?: boolean;
   onOpenSlot?: (slot: 'driver' | 'constructor') => void;
   onToggleAce?: (tile: Tile) => void;
+  /** tap a filled tile → detail sheet */
+  onOpen?: (tile: Tile) => void;
 }
 
 // One cell of the Team grid: driver, constructor (red outline) or open slot.
-export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, readOnly, onOpenSlot, onToggleAce }: Props) {
+export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, readOnly, onOpenSlot, onToggleAce, onOpen }: Props) {
   const { colors, family, scaled, mono } = useSimpleTheme();
   const height = scaled(TILE_HEIGHT);
   const pad = scaled(14);
@@ -62,8 +64,13 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
   const canAce = !readOnly && !aceLocked && !!onToggleAce;
 
   return (
-    <View
-      style={{
+    <Pressable
+      onPress={onOpen ? () => onOpen(tile) : undefined}
+      disabled={!onOpen}
+      accessibilityRole={onOpen ? 'button' : undefined}
+      accessibilityHint={onOpen ? 'Opens stats' : undefined}
+      style={({ pressed }) => ({
+        opacity: pressed ? 0.8 : 1,
         height,
         borderRadius: 18,
         backgroundColor: isCtor ? colors.surface : colors.card,
@@ -73,7 +80,7 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
         paddingBottom: scaled(12),
         justifyContent: 'space-between',
         overflow: 'hidden',
-      }}
+      })}
       accessibilityLabel={`${tile.name}, ${tile.pts} points`}
     >
       {/* top row: number / TEAM · AUTO · ACE — season pts */}
@@ -132,7 +139,7 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
           </Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 });
 

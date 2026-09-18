@@ -15,6 +15,8 @@ import { GridCreateTeam } from './GridCreateTeam';
 import { constructorShortName, driverNumber } from './entityNames';
 import { GridAvatar, MonoLabel, ScreenHeader } from './GridBits';
 import { GridTile } from './GridTile';
+import { GridTileSheet, sheetTargetFor, type SheetTarget } from './GridTileSheet';
+import { useTeamStore } from '../../store/team.store';
 import { computeTiles, lineupStatus, openSlotCount, rosterRacePoints, type GridTile as Tile } from './tileState';
 import { formatLockStatus, formatRoundStatus, seasonProgress } from './lockStatus';
 
@@ -28,7 +30,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const { colors, family, spacing, scaled, mono, title } = useSimpleTheme();
   const { width } = useWindowDimensions();
   const {
-    team, hasTeam, createTeam, setAce, setAceConstructor, clearAce, updateTeamName,
+    team, teamConstructor, hasTeam, createTeam, setAce, setAceConstructor, clearAce, updateTeamName, removeDriver, removeConstructor,
     teamCount, activeTeamIndex, canCreateSecondTeam, switchTeam,
   } = useSimpleTeam();
   const lockoutInfo = useLockoutStatus();
@@ -45,6 +47,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const [newName, setNewName] = useState('');
   const [creatingSecondTeam, setCreatingSecondTeam] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [sheetId, setSheetId] = useState<string | null>(null);
 
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
   useEffect(() => {
@@ -137,6 +140,35 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
       Alert.alert('Ace', e instanceof Error ? e.message : 'Could not change your ace.');
     }
   };
+
+  // Tile detail sheet: derived from the live roster so Ace changes show at once.
+  const sheetTarget: SheetTarget | null = (() => {
+    if (!team || !sheetId) return null;
+    const d = (team.drivers ?? []).find((x) => x.driverId === sheetId);
+    if (d) {
+      const tile = tiles.find((t) => t.kind === 'driver' && t.id === sheetId);
+      return sheetTargetFor('driver', d, { number: tile && tile.kind === 'driver' ? tile.tag : undefined, isAce: team.aceDriverId === sheetId });
+    }
+    if (teamConstructor && teamConstructor.constructorId === sheetId) {
+      return sheetTargetFor('constructor', teamConstructor, { isAce: team.aceConstructorId === sheetId });
+    }
+    return null;
+  })();
+
+  const storeStep = async (fn: () => Promise<void>, title: string) => {
+    useTeamStore.setState({ error: null });
+    await fn();
+    const err = useTeamStore.getState().error;
+    if (err) Alert.alert(title, err);
+  };
+  const sheetToggleAce = (t: SheetTarget) => storeStep(
+    () => (t.isAce ? clearAce() : t.kind === 'driver' ? setAce(t.entry.id) : setAceConstructor(t.entry.id)),
+    'Ace',
+  );
+  const sheetRemove = (t: SheetTarget) => storeStep(
+    () => (t.kind === 'driver' ? removeDriver(t.entry.id) : removeConstructor()),
+    'Could not remove',
+  );
 
   if (!hasTeam) {
     return <GridCreateTeam onCreate={async (name, joinCode) => { await createTeam(name, joinCode); }} />;
@@ -267,16 +299,18 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
                   aceLocked={aceLocked}
                   onOpenSlot={goPicker}
                   onToggleAce={handleToggleAce}
+                  onOpen={(t) => { if (t.kind !== 'empty') setSheetId(t.id); }}
                 />
               </View>
             ))}
           </View>
           <View style={{ height: scaled(6) }} />
           <Text style={[mono(10, 'medium'), { color: colors.text.muted, paddingHorizontal: gutter, marginTop: 8 }]}>
-            {aceLocked ? 'ACE LOCKED FOR THIS ROUND' : 'TAP ACE ON A TILE FOR 2× POINTS'}
+            {aceLocked ? 'TAP A TILE FOR STATS · ACE LOCKED FOR THIS ROUND' : 'TAP A TILE FOR STATS, ACE OR REMOVE'}
           </Text>
         </>
       )}
+      <GridTileSheet target={sheetTarget} onClose={() => setSheetId(null)} locked={locked} aceLocked={aceLocked} onToggleAce={sheetToggleAce} onRemove={sheetRemove} />
     </ScrollView>
   );
 });
