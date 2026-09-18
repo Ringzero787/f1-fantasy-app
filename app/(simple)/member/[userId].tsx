@@ -8,7 +8,8 @@ import { GridMemberTeam } from '../../../src/simple/grid/GridMemberTeam';
 import { useLeagueStore } from '../../../src/store/league.store';
 
 // Another player's team, read-only. The member must be in the loaded
-// standings; Firestore rules decide whether their team is readable.
+// standings (a UI filter; tightening the fantasyTeams list rule is a
+// tracked follow-up).
 export default function MemberTeamScreen() {
   const { colors, isDark, mono } = useSimpleTheme();
   const { userId, leagueId } = useLocalSearchParams<{ userId: string; leagueId?: string }>();

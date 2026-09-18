@@ -11,7 +11,6 @@ import { useAuthStore } from '../../store/auth.store';
 import { useLeagueStore } from '../../store/league.store';
 import { usePurchaseStore } from '../../store/purchase.store';
 import { useTeamStore } from '../../store/team.store';
-import { leagueService } from '../../services/league.service';
 import { PurchaseModal } from '../../components/PurchaseModal';
 import { PRODUCTS, PRODUCT_IDS } from '../../config/products';
 import { DEFAULT_MAX_MEMBERS, MIN_LEAGUE_NAME_LENGTH, MAX_LEAGUE_NAME_LENGTH, SLOTS_PER_EXPANSION } from '../../config/constants';
@@ -21,6 +20,7 @@ import { playersCaption } from './standings';
 export type ManagerStep = 'none' | 'join' | 'create' | 'done';
 const MIN_CODE = 6;
 const APP_URL = 'https://undercut.humannpc.com';
+const CREDIT_WAIT_MS = 12_000;
 
 interface Props {
   initialStep?: 'none' | 'join' | 'create';
@@ -46,7 +46,11 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const leaveLeague = useLeagueStore((s) => s.leaveLeague);
   const deleteLeague = useLeagueStore((s) => s.deleteLeague);
   const purchaseLeagueExpansion = usePurchaseStore((s) => s.purchaseLeagueExpansion);
+  const hasExpansionCredit = usePurchaseStore((s) => s.hasExpansionCredit);
+  const consumeExpansionCredit = usePurchaseStore((s) => s.consumeExpansionCredit);
   const isPurchasing = usePurchaseStore((s) => s.isPurchasing);
+  const expandLeagueCapacity = useLeagueStore((s) => s.expandLeagueCapacity);
+  const [expanding, setExpanding] = useState(false);
 
   const leagueId = team?.leagueId ?? null;
   const league = leagueId ? leagues.find((l) => l.id === leagueId) ?? null : leagues[0] ?? null;
@@ -102,7 +106,10 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
     } finally { setBusy(false); }
   }, [name, leagues.length, team?.leagueId, createLeague, userId, userName, attachTeam]);
 
-  const inviteMessage = league ? `Join my Undercut league "${league.name}"!\n\nInvite code: ${league.inviteCode}\n\nDownload: ${APP_URL}` : '';
+  // Code + the join link the app's deep-link handler accepts (app/_layout.tsx).
+  const inviteMessage = league
+    ? `Join my Undercut league "${league.name}"!\n\nInvite code: ${league.inviteCode}\nTap to join: ${APP_URL}/join?code=${league.inviteCode}\n\nGet the app: ${APP_URL}`
+    : '';
 
   const copyCode = useCallback(async () => {
     if (!league) return;
@@ -134,22 +141,34 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
     finally { setBusy(false); }
   }, [league, email, userId]);
 
+  // Creator-only: same entitlement flow as the legacy admin screen — buy a
+  // credit (the store grants it on purchase completion, instantly in demo
+  // mode), consume it, then apply the slots through the demo-aware store.
   const expand = useCallback(async () => {
-    if (!league || !isOwner) return;
-    const before = usePurchaseStore.getState().purchaseHistory.length;
-    await purchaseLeagueExpansion(league.id);
-    const after = usePurchaseStore.getState().purchaseHistory.length;
-    if (after <= before && !isDemoMode) return; // purchase cancelled or failed
+    if (!league || !isOwner || expanding) return;
+    setExpanding(true);
     try {
-      await leagueService.expandLeagueCapacity(league.id, userId, SLOTS_PER_EXPANSION);
-      await loadLeague(league.id);
-      await loadUserLeagues(userId);
+      if (!hasExpansionCredit()) {
+        await purchaseLeagueExpansion(league.id);
+        // A real purchase completes asynchronously; give the listener a moment.
+        const until = Date.now() + CREDIT_WAIT_MS;
+        while (!hasExpansionCredit() && Date.now() < until) await new Promise((r) => setTimeout(r, 400));
+      }
+      if (!hasExpansionCredit()) {
+        setExpandOpen(false);
+        if (!isDemoMode) Alert.alert('Not applied yet', 'If the purchase went through, tap LEAGUE SIZE again in a moment to add the slots.');
+        return;
+      }
+      consumeExpansionCredit();
+      await expandLeagueCapacity(league.id, SLOTS_PER_EXPANSION);
       setExpandOpen(false);
-      Alert.alert('League expanded', `Your league now holds ${league.maxMembers + SLOTS_PER_EXPANSION} players.`);
+      Alert.alert('League expanded', `${SLOTS_PER_EXPANSION} more players can join.`);
     } catch (e) {
-      Alert.alert('Purchase recorded', e instanceof Error ? e.message : 'Could not apply the extra slots yet. Pull to refresh.');
+      Alert.alert('Error', e instanceof Error ? e.message : 'Could not add the extra slots.');
+    } finally {
+      setExpanding(false);
     }
-  }, [league, isOwner, purchaseLeagueExpansion, isDemoMode, userId, loadLeague, loadUserLeagues]);
+  }, [league, isOwner, expanding, hasExpansionCredit, purchaseLeagueExpansion, isDemoMode, consumeExpansionCredit, expandLeagueCapacity]);
 
   const detachTeam = useCallback(async () => {
     const cur = useTeamStore.getState().currentTeam;
@@ -278,7 +297,7 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
                 <Pressable onPress={() => setExpandOpen(true)} accessibilityRole="button" style={({ pressed }) => [rowStyle, { opacity: pressed ? 0.7 : 1 }]}>
                   <MonoLabel>LEAGUE SIZE</MonoLabel>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Text style={rowValue}>+{SLOTS_PER_EXPANSION} PLAYERS · {PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].price}</Text>
+                    <Text style={rowValue}>{memberCount} / {league.maxMembers}</Text>
                     <Text style={{ color: colors.text.muted, fontSize: scaled(14) }}>›</Text>
                   </View>
                 </Pressable>
@@ -308,7 +327,7 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
         visible={expandOpen}
         onClose={() => setExpandOpen(false)}
         onPurchase={expand}
-        isLoading={isPurchasing}
+        isLoading={isPurchasing || expanding}
         title={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].title}
         description={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].description}
         price={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].price}

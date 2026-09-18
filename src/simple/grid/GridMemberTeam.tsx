@@ -11,7 +11,7 @@ import { PRICING_CONFIG } from '../../config/pricing.config';
 import { constructorShortName, driverNumber } from '../components/RaceDayBits';
 import { MonoLabel, ScreenHeader } from './GridBits';
 import { GridTile } from './GridTile';
-import { computeTiles, rosterRacePoints } from './tileState';
+import { computeTiles, rosterRacePoints, openSlotCount, lineupStatus } from './tileState';
 import type { FantasyTeam, LeagueMember } from '../../types';
 
 interface Props {
@@ -104,7 +104,7 @@ export function GridMemberTeam({ member, leagueId }: Props) {
             </View>
           </View>
           <View style={{ marginHorizontal: gutter, marginTop: 14 }}>
-            <MonoLabel>LINEUP · {tiles.filter((t) => t.kind === 'empty').length > 0 ? `${tiles.filter((t) => t.kind === 'empty').length} OPEN` : 'SET'}</MonoLabel>
+            <MonoLabel>LINEUP · {lineupStatus(openSlotCount(tiles), false).text}</MonoLabel>
           </View>
           <View style={{ paddingHorizontal: gutter, paddingTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {tiles.map((tile, i) => (

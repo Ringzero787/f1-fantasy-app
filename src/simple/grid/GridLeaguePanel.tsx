@@ -63,7 +63,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
     <ScreenHeader
       statusLeft={league ? league.name.toUpperCase() : 'LEAGUE'}
       onStatusLeftPress={league ? () => goManager() : undefined}
-      statusRight={league ? playersCaption(rows.length || league.memberCount, league.maxMembers) : 'NOT JOINED'}
+      statusRight={league ? playersCaption(rows.length || league.memberCount) : 'NOT JOINED'}
       statusRightAccent={false}
       title={league ? 'Standings' : 'No league'}
       right={<GridAvatar name={user?.displayName} imageUrl={user?.photoURL} onPress={goProfile} />}
