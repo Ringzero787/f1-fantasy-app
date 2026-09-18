@@ -187,9 +187,9 @@ export function ScreenHeader({ statusLeft, statusRight, statusRightAccent = true
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         {titleNode ?? (
-          <Text style={[titleStyle, { flex: 1 }]} numberOfLines={1}>{title}</Text>
+          <Text style={[titleStyle, { flex: 1, minWidth: 0 }]} numberOfLines={1}>{title}</Text>
         )}
-        {right}
+        {right ? <View style={{ flexShrink: 0 }}>{right}</View> : null}
       </View>
       {children}
     </View>

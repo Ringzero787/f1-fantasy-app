@@ -158,20 +158,22 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
         statusLeft={roundStatus}
         statusRight={lockStatus}
         titleNode={
-          <TextInput
-            style={[title, { flex: 1, paddingVertical: 0, borderBottomWidth: 1, borderBottomColor: editingName ? colors.primary : 'transparent' }]}
-            value={editingName ? newName : team!.name}
-            onChangeText={setNewName}
-            onFocus={() => { setNewName(team!.name); setEditingName(true); }}
-            onBlur={handleNameCommit}
-            onSubmitEditing={handleNameCommit}
-            maxLength={30}
-            returnKeyType="done"
-            numberOfLines={1}
-            accessibilityLabel="Team name, tap to edit"
-          />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <TextInput
+              style={[title, { width: '100%', paddingVertical: 0, borderBottomWidth: 1, borderBottomColor: editingName ? colors.primary : 'transparent' }]}
+              value={editingName ? newName : team!.name}
+              onChangeText={setNewName}
+              onFocus={() => { setNewName(team!.name); setEditingName(true); }}
+              onBlur={handleNameCommit}
+              onSubmitEditing={handleNameCommit}
+              maxLength={30}
+              returnKeyType="done"
+              numberOfLines={1}
+              accessibilityLabel="Team name, tap to edit"
+            />
+          </View>
         }
-        right={<GridAvatar name={user?.displayName} imageUrl={user?.photoURL} onPress={goProfile} />}
+        right={<View style={{ flexShrink: 0 }}><GridAvatar name={user?.displayName} imageUrl={user?.photoURL} onPress={goProfile} /></View>}
       >
         {/* 3px season progress bar */}
         <View style={{ height: 3, backgroundColor: colors.card, borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>

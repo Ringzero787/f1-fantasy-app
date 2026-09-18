@@ -58,14 +58,12 @@ export default function SimpleMainScreen() {
       <View style={[{ flex: 1 }, isTablet && { alignItems: 'center' }]}>
         <View style={[{ flex: 1, width: '100%' }, contentMaxWidth ? { maxWidth: contentMaxWidth } : null]}>
           <Animated.View
-            pointerEvents={tab === 'team' ? 'auto' : 'none'}
-            style={{ ...absoluteFill, opacity: teamOpacity, paddingTop: 12 }}
+            style={{ ...absoluteFill, opacity: teamOpacity, paddingTop: 12, zIndex: tab === 'team' ? 2 : 1, pointerEvents: tab === 'team' ? 'auto' : 'none' }}
           >
             <GridTeamPanel refreshing={refreshing} onRefresh={onRefresh} />
           </Animated.View>
           <Animated.View
-            pointerEvents={tab === 'league' ? 'auto' : 'none'}
-            style={{ ...absoluteFill, opacity: leagueOpacity, paddingTop: 12 }}
+            style={{ ...absoluteFill, opacity: leagueOpacity, paddingTop: 12, zIndex: tab === 'league' ? 2 : 1, pointerEvents: tab === 'league' ? 'auto' : 'none' }}
           >
             <SimpleLeaguePanel />
           </Animated.View>
