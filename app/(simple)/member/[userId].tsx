@@ -4,11 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSimpleTheme } from '../../../src/simple/hooks/useSimpleTheme';
 import { ScreenHeader } from '../../../src/simple/grid/GridBits';
-import { SimpleMemberTeamView } from '../../../src/simple/components/SimpleMemberTeamView';
+import { GridMemberTeam } from '../../../src/simple/grid/GridMemberTeam';
 import { useLeagueStore } from '../../../src/store/league.store';
 
-// Interim member team route: existing read-only view until F-051 reuses the
-// Grid tile layout. Expects the member to be in the loaded standings.
+// Another player's team, read-only. The member must be in the loaded
+// standings; Firestore rules decide whether their team is readable.
 export default function MemberTeamScreen() {
   const { colors, isDark, mono } = useSimpleTheme();
   const { userId, leagueId } = useLocalSearchParams<{ userId: string; leagueId?: string }>();
@@ -19,7 +19,7 @@ export default function MemberTeamScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }} edges={['top']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       {member ? (
-        <SimpleMemberTeamView member={member} leagueId={member.leagueId} onBack={() => router.back()} />
+        <GridMemberTeam member={member} leagueId={member.leagueId} />
       ) : (
         <View style={{ paddingTop: 12 }}>
           <ScreenHeader statusLeft="← BACK" onStatusLeftPress={() => router.back()} title="Team" />
