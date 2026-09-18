@@ -1,4 +1,4 @@
-# Undercut 2.3.1 — the Grid redesign
+# Undercut 2.3.1 (versionCode 56, iOS build 39) — 2026-09-18 — the Grid redesign
 
 _2.3.0 was built on 2026-09-18 but never submitted to the stores; 2.3.1 is the first public Grid release and includes everything below._
 

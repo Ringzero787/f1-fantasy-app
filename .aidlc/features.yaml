@@ -589,7 +589,7 @@ features:
     summary: Tap a driver or constructor tile on the Team screen to open a sheet with stats (season and last-race points,
       breakdown, recent form, price vs paid, contract) plus Ace and Remove with the sale quote, without going through
       Pick Team
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-058.md
     created_at: 2026-09-18
     keywords:
@@ -600,3 +600,5 @@ features:
       - with
       - stats
       - remove
+    version_shipped: 2.3.1
+    shipped_at: 2026-09-18

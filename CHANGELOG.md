@@ -1,5 +1,18 @@
 # Changelog
 
+## uc-v2.3.1 — 2026-09-18
+
+Tap team tiles for instant stats and roster management.
+
+## Added
+
+- Team tile detail sheet: tap a driver or constructor tile on the Team screen to view season and last-race points, breakdown, recent form, price versus paid, and current contract value.
+- Quick Ace and Remove actions: ace or remove team members directly from the detail sheet with the sale quote, without navigating to Pick Team.
+
+## Changed
+
+- Team screen now supports direct interaction with individual tiles for faster roster management.
+
 ## uc-v2.3.0 — 2026-09-18
 
 Undercut 2.3.0: Grid redesign complete with standings tracking and profile photo fixes.
