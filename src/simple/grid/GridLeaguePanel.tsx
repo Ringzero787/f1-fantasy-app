@@ -128,7 +128,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
               <Text style={[mono(10), { color: item.movementDir === 'up' ? colors.positive : item.movementDir === 'down' ? colors.primary : colors.text.muted }]}>{item.movement}</Text>
             </View>
             <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-              <Text numberOfLines={1} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>{item.name}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>{item.name}</Text>
               <Text numberOfLines={1} style={[mono(11, 'medium'), { color: colors.text.muted, textTransform: 'uppercase' }]}>{item.team}</Text>
             </View>
             <View style={{ alignItems: 'flex-end', gap: 4 }}>

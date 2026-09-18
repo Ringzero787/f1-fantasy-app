@@ -1,7 +1,8 @@
 appId: com.undercut.app
 ---
 # Shared setup: launch a dev build and enter demo mode from the sign-in screen.
-# The wordmark long-press demo entry exists in dev / Expo Go builds only.
+# The wordmark long-press demo entry exists in dev / Expo Go builds and in
+# verification builds made with EXPO_PUBLIC_ALLOW_DEMO=1 (never store builds).
 - launchApp:
     clearState: true
 - extendedWaitUntil:

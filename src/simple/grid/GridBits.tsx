@@ -102,7 +102,7 @@ export function SegmentPill<T extends string>({ segments, value, onChange, size 
               opacity: pressed && !active ? 0.6 : 1,
             })}
           >
-            <Text style={{ fontFamily: family.ui.black, fontSize, letterSpacing: fontSize * 0.08, color: active ? colors.text.inverse : colors.text.muted }}>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ flexShrink: 1, fontFamily: family.ui.black, fontSize, letterSpacing: fontSize * 0.08, color: active ? colors.text.inverse : colors.text.muted }}>
               {seg.label}
             </Text>
             {seg.badge && !active ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary }} /> : null}
@@ -169,19 +169,20 @@ export function ScreenHeader({ statusLeft, statusRight, statusRightAccent = true
   );
   return (
     <View style={{ paddingHorizontal: spacing.xl, gap: 6 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+      {/* wraps at large display sizes so neither status is cut off */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', columnGap: 12, rowGap: 4 }}>
         {onStatusLeftPress ? (
           <Pressable onPress={onStatusLeftPress} hitSlop={12} accessibilityRole="button" accessibilityLabel={statusLeft.replace(/^[←→]\s*/, '')}>{left}</Pressable>
         ) : left}
         {statusRight ? (
-          <MonoLabel color={statusRightAccent ? colors.primary : colors.text.muted} numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right' }}>
+          <MonoLabel color={statusRightAccent ? colors.primary : colors.text.muted} numberOfLines={1}>
             {statusRight}
           </MonoLabel>
         ) : null}
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         {titleNode ?? (
-          <Text style={[titleStyle, { flex: 1, minWidth: 0 }]} numberOfLines={1}>{title}</Text>
+          <Text style={[titleStyle, { flex: 1, minWidth: 0 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{title}</Text>
         )}
         {right ? <View style={{ flexShrink: 0 }}>{right}</View> : null}
       </View>

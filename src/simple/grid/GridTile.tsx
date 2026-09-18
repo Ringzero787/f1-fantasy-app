@@ -105,6 +105,8 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
       <View style={{ gap: 6 }}>
         <Text
           numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.55}
           style={{
             fontFamily: family.ui.black,
             fontSize: scaled(tile.nameSize),

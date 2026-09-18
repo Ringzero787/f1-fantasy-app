@@ -12,7 +12,7 @@ import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
 import { maybeRequestReview } from '../../utils/reviewPrompt';
 import { GridCreateTeam } from './GridCreateTeam';
-import { constructorShortName, driverNumber } from '../components/RaceDayBits';
+import { constructorShortName, driverNumber } from './entityNames';
 import { GridAvatar, MonoLabel, ScreenHeader } from './GridBits';
 import { GridTile } from './GridTile';
 import { computeTiles, lineupStatus, openSlotCount, rosterRacePoints, type GridTile as Tile } from './tileState';

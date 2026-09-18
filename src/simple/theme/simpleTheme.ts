@@ -40,18 +40,8 @@ export const S_COLORS_DARK = {
   borderLight: '#1E1E1E',  // row separators
   borderStrong: '#333333', // dashed open slots, outline buttons, unselected rings
 
-  // Legacy keys still read by the Race Day panels until F-051/F-052/F-055
-  // replace them. Monochrome by design — no gold/silver/bronze podium colours.
-  gold: '#F2F2F2',
-  silver: '#B3B3B3',
-  bronze: '#7A7A7A',
-  ace: '#FF2E2E',
-  aceBg: '#2A0F0F',
-  locked: '#7A7A7A',
-  lockedBg: '#1A1A1A',
-  positiveFaint: '#0F2618',
+  // Sheet/modal backdrop
   scrim: 'rgba(5,5,5,0.78)',
-  speedLine: 'transparent',
 } as const;
 
 export const S_COLORS_LIGHT = {
@@ -80,16 +70,7 @@ export const S_COLORS_LIGHT = {
   borderLight: '#DDDDD9',
   borderStrong: '#C8C8C4',
 
-  gold: '#0A0A0A',
-  silver: '#3F3F3F',
-  bronze: '#6B6B6B',
-  ace: '#FF2E2E',
-  aceBg: '#FFE4E4',
-  locked: '#6B6B6B',
-  lockedBg: '#E8E8E5',
-  positiveFaint: '#DDF3E4',
   scrim: 'rgba(10,10,10,0.5)',
-  speedLine: 'transparent',
 } as const;
 
 // Backwards compatibility — dark is the canonical palette.
@@ -100,8 +81,6 @@ export type SimpleColors = typeof S_COLORS_DARK;
 
 // Per-weight font family names (expo-google-fonts registers one family per
 // weight — do NOT combine these with fontWeight or iOS will double-embolden).
-// `body`/`display` keep their old key shape so the not-yet-migrated Race Day
-// panels pick up the new faces without edits; new Grid code uses `ui`/`mono`.
 export const S_FONT_FAMILY = {
   ui: {
     regular: 'Unbounded_400Regular',
@@ -112,23 +91,7 @@ export const S_FONT_FAMILY = {
     medium: 'JetBrainsMono_500Medium',
     bold: 'JetBrainsMono_700Bold',
   },
-  body: {
-    regular: 'Unbounded_400Regular',
-    medium: 'Unbounded_400Regular',
-    semibold: 'Unbounded_700Bold',
-    bold: 'Unbounded_700Bold',
-  },
-  display: {
-    medium: 'Unbounded_700Bold',
-    semibold: 'Unbounded_700Bold',
-    bold: 'Unbounded_900Black',
-  },
 } as const;
-
-// Grid has no oblique display type. Kept as an empty style so the legacy
-// panels that spread it compile until they are replaced.
-export const S_DISPLAY_SKEW = [] as const;
-export const S_DISPLAY_OBLIQUE = {} as const;
 
 // Type scale from TRANSITION.md §3 (px, before display scaling).
 export const S_TYPE = {
@@ -208,15 +171,4 @@ export function teamAccent(constructorId?: string | null): string {
   const remote = useRemoteConfigStore.getState().teamColors?.[constructorId]?.primary;
   if (remote && !NEUTRALS.has(remote.toUpperCase())) return remote;
   return S_TEAM_ACCENTS[constructorId] ?? '#999999';
-}
-
-// Shade a hex by a fixed amount (negative = darker).
-export function shadeHex(hex: string, amt: number): string {
-  const h = hex.replace('#', '');
-  if (h.length !== 6) return hex;
-  const ch = (i: number) =>
-    Math.max(0, Math.min(255, parseInt(h.slice(i, i + 2), 16) + amt))
-      .toString(16)
-      .padStart(2, '0');
-  return `#${ch(0)}${ch(2)}${ch(4)}`;
 }

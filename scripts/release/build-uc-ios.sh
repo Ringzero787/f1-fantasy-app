@@ -23,6 +23,11 @@ ssh -o BatchMode=yes "$MAC" 'test -f ~/ZP6VK29GWR.cer && test -f ~/ZP6VK29GWR.p1
   || { echo "signing material missing on the Mac: need ~/ZP6VK29GWR.cer, ~/ZP6VK29GWR.p12 and ~/private_keys/AuthKey_84Y9W9865G.p8" >&2; exit 6; }
 
 # Idempotent: uc-android / uc-amazon may already have stamped this version.
+# Store builds must never carry the demo-mode entry (verification builds only).
+if [ "${EXPO_PUBLIC_ALLOW_DEMO:-}" = 1 ]; then
+  echo "EXPO_PUBLIC_ALLOW_DEMO=1 is set — refusing to make a store build with the demo entry enabled" >&2; exit 7
+fi
+
 BUILD=$(node "$ROOT/scripts/release/bump-app-version.js" "$ROOT/app.config.js" "$VERSION" --ios)
 
 cd "$ROOT"

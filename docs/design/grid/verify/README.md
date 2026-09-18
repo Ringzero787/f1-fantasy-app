@@ -17,5 +17,7 @@ Expo-web renders (Playwright, headless Chromium, 396×856 @2x, demo mode) taken 
 | `F-053-register-dark.png` / `-light.png` | F-053 | Create account: social pills + email fields |
 | `F-053-forgot-dark.png` | F-053 | Reset password |
 | `F-053-create-team-dark.png` / `-light.png` | F-053 | First run: Name your team (CTA turns red once a name is typed; landing = `F-050-team-empty-dark.png`) |
+| `device-android-release-*.png` | all | Android **release** build on the Pixel 10 Pro XL emulator (embedded fonts, demo lineup): Team, Pick Team, Team at XXL display size |
+| `F-055-picker-xxl-web.png` | F-055 | Pick Team compact layout at XXL display size |
 
 Recipe: see the session notes — `npx expo start --web --clear` on a free port, then `PORT=<port> node shot*.js <outdir> dark|light`.
