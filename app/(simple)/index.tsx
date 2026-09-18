@@ -29,6 +29,7 @@ export default function SimpleMainScreen() {
     loadUserTeams();
     syncCompletedRaces();
     loadMarketCache();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
   }, []);
 
   // A join deep link lands on the LEAGUE tab.
@@ -38,7 +39,7 @@ export default function SimpleMainScreen() {
     setRefreshing(true);
     await Promise.all([loadUserTeams(), syncCompletedRaces(), loadMarketCache(), fetchLastRaceScores(true)]);
     setRefreshing(false);
-  }, []);
+  }, [loadUserTeams, syncCompletedRaces, loadMarketCache, fetchLastRaceScores]);
 
   // Both panels stay mounted; switching is a 150 ms cross-fade.
   const teamOpacity = useRef(new Animated.Value(tab === 'team' ? 1 : 0)).current;
