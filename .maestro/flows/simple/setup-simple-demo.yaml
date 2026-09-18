@@ -1,19 +1,14 @@
 appId: com.undercut.app
 ---
-# Shared setup: launch app in Simple mode via demo
+# Shared setup: launch a dev build and enter demo mode from the sign-in screen.
+# The wordmark long-press demo entry exists in dev / Expo Go builds only.
 - launchApp:
     clearState: true
-
-# Wait for login screen
 - extendedWaitUntil:
-    visible: "Undercut"
-    timeout: 10000
-
-# Enter demo mode (routes to Simple UI since uiMode defaults to 'simple')
-- tapOn:
-    id: "demo-mode-button"
-
-# Wait for Simple UI to load — toggle bar should be visible
+    visible: "WELCOME"
+    timeout: 15000
+- longPressOn: "Undercut"
+# First run lands on "Name your team"
 - extendedWaitUntil:
-    visible: "My Team"
+    visible: "NAME YOUR TEAM"
     timeout: 10000

@@ -1,0 +1,19 @@
+appId: com.undercut.app
+tags:
+  - simple
+  - profile
+---
+# Avatar chip opens Profile; appearance and display-size pills are present.
+- runFlow: simple-create-team.yaml
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "APPEARANCE"
+    timeout: 5000
+- assertVisible: "DISPLAY SIZE"
+- assertVisible: "GAME RULES"
+- tapOn: "LIGHT"
+- tapOn: "AUTO"
+- tapOn: "← BACK"
+- extendedWaitUntil:
+    visible: "SEASON PTS"
+    timeout: 5000

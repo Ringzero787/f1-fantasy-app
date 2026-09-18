@@ -8,7 +8,7 @@ import { MonoLabel, PillButton } from '../../src/simple/grid/GridBits';
 import { validateDisplayName, validatePassword, isValidEmail } from '../../src/utils/validation';
 
 export default function RegisterScreen() {
-  const { colors, family, scaled, title } = useSimpleTheme();
+  const { colors, title } = useSimpleTheme();
   const { signUp, signInWithGoogle, signInWithApple, isLoading, error, clearError } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
