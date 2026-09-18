@@ -123,6 +123,7 @@ export interface LeagueMember {
   raceWins?: number; // Race weekend wins count
   isInCatchUp?: boolean; // Currently in catch-up multiplier period
   isWithdrawn?: boolean; // Team was deleted but score preserved
+  previousRank?: number; // Rank before the last race (server-written, F-054)
 }
 
 export interface LeagueInvite {
@@ -194,6 +195,9 @@ export interface FantasyTeam {
   lockedPoints?: number;
   // Server-written: race/quali/sprint keys this team has been scored for
   scoredRaces?: string[];
+  // Server-written by onRaceCompleted (F-054): best single-race total
+  bestRacePoints?: number;
+  bestRaceId?: string;
 }
 
 export interface FantasyDriver {
