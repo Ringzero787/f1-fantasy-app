@@ -51,6 +51,9 @@ if [ "${UC_SKIP_PUBLISH:-}" = 1 ]; then
   exit 0
 fi
 mkdir -p "$ROOT/.aidlc/tmp/undercut-ios"
+# Keep only this release's IPA here: G04/G08 size the artifact by globbing this folder,
+# and a leftover from the previous version doubled the measured iOS size.
+find "$ROOT/.aidlc/tmp/undercut-ios" -maxdepth 1 -name '*.ipa' ! -name "$NAME" -delete 2>/dev/null || true
 scp -q -o BatchMode=yes "$MAC:$MAC_DIR/build/export/Undercut.ipa" "$ROOT/.aidlc/tmp/undercut-ios/$NAME"
 cp "$ROOT/.aidlc/tmp/undercut-ios/$NAME" "/mnt/smb/share/undercut/$NAME"
 echo "uploaded $NAME to App Store Connect (submit it for review there); copy on the share"
