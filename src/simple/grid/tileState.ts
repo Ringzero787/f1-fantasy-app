@@ -108,13 +108,26 @@ function constructorTile(c: FantasyConstructor, team: FantasyTeam, ctx: TileCont
   };
 }
 
+/**
+ * The roster's constructor pick. The field is literally named `constructor`,
+ * which every JS object also inherits (its class function), so only an OWN,
+ * object-valued property with a constructorId counts.
+ */
+export function rosterConstructor(team: unknown): FantasyConstructor | null {
+  if (!team || typeof team !== 'object') return null;
+  if (!Object.prototype.hasOwnProperty.call(team, 'constructor')) return null;
+  const c = (team as Record<string, unknown>)['constructor'];
+  if (!c || typeof c !== 'object' || typeof (c as { constructorId?: unknown }).constructorId !== 'string') return null;
+  return c as FantasyConstructor;
+}
+
 /** The six tiles of the Team grid: drivers, open driver slots, then the constructor. */
 export function computeTiles(team: FantasyTeam, ctx: TileContext): GridTile[] {
   const drivers = team.drivers ?? [];
   const tiles: GridTile[] = drivers.map((d) => driverTile(d, team, ctx));
   for (let i = drivers.length; i < ctx.teamSize; i++) tiles.push({ kind: 'empty', slot: 'driver' });
-  const c = (team as unknown as { constructor?: FantasyConstructor | null }).constructor;
-  if (c && typeof c === 'object' && c.constructorId) tiles.push(constructorTile(c, team, ctx));
+  const c = rosterConstructor(team);
+  if (c) tiles.push(constructorTile(c, team, ctx));
   else tiles.push({ kind: 'empty', slot: 'constructor' });
   return tiles;
 }
@@ -135,7 +148,7 @@ export function rosterRacePoints(team: FantasyTeam, scores: Record<string, numbe
   if (Object.keys(scores).length === 0) return null;
   let total = 0;
   for (const d of team.drivers ?? []) total += scores[d.driverId] ?? 0;
-  const c = (team as unknown as { constructor?: FantasyConstructor | null }).constructor;
-  if (c && typeof c === 'object' && c.constructorId) total += scores[c.constructorId] ?? 0;
+  const c = rosterConstructor(team);
+  if (c) total += scores[c.constructorId] ?? 0;
   return total;
 }

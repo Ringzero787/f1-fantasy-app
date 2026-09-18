@@ -12,7 +12,7 @@ import { constructorShortName, driverNumber } from './entityNames';
 import { MonoLabel, ScreenHeader } from './GridBits';
 import { GridTile } from './GridTile';
 import { GridTileSheet, sheetTargetFor, type SheetTarget } from './GridTileSheet';
-import { computeTiles, rosterRacePoints, openSlotCount, lineupStatus } from './tileState';
+import { computeTiles, rosterRacePoints, openSlotCount, lineupStatus, rosterConstructor } from './tileState';
 import type { FantasyTeam, LeagueMember } from '../../types';
 
 interface Props {
@@ -55,9 +55,9 @@ export function GridMemberTeam({ member, leagueId }: Props) {
     for (const [id, s] of Object.entries(lastRaceScores)) last[id] = s.totalPoints;
     const prev: Record<string, number> = {};
     for (const [id, s] of Object.entries(prevRaceScores)) prev[id] = s.totalPoints;
-    const c = (team as unknown as { constructor?: { constructorId: string; name: string } | null }).constructor;
+    const c = rosterConstructor(team);
     const constructorNames: Record<string, string> = {};
-    if (c && typeof c === 'object') constructorNames[c.constructorId] = constructorShortName(c.constructorId, c.name);
+    if (c) constructorNames[c.constructorId] = constructorShortName(c.constructorId, c.name);
     return computeTiles(team, { teamSize: TEAM_SIZE, defaultContract: PRICING_CONFIG.CONTRACT_LENGTH, lastRace: last, prevRace: prev, numbers, showCarNumbers: true, constructorNames });
   }, [team, remoteDrivers, lastRaceScores, prevRaceScores]);
 
@@ -119,7 +119,7 @@ export function GridMemberTeam({ member, leagueId }: Props) {
                   onOpen={(t) => {
                     if (t.kind === 'empty' || !team) return;
                     const d = (team.drivers ?? []).find((x) => x.driverId === t.id);
-                    const c = (team as unknown as { constructor?: { constructorId: string; name: string; purchasePrice: number; currentPrice: number } | null }).constructor;
+                    const c = rosterConstructor(team);
                     if (d) setSheet(sheetTargetFor('driver', d, { number: t.kind === 'driver' ? t.tag : undefined, isAce: team.aceDriverId === t.id }));
                     else if (c && c.constructorId === t.id) setSheet(sheetTargetFor('constructor', c, { isAce: team.aceConstructorId === t.id }));
                   }}

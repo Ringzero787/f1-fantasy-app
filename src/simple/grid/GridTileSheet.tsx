@@ -25,8 +25,9 @@ interface Props {
   /** omit all three for a read-only (member) view */
   locked?: boolean;
   aceLocked?: boolean;
-  onToggleAce?: (t: SheetTarget) => Promise<void> | void;
-  onRemove?: (t: SheetTarget) => Promise<void> | void;
+  /** resolve false when the action failed (the sheet then stays open) */
+  onToggleAce?: (t: SheetTarget) => Promise<boolean | void> | boolean | void;
+  onRemove?: (t: SheetTarget) => Promise<boolean | void> | boolean | void;
 }
 
 // Tap a tile → stats, Ace and Remove without leaving the Team screen.
@@ -44,7 +45,11 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
   const id = target?.entry.id ?? null;
 
   useEffect(() => { setConfirming(false); setBusy(null); }, [id]);
-  useEffect(() => { if (id && !entityHistory[id]) fetchEntityHistory(id); }, [id, entityHistory, fetchEntityHistory]);
+  // Fetch on open when there is nothing cached — including an empty result,
+  // which is also what a transient failure leaves behind.
+  useEffect(() => {
+    if (id && !(useRaceScoresStore.getState().entityHistory[id]?.length)) fetchEntityHistory(id);
+  }, [id, fetchEntityHistory]);
 
   const d = useMemo(() => {
     if (!target) return null;
@@ -74,16 +79,19 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
     </View>
   );
 
-  const run = async (kind: 'ace' | 'remove', fn?: (t: SheetTarget) => Promise<void> | void) => {
+  const run = async (kind: 'ace' | 'remove', fn?: (t: SheetTarget) => Promise<boolean | void> | boolean | void) => {
     if (!fn || busy) return;
     setBusy(kind);
-    try { await fn(target); if (kind === 'remove') onClose(); } finally { setBusy(null); setConfirming(false); }
+    try {
+      const ok = (await fn(target)) !== false;
+      if (kind === 'remove' && ok) onClose();   // a failed remove keeps the sheet (and its alert) in context
+    } finally { setBusy(null); setConfirming(false); }
   };
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }} onPress={onClose} accessibilityLabel="Close">
-        <Pressable onPress={() => {}} style={{ maxHeight: '88%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
+        <Pressable onPress={() => {}} accessible={false} style={{ maxHeight: '88%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
           <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: Math.max(insets.bottom, 12) + 22, gap: 14 }} showsVerticalScrollIndicator={false}>
             {/* identity */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -158,7 +166,7 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><MonoLabel color={colors.text.primary}>YOU RECEIVE</MonoLabel><Text style={[mono(15), { color: colors.positive }]}>+${d.sale.saleReturn}</Text></View>
                 </View>
                 <PillButton label={busy === 'remove' ? 'REMOVING…' : `CONFIRM · REMOVE ${target.entry.name.toUpperCase()}`} variant="primary" disabled={!!busy} onPress={() => run('remove', onRemove)} />
-                <Pressable onPress={() => setConfirming(false)} disabled={!!busy} style={{ alignItems: 'center', paddingVertical: 8 }}><MonoLabel color={colors.text.muted}>KEEP</MonoLabel></Pressable>
+                <Pressable onPress={() => setConfirming(false)} disabled={!!busy} accessibilityRole="button" accessibilityLabel="Keep" style={{ alignItems: 'center', paddingVertical: 8 }}><MonoLabel color={colors.text.muted}>KEEP</MonoLabel></Pressable>
               </View>
             ) : (
               <View style={{ gap: 10, marginTop: 4 }}>

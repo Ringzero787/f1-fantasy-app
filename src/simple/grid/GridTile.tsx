@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Platform } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { teamAccent } from '../theme/simpleTheme';
 import { MonoLabel, ColorBar } from './GridBits';
@@ -16,10 +16,12 @@ interface Props {
   onToggleAce?: (tile: Tile) => void;
   /** tap a filled tile → detail sheet */
   onOpen?: (tile: Tile) => void;
+  /** the team has no Ace yet: the ACE pills turn red to ask for one */
+  aceNeeded?: boolean;
 }
 
 // One cell of the Team grid: driver, constructor (red outline) or open slot.
-export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, readOnly, onOpenSlot, onToggleAce, onOpen }: Props) {
+export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, readOnly, onOpenSlot, onToggleAce, onOpen, aceNeeded }: Props) {
   const { colors, family, scaled, mono } = useSimpleTheme();
   const height = scaled(TILE_HEIGHT);
   const pad = scaled(14);
@@ -67,7 +69,8 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
     <Pressable
       onPress={onOpen ? () => onOpen(tile) : undefined}
       disabled={!onOpen}
-      accessibilityRole={onOpen ? 'button' : undefined}
+      // On web a role of button renders a <button>, which may not contain the ACE pill's button.
+      accessibilityRole={onOpen && Platform.OS !== 'web' ? 'button' : undefined}
       accessibilityHint={onOpen ? 'Opens stats' : undefined}
       style={({ pressed }) => ({
         opacity: pressed ? 0.8 : 1,
@@ -101,7 +104,7 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
             >
               {tile.ace
                 ? <Pill label="ACE" fg="#F2F2F2" bg={colors.primary} border={colors.primary} />
-                : <Pill label="ACE" fg={colors.borderStrong} bg="transparent" border={colors.borderStrong} />}
+                : <Pill label="ACE" fg={aceNeeded ? colors.primary : colors.borderStrong} bg="transparent" border={aceNeeded ? colors.primary : colors.borderStrong} />}
             </Pressable>
           ) : null}
         </View>
