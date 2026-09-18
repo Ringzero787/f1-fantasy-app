@@ -91,6 +91,17 @@ describe('tiles', () => {
     expect(tileNameSize('Moreira')).toBe(19);
     expect(tileNameSize('Castelli')).toBe(17);
   });
+  it('offers Ace only to picks at or under the price cap, by live price', () => {
+    const capped = { ...ctx, aceMaxPrice: 200, prices: { varga: 150, fiorini: 250 } };
+    const tiles = computeTiles(team, capped);
+    const by: Record<string, boolean> = {};
+    for (const t of tiles) if (t.kind !== 'empty') by[t.id] = t.aceEligible;
+    expect(by.varga).toBe(true);        // live $150 beats the roster's $420
+    expect(by.fiorini).toBe(false);     // live $250
+    expect(by.kowalczyk).toBe(false);   // no live price → roster currentPrice 420
+    expect(by.lindqvist).toBe(true);    // roster currentPrice 90
+    expect(computeTiles(team, ctx).every((t) => t.kind === 'empty' || t.aceEligible)).toBe(true); // no cap given
+  });
   it('sums roster points for the last race', () => {
     expect(rosterRacePoints(team, ctx.lastRace)).toBe(25 + 12 + 0 + 15 + 43);
     expect(rosterRacePoints(team, {})).toBeNull();

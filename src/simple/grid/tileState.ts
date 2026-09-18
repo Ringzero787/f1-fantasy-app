@@ -43,6 +43,8 @@ export type GridTile =
       pts: number;
       auto: boolean;
       ace: boolean;
+      /** may be chosen as Ace: live price at or under the cap */
+      aceEligible: boolean;
       dots: ContractDots;
       trend: TrendInfo;
     }
@@ -55,6 +57,7 @@ export type GridTile =
       pts: number;
       auto: boolean;
       ace: boolean;
+      aceEligible: boolean;
       dots: ContractDots;
       trend: TrendInfo;
     }
@@ -72,6 +75,16 @@ export interface TileContext {
   showCarNumbers: boolean;
   /** short display names keyed by constructor id */
   constructorNames?: Record<string, string>;
+  /** live market prices keyed by entity id (falls back to the roster's currentPrice) */
+  prices?: Record<string, number | undefined>;
+  /** picks priced above this cannot be Ace; omit for no cap */
+  aceMaxPrice?: number;
+}
+
+function aceEligible(id: string, rosterPrice: number | undefined, ctx: TileContext): boolean {
+  if (ctx.aceMaxPrice == null) return true;
+  const price = ctx.prices?.[id] ?? rosterPrice ?? 0;
+  return price <= ctx.aceMaxPrice;
 }
 
 function driverTile(d: FantasyDriver, team: FantasyTeam, ctx: TileContext): GridTile {
@@ -87,6 +100,7 @@ function driverTile(d: FantasyDriver, team: FantasyTeam, ctx: TileContext): Grid
     pts: d.pointsScored ?? 0,
     auto: !!d.isReservePick,
     ace: team.aceDriverId === d.driverId,
+    aceEligible: aceEligible(d.driverId, d.currentPrice ?? d.purchasePrice, ctx),
     dots: contractDots(d.contractLength, d.racesHeld, ctx.defaultContract),
     trend: trendOf(ctx.lastRace[d.driverId], ctx.prevRace[d.driverId]),
   };
@@ -103,6 +117,7 @@ function constructorTile(c: FantasyConstructor, team: FantasyTeam, ctx: TileCont
     pts: c.pointsScored ?? 0,
     auto: !!c.isReservePick,
     ace: team.aceConstructorId === c.constructorId,
+    aceEligible: aceEligible(c.constructorId, c.currentPrice ?? c.purchasePrice, ctx),
     dots: contractDots(c.contractLength, c.racesHeld, ctx.defaultContract),
     trend: trendOf(ctx.lastRace[c.constructorId], ctx.prevRace[c.constructorId]),
   };

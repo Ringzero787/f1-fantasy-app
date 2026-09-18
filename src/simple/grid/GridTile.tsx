@@ -63,7 +63,8 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
   const accent = teamAccent(tile.constructorId);
   const trendColor = tile.trend.trend === 'up' ? colors.positive : tile.trend.trend === 'down' ? colors.primary : colors.text.muted;
   const dotColor = (d: 'on' | 'off' | 'last') => d === 'on' ? colors.text.primary : d === 'last' ? colors.primary : colors.borderStrong;
-  const canAce = !readOnly && !aceLocked && !!onToggleAce;
+  // Offer the Ace pill only on picks allowed to be Ace (price cap); the current Ace can always be cleared.
+  const canAce = !readOnly && !aceLocked && !!onToggleAce && (tile.ace || tile.aceEligible);
 
   return (
     <Pressable

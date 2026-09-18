@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { useLeagueStore } from '../../store/league.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useRaceScoresStore } from '../../store/raceScores.store';
+import { useAdminStore } from '../../store/admin.store';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
 import { maybeRequestReview } from '../../utils/reviewPrompt';
@@ -40,6 +41,8 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const remoteDrivers = useRemoteConfigStore((s) => s.drivers);
   const leagueMembers = useLeagueStore((s) => s.members);
   const loadLeagueMembers = useLeagueStore((s) => s.loadLeagueMembers);
+  const driverPrices = useAdminStore((s) => s.driverPrices);
+  const constructorPrices = useAdminStore((s) => s.constructorPrices);
   const lastRaceScores = useRaceScoresStore((s) => s.lastRaceScores);
   const prevRaceScores = useRaceScoresStore((s) => s.prevRaceScores);
   const fetchLastRaceScores = useRaceScoresStore((s) => s.fetchLastRaceScores);
@@ -72,6 +75,9 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
     for (const [id, s] of Object.entries(lastRaceScores)) last[id] = s.totalPoints;
     const prev: Record<string, number> = {};
     for (const [id, s] of Object.entries(prevRaceScores)) prev[id] = s.totalPoints;
+    const prices: Record<string, number | undefined> = {};
+    for (const [id, p] of Object.entries(driverPrices)) prices[id] = p?.currentPrice;
+    for (const [id, p] of Object.entries(constructorPrices)) prices[id] = p?.currentPrice;
     const constructorNames: Record<string, string> = {};
     const c = rosterConstructor(team);
     if (c) constructorNames[c.constructorId] = constructorShortName(c.constructorId, c.name);
@@ -83,15 +89,18 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
       numbers,
       showCarNumbers: true,
       constructorNames,
+      prices,
+      aceMaxPrice: PRICING_CONFIG.ACE_MAX_PRICE,
     });
-  }, [team, remoteDrivers, lastRaceScores, prevRaceScores]);
+  }, [team, remoteDrivers, lastRaceScores, prevRaceScores, driverPrices, constructorPrices]);
 
   const open = openSlotCount(tiles);
   const filledCount = tiles.length - open;
   const aceTile = tiles.find((t) => t.kind !== 'empty' && t.ace);
   const aceName = aceTile && aceTile.kind !== 'empty' ? aceTile.name : null;
-  // No Ace chosen yet, and it can still be chosen this round.
-  const aceNeeded = hasTeam && filledCount > 0 && !aceTile && !lockoutInfo.aceLocked;
+  // No Ace chosen yet, it can still be chosen this round, and at least one pick is allowed to be Ace.
+  const anyAceEligible = tiles.some((t) => t.kind !== 'empty' && t.aceEligible);
+  const aceNeeded = hasTeam && anyAceEligible && !aceTile && !lockoutInfo.aceLocked;
   const isFull = hasTeam && open === 0;
   const reviewed = React.useRef(false);
   useEffect(() => {
@@ -322,7 +331,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
                   <Text style={{ fontFamily: family.mono.bold, fontSize: scaled(10), letterSpacing: scaled(10) * 0.12, color: '#F2F2F2' }}>ACE</Text>
                 </View>
                 <Text style={{ flex: 1, fontFamily: family.ui.black, fontSize: scaled(12), lineHeight: scaled(16), letterSpacing: scaled(12) * 0.04, textTransform: 'uppercase', color: colors.primary }}>
-                  No ace set · tap a tile to pick your 2× scorer
+                  No ace set · tap a red ACE to pick your 2× scorer
                 </Text>
               </View>
             ) : aceName ? (
