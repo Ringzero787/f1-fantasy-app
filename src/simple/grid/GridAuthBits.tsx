@@ -13,8 +13,10 @@ const isExpoGo = Constants.appOwnership === 'expo';
 // ── Shell: surface background, wordmark header, centred content ────────────
 export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?: string; onWordmarkLongPress?: () => void; children: React.ReactNode }) {
   const { colors, family, spacing, scaled, isDark } = useSimpleTheme();
-  // The long-press demo entry is a testing hook: dev and Expo Go builds only.
-  const longPress = __DEV__ || isExpoGo ? onWordmarkLongPress : undefined;
+  // The long-press demo entry is a testing hook: dev and Expo Go builds, plus
+  // verification builds made with EXPO_PUBLIC_ALLOW_DEMO=1 (store builds never set it).
+  const demoAllowed = __DEV__ || isExpoGo || process.env.EXPO_PUBLIC_ALLOW_DEMO === '1';
+  const longPress = demoAllowed ? onWordmarkLongPress : undefined;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />

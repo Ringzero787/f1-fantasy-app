@@ -23,6 +23,11 @@ if [ -z "${UC_KEYSTORE_PASSWORD:-}" ] && [ ! -f "$ROOT/.signing.env" ]; then
   echo "no UC_KEYSTORE_PASSWORD in the environment and no .signing.env at the repo root" >&2; exit 6
 fi
 
+# Store builds must never carry the demo-mode entry (verification builds only).
+if [ "${EXPO_PUBLIC_ALLOW_DEMO:-}" = 1 ]; then
+  echo "EXPO_PUBLIC_ALLOW_DEMO=1 is set — refusing to make a store build with the demo entry enabled" >&2; exit 7
+fi
+
 VC=$(node "$ROOT/scripts/release/bump-app-version.js" "$ROOT/app.config.js" "$VERSION")
 
 cd "$ROOT"
