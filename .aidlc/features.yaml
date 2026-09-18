@@ -1,4 +1,4 @@
-next_id: 59
+next_id: 60
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -602,3 +602,22 @@ features:
       - remove
     version_shipped: 2.3.1
     shipped_at: 2026-09-18
+  - id: F-059
+    name: "UC: Server-owned league counts, team-name check and scoped team reads"
+    summary: "Phase two of F-056: callable team-name availability check and client switch, then scope fantasyTeams list to
+      own and same-league teams once that client is the minimum version; Cloud Function maintains memberCount;
+      maxMembers bound to a verified purchase"
+    status: planned
+    spec: .aidlc/specs/F-059.md
+    created_at: 2026-09-18
+    keywords:
+      - server
+      - owned
+      - league
+      - counts
+      - team
+      - name
+      - check
+      - scoped
+      - team
+      - reads
