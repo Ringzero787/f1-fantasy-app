@@ -29,7 +29,12 @@ import { S_RADIUS, S_FONT_FAMILY } from '../theme/simpleTheme';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import type { LeagueMember } from '../../types';
 
-export function SimpleLeaguePanel() {
+interface Props {
+  /** Invite code from a join deep link — opens the join form pre-filled. */
+  joinCode?: string;
+}
+
+export function SimpleLeaguePanel({ joinCode }: Props = {}) {
   const { colors, fonts, spacing, scaled, displayUpright } = useSimpleTheme();
   const user = useAuthStore((s) => s.user);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
@@ -62,6 +67,9 @@ export function SimpleLeaguePanel() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [leagueName, setLeagueName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  useEffect(() => {
+    if (joinCode) { setInviteCode(joinCode.toUpperCase()); setFormMode('join'); }
+  }, [joinCode]);
   const [refreshing, setRefreshing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);

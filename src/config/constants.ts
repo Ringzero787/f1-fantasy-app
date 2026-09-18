@@ -115,18 +115,20 @@ export const INVITE_EXPIRY_DAYS = 7;
 // ============================================
 
 export const TEAM_COLORS: Record<string, { primary: string; secondary: string }> = {
-  red_bull: { primary: '#1E3A8A', secondary: '#E10600' },
-  ferrari: { primary: '#DC2626', secondary: '#A91D1D' },
-  mclaren: { primary: '#FF8000', secondary: '#E67300' },
-  mercedes: { primary: '#00D2BE', secondary: '#00A19C' },
-  aston_martin: { primary: '#006F62', secondary: '#00483B' },
-  alpine: { primary: '#0090FF', secondary: '#FF87BC' },
-  williams: { primary: '#005AFF', secondary: '#00A3E0' },
-  rb: { primary: '#1634B5', secondary: '#E10600' },
-  racing_bulls: { primary: '#1634B5', secondary: '#E10600' },
-  haas: { primary: '#E10600', secondary: '#FFFFFF' },
-  audi: { primary: '#BB0A30', secondary: '#8C8C8C' },
-  cadillac: { primary: '#1C1C1C', secondary: '#C0C0C0' },
+  // Primaries follow the Grid handoff (2026-09-18) for the seven teams it
+  // draws; the rest keep ours. Constructor docs with `colors` override these.
+  red_bull: { primary: '#3671C6', secondary: '#E10600' },
+  ferrari: { primary: '#E80020', secondary: '#FFEB00' },
+  mclaren: { primary: '#FF8000', secondary: '#47C7FC' },
+  mercedes: { primary: '#27F4D2', secondary: '#000000' },
+  aston_martin: { primary: '#229971', secondary: '#CEDC00' },
+  alpine: { primary: '#0093CC', secondary: '#FF87BC' },
+  williams: { primary: '#64C4FF', secondary: '#00A3E0' },
+  rb: { primary: '#6692FF', secondary: '#1634B5' },
+  racing_bulls: { primary: '#6692FF', secondary: '#1634B5' },
+  haas: { primary: '#B6BABD', secondary: '#E10600' },
+  audi: { primary: '#52E252', secondary: '#BB0A30' },
+  cadillac: { primary: '#C7B063', secondary: '#1C1C1C' },
 };
 
 // ============================================

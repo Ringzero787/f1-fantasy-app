@@ -1,6 +1,7 @@
 import {
   collection,
   getDocs,
+  limit,
   query,
   where,
   orderBy,
@@ -53,21 +54,40 @@ export const raceScoresService = {
 
   /** Get the latest race scores (for "last race" display) */
   async getLatestRaceScores(): Promise<RaceScore[]> {
-    // Get all driver scores sorted by round desc, grab the highest round
+    const latest = await this.getLatestRound();
+    if (!latest) return [];
+    return this.getScoresForRace(latest.raceId);
+  },
+
+  /**
+   * The highest scored round and its raceId — one document read instead of
+   * the whole driver history.
+   */
+  async getLatestRound(): Promise<{ raceId: string; round: number } | null> {
     const q = query(
       raceScoresCollection,
       where('entityType', '==', 'driver'),
       orderBy('round', 'desc'),
+      limit(1),
     );
     const snap = await getDocs(q);
-    const allScores = snap.docs.map(d => d.data() as RaceScore);
-    if (allScores.length === 0) return [];
+    if (snap.empty) return null;
+    const top = snap.docs[0].data() as RaceScore;
+    return { raceId: top.raceId, round: top.round };
+  },
 
-    const latestRound = allScores[0].round;
-    const latestRaceId = allScores[0].raceId;
-
-    // Return all scores (drivers + constructors) for the latest race
-    const allForRace = await this.getScoresForRace(latestRaceId);
-    return allForRace;
+  /** Scores for the round before `round` (for ▲/▼ trends); [] when none. */
+  async getPreviousRaceScores(round: number): Promise<RaceScore[]> {
+    const q = query(
+      raceScoresCollection,
+      where('entityType', '==', 'driver'),
+      where('round', '<', round),
+      orderBy('round', 'desc'),
+      limit(1),
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return [];
+    const prev = snap.docs[0].data() as RaceScore;
+    return this.getScoresForRace(prev.raceId);
   },
 };

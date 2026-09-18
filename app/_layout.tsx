@@ -8,16 +8,14 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import * as Updates from 'expo-updates';
 import {
   useFonts,
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from '@expo-google-fonts/inter';
+  Unbounded_400Regular,
+  Unbounded_700Bold,
+  Unbounded_900Black,
+} from '@expo-google-fonts/unbounded';
 import {
-  SpaceGrotesk_500Medium,
-  SpaceGrotesk_600SemiBold,
-  SpaceGrotesk_700Bold,
-} from '@expo-google-fonts/space-grotesk';
+  JetBrainsMono_500Medium,
+  JetBrainsMono_700Bold,
+} from '@expo-google-fonts/jetbrains-mono';
 // import crashlytics from '@react-native-firebase/crashlytics';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { AppUpdateGate } from '../src/components/AppUpdateGate';
@@ -55,16 +53,14 @@ function extractInviteCode(url: string): string | null {
 export default function RootLayout() {
   const { isTablet } = useLayout();
 
-  // Race Day type system (Inter body + Space Grotesk display). Don't block
+  // Grid type system (Unbounded UI + JetBrains Mono data). Don't block
   // rendering on the load — RN falls back to the system font until ready.
   const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    SpaceGrotesk_500Medium,
-    SpaceGrotesk_600SemiBold,
-    SpaceGrotesk_700Bold,
+    Unbounded_400Regular,
+    Unbounded_700Bold,
+    Unbounded_900Black,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_700Bold,
   });
   useEffect(() => {
     if (fontError) console.warn('[fonts] load failed:', fontError.message ?? fontError);
@@ -151,6 +147,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(simple)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           </Stack>
           {/* Remote-config version gate (config/app). Fails open: renders

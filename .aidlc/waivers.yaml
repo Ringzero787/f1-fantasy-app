@@ -1,2 +1,9 @@
-# Waivers: `aidlc waive G05 "finding title or id" -r "why"`. Solo project: your word is the record.
-waivers: []
+waivers:
+  - gate: G05
+    finding: GHSA-
+    reason: Pre-existing dependency advisories (F-027 dependency bump pass) in the
+      functions lockfile, which this PR does not change; CI reports absolute
+      paths so the waiver is by title. Expires so the bump is revisited.
+    by: nathan
+    date: 2026-09-18
+    expires: 2026-10-31
