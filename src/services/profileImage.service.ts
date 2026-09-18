@@ -1,4 +1,5 @@
 import { firebaseAuth } from '../config/firebase';
+import { avatarStoragePath, type AvatarKind } from '../utils/avatarPath';
 
 // Firebase Storage bucket name from environment
 const STORAGE_BUCKET = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || '';
@@ -10,7 +11,8 @@ const STORAGE_BUCKET = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || '';
 export async function uploadProfileImage(
   userId: string,
   base64Data: string,
-  contentType: string = 'image/jpeg'
+  contentType: string = 'image/jpeg',
+  kind: AvatarKind = 'user'
 ): Promise<string> {
   // Get current user's auth token for authenticated upload
   const user = firebaseAuth.currentUser;
@@ -20,9 +22,8 @@ export async function uploadProfileImage(
 
   const token = await user.getIdToken();
 
-  // Create the storage path
-  const extension = contentType.split('/')[1] || 'jpg';
-  const path = `profile-images/${userId}.${extension}`;
+  // Owner-scoped path the storage rules allow (avatars/{auth.uid}/{kind}/{id})
+  const path = avatarStoragePath(user.uid, kind, userId, contentType);
   const encodedPath = encodeURIComponent(path);
 
   // Upload using Firebase Storage REST API
