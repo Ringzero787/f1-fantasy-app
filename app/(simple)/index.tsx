@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router';
 import { GridTeamPanel } from '../../src/simple/grid/GridTeamPanel';
 import { SegmentPill } from '../../src/simple/grid/GridBits';
-import { WeekendRecapCard } from '../../src/simple/components/WeekendRecapCard';
+import { GridWeekendRecap } from '../../src/simple/grid/GridWeekendRecap';
 import { GridLeaguePanel } from '../../src/simple/grid/GridLeaguePanel';
 import { useSimpleTeam } from '../../src/simple/hooks/useSimpleTeam';
 import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
@@ -88,7 +88,7 @@ export default function SimpleMainScreen() {
       </View>
 
       {/* Self-gating: shows once per completed race the team was scored for */}
-      <WeekendRecapCard />
+      <GridWeekendRecap />
     </SafeAreaView>
   );
 }

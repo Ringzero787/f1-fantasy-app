@@ -86,9 +86,6 @@ export function useSimpleTheme() {
         textTransform: 'uppercase' as const,
         color: colors.text.primary,
       },
-      // Legacy aliases used by the Race Day panels until they are replaced.
-      display: { fontFamily: S_FONT_FAMILY.ui.black },
-      displayUpright: { fontFamily: S_FONT_FAMILY.ui.bold },
       scaled,
     };
   }, [colors, displayScale, isDark]);

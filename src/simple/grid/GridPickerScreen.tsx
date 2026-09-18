@@ -14,7 +14,7 @@ import { useRaceScoresStore } from '../../store/raceScores.store';
 import { teamAccent } from '../theme/simpleTheme';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
-import { constructorShortName } from '../components/RaceDayBits';
+import { constructorShortName } from './entityNames';
 import { ColorBar, MonoLabel, PillButton, ScreenHeader, SegmentPill } from './GridBits';
 import { formatLockStatus } from './lockStatus';
 import { trendOf, surnameOf as surname } from './tileState';

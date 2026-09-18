@@ -8,7 +8,7 @@ import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useRaceScoresStore } from '../../store/raceScores.store';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
-import { constructorShortName, driverNumber } from '../components/RaceDayBits';
+import { constructorShortName, driverNumber } from './entityNames';
 import { MonoLabel, ScreenHeader } from './GridBits';
 import { GridTile } from './GridTile';
 import { computeTiles, rosterRacePoints, openSlotCount, lineupStatus } from './tileState';
