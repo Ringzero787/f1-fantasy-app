@@ -1,0 +1,47 @@
+id: OP-011
+title: Grid constructor colours on constructor docs (F-050)
+kind: uc-script
+status: applied
+params:
+  script: setConstructorColors.js
+  backup: constructors
+created_at: 2026-09-18T15:46:18.659Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-18T15:46:24.208Z
+    head_sha: 67924fec82d24479c63629f01d587c51eb5aec73
+    command: node scripts/ops/run-script.js undercut 'setConstructorColors.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-011/dry-run-2026-09-18T15-46-24-208Z.log
+    log_sha256: 5f979b68c98069ba99b863546f1b9efb2b54cea900cdabf1a04cea8ca31968ff
+    lines: 16
+  - step: backup
+    at: 2026-09-18T15:50:30.270Z
+    head_sha: 88b934d47a3c7cc3a0132417fc0f753166731380
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-011'/backup.json 'constructors'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-011/backup-2026-09-18T15-50-30-270Z.log
+    log_sha256: 73fc3fc57f99bc7685f4bc482d8e43f21483ebcce5f9f3ce967e676ab4f8033d
+    lines: 3
+  - step: gates
+    at: 2026-09-18T15:50:31.082Z
+    head_sha: 88b934d47a3c7cc3a0132417fc0f753166731380
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-18T15:50:31.084Z
+    head_sha: 88b934d47a3c7cc3a0132417fc0f753166731380
+    command: node scripts/ops/run-script.js undercut 'setConstructorColors.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-011/apply-2026-09-18T15-50-31-084Z.log
+    log_sha256: 2ae81f029584252df454b3020b1accc1c82633adedd4060aa168495191a71256
+    lines: 16
+  - step: gates
+    at: 2026-09-18T15:50:31.882Z
+    head_sha: 88b934d47a3c7cc3a0132417fc0f753166731380
+    exit: 0
+    gates:
+      G15: skip
