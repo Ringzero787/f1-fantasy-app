@@ -1,4 +1,4 @@
-next_id: 57
+next_id: 58
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -448,7 +448,9 @@ features:
     status: planned
     spec: .aidlc/specs/F-049.md
     created_at: 2026-09-17
-    summary: The undercut release unit builds all three stores — Play AAB, Amazon APK (EXPO_PUBLIC_STORE=amazon), and the iOS archive/export/upload driven on the Mac Mini over SSH — from one aidlc run; bump-app-version also moves ios.buildNumber.
+    summary: The undercut release unit builds all three stores — Play AAB, Amazon APK (EXPO_PUBLIC_STORE=amazon), and the
+      iOS archive/export/upload driven on the Mac Mini over SSH — from one aidlc run; bump-app-version also moves
+      ios.buildNumber.
     keywords:
       - release
       - uc-amazon
@@ -543,3 +545,18 @@ features:
       - team
       - list
       - scoping
+  - id: F-057
+    name: "UC: Profile photo upload path matches storage rules"
+    summary: uploadProfileImage wrote to profile-images/, which storage.rules denies; write to avatars/{uid}/user/
+      (owner-scoped, 5 MB, image/*) so Choose from library works
+    status: planned
+    spec: .aidlc/specs/F-057.md
+    created_at: 2026-09-18
+    keywords:
+      - profile
+      - photo
+      - upload
+      - path
+      - matches
+      - storage
+      - rules
