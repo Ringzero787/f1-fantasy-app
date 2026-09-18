@@ -43,8 +43,9 @@ milestones:
       - F-054
       - F-055
       - F-057
-    notes: black/grey/red redesign of the (simple) UI from the 2026-09-18 handoff (docs/design/grid); all merged, ships as
-      one store release
+      - F-058
+    notes: black/grey/red redesign of the (simple) UI from the 2026-09-18 handoff (docs/design/grid); 2.3.0 was built
+      and tagged but never submitted, the first public Grid release is 2.3.1 (adds the tile detail sheet, F-058)
   - id: M-03
     name: Undercut correctness and safety
     version: 2.4.0
