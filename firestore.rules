@@ -141,7 +141,8 @@ service cloud.firestore {
                       'totalPoints', 'lockedPoints', 'scoredRaces',
                       'isLocked', 'lockStatus',
                       'drivers', 'constructor', 'budget', 'totalSpent',
-                      'racesSinceTransfer', 'driverLockouts'
+                      'racesSinceTransfer', 'driverLockouts',
+                      'bestRacePoints', 'bestRaceId'
                     ]));
       allow delete: if isOwner(resource.data.userId);
     }
