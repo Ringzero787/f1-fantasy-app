@@ -244,7 +244,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       >
         <Text style={[mono(12), { width: scaled(36), color: colors.text.muted }]}>{item.num}</Text>
         <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
-          <Text numberOfLines={1} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>
             {item.name}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

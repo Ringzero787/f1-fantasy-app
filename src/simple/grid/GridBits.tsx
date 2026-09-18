@@ -169,12 +169,13 @@ export function ScreenHeader({ statusLeft, statusRight, statusRightAccent = true
   );
   return (
     <View style={{ paddingHorizontal: spacing.xl, gap: 6 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+      {/* wraps at large display sizes so neither status is cut off */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', columnGap: 12, rowGap: 4 }}>
         {onStatusLeftPress ? (
           <Pressable onPress={onStatusLeftPress} hitSlop={12} accessibilityRole="button" accessibilityLabel={statusLeft.replace(/^[←→]\s*/, '')}>{left}</Pressable>
         ) : left}
         {statusRight ? (
-          <MonoLabel color={statusRightAccent ? colors.primary : colors.text.muted} numberOfLines={1} style={{ flexShrink: 1, textAlign: 'right' }}>
+          <MonoLabel color={statusRightAccent ? colors.primary : colors.text.muted} numberOfLines={1}>
             {statusRight}
           </MonoLabel>
         ) : null}
