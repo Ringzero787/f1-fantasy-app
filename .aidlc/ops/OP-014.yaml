@@ -1,0 +1,37 @@
+id: OP-014
+title: F-056 league and member rules hardening
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-09-18T23:41:32.955Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-18T23:41:41.833Z
+    head_sha: 83b7dc002a83aba415aa549336631cb5ed21ddf6
+    command: git --no-pager diff 'e8f3a2f77fe2304f81a7cfd56dd3cc9891044e24' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-014/dry-run-2026-09-18T23-41-41-833Z.log
+    log_sha256: 1265f10f281ed21db17b7f10b1238a54dfd8afb15ec356761e00c10ec0df4196
+    lines: 144
+  - step: gates
+    at: 2026-09-18T23:43:48.650Z
+    head_sha: 83b7dc002a83aba415aa549336631cb5ed21ddf6
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-18T23:43:48.655Z
+    head_sha: 83b7dc002a83aba415aa549336631cb5ed21ddf6
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-014/apply-2026-09-18T23-43-48-655Z.log
+    log_sha256: f8a9ca05ec15afc0fefbd266a3fc11a0d0b8f8860e7b2cacf7b1fe4cd8badd88
+    lines: 13
+  - step: gates
+    at: 2026-09-18T23:43:51.968Z
+    head_sha: 83b7dc002a83aba415aa549336631cb5ed21ddf6
+    exit: 0
+    gates:
+      G15: skip
