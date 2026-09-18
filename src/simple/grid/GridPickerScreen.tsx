@@ -285,7 +285,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         <SegmentPill<Tab>
           value={tab}
           onChange={setTab}
-          size={11}
+          size={10}
           padY={12}
           style={{ flex: 1 }}
           segments={[{ key: 'drivers', label: 'DRIVERS' }, { key: 'constructors', label: 'CONSTRUCTOR' }]}
@@ -293,9 +293,9 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         <SegmentPill<Sort>
           value={sort}
           onChange={setSort}
-          size={11}
+          size={10}
           padY={12}
-          style={{ width: scaled(110) }}
+          style={{ width: scaled(92) }}
           segments={[{ key: 'pts', label: 'PTS' }, { key: 'price', label: '$' }]}
         />
       </View>
