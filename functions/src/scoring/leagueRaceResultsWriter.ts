@@ -58,6 +58,8 @@ export async function writeLeagueRaceResult(
   })));
 
   const leagueRef = db.collection('leagues').doc(leagueId);
+  // The app lists only races that have a leaderboard; the ids ride on the league doc it already reads.
+  await leagueRef.set({ raceResultIds: admin.firestore.FieldValue.arrayUnion(race.raceId) }, { merge: true });
   await leagueRef.collection('raceResults').doc(race.raceId).set({
     raceId: race.raceId,
     season,

@@ -95,6 +95,8 @@ export interface League {
   settings: LeagueSettings;
   avatarUrl?: string;
   avatarGeneratedAt?: string;
+  /** Races that have a per-race leaderboard (server-written, F-062) */
+  raceResultIds?: string[];
 }
 
 export interface LeagueSettings {
@@ -124,6 +126,7 @@ export interface LeagueMember {
   isInCatchUp?: boolean; // Currently in catch-up multiplier period
   isWithdrawn?: boolean; // Team was deleted but score preserved
   previousRank?: number; // Rank before the last race (server-written, F-054)
+  lastRacePoints?: number; // Points in the most recent scored race (server-written)
 }
 
 export interface LeagueInvite {
