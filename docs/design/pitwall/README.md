@@ -42,8 +42,8 @@ Work one feature per branch, `feat/F-###-slug`, Conventional Commits, `aidlc fea
 - F-062 race winners and per-race leaderboard. Ships in a normal app release. Gives League Pro and the portal the per-race data they need.
 
 **Phase 1 — portal on our own data (no timing licence needed)**
-1. F-075 shell: `web/pitwall/` (Vite, React, TypeScript), second Hosting site, op kind `pitwall-hosting-deploy`, sign-in, the app to web handoff callables, Playwright scroll-budget test. Ship behind `config/app.pitwall.enabled = false`.
-2. F-070 projections v1 from `raceScores` history through `scoringCore`, plus the price model from `updatePrices` rules. The backtest gate must pass before anything is shown to users.
+1. F-075 shell: `web/pitwall/` (Vite, React, TypeScript) on Cloudflare Pages at `pitwall.humannpc.com`, op kind `pitwall-pages-deploy`, sign-in, the app to web handoff callables, Playwright scroll-budget test. Ship behind `config/app.pitwall.enabled = false`.
+2. The forge worker skeleton (`workers/pitwall/`, `pw_jobs` lease queue, dedicated deploy checkout `/data/pitwall-worker`, op kind `pitwall-worker-deploy`), then F-070 projections v1 running on it from `raceScores` history through `scoringCore`, plus the price model from `updatePrices` rules. The backtest gate must pass before anything is shown to users.
 3. F-073 lineup lab and the Briefing recommendations and rivals frames from F-072, all computed client-side from page payloads plus the user's own readable documents. Save goes through the existing team callables only.
 4. Market frames from F-074 that use our data: price model, value, ownership, team value, hindsight.
 
@@ -77,8 +77,10 @@ The owner wants to test between now and launch. Plan:
 ## Owner actions (cannot be done from the repo)
 
 - [ ] Send the timing data provider a short permission request describing the use (timing frames free, inside a product that also sells a pass). Append the reply to ADR-001. Not blocking: if the answer is no, turn off `config/app.pitwall.timingFrames`; the paid product does not depend on it.
-- [ ] Firebase console: create Hosting site `undercut-pitwall`, register a Web app (config and App Check), add the portal domain to Auth authorized domains.
-- [ ] Cloudflare: CNAME `pitwall.humannpc.com` to Firebase Hosting.
+- [ ] Cloudflare: create the Pages project `undercut-pitwall`, attach `pitwall.humannpc.com`, and issue an API token scoped to that Pages project for the deploy op.
+- [ ] Firebase console: register a Web app (config and App Check) and add `pitwall.humannpc.com` to Auth authorized domains.
+- [ ] forge: create the `pitwall-worker` service account key and `/etc/pitwall-worker.env`, and approve the systemd unit and timers.
+- [ ] GCP: enable Cloud Run, Cloud Build, Artifact Registry and Cloud Scheduler on the project for the backup runner (can wait until after the beta starts).
 - [ ] Stripe account, products and prices, Stripe Tax; webhook secret into Secret Manager.
 - [ ] Play Console and App Store Connect: create `pitwall.pass.season` (one-time product on Play, non-renewing subscription on the App Store); Apple paid-apps agreement and banking; Google payments profile; Play service account order permissions.
 - [ ] LLM API key into Secret Manager with a $40 per month budget alert.
@@ -93,5 +95,7 @@ The owner wants to test between now and launch. Plan:
 - Do not reproduce article text; two sentences in our own words plus a link out.
 - Do not put a trademark watchlist term in a product, page, tier or pack name.
 - Do not let the web write `fantasyTeams`, `users/{uid}.pass` or `leagues/{id}.pro` directly.
-- Do not deploy functions, rules, hosting or config outside `aidlc op`.
+- Do not deploy functions, rules, the site, the worker or config outside `aidlc op`.
+- Do not run the worker from `/data/f1-app` or any checkout where branches get switched; it runs only from the dedicated deploy checkout.
+- Do not let forge and the GCP backup process jobs without the lease; every job is claimed in a transaction.
 - Do not put purchase wording or web prices inside the iOS or Play app unless F-068's release check says that storefront allows it.
