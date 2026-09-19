@@ -19,6 +19,7 @@ import { generateAvatar } from '../../services/avatarGeneration.service';
 import { RulesGuide } from '../../components/RulesGuide';
 import { GridAvatar, MonoLabel, PillButton, ScreenHeader, SegmentPill } from './GridBits';
 import { profileStatusLine } from './standings';
+import { SHOWCASE_ENABLED } from './showcaseData';
 import { teamRaceHistory, historyStats, scoredRaceCount } from './raceHistory';
 import { S_DISPLAY_SCALES as DISPLAY_SCALES } from '../theme/simpleTheme';
 
@@ -189,7 +190,7 @@ export function GridProfileScreen() {
           </Pressable>
           <View style={{ gap: 6, flexShrink: 1 }}>
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(20), lineHeight: scaled(21), letterSpacing: -scaled(20) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{user?.displayName || 'Player'}</Text>
-            <MonoLabel color={colors.primary} style={{ letterSpacing: scaled(11) * 0.14 }}>{isDemoMode ? 'DEMO MODE' : profileStatusLine(me?.rank ?? null, league?.name ?? null)}</MonoLabel>
+            <MonoLabel color={colors.primary} style={{ letterSpacing: scaled(11) * 0.14 }}>{isDemoMode && !SHOWCASE_ENABLED ? 'DEMO MODE' : profileStatusLine(me?.rank ?? null, league?.name ?? null)}</MonoLabel>
           </View>
         </View>
 

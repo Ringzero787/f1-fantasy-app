@@ -196,7 +196,9 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const editColor = locked ? colors.text.muted : open > 0 ? colors.primary : colors.text.primary;
   const gutter = spacing.xl;
   const isTablet = width >= 600;
-  const tileWidth = isTablet ? undefined : (width - gutter * 2 - 10) / 2;
+  // Floored: at fractional widths (533.33dp) two exact halves plus the gap overflowed the row by a
+  // sub-pixel and the grid wrapped to a single column.
+  const tileWidth = isTablet ? undefined : Math.floor((width - gutter * 2 - 10) / 2);
 
   return (
     <ScrollView
