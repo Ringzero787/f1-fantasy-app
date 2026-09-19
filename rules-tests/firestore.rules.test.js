@@ -220,3 +220,39 @@ test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped
   // released builds check team-name uniqueness with this global query; it must keep working until F-059
   await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
 });
+
+// ── F-062 race results and F-029 race snapshots: server-written, league-readable ──
+test('race results: league members read them, outsiders do not, nobody on a client writes them or raceWins', async () => {
+  await seedLeague(); await seedMember('L1', ALICE);
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'leagues', 'L1', 'raceResults', 'round_9'), { raceId: 'round_9', season: '2026', winners: [ALICE], entries: [], estimated: false });
+  });
+  await assertSucceeds(getDoc(doc(db(ALICE), 'leagues', 'L1', 'raceResults', 'round_9')));
+  await assertSucceeds(getDocs(collection(db(OWNER), 'leagues', 'L1', 'raceResults')));
+  await assertFails(getDoc(doc(db(MALLORY), 'leagues', 'L1', 'raceResults', 'round_9')));
+  for (const uid of [OWNER, ALICE, MALLORY]) {
+    await assertFails(setDoc(doc(db(uid), 'leagues', 'L1', 'raceResults', 'round_9'), { winners: [uid] }));
+    await assertFails(setDoc(doc(db(uid), 'leagues', 'L1', 'raceResults', 'forged'), { winners: [uid] }));
+    await assertFails(deleteDoc(doc(db(uid), 'leagues', 'L1', 'raceResults', 'round_9')));
+  }
+  await assertFails(updateDoc(doc(db(ALICE), 'leagues', 'L1', 'members', ALICE), { raceWins: 9 }));
+  await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'L1', 'members', ALICE), { raceWins: 9 }));
+  await assertFails(setDoc(doc(db(BOB), 'leagues', 'L1', 'members', BOB), { ...joinMember('L1', BOB), raceWins: 3 }));
+});
+
+test('race snapshots: the owner and the league read them; solo snapshots are private; no client writes', async () => {
+  await seedLeague(); await seedMember('L1', ALICE);
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'fantasyTeams', 'tA', 'raceSnapshots', 'round_9'), { teamId: 'tA', userId: ALICE, leagueId: 'L1', raceId: 'round_9', phases: {} });
+    await setDoc(doc(a, 'fantasyTeams', 'tSolo', 'raceSnapshots', 'round_9'), { teamId: 'tSolo', userId: BOB, leagueId: null, raceId: 'round_9', phases: {} });
+  });
+  await assertSucceeds(getDoc(doc(db(ALICE), 'fantasyTeams', 'tA', 'raceSnapshots', 'round_9')));
+  await assertSucceeds(getDoc(doc(db(OWNER), 'fantasyTeams', 'tA', 'raceSnapshots', 'round_9')));
+  await assertFails(getDoc(doc(db(MALLORY), 'fantasyTeams', 'tA', 'raceSnapshots', 'round_9')));
+  await assertSucceeds(getDoc(doc(db(BOB), 'fantasyTeams', 'tSolo', 'raceSnapshots', 'round_9')));
+  await assertFails(getDoc(doc(db(ALICE), 'fantasyTeams', 'tSolo', 'raceSnapshots', 'round_9')));
+  await assertFails(setDoc(doc(db(ALICE), 'fantasyTeams', 'tA', 'raceSnapshots', 'round_9'), { phases: { race: { points: 999 } } }, { merge: true }));
+  await assertFails(setDoc(doc(db(ALICE), 'fantasyTeams', 'tA', 'raceSnapshots', 'forged'), { userId: ALICE, leagueId: 'L1' }));
+  await assertFails(deleteDoc(doc(db(ALICE), 'fantasyTeams', 'tA', 'raceSnapshots', 'round_9')));
+});

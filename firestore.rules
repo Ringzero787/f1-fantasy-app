@@ -136,6 +136,12 @@ service cloud.firestore {
         allow delete: if isLeagueOwner(leagueId) || isOwner(memberId);
       }
 
+      // F-062: per-race leaderboard and winners, written by scoring only.
+      match /raceResults/{raceId} {
+        allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId));
+        allow write: if false;
+      }
+
       // League invites — members can create (max enforced by Cloud Function rate limit)
       // SECURITY: limit invite doc size to prevent abuse
       match /invites/{inviteId} {
@@ -198,6 +204,17 @@ service cloud.firestore {
     // buildTeamSecure, addDriverSecure, removeDriverSecure,
     // setConstructorSecure, removeConstructorSecure, onRaceCompleted.
     match /fantasyTeams/{teamId} {
+      // F-029: roster and points per race weekend, written by scoring only. Readable by
+      // the team's owner and by the team's league (the same people who can see the team).
+      match /raceSnapshots/{raceId} {
+        allow read: if isAuthenticated() && (
+          resource.data.userId == request.auth.uid ||
+          isAdmin() ||
+          (resource.data.leagueId != null && (isLeagueMember(resource.data.leagueId) || isLeagueOwner(resource.data.leagueId)))
+        );
+        allow write: if false;
+      }
+
       allow get: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
         isLeagueMember(resource.data.leagueId) ||

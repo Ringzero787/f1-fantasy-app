@@ -220,9 +220,11 @@ features:
     summary: ROADMAP economy (M)
   - id: F-029
     name: "UC: Per-race roster and ace snapshots"
-    status: planned
+    status: building
+    spec: .aidlc/specs/F-029.md
     created_at: 2026-09-11
-    summary: ROADMAP economy (M)
+    summary: Server keeps one snapshot per team per race weekend (roster as fielded, Ace, points per phase and entity);
+      dependency of F-062 and of Pit Wall hindsight. ROADMAP economy (M)
   - id: F-030
     name: "UC: Live-price member and profile views"
     status: planned
@@ -625,7 +627,9 @@ features:
       - reads
   - id: F-060
     name: "UC: League Pro entitlement and purchase verification"
-    summary: "League Pro is derived from the league owner's Pit Wall Pass ($14.99 per season, the only product): re-enable in-app purchase, validatePurchase grants the pass, server stamps the pro field on leagues the holder owns; rules deny client writes; free leagues keep standard play"
+    summary: "League Pro is derived from the league owner's Pit Wall Pass ($14.99 per season, the only product): re-enable
+      in-app purchase, validatePurchase grants the pass, server stamps the pro field on leagues the holder owns; rules
+      deny client writes; free leagues keep standard play"
     status: planned
     spec: .aidlc/specs/F-060.md
     created_at: 2026-09-18
@@ -636,7 +640,9 @@ features:
       - verification
   - id: F-061
     name: "UC: League Pro upgrade screen and free-tier changes"
-    summary: "Grid League Manager shows League Pro as included with Pit Wall Pass and opens the one upgrade sheet; league creation becomes free and unlimited, the three old products retire; Amazon build hides purchase and honours entitlements bought elsewhere"
+    summary: Grid League Manager shows League Pro as included with Pit Wall Pass and opens the one upgrade sheet; league
+      creation becomes free and unlimited, the three old products retire; Amazon build hides purchase and honours
+      entitlements bought elsewhere
     status: planned
     spec: .aidlc/specs/F-061.md
     created_at: 2026-09-18
@@ -651,7 +657,7 @@ features:
     name: "UC: Race winners and per-race league leaderboard"
     summary: "Free for every league: server records each race's league winner and raceWins at scoring time, League screen
       shows a per-race leaderboard; the engagement base League Pro builds on"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-062.md
     created_at: 2026-09-18
     keywords:
@@ -725,7 +731,9 @@ features:
     shipped_at: 2026-09-19
   - id: F-068
     name: "UC: Pit Wall Pass entitlement and web checkout"
-    summary: "Pit Wall Pass, $14.99 per season, the one premium product (portal plus League Pro): Stripe checkout first, store IAP for the February 2027 release, server-owned entitlement, free look with Rate My Team and timing frames, beta allowlist and complimentary grants"
+    summary: "Pit Wall Pass, $14.99 per season, the one premium product (portal plus League Pro): Stripe checkout first,
+      store IAP for the February 2027 release, server-owned entitlement, free look with Rate My Team and timing frames,
+      beta allowlist and complimentary grants"
     status: planned
     spec: .aidlc/specs/F-068.md
     created_at: 2026-09-19
@@ -736,7 +744,8 @@ features:
       - checkout
   - id: F-069
     name: "UC: Pit Wall analytics data pipeline"
-    summary: "Daily and post-session timing ingest into precomputed analytics documents with history back to 2023; timing-derived frames are free only and kept apart from pass-gated payloads (ADR-001)"
+    summary: Daily and post-session timing ingest into precomputed analytics documents with history back to 2023;
+      timing-derived frames are free only and kept apart from pass-gated payloads (ADR-001)
     status: planned
     spec: .aidlc/specs/F-069.md
     created_at: 2026-09-19

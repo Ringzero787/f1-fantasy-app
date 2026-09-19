@@ -529,7 +529,7 @@ export const checkSprintResults = onSchedule(
         });
 
         // Score sprint directly
-        await handleSprintScoring(raceId, sprintData.results);
+        await handleSprintScoring(raceId, sprintData.results, { seasonId: raceData.seasonId, round: raceData.round });
 
         console.log(`[SprintIngestion] Scored sprint for ${raceId} (${sprintData.results.length} drivers)`);
       }
