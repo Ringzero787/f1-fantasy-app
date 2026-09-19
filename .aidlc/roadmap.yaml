@@ -90,7 +90,7 @@ milestones:
       - F-064
       - F-065
       - F-066
-    notes: first paid tier, sold per league per season to the commissioner; playing and creating leagues stay free. Build
+    notes: League Pro is included in the Pit Wall Pass ($14.99 per season, one product, ADR-001) and applies to every league the pass holder owns; playing and creating leagues stay free. Build
       order F-062 (free, ships first) then F-060, F-061, then F-063 to F-066. Target is live in stores by 2027-02 ahead
       of the 2027 season; depends on F-059 for server-owned maxMembers
   - id: M-09
@@ -107,6 +107,6 @@ milestones:
       - F-072
       - F-073
       - F-074
-    notes: per-user premium (Pit Wall Pass, Stripe on web) beside per-league League Pro (M-08). Blocked on the data
-      licensing gate in F-069 (OpenF1 and formula1.com are non-commercial). Build order F-069, F-070, F-075, F-072,
+    notes: one premium product, Pit Wall Pass $14.99 per season, includes League Pro (M-08). Timing-derived frames are
+      free only (ADR-001). Beta during the rest of 2026, launch February 2027. Build order F-069, F-070, F-075, F-072,
       F-073, then F-071, F-074, F-068; target an open beta for 2027 pre-season testing, paid from round 1
