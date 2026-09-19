@@ -1,4 +1,4 @@
-# Undercut 2.3.3 — the Grid redesign, first public release
+# Undercut 2.3.3 (versionCode 58, iOS build 41) — 2026-09-19 — the Grid redesign, first public release
 
 _2.3.0, 2.3.1 and 2.3.2 were built but never submitted to the stores. 2.3.3 is the first public Grid release, so the store text covers the redesign. It adds the new U-mark icon with its launch animation (F-067) and the Team grid width fix. The detailed redesign write-up is in `release-notes-2.3.1.md`; the league changes are in `release-notes-2.3.2.md`._
 
