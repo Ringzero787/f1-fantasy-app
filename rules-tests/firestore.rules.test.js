@@ -54,13 +54,13 @@ test('shipped: createLeague batch (league + owner member)', async () => {
   await assertSucceeds(batch.commit());
 });
 
-test('shipped: joinLeague then memberCount +1; leave then -1', async () => {
+test('step B: join and leave work; the client can no longer write memberCount (the server owns it)', async () => {
   await seedLeague();
   const d = db(ALICE);
   await assertSucceeds(setDoc(doc(d, 'leagues', 'L1', 'members', ALICE), joinMember('L1', ALICE)));
-  await assertSucceeds(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() }));
   await assertSucceeds(deleteDoc(doc(d, 'leagues', 'L1', 'members', ALICE)));
-  await assertSucceeds(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(-1), updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(-1), updatedAt: serverTimestamp() }));
 });
 
 test('shipped: approval leagues take a pending member; owner approves and bumps the count', async () => {
@@ -151,18 +151,10 @@ test('league doc: no ownership transfer, no shrinking capacity, no count games',
   await assertFails(updateDoc(doc(db(ALICE), 'leagues', 'L1'), { maxMembers: 999 }));
 });
 
-test('known residual: a non-member can nudge memberCount down by one (never below 0) — same shape as a real leaver', async () => {
-  await seedLeague('L1', { memberCount: 3 });
-  const outsider = doc(db(MALLORY), 'leagues', 'L1');
-  await assertSucceeds(updateDoc(outsider, { memberCount: increment(-1), updatedAt: serverTimestamp() }));
-  await assertFails(updateDoc(outsider, { memberCount: increment(-2), updatedAt: serverTimestamp() }));
-});
-
-test('a drifted count never strands a leaver: the decrement to 0 is allowed', async () => {
-  await seedLeague('L1', { memberCount: 1 }); await seedMember('L1', ALICE);
-  const d = db(ALICE);
-  await assertSucceeds(deleteDoc(doc(d, 'leagues', 'L1', 'members', ALICE)));
-  await assertSucceeds(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(-1), updatedAt: serverTimestamp() }));
+test('step B: the memberCount residual is closed — no non-owner can write a league document', async () => {
+  await seedLeague('L1', { memberCount: 3 }); await seedMember('L1', ALICE);
+  await assertFails(updateDoc(doc(db(MALLORY), 'leagues', 'L1'), { memberCount: increment(-1), updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(db(ALICE), 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() }));
 });
 
 test('a pending member reads (so released clients can detect pending) but has no write privileges', async () => {
@@ -181,9 +173,7 @@ test('approved members chat and invite (both invite shapes released clients send
   await assertSucceeds(addDoc(collection(d, 'leagues', 'L1', 'messages'), { senderId: ALICE, text: 'hi' }));
   await assertSucceeds(addDoc(collection(d, 'leagues', 'L1', 'invites'), { email: 'x@example.com', status: 'pending', sentBy: ALICE, createdAt: 'now' }));
   await assertSucceeds(addDoc(collection(d, 'leagues', 'L1', 'invites'), { email: 'y@example.com', status: 'pending', createdAt: serverTimestamp(), expiresAt: new Date() }));
-  // one slot of slack for a released client racing the server recount at the last free slot, no more
-  await assertSucceeds(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() }));
-  await assertFails(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() })); // server-owned in step B
 });
 
 test('owner updates still work on a legacy member doc without role or status; bad join ranks are refused', async () => {
@@ -206,17 +196,49 @@ test('unauthenticated users get nothing', async () => {
   await assertFails(setDoc(doc(anon, 'leagues', 'L1', 'members', 'x'), joinMember('L1', 'x')));
 });
 
-// ── fantasyTeams: best-race fields are server-owned (F-054) and the queries shipped clients run ──
-test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped queries still run', async () => {
+// ── fantasyTeams (F-059 step B): queries are scoped like gets ──
+async function seedTeams() {
+  await seedLeague(); await seedMember('L1', ALICE); await seedMember('L1', BOB);
   await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), 'fantasyTeams', 'T1'), { userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null, budget: 1000, totalSpent: 0, totalPoints: 0 });
+    const a = ctx.firestore();
+    const t = (userId, leagueId, name) => ({ userId, leagueId, name, drivers: [], constructor: null, budget: 1000, totalSpent: 0, totalPoints: 0 });
+    await setDoc(doc(a, 'fantasyTeams', 'T-alice'), t(ALICE, 'L1', 'Apex'));
+    await setDoc(doc(a, 'fantasyTeams', 'T-alice-solo'), t(ALICE, null, 'Solo'));
+    await setDoc(doc(a, 'fantasyTeams', 'T-bob'), t(BOB, 'L1', 'Late Brakers'));
+    await setDoc(doc(a, 'fantasyTeams', 'T-mallory'), t(MALLORY, null, 'Outsider'));
   });
+}
+
+test('fantasyTeams: owner edits metadata, never the server-owned fields', async () => {
+  await seedTeams();
   const d = db(ALICE);
-  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { name: 'Apex Two' }));
-  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { bestRacePoints: 999, bestRaceId: 'x' }));
-  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { totalPoints: 999 }));
-  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { budget: 5000 }));
-  await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('userId', '==', ALICE))));
-  // released builds check team-name uniqueness with this global query; it must keep working until F-059
-  await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T-alice'), { name: 'Apex Two' }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T-alice'), { bestRacePoints: 999, bestRaceId: 'x' }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T-alice'), { totalPoints: 999 }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T-alice'), { budget: 5000 }));
+});
+
+test('fantasyTeams queries the app runs still work: own teams, league teams, a league-mate\'s team', async () => {
+  await seedTeams();
+  const d = db(ALICE);
+  const teams = collection(d, 'fantasyTeams');
+  const own = await assertSucceeds(getDocs(query(teams, where('userId', '==', ALICE))));
+  assert.equal(own.size, 2);                                                   // league team + solo team
+  const inLeague = await assertSucceeds(getDocs(query(teams, where('leagueId', '==', 'L1'))));
+  assert.equal(inLeague.size, 2);
+  await assertSucceeds(getDocs(query(teams, where('userId', '==', BOB), where('leagueId', '==', 'L1'), limit(1))));   // member team view
+  await assertSucceeds(getDocs(query(teams, where('userId', '==', ALICE), where('leagueId', '==', 'L1'), limit(1)))); // createTeam's own check
+  await assertSucceeds(getDoc(doc(d, 'fantasyTeams', 'T-bob')));
+});
+
+test('fantasyTeams: no more reading strangers\' teams', async () => {
+  await seedTeams();
+  const m = collection(db(MALLORY), 'fantasyTeams');
+  await assertFails(getDocs(m));                                                               // bulk scrape
+  await assertFails(getDocs(query(m, where('name', '==', 'Apex'), limit(1))));                 // the old global name probe
+  await assertFails(getDocs(query(m, where('userId', '==', ALICE))));                          // someone else's teams
+  await assertFails(getDocs(query(m, where('leagueId', '==', 'L1'))));                         // a league she is not in
+  await assertFails(getDocs(query(m, where('userId', '==', BOB), where('leagueId', '==', 'L1'), limit(1))));
+  await assertFails(getDoc(doc(db(MALLORY), 'fantasyTeams', 'T-bob')));
+  await assertSucceeds(getDocs(query(m, where('userId', '==', MALLORY))));                     // her own still fine
 });
