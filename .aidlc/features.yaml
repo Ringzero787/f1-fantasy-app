@@ -625,9 +625,7 @@ features:
       - reads
   - id: F-060
     name: "UC: League Pro entitlement and purchase verification"
-    summary: "Per-league, per-season League Pro entitlement: commissioner buys once, validatePurchase binds the receipt to
-      leagueId+season and writes a server-owned leagues/{id}.pro field; rules deny client writes; free leagues keep
-      standard play"
+    summary: "League Pro is derived from the league owner's Pit Wall Pass ($14.99 per season, the only product): re-enable in-app purchase, validatePurchase grants the pass, server stamps the pro field on leagues the holder owns; rules deny client writes; free leagues keep standard play"
     status: planned
     spec: .aidlc/specs/F-060.md
     created_at: 2026-09-18
@@ -638,9 +636,7 @@ features:
       - verification
   - id: F-061
     name: "UC: League Pro upgrade screen and free-tier changes"
-    summary: Grid League Manager upsell and purchase flow for League Pro; league creation becomes free and unlimited (retire
-      league.slot), member expansion folds into Pro; Amazon build hides purchase and honours entitlements bought
-      elsewhere
+    summary: "Grid League Manager shows League Pro as included with Pit Wall Pass and opens the one upgrade sheet; league creation becomes free and unlimited, the three old products retire; Amazon build hides purchase and honours entitlements bought elsewhere"
     status: planned
     spec: .aidlc/specs/F-061.md
     created_at: 2026-09-18
@@ -729,8 +725,7 @@ features:
     shipped_at: 2026-09-19
   - id: F-068
     name: "UC: Pit Wall Pass entitlement and web checkout"
-    summary: "Per-user seasonal premium (Pit Wall Pass): Stripe checkout on the web plus store IAP in the apps, one
-      server-owned entitlement on the user, free teaser views for everyone else"
+    summary: "Pit Wall Pass, $14.99 per season, the one premium product (portal plus League Pro): Stripe checkout first, store IAP for the February 2027 release, server-owned entitlement, free look with Rate My Team and timing frames, beta allowlist and complimentary grants"
     status: planned
     spec: .aidlc/specs/F-068.md
     created_at: 2026-09-19
@@ -741,8 +736,7 @@ features:
       - checkout
   - id: F-069
     name: "UC: Pit Wall analytics data pipeline"
-    summary: Daily and post-session OpenF1 ingest of laps, stints, pit stops, weather and race control into precomputed
-      analytics documents per driver, constructor, circuit and round, with history back to 2023
+    summary: "Daily and post-session timing ingest into precomputed analytics documents with history back to 2023; timing-derived frames are free only and kept apart from pass-gated payloads (ADR-001)"
     status: planned
     spec: .aidlc/specs/F-069.md
     created_at: 2026-09-19

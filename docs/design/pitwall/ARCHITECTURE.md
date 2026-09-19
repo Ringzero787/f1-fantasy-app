@@ -71,7 +71,8 @@ One account everywhere: the portal uses the same Firebase Auth project, so teams
 
 - Source of truth: `users/{uid}.pass = { tier, season, expiresAt, source: 'stripe' | 'play' | 'apple' | 'grant' }`, written only by functions (rules deny client writes to `pass`).
 - Mirror as a custom auth claim `pw: <expiresAt epoch>` so Firestore rules gate premium documents without an extra `get()` per read. The web calls `getIdToken(true)` after checkout; claims are re-stamped by a daily job and on every webhook.
-- League Pro (`leagues/{id}.pro`, F-060) is separate. Members of a Pro league get a one-time 7-day pass trial (F-068).
+- One product, one grant path: Stripe webhook and store `validatePurchase` both call `grantPass(uid, season, source)`. `grantPass` also stamps `leagues/{id}.pro` on every league the user owns (League Pro is derived, never bought; F-060); a trigger covers leagues created later and ownership transfers. Members of a Pro league get a one-time 7-day portal trial (F-068).
+- Price: $14.99 per season, no monthly plan (ADR-001).
 
 ## 5. Data model (new collections, prefix `pw_`)
 
@@ -79,7 +80,8 @@ Pages render from precomputed payloads, so a page view is 1 to 3 reads and no pa
 
 | Collection | Doc id | Contents | Read access |
 |---|---|---|---|
-| `pw_public` | `{season}_{round}` | Teaser: briefing headlines, board top 10 with median only, wire headlines, data-as-of | any signed-in user |
+| `pw_public` | `{season}_{round}` | Free look: briefing headlines, board top 10 with median only, wire headlines, Rate My Team inputs, data-as-of | any signed-in user |
+| `pw_public_timing` | `{season}_{round}_{frame}` | Every timing-derived frame (Pace Lab, circuit lap history, pit stops, stint degradation). Free only, never read by pass-gated builders (ADR-001) | any signed-in user |
 | `pw_pages` | `{season}_{round}_{page}` | Full payload per page (board, circuit, pace, market, season, wire) | pass claim |
 | `pw_entities` | `{season}_{round}_{entityId}` | Slide-over payload: past, present, outlook, tagged news | pass claim |
 | `pw_projections` | `{season}_{round}_{sessionKey}` | Projection snapshot per refresh (movement chart, hindsight) | pass claim |
@@ -107,7 +109,7 @@ Same functions codebase so `scoringCore.ts` and `updatePrices.ts` are imported d
 
 Secrets through `defineSecret`: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`. Deploys go through `aidlc op functions-deploy` (the Linux box deploys Undercut functions with the SA key and temporary ADC swap).
 
-**What needs the data licence and what does not.** Frames built on our own game data (prices, value, ownership, rivals, hindsight, team value, lineup lab, recommendations) and on race classifications already stored in `raceScores` do not depend on the timing feed. Pace Lab, circuit history from laps, stint degradation and pit stop stats do. The build order in the handoff ships the first group first; the second group waits for the licensing decision recorded in `.aidlc/decisions/` (F-069 gate).
+**Paid runs on our data, timing stays free (ADR-001).** Pass features (projections, recommendations, rivals, lineup lab, market, season, deep dives) are built only from our own game data and the race classifications in `raceScores`. Timing-derived frames are written to `pw_public_timing`, shown to every signed-in user, and a unit test stops any pass-gated builder or the projection model from reading them. `config/app.pitwall.timingFrames` hides them without a deploy.
 
 ## 7. Lineup save from the browser
 
@@ -120,10 +122,12 @@ All copy, placement and behaviour are server-driven so they can change, or be sw
 ```json
 "pitwall": {
   "enabled": true,
+  "beta": { "uids": [], "leagueIds": [] },
+  "timingFrames": true,
   "url": "https://pitwall.humannpc.com",
   "minAppVersion": "2.4.0",
   "profileRow": { "label": "PIT WALL", "free": "Upgrade", "pass": "Open" },
-  "mode": { "android": "iap", "ios": "iap", "amazon": "open" },
+  "mode": { "android": "open", "ios": "open", "amazon": "open" },
   "surfaces": { "profile": true, "teamTeaser": true, "recapTeaser": true },
   "sheet": { "title": "SEE WHAT THE DATA SAYS", "benefits": ["...", "...", "..."], "cta": "GET PIT WALL PASS" },
   "capPerRound": 1
@@ -140,7 +144,8 @@ Surfaces, in order of build:
 Rules for promotion: never before the user has a lineup, never blocks a game action, at most `capPerRound` impressions per surface per round (AsyncStorage), and every open carries `src=` so the funnel (impression, sheet, teaser open, checkout, paid) is measurable per surface.
 
 **Store policy.** `mode` is per platform because the rules differ and change:
-- `iap`: the sheet sells the pass through the store's in-app purchase (needs F-060/F-061, which bring the purchase library back). No mention of web pricing in the app.
+- `iap`: the sheet sells the pass through the store's in-app purchase (needs F-060/F-061, which bring the purchase library back; planned for the February 2027 release). No mention of web pricing in the app.
+- While `beta` is non-empty, surfaces render only for listed users and members of listed leagues.
 - `open`: the sheet has no price and no purchase wording; the CTA opens the portal. Use on Amazon, and on Play/iOS until IAP is back.
 - `off`: surface hidden.
 Whether an in-app link may point at a site that sells the pass depends on storefront (the US rules differ from the rest of the world on both stores). Treat that as a release-time check in F-068, and default to `open` with neutral copy if unsure.
