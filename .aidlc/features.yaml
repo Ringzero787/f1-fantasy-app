@@ -567,6 +567,8 @@ features:
       - team
       - list
       - scoping
+    version_shipped: 2.3.2
+    shipped_at: 2026-09-19
   - id: F-057
     name: "UC: Profile photo upload path matches storage rules"
     summary: uploadProfileImage wrote to profile-images/, which storage.rules denies; write to avatars/{uid}/user/

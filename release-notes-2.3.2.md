@@ -1,4 +1,4 @@
-# Undercut 2.3.2 — league reliability
+# Undercut 2.3.2 (versionCode 57, iOS build 40) — 2026-09-19 — league reliability
 
 ## Play Console "What's new" (short)
 
