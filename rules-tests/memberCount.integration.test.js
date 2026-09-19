@@ -6,7 +6,8 @@ const path = require('node:path');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
 
 if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error('needs FIRESTORE_EMULATOR_HOST (run via npm run test:rules)');
-if (!admin.apps.length) admin.initializeApp({ projectId: 'demo-uc-rules' });
+// Its own emulator project: the rules tests run in parallel and clear 'demo-uc-rules' before each case.
+if (!admin.apps.length) admin.initializeApp({ projectId: 'demo-uc-functions' });
 const db = admin.firestore();
 const { reconcileMemberCount } = require('../functions/lib/leagues/memberCount.js');
 

@@ -18,6 +18,7 @@ import { PRODUCTS, PRODUCT_IDS } from '../../config/products';
 import { DEFAULT_MAX_MEMBERS, MIN_LEAGUE_NAME_LENGTH, MAX_LEAGUE_NAME_LENGTH, SLOTS_PER_EXPANSION } from '../../config/constants';
 import { MonoLabel, PillButton, ScreenHeader } from './GridBits';
 import { playersCaption } from './standings';
+import { expansionNext, callableErrorCode } from './expansionFallback';
 
 export type ManagerStep = 'none' | 'join' | 'create' | 'done';
 const MIN_CODE = 6;
@@ -172,11 +173,14 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
           appliedByServer = true;
         } catch (e) {
           // The call may have committed even though its reply was lost, so look
-          // before writing: if the league already grew, the server did it.
+          // before deciding; expansionNext documents which refusals never fall back.
           console.warn('[league] applyLeagueExpansion did not confirm:', e);
           await useLeagueStore.getState().loadLeague(league.id).catch(() => {});
           const now = useLeagueStore.getState().currentLeague;
-          if (now && now.id === league.id && now.maxMembers > before) appliedByServer = true;
+          const grew = !!now && now.id === league.id && now.maxMembers > before;
+          const next = expansionNext(callableErrorCode(e), grew);
+          if (next === 'fail') throw e;
+          appliedByServer = next === 'done';
         }
         if (appliedByServer) {
           await useLeagueStore.getState().loadLeague(league.id).catch(() => {});

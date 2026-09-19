@@ -7,7 +7,8 @@ const db = admin.firestore();
 
 // The Play package the purchase token belongs to. This was 'com.f1fantasy.app'
 // (a pre-launch id), which made every Google Play verification fail.
-const PACKAGE_NAME = 'com.undercut.app';
+export const PLAY_PACKAGE_NAME = 'com.undercut.app';
+const PACKAGE_NAME = PLAY_PACKAGE_NAME;
 
 /**
  * Verify an iOS receipt against Apple's verifyReceipt endpoint.
