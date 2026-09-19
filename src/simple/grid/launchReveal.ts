@@ -56,11 +56,11 @@ export function revealScaleCurve(l: WordmarkLayout, screenWidth: number, steps =
 
 export interface LaunchTimeline { hold: number; reveal: number; settle: number; fade: number }
 
-/** Milliseconds per phase. Reduced motion skips the movement: wordmark, short hold, fade. */
+/** Milliseconds per phase, counted from the moment the native splash is released. Reduced motion skips the movement: wordmark, short hold, fade. */
 export function launchTimeline(reduceMotion: boolean): LaunchTimeline {
   return reduceMotion
     ? { hold: 0, reveal: 0, settle: 700, fade: 250 }
-    : { hold: 350, reveal: 650, settle: 550, fade: 300 };
+    : { hold: 450, reveal: 650, settle: 550, fade: 300 }; // hold covers the native splash's own fade-out
 }
 
 /** The overlay is removed this long after mount even if an animation callback is dropped. */
