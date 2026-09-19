@@ -762,7 +762,7 @@ features:
     name: "UC: Pit Wall projections and price model"
     summary: Statistical fantasy-points projection per driver and constructor with floor, median, ceiling, DNF risk and next
       price change estimate, simulated per round and backtested against scored races
-    status: planned
+    status: building
     spec: .aidlc/specs/F-070.md
     created_at: 2026-09-19
     keywords:

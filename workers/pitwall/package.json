@@ -1,0 +1,14 @@
+{
+  "name": "pitwall-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Undercut Pit Wall compute worker (forge first, GCP backup): leased jobs, run records, projection model and backtest. Builds with the repository root's TypeScript; it has no dependencies of its own yet.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node ../../node_modules/typescript/bin/tsc -p .",
+    "test": "npm run build && node --test test/*.test.js",
+    "backtest": "npm run build && node dist/workers/pitwall/src/cli/backtest.js"
+  }
+}
