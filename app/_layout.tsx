@@ -19,6 +19,7 @@ import {
 // import crashlytics from '@react-native-firebase/crashlytics';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { AppUpdateGate } from '../src/components/AppUpdateGate';
+import { LaunchReveal } from '../src/simple/grid/LaunchReveal';
 import { useLayout } from '../src/hooks/useLayout';
 import { handleAmazonDeepLink } from '../src/utils/amazonSignIn';
 import { useRemoteConfigStore } from '../src/store/remoteConfig.store';
@@ -153,6 +154,8 @@ export default function RootLayout() {
           {/* Remote-config version gate (config/app). Fails open: renders
               nothing unless a min/latest version is set and this build is below it. */}
           <AppUpdateGate />
+          {/* Cold-start reveal: the splash's U unrolls into UNDERCUT (F-067). */}
+          <LaunchReveal />
         </QueryClientProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

@@ -15,7 +15,7 @@ module.exports = {
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
-      backgroundColor: "#0D1117"
+      backgroundColor: "#0E0E0E"
     },
     assetBundlePatterns: [
       "**/*"
@@ -33,7 +33,7 @@ module.exports = {
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#0D1117"
+        backgroundColor: "#0E0E0E"
       },
       package: "com.undercut.app",
       versionCode: 57,

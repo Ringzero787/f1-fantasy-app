@@ -1,4 +1,4 @@
-next_id: 60
+next_id: 68
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -623,3 +623,17 @@ features:
       - scoped
       - team
       - reads
+  - id: F-067
+    name: "UC: U-mark app icon and launch reveal"
+    summary: "New icon (white U with a red cut, near-black ground) for launcher, splash and stores; on cold start the U
+      unrolls into the UNDERCUT wordmark so the lone U explains itself"
+    status: building
+    spec: .aidlc/specs/F-067.md
+    created_at: 2026-09-19
+    keywords:
+      - icon
+      - splash
+      - launch
+      - reveal
+      - wordmark
+      - animation
