@@ -36,20 +36,22 @@ export function LaunchReveal() {
   useEffect(() => {
     let cancelled = false;
     let failsafe: ReturnType<typeof setTimeout> | undefined;
+    let sequence: Animated.CompositeAnimation | undefined;
     Promise.all([AccessibilityInfo.isReduceMotionEnabled().catch(() => false), releaseSplash()]).then(([reduce]) => {
       if (cancelled) return;
       const t = launchTimeline(!!reduce);
       if (reduce) progress.setValue(1);
       // Never leave the app covered if an animation callback is dropped.
-      failsafe = setTimeout(() => setDone(true), launchFailsafeMs(t));
-      Animated.sequence([
+      failsafe = setTimeout(() => { if (!cancelled) setDone(true); }, launchFailsafeMs(t));
+      sequence = Animated.sequence([
         Animated.delay(t.hold),
         Animated.timing(progress, { toValue: 1, duration: t.reveal, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
         Animated.delay(t.settle),
         Animated.timing(opacity, { toValue: 0, duration: t.fade, easing: Easing.in(Easing.quad), useNativeDriver: false }),
-      ]).start(() => setDone(true));
+      ]);
+      sequence.start(({ finished }) => { if (finished && !cancelled) setDone(true); });
     });
-    return () => { cancelled = true; if (failsafe) clearTimeout(failsafe); };
+    return () => { cancelled = true; sequence?.stop(); if (failsafe) clearTimeout(failsafe); };
   }, [progress, opacity]);
 
   if (done) return null;

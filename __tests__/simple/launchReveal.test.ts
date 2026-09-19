@@ -1,6 +1,22 @@
 import { launchFailsafeMs, launchTimeline, launchTotalMs, revealScale, revealScaleCurve, wordmarkLayout, WORDMARK_PX, SPLASH_U_FRACTION } from '../../src/simple/grid/launchReveal';
 
+import * as fs from 'fs';
+import * as path from 'path';
+
+/** width and height from a PNG's IHDR chunk */
+function pngSize(file: string): { width: number; height: number } {
+  const b = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'launch', file));
+  return { width: b.readUInt32BE(16), height: b.readUInt32BE(20) };
+}
+
 describe('launch reveal', () => {
+  it('sizing constants match the generated wordmark images', () => {
+    const u = pngSize('wordmark-u.png');
+    const rest = pngSize('wordmark-rest.png');
+    expect(u).toEqual({ width: WORDMARK_PX.uWidth, height: WORDMARK_PX.height });
+    expect(rest).toEqual({ width: WORDMARK_PX.restWidth, height: WORDMARK_PX.height });
+  });
+
   it('sizes the wordmark to 78% of a phone and keeps the artwork proportions', () => {
     const l = wordmarkLayout(400, 860);
     expect(l.uWidth + l.restWidth).toBeCloseTo(312, 5);
