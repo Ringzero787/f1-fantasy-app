@@ -1,0 +1,38 @@
+id: OP-017
+title: F-059 step A functions (redo of failed OP-016 with --force for the retried triggers)
+kind: functions-deploy-retry
+status: applied
+params:
+  only: functions:onLeagueMemberWritten,functions:onLeagueMemberCountChanged,functions:reconcileAllLeagueMemberCounts,functions:checkTeamNameAvailable,functions:applyLeagueExpansion,functions:validatePurchase
+created_at: 2026-09-19T01:49:49.022Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-19T01:50:45.702Z
+    head_sha: 3c1511e0ab671e9fd711df55d23115c31284b5f5
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-017/dry-run-2026-09-19T01-50-45-702Z.log
+    log_sha256: 0d5e472f009b28db49a29d875484a1501e2c97bc66f600eb13d6cedf2b54efa5
+    lines: 40
+  - step: gates
+    at: 2026-09-19T01:50:59.467Z
+    head_sha: 3c1511e0ab671e9fd711df55d23115c31284b5f5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-19T01:50:59.472Z
+    head_sha: 3c1511e0ab671e9fd711df55d23115c31284b5f5
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:onLeagueMemberWritten,functions:onLeagueMemberCountChanged,functions:reconcileAllLeagueMemberCounts,functions:checkTeamNameAvailable,functions:applyLeagueExpansion,functions:validatePurchase' --project 'f1-app-18077' --force
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-017/apply-2026-09-19T01-50-59-472Z.log
+    log_sha256: cdad44c4a4f55ca7d5d6dbd9de536322437e30fcf7fd2820f651e16eb1148f7c
+    lines: 46
+  - step: gates
+    at: 2026-09-19T01:54:02.669Z
+    head_sha: 3c1511e0ab671e9fd711df55d23115c31284b5f5
+    exit: 0
+    gates:
+      G15: skip
