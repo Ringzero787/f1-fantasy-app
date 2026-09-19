@@ -69,6 +69,13 @@ overrides:
         paths: [ functions/src, functions/package.json, firebase.json ]
         dryrun: "git --no-pager diff --stat {last_sha} HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build"
         apply: "bash scripts/ops/firebase-deploy.sh --only {only} --project {project}"
+      functions-deploy-retry:
+        summary: "functions-deploy for functions with a failure policy (retry: true). --force only acknowledges firebase's retry-billing prompt; name every function in only, never bare 'functions', because --force would also delete functions missing from source"
+        deploy: true
+        params: [ only ]
+        paths: [ functions/src, functions/package.json, firebase.json ]
+        dryrun: "git --no-pager diff --stat {last_sha} HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build"
+        apply: "bash scripts/ops/firebase-deploy.sh --only {only} --project {project} --force"
       tl-functions-deploy:
         summary: "Track Limits functions (only = functions:tracklimits, or functions:tracklimits:<name>,…)"
         deploy: true
