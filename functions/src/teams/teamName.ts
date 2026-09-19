@@ -36,7 +36,13 @@ export const checkTeamNameAvailable = functions.https.onCall(async (data, contex
   if (!name) {
     throw new functions.https.HttpsError('invalid-argument', `Team name must be ${TEAM_NAME_MIN}–${TEAM_NAME_MAX} characters`);
   }
-  const excludeTeamId = typeof data?.excludeTeamId === 'string' ? data.excludeTeamId : null;
+  // excludeTeamId is for renaming your OWN team to a name it already holds; it is
+  // honoured only when that team belongs to the caller.
+  let excludeTeamId: string | null = null;
+  if (typeof data?.excludeTeamId === 'string' && data.excludeTeamId && !data.excludeTeamId.includes('/')) {
+    const own = await db.doc(`fantasyTeams/${data.excludeTeamId}`).get();
+    if (own.exists && own.data()?.userId === context.auth.uid) excludeTeamId = own.id;
+  }
   // limit(2): one match may be the caller's own team being renamed.
   const snap = await db.collection('fantasyTeams').where('name', '==', name).limit(2).get();
   return { available: !isTakenBy(snap.docs.map((d) => d.id), excludeTeamId) };

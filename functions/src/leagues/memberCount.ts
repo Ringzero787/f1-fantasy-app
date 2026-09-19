@@ -13,6 +13,7 @@
  * correct value causes no write, so the two triggers cannot loop.
  */
 import { onDocumentWritten, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 
 const db = admin.firestore();
@@ -47,8 +48,10 @@ export async function reconcileMemberCount(leagueId: string): Promise<number | n
   });
 }
 
+// retry: reconcile is idempotent, and a dropped invocation would leave the count
+// wrong (a count stuck too high blocks joins, since the join rule reads it).
 export const onLeagueMemberWritten = onDocumentWritten(
-  'leagues/{leagueId}/members/{memberId}',
+  { document: 'leagues/{leagueId}/members/{memberId}', retry: true },
   async (event) => {
     const before = event.data?.before.exists ? event.data.before.data() : undefined;
     const after = event.data?.after.exists ? event.data.after.data() : undefined;
@@ -58,7 +61,7 @@ export const onLeagueMemberWritten = onDocumentWritten(
 );
 
 export const onLeagueMemberCountChanged = onDocumentUpdated(
-  'leagues/{leagueId}',
+  { document: 'leagues/{leagueId}', retry: true },
   async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
@@ -66,3 +69,13 @@ export const onLeagueMemberCountChanged = onDocumentUpdated(
     await reconcileMemberCount(event.params.leagueId);
   },
 );
+
+/** Daily safety net: recount every league, so any missed event is bounded to a day. */
+export const reconcileAllLeagueMemberCounts = onSchedule('every 24 hours', async () => {
+  const leagues = await db.collection('leagues').select().get();
+  let failed = 0;
+  for (const l of leagues.docs) {
+    try { await reconcileMemberCount(l.id); } catch (e) { failed++; console.error('[memberCount] sweep failed for league', l.id, e); }
+  }
+  console.log('[memberCount] swept', leagues.size, 'leagues,', failed, 'failed');
+});

@@ -33,7 +33,8 @@ export const applyLeagueExpansion = functions.https.onCall(async (data, context)
   warnIfNoAppCheck(context, 'applyLeagueExpansion');
   const userId = context.auth.uid;
   const leagueId = typeof data?.leagueId === 'string' ? data.leagueId : '';
-  if (!leagueId) {
+  // A document id, never a path: a slash would address a nested document under leagues/.
+  if (!leagueId || leagueId.includes('/')) {
     throw new functions.https.HttpsError('invalid-argument', 'leagueId is required');
   }
 

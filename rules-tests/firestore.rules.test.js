@@ -181,6 +181,8 @@ test('approved members chat and invite (both invite shapes released clients send
   await assertSucceeds(addDoc(collection(d, 'leagues', 'L1', 'messages'), { senderId: ALICE, text: 'hi' }));
   await assertSucceeds(addDoc(collection(d, 'leagues', 'L1', 'invites'), { email: 'x@example.com', status: 'pending', sentBy: ALICE, createdAt: 'now' }));
   await assertSucceeds(addDoc(collection(d, 'leagues', 'L1', 'invites'), { email: 'y@example.com', status: 'pending', createdAt: serverTimestamp(), expiresAt: new Date() }));
+  // one slot of slack for a released client racing the server recount at the last free slot, no more
+  await assertSucceeds(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() }));
   await assertFails(updateDoc(doc(d, 'leagues', 'L1'), { memberCount: increment(1), updatedAt: serverTimestamp() }));
 });
 

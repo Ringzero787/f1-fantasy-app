@@ -74,7 +74,10 @@ service cloud.firestore {
           && (
             (request.resource.data.memberCount == resource.data.memberCount + 1
                 && isApprovedLeagueMember(leagueId)
-                && request.resource.data.memberCount <= resource.data.maxMembers)
+                // +1 of slack: once the server recount is live (F-059) it may land before a
+                // released client's own increment at the last free slot; the recount then
+                // puts the truth back.
+                && request.resource.data.memberCount <= resource.data.maxMembers + 1)
             || (request.resource.data.memberCount == resource.data.memberCount - 1
                 && !isLeagueMember(leagueId)
                 && request.resource.data.memberCount >= 0)

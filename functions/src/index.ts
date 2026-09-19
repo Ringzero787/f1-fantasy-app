@@ -23,5 +23,5 @@ export * from './ingestion/scheduleMonitor';
 export * from './cache/marketCache';
 export * from './teams/teamOperations';
 export { checkTeamNameAvailable } from './teams/teamName';
-export { onLeagueMemberWritten, onLeagueMemberCountChanged } from './leagues/memberCount';
+export { onLeagueMemberWritten, onLeagueMemberCountChanged, reconcileAllLeagueMemberCounts } from './leagues/memberCount';
 export * from './auth/signInWithAmazon';

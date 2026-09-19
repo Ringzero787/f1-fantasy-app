@@ -166,13 +166,21 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
       // never left without their slots if validation is unavailable.
       let appliedByServer = false;
       if (!isDemoMode) {
+        const before = league.maxMembers;
         try {
           await httpsCallable(functions, 'applyLeagueExpansion')({ leagueId: league.id });
           appliedByServer = true;
-          await useLeagueStore.getState().loadLeague(league.id);
-          await loadUserLeagues(userId);
         } catch (e) {
-          console.warn('[league] applyLeagueExpansion unavailable, using the direct write:', e);
+          // The call may have committed even though its reply was lost, so look
+          // before writing: if the league already grew, the server did it.
+          console.warn('[league] applyLeagueExpansion did not confirm:', e);
+          await useLeagueStore.getState().loadLeague(league.id).catch(() => {});
+          const now = useLeagueStore.getState().currentLeague;
+          if (now && now.id === league.id && now.maxMembers > before) appliedByServer = true;
+        }
+        if (appliedByServer) {
+          await useLeagueStore.getState().loadLeague(league.id).catch(() => {});
+          await loadUserLeagues(userId);
         }
       }
       if (!appliedByServer) await expandLeagueCapacity(league.id, SLOTS_PER_EXPANSION);
