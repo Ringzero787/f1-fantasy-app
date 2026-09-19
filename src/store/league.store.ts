@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { showcaseMembers } from '../simple/grid/showcaseData';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { League, LeagueMember, CreateLeagueForm, LeagueSettings } from '../types';
@@ -304,6 +305,12 @@ export const useLeagueStore = create<LeagueState>()(
         const user = useAuthStore.getState().user;
         const { leagues } = get();
         const league = leagues.find(l => l.id === leagueId);
+
+        const showcase = user ? showcaseMembers(leagueId, user.id) : null;
+        if (showcase) {
+          set({ members: showcase, isLoading: false, isRefreshingMembers: false });
+          return;
+        }
 
         if (user && league) {
           // Get all teams for this league from team store
