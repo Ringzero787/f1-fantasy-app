@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, StyleSheet, useWindowDimensions } from 'react-native';
-import { launchTimeline, launchTotalMs, revealScaleCurve, wordmarkLayout } from './launchReveal';
+import { launchFailsafeMs, launchTimeline, revealScaleCurve, wordmarkLayout } from './launchReveal';
 
 const U = require('../../../assets/launch/wordmark-u.png');
 const REST = require('../../../assets/launch/wordmark-rest.png');
@@ -25,7 +25,7 @@ export function LaunchReveal() {
       const t = launchTimeline(!!reduce);
       if (reduce) progress.setValue(1);
       // Never leave the app covered if an animation callback is dropped.
-      failsafe = setTimeout(() => setDone(true), launchTotalMs(t) + 1500);
+      failsafe = setTimeout(() => setDone(true), launchFailsafeMs(t));
       Animated.sequence([
         Animated.delay(t.hold),
         Animated.timing(progress, { toValue: 1, duration: t.reveal, easing: Easing.out(Easing.cubic), useNativeDriver: false }),

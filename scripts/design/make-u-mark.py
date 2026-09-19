@@ -73,6 +73,7 @@ def wordmark(cap_px):
 
 def main():
     a = os.path.join(ROOT, 'assets')
+    os.makedirs(os.path.join(a, 'launch'), exist_ok=True)
     u_mark(1024, 0.58).save(os.path.join(a, 'icon.png'))
     u_mark(1024, 0.58).resize((196, 196), Image.LANCZOS).save(os.path.join(a, 'favicon.png'))
     u_mark(1024, 0.40, transparent=True).save(os.path.join(a, 'adaptive-icon.png'))  # inside the 66% safe zone

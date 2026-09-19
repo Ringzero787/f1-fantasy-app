@@ -40,8 +40,11 @@ export function wordmarkLayout(screenWidth: number, screenHeight: number): Wordm
  */
 export function revealScale(l: WordmarkLayout, p: number, screenWidth: number): number {
   if (p >= 1) return 1;
-  const visible = l.uWidth + l.restWidth * Math.max(0, p);
-  const room = (0.9 - 0.12 * p) * screenWidth;
+  const q = Math.max(0, p);
+  const visible = l.uWidth + l.restWidth * q;
+  // Room shrinks from 90% of the screen to exactly the final wordmark width, so the
+  // curve lands on 1 without a jump — also on tablets, where the wordmark is capped.
+  const room = 0.9 * screenWidth + (l.uWidth + l.restWidth - 0.9 * screenWidth) * q;
   return Math.max(1, Math.min(l.startScale, room / visible));
 }
 
@@ -58,6 +61,11 @@ export function launchTimeline(reduceMotion: boolean): LaunchTimeline {
   return reduceMotion
     ? { hold: 0, reveal: 0, settle: 700, fade: 250 }
     : { hold: 350, reveal: 650, settle: 550, fade: 300 };
+}
+
+/** The overlay is removed this long after mount even if an animation callback is dropped. */
+export function launchFailsafeMs(t: LaunchTimeline): number {
+  return launchTotalMs(t) + 1500;
 }
 
 export function launchTotalMs(t: LaunchTimeline): number {

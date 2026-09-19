@@ -1,4 +1,4 @@
-import { launchTimeline, launchTotalMs, revealScale, revealScaleCurve, wordmarkLayout, WORDMARK_PX, SPLASH_U_FRACTION } from '../../src/simple/grid/launchReveal';
+import { launchFailsafeMs, launchTimeline, launchTotalMs, revealScale, revealScaleCurve, wordmarkLayout, WORDMARK_PX, SPLASH_U_FRACTION } from '../../src/simple/grid/launchReveal';
 
 describe('launch reveal', () => {
   it('sizes the wordmark to 78% of a phone and keeps the artwork proportions', () => {
@@ -31,8 +31,18 @@ describe('launch reveal', () => {
       input.forEach((p, i) => {
         expect((l.uWidth + l.restWidth * p) * output[i]).toBeLessThanOrEqual(Math.max(0.9 * w, l.uWidth + l.restWidth) + 1e-6);
         if (i > 0) expect(output[i]).toBeLessThanOrEqual(output[i - 1] + 1e-9);
+        // no snap at the end: the last step is no bigger than the largest earlier step
+        if (i === input.length - 1) expect(output[i - 1] - output[i]).toBeLessThanOrEqual(Math.max(...output.slice(1).map((v, k) => output[k] - v)) + 1e-9);
       });
       expect(revealScale(l, 2, w)).toBe(1);
+    }
+  });
+
+  it('has a failsafe that outlasts the animation but not by long', () => {
+    for (const calm of [false, true]) {
+      const t = launchTimeline(calm);
+      expect(launchFailsafeMs(t)).toBeGreaterThan(launchTotalMs(t));
+      expect(launchFailsafeMs(t)).toBeLessThan(launchTotalMs(t) + 3000);
     }
   });
 

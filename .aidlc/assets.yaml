@@ -2,6 +2,7 @@
 assets:
   - { path: "package.json", kind: font, source: "@expo-google-fonts/unbounded, @expo-google-fonts/jetbrains-mono (npm)", license: OFL-1.1 }
   - { path: "assets/**", kind: image, source: first-party, license: proprietary-owned, notes: "Undercut icons, splash, banners" }
+  - { path: "assets/launch/**", kind: image, source: first-party, license: proprietary-owned, notes: "UNDERCUT wordmark halves for the launch reveal (F-067), drawn by scripts/design/make-u-mark.py from Unbounded Black (OFL-1.1)" }
   - { path: "newgame/assets/**", kind: image, source: first-party, license: proprietary-owned, notes: "Track Limits icons, splash, helmet/pack art" }
   - { path: "app-store-screenshots/**", kind: image, source: first-party, license: proprietary-owned }
   - { path: "docs/design/grid/verify/**", kind: image, source: first-party, license: proprietary-owned, notes: "Expo-web screenshots of the Grid screens (Playwright, demo data); no third-party content" }
