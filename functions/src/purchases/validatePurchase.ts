@@ -5,7 +5,10 @@ import { warnIfNoAppCheck } from '../utils/appCheck';
 
 const db = admin.firestore();
 
-const PACKAGE_NAME = 'com.f1fantasy.app';
+// The Play package the purchase token belongs to. This was 'com.f1fantasy.app'
+// (a pre-launch id), which made every Google Play verification fail.
+export const PLAY_PACKAGE_NAME = 'com.undercut.app';
+const PACKAGE_NAME = PLAY_PACKAGE_NAME;
 
 /**
  * Verify an iOS receipt against Apple's verifyReceipt endpoint.

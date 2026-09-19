@@ -65,6 +65,17 @@ const callSetConstructor = httpsCallable(functions, 'setConstructorSecure');
 const callRemoveConstructor = httpsCallable(functions, 'removeConstructorSecure');
 const callBuildTeam = httpsCallable(functions, 'buildTeamSecure');
 const callQuoteSale = httpsCallable(functions, 'quoteSaleSecure');
+const callCheckTeamName = httpsCallable<{ name: string; excludeTeamId?: string }, { available: boolean }>(functions, 'checkTeamNameAvailable');
+
+/**
+ * Is this team name free? Asked of the server (F-059): the old global
+ * `where('name','==',…)` query is why any signed-in user could read any team,
+ * and it stops working once fantasyTeams reads are scoped.
+ */
+async function assertTeamNameAvailable(name: string, excludeTeamId?: string): Promise<void> {
+  const res = await callCheckTeamName(excludeTeamId ? { name, excludeTeamId } : { name });
+  if (!res.data.available) throw new Error('A team with this name already exists');
+}
 
 export interface SaleQuote {
   marketPrice: number;
@@ -106,16 +117,8 @@ export const teamService = {
       }
     }
 
-    // Check for duplicate team name globally
-    const nameQuery = query(
-      teamsCollection,
-      where('name', '==', teamName),
-      limit(1)
-    );
-    const nameSnapshot = await getDocs(nameQuery);
-    if (!nameSnapshot.empty) {
-      throw new Error('A team with this name already exists');
-    }
+    // Check for duplicate team name globally (server-side)
+    await assertTeamNameAvailable(teamName);
 
     const teamData = {
       userId,
@@ -455,16 +458,8 @@ export const teamService = {
       throw new Error('Team not found');
     }
 
-    // Check for duplicate team name globally (exclude current team)
-    const nameQuery = query(
-      teamsCollection,
-      where('name', '==', name),
-      limit(1)
-    );
-    const nameSnapshot = await getDocs(nameQuery);
-    if (!nameSnapshot.empty && nameSnapshot.docs[0].id !== teamId) {
-      throw new Error('A team with this name already exists');
-    }
+    // Check for duplicate team name globally (server-side, excluding this team)
+    await assertTeamNameAvailable(name, teamId);
 
     const teamRef = doc(db, 'fantasyTeams', teamId);
     await updateDoc(teamRef, {

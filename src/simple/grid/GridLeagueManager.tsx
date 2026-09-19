@@ -11,11 +11,14 @@ import { useAuthStore } from '../../store/auth.store';
 import { useLeagueStore } from '../../store/league.store';
 import { usePurchaseStore } from '../../store/purchase.store';
 import { useTeamStore } from '../../store/team.store';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../config/firebase';
 import { PurchaseModal } from '../../components/PurchaseModal';
 import { PRODUCTS, PRODUCT_IDS } from '../../config/products';
 import { DEFAULT_MAX_MEMBERS, MIN_LEAGUE_NAME_LENGTH, MAX_LEAGUE_NAME_LENGTH, SLOTS_PER_EXPANSION } from '../../config/constants';
 import { MonoLabel, PillButton, ScreenHeader } from './GridBits';
 import { playersCaption } from './standings';
+import { expansionNext, callableErrorCode } from './expansionFallback';
 
 export type ManagerStep = 'none' | 'join' | 'create' | 'done';
 const MIN_CODE = 6;
@@ -159,7 +162,32 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
         return;
       }
       consumeExpansionCredit();
-      await expandLeagueCapacity(league.id, SLOTS_PER_EXPANSION);
+      // Server path first (F-059): spends one store-verified purchase in a
+      // transaction. Falls back to the direct write so a paying customer is
+      // never left without their slots if validation is unavailable.
+      let appliedByServer = false;
+      if (!isDemoMode) {
+        const before = league.maxMembers;
+        try {
+          await httpsCallable(functions, 'applyLeagueExpansion')({ leagueId: league.id });
+          appliedByServer = true;
+        } catch (e) {
+          // The call may have committed even though its reply was lost, so look
+          // before deciding; expansionNext documents which refusals never fall back.
+          console.warn('[league] applyLeagueExpansion did not confirm:', e);
+          await useLeagueStore.getState().loadLeague(league.id).catch(() => {});
+          const now = useLeagueStore.getState().currentLeague;
+          const grew = !!now && now.id === league.id && now.maxMembers > before;
+          const next = expansionNext(callableErrorCode(e), grew);
+          if (next === 'fail') throw e;
+          appliedByServer = next === 'done';
+        }
+        if (appliedByServer) {
+          await useLeagueStore.getState().loadLeague(league.id).catch(() => {});
+          await loadUserLeagues(userId);
+        }
+      }
+      if (!appliedByServer) await expandLeagueCapacity(league.id, SLOTS_PER_EXPANSION);
       setExpandOpen(false);
       Alert.alert('League expanded', `${SLOTS_PER_EXPANSION} more players can join.`);
     } catch (e) {
@@ -167,7 +195,7 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
     } finally {
       setExpanding(false);
     }
-  }, [league, isOwner, expanding, hasExpansionCredit, purchaseLeagueExpansion, isDemoMode, consumeExpansionCredit, expandLeagueCapacity]);
+  }, [league, isOwner, expanding, hasExpansionCredit, purchaseLeagueExpansion, isDemoMode, consumeExpansionCredit, expandLeagueCapacity, loadUserLeagues, userId]);
 
   const detachTeam = useCallback(async () => {
     const cur = useTeamStore.getState().currentTeam;

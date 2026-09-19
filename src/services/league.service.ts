@@ -290,14 +290,7 @@ export const leagueService = {
       joinedAt: serverTimestamp(),
     });
 
-    // Only increment member count for approved members
-    if (!isPending) {
-      const leagueRef = doc(db, 'leagues', leagueId);
-      await updateDoc(leagueRef, {
-        memberCount: increment(1),
-        updatedAt: serverTimestamp(),
-      });
-    }
+    // memberCount is server-owned (F-059): onLeagueMemberWritten recounts approved members.
 
     return { id: userId, ...memberData };
   },
@@ -316,21 +309,9 @@ export const leagueService = {
       throw new Error('Owner cannot leave the league. Transfer ownership first.');
     }
 
-    // Check if member is pending (no memberCount change needed)
     const memberRef = doc(db, 'leagues', leagueId, 'members', userId);
-    const memberSnap = await getDoc(memberRef);
-    const isPending = memberSnap.exists() && memberSnap.data()?.status === 'pending';
-
     await deleteDoc(memberRef);
-
-    // Only decrement member count for approved members
-    if (!isPending) {
-      const leagueRef = doc(db, 'leagues', leagueId);
-      await updateDoc(leagueRef, {
-        memberCount: increment(-1),
-        updatedAt: serverTimestamp(),
-      });
-    }
+    // memberCount is server-owned (F-059): the member trigger recounts.
   },
 
   /**
@@ -546,14 +527,9 @@ export const leagueService = {
    */
   async removeMember(leagueId: string, memberId: string): Promise<void> {
     const memberRef = doc(db, 'leagues', leagueId, 'members', memberId);
-    const leagueRef = doc(db, 'leagues', leagueId);
 
     await deleteDoc(memberRef);
-
-    // Decrement member count
-    await updateDoc(leagueRef, {
-      memberCount: increment(-1),
-    });
+    // memberCount is server-owned (F-059): the member trigger recounts.
 
     // Recalculate rankings
     await this.recalculateRankings(leagueId);
@@ -718,12 +694,7 @@ export const leagueService = {
       status: 'approved',
       rank: league.memberCount + 1,
     });
-
-    const leagueRef = doc(db, 'leagues', leagueId);
-    await updateDoc(leagueRef, {
-      memberCount: increment(1),
-      updatedAt: serverTimestamp(),
-    });
+    // memberCount is server-owned (F-059): approval flips the member into the recount.
   },
 
   /**
