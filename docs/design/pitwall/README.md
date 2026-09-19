@@ -1,6 +1,6 @@
 # Handoff: Undercut Pit Wall and League Pro
 
-For whoever builds this next on `master` (human or Claude session). This PR adds **plans only**: registry entries, specs, a prototype and an architecture. No app, functions or rules code changes. Read this file, then `ARCHITECTURE.md`, then open `prototype.html` in a browser.
+For whoever builds this next on `master` (human or Claude session). This PR adds **plans only**: registry entries, specs, a prototype and an architecture. No app, functions or rules code changes. **Start with `SESSION-BRIEF.md`** (full analysis, evidence, decisions, repo state and step-by-step instructions), then this file, `ARCHITECTURE.md`, the ADRs in `.aidlc/decisions/`, and open `prototype.html` in a browser. `RESEARCH.md` is the platform survey behind the frames.
 
 ## What was decided (2026-09-18 and 19)
 
@@ -21,7 +21,11 @@ For whoever builds this next on `master` (human or Claude session). This PR adds
 | `.aidlc/specs/F-068..075.md` | Pit Wall feature set (F-067 is the app icon feature, not part of this) |
 | `.aidlc/roadmap.yaml` | Milestones M-08 and M-09 |
 | `docs/design/pitwall/prototype.html` | Clickable prototype, example data, single file, no build step |
-| `docs/design/pitwall/ARCHITECTURE.md` | Hosting, identity, entitlement, data model, pipeline, in-app promotion, store policy |
+| `docs/design/pitwall/ARCHITECTURE.md` | Cloudflare hosting, identity, entitlement, data model, forge compute with GCP backup, in-app promotion, store policy |
+| `docs/design/pitwall/SESSION-BRIEF.md` | Everything the planning session learned, and instructions for the next session |
+| `docs/design/pitwall/RESEARCH.md` | Survey of betting, fantasy and motorsport analytics frames, pricing, legal cautions |
+| `docs/design/pitwall/openf1-permission-request.md` | Draft email for the owner to send |
+| `.aidlc/decisions/ADR-001`, `ADR-002` | Product and infrastructure decisions |
 
 Each spec has testable acceptance criteria. The specs have **not** been through G02; run the spec gate when a feature's branch is opened and fix what it flags.
 
