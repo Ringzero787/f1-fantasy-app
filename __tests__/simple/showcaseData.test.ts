@@ -1,4 +1,4 @@
-import { SHOWCASE_ENABLED, SHOWCASE_LEAGUE_ID, showcaseMembers, showcaseTotal, SHOWCASE_ROSTER, SHOWCASE_CONSTRUCTOR, SHOWCASE_BANKED } from '../showcaseData';
+import { SHOWCASE_ENABLED, SHOWCASE_LEAGUE_ID, showcaseMembers, showcaseTotal, SHOWCASE_ROSTER, SHOWCASE_CONSTRUCTOR, SHOWCASE_BANKED } from '../../src/simple/grid/showcaseData';
 
 describe('store-screenshot showcase', () => {
   it('is off unless both build flags are set, and then supplies no members', () => {
