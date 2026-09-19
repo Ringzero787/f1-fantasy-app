@@ -58,9 +58,11 @@ export async function writeLeagueRaceResult(
   })));
 
   const leagueRef = db.collection('leagues').doc(leagueId);
-  // The app lists only races that have a leaderboard; the ids ride on the league doc it already reads.
-  await leagueRef.set({ raceResultIds: admin.firestore.FieldValue.arrayUnion(race.raceId) }, { merge: true });
-  await leagueRef.collection('raceResults').doc(race.raceId).set({
+  // One atomic commit: the result, and its id on the league doc the app already reads
+  // (the selector lists only races that have a leaderboard).
+  const batch = db.batch();
+  batch.set(leagueRef, { raceResultIds: admin.firestore.FieldValue.arrayUnion(race.raceId) }, { merge: true });
+  batch.set(leagueRef.collection('raceResults').doc(race.raceId), {
     raceId: race.raceId,
     season,
     round: typeof race.round === 'number' ? race.round : null,
@@ -71,6 +73,7 @@ export async function writeLeagueRaceResult(
     estimated: false,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+  await batch.commit();
 
   await syncRaceWins(db, leagueId, season, members);
 }
