@@ -1,0 +1,37 @@
+id: OP-015
+title: "F-059 step A: one slot of slack on the join count"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-09-19T00:28:41.671Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-19T00:28:49.827Z
+    head_sha: d3677abea16668bbe248715f66624293dfa463a0
+    command: git --no-pager diff '83b7dc002a83aba415aa549336631cb5ed21ddf6' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-015/dry-run-2026-09-19T00-28-49-827Z.log
+    log_sha256: fbc9401c3af08bc91c812f8be92f639e274c3be03a46cf4b82917c3df52e2c30
+    lines: 16
+  - step: gates
+    at: 2026-09-19T01:40:45.511Z
+    head_sha: d3677abea16668bbe248715f66624293dfa463a0
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-19T01:40:45.516Z
+    head_sha: d3677abea16668bbe248715f66624293dfa463a0
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-015/apply-2026-09-19T01-40-45-516Z.log
+    log_sha256: 2a52968dc8bd40f37f8174e63b0f28f5326245bf99112a31f545b6fdf9466c5d
+    lines: 13
+  - step: gates
+    at: 2026-09-19T01:40:48.954Z
+    head_sha: d3677abea16668bbe248715f66624293dfa463a0
+    exit: 0
+    gates:
+      G15: skip
