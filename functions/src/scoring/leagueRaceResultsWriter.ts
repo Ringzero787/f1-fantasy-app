@@ -6,6 +6,13 @@ import * as admin from 'firebase-admin';
 import { rankRaceEntries, countRaceWins, raceWinWrites, type StoredRaceResult } from './leagueRaceResults';
 import { snapshotWeekendPoints } from './raceSnapshots';
 
+/** Names come from client-written documents: keep them short, single-line strings in a server-owned document. */
+export function cleanName(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const s = v.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 60);
+  return s.length > 0 ? s : undefined;
+}
+
 interface RaceMeta {
   raceId: string;
   season: string | number | null | undefined;
@@ -53,8 +60,8 @@ export async function writeLeagueRaceResult(
   const result = rankRaceEntries(approved.map((m) => ({
     userId: m.id,
     points: pointsByUser.get(m.id) ?? 0,
-    displayName: typeof m.data().displayName === 'string' ? m.data().displayName : undefined,
-    teamName: teamNameByUser.get(m.id),
+    displayName: cleanName(m.data().displayName),
+    teamName: cleanName(teamNameByUser.get(m.id)),
   })));
 
   const leagueRef = db.collection('leagues').doc(leagueId);

@@ -9,7 +9,7 @@ import { GridAvatar, MonoLabel, ScreenHeader } from './GridBits';
 import { rankStandings, playersCaption, type StandingsRow, type StandingsSort } from './standings';
 import { raceOptions, raceResultRows, teamLineWithWins, type LeagueRaceResultDoc } from './raceLeaderboard';
 import { GridRaceSelectSheet } from './GridRaceSelectSheet';
-import { showcaseRaceResult } from './showcaseData';
+import { SHOWCASE_RESULT_ROUND, showcaseRaceResult } from './showcaseData';
 import { getLeagueRaceResult } from '../../services/leagueRaceResults.service';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 
@@ -55,7 +55,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   }, [league?.id, isDemoMode]);
 
   // Only races the server recorded a leaderboard for (the showcase league has its latest round).
-  const resultIds = league?.raceResultIds ?? (isDemoMode && league ? races.filter((r) => r.round === 16).map((r) => r.id) : []);
+  const resultIds = league?.raceResultIds ?? (isDemoMode && league ? races.filter((r) => r.round === SHOWCASE_RESULT_ROUND).map((r) => r.id) : []);
   const options = useMemo(() => raceOptions(races as never, resultIds), [races, resultIds.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One document read per race picked; cached for the session (pull to refresh clears it).

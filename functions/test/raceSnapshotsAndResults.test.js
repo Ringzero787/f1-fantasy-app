@@ -81,3 +81,26 @@ test('race wins are counted from stored results, so a repeated scoring run canno
   const writes = raceWinWrites(['a', 'b', 'c', 'd'], once, new Map([['a', 2], ['b', 0], ['c', 1], ['d', undefined]]));
   assert.deepEqual(writes, [{ id: 'b', raceWins: 1 }, { id: 'c', raceWins: 0 }, { id: 'd', raceWins: 0 }]);
 });
+
+// ── retirement penalty: which rounds use the lap-proportional rule ──
+const { calculateDnfPenalty, DNF_PROPORTIONAL_FROM_ROUND, DNF_PENALTY } = require('../lib/scoring/scoringCore.js');
+const { cleanName } = require('../lib/scoring/leagueRaceResultsWriter.js');
+
+test('rounds already banked with the flat retirement penalty stay flat; the proportional rule starts at round 17', () => {
+  assert.equal(DNF_PROPORTIONAL_FROM_ROUND, 17);
+  // Italy (15) and Madrid (16) were scored before the rule was deployed: a repair replay must reproduce -5
+  for (const round of [1, 14, 15, 16]) assert.equal(calculateDnfPenalty(1, 53, round), DNF_PENALTY);
+  assert.equal(calculateDnfPenalty(0, 57, 17), -8);
+  assert.equal(calculateDnfPenalty(57, 57, 17), -2);
+  assert.equal(calculateDnfPenalty(29, 57, 17), -5);
+  // missing lap data never softens the penalty
+  assert.equal(calculateDnfPenalty(undefined, 57, 17), DNF_PENALTY);
+  assert.equal(calculateDnfPenalty(10, 0, 17), DNF_PENALTY);
+});
+
+test('names copied into server-owned results are single-line and at most 60 characters', () => {
+  assert.equal(cleanName('  Avery\nLine\tTwo  '), 'Avery Line Two');
+  assert.equal(cleanName('x'.repeat(200)).length, 60);
+  assert.equal(cleanName(''), undefined);
+  assert.equal(cleanName(42), undefined);
+});

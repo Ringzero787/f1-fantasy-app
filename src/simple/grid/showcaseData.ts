@@ -97,10 +97,13 @@ export function showcaseMembers(leagueId: string, userId: string): LeagueMember[
   return rows;
 }
 
+/** The one round the showcase league has a leaderboard for. */
+export const SHOWCASE_RESULT_ROUND = 16;
+
 /** The latest race's leaderboard for the showcase league (F-062); other races have none. */
 export function showcaseRaceResult(leagueId: string, userId: string, round: number): LeagueRaceResultDoc | null {
   const members = showcaseMembers(leagueId, userId);
-  if (!members || round !== 16) return null;
+  if (!members || round !== SHOWCASE_RESULT_ROUND) return null;
   const sorted = members.map((m) => ({ userId: m.userId, displayName: m.displayName, teamName: m.teamName ?? null, points: m.lastRacePoints ?? 0 })).sort((a, b) => b.points - a.points);
   const entries = sorted.map((e, i) => ({ ...e, rank: i > 0 && sorted[i - 1].points === e.points ? i : i + 1 }));
   return { raceId: `showcase_r${round}`, season: '2026', round, entries, winners: entries.filter((e) => e.points === entries[0].points).map((e) => e.userId), topPoints: entries[0].points, estimated: false };

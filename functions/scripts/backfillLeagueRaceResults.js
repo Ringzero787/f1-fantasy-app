@@ -35,6 +35,7 @@ if (cred.project_id !== EXPECTED_PROJECT) { console.error(`Refusing to run: key 
 const lib = path.join(__dirname, '..', 'lib', 'scoring', 'leagueRaceResults.js');
 if (!fs.existsSync(lib)) { console.error('functions/lib is not built. Run: npm --prefix functions run build'); process.exit(2); }
 const { rankRaceEntries } = require(lib);
+const { cleanName } = require(path.join(__dirname, '..', 'lib', 'scoring', 'leagueRaceResultsWriter.js'));
 
 admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
 const db = admin.firestore();
@@ -55,20 +56,22 @@ const APPLY = process.argv.includes('--apply');
       db.collection('fantasyTeams').where('leagueId', '==', league.id).get(),
       league.ref.collection('raceResults').doc(latest.id).get(),
     ]);
-    const label = `${league.data().name || league.id} (${league.id})`;
+    const label = `${cleanName(league.data().name) || league.id} (${league.id})`;
     if (prior.exists && prior.data().estimated !== true) { skipped++; console.log(`\n${label}: scoring already wrote ${latest.id}; left alone`); continue; }
     const teamName = new Map();
     teamsSnap.docs.forEach((t) => { const d = t.data(); if (d.userId && typeof d.name === 'string' && !teamName.has(d.userId)) teamName.set(d.userId, d.name); });
     const approved = membersSnap.docs.filter((m) => m.data().status !== 'pending');
     const scored = approved.filter((m) => m.data().lastRaceId === latest.id);
     if (scored.length === 0) { skipped++; console.log(`\n${label}: no member was scored in ${latest.id}; nothing to write`); continue; }
-    const result = rankRaceEntries(approved.map((m) => ({
+    // Only members the server actually scored in this race: a member without a score is left out,
+    // never shown with an invented 0.
+    const result = rankRaceEntries(scored.map((m) => ({
       userId: m.id,
-      points: m.data().lastRaceId === latest.id && typeof m.data().lastRacePoints === 'number' ? m.data().lastRacePoints : 0,
-      displayName: typeof m.data().displayName === 'string' ? m.data().displayName : undefined,
-      teamName: teamName.get(m.id),
+      points: typeof m.data().lastRacePoints === 'number' ? m.data().lastRacePoints : 0,
+      displayName: cleanName(m.data().displayName),
+      teamName: cleanName(teamName.get(m.id)),
     })));
-    console.log(`\n${label}: ${approved.length} member(s), ${scored.length} scored in ${latest.id}`);
+    console.log(`\n${label}: ${approved.length} member(s), ${scored.length} scored in ${latest.id}${scored.length < approved.length ? ` (${approved.length - scored.length} left out: not scored)` : ''}`);
     result.entries.forEach((e) => console.log(`  ${String(e.rank).padStart(2)}  ${String(e.points).padStart(5)}  ${e.displayName || e.userId}${e.teamName ? '  · ' + e.teamName : ''}`));
     toWrite++;
     if (APPLY) {

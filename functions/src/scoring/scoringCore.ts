@@ -61,9 +61,12 @@ export const DNF_PENALTY_LATE = -2;   // retired at the chequered flag
 export const DNF_PENALTY_EARLY = -8;  // retired before completing a lap
 
 // Rounds before this keep the flat -5 so already-banked races stay exactly
-// reproducible if repair ever replays them. 15 = Monza 2026, the first race
-// after the change shipped.
-export const DNF_PROPORTIONAL_FROM_ROUND = 15;
+// reproducible if repair ever replays them. The rule was written for round 15
+// but the functions carrying it were deployed on 2026-09-17, after rounds 15
+// (Italy) and 16 (Madrid) had been scored and banked with the flat -5 (stored
+// raceScores confirm it). 17 = Azerbaijan 2026, the first race the deployed
+// code scores, so replaying 15 or 16 still reproduces what players were given.
+export const DNF_PROPORTIONAL_FROM_ROUND = 17;
 
 /**
  * Penalty for a retirement, scaled by how much of the race distance was covered.

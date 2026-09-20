@@ -18,7 +18,7 @@ export function GridRaceSelectSheet({ options, value, onPick, onClose }: {
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }} onPress={onClose} accessibilityLabel="Close">
-        <Pressable onPress={() => {}} accessible={false} style={{ maxHeight: '70%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
+        <Pressable onPress={() => {}} accessible={false} accessibilityLabel="Choose what the standings show" style={{ maxHeight: '70%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: 10 }}>
             <MonoLabel>SHOW POINTS FOR</MonoLabel>
             <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"><MonoLabel color={colors.text.muted}>CLOSE</MonoLabel></Pressable>
