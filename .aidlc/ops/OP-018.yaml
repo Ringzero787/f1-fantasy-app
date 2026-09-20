@@ -1,0 +1,37 @@
+id: OP-018
+title: "F-062/F-029: raceResults and raceSnapshots are server-written, league-readable"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-09-20T15:07:56.369Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-20T15:08:03.095Z
+    head_sha: c9c974d0412c51687e6fdd5b9aa9635b41c8ef28
+    command: git --no-pager diff 'd3677abea16668bbe248715f66624293dfa463a0' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-018/dry-run-2026-09-20T15-08-03-095Z.log
+    log_sha256: df6b94f8d41172f4a56e5704d73dee1790edd626ec2c99ac1a56f5568c447c84
+    lines: 35
+  - step: gates
+    at: 2026-09-20T17:39:25.415Z
+    head_sha: c9c974d0412c51687e6fdd5b9aa9635b41c8ef28
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-20T17:39:25.420Z
+    head_sha: c9c974d0412c51687e6fdd5b9aa9635b41c8ef28
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-018/apply-2026-09-20T17-39-25-420Z.log
+    log_sha256: 2edc3a78bf6242fb36e62c527228e7df3af818010328140fcff214156093035c
+    lines: 13
+  - step: gates
+    at: 2026-09-20T17:39:29.220Z
+    head_sha: c9c974d0412c51687e6fdd5b9aa9635b41c8ef28
+    exit: 0
+    gates:
+      G15: skip
