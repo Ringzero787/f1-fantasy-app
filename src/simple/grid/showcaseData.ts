@@ -8,6 +8,7 @@
  * build. Every player, team and league name here is made up.
  */
 import type { League, LeagueMember } from '../../types';
+import type { LeagueRaceResultDoc } from './raceLeaderboard';
 
 export const SHOWCASE_ENABLED =
   process.env.EXPO_PUBLIC_SHOWCASE === '1' && process.env.EXPO_PUBLIC_ALLOW_DEMO === '1';
@@ -44,15 +45,15 @@ export const SHOWCASE_FINISH: Record<string, [number, number]> = {
   hadjar: [6, 9], colapinto: [5, 11], gasly: [9, 10], antonelli: [2, 3], hamilton: [12, 8],
 };
 
-const OTHERS: Array<[string, string, number, number]> = [
-  // displayName, teamName, season points, previous rank
-  ['Sam Okafor', 'Box Box Box', 1512, 1],
-  ['Priya Nair', 'Slipstream Society', 1391, 4],
-  ['Jonas Weber', 'Gravel Trap', 1377, 2],
-  ['Maya Castillo', 'Undercut Kings', 1298, 5],
-  ['Tom Becker', 'Purple Sectors', 1204, 7],
-  ['Hana Sato', 'Blue Flags', 1187, 6],
-  ['Leo Marchetti', 'Pit Lane Poets', 1033, 8],
+const OTHERS: Array<[string, string, number, number, number, number]> = [
+  // displayName, teamName, season points, previous rank, race wins, points in the last race
+  ['Sam Okafor', 'Box Box Box', 1512, 1, 5, 268],
+  ['Priya Nair', 'Slipstream Society', 1391, 4, 3, 301],
+  ['Jonas Weber', 'Gravel Trap', 1377, 2, 2, 143],
+  ['Maya Castillo', 'Undercut Kings', 1298, 5, 2, 211],
+  ['Tom Becker', 'Purple Sectors', 1204, 7, 1, 257],
+  ['Hana Sato', 'Blue Flags', 1187, 6, 0, 122],
+  ['Leo Marchetti', 'Pit Lane Poets', 1033, 8, 0, 97],
 ];
 
 export function showcaseTotal(): number {
@@ -82,16 +83,28 @@ export function showcaseMembers(leagueId: string, userId: string): LeagueMember[
   if (!SHOWCASE_ENABLED || leagueId !== SHOWCASE_LEAGUE_ID) return null;
   const joinedAt = new Date('2026-03-01T00:00:00Z');
   const rows: LeagueMember[] = [
-    ...OTHERS.map(([displayName, teamName, totalPoints, previousRank], i) => ({
+    ...OTHERS.map(([displayName, teamName, totalPoints, previousRank, raceWins, lastRacePoints], i) => ({
       id: `showcase-${i}`, leagueId, userId: `showcase-${i}`, displayName, teamName,
-      role: 'member' as const, totalPoints, rank: 0, previousRank, joinedAt, racesPlayed: 16,
+      role: 'member' as const, totalPoints, rank: 0, previousRank, joinedAt, racesPlayed: 16, raceWins, lastRacePoints,
     })),
     {
       id: userId, leagueId, userId, displayName: SHOWCASE_USER_NAME, teamName: SHOWCASE_TEAM_NAME,
-      role: 'owner' as const, totalPoints: showcaseTotal(), rank: 0, previousRank: 3, joinedAt, racesPlayed: 16,
+      role: 'owner' as const, totalPoints: showcaseTotal(), rank: 0, previousRank: 3, joinedAt, racesPlayed: 16, raceWins: 3, lastRacePoints: 294,
     },
   ];
   rows.sort((a, b) => b.totalPoints - a.totalPoints);
   rows.forEach((m, i) => { m.rank = i + 1; });
   return rows;
+}
+
+/** The one round the showcase league has a leaderboard for. */
+export const SHOWCASE_RESULT_ROUND = 16;
+
+/** The latest race's leaderboard for the showcase league (F-062); other races have none. */
+export function showcaseRaceResult(leagueId: string, userId: string, round: number): LeagueRaceResultDoc | null {
+  const members = showcaseMembers(leagueId, userId);
+  if (!members || round !== SHOWCASE_RESULT_ROUND) return null;
+  const sorted = members.map((m) => ({ userId: m.userId, displayName: m.displayName, teamName: m.teamName ?? null, points: m.lastRacePoints ?? 0 })).sort((a, b) => b.points - a.points);
+  const entries = sorted.map((e, i) => ({ ...e, rank: i > 0 && sorted[i - 1].points === e.points ? i : i + 1 }));
+  return { raceId: `showcase_r${round}`, season: '2026', round, entries, winners: entries.filter((e) => e.points === entries[0].points).map((e) => e.userId), topPoints: entries[0].points, estimated: false };
 }

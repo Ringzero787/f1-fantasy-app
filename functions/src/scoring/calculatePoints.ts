@@ -19,6 +19,8 @@ import {
   QualifyingResult,
 } from './scoringCore';
 import { rankWrites, bestRaceUpdate } from './standingsFields';
+import { buildRaceSnapshot } from './raceSnapshots';
+import { writeLeagueRaceResult } from './leagueRaceResultsWriter';
 
 const db = admin.firestore();
 
@@ -374,7 +376,16 @@ export async function handleQualifyingScoring(
       }
 
       try {
-        await teamDoc.ref.set(updateData, { merge: true });
+        // F-029: the roster as fielded and this phase's points, in the same commit as the team update.
+        const batch = db.batch();
+        batch.set(teamDoc.ref, updateData, { merge: true });
+        batch.set(teamDoc.ref.collection('raceSnapshots').doc(raceId), sanitizeForFirestore(buildRaceSnapshot({
+          teamId: teamDoc.id, team, constructorBefore: teamCtor, raceId,
+          season: raceData.seasonId, round: raceData.round, phase: 'qualifying', teamPoints,
+          driversAfter: updatedDrivers, constructorAfter: updatedConstructor,
+          scoredAt: admin.firestore.FieldValue.serverTimestamp(),
+        })), { merge: true });
+        await batch.commit();
       } catch (err) {
         console.error(`[Qualifying] Failed to update team ${teamDoc.id}:`, err);
         continue;
@@ -424,6 +435,8 @@ export async function handleQualifyingScoring(
 export async function handleSprintScoring(
   raceId: string,
   sprintResults: SprintResult[],
+  // F-029: season and round for the race snapshot; optional so older callers keep working
+  raceData: { seasonId?: string | number | null; round?: number | null } = {},
 ): Promise<null> {
   if (!sprintResults || sprintResults.length === 0) {
     console.log(`[Sprint] No sprint results for ${raceId}`);
@@ -499,7 +512,17 @@ export async function handleSprintScoring(
       };
 
       try {
-        await teamDoc.ref.set(updateData, { merge: true });
+        // F-029: see the qualifying handler. Constructors do not score in sprints.
+        const sprintCtor = getTeamCtor(team as Record<string, any>);
+        const batch = db.batch();
+        batch.set(teamDoc.ref, updateData, { merge: true });
+        batch.set(teamDoc.ref.collection('raceSnapshots').doc(raceId), sanitizeForFirestore(buildRaceSnapshot({
+          teamId: teamDoc.id, team, constructorBefore: sprintCtor, raceId,
+          season: raceData.seasonId, round: raceData.round, phase: 'sprint', teamPoints,
+          driversAfter: updatedDrivers, constructorAfter: sprintCtor,
+          scoredAt: admin.firestore.FieldValue.serverTimestamp(),
+        })), { merge: true });
+        await batch.commit();
       } catch (err) {
         console.error(`[Sprint] Failed to update team ${teamDoc.id}:`, err);
         continue;
@@ -934,6 +957,18 @@ export const onRaceCompleted = functions
           // teamPoints — qualifying/sprint count only when not scored standalone)
           ...bestRaceUpdate(team, raceId, teamPoints),
         },
+      });
+
+      // F-029: roster as fielded plus the race phase's points. Same commit run as the
+      // team update; only reached for teams the scoredRaces guard let through.
+      teamOps.push({
+        ref: teamDoc.ref.collection('raceSnapshots').doc(raceId),
+        data: buildRaceSnapshot({
+          teamId: teamDoc.id, team, constructorBefore: getTeamCtor(team as Record<string, any>), raceId,
+          season: afterData.seasonId, round: afterData.round, phase: 'race', teamPoints,
+          driversAfter: updatedDrivers, constructorAfter: updatedConstructor,
+          scoredAt: admin.firestore.FieldValue.serverTimestamp(),
+        }),
       });
 
       pointsUpdates.push({
@@ -1446,6 +1481,16 @@ export const onRaceCompleted = functions
 
       // Recalculate rankings (deterministic, with tiebreaks)
       await rankLeagueMembers(leagueId, raceId);
+
+      // F-062: this weekend's leaderboard and race winners. A failure here must not
+      // undo scoring, so it is logged and the next scored race re-syncs race wins.
+      try {
+        await writeLeagueRaceResult(db, leagueId,
+          { raceId, season: afterData.seasonId, round: afterData.round, name: afterData.name },
+          leagueTeamsSnap.docs, membersSnapshot.docs, lastRaceByUser);
+      } catch (err) {
+        console.error(`[Phase 4] race result for league ${leagueId} failed:`, err);
+      }
     }
 
     console.log(`[Phase 4] Synced rankings for ${affectedLeagues.length} leagues`);

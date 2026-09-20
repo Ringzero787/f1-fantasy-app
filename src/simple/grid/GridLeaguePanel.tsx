@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
@@ -7,6 +7,11 @@ import { useAuthStore } from '../../store/auth.store';
 import { useLeagueStore } from '../../store/league.store';
 import { GridAvatar, MonoLabel, ScreenHeader } from './GridBits';
 import { rankStandings, playersCaption, type StandingsRow, type StandingsSort } from './standings';
+import { raceOptions, raceResultRows, teamLineWithWins, type LeagueRaceResultDoc } from './raceLeaderboard';
+import { GridRaceSelectSheet } from './GridRaceSelectSheet';
+import { SHOWCASE_RESULT_ROUND, showcaseRaceResult } from './showcaseData';
+import { getLeagueRaceResult } from '../../services/leagueRaceResults.service';
+import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 
 // LEAGUE tab: standings (TRANSITION.md §4) or the "Racing solo." empty state.
 export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
@@ -25,6 +30,13 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const subscribeToLeagueMembers = useLeagueStore((s) => s.subscribeToLeagueMembers);
   const [sort, setSort] = useState<StandingsSort>('season');
   const [refreshing, setRefreshing] = useState(false);
+  // F-062: one race's leaderboard instead of the season table. null = season / last race.
+  const [raceId, setRaceId] = useState<string | null>(null);
+  const [raceResult, setRaceResult] = useState<LeagueRaceResultDoc | null>(null);
+  const [raceLoading, setRaceLoading] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const raceCache = useRef(new Map<string, LeagueRaceResultDoc | null>());
+  const races = useRemoteConfigStore((s) => s.races);
 
   // The user's league: the active team's, else their first.
   const league = leagueId ? leagues.find((l) => l.id === leagueId) ?? null : leagues[0] ?? null;
@@ -42,8 +54,27 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- league identity + mode only
   }, [league?.id, isDemoMode]);
 
+  // Only races the server recorded a leaderboard for (the showcase league has its latest round).
+  const resultIds = league?.raceResultIds ?? (isDemoMode && league ? races.filter((r) => r.round === SHOWCASE_RESULT_ROUND).map((r) => r.id) : []);
+  const options = useMemo(() => raceOptions(races as never, resultIds), [races, resultIds.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // One document read per race picked; cached for the session (pull to refresh clears it).
+  useEffect(() => {
+    if (!league || !raceId) { setRaceResult(null); setRaceLoading(false); return; }
+    const key = `${league.id}:${raceId}`;
+    if (raceCache.current.has(key)) { setRaceResult(raceCache.current.get(key) ?? null); setRaceLoading(false); return; }
+    let cancelled = false;
+    setRaceLoading(true);
+    (isDemoMode ? Promise.resolve(showcaseRaceResult(league.id, userId ?? '', options.find((o) => o.raceId === raceId)?.round ?? 0)) : getLeagueRaceResult(league.id, raceId))
+      .catch(() => null)
+      .then((r) => { if (cancelled) return; raceCache.current.set(key, r); setRaceResult(r); setRaceLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- league identity, race and mode only
+  }, [league?.id, raceId, isDemoMode]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    raceCache.current.clear();
     if (userId) await loadUserLeagues(userId);
     if (league) await loadLeagueMembers(league.id, true);
     setRefreshing(false);
@@ -51,8 +82,25 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
 
   const rows = useMemo<StandingsRow[]>(() => {
     if (!league) return [];
-    return rankStandings(members.filter((m) => m.leagueId === league.id), sort, userId);
-  }, [members, league, sort, userId]);
+    if (raceId) return raceResultRows(raceResult, userId);
+    const mine = members.filter((m) => m.leagueId === league.id);
+    const winsByUser = new Map(mine.map((m) => [m.userId, m.raceWins]));
+    // Race wins ride on the team line of the season table.
+    return rankStandings(mine, sort, userId).map((r) => (sort === 'season' ? { ...r, team: teamLineWithWins(r.team, winsByUser.get(r.userId)) } : r));
+  }, [members, league, sort, userId, raceId, raceResult]);
+
+  const selectorValue = raceId ?? sort;
+  const selectorLabel = raceId ? options.find((o) => o.raceId === raceId)?.label ?? 'RACE' : sort === 'season' ? 'SEASON' : 'LAST RACE';
+  const selectorOptions = useMemo(() => [
+    { key: 'season', label: 'SEASON' },
+    { key: 'last', label: 'LAST RACE' },
+    ...options.map((o) => ({ key: o.raceId, label: o.label })),
+  ], [options]);
+  const onPick = useCallback((key: string) => {
+    setPicking(false);
+    if (key === 'season' || key === 'last') { setRaceId(null); setSort(key); return; }
+    setRaceId(key);
+  }, []);
 
   const goProfile = useCallback(() => router.push('/(simple)/profile' as never), []);
   const goManager = useCallback((step?: 'create' | 'join') => {
@@ -105,17 +153,21 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
       {header}
       <View style={{ marginHorizontal: spacing.xl, marginTop: 22, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
         <MonoLabel>POS · PLAYER</MonoLabel>
-        <Pressable onPress={() => setSort(sort === 'season' ? 'last' : 'season')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Toggle season and last race points">
-          <MonoLabel color={colors.text.primary}>{sort === 'season' ? 'SEASON ▾' : 'LAST RACE ▾'}</MonoLabel>
+        <Pressable onPress={() => setPicking(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Showing ${selectorLabel}. Choose season, last race or a race`}>
+          <MonoLabel color={colors.text.primary}>{`${selectorLabel} ▾`}</MonoLabel>
         </Pressable>
       </View>
+      {raceId && raceResult?.estimated ? (
+        <Text style={[mono(10, 'medium'), { color: colors.text.muted, marginHorizontal: spacing.xl, marginTop: 8 }]}>RACE-DAY POINTS ONLY · NOT COUNTED AS A WIN</Text>
+      ) : null}
+      {picking ? <GridRaceSelectSheet options={selectorOptions} value={selectorValue} onPick={onPick} onClose={() => setPicking(false)} /> : null}
       <FlatList
         data={rows}
         keyExtractor={(r) => r.userId}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: 12 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        ListEmptyComponent={<Text style={[mono(11, 'medium'), { color: colors.text.muted, paddingVertical: 24 }]}>NO STANDINGS YET.</Text>}
+        ListEmptyComponent={<Text style={[mono(11, 'medium'), { color: colors.text.muted, paddingVertical: 24 }]}>{raceId ? (raceLoading ? 'LOADING…' : 'NO LEADERBOARD WAS RECORDED FOR THIS RACE.') : 'NO STANDINGS YET.'}</Text>}
         renderItem={({ item }) => (
           <Pressable
             onPress={() => router.push({ pathname: '/(simple)/member/[userId]', params: { userId: item.userId, leagueId: league.id } } as never)}
