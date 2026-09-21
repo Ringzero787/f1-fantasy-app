@@ -24,5 +24,7 @@ export * from './cache/marketCache';
 export * from './teams/teamOperations';
 export { checkTeamNameAvailable } from './teams/teamName';
 export { onFantasyTeamDeleted } from './teams/teamSnapshotsCleanup';
+// Undercut Pit Wall (F-075): deployed as the `pw` group, e.g. pw-createPortalHandoff
+export * as pw from './pitwall';
 export { onLeagueMemberWritten, onLeagueMemberCountChanged, reconcileAllLeagueMemberCounts } from './leagues/memberCount';
 export * from './auth/signInWithAmazon';
