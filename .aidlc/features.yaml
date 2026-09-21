@@ -819,7 +819,7 @@ features:
     name: "UC: Pit Wall web portal shell and sign-in"
     summary: "Premium web analytics portal for Undercut on Firebase Hosting: Grid-themed responsive shell, same Firebase
       Auth account as the app, eight report pages capped at three screens of scroll with click-in slide-over detail"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-075.md
     created_at: 2026-09-19
     keywords:
