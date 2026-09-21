@@ -7,6 +7,7 @@
 # The Firebase WEB config (public identifiers, not secrets) comes from VITE_FIREBASE_* if set, otherwise
 # from the repository root .env the Undercut app already uses (EXPO_PUBLIC_FIREBASE_*).
 # wrangler uses CLOUDFLARE_API_TOKEN when set (~/.config/aidlc/env), otherwise the operator's own login.
+# PLAYWRIGHT_PATH must point at a node_modules folder that contains playwright (scroll-budget gate).
 set -euo pipefail
 MODE="${1:?dryrun or apply}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -18,7 +19,7 @@ if [ -f "$ROOT/.env" ]; then
     v="VITE_FIREBASE_$k"
     if [ -z "${!v:-}" ]; then
       val="$(grep -E "^EXPO_PUBLIC_FIREBASE_$k=" "$ROOT/.env" | head -1 | cut -d= -f2- | tr -d '"'"'"'\r' || true)"
-      [ -n "$val" ] && export "$v=$val"
+      if [ -n "$val" ]; then export "$v=$val"; fi
     fi
   done
 fi
@@ -30,7 +31,10 @@ echo "== install"; npm ci --no-audit --no-fund >/dev/null
 echo "== unit tests"; npx vitest run
 echo "== scroll budget (preview build: example data, no sign-in)"
 npx tsc -p . --noEmit && npx vite build --mode preview >/dev/null
-PLAYWRIGHT_PATH="${PLAYWRIGHT_PATH:-/data/nataliesfarm/node_modules}" node tests/scroll-budget.mjs | tail -22
+# Playwright is not a dependency of the portal. Point PLAYWRIGHT_PATH at a node_modules folder that has it
+# (set it in ~/.config/aidlc/env, which the aidlc wrapper loads). Without it nothing can be deployed.
+: "${PLAYWRIGHT_PATH:?set PLAYWRIGHT_PATH to a node_modules folder containing playwright (e.g. in ~/.config/aidlc/env)}"
+node tests/scroll-budget.mjs | tail -22
 echo "== production build"
 rm -rf dist && npx vite build | tail -8
 grep -q 'assets/' dist/index.html || { echo "build produced no assets" >&2; exit 3; }
