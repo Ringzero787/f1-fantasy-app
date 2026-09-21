@@ -4,6 +4,7 @@
 // Playwright is not a dependency of this package; it is resolved from PLAYWRIGHT_PATH, NODE_PATH or the repo root.
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { createServer } from 'node:net';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +18,9 @@ function loadPlaywright() {
 }
 const { chromium } = loadPlaywright();
 
-const PORT = 4173, BASE = `http://localhost:${PORT}`, LIMIT = 3.0;
+// a free port every run: a fixed one collides with any preview server left running on the box
+const PORT = await new Promise((resolve, reject) => { const srv = createServer(); srv.once('error', reject); srv.listen(0, () => { const { port } = srv.address(); srv.close(() => resolve(port)); }); });
+const BASE = `http://localhost:${PORT}`, LIMIT = 3.0;
 const PAGES = [['BRIEFING', '/'], ['BOARD', '/board'], ['CIRCUIT', '/circuit'], ['PACE LAB', '/pace-lab'], ['MARKET', '/market'], ['LINEUP LAB', '/lineup-lab'], ['SEASON', '/season'], ['WIRE', '/wire']];
 const SIZES = [{ name: 'desktop', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }];
 const shots = path.join(here, 'out'); mkdirSync(shots, { recursive: true });
