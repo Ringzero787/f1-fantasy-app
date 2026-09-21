@@ -56,7 +56,7 @@ export function examplePayload(): Payload {
     example: true, asOf: '19 Sep 06:00 UTC',
     round: { number: 17, name: 'Baku', firstSession: 'FP1 Fri 25 Sep', locksIn: '6d 04h', circuit: 'Baku City Circuit' },
     rounds: ['BAK', 'SIN', 'AUS', 'MEX', 'SAO', 'LVG'], budget: 2250, teams: TEAMS, drivers, constructors, news, rivals,
-    league: { name: 'Too Legit To Quit', size: 10, myRank: 2 },
+    league: { name: 'Sunday Drivers', size: 10, myRank: 2 },
   };
 }
 

@@ -21,6 +21,9 @@ export const createPortalHandoff = functions.https.onCall(async (data, context) 
 });
 
 /** Called by the portal, signed out. One answer for every failure, so a caller learns nothing about why. */
+// The per-IP limit is a courtesy brake, not the defence: the address comes from the platform's front end and can
+// be shared or rotated. The defence is the code itself (256 random bits, 60 seconds, single use). App Check for the
+// web app is tracked in F-075's build notes and tightens this further.
 export const redeemPortalHandoff = functions.https.onCall(async (data, context) => {
   const now = Date.now();
   if (!(await takeRateSlot(db, ipKey(context.rawRequest?.ip), now, REDEEM_LIMIT))) throw new functions.https.HttpsError('resource-exhausted', 'Too many attempts. Try again in a minute.');
