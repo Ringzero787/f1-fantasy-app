@@ -20,12 +20,13 @@ const { chromium } = loadPlaywright();
 
 // a free port every run: a fixed one collides with any preview server left running on the box
 const PORT = await new Promise((resolve, reject) => { const srv = createServer(); srv.once('error', reject); srv.listen(0, () => { const { port } = srv.address(); srv.close(() => resolve(port)); }); });
-const BASE = `http://localhost:${PORT}`, LIMIT = 3.0;
+// 127.0.0.1 on both sides: `localhost` can resolve to IPv6 for the browser and IPv4 for the server, which showed up as a rare refused connection
+const BASE = `http://127.0.0.1:${PORT}`, LIMIT = 3.0;
 const PAGES = [['BRIEFING', '/'], ['BOARD', '/board'], ['CIRCUIT', '/circuit'], ['PACE LAB', '/pace-lab'], ['MARKET', '/market'], ['LINEUP LAB', '/lineup-lab'], ['SEASON', '/season'], ['WIRE', '/wire']];
 const SIZES = [{ name: 'desktop', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }];
 const shots = path.join(here, 'out'); mkdirSync(shots, { recursive: true });
 
-const server = spawn(process.execPath, [path.join(here, '..', 'node_modules', 'vite', 'bin', 'vite.js'), 'preview', '--port', String(PORT), '--strictPort'], { cwd: path.join(here, '..'), stdio: 'ignore' });
+const server = spawn(process.execPath, [path.join(here, '..', 'node_modules', 'vite', 'bin', 'vite.js'), 'preview', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'], { cwd: path.join(here, '..'), stdio: 'ignore' });
 const stop = () => { try { server.kill(); } catch { /* gone */ } };
 process.on('exit', stop);
 
@@ -33,9 +34,11 @@ async function waitForServer() {
   for (let i = 0; i < 60; i++) { try { const r = await fetch(BASE); if (r.ok) return; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 250)); }
   throw new Error('preview server did not start');
 }
+const open = async (page, url) => { try { await page.goto(url, { waitUntil: 'networkidle' }); } catch (e) { console.error(`retrying ${url}: ${e.message.split('\n')[0]}`); await new Promise((r) => setTimeout(r, 1000)); await page.goto(url, { waitUntil: 'networkidle' }); } };
 const measure = (page) => page.evaluate(() => ({ ratio: document.documentElement.scrollHeight / window.innerHeight, overflowX: document.documentElement.scrollWidth - window.innerWidth }));
 
 const failures = [], rows = [];
+process.on('unhandledRejection', (e) => { console.error(`scroll-budget crashed: ${e?.message ?? e}`); stop(); process.exit(2); });
 await waitForServer();
 const browser = await chromium.launch();
 for (const size of SIZES) for (const scheme of ['dark', 'light']) {
@@ -43,14 +46,14 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
   const page = await ctx.newPage();
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   for (const [name, route] of PAGES) {
-    await page.goto(BASE + route, { waitUntil: 'networkidle' });
+    await open(page, BASE + route);
     await page.waitForSelector('.page');
     const states = [['default', async () => {}]];
     // every in-card tab and chip is a click-in state that must also fit
     // each control is tried from a fresh page, because one control can hide another (board presets only exist on one tab)
     const controls = await page.locator('main .tabs.sm button:visible, main .chip:visible').allTextContents();
-    for (const text of controls) states.push([`control ${text}`, async () => { await page.goto(BASE + route, { waitUntil: 'networkidle' }); await page.waitForSelector('.page'); await page.locator('main .tabs.sm button:visible, main .chip:visible').filter({ hasText: new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).first().click(); }]);
-    if (name === 'LINEUP LAB') { states.push(['driver slot open', async () => { await page.goto(BASE + route, { waitUntil: 'networkidle' }); await page.locator('.dt').first().click(); }]); states.push(['constructor slot open', async () => { await page.goto(BASE + route, { waitUntil: 'networkidle' }); await page.locator('.dt.ctor').click(); }]); }
+    for (const text of controls) states.push([`control ${text}`, async () => { await open(page, BASE + route); await page.waitForSelector('.page'); await page.locator('main .tabs.sm button:visible, main .chip:visible').filter({ hasText: new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).first().click(); }]);
+    if (name === 'LINEUP LAB') { states.push(['driver slot open', async () => { await open(page, BASE + route); await page.locator('.dt').first().click(); }]); states.push(['constructor slot open', async () => { await open(page, BASE + route); await page.locator('.dt.ctor').click(); }]); }
     for (const [label, act] of states) {
       await act(); await page.waitForTimeout(60);
       const m = await measure(page);
@@ -61,7 +64,7 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
     if (scheme === 'dark') await page.screenshot({ path: path.join(shots, `${size.name}-${name.toLowerCase().replace(/ /g, '-')}.png`) });
   }
   // the slide-over opens, traps nothing behind it, and closes on Escape
-  await page.goto(BASE + '/board', { waitUntil: 'networkidle' });
+  await open(page, BASE + '/board');
   await page.locator('main tbody tr').first().click();
   if (!(await page.locator('[role="dialog"]').isVisible())) failures.push(`${size.name} ${scheme}: slide-over did not open`);
   if (scheme === 'dark') await page.screenshot({ path: path.join(shots, `${size.name}-slide-over.png`) });
