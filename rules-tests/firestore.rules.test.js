@@ -256,3 +256,24 @@ test('race snapshots: the owner and the league read them; solo snapshots are pri
   await assertFails(setDoc(doc(db(ALICE), 'fantasyTeams', 'tA', 'raceSnapshots', 'forged'), { userId: ALICE, leagueId: 'L1' }));
   await assertFails(deleteDoc(doc(db(ALICE), 'fantasyTeams', 'tA', 'raceSnapshots', 'round_9')));
 });
+
+// ── F-075 Pit Wall: handoff codes and the worker's collections are Admin SDK only ──
+test('pit wall server collections: no client can read or write them, signed in or not', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'pw_handoffs', 'h1'), { uid: ALICE, expiresAt: 9e15, used: false });
+    await setDoc(doc(a, 'pw_handoff_limits', `uid_${ALICE}`), { windowStart: 0, count: 1 });
+    await setDoc(doc(a, 'pw_jobs', 'j1'), { kind: 'projections', status: 'queued' });
+    await setDoc(doc(a, 'pw_runs', 'r1'), { ok: true });
+  });
+  const anon = env.unauthenticatedContext().firestore();
+  for (const [col, id] of [['pw_handoffs', 'h1'], ['pw_handoff_limits', `uid_${ALICE}`], ['pw_jobs', 'j1'], ['pw_runs', 'r1']]) {
+    for (const d of [db(ALICE), db(OWNER), anon]) {
+      await assertFails(getDoc(doc(d, col, id)));
+      await assertFails(getDocs(collection(d, col)));
+      await assertFails(setDoc(doc(d, col, id), { used: false, uid: ALICE }, { merge: true }));
+      await assertFails(setDoc(doc(d, col, 'forged'), { uid: ALICE, expiresAt: 9e15, used: false }));
+      await assertFails(deleteDoc(doc(d, col, id)));
+    }
+  }
+});

@@ -203,6 +203,13 @@ service cloud.firestore {
     // Functions (Admin SDK bypasses these rules): createTeamSecure,
     // buildTeamSecure, addDriverSecure, removeDriverSecure,
     // setConstructorSecure, removeConstructorSecure, onRaceCompleted.
+    // Undercut Pit Wall (F-075): sign-in handoff codes, their rate-limit counters, and the compute
+    // worker's queue and run records are touched by the Admin SDK only. No client access at all.
+    match /pw_handoffs/{id} { allow read, write: if false; }
+    match /pw_handoff_limits/{id} { allow read, write: if false; }
+    match /pw_jobs/{id} { allow read, write: if false; }
+    match /pw_runs/{id} { allow read, write: if false; }
+
     match /fantasyTeams/{teamId} {
       // F-029: roster and points per race weekend, written by scoring only. Readable by
       // the team's owner and by the team's league (the same people who can see the team).

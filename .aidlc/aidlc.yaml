@@ -24,7 +24,7 @@ overrides:
     typecheck: "npx tsc --noEmit && (cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
     # Undercut: jest (unit). Track Limits + repo: node:test on the compiled functions, the release-signing plugin,
     # the aidlc op helpers and the release scripts (F-040, F-033, F-014).
-    test: "npx jest --ci && npm --prefix functions run build >/dev/null && node --test functions/test/*.test.js && npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js plugins/*.test.js scripts/ops/*.test.js scripts/release/*.test.js"
+    test: "npx jest --ci && npm --prefix functions run build >/dev/null && node --test functions/test/*.test.js && npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js plugins/*.test.js scripts/ops/*.test.js scripts/release/*.test.js && npm --prefix web/pitwall ci --no-audit --no-fund >/dev/null && npm --prefix web/pitwall test && VITE_FIREBASE_API_KEY=ci VITE_FIREBASE_PROJECT_ID=f1-app-18077 VITE_FIREBASE_APP_ID=ci npm --prefix web/pitwall run build >/dev/null"
     advisory:
       - "npm run lint"
   build:
@@ -107,6 +107,13 @@ overrides:
         apply: "cd newgame/functions && node scripts/setBestBets.js --race={race} --picks={picks} --write"
         verify: "node newgame/functions/scripts/checkBenLines.js --race={race} --fail-on=high"
         rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=ben_lines/{race}_race --write"
+      pitwall-pages-deploy:
+        summary: "Undercut Pit Wall site to Cloudflare Pages (project = Pages project name, e.g. undercut-pitwall). Dry run tests, builds, checks the scroll and bundle budgets and lists the files; apply runs the same checks then wrangler pages deploy"
+        deploy: true
+        params: [ project ]
+        paths: [ web/pitwall, scripts/ops/pitwall-pages-deploy.sh ]
+        dryrun: "bash scripts/ops/pitwall-pages-deploy.sh dryrun"
+        apply: "bash scripts/ops/pitwall-pages-deploy.sh apply {project}"
       uc-script:
         summary: "Undercut repair/backfill script that dry-runs by default and writes with --apply (script = file name in functions/scripts; backup = comma-separated doc/collection paths it touches)"
         params: [ script, backup ]

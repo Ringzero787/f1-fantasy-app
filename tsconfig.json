@@ -15,5 +15,5 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules", "newgame", "functions", "dist", "android", "android-bundle", "undercut-site"]
+  "exclude": ["node_modules", "newgame", "functions", "web", "dist", "android", "android-bundle", "undercut-site"]
 }
