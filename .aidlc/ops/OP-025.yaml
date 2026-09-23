@@ -1,0 +1,55 @@
+id: OP-025
+title: R17 Baku best bets — Hadjar in for Lawson
+kind: tl-best-bets
+status: verified
+params:
+  race: azerbaijan_2026
+  picks: norris:P3-P6,hamilton:P3-P6,hadjar:P5-P8
+created_at: 2026-09-23T19:42:35.197Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-23T19:42:35.392Z
+    head_sha: fbc96041ed3686fcb68d46217f320876cc48e7b5
+    command: cd newgame/functions && node scripts/setBestBets.js --race='azerbaijan_2026' --picks='norris:P3-P6,hamilton:P3-P6,hadjar:P5-P8'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-025/dry-run-2026-09-23T19-42-35-392Z.log
+    log_sha256: 0b6eae9cef21f7b3ecd60ab49a708c38ac47c98e4736b9bac5ef281cb09d7a84
+    lines: 8
+  - step: backup
+    at: 2026-09-23T19:42:42.602Z
+    head_sha: fbc96041ed3686fcb68d46217f320876cc48e7b5
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-025'/backup.json ben_lines/'azerbaijan_2026'_race
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-025/backup-2026-09-23T19-42-42-602Z.log
+    log_sha256: f7ab5a6546ae160537758cc2e3d7d73fa4b4589b7f769438541b0840eb050fdd
+    lines: 3
+  - step: gates
+    at: 2026-09-23T19:42:44.132Z
+    head_sha: fbc96041ed3686fcb68d46217f320876cc48e7b5
+    exit: 0
+    gates:
+      G14: pass
+      G15: pass
+  - step: apply
+    at: 2026-09-23T19:42:44.134Z
+    head_sha: fbc96041ed3686fcb68d46217f320876cc48e7b5
+    command: cd newgame/functions && node scripts/setBestBets.js --race='azerbaijan_2026' --picks='norris:P3-P6,hamilton:P3-P6,hadjar:P5-P8' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-025/apply-2026-09-23T19-42-44-134Z.log
+    log_sha256: b274692b1a74ae3b1fd23dfa0341b19634c02d756af19203be35bac13aea6bb3
+    lines: 8
+  - step: verify
+    at: 2026-09-23T19:42:44.777Z
+    head_sha: fbc96041ed3686fcb68d46217f320876cc48e7b5
+    command: node newgame/functions/scripts/checkBenLines.js --race='azerbaijan_2026' --fail-on=high
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-025/verify-2026-09-23T19-42-44-777Z.log
+    log_sha256: b08652a17cc586b28fb508b076e970f8a50253b65829a59577c537c200860fba
+    lines: 4
+  - step: gates
+    at: 2026-09-23T19:42:47.250Z
+    head_sha: fbc96041ed3686fcb68d46217f320876cc48e7b5
+    exit: 0
+    gates:
+      G15: pass
