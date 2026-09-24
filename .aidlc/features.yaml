@@ -801,7 +801,7 @@ features:
     summary: Shows the signed-in user's lineup with ranked swap recommendations, a what-if simulator and optimizer under
       budget and contract rules, and saves lineup changes from the browser through the same server callables and lock
       rules as the app
-    status: planned
+    status: building
     spec: .aidlc/specs/F-073.md
     created_at: 2026-09-19
     keywords:

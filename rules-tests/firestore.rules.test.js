@@ -277,3 +277,24 @@ test('pit wall server collections: no client can read or write them, signed in o
     }
   }
 });
+
+// ── F-073: the Ace is the one team field a client writes directly ──
+test('an owner may set the ace, but not smuggle roster, budget, points or lock state alongside it', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'fantasyTeams', 'T1'), {
+      userId: ALICE, leagueId: 'L1', name: 'Late Brakers', drivers: [{ driverId: 'norris', currentPrice: 300 }],
+      constructor: { constructorId: 'mercedes' }, budget: 40, totalSpent: 960, totalPoints: 1200, isLocked: false,
+    });
+  });
+  const mine = doc(db(ALICE), 'fantasyTeams', 'T1');
+  await assertSucceeds(updateDoc(mine, { aceDriverId: 'norris' }));
+  await assertSucceeds(updateDoc(mine, { aceDriverId: null }));
+  await assertSucceeds(updateDoc(mine, { aceConstructorId: 'mercedes' }));
+  // the same write may not carry anything that decides money, points or the lock
+  for (const extra of [{ drivers: [] }, { budget: 999 }, { totalPoints: 99999 }, { isLocked: false, lockStatus: {} }, { constructor: null }, { totalSpent: 0 }, { scoredRaces: [] }, { lockedPoints: 0 }]) {
+    await assertFails(updateDoc(mine, { aceDriverId: 'norris', ...extra }));
+  }
+  // and nobody else may touch the team at all
+  await assertFails(updateDoc(doc(db(MALLORY), 'fantasyTeams', 'T1'), { aceDriverId: 'norris' }));
+  await assertFails(updateDoc(doc(db(OWNER), 'fantasyTeams', 'T1'), { aceDriverId: 'norris' }));
+});

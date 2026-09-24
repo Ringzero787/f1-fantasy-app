@@ -34,7 +34,7 @@ export function PaceLab() {
               <circle cx={X(d.q)} cy={Y(d.r)} r="12" fill="transparent" />
               {/* your drivers are red AND larger AND labelled: colour is never the only cue */}
               <circle cx={X(d.q)} cy={Y(d.r)} r={me ? 7 : 5} fill={me ? 'var(--red)' : 'var(--fg2)'} stroke="var(--card)" strokeWidth="2" />
-              {me ? <text x={X(d.q) + 10} y={Y(d.r) + 3} style={{ fill: 'var(--fg)' }}>{d.id}</text> : null}
+              {me ? <text x={X(d.q) + 10} y={Y(d.r) + 3} style={{ fill: 'var(--fg)' }}>{d.name.slice(0, 3).toUpperCase()}</text> : null}
             </g>
           ); })}
         </svg></div>
