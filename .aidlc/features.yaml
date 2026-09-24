@@ -1,4 +1,4 @@
-next_id: 78
+next_id: 80
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -858,3 +858,5 @@ features:
       - only
       - pick
       - marks
+  - { id: F-078, name: "TL: UI string extraction and localization", status: planned, created_at: 2026-09-24, summary: "Extract Track Limits user-facing strings into a catalog (newgame/src/locales/{lang}.json), route every screen through a translation function, then add `catalogs` and `scan` to localization in .aidlc/aidlc.yaml so G16 enforces parity. Release notes and the store blurb already translate at release.", keywords: [localization, i18n, translation, locales] }
+  - { id: F-079, name: "UC: UI string extraction and localization", status: idea, created_at: 2026-09-24, summary: "Same as F-078 for Undercut (app/, src/). Larger surface; do it after Track Limits proves the pattern.", keywords: [localization, i18n, translation, locales] }
