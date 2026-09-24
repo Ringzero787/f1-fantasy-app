@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { applySwap, sameLineup } from './data/logic';
 import type { Lineup, Payload } from './data/types';
 import type { MarketPrices, RealTeam } from './data/team';
+import { NO_PASS, type PassState } from './data/access';
 import type { PageName } from './lib/router';
 
 export interface UIState {
@@ -36,6 +37,10 @@ export interface RealContext { team: RealTeam; /** every team this user owns, fo
 interface Store {
   payload: Payload;
   real: RealContext | null;
+  pass: PassState;
+  /** null = idle, 'starting' = opening Stripe, any other string = the error to show */
+  checkout: string | null;
+  startCheckout: () => Promise<void>;
   ui: UIState;
   set: <K extends keyof UIState>(key: K, value: UIState[K]) => void;
   open: (id: string | null | undefined) => void;
@@ -64,8 +69,9 @@ export const useStore = (): Store => {
   return s;
 };
 
-export function StoreProvider({ payload, lineup, real, selectTeam, saver, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void) => Promise<Lineup>; go: (p: PageName) => void; children: ReactNode }) {
+export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutFn, selectTeam, saver, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; pass?: PassState; checkoutFn?: () => Promise<string>; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void) => Promise<Lineup>; go: (p: PageName) => void; children: ReactNode }) {
   const [saving, setSaving] = useState<string | null>(null);
+  const [checkout, setCheckout] = useState<string | null>(null);
   const [ui, setUi] = useState<UIState>(() => ({
     boardTab: 'PROJECTIONS', preset: 'VALUE', sort: 'med', paceTab: 'LONG RUN', mktTab: 'PRICE MODEL', lowerTab: 'RIVALS',
     lineup, saved: lineup, slot: null, over: null, overTab: 'PRESENT', focus: null, thr: 25, win: 'L10', wire: 'ALL', rec: 0, recOver: null, tray: [], toast: null,
@@ -77,7 +83,17 @@ export function StoreProvider({ payload, lineup, real, selectTeam, saver, go, ch
   }, [patch]);
 
   const store = useMemo<Store>(() => ({
-    payload, ui, go, real, saving,
+    payload, ui, go, real, saving, pass, checkout,
+    startCheckout: async () => {
+      if (!checkoutFn) { toast('Checkout is not available in this preview.'); return; }
+      setCheckout('starting');
+      try {
+        // Stripe hosts the payment page; we never see a card number.
+        window.location.assign(await checkoutFn());
+      } catch (e) {
+        setCheckout((e as Error).message || 'Checkout could not be opened. Try again.');
+      }
+    },
     dirty: !sameLineup(ui.lineup, ui.saved),
     set: (key, value) => patch(() => ({ [key]: value } as Partial<UIState>)),
     open: (id) => { if (id) patch(() => ({ over: id, overTab: 'PRESENT', focus: id, recOver: null })); },
@@ -107,7 +123,7 @@ export function StoreProvider({ payload, lineup, real, selectTeam, saver, go, ch
     }),
     toast,
     selectTeam: (id: string) => { selectTeam?.(id); patch(() => ({ slot: null })); },
-  }), [payload, ui, go, patch, toast, real, saver, saving, selectTeam]);
+  }), [payload, ui, go, patch, toast, real, saver, saving, pass, checkout, checkoutFn, selectTeam]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }
