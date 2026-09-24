@@ -1,4 +1,4 @@
-next_id: 76
+next_id: 77
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -220,11 +220,13 @@ features:
     summary: ROADMAP economy (M)
   - id: F-029
     name: "UC: Per-race roster and ace snapshots"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-029.md
     created_at: 2026-09-11
     summary: Server keeps one snapshot per team per race weekend (roster as fielded, Ace, points per phase and entity);
       dependency of F-062 and of Pit Wall hindsight. ROADMAP economy (M)
+    version_shipped: 2.3.4
+    shipped_at: 2026-09-24
   - id: F-030
     name: "UC: Live-price member and profile views"
     status: planned
@@ -657,7 +659,7 @@ features:
     name: "UC: Race winners and per-race league leaderboard"
     summary: "Free for every league: server records each race's league winner and raceWins at scoring time, League screen
       shows a per-race leaderboard; the engagement base League Pro builds on"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-062.md
     created_at: 2026-09-18
     keywords:
@@ -666,6 +668,8 @@ features:
       - race
       - league
       - leaderboard
+    version_shipped: 2.3.4
+    shipped_at: 2026-09-24
   - id: F-063
     name: "UC: League Pro head-to-head fixtures"
     summary: Pro leagues get a generated weekly head-to-head schedule, W-L-D table and matchup view, scored server-side from
@@ -827,3 +831,15 @@ features:
       - portal
       - shell
       - sign
+  - id: F-076
+    name: "TL: repair race schedules from seed data"
+    status: planned
+    spec: .aidlc/specs/F-076.md
+    created_at: 2026-09-24
+    keywords:
+      - repair
+      - race
+      - schedules
+      - from
+      - seed
+      - data

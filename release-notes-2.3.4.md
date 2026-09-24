@@ -1,4 +1,4 @@
-# Undercut 2.3.4 — per-race league leaderboards, R8
+# Undercut 2.3.4 (versionCode 59, iOS build 42) — 2026-09-24 — per-race league leaderboards, R8
 
 _2.3.3 (build 41, versionCode 58) is the version in review at Apple, Amazon and, after 2.3.2, Google. 2.3.4 adds the per-race league leaderboard and race wins (F-062) and an R8-optimised Android build. If 2.3.3 has not gone live on a store yet, submit 2.3.4 there instead; the store text below still covers the full Grid redesign._
 
