@@ -81,6 +81,10 @@ overrides:
         # in place. The function is gone until the functions-deploy that recreates it, so plan the
         # two together and keep the window short. destructive: true, so G14 needs a waiver.
         summary: "Delete deployed functions by name (names = comma-separated deployed names, region = us-central1). The redeploy that recreates them MUST follow immediately"
+        # deploy: true because this acts on deployed code, not on data: there is nothing to snapshot
+        # (the definition lives in git and the paired functions-deploy puts it back), and it brings
+        # the deploy checks that do apply — a clean tree and HEAD on the remote default branch.
+        deploy: true
         destructive: true
         params: [ names, region ]
         paths: [ scripts/ops/firebase-functions-delete.sh ]
