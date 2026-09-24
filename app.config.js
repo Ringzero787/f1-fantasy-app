@@ -64,7 +64,25 @@ module.exports = {
           ndkVersion: "27.1.12297006",
           useLegacyPackaging: false,
           edgeToEdgeEnabled: true,
-          extraProguardRules: "-keep class com.facebook.hermes.** { *; }",
+          // R8: shrink and obfuscate the release build (Play Console's "R8 optimization" advice).
+          // Expo modules and Reanimated ship their own keep rules; these cover the rest of the
+          // native surface, whose classes are reached by name at runtime.
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+          extraProguardRules: [
+            "-keep class com.facebook.hermes.** { *; }",
+            "-keep class com.facebook.jni.** { *; }",
+            "-keep class com.facebook.react.** { *; }",
+            "-keep class com.swmansion.** { *; }",
+            "-keep class com.horcrux.svg.** { *; }",
+            "-keep class com.reactnativegooglesignin.** { *; }",
+            "-keep class com.google.android.gms.auth.** { *; }",
+            "-keep class expo.modules.** { *; }",
+            "-keep class com.undercut.app.** { *; }",
+            "-dontwarn com.google.android.gms.**",
+            "-dontwarn okhttp3.**",
+            "-dontwarn okio.**",
+          ].join("\n"),
         },
       }],
       "expo-router",
