@@ -1,0 +1,37 @@
+id: OP-028
+title: "F-068 Pit Wall Pass rules: server-owned pass fields, League Pro stamped by function only, paid frames behind the pw claim"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-09-24T19:53:15.820Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-24T19:53:18.738Z
+    head_sha: a73fad6ccad0f0c2c35666ebc8e424672f0c41cb
+    command: git --no-pager diff '9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-028/dry-run-2026-09-24T19-53-18-738Z.log
+    log_sha256: 1fd111279ae286abcf5b45c84e46c9b10014e42ceb5722c86ad2ec0f706d9281
+    lines: 52
+  - step: gates
+    at: 2026-09-24T19:53:22.872Z
+    head_sha: a73fad6ccad0f0c2c35666ebc8e424672f0c41cb
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T19:53:22.876Z
+    head_sha: a73fad6ccad0f0c2c35666ebc8e424672f0c41cb
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-028/apply-2026-09-24T19-53-22-876Z.log
+    log_sha256: 1584cbe74ae21cb74dd95bb6a59fe698f8ede6df521144bea2ce7ef70f0c5115
+    lines: 13
+  - step: gates
+    at: 2026-09-24T19:53:26.096Z
+    head_sha: a73fad6ccad0f0c2c35666ebc8e424672f0c41cb
+    exit: 0
+    gates:
+      G15: skip

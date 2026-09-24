@@ -1,0 +1,38 @@
+id: OP-030
+title: "F-068 Pit Wall portal with the paywall: locked frames, free look and the real round 17 projections"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-24T19:59:11.595Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-24T19:59:14.937Z
+    head_sha: 42d8d522578b64e2f77526b6996a9c112d828b95
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-030/dry-run-2026-09-24T19-59-14-937Z.log
+    log_sha256: cd5e6ebcd3d104bbe45c5a16c9082653a53f2e6060bb6c45132e4aebce661dce
+    lines: 58
+  - step: gates
+    at: 2026-09-24T20:00:51.580Z
+    head_sha: 42d8d522578b64e2f77526b6996a9c112d828b95
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T20:00:51.597Z
+    head_sha: 42d8d522578b64e2f77526b6996a9c112d828b95
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-030/apply-2026-09-24T20-00-51-597Z.log
+    log_sha256: 76847829ac8d89655ad1b9c22e916969f5ff266433f503b8ab3c1cb6e3ff2d8f
+    lines: 69
+  - step: gates
+    at: 2026-09-24T20:02:34.731Z
+    head_sha: 42d8d522578b64e2f77526b6996a9c112d828b95
+    exit: 0
+    gates:
+      G15: skip

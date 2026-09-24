@@ -1,0 +1,67 @@
+id: OP-029
+title: F-070 first real Pit Wall projections published to pw_pages, pw_public and pw_projections
+kind: pitwall-job
+status: applied
+params:
+  job: projections
+  session: daily
+created_at: 2026-09-24T19:53:54.412Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-24T19:53:57.766Z
+    head_sha: a73fad6ccad0f0c2c35666ebc8e424672f0c41cb
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'daily'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-029/dry-run-2026-09-24T19-53-57-766Z.log
+    log_sha256: 91eb16576d780f6eb24cf66038bc2b3294366959b0168a6960cbd5e516ecc596
+    lines: 45
+  - step: gates
+    at: 2026-09-24T19:54:43.547Z
+    head_sha: a73fad6ccad0f0c2c35666ebc8e424672f0c41cb
+    exit: 1
+    gates:
+      G14: fail
+  - step: gates
+    at: 2026-09-24T19:54:57.978Z
+    head_sha: a73fad6ccad0f0c2c35666ebc8e424672f0c41cb
+    exit: 1
+    gates:
+      G14: fail
+  - step: dry-run
+    at: 2026-09-24T19:58:50.033Z
+    head_sha: 42d8d522578b64e2f77526b6996a9c112d828b95
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'daily'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-029/dry-run-2026-09-24T19-58-50-033Z.log
+    log_sha256: dc4e99446eb100c522588b0519b5d4352e8df97172e9d41f35ba4fb685b1f321
+    lines: 45
+  - step: backup
+    at: 2026-09-24T19:58:55.132Z
+    head_sha: 42d8d522578b64e2f77526b6996a9c112d828b95
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-029'/backup.json pw_pages pw_public pw_projections
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-029/backup-2026-09-24T19-58-55-132Z.log
+    log_sha256: de050767a07a71ce2a820e18fe58ce9c042d1de2f0c2f63e5e12ac7449d34c14
+    lines: 3
+  - step: gates
+    at: 2026-09-24T19:58:55.921Z
+    head_sha: 42d8d522578b64e2f77526b6996a9c112d828b95
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T19:58:55.922Z
+    head_sha: 42d8d522578b64e2f77526b6996a9c112d828b95
+    command: bash scripts/ops/pitwall-job.sh apply 'projections' 'daily'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-029/apply-2026-09-24T19-58-55-922Z.log
+    log_sha256: 489c2c70133df86663af64a30698b0cc81f174d4eecb39513eb2d529751324f3
+    lines: 45
+  - step: gates
+    at: 2026-09-24T19:58:58.527Z
+    head_sha: 42d8d522578b64e2f77526b6996a9c112d828b95
+    exit: 0
+    gates:
+      G15: skip
