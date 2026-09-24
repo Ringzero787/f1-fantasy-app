@@ -1,0 +1,53 @@
+id: OP-033
+title: Delete the gen-1 Pit Wall handoff callables so OP-034 can recreate them as gen-2
+kind: functions-delete
+status: applied
+params:
+  names: pw-createPortalHandoff,pw-redeemPortalHandoff
+  region: us-central1
+created_at: 2026-09-24T21:46:07.021Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-24T21:46:09.875Z
+    head_sha: 44537828e71a5c9665dae1c367c7878d7d38ffbe
+    command: bash scripts/ops/firebase-functions-delete.sh dryrun 'pw-createPortalHandoff,pw-redeemPortalHandoff' 'us-central1' 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-033/dry-run-2026-09-24T21-46-09-875Z.log
+    log_sha256: fa8f75aa50b47b21cbdcae77406a380282c551a99f7d5d59a16fe452c744e0a6
+    lines: 175
+  - step: gates
+    at: 2026-09-24T21:48:36.153Z
+    head_sha: 44537828e71a5c9665dae1c367c7878d7d38ffbe
+    exit: 1
+    gates:
+      G14: fail
+  - step: dry-run
+    at: 2026-09-24T21:49:16.625Z
+    head_sha: e03c6a75d36726225aa1cf0d8d7fdea82b92aff8
+    command: bash scripts/ops/firebase-functions-delete.sh dryrun 'pw-createPortalHandoff,pw-redeemPortalHandoff' 'us-central1' 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-033/dry-run-2026-09-24T21-49-16-625Z.log
+    log_sha256: a8720d4875dbfc6d6c16161b59e15fb3838837da8d678a32c01421b2da93b8df
+    lines: 175
+  - step: gates
+    at: 2026-09-24T21:49:34.378Z
+    head_sha: e03c6a75d36726225aa1cf0d8d7fdea82b92aff8
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T21:49:34.384Z
+    head_sha: e03c6a75d36726225aa1cf0d8d7fdea82b92aff8
+    command: bash scripts/ops/firebase-functions-delete.sh apply 'pw-createPortalHandoff,pw-redeemPortalHandoff' 'us-central1' 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-033/apply-2026-09-24T21-49-34-384Z.log
+    log_sha256: f43b266e03d79eff8adb5d46837e7f92905c8ecae1d8590b2d25ebbadf2b4494
+    lines: 181
+  - step: gates
+    at: 2026-09-24T21:49:43.569Z
+    head_sha: e03c6a75d36726225aa1cf0d8d7fdea82b92aff8
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,46 @@
+id: OP-034
+title: Recreate the Pit Wall handoff callables as gen-2 so the portal can mint a sign-in token (follows OP-033)
+kind: functions-deploy
+status: applied
+params:
+  only: functions:pw.createPortalHandoff,functions:pw.redeemPortalHandoff
+created_at: 2026-09-24T21:46:44.895Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-24T21:46:45.096Z
+    head_sha: 44537828e71a5c9665dae1c367c7878d7d38ffbe
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-034/dry-run-2026-09-24T21-46-45-096Z.log
+    log_sha256: 2f33cf384379f204f87367d5c1d9f61bf6274fcf2a1ad6b0dd4d271f650043a4
+    lines: 50
+  - step: dry-run
+    at: 2026-09-24T21:49:18.667Z
+    head_sha: e03c6a75d36726225aa1cf0d8d7fdea82b92aff8
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-034/dry-run-2026-09-24T21-49-18-667Z.log
+    log_sha256: 2f33cf384379f204f87367d5c1d9f61bf6274fcf2a1ad6b0dd4d271f650043a4
+    lines: 50
+  - step: gates
+    at: 2026-09-24T21:49:57.797Z
+    head_sha: e03c6a75d36726225aa1cf0d8d7fdea82b92aff8
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T21:49:57.802Z
+    head_sha: e03c6a75d36726225aa1cf0d8d7fdea82b92aff8
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:pw.createPortalHandoff,functions:pw.redeemPortalHandoff' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-034/apply-2026-09-24T21-49-57-802Z.log
+    log_sha256: 579e8a6f8a5f7b6519349b76182db606013dface87f92ccf45604b05c9a84fd6
+    lines: 37
+  - step: gates
+    at: 2026-09-24T21:51:28.187Z
+    head_sha: e03c6a75d36726225aa1cf0d8d7fdea82b92aff8
+    exit: 0
+    gates:
+      G15: skip

@@ -7,3 +7,13 @@ waivers:
     by: nathan
     date: 2026-09-18
     expires: 2026-10-31
+  - gate: G14
+    finding: Destructive operation OP-033
+    reason: 1st to 2nd Gen migration of the same two function names, which firebase
+      refuses in place. pw-createPortalHandoff and pw-redeemPortalHandoff hold
+      no data and are already non-functional in production (the gen-1 runtime
+      service account cannot createCustomToken, so redeem returns INTERNAL).
+      OP-034 is dry-run clean and recreates both at gen-2 immediately after.
+      Owner approved on 2026-09-24.
+    by: nathan
+    date: 2026-09-24
