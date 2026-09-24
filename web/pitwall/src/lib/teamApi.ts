@@ -53,6 +53,11 @@ export async function executePlan(teamId: string, plan: Plan, ace: string | null
   }
   if (ace !== null) {
     tick('ace');
+    // The Ace is the one field the app itself writes directly: the rules let an owner set
+    // aceDriverId and deny every field that carries money or points, and scoring re-checks the
+    // price cap when it counts the weekend, so a forged Ace earns nothing. There is no
+    // setAceSecure callable to route through.
+    
     const { m, db } = await firestore();
     await m.updateDoc(m.doc(db, 'fantasyTeams', teamId), { aceDriverId: ace || null, updatedAt: m.serverTimestamp() });
     done++;

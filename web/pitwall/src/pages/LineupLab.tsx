@@ -8,7 +8,7 @@ import { Arrow, AsTable, FitCell, Pill, TeamBar, Tile, Tr } from '../ui/bits';
 import { Compare } from '../ui/Compare';
 
 export function LineupLab() {
-  const { payload: p, ui, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving } = useStore();
+  const { payload: p, ui, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
   const [confirming, setConfirming] = useState(false);
   // With a real team the roster, bank and lock come from the server's documents; projections stay example data.
   const plan = real ? planSave(real.team, ui.lineup, real.market, CONTRACT_LENGTH, real.completedRaces) : null;
@@ -42,7 +42,16 @@ export function LineupLab() {
       <div className="c6" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <section className="tile open">
           <div className="th">
-            <span className="lbl">Lineup · {real ? real.team.name : 'example'} · {real?.team.isLocked ? <span className="red">locked this weekend</span> : dirty ? <span className="red">unsaved changes</span> : 'saved'}</span>
+            <span className="lbl">
+              {real && real.teams.length > 1 ? (
+                <span className="srow">Lineup ·
+                  {real.teams.map((t) => (
+                    <button key={t.id} type="button" className="chip" aria-pressed={t.id === real.team.id} disabled={!!saving} onClick={() => selectTeam(t.id)}>{t.name}</button>
+                  ))}
+                </span>
+              ) : <>Lineup · {real ? real.team.name : 'example'}</>}
+              {' · '}{real?.team.isLocked ? <span className="red">locked this weekend</span> : dirty ? <span className="red">unsaved changes</span> : 'saved'}
+            </span>
             <span className="mut">Tap a tile to see swaps</span>
           </div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-end' }}>

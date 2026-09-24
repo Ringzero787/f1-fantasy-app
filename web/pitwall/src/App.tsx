@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import type { Lineup } from './data/types';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { examplePayload, EXAMPLE_LINEUP } from './data/example';
@@ -25,7 +25,7 @@ import { CompareTray, SlideOver } from './ui/SlideOver';
 
 const PAGE: Record<PageName, () => ReactElement> = { BRIEFING: Briefing, BOARD: Board, CIRCUIT: Circuit, 'PACE LAB': PaceLab, MARKET: Market, 'LINEUP LAB': LineupLab, SEASON: Season, WIRE: Wire };
 
-function Portal({ account, real, reloadReal, onSignOut }: { account: Account | null; real: RealContext | null; reloadReal?: () => Promise<RealContext | null>; onSignOut?: () => void }) {
+function Portal({ account, real, reloadReal, selectTeam, onSignOut }: { account: Account | null; real: RealContext | null; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; onSignOut?: () => void }) {
   const [page, go] = usePage();
   const payload = useMemo(() => examplePayload(), []);
   const Page = PAGE[page];
@@ -49,7 +49,7 @@ function Portal({ account, real, reloadReal, onSignOut }: { account: Account | n
     return after ? teamLineup(after.team) : target;
   } : undefined;
   return (
-    <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} saver={saver} go={go}>
+    <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} selectTeam={selectTeam} saver={saver} go={go}>
       <Wrap>
         <ContextBar page={page} account={account} onSignOut={onSignOut} />
         <main id="main"><Page /></main>
@@ -92,6 +92,7 @@ export function App() {
   const [session, setSession] = useState<Session>({ state: 'loading' });
   const [account, setAccount] = useState<Account>(EMPTY_ACCOUNT);
   const [real, setReal] = useState<RealContext | null>(null);
+  const teamIdRef = useRef<string | null>(null);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
@@ -113,12 +114,19 @@ export function App() {
     if (!uid) return null;
     try {
       const [teams, market] = await Promise.all([loadTeams(uid), loadMarket()]);
-      const team = teams[0];
-      const next = team ? { team, market, completedRaces: market.completedRaces } : null;
+      if (teams.length === 0) { setReal(null); return null; }
+      // Keep the chosen team across a reload; fall back to the first when it is gone.
+      const next: RealContext = { team: teams.find((t) => t.id === teamIdRef.current) ?? teams[0], teams, market, completedRaces: market.completedRaces };
+      teamIdRef.current = next.team.id;
       setReal(next);
       return next;
     } catch { return null; }
   }, [uid]);
+
+  const selectTeam = useCallback((id: string) => {
+    teamIdRef.current = id;
+    setReal((cur) => (cur ? { ...cur, team: cur.teams.find((t) => t.id === id) ?? cur.team } : cur));
+  }, []);
 
   useEffect(() => {
     if (!uid) { setReal(null); return; }
@@ -139,7 +147,7 @@ export function App() {
     );
   }
   if (session.state === 'out') return <SignIn notice={notice} />;
-  return <Portal account={account} real={real} reloadReal={reloadReal} onSignOut={() => void signOut(auth())} />;
+  return <Portal account={account} real={real} reloadReal={reloadReal} selectTeam={selectTeam} onSignOut={() => void signOut(auth())} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';

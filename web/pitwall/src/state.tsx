@@ -31,7 +31,7 @@ export interface UIState {
 }
 
 /** The signed-in user's real team and the live market (null in preview / when no team exists yet). */
-export interface RealContext { team: RealTeam; market: MarketPrices; completedRaces: number }
+export interface RealContext { team: RealTeam; /** every team this user owns, for the switcher */ teams: RealTeam[]; market: MarketPrices; completedRaces: number }
 
 interface Store {
   payload: Payload;
@@ -51,6 +51,8 @@ interface Store {
   reset: () => void;
   togglePin: (id: string) => void;
   toast: (text: string) => void;
+  /** switch to another of the user's teams */
+  selectTeam: (id: string) => void;
   dirty: boolean;
   go: (p: PageName) => void;
 }
@@ -62,7 +64,7 @@ export const useStore = (): Store => {
   return s;
 };
 
-export function StoreProvider({ payload, lineup, real, saver, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; saver?: (lineup: Lineup, onStatus: (s: string | null) => void) => Promise<Lineup>; go: (p: PageName) => void; children: ReactNode }) {
+export function StoreProvider({ payload, lineup, real, selectTeam, saver, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void) => Promise<Lineup>; go: (p: PageName) => void; children: ReactNode }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [ui, setUi] = useState<UIState>(() => ({
     boardTab: 'PROJECTIONS', preset: 'VALUE', sort: 'med', paceTab: 'LONG RUN', mktTab: 'PRICE MODEL', lowerTab: 'RIVALS',
@@ -104,7 +106,8 @@ export function StoreProvider({ payload, lineup, real, saver, go, children }: { 
       return { tray: [...u.tray, id] };
     }),
     toast,
-  }), [payload, ui, go, patch, toast, real, saver, saving]);
+    selectTeam: (id: string) => { selectTeam?.(id); patch(() => ({ slot: null })); },
+  }), [payload, ui, go, patch, toast, real, saver, saving, selectTeam]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

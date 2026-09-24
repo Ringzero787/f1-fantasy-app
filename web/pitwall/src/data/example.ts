@@ -47,10 +47,10 @@ export function examplePayload(): Payload {
     { kind: 'CONTRACT', entity: 'colapinto', tone: '•', text: 'Alpine seat for 2027 still open; no change to this weekend.', sources: '4 sources', detail: '4 outlets' },
   ];
   const rivals: Rival[] = [
-    { name: 'Apex Hunters', rank: 1, gap: 33, lineup: ['verstappen', 'russell', 'hadjar', 'albon', 'lawson'], bank: 120, activity: 0.85 },
-    { name: 'Box Box Baby', rank: 3, gap: -21, lineup: ['norris', 'leclerc', 'hadjar', 'hulkenberg', 'colapinto'], bank: 60, activity: 0.7 },
-    { name: 'Marbles FC', rank: 4, gap: -64, lineup: ['verstappen', 'leclerc', 'gasly', 'ocon', 'bottas'], bank: 90, activity: 0.3 },
-    { name: 'Lift and Coast', rank: 5, gap: -102, lineup: ['piastri', 'hamilton', 'alonso', 'bearman', 'lindblad'], bank: 150, activity: 0.1 },
+    { name: 'Turn One', rank: 1, gap: 33, lineup: ['verstappen', 'russell', 'hadjar', 'albon', 'lawson'], bank: 120, activity: 0.85 },
+    { name: 'Gravel Trap', rank: 3, gap: -21, lineup: ['norris', 'leclerc', 'hadjar', 'hulkenberg', 'colapinto'], bank: 60, activity: 0.7 },
+    { name: 'Backmarkers', rank: 4, gap: -64, lineup: ['verstappen', 'leclerc', 'gasly', 'ocon', 'bottas'], bank: 90, activity: 0.3 },
+    { name: 'Slipstream', rank: 5, gap: -102, lineup: ['piastri', 'hamilton', 'alonso', 'bearman', 'lindblad'], bank: 150, activity: 0.1 },
   ];
   return {
     example: true, asOf: '19 Sep 06:00 UTC',
