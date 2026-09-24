@@ -93,15 +93,20 @@ export function simulate(form: Form, ctx: SimContext, opts: SimOptions = DEFAULT
     const sorted = [...arr].sort((a, b) => a - b);
     const fin = [...(finishedSamples.get(id) ?? [])].sort((a, b) => a - b);
     const band = fin.length >= 20 ? fin : sorted;
+    const median = quantile(sorted, 0.5);
     const moves = priceMoves.get(id) ?? [];
     const t = tally.get(id);
     const n = opts.runs;
     return {
       entityId: id, entityType: carOf.has(id) ? 'constructor' as const : 'driver' as const,
-      floor: quantile(band, 0.15), median: quantile(sorted, 0.5), ceiling: quantile(band, 0.85),
+      // The band describes a finishing weekend; the median is the central outcome over every run, so it
+      // carries retirement risk (what a pick is really worth). For a pick more likely than not to retire the
+      // median falls below the finishing floor, so the range is clamped to contain it and the floor itself
+      // becomes the signal.
+      floor: Math.min(quantile(band, 0.15), median), median, ceiling: Math.max(quantile(band, 0.85), median),
       mean: arr.reduce((s, v) => s + v, 0) / n,
       pWin: t ? t.win / n : 0, pPodium: t ? t.podium / n : 0, pTop10: t ? t.top10 / n : 0, pDnf: t ? t.dnf / n : 0,
-      aceMedian: quantile(sorted, 0.5) * 2,
+      aceMedian: median * 2,
       pRise: moves.filter((m) => m > 0).length / n, pFall: moves.filter((m) => m < 0).length / n,
       expectedPriceChange: moves.reduce((s, v) => s + v, 0) / n,
     };

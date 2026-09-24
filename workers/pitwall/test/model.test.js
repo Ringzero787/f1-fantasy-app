@@ -74,7 +74,7 @@ test('form follows results, shrinks a newcomer to the car, and the simulation is
   assert.deepEqual(p1, p2);
   const by = Object.fromEntries(p1.map((p) => [p.entityId, p]));
   assert.ok(by.a1.median > by.b2.median && by.a1.pWin > by.b2.pWin);
-  for (const p of p1) { assert.ok(p.floor <= p.ceiling); assert.ok(p.pRise + p.pFall <= 1.0000001); assert.ok(p.pDnf >= 0 && p.pDnf <= 1); }
+  for (const p of p1) { assert.ok(p.floor <= p.median && p.median <= p.ceiling); assert.ok(p.pRise + p.pFall <= 1.0000001); assert.ok(p.pDnf >= 0 && p.pDnf <= 1); }
   // the band is taken over finishing runs, so a driver who retires often still has a floor above the DNF penalty
   assert.ok(by.b2.floor > -8);
   assert.equal(by.car_a.entityType, 'constructor');
@@ -92,4 +92,34 @@ test('backtest on a perfectly regular season: tiny errors, full scoring parity, 
   assert.ok(Number.isFinite(rep.improvement.mean) && rep.improvement.lo <= rep.improvement.hi);
   assert.equal(typeof rep.verdict.ships, 'boolean');
   assert.equal(rep.verdict.ships, rep.verdict.beatsBaseline && rep.verdict.bandInTarget && rep.verdict.priceOk);
+});
+
+const { buildPayload, shortTeamName } = require(D + 'payload.js');
+test('payload builder writes the portal shape, a free look with only top-10 medians, and short team names', () => {
+  const proj = [
+    { entityId: 'a1', entityType: 'driver', floor: 20, median: 40.4, ceiling: 55, mean: 41, pWin: 0.3, pPodium: 0.6, pTop10: 0.95, pDnf: 0.08, aceMedian: 80.8, pRise: 0.6, pFall: 0.2, expectedPriceChange: 4.2 },
+    { entityId: 'b1', entityType: 'driver', floor: 5, median: 12, ceiling: 20, mean: 12, pWin: 0, pPodium: 0.02, pTop10: 0.5, pDnf: 0.2, aceMedian: 24, pRise: 0.1, pFall: 0.6, expectedPriceChange: -6 },
+    { entityId: 'car_a', entityType: 'constructor', floor: 30, median: 60, ceiling: 80, mean: 60, pWin: 0, pPodium: 0, pTop10: 0, pDnf: 0, aceMedian: 120, pRise: 0.5, pFall: 0.3, expectedPriceChange: 1 },
+  ];
+  const { full, free } = buildPayload({
+    round: { season: '2026', round: 17, raceId: 'r17', name: 'Harbour Grand Prix', city: 'Harbour', circuit: 'Harbour Street', firstSession: new Date('2026-09-25T09:00:00Z'), lockAt: new Date('2026-09-26T08:30:00Z'), hasSprint: false },
+    nextRounds: [{ round: 17, label: 'HAR', hasSprint: false }, { round: 18, label: 'ISL', hasSprint: true }],
+    drivers: [{ id: 'a1', number: 7, name: 'Avery Stone', constructorId: 'car_a', price: 300, isActive: true }, { id: 'b1', number: 8, name: 'Blake Reed', constructorId: 'car_a', price: 90, isActive: true }, { id: 'gone', number: 9, name: 'Gone Away', constructorId: 'car_a', price: 50, isActive: false }],
+    constructors: [{ id: 'car_a', name: 'Oracle Car A Racing', price: 500, colors: { primary: '#123456' } }],
+    projections: proj, form: new Map([['a1', [20, 50, 41]]]), ownership: new Map([['a1', 62.4]]), priceImplied: (price) => price / 10, asOf: new Date('2026-09-24T06:00:00Z'), budget: 1000,
+  });
+  assert.equal(full.example, false);
+  assert.deepEqual(full.rounds, ['HAR', 'ISL']);
+  assert.equal(full.drivers.length, 2); // inactive driver dropped
+  const a = full.drivers[0];
+  assert.deepEqual([a.id, a.name, a.med, a.floor, a.ceil, a.dnf, a.own, a.pm, a.cons, a.dprice, a.win, a.val], ['a1', 'Stone', 40, 20, 55, 8, 62, 10, 67, 4, 30, 13.3]);
+  assert.equal(full.teams.car_a.name, 'Car A');
+  assert.equal(full.teams.car_a.color, '#123456');
+  assert.equal(full.round.locksIn, '2026-09-26T08:30:00.000Z');
+  assert.equal(free.drivers[0].floor, 0);
+  assert.equal(free.drivers[0].med, 40);
+  assert.equal(free.drivers[0].form.length, 0);
+  assert.equal(shortTeamName('Mercedes-AMG Petronas F1 Team'), 'Mercedes');
+  assert.equal(shortTeamName('Scuderia Ferrari'), 'Ferrari');
+  assert.equal(shortTeamName('Williams Racing'), 'Williams');
 });
