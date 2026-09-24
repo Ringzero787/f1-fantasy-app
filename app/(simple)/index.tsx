@@ -10,6 +10,7 @@ import { useSimpleTeam } from '../../src/simple/hooks/useSimpleTeam';
 import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
 import { useAdminStore } from '../../src/store/admin.store';
 import { useRaceScoresStore } from '../../src/store/raceScores.store';
+import { usePitWallStore } from '../../src/store/pitwall.store';
 
 type Tab = 'team' | 'league';
 const FADE_MS = 150;
@@ -24,11 +25,14 @@ export default function SimpleMainScreen() {
   const syncCompletedRaces = useAdminStore((s) => s.syncCompletedRaces);
   const loadMarketCache = useAdminStore((s) => s.loadMarketCache);
   const fetchLastRaceScores = useRaceScoresStore((s) => s.fetchLastRaceScores);
+  const refreshPitWall = usePitWallStore((s) => s.refresh);
 
   useEffect(() => {
     loadUserTeams();
     syncCompletedRaces();
     loadMarketCache();
+    // The pass claim and, for holders, this round's projections.
+    refreshPitWall();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
   }, []);
 
@@ -41,9 +45,10 @@ export default function SimpleMainScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadUserTeams(), syncCompletedRaces(), loadMarketCache(), fetchLastRaceScores(true)]);
+    // A pull to refresh forces the auth token, which is what picks up a pass bought on the web.
+    await Promise.all([loadUserTeams(), syncCompletedRaces(), loadMarketCache(), fetchLastRaceScores(true), refreshPitWall(true)]);
     setRefreshing(false);
-  }, [loadUserTeams, syncCompletedRaces, loadMarketCache, fetchLastRaceScores]);
+  }, [loadUserTeams, syncCompletedRaces, loadMarketCache, fetchLastRaceScores, refreshPitWall]);
 
   // Both panels stay mounted; switching is a 150 ms cross-fade.
   const teamOpacity = useRef(new Animated.Value(tab === 'team' ? 1 : 0)).current;

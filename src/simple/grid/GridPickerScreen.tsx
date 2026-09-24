@@ -12,6 +12,8 @@ import { useAdminStore } from '../../store/admin.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useRaceScoresStore } from '../../store/raceScores.store';
 import { usePrefsStore } from '../../store/prefs.store';
+import { usePitWallStore } from '../../store/pitwall.store';
+import { marksFor } from '../../pitwall/recommend';
 import { teamAccent } from '../theme/simpleTheme';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
@@ -26,7 +28,7 @@ import {
 import type { Driver, Constructor } from '../../types';
 
 type Tab = 'drivers' | 'constructors';
-type Sort = 'pts' | 'price';
+type Sort = 'pts' | 'price' | 'proj';
 
 interface Row {
   kind: Kind;
@@ -40,6 +42,10 @@ interface Row {
   fullName: string;
   selected: boolean;
   blocked: boolean;     // 35% opacity, no tap
+  /** Pit Wall projection for the coming round; null without a pass or before it publishes */
+  proj: number | null;
+  /** the one row Pit Wall would take, and the best value when that is a different row */
+  mark: 'pick' | 'value' | null;
 }
 
 const CONTRACTS = [1, 2, 3, 4, 5, 6];
@@ -58,6 +64,8 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const { data: allConstructors } = useConstructors();
   const lockoutInfo = useLockoutStatus();
   const races = useRemoteConfigStore((s) => s.races);
+  const pwPass = usePitWallStore((st) => st.pass);
+  const pwProjections = usePitWallStore((st) => st.projections);
   const lastRaceScores = useRaceScoresStore((s) => s.lastRaceScores);
   const prevRaceScores = useRaceScoresStore((s) => s.prevRaceScores);
   const completedRaceCount = useAdminStore((s) => s.getCompletedRaceCount());
@@ -104,6 +112,9 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     return { drivers, constructors };
   }, [allDrivers, allConstructors]);
 
+  // Projections are a Pit Wall Pass feature; the Firestore rules refuse the read without it.
+  const proj = pwPass.active ? pwProjections : null;
+
   const plan = useMemo<LineupPlan | null>(() => {
     if (!current || !pending) return null;
     return planLineup(current, pending, market, { teamSize: TEAM_SIZE, defaultContract: PRICING_CONFIG.CONTRACT_LENGTH });
@@ -125,6 +136,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
             sub: constructorShortName(d.constructorId, d.constructorName), constructorId: d.constructorId,
             pts: d.currentSeasonPoints ?? d.fantasyPoints ?? 0, price: d.price, selected,
             blocked: locked || (!selected && (driversFull || lockedOut || !affordable)),
+            proj: proj?.byId[d.id]?.med ?? null, mark: null,
           };
         })
       : (allConstructors ?? []).map((c: Constructor) => {
@@ -135,11 +147,19 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
             kind: 'constructor', id: c.id, num: c.shortName?.slice(0, 3).toUpperCase() ?? '', name: constructorShortName(c.id, c.name), fullName: c.name,
             sub: c.name, constructorId: c.id, pts: c.currentSeasonPoints ?? c.fantasyPoints ?? 0, price: c.price, selected,
             blocked: locked || (!selected && !affordable),
+            proj: proj?.byId[c.id]?.med ?? null, mark: null,
           };
         });
-    list.sort((a, b) => (sort === 'pts' ? b.pts - a.pts : b.price - a.price));
+    // Pit Wall marks the row it would take and, when different, the best points per dollar. The
+    // picker has already decided what the team may take, so a mark can never suggest a blocked move.
+    if (proj) {
+      const marks = marksFor(list, proj.byId);
+      for (const row of list) row.mark = marks[row.id] ?? null;
+    }
+    const by: Sort = sort === 'proj' && !proj ? 'pts' : sort;
+    list.sort((a, b) => (by === 'proj' ? (b.proj ?? -1) - (a.proj ?? -1) : by === 'pts' ? b.pts - a.pts : b.price - a.price));
     return list;
-  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, locked, driversFull, ctorSwapBudget, sort]);
+  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, locked, driversFull, ctorSwapBudget, sort, proj]);
 
   const onRowPress = useCallback((row: Row) => {
     if (!pending || !current || row.blocked) return;
@@ -239,7 +259,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         disabled={item.blocked}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: item.selected, disabled: item.blocked }}
-        accessibilityLabel={`${item.fullName}, ${item.pts} points, $${item.price}`}
+        accessibilityLabel={`${item.fullName}, ${item.pts} points, $${item.price}${item.proj !== null ? `, Pit Wall projection ${item.proj}` : ''}${item.mark === 'pick' ? ', Pit Wall pick' : item.mark === 'value' ? ', Pit Wall best value' : ''}`}
         style={({ pressed }) => ({
           flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: scaled(14),
           borderBottomWidth: 1, borderBottomColor: colors.borderLight,
@@ -254,10 +274,16 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <ColorBar color={teamAccent(item.constructorId)} width={scaled(20)} />
             <Text numberOfLines={1} style={[mono(10), { color: colors.text.muted, textTransform: 'uppercase', flexShrink: 1 }]}>{item.sub}</Text>
+            {item.mark ? (
+              <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: item.mark === 'pick' ? colors.primary : 'transparent', borderWidth: 1, borderColor: item.mark === 'pick' ? colors.primary : colors.borderStrong }}>
+                <Text style={[mono(9), { color: item.mark === 'pick' ? colors.text.inverse : colors.text.muted }]}>{item.mark === 'pick' ? 'PIT WALL PICK' : 'BEST VALUE'}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
         <View style={{ alignItems: 'flex-end', gap: 4 }}>
           <Text style={mono(15)}>{item.pts}</Text>
+          {item.proj !== null ? <Text style={[mono(10), { color: colors.text.muted }]}>PROJ {item.proj}</Text> : null}
           {compact
             ? <Text style={[mono(11), { color: item.selected ? colors.text.primary : colors.text.muted }]}>${item.price}</Text>
             : <Text style={[mono(10), { color: trendColor }]}>{t.glyph} {t.last ?? '–'}</Text>}
@@ -312,8 +338,10 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           onChange={setSort}
           size={10}
           padY={12}
-          style={compact ? { alignSelf: 'flex-end', width: 140 } : { width: scaled(92) }}
-          segments={[{ key: 'pts', label: 'PTS' }, { key: 'price', label: '$' }]}
+          style={compact ? { alignSelf: 'flex-end', width: proj ? 190 : 140 } : { width: scaled(proj ? 130 : 92) }}
+          segments={proj
+            ? [{ key: 'pts', label: 'PTS' }, { key: 'proj', label: 'PROJ' }, { key: 'price', label: '$' }]
+            : [{ key: 'pts', label: 'PTS' }, { key: 'price', label: '$' }]}
         />
       </View>
 

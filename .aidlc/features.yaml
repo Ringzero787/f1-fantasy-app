@@ -1,4 +1,4 @@
-next_id: 77
+next_id: 78
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -843,3 +843,18 @@ features:
       - from
       - seed
       - data
+  - id: F-077
+    name: "UC: Pit Wall in the app — portal handoff, pass status and pass-only pick marks"
+    status: planned
+    spec: .aidlc/specs/F-077.md
+    created_at: 2026-09-24
+    keywords:
+      - wall
+      - portal
+      - handoff
+      - pass
+      - status
+      - pass
+      - only
+      - pick
+      - marks
