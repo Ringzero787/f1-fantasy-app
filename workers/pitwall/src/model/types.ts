@@ -34,6 +34,12 @@ export interface Projection {
   pWin: number; pPodium: number; pTop10: number; pDnf: number;
   /** points if this pick is the Ace (doubled) */
   aceMedian: number;
-  /** model probability the price rises / falls, and the expected change */
+  /** model probability the price rises / falls, and the simulation's expected change */
   pRise: number; pFall: number; expectedPriceChange: number;
+  /**
+   * The change the portal shows, blended with recent form. The rule keys off one race's position
+   * points, which are noisy; the blend is what the backtest measures, so this is the number a
+   * page may display. Filled in by the payload builder, which holds the history.
+   */
+  blendedPriceChange?: number;
 }

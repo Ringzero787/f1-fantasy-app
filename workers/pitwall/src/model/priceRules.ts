@@ -60,3 +60,12 @@ export function appliedPriceChange(pricingPoints: number, dnfPenalty: number, pr
   const next = Math.min(MAX_PRICE, Math.max(MIN_PRICE, price + performancePriceChange(pricingPoints, price) - dnfPenalty));
   return next - price;
 }
+
+/** Blend of the simulation's expected change and what the last three races' pricing points would produce. */
+export const DEFAULT_PRICE_BLEND = 0.5;
+export function blendPriceChange(simExpected: number, recentPricingPoints: number[], price: number, blend = DEFAULT_PRICE_BLEND): number {
+  if (recentPricingPoints.length === 0) return simExpected;
+  const mean = recentPricingPoints.slice(-3).reduce((s, v) => s + v, 0) / Math.min(3, recentPricingPoints.length);
+  const last3 = appliedPriceChange(mean, 0, price);
+  return (1 - blend) * simExpected + blend * last3;
+}

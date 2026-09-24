@@ -8,11 +8,15 @@
  *   pw_public/{season}_{round}  the free look: same shape, but only the top 10 medians, no floor/ceiling,
  *                               no price model, no rivals, headlines only
  */
+import { blendPriceChange } from './priceRules';
 import type { Projection } from './types';
 
 export interface DriverMeta { id: string; number: number; name: string; constructorId: string; price: number; isActive: boolean }
 export interface ConstructorMeta { id: string; name: string; price: number; colors?: { primary?: string } }
 export interface RoundMeta { season: string; round: number; raceId: string; name: string; city: string; circuit: string; firstSession: Date | null; lockAt: Date | null; hasSprint: boolean }
+
+/** Pricing points per past round per entity, so the price direction shown matches the backtest. */
+export type PricingHistory = Map<string, number[]>;
 
 export interface PayloadInputs {
   round: RoundMeta;
@@ -26,6 +30,8 @@ export interface PayloadInputs {
   ownership: Map<string, number>;
   /** the average of the last three rounds' points, for the "plus/minus vs price-implied" line */
   priceImplied: (price: number) => number;
+  /** pricing points per entity per past round; without it the simulation's raw expectation is used */
+  pricingHistory?: PricingHistory;
   asOf: Date;
   budget: number;
 }
@@ -47,7 +53,7 @@ export function buildPayload(i: PayloadInputs) {
       med, floor: p ? Math.round(p.floor) : 0, ceil: p ? Math.round(p.ceiling) : 0,
       form: hist, dnf: p ? Math.round(p.pDnf * 100) : 0, own: Math.round(i.ownership.get(d.id) ?? 0),
       pm: r1(med - implied), cons: hist.length ? Math.round((hits / hist.length) * 100) : 0,
-      dprice: p ? Math.round(p.expectedPriceChange) : 0,
+      dprice: p ? Math.round(blendPriceChange(p.expectedPriceChange, i.pricingHistory?.get(d.id) ?? [], d.price)) : 0,
       // circuit fit needs the characteristics table (F-070 "inputs that do not exist"); neutral until then
       fit: i.nextRounds.map(() => 3),
       win: p ? Math.round(p.pWin * 100) : 0, pod: p ? Math.round(p.pPodium * 100) : 0, t10: p ? Math.round(p.pTop10 * 100) : 0,

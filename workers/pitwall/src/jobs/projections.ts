@@ -10,6 +10,7 @@
  *   pw_projections/{season}_{round}_{sessionKey}  one snapshot per refresh, for the movement chart
  */
 import { assertAllowedInputs } from '../model/inputs';
+import { scoreWeekend } from '../model/scoreRace';
 import { buildPayload, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
 import { DEFAULT_SIM, simulate, type SimOptions } from '../model/simulate';
 import { estimateForm, type Entrant } from '../model/strength';
@@ -83,6 +84,18 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
     prices,
   }, { ...DEFAULT_SIM, ...opts.sim });
 
+  // Pricing points per entity per past race, re-scored with the real rule, so the price direction the
+  // portal shows is the blended one the backtest measured.
+  const pricingHistory = new Map<string, number[]>();
+  for (const race of history.races) {
+    const scored = scoreWeekend(race.raceResults, race.qualifyingResults, race.sprintResults, { totalLaps: race.totalLaps, round: race.round });
+    for (const [id, pts] of scored.pricingPoints) {
+      const arr = pricingHistory.get(id) ?? [];
+      arr.push(pts);
+      pricingHistory.set(id, arr);
+    }
+  }
+
   // per-driver points per completed round, oldest first
   const byEntity = new Map<string, number[]>();
   const order = new Map(history.races.map((r, i) => [r.id, i]));
@@ -98,7 +111,7 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
   const nextRounds = upcoming.slice(0, 6).map((r: Record<string, any>) => ({ round: num(r.round), label: String(r.circuitId ?? r.city ?? r.id).slice(0, 3).toUpperCase(), hasSprint: r.hasSprint === true }));
   // price-implied points: the points a pick must score to hold its price under the real rule
   const priceImplied = (price: number) => price / 11;
-  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, asOf: opts.now ?? new Date(), budget: 1000 });
+  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000 });
 
   const id = `${opts.season}_${round}`;
   const wrote: string[] = [];

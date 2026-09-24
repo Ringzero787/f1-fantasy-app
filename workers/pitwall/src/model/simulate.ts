@@ -43,7 +43,7 @@ export function simulate(form: Form, ctx: SimContext, opts: SimOptions = DEFAULT
   const priceMoves = new Map<string, number[]>();
   const tally = new Map<string, { win: number; podium: number; top10: number; dnf: number }>();
   for (const id of [...drivers.map((d) => d.driverId), ...cars]) { samples.set(id, []); finishedSamples.set(id, []); priceMoves.set(id, []); }
-  for (const d of drivers) tally.set(d.driverId, { win: 0, podium: 0, top10: 0, dnf: 0 });
+  for (const id of [...drivers.map((d) => d.driverId), ...cars]) tally.set(id, { win: 0, podium: 0, top10: 0, dnf: 0 });
 
   const carOfId = new Set(cars);
   for (let run = 0; run < opts.runs; run++) {
@@ -86,6 +86,15 @@ export function simulate(form: Form, ctx: SimContext, opts: SimOptions = DEFAULT
     }
     finishers.forEach((d, i) => { const t = tally.get(d.driverId)!; if (i === 0) t.win++; if (i < 3) t.podium++; if (i < 10) t.top10++; });
     for (const id of retired) tally.get(id)!.dnf++;
+    // A constructor's chance is "at least one of its cars"; it retires only when both do.
+    for (const car of cars) {
+      const t = tally.get(car)!;
+      const mine = finishers.map((d, i) => ({ d, i })).filter((x) => x.d.constructorId === car);
+      if (mine.some((x) => x.i === 0)) t.win++;
+      if (mine.some((x) => x.i < 3)) t.podium++;
+      if (mine.some((x) => x.i < 10)) t.top10++;
+      if (mine.length === 0 && drivers.some((d) => d.constructorId === car)) t.dnf++;
+    }
   }
 
   const carOf = carOfId;

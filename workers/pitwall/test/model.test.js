@@ -102,7 +102,7 @@ test('payload builder writes the portal shape, a free look with only top-10 medi
     { entityId: 'car_a', entityType: 'constructor', floor: 30, median: 60, ceiling: 80, mean: 60, pWin: 0, pPodium: 0, pTop10: 0, pDnf: 0, aceMedian: 120, pRise: 0.5, pFall: 0.3, expectedPriceChange: 1 },
   ];
   const { full, free } = buildPayload({
-    round: { season: '2026', round: 17, raceId: 'r17', name: 'Harbour Grand Prix', city: 'Harbour', circuit: 'Harbour Street', firstSession: new Date('2026-09-25T09:00:00Z'), lockAt: new Date('2026-09-26T08:30:00Z'), hasSprint: false },
+    round: { season: '2026', round: 17, raceId: 'r17', name: 'Harbour Street Race', city: 'Harbour', circuit: 'Harbour Street', firstSession: new Date('2026-09-25T09:00:00Z'), lockAt: new Date('2026-09-26T08:30:00Z'), hasSprint: false },
     nextRounds: [{ round: 17, label: 'HAR', hasSprint: false }, { round: 18, label: 'ISL', hasSprint: true }],
     drivers: [{ id: 'a1', number: 7, name: 'Avery Stone', constructorId: 'car_a', price: 300, isActive: true }, { id: 'b1', number: 8, name: 'Blake Reed', constructorId: 'car_a', price: 90, isActive: true }, { id: 'gone', number: 9, name: 'Gone Away', constructorId: 'car_a', price: 50, isActive: false }],
     constructors: [{ id: 'car_a', name: 'Oracle Car A Racing', price: 500, colors: { primary: '#123456' } }],
@@ -122,4 +122,39 @@ test('payload builder writes the portal shape, a free look with only top-10 medi
   assert.equal(shortTeamName('Mercedes-AMG Petronas F1 Team'), 'Mercedes');
   assert.equal(shortTeamName('Scuderia Ferrari'), 'Ferrari');
   assert.equal(shortTeamName('Williams Racing'), 'Williams');
+});
+
+test('a constructor gets its cars\' chances, not zero, and it only retires when both cars do', () => {
+  const form = estimateForm(season(9), entrants);
+  const p = simulate(form, { totalLaps: 50, round: 20, hasSprint: false, prices: new Map() }, { runs: 1500, seed: 11, carSd: 1.5, qualiSd: 2.2, chaosRate: 0.3, chaosFactor: 1.25, gridWeight: 0.25 });
+  const by = Object.fromEntries(p.map((x) => [x.entityId, x]));
+  // car_a runs a1 (always first) and a2, so it wins nearly every race; car_b never does
+  assert.ok(by.car_a.pWin > 0.5, `car_a win ${by.car_a.pWin}`);
+  assert.ok(by.car_a.pPodium >= by.car_a.pWin);
+  assert.ok(by.car_b.pWin < by.car_a.pWin);
+  // "at least one car" is never less likely than either car alone
+  assert.ok(by.car_a.pPodium >= by.a1.pPodium - 1e-9);
+  // both cars must retire for the constructor to, so its risk is below each driver's
+  assert.ok(by.car_b.pDnf <= by.b2.pDnf + 1e-9);
+});
+
+test('the price direction the payload shows is the blended one the backtest measures', () => {
+  const { blendPriceChange, appliedPriceChange } = require(D + 'priceRules.js');
+  // with no history the simulation's own expectation stands
+  assert.equal(blendPriceChange(8, [], 300), 8);
+  // with history it is half the simulation and half what the last three races' pricing points would do
+  const hist = [40, 44, 48];
+  const last3 = appliedPriceChange((40 + 44 + 48) / 3, 0, 300);
+  assert.equal(blendPriceChange(8, hist, 300), 0.5 * 8 + 0.5 * last3);
+  // and the payload carries that number, not the raw expectation
+  const { buildPayload } = require(D + 'payload.js');
+  const proj = [{ entityId: 'a1', entityType: 'driver', floor: 1, median: 10, ceiling: 20, mean: 10, pWin: 0, pPodium: 0, pTop10: 0, pDnf: 0, aceMedian: 20, pRise: 0, pFall: 0, expectedPriceChange: 8 }];
+  const { full } = buildPayload({
+    round: { season: '2026', round: 1, raceId: 'r', name: 'Harbour Street Race', city: 'Harbour', circuit: 'C', firstSession: null, lockAt: null, hasSprint: false },
+    nextRounds: [{ round: 1, label: 'HAR', hasSprint: false }],
+    drivers: [{ id: 'a1', number: 1, name: 'Avery Stone', constructorId: 'car_a', price: 300, isActive: true }],
+    constructors: [{ id: 'car_a', name: 'Car A', price: 400 }], projections: proj, form: new Map(), ownership: new Map(),
+    pricingHistory: new Map([['a1', hist]]), priceImplied: (x) => x / 11, asOf: new Date(0), budget: 1000,
+  });
+  assert.equal(full.drivers[0].dprice, Math.round(0.5 * 8 + 0.5 * last3));
 });

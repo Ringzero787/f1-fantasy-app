@@ -5,7 +5,7 @@
  * it does not ship (F-070).
  */
 import { quantile, rng } from './rng';
-import { appliedPriceChange } from './priceRules';
+import { appliedPriceChange, blendPriceChange, DEFAULT_PRICE_BLEND } from './priceRules';
 import { scoreWeekend } from './scoreRace';
 import { DEFAULT_SIM, simulate, type SimOptions } from './simulate';
 import { DEFAULT_FORM, estimateForm, type FormOptions } from './strength';
@@ -48,11 +48,9 @@ function metrics(rows: Row[]): Metrics {
   };
 }
 
-/** Blend of the simulation's expected price change and the change the last-3 pricing average would produce (0 = simulation only, 1 = last-3 only). */
-export const DEFAULT_PRICE_BLEND = 0.5;
+/** The direction the portal shows: the shared blend, with a dead zone so a rounding-sized move reads as flat. */
 export function priceDirection(simExpected: number, pricingHist: number[], price: number, blend: number): number {
-  const last3 = pricingHist.length ? appliedPriceChange(mean(pricingHist.slice(-3)), 0, price) : simExpected;
-  const v = (1 - blend) * simExpected + blend * last3;
+  const v = blendPriceChange(simExpected, pricingHist, price, blend);
   return Math.abs(v) < 0.5 ? 0 : v;
 }
 
