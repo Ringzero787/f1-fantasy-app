@@ -61,17 +61,20 @@ function Past({ d }: { d: Entity }) {
 function Outlook({ d }: { d: Entity }) {
   const { payload: p, has } = useStore();
   const drv: Driver | null = isCtor(d) ? null : d;
+  // Only drivers carry a fit. The constructor stand-in below is example data, so it may only be
+  // shown where the rest of the page is example data too.
   const fit = drv ? drv.fit : [4, 3, 4, 2, 3, 5];
+  const showFit = has.fit && (drv !== null || has.mock);
   const news = p.news.filter((n) => n.entity === d.id || n.entity === d.team || n.entity === null);
   return (
     <>
-      {!has.fit ? <div><Lbl>Next rounds · circuit fit</Lbl><Empty>{NOT_PUBLISHED.fit}</Empty></div> : null}
-      {has.fit ? <div><Lbl>Next rounds · circuit fit</Lbl><div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>{fit.map((v, i) => (
+      {!showFit ? <div><Lbl>Next rounds · circuit fit</Lbl><Empty>{NOT_PUBLISHED.fit}</Empty></div> : null}
+      {showFit ? <div><Lbl>Next rounds · circuit fit</Lbl><div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>{fit.map((v, i) => (
         <span key={i} style={{ display: 'grid', gap: 4, justifyItems: 'center' }}><FitCell v={v} label={p.rounds[i]} /><span className="mut" style={{ fontSize: 9 }}>{p.rounds[i]}</span></span>
       ))}</div></div> : null}
       <div><div className="th"><Lbl>Outlook</Lbl><Pill>Estimate · written by AI</Pill></div>
-        <p className="est">{d.name} goes to {p.round.name} as {d.val > 12 ? 'one of the best values on the board' : 'a premium pick priced near expectation'}{has.fit ? `. Long straights ${fit[0] >= 4 ? 'suit the car' : 'expose a straight-line deficit'}` : ''}{drv ? `, and a ${drv.dnf}% retirement risk keeps the floor at ${d.floor}` : ''}. {drv && drv.ptsRise > 0 ? `The price rises above ${drv.ptsRise} points and falls hard below ${drv.ptsHold}; the model puts the rise at ${drv.pRise}%.` : ''}{has.fit ? ` The next two rounds are ${fit[1] >= 3 ? 'friendly' : 'harder'}.` : ''}</p>
-        <span className="mut">Built only from: the projection model{has.fit ? ', circuit fit' : ''}{drv && drv.ptsRise > 0 ? ', the price model' : ''}, {news.length} tagged stories.</span></div>
+        <p className="est">{d.name} goes to {p.round.name} as {d.val > 12 ? 'one of the best values on the board' : 'a premium pick priced near expectation'}{showFit ? `. Long straights ${fit[0] >= 4 ? 'suit the car' : 'expose a straight-line deficit'}` : ''}{drv ? `, and a ${drv.dnf}% retirement risk keeps the floor at ${d.floor}` : ''}. {drv && drv.ptsRise > 0 ? `The price rises above ${drv.ptsRise} points and falls hard below ${drv.ptsHold}; the model puts the rise at ${drv.pRise}%.` : ''}{showFit ? ` The next two rounds are ${fit[1] >= 3 ? 'friendly' : 'harder'}.` : ''}</p>
+        <span className="mut">Built only from: the projection model{showFit ? ', circuit fit' : ''}{drv && drv.ptsRise > 0 ? ', the price model' : ''}, {news.length} tagged stories.</span></div>
       <div><Lbl>Tagged news</Lbl>{news.length ? news.map((n) => <Row key={n.text} cols="90px 1fr"><Pill red={n.tone === '-'}>{n.kind}</Pill><span>{n.text}</span></Row>) : <Empty>{NOT_PUBLISHED.news}</Empty>}</div>
     </>
   );

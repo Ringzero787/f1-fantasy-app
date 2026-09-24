@@ -8,7 +8,7 @@ const PUBLISHED = {
   example: false,
   asOf: '2026-09-24T19:00:00.000Z',
   round: { number: 17, name: 'Harbour', firstSession: '', locksIn: '', circuit: 'Harbour City' },
-  rounds: ['BAK', 'SIN', 'USA'],
+  rounds: ['HAR', 'ISL', 'BAY'],
   budget: 1000,
   teams: { car_a: { id: 'car_a', name: 'Car A', color: '#00A19C' } },
   drivers: [

@@ -63,6 +63,18 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
     }
     if (scheme === 'dark') await page.screenshot({ path: path.join(shots, `${size.name}-${name.toLowerCase().replace(/ /g, '-')}.png`) });
   }
+  // Every page again with only what the worker publishes today (`?bare=1`), so the "not published
+  // yet" states are measured and proven to render without a page error, not just the example set.
+  for (const [name, route] of PAGES) {
+    await open(page, BASE + route + (route.includes('?') ? '&' : '?') + 'bare=1');
+    await page.waitForSelector('.page');
+    await page.waitForTimeout(60);
+    const m = await measure(page);
+    rows.push(`${size.name.padEnd(7)} ${scheme.padEnd(5)} ${name.padEnd(10)} ${'bare'.padEnd(22)} ${m.ratio.toFixed(2)}`);
+    if (m.ratio > LIMIT) failures.push(`${size.name} ${scheme} ${name} [bare]: ${m.ratio.toFixed(2)} screens (limit ${LIMIT})`);
+    if (m.overflowX > 1) failures.push(`${size.name} ${scheme} ${name} [bare]: overflows sideways by ${m.overflowX}px`);
+  }
+
   // a free user's locked frames must fit too: the veil replaces nothing, so the height is the same,
   // but measure one page to be sure the offer itself does not overflow
   await open(page, BASE + '/market?lockedCheck=1');

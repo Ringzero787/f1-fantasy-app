@@ -65,3 +65,20 @@ export function examplePayload(): Payload {
 }
 
 export const EXAMPLE_LINEUP: Lineup = { drivers: ['norris', 'leclerc', 'sainz', 'hadjar', 'bearman'], ctor: 'mercedes', ace: 'norris' };
+
+/**
+ * The example payload reduced to what the worker actually publishes today: projections and the
+ * price model, and nothing else. Used by the preview build (`?bare=1`) so the scroll-budget run
+ * also measures every "not published yet" state, which is otherwise only reachable in production.
+ */
+export function bareExamplePayload(): Payload {
+  const p = examplePayload();
+  return {
+    ...p,
+    example: false,
+    news: [],
+    rivals: [],
+    league: { name: '', size: 0, myRank: 0 },
+    drivers: p.drivers.map((d) => ({ ...d, own: 0, q: 0, r: 0, fit: d.fit.map(() => 3) })),
+  };
+}

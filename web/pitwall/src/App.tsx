@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import type { Lineup, Payload } from './data/types';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
-import { examplePayload, EXAMPLE_LINEUP } from './data/example';
+import { bareExamplePayload, examplePayload, EXAMPLE_LINEUP } from './data/example';
 import { EMPTY_ACCOUNT, loadAccount, type Account } from './lib/account';
 import { aceChange, planSave, teamLineup, CONTRACT_LENGTH } from './data/team';
 import { NO_PASS, passFromClaims, payloadForAccess, type PassState } from './data/access';
@@ -183,8 +183,12 @@ export function App() {
   // keep the same height and the unlocked layout is the taller case. `?free=1` shows a free user's
   // view for design review. Neither path exists in a production bundle: PREVIEW is build-time.
   if (PREVIEW) {
-    const free = new URLSearchParams(window.location.search).has('free');
-    return <Portal account={null} real={null} pass={free ? NO_PASS : { access: 'pass', expiresAt: Number.MAX_SAFE_INTEGER, trial: false }} />;
+    const params = new URLSearchParams(window.location.search);
+    const free = params.has('free');
+    // `?bare=1` renders what the worker publishes today, so the design preview and the scroll
+    // budget also cover every "not published yet" state.
+    const published = params.has('bare') ? bareExamplePayload() : null;
+    return <Portal account={null} real={null} published={published} pass={free ? NO_PASS : { access: 'pass', expiresAt: Number.MAX_SAFE_INTEGER, trial: false }} />;
   }
   if (session.state === 'loading') return <main className="signin"><span className="lbl" role="status">Loading…</span></main>;
   if (pendingCode) {
