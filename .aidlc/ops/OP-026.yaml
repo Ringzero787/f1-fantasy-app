@@ -1,0 +1,38 @@
+id: OP-026
+title: "F-075 Pit Wall shell: first deploy to Cloudflare Pages (redo of OP-023)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-24T16:06:20.035Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-24T16:06:27.554Z
+    head_sha: 2c4c7918fedec670b209f0f9cf2440eae8bf4465
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-026/dry-run-2026-09-24T16-06-27-554Z.log
+    log_sha256: a049922f6f29ca327fe50df991c8498d39a11f632beae93890a4c8c425487113
+    lines: 56
+  - step: gates
+    at: 2026-09-24T16:07:58.377Z
+    head_sha: 2c4c7918fedec670b209f0f9cf2440eae8bf4465
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T16:07:58.383Z
+    head_sha: 2c4c7918fedec670b209f0f9cf2440eae8bf4465
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-026/apply-2026-09-24T16-07-58-383Z.log
+    log_sha256: 7d832310976392b96f3d28057e9c3249a6566d4a00bbc05a8a132ad7b51cfa67
+    lines: 67
+  - step: gates
+    at: 2026-09-24T16:09:40.644Z
+    head_sha: 2c4c7918fedec670b209f0f9cf2440eae8bf4465
+    exit: 0
+    gates:
+      G15: skip
