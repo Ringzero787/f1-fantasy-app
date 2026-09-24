@@ -4,7 +4,7 @@ import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { examplePayload, EXAMPLE_LINEUP } from './data/example';
 import { EMPTY_ACCOUNT, loadAccount, type Account } from './lib/account';
 import { aceChange, planSave, teamLineup, CONTRACT_LENGTH } from './data/team';
-import { NO_PASS, passFromClaims, type PassState } from './data/access';
+import { NO_PASS, passFromClaims, payloadForAccess, type PassState } from './data/access';
 import { executePlan, loadMarket, loadTeams, saveErrorText } from './lib/teamApi';
 import { loadPayload } from './lib/payloadApi';
 import { callable } from './lib/firebase';
@@ -202,7 +202,7 @@ export function App() {
     if (!res.data?.url) throw new Error('Checkout could not be opened. Try again.');
     return res.data.url;
   };
-  return <Portal account={account} real={real} pass={pass} published={published?.access === pass.access ? published.payload : null} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
+  return <Portal account={account} real={real} pass={pass} published={payloadForAccess(published, pass.access)} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';

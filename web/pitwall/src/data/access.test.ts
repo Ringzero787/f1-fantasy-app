@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { can, LOCKED_COPY, NO_PASS, passFromClaims, type Feature } from './access';
+import { can, LOCKED_COPY, NO_PASS, passFromClaims, payloadForAccess, type Feature } from './access';
 
 const now = Date.UTC(2026, 8, 24);
 
@@ -33,5 +33,16 @@ describe('pass access', () => {
   it('every locked feature explains what it would give', () => {
     const paidFeatures: Feature[] = ['briefing.recommendations', 'briefing.rivals', 'board.full', 'board.probabilities', 'board.movement', 'market', 'season', 'lineup.topPick', 'lineup.whatIf', 'entity.past', 'entity.outlook', 'wire.full'];
     for (const f of paidFeatures) expect(LOCKED_COPY[f], f).toBeTruthy();
+  });
+});
+
+describe('payloadForAccess', () => {
+  it('renders a payload only for the access it was fetched for', () => {
+    const paid = { access: 'pass' as const, payload: { drivers: 22 } };
+    expect(payloadForAccess(paid, 'pass')).toEqual({ drivers: 22 });
+    // the pass lapsed, was revoked, or the viewer signed out: the paid payload must not linger
+    expect(payloadForAccess(paid, 'free')).toBeNull();
+    expect(payloadForAccess(null, 'free')).toBeNull();
+    expect(payloadForAccess(undefined, 'pass')).toBeNull();
   });
 });

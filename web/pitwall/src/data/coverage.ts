@@ -7,6 +7,10 @@
  *
  * The example payload fills every field, so every flag is true there and nothing changes in the
  * design preview.
+ *
+ * Each check errs towards "not published". A wrong false hides a frame that had data; a wrong true
+ * presents a placeholder as a measurement. The first is a gap, the second is a lie, so the tests
+ * below pin the cases that matter and the bias goes one way on purpose.
  */
 import type { Payload } from './types';
 

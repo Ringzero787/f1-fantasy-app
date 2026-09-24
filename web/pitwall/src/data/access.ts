@@ -55,3 +55,15 @@ export const LOCKED_COPY: Partial<Record<Feature, string>> = {
   'entity.outlook': 'Read the outlook for the rounds ahead, built from the model and tagged news.',
   'wire.full': 'Read every story cluster with its sources and who it affects.',
 };
+
+/**
+ * The payload to render, given what was last fetched and what the viewer is entitled to now.
+ *
+ * A payload is tagged with the access it was fetched for. When a pass lapses, is revoked, or the
+ * viewer signs out, the next read is not instant, and showing the paid payload in the meantime
+ * would hand out what the rules have already stopped granting. So a mismatch renders nothing and
+ * the example set stands in for the moment it takes.
+ */
+export function payloadForAccess<T>(held: { access: Access; payload: T } | null | undefined, access: Access): T | null {
+  return held && held.access === access ? held.payload : null;
+}
