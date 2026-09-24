@@ -297,6 +297,8 @@ test('an owner may set the ace, but not smuggle roster, budget, points or lock s
   // and nobody else may touch the team at all
   await assertFails(updateDoc(doc(db(MALLORY), 'fantasyTeams', 'T1'), { aceDriverId: 'norris' }));
   await assertFails(updateDoc(doc(db(OWNER), 'fantasyTeams', 'T1'), { aceDriverId: 'norris' }));
+});
+
 // ── F-068 Pit Wall Pass: the paywall is in the rules, not only the UI ──
 const withPass = (uid, expiresAtMs) => env.authenticatedContext(uid, { pw: Math.floor(expiresAtMs / 1000) }).firestore();
 
