@@ -104,6 +104,15 @@ Pages render from precomputed payloads, so a page view is 1 to 3 reads and no pa
 - **Per-user views are computed in the browser** from a page payload plus documents the user can already read: their `fantasyTeams`, their league `members`, and league-mates' teams (already readable by league members). That covers Briefing recommendations, rivals' likely moves, the top pick and what-if in the Lineup Lab, exactly as the prototype does. No per-user server compute in v1; a `pw.optimize` callable comes later for the full optimizer.
 - Existing collections reused read-only: `drivers`, `constructors`, `priceHistory`, `raceScores`, `races`, `articles`.
 
+### Partial payloads and honest empty states (F-070)
+
+The pipeline lands one piece at a time: projections and the price model first, then timing, ownership, circuit fit, news and rivals. A payload therefore arrives with fields nobody has filled in, and a zero in one of them is not a measurement.
+
+- `workers/pitwall/src/model/payload.ts` `buildPayload` returns `{ full, free }`. The free document is built field by field, never spread from the full one, so a paid field added later is not inherited into the free look the day it ships. It lists the whole grid with projections stripped past the top ten: identity and price are not what the pass sells, and the portal needs every driver to edit a lineup.
+- `web/pitwall/src/lib/payloadApi.ts` `loadPayload(hasPass)` reads the newest document from `pw_pages` or `pw_public`, ordered by `asOf` (document ids sort as text, so `2026_9` would follow `2026_17`). `toPayload` coerces every field, so a document written by an older or newer worker still renders. A refusal returns null and the browser-generated example set stands in.
+- `web/pitwall/src/data/coverage.ts` `coverage(payload)` answers which parts carry real data: `timing`, `ownership`, `fit`, `news`, `rivals`, `league`, `form`, `priceModel`, and `mock` for frames that exist only in the example set. It reaches pages through the store as `has`, and `NOT_PUBLISHED` holds one line of copy per gap. The example payload reports full coverage, so the design preview and the scroll budget still measure the tall case.
+- A frame with no source says so. It must never draw a shape from the row order: a leverage column built from a zero ownership is the row index, a flat circuit fit makes the outlook assert the same claim about every driver, and a zero pace gap puts the whole grid on pole.
+
 ## 6. Compute: forge first, GCP as backup
 
 Heavy work runs on **forge**, following the pattern the studio already uses for its other products: a systemd service that pulls jobs from Firestore, holds no inbound ports, and can be restarted at any time. Cloud Functions are kept for the few things that must answer a request.

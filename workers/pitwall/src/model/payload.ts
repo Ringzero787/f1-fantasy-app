@@ -86,10 +86,22 @@ export function buildPayload(i: PayloadInputs) {
   // still listed, because identity and price are not what is being sold and the portal needs the
   // whole grid to edit a lineup — a free user holding the 11th-ranked driver must still see them.
   const stripped = { floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] as number[], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0 };
+  // Built field by field rather than spread from `full`: a spread would hand the free document
+  // every field added to the paid one later, so the next thing published (tagged news, rival
+  // lineups) would leak the day it lands. Adding something paid here has to be deliberate.
   const free = {
-    ...full,
+    example: full.example,
+    asOf: full.asOf,
+    round: full.round,
+    rounds: full.rounds,
+    budget: full.budget,
+    teams: full.teams,
     drivers: drivers.map((d, i) => ({ ...d, ...stripped, med: i < 10 ? d.med : 0 })),
     constructors: constructors.map((c, i) => ({ ...c, floor: 0, ceil: 0, val: 0, med: i < 3 ? c.med : 0 })),
+    news: [] as never[],
+    rivals: [] as never[],
+    league: { name: '', size: 0, myRank: 0 },
+    model: full.model,
   };
   return { full, free };
 }

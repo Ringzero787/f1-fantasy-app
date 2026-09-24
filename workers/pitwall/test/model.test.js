@@ -177,3 +177,24 @@ test('what a pick must score comes from the real pricing rule, and there is no n
     assert.ok(pointsToRise(price) > pointsToSoftFall(price));
   }
 });
+
+test('the free look carries nothing the pass sells, even as the full payload grows', () => {
+  const proj = [{ entityId: 'a1', entityType: 'driver', floor: 20, median: 40, ceiling: 55, mean: 41, pWin: 0.3, pPodium: 0.6, pTop10: 0.95, pDnf: 0.08, aceMedian: 80, pRise: 0.6, pFall: 0.2, expectedPriceChange: 4 }];
+  const { full, free } = buildPayload({
+    round: { season: '2026', round: 17, raceId: 'r17', name: 'Harbour', city: 'Harbour', circuit: 'Harbour Street', firstSession: null, lockAt: null, hasSprint: false },
+    nextRounds: [{ round: 17, label: 'HAR', hasSprint: false }],
+    drivers: [{ id: 'a1', number: 7, name: 'Avery Stone', constructorId: 'car_a', price: 300, isActive: true }],
+    constructors: [{ id: 'car_a', name: 'Car A', price: 500 }],
+    projections: proj, form: new Map([['a1', [20, 50]]]), ownership: new Map([['a1', 62]]),
+    priceImplied: (price) => price / 10, asOf: new Date('2026-09-24T06:00:00Z'), budget: 1000,
+  });
+  // the free document is built field by field, so a field added to `full` is not inherited
+  full.rivals = [{ name: 'Rival', rank: 2, gap: 4, lineup: ['a1'], bank: 50, activity: 0.5 }];
+  full.news = [{ kind: 'PENALTY', entity: 'a1', tone: '-', text: 'secret', sources: '2', detail: 'x' }];
+  assert.deepEqual(free.rivals, []);
+  assert.deepEqual(free.news, []);
+  assert.equal(free.league.name, '');
+  // and nothing the pass sells survives on a driver
+  const d = free.drivers[0];
+  assert.deepEqual([d.floor, d.ceil, d.dnf, d.own, d.pm, d.cons, d.dprice, d.win, d.pod, d.t10, d.val, d.ptsRise, d.pRise, d.form.length], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+});

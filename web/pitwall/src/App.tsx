@@ -100,7 +100,9 @@ export function App() {
   const teamIdRef = useRef<string | null>(null);
   const uidRef = useRef<string | null>(null);
   const [pass, setPass] = useState<PassState>(NO_PASS);
-  const [published, setPublished] = useState<Payload | null>(null);
+  // Tagged with the access it was fetched for: a pass that lapses or a sign-out must not leave a
+  // pass-gated payload on screen while the next read is in flight.
+  const [published, setPublished] = useState<{ access: PassState['access']; payload: Payload } | null>(null);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
@@ -162,7 +164,8 @@ export function App() {
   useEffect(() => {
     if (!uid) { setPublished(null); return; }
     let live = true;
-    void loadPayload(pass.access === 'pass').then((p) => { if (live && p) setPublished(p); });
+    const access = pass.access;
+    void loadPayload(access === 'pass').then((p) => { if (live && p) setPublished({ access, payload: p }); });
     return () => { live = false; };
   }, [uid, pass.access]);
 
@@ -199,7 +202,7 @@ export function App() {
     if (!res.data?.url) throw new Error('Checkout could not be opened. Try again.');
     return res.data.url;
   };
-  return <Portal account={account} real={real} pass={pass} published={published} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
+  return <Portal account={account} real={real} pass={pass} published={published?.access === pass.access ? published.payload : null} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';
