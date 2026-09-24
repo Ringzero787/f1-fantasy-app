@@ -1,16 +1,18 @@
 import { entity, money, spent } from '../data/logic';
 import { useStore } from '../state';
-import { AsTable, FitCell, Meter, Row, Spark, TeamBar, Tile, Tr } from '../ui/bits';
+import { AsTable, Empty, FitCell, Meter, Row, Spark, TeamBar, Tile, Tr } from '../ui/bits';
+import { NOT_PUBLISHED } from '../data/coverage';
 
 const LIMITS = [4, 4, 4, 3, 3];
 
 export function Season() {
-  const { payload: p, ui, open } = useStore();
+  const { payload: p, has, ui, open } = useStore();
   const title: Array<[string, number]> = [['norris', 41], ['verstappen', 33], ['piastri', 19], ['russell', 6], ['leclerc', 1]];
   const value = [1500, 1540, 1610, 1650, 1640, 1720, 1790, 1850, 1900, 1980, 2040, 2100, 2130, 2160, 2180, spent(p, ui.lineup)];
   return (
     <div className="page">
       <Tile span="c8" label="Schedule difficulty · next 6 rounds">
+        {!has.fit ? <Empty>{NOT_PUBLISHED.fit} It needs the circuit characteristics table, so every round reads the same until that lands.</Empty> : <>
         <div className="scroll"><table>
           <thead><tr><th scope="col">Driver</th>{p.rounds.map((r, i) => <th key={r} scope="col">{r}{i === 2 || i === 4 ? ' ·S' : ''}</th>)}<th scope="col">Avg</th></tr></thead>
           <tbody>{p.drivers.slice(0, 12).map((d) => (
@@ -20,13 +22,15 @@ export function Season() {
           ))}</tbody>
         </table></div>
         <span className="mut">Circuit fit 1 to 5, the number is in every cell and brighter is better. ·S marks sprint weekends.</span>
+        </>}
       </Tile>
       <Tile span="c4" label="Title simulation · 10,000 seasons">
-        {title.map(([id, pct]) => { const d = entity(p, id); return d ? (
+        {!has.mock ? <Empty>The title simulation is not published yet.</Empty> : title.map(([id, pct]) => { const d = entity(p, id); return d ? (
           <Row key={id} cols="90px 1fr 38px" onClick={() => open(id)} label={`${d.name} ${pct}%`}><span><TeamBar p={p} team={d.team} />{d.name}</span><Meter pct={pct * 2} /><span className="num">{pct}%</span></Row>
         ) : null; })}
       </Tile>
       <Tile span="c8" label="Power unit and penalty tracker">
+        {!has.mock ? <Empty>Power unit use and penalties are not published yet.</Empty> : <>
         <div className="scroll"><table>
           <thead><tr><th scope="col">Driver</th><th scope="col">ICE</th><th scope="col">Turbo</th><th scope="col">MGU-K</th><th scope="col">Energy store</th><th scope="col">Control elec.</th><th scope="col">Status</th></tr></thead>
           <tbody>{['hamilton', 'alonso', 'verstappen', 'sainz', 'ocon', 'gasly'].map((id, i) => { const d = entity(p, id); if (!d) return null;
@@ -39,12 +43,15 @@ export function Season() {
               </Tr>
             ); })}</tbody>
         </table></div>
+        </>}
       </Tile>
       <Tile span="c4" label="Your team value">
         <div className="big num">{money(spent(p, ui.lineup))}</div>
-        <Spark values={value} w={300} h={60} label="Team value by round" />
-        <span className="mut">+46% since round 1 · league rank {p.league.myRank} of {p.league.size}</span>
-        <AsTable caption="Team value by round" head={['Round', 'Value']} rows={value.map((v, i) => [`RD ${i + 1}`, money(v)])} />
+        {has.mock ? <>
+          <Spark values={value} w={300} h={60} label="Team value by round" />
+          <span className="mut">+46% since round 1 · league rank {p.league.myRank} of {p.league.size}</span>
+          <AsTable caption="Team value by round" head={['Round', 'Value']} rows={value.map((v, i) => [`RD ${i + 1}`, money(v)])} />
+        </> : <span className="mut">{has.league ? `League rank ${p.league.myRank} of ${p.league.size}.` : 'Value by round is not published yet.'}</span>}
       </Tile>
     </div>
   );

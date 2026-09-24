@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import type { Lineup } from './data/types';
+import type { Lineup, Payload } from './data/types';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
-import { examplePayload, EXAMPLE_LINEUP } from './data/example';
+import { bareExamplePayload, examplePayload, EXAMPLE_LINEUP } from './data/example';
 import { EMPTY_ACCOUNT, loadAccount, type Account } from './lib/account';
 import { aceChange, planSave, teamLineup, CONTRACT_LENGTH } from './data/team';
-import { NO_PASS, passFromClaims, type PassState } from './data/access';
+import { NO_PASS, passFromClaims, payloadForAccess, type PassState } from './data/access';
 import { executePlan, loadMarket, loadTeams, saveErrorText } from './lib/teamApi';
+import { loadPayload } from './lib/payloadApi';
 import { callable } from './lib/firebase';
 import { StoreProvider, type RealContext } from './state';
 import { PREVIEW, hasFirebaseConfig } from './lib/env';
@@ -27,9 +28,11 @@ import { CompareTray, SlideOver } from './ui/SlideOver';
 
 const PAGE: Record<PageName, () => ReactElement> = { BRIEFING: Briefing, BOARD: Board, CIRCUIT: Circuit, 'PACE LAB': PaceLab, MARKET: Market, 'LINEUP LAB': LineupLab, SEASON: Season, WIRE: Wire };
 
-function Portal({ account, real, pass, reloadReal, selectTeam, checkoutFn, onSignOut }: { account: Account | null; real: RealContext | null; pass?: PassState; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; checkoutFn?: () => Promise<string>; onSignOut?: () => void }) {
+function Portal({ account, real, pass, published, reloadReal, selectTeam, checkoutFn, onSignOut }: { account: Account | null; real: RealContext | null; pass?: PassState; published?: Payload | null; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; checkoutFn?: () => Promise<string>; onSignOut?: () => void }) {
   const [page, go] = usePage();
-  const payload = useMemo(() => examplePayload(), []);
+  // The published payload when the worker has put one out and the rules let this user read it;
+  // the browser-generated example set otherwise, which labels itself on every page.
+  const payload = useMemo(() => published ?? examplePayload(), [published]);
   const Page = PAGE[page];
   // With a real team the lineup starts from it (ids the example payload may not know are kept as-is);
   // without one the example lineup stands in.
@@ -97,6 +100,9 @@ export function App() {
   const teamIdRef = useRef<string | null>(null);
   const uidRef = useRef<string | null>(null);
   const [pass, setPass] = useState<PassState>(NO_PASS);
+  // Tagged with the access it was fetched for: a pass that lapses or a sign-out must not leave a
+  // pass-gated payload on screen while the next read is in flight.
+  const [published, setPublished] = useState<{ access: PassState['access']; payload: Payload } | null>(null);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
@@ -153,6 +159,16 @@ export function App() {
     if (paid) window.history.replaceState({}, '', '/');
   }, [refreshPass]);
 
+  // The published payload. Which document it comes from follows the pass, so a purchase swaps the
+  // free look for the full one without a reload; the rules refuse the rest either way.
+  useEffect(() => {
+    if (!uid) { setPublished(null); return; }
+    let live = true;
+    const access = pass.access;
+    void loadPayload(access === 'pass').then((p) => { if (live && p) setPublished({ access, payload: p }); });
+    return () => { live = false; };
+  }, [uid, pass.access]);
+
   useEffect(() => {
     if (!uid) { setReal(null); teamIdRef.current = null; return; }
     let live = true;
@@ -167,8 +183,12 @@ export function App() {
   // keep the same height and the unlocked layout is the taller case. `?free=1` shows a free user's
   // view for design review. Neither path exists in a production bundle: PREVIEW is build-time.
   if (PREVIEW) {
-    const free = new URLSearchParams(window.location.search).has('free');
-    return <Portal account={null} real={null} pass={free ? NO_PASS : { access: 'pass', expiresAt: Number.MAX_SAFE_INTEGER, trial: false }} />;
+    const params = new URLSearchParams(window.location.search);
+    const free = params.has('free');
+    // `?bare=1` renders what the worker publishes today, so the design preview and the scroll
+    // budget also cover every "not published yet" state.
+    const published = params.has('bare') ? bareExamplePayload() : null;
+    return <Portal account={null} real={null} published={published} pass={free ? NO_PASS : { access: 'pass', expiresAt: Number.MAX_SAFE_INTEGER, trial: false }} />;
   }
   if (session.state === 'loading') return <main className="signin"><span className="lbl" role="status">Loading…</span></main>;
   if (pendingCode) {
@@ -186,7 +206,7 @@ export function App() {
     if (!res.data?.url) throw new Error('Checkout could not be opened. Try again.');
     return res.data.url;
   };
-  return <Portal account={account} real={real} pass={pass} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
+  return <Portal account={account} real={real} pass={pass} published={payloadForAccess(published, pass.access)} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';

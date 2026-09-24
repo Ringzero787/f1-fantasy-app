@@ -8,7 +8,7 @@
  *   pw_public/{season}_{round}  the free look: same shape, but only the top 10 medians, no floor/ceiling,
  *                               no price model, no rivals, headlines only
  */
-import { blendPriceChange } from './priceRules';
+import { blendPriceChange, pointsToRise, pointsToSoftFall } from './priceRules';
 import type { Projection } from './types';
 
 export interface DriverMeta { id: string; number: number; name: string; constructorId: string; price: number; isActive: boolean }
@@ -57,6 +57,10 @@ export function buildPayload(i: PayloadInputs) {
       // circuit fit needs the characteristics table (F-070 "inputs that do not exist"); neutral until then
       fit: i.nextRounds.map(() => 3),
       win: p ? Math.round(p.pWin * 100) : 0, pod: p ? Math.round(p.pPodium * 100) : 0, t10: p ? Math.round(p.pTop10 * 100) : 0,
+      // The price model, from the same rules production scores with, so the portal states it
+      // rather than deriving a plausible-looking number from the price.
+      ptsRise: pointsToRise(d.price), ptsHold: pointsToSoftFall(d.price),
+      pRise: p ? Math.round(p.pRise * 100) : 0, pFall: p ? Math.round(p.pFall * 100) : 0,
       // timing-derived gaps are free-only frames (ADR-001) and come from another job; 0 = unknown here
       q: 0, r: 0,
       val: d.price > 0 ? r1((med / d.price) * 100) : 0,
@@ -78,11 +82,26 @@ export function buildPayload(i: PayloadInputs) {
     league: { name: '', size: 0, myRank: 0 },
     model: { runs: 10000, band: 'central 70% of finishing runs', pDnfSeparate: true },
   };
-  // free look: top-10 medians, nothing else that only the pass buys
+  // Free look: the top-10 medians and nothing else the pass buys. Every driver and constructor is
+  // still listed, because identity and price are not what is being sold and the portal needs the
+  // whole grid to edit a lineup — a free user holding the 11th-ranked driver must still see them.
+  const stripped = { floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] as number[], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0 };
+  // Built field by field rather than spread from `full`: a spread would hand the free document
+  // every field added to the paid one later, so the next thing published (tagged news, rival
+  // lineups) would leak the day it lands. Adding something paid here has to be deliberate.
   const free = {
-    ...full,
-    drivers: drivers.slice(0, 10).map((d) => ({ ...d, floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] })),
-    constructors: constructors.slice(0, 3).map((c) => ({ ...c, floor: 0, ceil: 0, val: 0 })),
+    example: full.example,
+    asOf: full.asOf,
+    round: full.round,
+    rounds: full.rounds,
+    budget: full.budget,
+    teams: full.teams,
+    drivers: drivers.map((d, i) => ({ ...d, ...stripped, med: i < 10 ? d.med : 0 })),
+    constructors: constructors.map((c, i) => ({ ...c, floor: 0, ceil: 0, val: 0, med: i < 3 ? c.med : 0 })),
+    news: [] as never[],
+    rivals: [] as never[],
+    league: { name: '', size: 0, myRank: 0 },
+    model: full.model,
   };
   return { full, free };
 }

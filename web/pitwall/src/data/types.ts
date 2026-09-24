@@ -13,6 +13,8 @@ export interface Driver {
   /** circuit fit 1..5 for the next six rounds */
   fit: number[];
   win: number; pod: number; t10: number;
+  /** price model: points needed to rise, points needed to avoid a fall, and the two chances */
+  ptsRise: number; ptsHold: number; pRise: number; pFall: number;
   /** qualifying and race pace gaps (timing-derived: free frames only, ADR-001) */
   q: number; r: number;
   val: number;

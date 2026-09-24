@@ -1,18 +1,19 @@
 import { briefRecs, entity, money, projected, rateMyTeam, rivalMove } from '../data/logic';
 import { useStore } from '../state';
-import { Arrow, Meter, Money, Pill, Row, Tabs, TeamBar, Tile } from '../ui/bits';
+import { Arrow, Empty, Meter, Money, Pill, Row, Tabs, TeamBar, Tile } from '../ui/bits';
+import { NOT_PUBLISHED } from '../data/coverage';
 import { Compare } from '../ui/Compare';
 import { Locked } from '../ui/Locked';
 
 export function Briefing() {
-  const { payload: p, ui, set, open, go } = useStore();
+  const { payload: p, has, ui, set, open, go } = useStore();
   const recs = briefRecs(p, ui.lineup);
   const sel = Math.min(ui.rec, recs.length - 1);
   const proj = projected(p, ui.lineup);
   const flags = ui.lineup.drivers.filter((id) => p.news.some((n) => n.entity === id && n.kind === 'PENALTY')).length;
 
   const rivals = p.rivals.map((r) => rivalMove(p, ui.lineup, r)).filter((v) => v !== null);
-  const rivalsBody = (
+  const rivalsBody = !has.rivals ? <Empty>{NOT_PUBLISHED.rivals} Likely moves need every rival's lineup and bank, which the worker does not collect yet.</Empty> : (
     <>
       {rivals.map((v) => (
         <Row key={v.name} two cols="1fr auto" onClick={() => open(v.in.id)} label={`${v.name}: likely ${v.out.name} to ${v.in.name}, ${v.likely}% likely`}
@@ -22,7 +23,7 @@ export function Briefing() {
           <span><Pill red={v.tag === 'THREAT'}>{v.tag}</Pill></span>
         </Row>
       ))}
-      <span className="mut">{p.league.name} · you are P{p.league.myRank}. Based on each rival's bank, best swap and how often they edit.</span>
+      <span className="mut">{has.league ? `${p.league.name} · you are P${p.league.myRank}. ` : ''}Based on each rival's bank, best swap and how often they edit.</span>
     </>
   );
   const moversBody = [...p.drivers].sort((a, b) => Math.abs(b.dprice) - Math.abs(a.dprice)).slice(0, 5).map((d) => (
@@ -42,6 +43,7 @@ export function Briefing() {
   return (
     <div className="page">
       <Tile span="c8" label="What changed since yesterday" right={<span className="mut only-wide">5 min read · links out to sources</span>}>
+        {!has.news ? <Empty>{NOT_PUBLISHED.news}</Empty> : null}
         {p.news.slice(0, 4).map((n) => {
           const e = n.entity ? entity(p, n.entity) : undefined;
           return (

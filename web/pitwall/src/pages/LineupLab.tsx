@@ -8,7 +8,7 @@ import { Arrow, AsTable, FitCell, Pill, TeamBar, Tile, Tr } from '../ui/bits';
 import { Compare } from '../ui/Compare';
 
 export function LineupLab() {
-  const { payload: p, ui, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
+  const { payload: p, has, ui, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
   const [confirming, setConfirming] = useState(false);
   // With a real team the roster, bank and lock come from the server's documents; projections stay example data.
   const plan = real ? planSave(real.team, ui.lineup, real.market, CONTRACT_LENGTH, real.completedRaces) : null;
@@ -34,7 +34,7 @@ export function LineupLab() {
   };
   const stat = (x: Entity) => isCtor(x)
     ? <><td>{money(x.price)}</td><td><b>{x.med}</b></td><td>{x.val}</td></>
-    : <><td>{money(x.price)}</td><td><b>{x.med}</b></td><td>{x.val}</td><td><FitCell v={x.fit[0]} label={p.rounds[0]} /></td><td>{x.dnf}%</td><td><Arrow n={x.dprice} /></td></>;
+    : <><td>{money(x.price)}</td><td><b>{x.med}</b></td><td>{x.val}</td>{has.fit ? <td><FitCell v={x.fit[0]} label={p.rounds[0]} /></td> : null}<td>{x.dnf}%</td><td><Arrow n={x.dprice} /></td></>;
   const top = slot ? topPickRec(p, l, slot) : null;
 
   return (
@@ -87,7 +87,7 @@ export function LineupLab() {
             </Tile>
             <Tile label={`All options within ${money(room)} bank · tap to swap`}>
               <div className="scroll"><table>
-                <thead><tr><th scope="col">{isC ? 'Team' : 'Driver'}</th><th scope="col">Gain</th><th scope="col">Price</th><th scope="col">Proj</th><th scope="col">Pts/$100</th>{isC ? null : <><th scope="col">Fit</th><th scope="col">DNF</th><th scope="col">Next $</th></>}</tr></thead>
+                <thead><tr><th scope="col">{isC ? 'Team' : 'Driver'}</th><th scope="col">Gain</th><th scope="col">Price</th><th scope="col">Proj</th><th scope="col">Pts/$100</th>{isC ? null : <>{has.fit ? <th scope="col">Fit</th> : null}<th scope="col">DNF</th><th scope="col">Next $</th></>}</tr></thead>
                 <tbody>
                   <tr className="me"><td><TeamBar p={p} team={cur.team} /><b>{cur.name}</b> <span className="mut">now</span></td><td className="mut">—</td>{stat(cur)}</tr>
                   {pool.map(({ e, gain }, n) => (
@@ -104,7 +104,7 @@ export function LineupLab() {
           <Tile label="Recommended moves">
             {swapRecs(p, l).length === 0 ? <span className="mut">Your lineup is the best available within budget.</span> : swapRecs(p, l).map((x) => { const o = entity(p, x.out)!, n = entity(p, x.in)!; return (
               <div key={`${x.out}${x.in}`} className="row" style={{ gridTemplateColumns: '1fr auto auto' }}>
-                <span><span className="mut">{o.name} →</span> <b>{n.name}</b><br /><span className="mut">{x.cost >= 0 ? `Costs ${money(x.cost)}` : `Frees ${money(-x.cost)}`}{!isCtor(n) ? ` · circuit fit ${n.fit[0]}/5 · ${n.dprice > 0 ? 'price rising' : 'price flat'}` : ''}</span></span>
+                <span><span className="mut">{o.name} →</span> <b>{n.name}</b><br /><span className="mut">{x.cost >= 0 ? `Costs ${money(x.cost)}` : `Frees ${money(-x.cost)}`}{!isCtor(n) ? `${has.fit ? ` · circuit fit ${n.fit[0]}/5` : ''} · ${n.dprice > 0 ? 'price rising' : 'price flat'}` : ''}</span></span>
                 <span className="pos num">+{x.gain.toFixed(0)}</span><button type="button" className="ghost" onClick={() => applyAct(`${x.out}:${x.in}`)}>Try</button>
               </div>
             ); })}

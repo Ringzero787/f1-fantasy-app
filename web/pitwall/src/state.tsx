@@ -3,6 +3,7 @@ import { applySwap, sameLineup } from './data/logic';
 import type { Lineup, Payload } from './data/types';
 import type { MarketPrices, RealTeam } from './data/team';
 import { NO_PASS, type PassState } from './data/access';
+import { coverage, type Coverage } from './data/coverage';
 import type { PageName } from './lib/router';
 
 export interface UIState {
@@ -36,6 +37,8 @@ export interface RealContext { team: RealTeam; /** every team this user owns, fo
 
 interface Store {
   payload: Payload;
+  /** which parts of the payload carry real data, so a page can say "not published yet" instead of showing a zero */
+  has: Coverage;
   real: RealContext | null;
   pass: PassState;
   /** null = idle, 'starting' = opening Stripe, any other string = the error to show */
@@ -82,8 +85,9 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     window.setTimeout(() => patch((u) => (u.toast === text ? { toast: null } : {})), 2400);
   }, [patch]);
 
+  const has = useMemo(() => coverage(payload), [payload]);
   const store = useMemo<Store>(() => ({
-    payload, ui, go, real, saving, pass, checkout,
+    payload, has, ui, go, real, saving, pass, checkout,
     startCheckout: async () => {
       if (!checkoutFn) { toast('Checkout is not available in this preview.'); return; }
       setCheckout('starting');
@@ -123,7 +127,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     }),
     toast,
     selectTeam: (id: string) => { selectTeam?.(id); patch(() => ({ slot: null })); },
-  }), [payload, ui, go, patch, toast, real, saver, saving, pass, checkout, checkoutFn, selectTeam]);
+  }), [payload, has, ui, go, patch, toast, real, saver, saving, pass, checkout, checkoutFn, selectTeam]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

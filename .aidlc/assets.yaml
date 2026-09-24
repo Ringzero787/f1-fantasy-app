@@ -6,3 +6,4 @@ assets:
   - { path: "newgame/assets/**", kind: image, source: first-party, license: proprietary-owned, notes: "Track Limits icons, splash, helmet/pack art" }
   - { path: "app-store-screenshots/**", kind: image, source: first-party, license: proprietary-owned }
   - { path: "docs/design/grid/verify/**", kind: image, source: first-party, license: proprietary-owned, notes: "Expo-web screenshots of the Grid screens (Playwright, demo data); no third-party content" }
+  - { path: "web/pitwall/public/*.png", kind: image, source: first-party, license: proprietary-owned, notes: "Pit Wall portal favicon and touch icon: scaled copies of assets/icon.png, the Undercut U-mark drawn for this project under F-067. No third-party artwork, font or mark. Regenerate per web/pitwall/public/README.md" }

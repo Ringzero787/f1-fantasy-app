@@ -10,12 +10,17 @@ const HEAD: Record<string, string> = { price: 'Price', val: 'Pts/$100', pm: '+/�
 const SESSIONS = ['THU', 'FP1', 'FP2', 'FP3', 'QUALI'];
 
 export function Board() {
-  const { payload: p, ui, set, open, pass } = useStore();
+  const { payload: p, has, ui, set, open, pass } = useStore();
   // Free: the top ten, median only. The full table, presets and the other tabs need the pass.
   const full = can(pass, 'board.full');
-  const cols = COLS[ui.preset];
+  // A preset whose columns are not published would show a column of zeros, so it is not offered.
+  const presets = (['VALUE', 'PACE', 'OWNERSHIP', 'RISK'] as const).filter((k) => (k === 'PACE' ? has.timing : k === 'OWNERSHIP' ? has.ownership : true));
+  const preset = presets.includes(ui.preset) ? ui.preset : 'VALUE';
+  const cols = COLS[preset];
   const key = ui.sort as keyof Driver;
-  const all = [...p.drivers].sort((a, b) => (Number(b[key]) || 0) - (Number(a[key]) || 0)).map((d, i) => ({ ...d, lev: Math.round(d.own / 5 - i) }));
+  // Leverage is ownership against rank: without ownership it collapses to the row index, which
+  // would read as analysis, so it is left undefined and the cell shows a dash.
+  const all = [...p.drivers].sort((a, b) => (Number(b[key]) || 0) - (Number(a[key]) || 0)).map((d, i) => (has.ownership ? { ...d, lev: Math.round(d.own / 5 - i) } : d));
   const rows = full ? all : all.slice(0, 10);
   const sortBtn = (k: string) => (
     <th key={k} scope="col" aria-sort={ui.sort === k ? 'descending' : undefined}><button type="button" onClick={() => set('sort', k)}>{HEAD[k]}{ui.sort === k ? ' ▾' : ''}</button></th>
@@ -80,7 +85,7 @@ export function Board() {
       <Tile span="c12" label={`Projection board · RD ${p.round.number}`} right={
         <div className="th">
           <Tabs value={ui.boardTab} options={['PROJECTIONS', 'PROBABILITIES', 'MOVEMENT'] as const} onChange={(v) => set('boardTab', v)} label="Board views" />
-          {ui.boardTab === 'PROJECTIONS' && full ? (['VALUE', 'PACE', 'OWNERSHIP', 'RISK'] as const).map((x) => <Chip key={x} on={ui.preset === x} onClick={() => set('preset', x)}>{x}</Chip>) : null}
+          {ui.boardTab === 'PROJECTIONS' && full ? presets.map((x) => <Chip key={x} on={preset === x} onClick={() => set('preset', x)}>{x}</Chip>) : null}
         </div>}>
         {body}
         {full || ui.boardTab !== 'PROJECTIONS' ? null : (
