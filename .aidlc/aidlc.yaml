@@ -112,7 +112,11 @@ overrides:
         params: [ job, session ]
         paths: [ workers/pitwall, scripts/ops/pitwall-job.sh ]
         dryrun: "bash scripts/ops/pitwall-job.sh dryrun {job} {session}"
+        # The job replaces whole pw_* documents, so the snapshot is taken over the three collections
+        # it writes; a rollback puts back what was there and deletes what this run created.
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json pw_pages pw_public pw_projections"
         apply: "bash scripts/ops/pitwall-job.sh apply {job} {session}"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=pw_pages,pw_public,pw_projections --write"
       pitwall-pages-deploy:
         # `pages_project`, not `project`: the engine reserves {project} for the Firebase project id.
         summary: "Undercut Pit Wall site to Cloudflare Pages (pages_project = Pages project name, e.g. undercut-pitwall). Dry run tests, builds, checks the scroll and bundle budgets and lists the files; apply runs the same checks then wrangler pages deploy"
