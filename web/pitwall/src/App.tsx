@@ -93,6 +93,7 @@ export function App() {
   const [account, setAccount] = useState<Account>(EMPTY_ACCOUNT);
   const [real, setReal] = useState<RealContext | null>(null);
   const teamIdRef = useRef<string | null>(null);
+  const uidRef = useRef<string | null>(null);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
@@ -110,10 +111,13 @@ export function App() {
   }, []);
 
   const uid = session.state === 'in' ? session.user.uid : null;
+  uidRef.current = uid;
   const reloadReal = useCallback(async (): Promise<RealContext | null> => {
     if (!uid) return null;
     try {
       const [teams, market] = await Promise.all([loadTeams(uid), loadMarket()]);
+      // A sign-out and sign-in while this was in flight must not show one account another's team.
+      if (uidRef.current !== uid) return null;
       if (teams.length === 0) { setReal(null); return null; }
       // Keep the chosen team across a reload; fall back to the first when it is gone.
       const next: RealContext = { team: teams.find((t) => t.id === teamIdRef.current) ?? teams[0], teams, market, completedRaces: market.completedRaces };
@@ -129,7 +133,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!uid) { setReal(null); return; }
+    if (!uid) { setReal(null); teamIdRef.current = null; return; }
     let live = true;
     loadAccount(uid).then((a) => { if (live) setAccount(a); }).catch(() => { if (live) setAccount(EMPTY_ACCOUNT); });
     void reloadReal();
