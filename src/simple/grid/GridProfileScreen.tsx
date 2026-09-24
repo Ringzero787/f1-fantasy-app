@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Modal, Alert, ActivityIndicator, Image, StatusBar } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Modal, Alert, ActivityIndicator, Image, StatusBar, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,6 +11,10 @@ import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { useAuthStore } from '../../store/auth.store';
 import { useLeagueStore } from '../../store/league.store';
 import { usePrefsStore, type ThemeMode } from '../../store/prefs.store';
+import { usePitWallStore } from '../../store/pitwall.store';
+import { portalUrl } from '../../pitwall/client';
+import { pitWallSurface } from '../../pitwall/config';
+import { isAmazonBuild } from '../../utils/storeDetection';
 import { useAdminStore } from '../../store/admin.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { authService } from '../../services/auth.service';
@@ -42,6 +46,7 @@ export function GridProfileScreen() {
   const setDisplayScale = usePrefsStore((s) => s.setDisplayScale);
   const raceResults = useAdminStore((s) => s.raceResults);
   const races = useRemoteConfigStore((s) => s.races);
+  const appConfig = useRemoteConfigStore((s) => s.appConfig);
 
   const [name, setName] = useState(user?.displayName ?? '');
   const [editingName, setEditingName] = useState(false);
@@ -166,6 +171,44 @@ export function GridProfileScreen() {
   const stackPills = displayScale > 1.15;
   const scaleKey = (DISPLAY_SCALES.find((s) => Math.abs(s.scale - displayScale) < 0.01) ?? DISPLAY_SCALES[1]).key;
 
+  const pwPass = usePitWallStore((s) => s.pass);
+  const refreshPitWall = usePitWallStore((s) => s.refresh);
+  const [openingPortal, setOpeningPortal] = useState(false);
+
+  // Placement, copy and whether the row appears at all come from config/app, so the surface can be
+  // limited to a beta group or switched off without a store build (ARCHITECTURE section 8).
+  const pwSurface = useMemo(
+    () => pitWallSurface(
+      (appConfig as unknown as Record<string, unknown>)?.pitwall,
+      isAmazonBuild ? 'amazon' : Platform.OS === 'ios' ? 'ios' : 'android',
+      { uid: user?.id ?? null, leagueId: league?.id ?? null, appVersion: version },
+    ),
+    [appConfig, user?.id, league?.id, version],
+  );
+
+  // Pit Wall is a website. The app hands the browser a single-use code so the same account is
+  // already signed in when it opens; Amazon sign-in cannot be done in a browser at all.
+  const openPitWall = useCallback(async () => {
+    if (openingPortal) return;
+    setOpeningPortal(true);
+    try {
+      const url = await portalUrl('profile', pwSurface?.url);
+      await WebBrowser.openBrowserAsync(url, { controlsColor: colors.primary, toolbarColor: colors.surface });
+      // A pass may have been bought while the browser was open; the claim needs a forced refresh.
+      await refreshPitWall(true);
+    } catch {
+      Alert.alert('Pit Wall', 'Could not open Pit Wall. Check your connection and try again.');
+    } finally {
+      setOpeningPortal(false);
+    }
+  }, [openingPortal, colors.primary, colors.surface, refreshPitWall, pwSurface?.url]);
+
+  const passValue = openingPortal
+    ? 'Opening…'
+    : pwPass.active && pwPass.expiresAt
+      ? `${pwSurface?.pass ?? 'Pass'} to ${new Date(pwPass.expiresAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+      : pwSurface?.free ?? 'Open';
+
   const LinkRow = ({ label, valueText, onPress, danger, accent }: { label: string; valueText?: string; onPress: () => void; danger?: boolean; accent?: boolean }) => (
     <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [row, { opacity: pressed ? 0.7 : 1 }]}>
       <MonoLabel color={danger ? colors.primary : undefined}>{label}</MonoLabel>
@@ -205,6 +248,7 @@ export function GridProfileScreen() {
           </View>
           <LinkRow label="AVATAR" valueText={user?.photoURL ? 'Change' : 'Add'} onPress={() => setAvatarOpen(true)} />
           <LinkRow label="LEAGUE" valueText={league ? league.name : 'Join or create'} accent={!league} onPress={() => router.push('/(simple)/league-manager' as never)} />
+          {pwSurface ? <LinkRow label={pwSurface.label} valueText={passValue} accent={pwPass.active} onPress={openPitWall} /> : null}
           {/* At large display sizes the pills stack under their labels so every segment stays on screen */}
           <View style={[row, stackPills && { flexDirection: 'column', alignItems: 'stretch' }]}>
             <MonoLabel>APPEARANCE</MonoLabel>
