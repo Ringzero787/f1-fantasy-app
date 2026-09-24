@@ -108,12 +108,13 @@ overrides:
         verify: "node newgame/functions/scripts/checkBenLines.js --race={race} --fail-on=high"
         rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=ben_lines/{race}_race --write"
       pitwall-pages-deploy:
-        summary: "Undercut Pit Wall site to Cloudflare Pages (project = Pages project name, e.g. undercut-pitwall). Dry run tests, builds, checks the scroll and bundle budgets and lists the files; apply runs the same checks then wrangler pages deploy"
+        # `pages_project`, not `project`: the engine reserves {project} for the Firebase project id.
+        summary: "Undercut Pit Wall site to Cloudflare Pages (pages_project = Pages project name, e.g. undercut-pitwall). Dry run tests, builds, checks the scroll and bundle budgets and lists the files; apply runs the same checks then wrangler pages deploy"
         deploy: true
-        params: [ project ]
+        params: [ pages_project ]
         paths: [ web/pitwall, scripts/ops/pitwall-pages-deploy.sh ]
         dryrun: "bash scripts/ops/pitwall-pages-deploy.sh dryrun"
-        apply: "bash scripts/ops/pitwall-pages-deploy.sh apply {project}"
+        apply: "bash scripts/ops/pitwall-pages-deploy.sh apply {pages_project}"
       uc-script:
         summary: "Undercut repair/backfill script that dry-runs by default and writes with --apply (script = file name in functions/scripts; backup = comma-separated doc/collection paths it touches)"
         params: [ script, backup ]

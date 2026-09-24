@@ -1,0 +1,45 @@
+id: OP-021
+title: "F-075 Pit Wall: pw_handoffs, pw_handoff_limits, pw_jobs, pw_runs closed to clients"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-09-22T16:23:24.180Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-22T16:23:34.582Z
+    head_sha: 5d289e11a44813662499a9ed73d7addf39f21188
+    command: git --no-pager diff 'c9c974d0412c51687e6fdd5b9aa9635b41c8ef28' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-021/dry-run-2026-09-22T16-23-34-582Z.log
+    log_sha256: 518c3755b4a89fc669759f0e47209e85592aeeee66638bf87c30df385c5d6ff2
+    lines: 18
+  - step: dry-run
+    at: 2026-09-24T15:24:55.900Z
+    head_sha: 9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910
+    command: git --no-pager diff 'c9c974d0412c51687e6fdd5b9aa9635b41c8ef28' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-021/dry-run-2026-09-24T15-24-55-900Z.log
+    log_sha256: 518c3755b4a89fc669759f0e47209e85592aeeee66638bf87c30df385c5d6ff2
+    lines: 18
+  - step: gates
+    at: 2026-09-24T15:24:56.998Z
+    head_sha: 9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T15:24:57.003Z
+    head_sha: 9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-021/apply-2026-09-24T15-24-57-003Z.log
+    log_sha256: 5c24460f7a450ed8d5cb420ec359afd8d84eb20b829d8e0937f647d64685bdf8
+    lines: 13
+  - step: gates
+    at: 2026-09-24T15:25:01.083Z
+    head_sha: 9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910
+    exit: 0
+    gates:
+      G15: skip
