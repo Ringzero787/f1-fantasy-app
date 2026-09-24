@@ -6,6 +6,9 @@
  * build. Nothing renders unless the block says so: a missing or malformed block means no surface,
  * which is the safe default for a promotion.
  *
+ * The address is checked against a fixed host allowlist, because the handoff code it carries is a
+ * credential.
+ *
  * `mode` is per platform because store rules on linking out differ by store and by storefront, and
  * change. `open` means no price and no purchase wording anywhere in the app; the row simply opens
  * the portal. `iap` waits for the purchase library to come back (F-060/F-061).
@@ -33,6 +36,19 @@ export interface Viewer {
 }
 
 const DEFAULT_URL = 'https://pitwall.humannpc.com';
+/**
+ * The handoff code is a credential: whoever receives it can sign in as this account. The config
+ * block is admin-written, but a mistake or a compromised admin must not be able to point the app
+ * at another host, so the destination is an allowlist rather than "any https address".
+ */
+export const PORTAL_HOSTS: readonly string[] = ['pitwall.humannpc.com', 'undercut-pitwall.pages.dev'];
+
+export function isPortalUrl(url: string): boolean {
+  if (!url.startsWith('https://')) return false;
+  const rest = url.slice('https://'.length);
+  const host = rest.split(/[/?#]/)[0].toLowerCase();
+  return PORTAL_HOSTS.includes(host);
+}
 const str = (v: unknown, d: string): string => (typeof v === 'string' && v.trim() !== '' ? v : d);
 const list = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
@@ -75,7 +91,7 @@ export function pitWallSurface(raw: unknown, platform: StorePlatform, viewer: Vi
   if (mode !== 'open' && mode !== 'iap') return null;
 
   const url = str(cfg.url, DEFAULT_URL);
-  if (!url.startsWith('https://')) return null;
+  if (!isPortalUrl(url)) return null;
 
   const row = (cfg.profileRow && typeof cfg.profileRow === 'object' ? cfg.profileRow : {}) as Record<string, unknown>;
   return {

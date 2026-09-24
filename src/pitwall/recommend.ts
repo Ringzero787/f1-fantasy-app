@@ -67,3 +67,16 @@ export function bestValuePick(candidates: Candidate[], byId: Record<string, Proj
   const { id, med, value } = ranked[0];
   return best && best.id === id ? null : { id, med, value };
 }
+
+/**
+ * The mark per row id: at most one row carries `pick` and at most one other carries `value`.
+ * Kept here rather than in the screen so the rule is testable and the picker stays a view.
+ */
+export function marksFor(candidates: Candidate[], byId: Record<string, Projection>): Record<string, 'pick' | 'value'> {
+  const out: Record<string, 'pick' | 'value'> = {};
+  const pick = bestPick(candidates, byId);
+  if (pick) out[pick.id] = 'pick';
+  const value = bestValuePick(candidates, byId);
+  if (value && !out[value.id]) out[value.id] = 'value';
+  return out;
+}

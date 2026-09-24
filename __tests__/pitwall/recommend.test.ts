@@ -118,3 +118,32 @@ describe('handoffUrl', () => {
     expect(url.split('#')[0]).not.toContain('a'.repeat(43));
   });
 });
+
+describe('marksFor', () => {
+  const { marksFor } = require('../../src/pitwall/recommend');
+
+  it('marks one pick and, separately, one best value', () => {
+    const projections = byId(P('rich', 60), P('cheap', 30), P('mid', 40));
+    const rows = [
+      { id: 'rich', price: 400, selected: false, blocked: false },
+      { id: 'mid', price: 300, selected: false, blocked: false },
+      { id: 'cheap', price: 100, selected: false, blocked: false },
+    ];
+    expect(marksFor(rows, projections)).toEqual({ rich: 'pick', cheap: 'value' });
+  });
+
+  it('never puts two marks on one row', () => {
+    const projections = byId(P('a', 60), P('b', 20));
+    const rows = [
+      { id: 'a', price: 100, selected: false, blocked: false },
+      { id: 'b', price: 300, selected: false, blocked: false },
+    ];
+    expect(marksFor(rows, projections)).toEqual({ a: 'pick' });
+  });
+
+  it('marks nothing when every row is blocked or already picked', () => {
+    const projections = byId(P('a', 60));
+    expect(marksFor([{ id: 'a', price: 100, selected: true, blocked: false }], projections)).toEqual({});
+    expect(marksFor([{ id: 'a', price: 100, selected: false, blocked: true }], projections)).toEqual({});
+  });
+});

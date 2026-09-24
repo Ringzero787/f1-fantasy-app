@@ -160,7 +160,7 @@ export function GridProfileScreen() {
   const doSignOut = () => {
     Alert.alert('Sign out?', undefined, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: async () => { try { await signOut(); } finally { router.replace('/(auth)/login'); } } },
+      { text: 'Sign out', style: 'destructive', onPress: async () => { try { await signOut(); } finally { clearPitWall(); router.replace('/(auth)/login'); } } },
     ]);
   };
 
@@ -173,6 +173,7 @@ export function GridProfileScreen() {
 
   const pwPass = usePitWallStore((s) => s.pass);
   const refreshPitWall = usePitWallStore((s) => s.refresh);
+  const clearPitWall = usePitWallStore((s) => s.clear);
   const [openingPortal, setOpeningPortal] = useState(false);
 
   // Placement, copy and whether the row appears at all come from config/app, so the surface can be

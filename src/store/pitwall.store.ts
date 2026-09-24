@@ -22,25 +22,33 @@ interface PitWallState {
   projectionFor: (id: string) => Projection | null;
 }
 
+// Increments per refresh so an overtaken run cannot write its older answer.
+let seq = 0;
+
 export const usePitWallStore = create<PitWallState>()((set, get) => ({
   pass: NO_PASS,
   projections: null,
   loading: false,
 
   refresh: async (force = false) => {
-    if (get().loading) return;
+    // A forced refresh is never dropped. It is what runs when the browser closes after a purchase,
+    // and the ordinary refresh it would collide with is exactly the one holding a stale token.
+    if (get().loading && !force) return;
+    const ticket = seq + 1;
+    seq = ticket;
     set({ loading: true });
     try {
       const pass = await loadPass(force);
       // No pass, no read: the rules would refuse it anyway, and asking wastes a round trip.
       const projections = pass.active ? await loadProjections() : null;
-      set({ pass, projections, loading: false });
+      // A slower earlier run must not overwrite a newer answer.
+      if (ticket === seq) set({ pass, projections, loading: false });
     } catch {
-      set({ pass: NO_PASS, projections: null, loading: false });
+      if (ticket === seq) set({ pass: NO_PASS, projections: null, loading: false });
     }
   },
 
-  clear: () => set({ pass: NO_PASS, projections: null, loading: false }),
+  clear: () => { seq += 1; set({ pass: NO_PASS, projections: null, loading: false }); },
 
   projectionFor: (id: string) => {
     const { pass, projections } = get();

@@ -13,7 +13,7 @@ import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useRaceScoresStore } from '../../store/raceScores.store';
 import { usePrefsStore } from '../../store/prefs.store';
 import { usePitWallStore } from '../../store/pitwall.store';
-import { bestPick, bestValuePick } from '../../pitwall/recommend';
+import { marksFor } from '../../pitwall/recommend';
 import { teamAccent } from '../theme/simpleTheme';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
@@ -153,12 +153,8 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     // Pit Wall marks the row it would take and, when different, the best points per dollar. The
     // picker has already decided what the team may take, so a mark can never suggest a blocked move.
     if (proj) {
-      const pick = bestPick(list, proj.byId);
-      const value = bestValuePick(list, proj.byId);
-      for (const row of list) {
-        if (pick && row.id === pick.id) row.mark = 'pick';
-        else if (value && row.id === value.id) row.mark = 'value';
-      }
+      const marks = marksFor(list, proj.byId);
+      for (const row of list) row.mark = marks[row.id] ?? null;
     }
     const by: Sort = sort === 'proj' && !proj ? 'pts' : sort;
     list.sort((a, b) => (by === 'proj' ? (b.proj ?? -1) - (a.proj ?? -1) : by === 'pts' ? b.pts - a.pts : b.price - a.price));

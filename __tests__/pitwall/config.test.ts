@@ -70,3 +70,18 @@ describe('versionBelow', () => {
     expect(versionBelow(null, null)).toBe(false);
   });
 });
+
+describe('isPortalUrl', () => {
+  const { isPortalUrl } = require('../../src/pitwall/config');
+
+  it('accepts only the known portal hosts, because the link carries a sign-in code', () => {
+    expect(isPortalUrl('https://pitwall.humannpc.com')).toBe(true);
+    expect(isPortalUrl('https://undercut-pitwall.pages.dev/h#abc')).toBe(true);
+    expect(isPortalUrl('https://evil.example.com')).toBe(false);
+    expect(isPortalUrl('http://pitwall.humannpc.com')).toBe(false);
+    // a host that merely ends with the real one, or hides it in userinfo or a path
+    expect(isPortalUrl('https://pitwall.humannpc.com.evil.example')).toBe(false);
+    expect(isPortalUrl('https://evil.example/pitwall.humannpc.com')).toBe(false);
+    expect(isPortalUrl('https://evil.example#pitwall.humannpc.com')).toBe(false);
+  });
+});
