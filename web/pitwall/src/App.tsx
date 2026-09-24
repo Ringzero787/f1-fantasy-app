@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
+import type { Lineup } from './data/types';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { examplePayload, EXAMPLE_LINEUP } from './data/example';
 import { EMPTY_ACCOUNT, loadAccount, type Account } from './lib/account';
+import { aceChange, planSave, teamLineup, CONTRACT_LENGTH } from './data/team';
+import { executePlan, loadMarket, loadTeams, saveErrorText } from './lib/teamApi';
+import { StoreProvider, type RealContext } from './state';
 import { PREVIEW, hasFirebaseConfig } from './lib/env';
 import { auth } from './lib/firebase';
 import { parseHandoffFragment, redeemHandoff } from './lib/handoff';
@@ -14,7 +18,6 @@ import { Market } from './pages/Market';
 import { PaceLab } from './pages/PaceLab';
 import { Season } from './pages/Season';
 import { Wire } from './pages/Wire';
-import { StoreProvider } from './state';
 import { Tooltip } from './ui/bits';
 import { ContextBar, DISCLAIMER, Footer, Toast, Wrap } from './ui/Shell';
 import { SignIn } from './ui/SignIn';
@@ -22,12 +25,31 @@ import { CompareTray, SlideOver } from './ui/SlideOver';
 
 const PAGE: Record<PageName, () => ReactElement> = { BRIEFING: Briefing, BOARD: Board, CIRCUIT: Circuit, 'PACE LAB': PaceLab, MARKET: Market, 'LINEUP LAB': LineupLab, SEASON: Season, WIRE: Wire };
 
-function Portal({ account, onSignOut }: { account: Account | null; onSignOut?: () => void }) {
+function Portal({ account, real, reloadReal, onSignOut }: { account: Account | null; real: RealContext | null; reloadReal?: () => Promise<RealContext | null>; onSignOut?: () => void }) {
   const [page, go] = usePage();
   const payload = useMemo(() => examplePayload(), []);
   const Page = PAGE[page];
+  // With a real team the lineup starts from it (ids the example payload may not know are kept as-is);
+  // without one the example lineup stands in.
+  const lineup = useMemo(() => (real ? teamLineup(real.team) : EXAMPLE_LINEUP), [real]);
+  const saver = real && reloadReal ? async (target: Lineup, onStatus: (s: string | null) => void) => {
+    const fresh = (await reloadReal()) ?? real;
+    const plan = planSave(fresh.team, target, fresh.market, CONTRACT_LENGTH, fresh.completedRaces);
+    const ace = aceChange(fresh.team, target, fresh.market);
+    if (plan.blocked) throw new Error(plan.blocked);
+    if (ace.blocked) throw new Error(ace.blocked);
+    if (!plan.changed && ace.to === null) return target;
+    try {
+      await executePlan(fresh.team.id, plan, ace.to, (p) => onStatus(p.step ? `Saving ${p.done + 1} of ${p.total}…` : null));
+    } catch (e) {
+      await reloadReal();
+      throw new Error(saveErrorText(e));
+    }
+    const after = await reloadReal();
+    return after ? teamLineup(after.team) : target;
+  } : undefined;
   return (
-    <StoreProvider payload={payload} lineup={EXAMPLE_LINEUP} go={go}>
+    <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} saver={saver} go={go}>
       <Wrap>
         <ContextBar page={page} account={account} onSignOut={onSignOut} />
         <main id="main"><Page /></main>
@@ -69,6 +91,7 @@ function HandoffGate({ current, busy, onContinue, onDecline }: { current: User |
 export function App() {
   const [session, setSession] = useState<Session>({ state: 'loading' });
   const [account, setAccount] = useState<Account>(EMPTY_ACCOUNT);
+  const [real, setReal] = useState<RealContext | null>(null);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
@@ -85,14 +108,27 @@ export function App() {
     return onAuthStateChanged(auth(), (user) => setSession(user ? { state: 'in', user } : { state: 'out' }));
   }, []);
 
-  useEffect(() => {
-    if (session.state !== 'in') return;
-    let live = true;
-    loadAccount(session.user.uid).then((a) => { if (live) setAccount(a); }).catch(() => { if (live) setAccount(EMPTY_ACCOUNT); });
-    return () => { live = false; };
-  }, [session]);
+  const uid = session.state === 'in' ? session.user.uid : null;
+  const reloadReal = useCallback(async (): Promise<RealContext | null> => {
+    if (!uid) return null;
+    try {
+      const [teams, market] = await Promise.all([loadTeams(uid), loadMarket()]);
+      const team = teams[0];
+      const next = team ? { team, market, completedRaces: market.completedRaces } : null;
+      setReal(next);
+      return next;
+    } catch { return null; }
+  }, [uid]);
 
-  if (PREVIEW) return <Portal account={null} />;
+  useEffect(() => {
+    if (!uid) { setReal(null); return; }
+    let live = true;
+    loadAccount(uid).then((a) => { if (live) setAccount(a); }).catch(() => { if (live) setAccount(EMPTY_ACCOUNT); });
+    void reloadReal();
+    return () => { live = false; };
+  }, [uid, reloadReal]);
+
+  if (PREVIEW) return <Portal account={null} real={null} />;
   if (session.state === 'loading') return <main className="signin"><span className="lbl" role="status">Loading…</span></main>;
   if (pendingCode) {
     const code = pendingCode;
@@ -103,7 +139,7 @@ export function App() {
     );
   }
   if (session.state === 'out') return <SignIn notice={notice} />;
-  return <Portal account={account} onSignOut={() => void signOut(auth())} />;
+  return <Portal account={account} real={real} reloadReal={reloadReal} onSignOut={() => void signOut(auth())} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';

@@ -7,20 +7,20 @@
 import type { Constructor, Driver, Lineup, NewsItem, Payload, Rival, Team } from './types';
 
 const TEAMS: Record<string, Team> = Object.fromEntries(([
-  ['MCL', 'McLaren', '#FF8000'], ['RBR', 'Red Bull', '#3671C6'], ['FER', 'Ferrari', '#E80020'], ['MER', 'Mercedes', '#27F4D2'],
-  ['WIL', 'Williams', '#64C4FF'], ['AMR', 'Aston Martin', '#229971'], ['ALP', 'Alpine', '#0093CC'], ['RCB', 'Racing Bulls', '#6692FF'],
-  ['HAA', 'Haas', '#B6BABD'], ['AUD', 'Audi', '#52E252'], ['CAD', 'Cadillac', '#C7B063'],
+  ['mclaren', 'McLaren', '#FF8000'], ['red_bull', 'Red Bull', '#3671C6'], ['ferrari', 'Ferrari', '#E80020'], ['mercedes', 'Mercedes', '#27F4D2'],
+  ['williams', 'Williams', '#64C4FF'], ['aston_martin', 'Aston Martin', '#229971'], ['alpine', 'Alpine', '#0093CC'], ['racing_bulls', 'Racing Bulls', '#6692FF'],
+  ['haas', 'Haas', '#B6BABD'], ['audi', 'Audi', '#52E252'], ['cadillac', 'Cadillac', '#C7B063'],
 ] as Array<[string, string, string]>).map(([id, name, color]) => [id, { id, name, color }]));
 
 const RAW: Array<[string, number, string, string, number, number]> = [
-  ['VER', 1, 'Verstappen', 'RBR', 591, 58], ['NOR', 4, 'Norris', 'MCL', 560, 55], ['PIA', 81, 'Piastri', 'MCL', 548, 52], ['RUS', 63, 'Russell', 'MER', 520, 47],
-  ['LEC', 16, 'Leclerc', 'FER', 498, 44], ['ANT', 12, 'Antonelli', 'MER', 480, 40], ['HAM', 44, 'Hamilton', 'FER', 477, 38], ['HAD', 6, 'Hadjar', 'RBR', 96, 34],
-  ['SAI', 55, 'Sainz', 'WIL', 310, 30], ['ALB', 23, 'Albon', 'WIL', 298, 28], ['ALO', 14, 'Alonso', 'AMR', 240, 24], ['BEA', 87, 'Bearman', 'HAA', 188, 21],
-  ['LAW', 30, 'Lawson', 'RCB', 212, 20], ['HUL', 27, 'Hulkenberg', 'AUD', 176, 19], ['GAS', 10, 'Gasly', 'ALP', 205, 18], ['OCO', 31, 'Ocon', 'HAA', 204, 17],
-  ['BOR', 5, 'Bortoleto', 'AUD', 150, 16], ['LIN', 41, 'Lindblad', 'RCB', 120, 14], ['STR', 18, 'Stroll', 'AMR', 110, 11], ['PER', 11, 'Perez', 'CAD', 105, 10],
-  ['COL', 43, 'Colapinto', 'ALP', 95, 9], ['BOT', 77, 'Bottas', 'CAD', 98, 9],
+  ['verstappen', 3, 'Verstappen', 'red_bull', 591, 58], ['norris', 1, 'Norris', 'mclaren', 560, 55], ['piastri', 81, 'Piastri', 'mclaren', 548, 52], ['russell', 63, 'Russell', 'mercedes', 520, 47],
+  ['leclerc', 16, 'Leclerc', 'ferrari', 498, 44], ['antonelli', 12, 'Antonelli', 'mercedes', 480, 40], ['hamilton', 44, 'Hamilton', 'ferrari', 477, 38], ['hadjar', 6, 'Hadjar', 'red_bull', 96, 34],
+  ['sainz', 55, 'Sainz', 'williams', 310, 30], ['albon', 23, 'Albon', 'williams', 298, 28], ['alonso', 14, 'Alonso', 'aston_martin', 240, 24], ['bearman', 87, 'Bearman', 'haas', 188, 21],
+  ['lawson', 30, 'Lawson', 'racing_bulls', 212, 20], ['hulkenberg', 27, 'Hulkenberg', 'audi', 176, 19], ['gasly', 10, 'Gasly', 'alpine', 205, 18], ['ocon', 31, 'Ocon', 'haas', 204, 17],
+  ['bortoleto', 5, 'Bortoleto', 'audi', 150, 16], ['lindblad', 41, 'Lindblad', 'racing_bulls', 120, 14], ['stroll', 18, 'Stroll', 'aston_martin', 110, 11], ['perez', 11, 'Perez', 'cadillac', 105, 10],
+  ['colapinto', 43, 'Colapinto', 'alpine', 95, 9], ['bottas', 77, 'Bottas', 'cadillac', 98, 9],
 ];
-const CTORS: Array<[string, number, number]> = [['MCL', 620, 96], ['MER', 540, 80], ['FER', 510, 74], ['RBR', 500, 78], ['WIL', 330, 52], ['HAA', 240, 34], ['RCB', 230, 30], ['AMR', 210, 28], ['AUD', 200, 30], ['ALP', 180, 22], ['CAD', 160, 16]];
+const CTORS: Array<[string, number, number]> = [['mclaren', 620, 96], ['mercedes', 540, 80], ['ferrari', 510, 74], ['red_bull', 500, 78], ['williams', 330, 52], ['haas', 240, 34], ['racing_bulls', 230, 30], ['aston_martin', 210, 28], ['audi', 200, 30], ['alpine', 180, 22], ['cadillac', 160, 16]];
 
 export function examplePayload(): Payload {
   let seed = 17;
@@ -40,17 +40,17 @@ export function examplePayload(): Payload {
   for (const d of drivers) { d.val = +((d.med / d.price) * 100).toFixed(1); d.pod = Math.min(88, d.win * 2 + Math.round(rnd() * 8)); d.t10 = Math.min(97, Math.round(d.med * 1.7 + 10)); }
   const constructors: Constructor[] = CTORS.map(([id, price, med]) => ({ id, name: TEAMS[id].name, team: id, price, med, ctor: true, floor: Math.round(med * 0.7), ceil: Math.round(med * 1.3), val: +((med / price) * 100).toFixed(1) }));
   const news: NewsItem[] = [
-    { kind: 'PENALTY', entity: 'HAM', tone: '-', text: 'Ferrari confirms a new energy store for Hamilton: 10-place grid drop in Baku.', sources: '2 sources', detail: 'Governing-body doc 14 · team release' },
-    { kind: 'UPGRADE', entity: 'MCL', tone: '+', text: 'McLaren brings a low-drag rear wing; long straights suit it.', sources: '3 sources', detail: 'Team release · 2 outlets' },
+    { kind: 'PENALTY', entity: 'hamilton', tone: '-', text: 'Ferrari confirms a new energy store for Hamilton: 10-place grid drop in Baku.', sources: '2 sources', detail: 'Governing-body doc 14 · team release' },
+    { kind: 'UPGRADE', entity: 'mclaren', tone: '+', text: 'McLaren brings a low-drag rear wing; long straights suit it.', sources: '3 sources', detail: 'Team release · 2 outlets' },
     { kind: 'WEATHER', entity: null, tone: '•', text: 'Race-day rain chance up from 10% to 35%. Wet delta favours Verstappen, Alonso.', sources: 'model', detail: 'Forecast feed' },
-    { kind: 'RELIABILITY', entity: 'ALO', tone: '-', text: 'Aston Martin investigating a gearbox issue from Madrid; no penalty yet.', sources: '2 sources', detail: '2 outlets · unconfirmed' },
-    { kind: 'CONTRACT', entity: 'COL', tone: '•', text: 'Alpine seat for 2027 still open; no change to this weekend.', sources: '4 sources', detail: '4 outlets' },
+    { kind: 'RELIABILITY', entity: 'alonso', tone: '-', text: 'Aston Martin investigating a gearbox issue from Madrid; no penalty yet.', sources: '2 sources', detail: '2 outlets · unconfirmed' },
+    { kind: 'CONTRACT', entity: 'colapinto', tone: '•', text: 'Alpine seat for 2027 still open; no change to this weekend.', sources: '4 sources', detail: '4 outlets' },
   ];
   const rivals: Rival[] = [
-    { name: 'Apex Hunters', rank: 1, gap: 33, lineup: ['VER', 'RUS', 'HAD', 'ALB', 'LAW'], bank: 120, activity: 0.85 },
-    { name: 'Box Box Baby', rank: 3, gap: -21, lineup: ['NOR', 'LEC', 'HAD', 'HUL', 'COL'], bank: 60, activity: 0.7 },
-    { name: 'Marbles FC', rank: 4, gap: -64, lineup: ['VER', 'LEC', 'GAS', 'OCO', 'BOT'], bank: 90, activity: 0.3 },
-    { name: 'Lift and Coast', rank: 5, gap: -102, lineup: ['PIA', 'HAM', 'ALO', 'BEA', 'LIN'], bank: 150, activity: 0.1 },
+    { name: 'Apex Hunters', rank: 1, gap: 33, lineup: ['verstappen', 'russell', 'hadjar', 'albon', 'lawson'], bank: 120, activity: 0.85 },
+    { name: 'Box Box Baby', rank: 3, gap: -21, lineup: ['norris', 'leclerc', 'hadjar', 'hulkenberg', 'colapinto'], bank: 60, activity: 0.7 },
+    { name: 'Marbles FC', rank: 4, gap: -64, lineup: ['verstappen', 'leclerc', 'gasly', 'ocon', 'bottas'], bank: 90, activity: 0.3 },
+    { name: 'Lift and Coast', rank: 5, gap: -102, lineup: ['piastri', 'hamilton', 'alonso', 'bearman', 'lindblad'], bank: 150, activity: 0.1 },
   ];
   return {
     example: true, asOf: '19 Sep 06:00 UTC',
@@ -60,4 +60,4 @@ export function examplePayload(): Payload {
   };
 }
 
-export const EXAMPLE_LINEUP: Lineup = { drivers: ['NOR', 'LEC', 'SAI', 'HAD', 'BEA'], ctor: 'MER', ace: 'NOR' };
+export const EXAMPLE_LINEUP: Lineup = { drivers: ['norris', 'leclerc', 'sainz', 'hadjar', 'bearman'], ctor: 'mercedes', ace: 'norris' };

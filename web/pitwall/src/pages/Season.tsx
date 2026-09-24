@@ -6,7 +6,7 @@ const LIMITS = [4, 4, 4, 3, 3];
 
 export function Season() {
   const { payload: p, ui, open } = useStore();
-  const title: Array<[string, number]> = [['NOR', 41], ['VER', 33], ['PIA', 19], ['RUS', 6], ['LEC', 1]];
+  const title: Array<[string, number]> = [['norris', 41], ['verstappen', 33], ['piastri', 19], ['russell', 6], ['leclerc', 1]];
   const value = [1500, 1540, 1610, 1650, 1640, 1720, 1790, 1850, 1900, 1980, 2040, 2100, 2130, 2160, 2180, spent(p, ui.lineup)];
   return (
     <div className="page">
@@ -23,13 +23,13 @@ export function Season() {
       </Tile>
       <Tile span="c4" label="Title simulation · 10,000 seasons">
         {title.map(([id, pct]) => { const d = entity(p, id); return d ? (
-          <Row key={id} cols="90px 1fr 38px" onClick={() => open(id)} label={`${d.name} ${pct}%`}><span><TeamBar p={p} team={d.team} />{id}</span><Meter pct={pct * 2} /><span className="num">{pct}%</span></Row>
+          <Row key={id} cols="90px 1fr 38px" onClick={() => open(id)} label={`${d.name} ${pct}%`}><span><TeamBar p={p} team={d.team} />{d.name}</span><Meter pct={pct * 2} /><span className="num">{pct}%</span></Row>
         ) : null; })}
       </Tile>
       <Tile span="c8" label="Power unit and penalty tracker">
         <div className="scroll"><table>
           <thead><tr><th scope="col">Driver</th><th scope="col">ICE</th><th scope="col">Turbo</th><th scope="col">MGU-K</th><th scope="col">Energy store</th><th scope="col">Control elec.</th><th scope="col">Status</th></tr></thead>
-          <tbody>{['HAM', 'ALO', 'VER', 'SAI', 'OCO', 'GAS'].map((id, i) => { const d = entity(p, id); if (!d) return null;
+          <tbody>{['hamilton', 'alonso', 'verstappen', 'sainz', 'ocon', 'gasly'].map((id, i) => { const d = entity(p, id); if (!d) return null;
             const used = LIMITS.map((a, j) => Math.min(a + 1, a - ((i + j) % 3) + 1)); const over = used.some((v, j) => v > LIMITS[j]);
             return (
               <Tr key={id} onClick={() => open(id)} focus={ui.focus === id} label={`${d.name} power unit use`}>

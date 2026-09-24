@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { applySwap, sameLineup } from './data/logic';
 import type { Lineup, Payload } from './data/types';
+import type { MarketPrices, RealTeam } from './data/team';
 import type { PageName } from './lib/router';
 
 export interface UIState {
@@ -29,8 +30,12 @@ export interface UIState {
   toast: string | null;
 }
 
+/** The signed-in user's real team and the live market (null in preview / when no team exists yet). */
+export interface RealContext { team: RealTeam; market: MarketPrices; completedRaces: number }
+
 interface Store {
   payload: Payload;
+  real: RealContext | null;
   ui: UIState;
   set: <K extends keyof UIState>(key: K, value: UIState[K]) => void;
   open: (id: string | null | undefined) => void;
@@ -40,7 +45,9 @@ interface Store {
   applyAct: (act: string) => void;
   tryAct: (act: string) => void;
   setAce: (id: string) => void;
-  save: () => void;
+  /** Save the what-if to the real team through the server. Resolves true on success. */
+  save: () => Promise<boolean>;
+  saving: string | null;
   reset: () => void;
   togglePin: (id: string) => void;
   toast: (text: string) => void;
@@ -55,7 +62,8 @@ export const useStore = (): Store => {
   return s;
 };
 
-export function StoreProvider({ payload, lineup, go, children }: { payload: Payload; lineup: Lineup; go: (p: PageName) => void; children: ReactNode }) {
+export function StoreProvider({ payload, lineup, real, saver, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; saver?: (lineup: Lineup, onStatus: (s: string | null) => void) => Promise<Lineup>; go: (p: PageName) => void; children: ReactNode }) {
+  const [saving, setSaving] = useState<string | null>(null);
   const [ui, setUi] = useState<UIState>(() => ({
     boardTab: 'PROJECTIONS', preset: 'VALUE', sort: 'med', paceTab: 'LONG RUN', mktTab: 'PRICE MODEL', lowerTab: 'RIVALS',
     lineup, saved: lineup, slot: null, over: null, overTab: 'PRESENT', focus: null, thr: 25, win: 'L10', wire: 'ALL', rec: 0, recOver: null, tray: [], toast: null,
@@ -67,7 +75,7 @@ export function StoreProvider({ payload, lineup, go, children }: { payload: Payl
   }, [patch]);
 
   const store = useMemo<Store>(() => ({
-    payload, ui, go,
+    payload, ui, go, real, saving,
     dirty: !sameLineup(ui.lineup, ui.saved),
     set: (key, value) => patch(() => ({ [key]: value } as Partial<UIState>)),
     open: (id) => { if (id) patch(() => ({ over: id, overTab: 'PRESENT', focus: id, recOver: null })); },
@@ -77,8 +85,18 @@ export function StoreProvider({ payload, lineup, go, children }: { payload: Payl
     applyAct: (act) => patch((u) => ({ lineup: applySwap(u.lineup, act) })),
     tryAct: (act) => { patch((u) => ({ lineup: applySwap(u.lineup, act), rec: 0, slot: null, over: null, recOver: null })); go('LINEUP LAB'); toast('Swap applied as a what-if. Save it in the lineup lab.'); },
     setAce: (id) => patch((u) => (u.lineup.drivers.includes(id) ? { lineup: { ...u.lineup, ace: id } } : {})),
-    // F-073 replaces this with the server callables (addDriverSecure and friends). Until then nothing is written.
-    save: () => { patch((u) => ({ saved: u.lineup })); toast('What-if kept on this page. Saving to your team arrives with the lineup lab release.'); },
+    save: async () => {
+      if (!saver) { patch((u) => ({ saved: u.lineup })); toast('Example data: nothing to save.'); return true; }
+      try {
+        const saved = await saver(ui.lineup, setSaving);
+        patch(() => ({ lineup: saved, saved, slot: null }));
+        toast('Lineup saved to your team.');
+        return true;
+      } catch (e) {
+        toast((e as Error).message);
+        return false;
+      } finally { setSaving(null); }
+    },
     reset: () => patch((u) => ({ lineup: u.saved, slot: null })),
     togglePin: (id) => patch((u) => {
       if (u.tray.includes(id)) return { tray: u.tray.filter((x) => x !== id) };
@@ -86,7 +104,7 @@ export function StoreProvider({ payload, lineup, go, children }: { payload: Payl
       return { tray: [...u.tray, id] };
     }),
     toast,
-  }), [payload, ui, go, patch, toast]);
+  }), [payload, ui, go, patch, toast, real, saver, saving]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }
