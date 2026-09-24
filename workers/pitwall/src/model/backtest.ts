@@ -12,9 +12,9 @@ import { DEFAULT_FORM, estimateForm, type FormOptions } from './strength';
 import type { History } from './types';
 
 /** Outcomes are judged in TODAY'S rules: every past classification is re-scored, for the model and the baselines alike. */
-export interface Row { raceId: string; round: number; entityId: string; entityType: 'driver' | 'constructor'; actual: number; model: number; modelMean: number; last3: number; seasonMean: number; floor: number; ceiling: number; rawFloor: number; rawCeiling: number; bandScale: number; priceActual: number | null; priceModel: number | null; priceLast3: number | null }
+export interface Row { raceId: string; round: number; entityId: string; entityType: 'driver' | 'constructor'; actual: number; retired: boolean; pDnf: number; model: number; modelMean: number; last3: number; seasonMean: number; floor: number; ceiling: number; rawFloor: number; rawCeiling: number; bandScale: number; priceActual: number | null; priceModel: number | null; priceLast3: number | null }
 
-export interface Metrics { n: number; maeModel: number; maeModelMean: number; maeLast3: number; maeSeasonMean: number; bandCoverage: number; }
+export interface Metrics { n: number; maeModel: number; maeModelMean: number; maeLast3: number; maeSeasonMean: number; /** share of NON-retirement outcomes inside floor..ceiling */ bandCoverage: number; dnfCalibration: { predicted: number; observed: number } }
 export interface Report {
   races: number; testRaces: string[]; rows: number; runs: number;
   all: Metrics; drivers: Metrics; constructors: Metrics;
@@ -30,7 +30,7 @@ export interface Report {
   /** the band scale the next live projection should use (fitted on every test race) */
   bandScale: number;
   perRace: Array<{ raceId: string; round: number; maeModel: number; maeLast3: number; coverage: number }>;
-  verdict: { beatsBaseline: boolean; bandInTarget: boolean; ships: boolean; reasons: string[] };
+  verdict: { beatsBaseline: boolean; bandInTarget: boolean; priceOk: boolean; ships: boolean; reasons: string[] };
 }
 
 const mean = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0);
@@ -43,11 +43,20 @@ function metrics(rows: Row[]): Metrics {
     maeModelMean: mean(rows.map((r) => Math.abs(r.actual - r.modelMean))),
     maeLast3: mean(rows.map((r) => Math.abs(r.actual - r.last3))),
     maeSeasonMean: mean(rows.map((r) => Math.abs(r.actual - r.seasonMean))),
-    bandCoverage: mean(rows.map((r) => (r.actual >= r.floor && r.actual <= r.ceiling ? 1 : 0))),
+    bandCoverage: mean(rows.filter((r) => !r.retired).map((r) => (r.actual >= r.floor && r.actual <= r.ceiling ? 1 : 0))),
+    dnfCalibration: (() => { const d = rows.filter((r) => r.entityType === 'driver'); return d.length ? { predicted: mean(d.map((r) => r.pDnf)), observed: mean(d.map((r) => (r.retired ? 1 : 0))) } : { predicted: 0, observed: 0 }; })(),
   };
 }
 
-export function backtest(h: History, opts: { minTrain?: number; sim?: Partial<SimOptions>; form?: FormOptions } = {}): Report {
+/** Blend of the simulation's expected price change and the change the last-3 pricing average would produce (0 = simulation only, 1 = last-3 only). */
+export const DEFAULT_PRICE_BLEND = 0.5;
+export function priceDirection(simExpected: number, pricingHist: number[], price: number, blend: number): number {
+  const last3 = pricingHist.length ? appliedPriceChange(mean(pricingHist.slice(-3)), 0, price) : simExpected;
+  const v = (1 - blend) * simExpected + blend * last3;
+  return Math.abs(v) < 0.5 ? 0 : v;
+}
+
+export function backtest(h: History, opts: { minTrain?: number; sim?: Partial<SimOptions>; form?: FormOptions; priceBlend?: number } = {}): Report {
   const minTrain = opts.minTrain ?? 3;
   const sim = { ...DEFAULT_SIM, ...opts.sim };
   const rows: Row[] = [];
@@ -84,6 +93,8 @@ export function backtest(h: History, opts: { minTrain?: number; sim?: Partial<Si
     const actual = actualByRace.get(target.id);
     if (!actual) continue;
     const entrants = target.raceResults.filter((r) => r.status !== 'dns').map((r) => ({ driverId: r.driverId, constructorId: r.constructorId }));
+    const retiredDrivers = new Set(target.raceResults.filter((r) => r.status === 'dnf' || r.status === 'dsq').map((r) => r.driverId));
+    const retiredCars = new Set([...new Set(target.raceResults.map((r) => r.constructorId))].filter((c) => target.raceResults.filter((r) => r.constructorId === c).every((r) => retiredDrivers.has(r.driverId))));
     const priceInfo = priceByRace.get(target.id) ?? new Map();
     const prices = new Map<string, number>([...priceInfo].map(([id, p]) => [id, p.prev]));
     const proj = simulate(estimateForm(past, entrants, opts.form ?? DEFAULT_FORM), { totalLaps: target.totalLaps, round: target.round, hasSprint: target.hasSprint, prices }, { ...sim, seed: sim.seed + k });
@@ -94,8 +105,9 @@ export function backtest(h: History, opts: { minTrain?: number; sim?: Partial<Si
     }
     // Band calibration, walk-forward: widen or narrow the simulated band by the factor that would have held
     // 70% of the outcomes in the test races BEFORE this one. The first test race uses the raw band.
-    const z = rows.map((r) => (r.actual >= r.model ? (r.actual - r.model) / Math.max(1e-9, r.rawCeiling - r.model) : (r.model - r.actual) / Math.max(1e-9, r.model - r.rawFloor)));
-    const scale = z.length >= 60 ? quantile([...z].sort((x, y) => x - y), 0.7) : 1;
+    const z = rows.filter((r) => !r.retired).map((r) => (r.actual >= r.model ? (r.actual - r.model) / Math.max(1e-9, r.rawCeiling - r.model) : (r.model - r.actual) / Math.max(1e-9, r.model - r.rawFloor)));
+    // calibrate as soon as one test race is in (about 33 rows); before that the raw band stands
+    const scale = z.length >= 30 ? quantile([...z].sort((x, y) => x - y), 0.7) : 1;
     for (const p of proj) {
       const a = actual.get(p.entityId);
       if (a === undefined) continue;
@@ -104,11 +116,14 @@ export function backtest(h: History, opts: { minTrain?: number; sim?: Partial<Si
       const pi = priceInfo.get(p.entityId);
       const pricingHist = past.map((r) => (actualByRace.get(r.id)?.has(p.entityId) ? pricingByRace.get(r.id)?.get(p.entityId) : undefined)).filter((v): v is number => v !== undefined);
       rows.push({
-        raceId: target.id, round: target.round, entityId: p.entityId, entityType: p.entityType, actual: a,
+        raceId: target.id, round: target.round, entityId: p.entityId, entityType: p.entityType, actual: a, retired: p.entityType === 'driver' ? retiredDrivers.has(p.entityId) : retiredCars.has(p.entityId), pDnf: p.pDnf,
         model: p.median, modelMean: p.mean, last3: hist.length ? mean(hist.slice(-3)) : fallback, seasonMean: hist.length ? mean(hist) : fallback,
         floor: p.median - (p.median - p.floor) * scale, ceiling: p.median + (p.ceiling - p.median) * scale, rawFloor: p.floor, rawCeiling: p.ceiling, bandScale: scale,
         priceActual: pi ? sign(pi.change) : null,
-        priceModel: pi ? sign(Math.abs(p.expectedPriceChange) < 0.5 ? 0 : p.expectedPriceChange) : null,
+        // Direction from the simulation's EXPECTED pricing points run through the real rule, blended with recent
+        // form: the rule keys off a single race's position points, which are noisy, and the last-3 average
+        // carried the signal the raw expectation missed. rowsPriceParts feeds the blend sweep in the CLI.
+        priceModel: pi ? sign(priceDirection(p.expectedPriceChange, pricingHist, pi.prev, opts.priceBlend ?? DEFAULT_PRICE_BLEND)) : null,
         priceLast3: pi && pricingHist.length ? sign(appliedPriceChange(mean(pricingHist.slice(-3)), 0, pi.prev)) : null,
       });
     }
@@ -133,11 +148,16 @@ export function backtest(h: History, opts: { minTrain?: number; sim?: Partial<Si
   const all = metrics(rows);
   const improvement = { mean: gain(rows), lo: quantile(boots, 0.05), hi: quantile(boots, 0.95), racesModelBetter: perRace.filter((r) => r.maeModel < r.maeLast3).length, racesTotal: perRace.length };
   const beatsBaseline = improvement.lo > 0;
+  const priceAcc = mean(priced.map((r) => (r.priceModel === r.priceActual ? 1 : 0)));
+  const priceBase = mean(priced.map((r) => (r.priceLast3 === r.priceActual ? 1 : 0)));
+  // price direction must not be worse than the baseline by more than 2 points (a lean, not a call)
+  const priceOk = priced.length === 0 || priceAcc >= priceBase - 0.02;
   const bandInTarget = all.bandCoverage >= 0.65 && all.bandCoverage <= 0.75;
   const reasons: string[] = [];
   if (improvement.mean <= 0) reasons.push('the model is not better than the last-3 average on mean absolute error');
   else if (!beatsBaseline) reasons.push('the model is better on average, but the 90% interval of the improvement includes zero: with this few races it could be luck');
-  if (!bandInTarget) reasons.push(`the floor-to-ceiling band holds ${(all.bandCoverage * 100).toFixed(0)}% of outcomes, outside the 65 to 75% target`);
+  if (!priceOk) reasons.push(`price direction (${(priceAcc * 100).toFixed(1)}%) is worse than the last-3 baseline (${(priceBase * 100).toFixed(1)}%)`);
+  if (!bandInTarget) reasons.push(`the floor-to-ceiling band holds ${(all.bandCoverage * 100).toFixed(0)}% of non-retirement outcomes, outside the 65 to 75% target`);
   if (mismatches > 0) reasons.push(`the worker's scorer disagrees with stored raceScores on ${mismatches} of ${compared} values that were scored under today's rules`);
   return {
     races: h.races.length, testRaces: raceIds, rows: rows.length, runs: sim.runs,
@@ -145,7 +165,7 @@ export function backtest(h: History, opts: { minTrain?: number; sim?: Partial<Si
     improvement,
     price: { n: priced.length, modelAccuracy: mean(priced.map((r) => (r.priceModel === r.priceActual ? 1 : 0))), last3Accuracy: mean(priced.map((r) => (r.priceLast3 === r.priceActual ? 1 : 0))), alwaysFallAccuracy: mean(priced.map((r) => (r.priceActual === -1 ? 1 : 0))) },
     scoringParity: { compared, mismatches, explained }, perRace,
-    bandScale: (() => { const zz = rows.map((r) => (r.actual >= r.model ? (r.actual - r.model) / Math.max(1e-9, r.rawCeiling - r.model) : (r.model - r.actual) / Math.max(1e-9, r.model - r.rawFloor))).sort((x, y) => x - y); return quantile(zz, 0.7); })(),
-    verdict: { beatsBaseline, bandInTarget, ships: beatsBaseline && bandInTarget && mismatches === 0, reasons },
+    bandScale: (() => { const zz = rows.filter((r) => !r.retired).map((r) => (r.actual >= r.model ? (r.actual - r.model) / Math.max(1e-9, r.rawCeiling - r.model) : (r.model - r.actual) / Math.max(1e-9, r.model - r.rawFloor))).sort((x, y) => x - y); return quantile(zz, 0.7); })(),
+    verdict: { beatsBaseline, bandInTarget, priceOk, ships: beatsBaseline && bandInTarget && priceOk && mismatches === 0, reasons },
   };
 }

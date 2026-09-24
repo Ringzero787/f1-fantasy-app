@@ -24,7 +24,7 @@ export interface SimOptions {
   /** how much the grid slot, rather than underlying pace, decides the finish */
   gridWeight: number;
 }
-export const DEFAULT_SIM: SimOptions = { runs: 10000, seed: 20260919, carSd: 1.5, qualiSd: 2.2, chaosRate: 0.3, chaosFactor: 1.5, gridWeight: 0.25 };
+export const DEFAULT_SIM: SimOptions = { runs: 10000, seed: 20260919, carSd: 1.5, qualiSd: 2.2, chaosRate: 0.3, chaosFactor: 1.25, gridWeight: 0.25 };
 
 export interface SimContext { totalLaps: number; round: number; hasSprint: boolean; prices: Map<string, number> }
 
@@ -37,11 +37,15 @@ export function simulate(form: Form, ctx: SimContext, opts: SimOptions = DEFAULT
   const drivers = form.drivers;
   const cars = [...new Set(drivers.map((d) => d.constructorId))];
   const samples = new Map<string, number[]>();
+  // points in the runs where the entity did NOT retire: the band is the central 70% of those,
+  // and the retirement risk is reported separately (a retirement is a different event, not a bad day)
+  const finishedSamples = new Map<string, number[]>();
   const priceMoves = new Map<string, number[]>();
   const tally = new Map<string, { win: number; podium: number; top10: number; dnf: number }>();
-  for (const id of [...drivers.map((d) => d.driverId), ...cars]) { samples.set(id, []); priceMoves.set(id, []); }
+  for (const id of [...drivers.map((d) => d.driverId), ...cars]) { samples.set(id, []); finishedSamples.set(id, []); priceMoves.set(id, []); }
   for (const d of drivers) tally.set(d.driverId, { win: 0, podium: 0, top10: 0, dnf: 0 });
 
+  const carOfId = new Set(cars);
   for (let run = 0; run < opts.runs; run++) {
     const chaos = u() < opts.chaosRate ? opts.chaosFactor : 1;
     const shock = new Map(cars.map((c) => [c, normal(u) * opts.carSd]));
@@ -69,7 +73,13 @@ export function simulate(form: Form, ctx: SimContext, opts: SimOptions = DEFAULT
     }
 
     const scored = scoreWeekend(raceResults, qualifying, sprint, ctx);
-    for (const [id, arr] of samples) arr.push(scored.points.get(id) ?? 0);
+    for (const [id, arr] of samples) {
+      const pts = scored.points.get(id) ?? 0;
+      arr.push(pts);
+      // a car "retires" for band purposes only when both its drivers do
+      const retiredHere = carOfId.has(id) ? drivers.filter((d) => d.constructorId === id).every((d) => retired.has(d.driverId)) : retired.has(id);
+      if (!retiredHere) finishedSamples.get(id)!.push(pts);
+    }
     for (const [id, arr] of priceMoves) {
       const price = ctx.prices.get(id);
       arr.push(price === undefined ? 0 : appliedPriceChange(scored.pricingPoints.get(id) ?? 0, scored.dnfPricePenalty.get(id) ?? 0, price));
@@ -78,15 +88,17 @@ export function simulate(form: Form, ctx: SimContext, opts: SimOptions = DEFAULT
     for (const id of retired) tally.get(id)!.dnf++;
   }
 
-  const carOf = new Set(cars);
+  const carOf = carOfId;
   return [...samples].map(([id, arr]) => {
     const sorted = [...arr].sort((a, b) => a - b);
+    const fin = [...(finishedSamples.get(id) ?? [])].sort((a, b) => a - b);
+    const band = fin.length >= 20 ? fin : sorted;
     const moves = priceMoves.get(id) ?? [];
     const t = tally.get(id);
     const n = opts.runs;
     return {
       entityId: id, entityType: carOf.has(id) ? 'constructor' as const : 'driver' as const,
-      floor: quantile(sorted, 0.15), median: quantile(sorted, 0.5), ceiling: quantile(sorted, 0.85),
+      floor: quantile(band, 0.15), median: quantile(sorted, 0.5), ceiling: quantile(band, 0.85),
       mean: arr.reduce((s, v) => s + v, 0) / n,
       pWin: t ? t.win / n : 0, pPodium: t ? t.podium / n : 0, pTop10: t ? t.top10 / n : 0, pDnf: t ? t.dnf / n : 0,
       aceMedian: quantile(sorted, 0.5) * 2,

@@ -74,7 +74,9 @@ test('form follows results, shrinks a newcomer to the car, and the simulation is
   assert.deepEqual(p1, p2);
   const by = Object.fromEntries(p1.map((p) => [p.entityId, p]));
   assert.ok(by.a1.median > by.b2.median && by.a1.pWin > by.b2.pWin);
-  for (const p of p1) { assert.ok(p.floor <= p.median && p.median <= p.ceiling); assert.ok(p.pRise + p.pFall <= 1.0000001); }
+  for (const p of p1) { assert.ok(p.floor <= p.ceiling); assert.ok(p.pRise + p.pFall <= 1.0000001); assert.ok(p.pDnf >= 0 && p.pDnf <= 1); }
+  // the band is taken over finishing runs, so a driver who retires often still has a floor above the DNF penalty
+  assert.ok(by.b2.floor > -8);
   assert.equal(by.car_a.entityType, 'constructor');
   assert.equal(by.a1.aceMedian, by.a1.median * 2);
 });
@@ -89,5 +91,5 @@ test('backtest on a perfectly regular season: tiny errors, full scoring parity, 
   assert.ok(rep.all.n === 7 * 6);
   assert.ok(Number.isFinite(rep.improvement.mean) && rep.improvement.lo <= rep.improvement.hi);
   assert.equal(typeof rep.verdict.ships, 'boolean');
-  assert.equal(rep.verdict.ships, rep.verdict.beatsBaseline && rep.verdict.bandInTarget);
+  assert.equal(rep.verdict.ships, rep.verdict.beatsBaseline && rep.verdict.bandInTarget && rep.verdict.priceOk);
 });

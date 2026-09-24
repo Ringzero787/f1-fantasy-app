@@ -25,9 +25,11 @@ export interface History { races: HistRace[]; scores: HistScore[]; prices: HistP
 export interface Projection {
   entityId: string;
   entityType: 'driver' | 'constructor';
-  floor: number;   // 15th percentile
+  /** 15th percentile of the runs in which the entity finished; retirements are pDnf, reported separately */
+  floor: number;
   median: number;
-  ceiling: number; // 85th percentile
+  /** 85th percentile of the finishing runs */
+  ceiling: number;
   mean: number;
   pWin: number; pPodium: number; pTop10: number; pDnf: number;
   /** points if this pick is the Ace (doubled) */
