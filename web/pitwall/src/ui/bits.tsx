@@ -26,6 +26,14 @@ export const Chip = ({ on, onClick, children }: { on: boolean; onClick: () => vo
 );
 export const Pill = ({ red, children }: { red?: boolean; children: ReactNode }) => <span className={`pill ${red ? 'r' : ''}`}>{children}</span>;
 
+/**
+ * A frame with nothing to show yet. Says so in a sentence rather than rendering an empty table or,
+ * worse, a row of zeros that reads as a measurement.
+ */
+export const Empty = ({ children }: { children: ReactNode }) => (
+  <p className="mut" style={{ margin: '18px 0', fontFamily: 'var(--disp)', fontSize: 13, lineHeight: 1.6 }} role="status">{children}</p>
+);
+
 /** Team colour as a small bar only (Grid rule); the team name is always nearby as text. */
 export const TeamBar = ({ p, team }: { p: Payload; team: string }) => <span className="tbar" style={{ background: p.teams[team]?.color ?? 'var(--borderS)' }} aria-hidden="true" />;
 

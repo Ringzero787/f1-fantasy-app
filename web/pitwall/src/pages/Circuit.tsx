@@ -1,8 +1,20 @@
 import { useStore } from '../state';
-import { Meter, Row, TeamBar, Tile } from '../ui/bits';
+import { Empty, Meter, Row, TeamBar, Tile } from '../ui/bits';
 
 export function Circuit() {
-  const { payload: p, open } = useStore();
+  const { payload: p, has, open } = useStore();
+  // The venue profile, the car fit ranking and the history table have no published source yet: in
+  // the example set they are drawn from the row order. Against a real payload that would be an
+  // invention presented as a measurement, so the page says so instead.
+  if (!has.mock) {
+    return (
+      <div className="page">
+        <Tile span="c12" label={`${p.round.circuit || 'Circuit'} · report`}>
+          <Empty>The circuit report is not published yet. The venue profile, car fit ranking and history at this venue arrive with the reports pipeline.</Empty>
+        </Tile>
+      </div>
+    );
+  }
   const profile: Array<[string, number]> = [['Straight-line share', 82], ['Slow-corner share', 64], ['Overtaking ease', 71], ['Safety-car rate', 78], ['Tyre stress', 32]];
   return (
     <div className="page">

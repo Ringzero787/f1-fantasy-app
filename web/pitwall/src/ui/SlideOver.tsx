@@ -2,34 +2,38 @@ import { useEffect, useRef } from 'react';
 import { briefRecs, entity, money } from '../data/logic';
 import { isCtor, type Driver, type Entity } from '../data/types';
 import { useStore } from '../state';
-import { Arrow, AsTable, Chip, FitCell, Lbl, Meter, Pill, Range, Row, Tabs, TeamBar } from './bits';
+import { Arrow, AsTable, Chip, Empty, FitCell, Lbl, Meter, Pill, Range, Row, Tabs, TeamBar } from './bits';
+import { NOT_PUBLISHED } from '../data/coverage';
 import { Compare } from './Compare';
 
 function Present({ d }: { d: Entity }) {
-  const { payload: p, ui, set } = useStore();
+  const { payload: p, has, pass, ui, set } = useStore();
   const drv = isCtor(d) ? null : d;
-  const hist = drv ? drv.form : Array.from({ length: 16 }, (_, i) => d.med + Math.round(Math.sin(i) * 12));
+  // A constructor has no published per-round series yet; the example set draws a curve for it.
+  const hist = drv ? drv.form : has.mock ? Array.from({ length: 16 }, (_, i) => d.med + Math.round(Math.sin(i) * 12)) : [];
   const n = { L5: 5, L10: 10, SEASON: 16 }[ui.win];
   const h = hist.slice(-n), mx = Math.max(...hist, ui.thr + 5), hits = h.filter((v) => v >= ui.thr).length;
+  const rate = h.length ? hits / h.length : null;
   const mate = drv ? p.drivers.find((x) => x.team === drv.team && x.id !== drv.id) : undefined;
   const split: Array<[string, number]> = [['Race position', 0.52], ['Positions gained', 0.2], ['Qualifying', 0.14], ['Fastest lap / bonus', 0.08], ['DNF risk', -0.06]];
   return (
     <>
       <div><Lbl>Projection · RD {p.round.number}</Lbl>
         <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', marginTop: 8 }}><div className="big num">{d.med}</div><div><Range e={d} /><br /><span className="mut">floor {d.floor} · ceiling {d.ceil}</span></div></div></div>
-      {drv ? <div><Lbl>Where the points come from</Lbl>{split.map(([l, f]) => (
+      {drv && has.mock ? <div><Lbl>Where the points come from</Lbl>{split.map(([l, f]) => (
         <Row key={l} cols="1fr 90px 40px"><span>{l}</span><Meter pct={Math.abs(f) * 150} red={f < 0} /><span className="num">{f < 0 ? '−' : ''}{Math.abs(d.med * f).toFixed(1)}</span></Row>
       ))}</div> : null}
       <div>
-        <div className="th"><Lbl>Hit rate · scored {ui.thr}+</Lbl><span className={`h2 num ${hits / h.length >= 0.65 ? 'pos' : hits / h.length < 0.45 ? 'red' : ''}`}>{hits}/{h.length}</span></div>
+        <div className="th"><Lbl>Hit rate · scored {ui.thr}+</Lbl><span className={`h2 num ${rate !== null && rate >= 0.65 ? 'pos' : rate !== null && rate < 0.45 ? 'red' : ''}`}>{rate === null ? '—' : `${hits}/${h.length}`}</span></div>
         <div className="th" style={{ margin: '8px 0' }}>
           <Tabs value={ui.win} options={['L5', 'L10', 'SEASON'] as const} onChange={(v) => set('win', v)} label="Hit rate window" />
           <span className="srow">{[15, 25, 35, 45].map((t) => <Chip key={t} on={ui.thr === t} onClick={() => set('thr', t)}>{t}+</Chip>)}</span>
         </div>
+        {h.length ? null : <Empty>{pass.access === 'pass' ? NOT_PUBLISHED.form : 'Season form and the hit rate come with the Pit Wall Pass.'}</Empty>}
         <div className="bars">{h.map((v, i) => <span key={i} className={v >= ui.thr ? 'hit' : ''} style={{ height: `${(v / mx) * 100}%` }} data-tip={`RD ${p.round.number - h.length + i}: ${v} pts${v >= ui.thr ? ' · hit' : ''}`} />)}<u style={{ bottom: `${(ui.thr / mx) * 100}%` }} /></div>
         <AsTable caption={`Points per round against the ${ui.thr} point line`} head={['Round', 'Points', `${ui.thr}+`]} rows={h.map((v, i) => [`RD ${p.round.number - h.length + i}`, v, v >= ui.thr ? 'hit' : 'miss'])} />
       </div>
-      {mate ? <div><Lbl>Head to head · {mate.name}</Lbl>{([['Quali', 11, 5], ['Race', 9, 7], ['Fantasy pts', 10, 6]] as Array<[string, number, number]>).map(([l, a, b]) => (
+      {mate && has.mock ? <div><Lbl>Head to head · {mate.name}</Lbl>{([['Quali', 11, 5], ['Race', 9, 7], ['Fantasy pts', 10, 6]] as Array<[string, number, number]>).map(([l, a, b]) => (
         <div className="row split" key={l}><span className="num">{a}</span><span><span className="mut">{l}</span><span className="sb"><i style={{ flex: a }} /><em style={{ flex: b }} /></span></span><span className="num mut" style={{ textAlign: 'right' }}>{b}</span></div>
       ))}</div> : null}
     </>
@@ -55,28 +59,29 @@ function Past({ d }: { d: Entity }) {
 }
 
 function Outlook({ d }: { d: Entity }) {
-  const { payload: p } = useStore();
+  const { payload: p, has } = useStore();
   const drv: Driver | null = isCtor(d) ? null : d;
   const fit = drv ? drv.fit : [4, 3, 4, 2, 3, 5];
   const news = p.news.filter((n) => n.entity === d.id || n.entity === d.team || n.entity === null);
   return (
     <>
-      <div><Lbl>Next rounds · circuit fit</Lbl><div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>{fit.map((v, i) => (
+      {!has.fit ? <div><Lbl>Next rounds · circuit fit</Lbl><Empty>{NOT_PUBLISHED.fit}</Empty></div> : null}
+      {has.fit ? <div><Lbl>Next rounds · circuit fit</Lbl><div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>{fit.map((v, i) => (
         <span key={i} style={{ display: 'grid', gap: 4, justifyItems: 'center' }}><FitCell v={v} label={p.rounds[i]} /><span className="mut" style={{ fontSize: 9 }}>{p.rounds[i]}</span></span>
-      ))}</div></div>
+      ))}</div></div> : null}
       <div><div className="th"><Lbl>Outlook</Lbl><Pill>Estimate · written by AI</Pill></div>
-        <p className="est">{d.name} goes to {p.round.name} as {d.val > 12 ? 'one of the best values on the board' : 'a premium pick priced near expectation'}. Long straights {fit[0] >= 4 ? 'suit the car' : 'expose a straight-line deficit'}{drv ? `, and a ${drv.dnf}% retirement risk keeps the floor at ${d.floor}` : ''}. {drv ? `Expect the price to ${drv.dprice > 0 ? `rise if they clear ${Math.round(d.price / 11 + 6)} points` : 'hold or dip'}; ` : ''}the next two rounds are {fit[1] >= 3 ? 'friendly' : 'harder'}.</p>
-        <span className="mut">Built only from: projection model, circuit fit, price model, {news.length} tagged stories. Example text.</span></div>
-      <div><Lbl>Tagged news</Lbl>{news.map((n) => <Row key={n.text} cols="90px 1fr"><Pill red={n.tone === '-'}>{n.kind}</Pill><span>{n.text}</span></Row>)}</div>
+        <p className="est">{d.name} goes to {p.round.name} as {d.val > 12 ? 'one of the best values on the board' : 'a premium pick priced near expectation'}{has.fit ? `. Long straights ${fit[0] >= 4 ? 'suit the car' : 'expose a straight-line deficit'}` : ''}{drv ? `, and a ${drv.dnf}% retirement risk keeps the floor at ${d.floor}` : ''}. {drv && drv.ptsRise > 0 ? `The price rises above ${drv.ptsRise} points and falls hard below ${drv.ptsHold}; the model puts the rise at ${drv.pRise}%.` : ''}{has.fit ? ` The next two rounds are ${fit[1] >= 3 ? 'friendly' : 'harder'}.` : ''}</p>
+        <span className="mut">Built only from: the projection model{has.fit ? ', circuit fit' : ''}{drv && drv.ptsRise > 0 ? ', the price model' : ''}, {news.length} tagged stories.</span></div>
+      <div><Lbl>Tagged news</Lbl>{news.length ? news.map((n) => <Row key={n.text} cols="90px 1fr"><Pill red={n.tone === '-'}>{n.kind}</Pill><span>{n.text}</span></Row>) : <Empty>{NOT_PUBLISHED.news}</Empty>}</div>
     </>
   );
 }
 
 function TrayCompare() {
-  const { payload: p, ui, togglePin } = useStore();
+  const { payload: p, has, ui, togglePin } = useStore();
   const es = ui.tray.map((id) => entity(p, id)).filter((e): e is Entity => Boolean(e));
   const rows: Array<[string, (e: Entity) => string]> = [['Price', (e) => money(e.price)], ['Projection', (e) => String(e.med)], ['Floor', (e) => String(e.floor)], ['Ceiling', (e) => String(e.ceil)], ['Pts per $100', (e) => String(e.val)],
-    ['DNF risk %', (e) => (isCtor(e) ? '—' : String(e.dnf))], ['League owned %', (e) => (isCtor(e) ? '—' : String(e.own))], ['Next price', (e) => (isCtor(e) ? '—' : String(e.dprice))]];
+    ['DNF risk %', (e) => (isCtor(e) ? '—' : String(e.dnf))], ['League owned %', (e) => (isCtor(e) || !has.ownership ? '—' : String(e.own))], ['Next price', (e) => (isCtor(e) ? '—' : String(e.dprice))]];
   return (
     <div className="scroll"><table>
       <thead><tr><th scope="col">Metric</th>{es.map((e) => <th key={e.id} scope="col">{e.name} <button type="button" className="linkish" onClick={() => togglePin(e.id)} aria-label={`Remove ${e.name} from compare`}>✕</button></th>)}</tr></thead>

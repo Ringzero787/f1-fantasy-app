@@ -34,8 +34,12 @@ export function examplePayload(): Payload {
     const fit = Array.from({ length: 6 }, () => 1 + Math.floor(rnd() * 5));
     const win = Math.max(0, Math.round((med - 30) * 1.1 + rnd() * 4));
     const q = +(rnd() * 1.2).toFixed(2), r = +(rnd() * 1.2).toFixed(2);
+    // the production price rule: 1.1% of the price to rise, 0.6% to avoid a fall
+    const ptsRise = Math.ceil(price * 0.011), ptsHold = Math.ceil(price * 0.006);
+    const pRise = Math.max(2, Math.min(95, Math.round(50 + (med - ptsRise) * 3)));
     return { id, num, name, team, price, med, floor: Math.max(0, Math.round(med - sd)), ceil: Math.round(med + sd * 1.15), form, dnf, own,
-      pm: +(med - price / 11).toFixed(1), cons, dprice: Math.round((med - price / 11) * 1.4), fit, win, q, r, val: 0, pod: 0, t10: 0 };
+      pm: +(med - price / 11).toFixed(1), cons, dprice: Math.round((med - price / 11) * 1.4), fit, win, q, r, val: 0, pod: 0, t10: 0,
+      ptsRise, ptsHold, pRise, pFall: Math.max(2, 98 - pRise) };
   });
   for (const d of drivers) { d.val = +((d.med / d.price) * 100).toFixed(1); d.pod = Math.min(88, d.win * 2 + Math.round(rnd() * 8)); d.t10 = Math.min(97, Math.round(d.med * 1.7 + 10)); }
   const constructors: Constructor[] = CTORS.map(([id, price, med]) => ({ id, name: TEAMS[id].name, team: id, price, med, ctor: true, floor: Math.round(med * 0.7), ceil: Math.round(med * 1.3), val: +((med / price) * 100).toFixed(1) }));

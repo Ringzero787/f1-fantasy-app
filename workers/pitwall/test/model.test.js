@@ -119,6 +119,12 @@ test('payload builder writes the portal shape, a free look with only top-10 medi
   assert.equal(free.drivers[0].floor, 0);
   assert.equal(free.drivers[0].med, 40);
   assert.equal(free.drivers[0].form.length, 0);
+  // the whole grid stays listed so a free user can still see and edit a lineup; only the
+  // projections are withheld past the top ten
+  assert.equal(free.drivers.length, full.drivers.length);
+  assert.equal(free.constructors.length, full.constructors.length);
+  assert.equal(free.drivers[0].id, 'a1');
+  assert.equal(free.drivers[0].price, 300);
   assert.equal(shortTeamName('Mercedes-AMG Petronas F1 Team'), 'Mercedes');
   assert.equal(shortTeamName('Scuderia Ferrari'), 'Ferrari');
   assert.equal(shortTeamName('Williams Racing'), 'Williams');

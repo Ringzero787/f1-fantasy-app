@@ -4,6 +4,7 @@
  * rivalMove and the Lineup Lab swap pool. Pure, so every rule is unit-tested.
  */
 import { isCtor, type Constructor, type Driver, type Entity, type Lineup, type Payload, type Rival } from './types';
+import { coverage } from './coverage';
 
 export const money = (n: number): string => `$${Math.round(n).toLocaleString('en-US')}`;
 
@@ -98,9 +99,14 @@ export function compareRows(p: Payload, aId: string, bId: string): CmpRow[] {
   const a = must(p, aId), b = must(p, bId);
   const metric: Array<[string, (e: Entity) => number | null, 1 | -1 | 0, boolean?]> = [
     ['Projection', (e) => e.med, 1], ['Floor', (e) => e.floor, 1], ['Ceiling', (e) => e.ceil, 1], ['Pts per $100', (e) => e.val, 1],
-    [`${p.round.name} fit /5`, (e) => (isCtor(e) ? null : e.fit[0] ?? null), 1], ['Next price', (e) => (isCtor(e) ? null : e.dprice), 1],
-    ['DNF risk %', (e) => (isCtor(e) ? null : e.dnf), -1], ['League owned %', (e) => (isCtor(e) ? null : e.own), 0], ['Price', (e) => e.price, -1, true],
+    ['Next price', (e) => (isCtor(e) ? null : e.dprice), 1],
+    ['DNF risk %', (e) => (isCtor(e) ? null : e.dnf), -1], ['Price', (e) => e.price, -1, true],
   ];
+  // A row nobody has published would compare two identical placeholders and mark neither, which
+  // reads as "too close to call" rather than "not measured". Leave it out instead.
+  const has = coverage(p);
+  if (has.fit) metric.splice(4, 0, [`${p.round.name} fit /5`, (e) => (isCtor(e) ? null : e.fit[0] ?? null), 1]);
+  if (has.ownership) metric.push(['League owned %', (e) => (isCtor(e) ? null : e.own), 0]);
   const rows: CmpRow[] = [];
   for (const [label, get, dir, isMoney] of metric) {
     const va = get(a), vb = get(b);

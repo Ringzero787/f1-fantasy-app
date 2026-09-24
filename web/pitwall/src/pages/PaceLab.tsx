@@ -1,11 +1,17 @@
 import { useStore } from '../state';
-import { AsTable, Meter, Pill, Tabs, TeamBar, Tile, Tr } from '../ui/bits';
+import { AsTable, Empty, Meter, Pill, Tabs, TeamBar, Tile, Tr } from '../ui/bits';
+import { NOT_PUBLISHED } from '../data/coverage';
 
 // Every frame on this page is timing-derived, so it is part of the FREE look and never sits behind the pass (ADR-001).
 export function PaceLab() {
-  const { payload: p, ui, set, open } = useStore();
+  const { payload: p, has, ui, set, open } = useStore();
   let body;
-  if (ui.paceTab === 'LONG RUN') {
+  // Every frame here is built from session timing. Without it the long-run gaps collapse to zero,
+  // the scatter stacks every car on one point and the stop times would be invented from the row
+  // order, so the page says what is missing instead of drawing a shape that means nothing.
+  if (!has.timing) {
+    body = <Empty>{NOT_PUBLISHED.timing} Long runs, the qualifying-against-race scatter and pit stop times appear once the session data for this round is in.</Empty>;
+  } else if (ui.paceTab === 'LONG RUN') {
     const top = [...p.drivers].sort((a, b) => a.r - b.r).slice(0, 12);
     body = (
       <>
@@ -56,7 +62,7 @@ export function PaceLab() {
   }
   return (
     <div className="page">
-      <Tile span="c12" label="Pace lab" right={<div className="th"><Pill>Free for everyone</Pill><Tabs value={ui.paceTab} options={['LONG RUN', 'QUALI VS RACE', 'PIT STOPS'] as const} onChange={(v) => set('paceTab', v)} label="Pace views" /></div>}>
+      <Tile span="c12" label="Pace lab" right={<div className="th"><Pill>Free for everyone</Pill>{has.timing ? <Tabs value={ui.paceTab} options={['LONG RUN', 'QUALI VS RACE', 'PIT STOPS'] as const} onChange={(v) => set('paceTab', v)} label="Pace views" /> : null}</div>}>
         {body}
       </Tile>
     </div>
