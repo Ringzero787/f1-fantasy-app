@@ -1,0 +1,47 @@
+id: OP-035
+title: F-070 republish with the price model fields and the full-grid free look
+kind: pitwall-job
+status: applied
+params:
+  job: projections
+  session: daily
+created_at: 2026-09-24T23:03:12.314Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-24T23:03:16.455Z
+    head_sha: 46df901207ffe08fbfbac8dbdb5dd25f1aea4f9b
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'daily'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-035/dry-run-2026-09-24T23-03-16-455Z.log
+    log_sha256: d5c9cbd6c195461cfa971213c93fa02c7f42873192f7a1c83f3d62d91adfc29f
+    lines: 45
+  - step: backup
+    at: 2026-09-24T23:03:22.849Z
+    head_sha: 46df901207ffe08fbfbac8dbdb5dd25f1aea4f9b
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-035'/backup.json pw_pages pw_public pw_projections
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-035/backup-2026-09-24T23-03-22-849Z.log
+    log_sha256: 309e5471ff983c22e927d5e424f3c954516eb4cddc3ed2b772152523e95c8c5e
+    lines: 3
+  - step: gates
+    at: 2026-09-24T23:03:23.788Z
+    head_sha: 46df901207ffe08fbfbac8dbdb5dd25f1aea4f9b
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T23:03:23.789Z
+    head_sha: 46df901207ffe08fbfbac8dbdb5dd25f1aea4f9b
+    command: bash scripts/ops/pitwall-job.sh apply 'projections' 'daily'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-035/apply-2026-09-24T23-03-23-789Z.log
+    log_sha256: ffa0876cdb23936c43ee7f63ed401def63f7d2f2b8f0ee524e63d06d03e120b7
+    lines: 45
+  - step: gates
+    at: 2026-09-24T23:03:26.306Z
+    head_sha: 46df901207ffe08fbfbac8dbdb5dd25f1aea4f9b
+    exit: 0
+    gates:
+      G15: skip
