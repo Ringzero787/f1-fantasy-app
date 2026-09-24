@@ -1,0 +1,32 @@
+id: OP-031
+title: "F-068 Pit Wall Pass functions: Stripe checkout and webhook, league trial, pass expiry sweep, pw claim trigger (supersedes OP-027)"
+kind: functions-deploy-retry
+status: failed
+params:
+  only: functions:pw.createPortalHandoff,functions:pw.redeemPortalHandoff,functions:pw.cleanupHandoffs,functions:pw.createCheckout,functions:pw.stripeWebhook,functions:pw.startLeagueTrial,functions:pw.expirePitWallPasses,functions:pw.onUserPassWritten
+created_at: 2026-09-24T21:41:54.133Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-24T21:41:57.253Z
+    head_sha: b0c985f3408e6f9cddb3f4caa67ad34588b427bc
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-031/dry-run-2026-09-24T21-41-57-253Z.log
+    log_sha256: 2f33cf384379f204f87367d5c1d9f61bf6274fcf2a1ad6b0dd4d271f650043a4
+    lines: 50
+  - step: gates
+    at: 2026-09-24T21:42:03.168Z
+    head_sha: b0c985f3408e6f9cddb3f4caa67ad34588b427bc
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T21:42:03.173Z
+    head_sha: b0c985f3408e6f9cddb3f4caa67ad34588b427bc
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:pw.createPortalHandoff,functions:pw.redeemPortalHandoff,functions:pw.cleanupHandoffs,functions:pw.createCheckout,functions:pw.stripeWebhook,functions:pw.startLeagueTrial,functions:pw.expirePitWallPasses,functions:pw.onUserPassWritten' --project 'f1-app-18077' --force
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-031/apply-2026-09-24T21-42-03-173Z.log
+    log_sha256: 8ce0c46b296f6b06a39d644ed22b3c23abaca0a53c749a78ecb0c94e247a5d83
+    lines: 39

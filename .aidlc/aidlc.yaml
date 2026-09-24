@@ -76,6 +76,16 @@ overrides:
         paths: [ functions/src, functions/package.json, firebase.json ]
         dryrun: "git --no-pager diff --stat {last_sha} HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build"
         apply: "bash scripts/ops/firebase-deploy.sh --only {only} --project {project} --force"
+      functions-delete:
+        # Only for a 1st → 2nd Gen migration of the same function name, which firebase refuses to do
+        # in place. The function is gone until the functions-deploy that recreates it, so plan the
+        # two together and keep the window short. destructive: true, so G14 needs a waiver.
+        summary: "Delete deployed functions by name (names = comma-separated deployed names, region = us-central1). The redeploy that recreates them MUST follow immediately"
+        destructive: true
+        params: [ names, region ]
+        paths: [ scripts/ops/firebase-functions-delete.sh ]
+        dryrun: "bash scripts/ops/firebase-functions-delete.sh dryrun {names} {region} {project}"
+        apply: "bash scripts/ops/firebase-functions-delete.sh apply {names} {region} {project}"
       tl-functions-deploy:
         summary: "Track Limits functions (only = functions:tracklimits, or functions:tracklimits:<name>,…)"
         deploy: true
