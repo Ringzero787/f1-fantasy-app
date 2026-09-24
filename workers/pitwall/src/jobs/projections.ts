@@ -10,6 +10,7 @@
  *   pw_projections/{season}_{round}_{sessionKey}  one snapshot per refresh, for the movement chart
  */
 import { assertAllowedInputs } from '../model/inputs';
+import { pointsToRise } from '../model/priceRules';
 import { scoreWeekend } from '../model/scoreRace';
 import { buildPayload, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
 import { DEFAULT_SIM, simulate, type SimOptions } from '../model/simulate';
@@ -109,8 +110,8 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
     lockAt: next.hasSprint === true ? toDate(schedule.sprintQualifying) ?? toDate(schedule.qualifying) : toDate(schedule.fp3) ?? toDate(schedule.qualifying),
   };
   const nextRounds = upcoming.slice(0, 6).map((r: Record<string, any>) => ({ round: num(r.round), label: String(r.circuitId ?? r.city ?? r.id).slice(0, 3).toUpperCase(), hasSprint: r.hasSprint === true }));
-  // price-implied points: the points a pick must score to hold its price under the real rule
-  const priceImplied = (price: number) => price / 11;
+  // What a pick has to score to be worth its price. Undercut has no neutral band: below this it falls.
+  const priceImplied = pointsToRise;
   const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000 });
 
   const id = `${opts.season}_${round}`;

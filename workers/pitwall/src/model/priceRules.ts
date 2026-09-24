@@ -61,6 +61,17 @@ export function appliedPriceChange(pricingPoints: number, dnfPenalty: number, pr
   return next - price;
 }
 
+/**
+ * What a pick has to score, from the real rule rather than a round number.
+ *
+ * Undercut's pricing has no neutral band: the tiers are great, good, poor and terrible, and only
+ * the first two raise a price. So a pick that scores below `pointsToRise` loses value every race,
+ * and `pointsToSoftFall` is only the line between a small fall and a large one. "Price-implied
+ * points", the number the portal compares a projection against, is therefore `pointsToRise`.
+ */
+export const pointsToRise = (price: number): number => Math.ceil(price * PPM_GOOD);
+export const pointsToSoftFall = (price: number): number => Math.ceil(price * PPM_POOR);
+
 /** Blend of the simulation's expected change and what the last three races' pricing points would produce. */
 export const DEFAULT_PRICE_BLEND = 0.5;
 export function blendPriceChange(simExpected: number, recentPricingPoints: number[], price: number, blend = DEFAULT_PRICE_BLEND): number {

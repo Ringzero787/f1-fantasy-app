@@ -158,3 +158,16 @@ test('the price direction the payload shows is the blended one the backtest meas
   });
   assert.equal(full.drivers[0].dprice, Math.round(0.5 * 8 + 0.5 * last3));
 });
+
+test('what a pick must score comes from the real pricing rule, and there is no neutral band', () => {
+  const { pointsToRise, pointsToSoftFall, performancePriceChange } = require(D + 'priceRules.js');
+  for (const price of [90, 120, 240, 300, 500]) {
+    // at or above the rise line the price goes up; one point below it always falls
+    assert.ok(performancePriceChange(pointsToRise(price), price) > 0, `rise ${price}`);
+    assert.ok(performancePriceChange(pointsToRise(price) - 1, price) < 0, `below rise ${price}`);
+    // the soft-fall line only separates a small fall from a large one: it is still a fall
+    assert.ok(performancePriceChange(pointsToSoftFall(price), price) < 0, `soft ${price}`);
+    assert.ok(performancePriceChange(pointsToSoftFall(price), price) > performancePriceChange(pointsToSoftFall(price) - 1, price), `softer than terrible ${price}`);
+    assert.ok(pointsToRise(price) > pointsToSoftFall(price));
+  }
+});
