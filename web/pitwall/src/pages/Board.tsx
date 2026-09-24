@@ -2,16 +2,21 @@ import { entity, money } from '../data/logic';
 import type { Driver } from '../data/types';
 import { useStore } from '../state';
 import { Arrow, AsTable, Chip, Range, Spark, Tabs, TeamBar, Tile, Tr } from '../ui/bits';
+import { Locked } from '../ui/Locked';
+import { can } from '../data/access';
 
 const COLS: Record<string, Array<keyof Driver>> = { VALUE: ['price', 'val', 'pm', 'cons'], PACE: ['q', 'r', 'win', 'pod'], OWNERSHIP: ['own', 'lev', 'price', 'val'], RISK: ['dnf', 'floor', 'ceil', 'cons'] };
 const HEAD: Record<string, string> = { price: 'Price', val: 'Pts/$100', pm: '+/−', cons: 'Cons %', q: 'Quali gap', r: 'Race gap', win: 'Win %', pod: 'Podium %', own: 'Own %', lev: 'Leverage', dnf: 'DNF %', floor: 'Floor', ceil: 'Ceiling', med: 'Proj' };
 const SESSIONS = ['THU', 'FP1', 'FP2', 'FP3', 'QUALI'];
 
 export function Board() {
-  const { payload: p, ui, set, open } = useStore();
+  const { payload: p, ui, set, open, pass } = useStore();
+  // Free: the top ten, median only. The full table, presets and the other tabs need the pass.
+  const full = can(pass, 'board.full');
   const cols = COLS[ui.preset];
   const key = ui.sort as keyof Driver;
-  const rows = [...p.drivers].sort((a, b) => (Number(b[key]) || 0) - (Number(a[key]) || 0)).map((d, i) => ({ ...d, lev: Math.round(d.own / 5 - i) }));
+  const all = [...p.drivers].sort((a, b) => (Number(b[key]) || 0) - (Number(a[key]) || 0)).map((d, i) => ({ ...d, lev: Math.round(d.own / 5 - i) }));
+  const rows = full ? all : all.slice(0, 10);
   const sortBtn = (k: string) => (
     <th key={k} scope="col" aria-sort={ui.sort === k ? 'descending' : undefined}><button type="button" onClick={() => set('sort', k)}>{HEAD[k]}{ui.sort === k ? ' ▾' : ''}</button></th>
   );
@@ -20,19 +25,22 @@ export function Board() {
   if (ui.boardTab === 'PROJECTIONS') {
     body = (
       <div className="scroll"><table>
-        <thead><tr><th scope="col">Driver</th><th scope="col">Floor · median · ceiling</th>{sortBtn('med')}{cols.map((c) => sortBtn(String(c)))}<th scope="col">Next $</th><th scope="col">Form</th></tr></thead>
+        {/* Free look: the top ten and their median only. Ranges, value, form and price movement are the pass. */}
+        <thead><tr><th scope="col">Driver</th>{full ? <th scope="col">Floor · median · ceiling</th> : null}{sortBtn('med')}{full ? cols.map((c) => sortBtn(String(c))) : null}{full ? <><th scope="col">Next $</th><th scope="col">Form</th></> : null}</tr></thead>
         <tbody>{rows.map((d) => (
           <Tr key={d.id} onClick={() => open(d.id)} me={ui.lineup.drivers.includes(d.id)} focus={ui.focus === d.id} label={`${d.name}, projection ${d.med}`}>
-            <td><TeamBar p={p} team={d.team} /><b>{d.name}</b> <span className="mut">{d.num}</span></td><td><Range e={d} /></td><td><b>{d.med}</b></td>
-            {cols.map((c) => <td key={String(c)}>{c === 'price' ? money(d.price) : String(d[c] ?? '—')}</td>)}
-            <td><Arrow n={d.dprice} /></td><td><Spark values={d.form.slice(-8)} label={`${d.name}, last 8 rounds`} /></td>
+            <td><TeamBar p={p} team={d.team} /><b>{d.name}</b> <span className="mut">{d.num}</span></td>
+            {full ? <td><Range e={d} /></td> : null}
+            <td><b>{d.med}</b></td>
+            {full ? cols.map((c) => <td key={String(c)}>{c === 'price' ? money(d.price) : String(d[c] ?? '—')}</td>) : null}
+            {full ? <><td><Arrow n={d.dprice} /></td><td><Spark values={d.form.slice(-8)} label={`${d.name}, last 8 rounds`} /></td></> : null}
           </Tr>
         ))}</tbody>
       </table></div>
     );
   } else if (ui.boardTab === 'PROBABILITIES') {
     body = (
-      <>
+      <Locked feature="board.probabilities">
         <div className="scroll"><table>
           <thead><tr><th scope="col">Driver</th><th scope="col">Win</th><th scope="col">Podium</th><th scope="col">Top 10</th><th scope="col">DNF</th></tr></thead>
           <tbody>{rows.slice(0, 14).map((d) => (
@@ -43,7 +51,7 @@ export function Board() {
           ))}</tbody>
         </table></div>
         <span className="mut">Model probabilities from the race simulation. Not bookmaker odds.</span>
-      </>
+      </Locked>
     );
   } else {
     const pick = entity(p, ui.focus ?? '') && p.drivers.some((d) => d.id === ui.focus) ? ui.focus! : rows[0].id;
@@ -51,7 +59,7 @@ export function Board() {
     const pts = (d: Driver) => SESSIONS.map((_, i) => [50 + (i * (w - 90)) / 4, h - 30 - (d.med + (i ? Math.sin(d.num + i) * 5 : 0)) * 2.6]);
     const shown = [...rows.slice(0, 8).filter((d) => d.id !== pick), rows.find((d) => d.id === pick)!];
     body = (
-      <>
+      <Locked feature="board.movement">
         <div className="scroll"><svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ minWidth: 560 }} role="img" aria-label="Projection movement across the weekend">
           {[20, 40, 60].map((v) => <g key={v}><line x1="50" x2={w - 40} y1={h - 30 - v * 2.6} y2={h - 30 - v * 2.6} stroke="var(--borderL)" /><text x="18" y={h - 27 - v * 2.6}>{v}</text></g>)}
           {SESSIONS.map((s, i) => <text key={s} x={50 + (i * (w - 90)) / 4} y={h - 8} textAnchor="middle">{s}</text>)}
@@ -64,7 +72,7 @@ export function Board() {
         </svg></div>
         <span className="mut">Projected points after each session (example shape). Click any driver to make them the highlighted line.</span>
         <AsTable caption="Projected points after each session" head={['Driver', ...SESSIONS]} rows={shown.map((d) => [d.name, ...pts(d).map((x) => Math.round((h - 30 - x[1]) / 2.6))])} />
-      </>
+      </Locked>
     );
   }
   return (
@@ -72,9 +80,12 @@ export function Board() {
       <Tile span="c12" label={`Projection board · RD ${p.round.number}`} right={
         <div className="th">
           <Tabs value={ui.boardTab} options={['PROJECTIONS', 'PROBABILITIES', 'MOVEMENT'] as const} onChange={(v) => set('boardTab', v)} label="Board views" />
-          {ui.boardTab === 'PROJECTIONS' ? (['VALUE', 'PACE', 'OWNERSHIP', 'RISK'] as const).map((x) => <Chip key={x} on={ui.preset === x} onClick={() => set('preset', x)}>{x}</Chip>) : null}
+          {ui.boardTab === 'PROJECTIONS' && full ? (['VALUE', 'PACE', 'OWNERSHIP', 'RISK'] as const).map((x) => <Chip key={x} on={ui.preset === x} onClick={() => set('preset', x)}>{x}</Chip>) : null}
         </div>}>
         {body}
+        {full || ui.boardTab !== 'PROJECTIONS' ? null : (
+          <Locked feature="board.full"><div className="mut" style={{ padding: '10px 0' }}>The rest of the grid, with ranges, value, form and price movement.</div></Locked>
+        )}
       </Tile>
     </div>
   );

@@ -2,6 +2,7 @@ import { briefRecs, entity, money, projected, rateMyTeam, rivalMove } from '../d
 import { useStore } from '../state';
 import { Arrow, Meter, Money, Pill, Row, Tabs, TeamBar, Tile } from '../ui/bits';
 import { Compare } from '../ui/Compare';
+import { Locked } from '../ui/Locked';
 
 export function Briefing() {
   const { payload: p, ui, set, open, go } = useStore();
@@ -58,6 +59,7 @@ export function Briefing() {
         <button className="cta" type="button" onClick={() => go('LINEUP LAB')}>Open lineup lab →</button>
       </Tile>
       <Tile span="c12" label="Recommendations · your lineup against the data" right={<span className="mut">Click a recommendation to compare</span>}>
+       <Locked feature="briefing.recommendations">
         <div className="recgrid">
           <div>
             {recs.map((x, i) => (
@@ -70,12 +72,13 @@ export function Briefing() {
           {/* on narrow screens the comparison opens as a slide-over instead of lengthening the page */}
           <div className="only-cmp-wide">{recs[sel] ? <Compare rec={recs[sel]} /> : null}</div>
         </div>
+       </Locked>
       </Tile>
-      <Tile span="c4 only-wide" label="Rivals · likely moves">{rivalsBody}</Tile>
+      <Tile span="c4 only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals">{rivalsBody}</Locked></Tile>
       <Tile span="c4 only-wide" label="Price movers · predicted">{moversBody}</Tile>
       <Tile span="c4 only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
       <Tile span="c12 only-narrow" label="This weekend" right={<Tabs value={ui.lowerTab} options={['RIVALS', 'MOVERS', 'WEATHER'] as const} onChange={(v) => set('lowerTab', v)} label="Weekend frames" />}>
-        {ui.lowerTab === 'RIVALS' ? rivalsBody : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
+        {ui.lowerTab === 'RIVALS' ? <Locked feature="briefing.rivals">{rivalsBody}</Locked> : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
       </Tile>
     </div>
   );

@@ -298,3 +298,63 @@ test('an owner may set the ace, but not smuggle roster, budget, points or lock s
   await assertFails(updateDoc(doc(db(MALLORY), 'fantasyTeams', 'T1'), { aceDriverId: 'norris' }));
   await assertFails(updateDoc(doc(db(OWNER), 'fantasyTeams', 'T1'), { aceDriverId: 'norris' }));
 });
+
+// ── F-068 Pit Wall Pass: the paywall is in the rules, not only the UI ──
+const withPass = (uid, expiresAtMs) => env.authenticatedContext(uid, { pw: Math.floor(expiresAtMs / 1000) }).firestore();
+
+test('paid payloads need the pass claim; the free look and timing frames need only a sign-in', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    for (const c of ['pw_pages', 'pw_entities', 'pw_projections']) await setDoc(doc(a, c, '2026_17'), { round: 17 });
+    for (const c of ['pw_public', 'pw_public_timing', 'pw_news']) await setDoc(doc(a, c, '2026_17'), { round: 17 });
+  });
+  const free = db(ALICE);
+  const paid = withPass(ALICE, Date.now() + 86400000);
+  const expired = withPass(BOB, Date.now() - 1000);
+  const anon = env.unauthenticatedContext().firestore();
+  for (const c of ['pw_public', 'pw_public_timing', 'pw_news']) {
+    await assertSucceeds(getDoc(doc(free, c, '2026_17')));
+    await assertSucceeds(getDoc(doc(paid, c, '2026_17')));
+    await assertFails(getDoc(doc(anon, c, '2026_17')));
+  }
+  for (const c of ['pw_pages', 'pw_entities', 'pw_projections']) {
+    await assertSucceeds(getDoc(doc(paid, c, '2026_17')));
+    await assertFails(getDoc(doc(free, c, '2026_17')));     // signed in, no pass
+    await assertFails(getDoc(doc(expired, c, '2026_17')));  // pass ran out
+    await assertFails(getDoc(doc(anon, c, '2026_17')));
+    await assertFails(setDoc(doc(paid, c, '2026_17'), { round: 99 }));  // nobody writes payloads
+  }
+  // a forged claim shape buys nothing
+  await assertFails(getDoc(doc(env.authenticatedContext(MALLORY, { pw: 'forever' }).firestore(), 'pw_pages', '2026_17')));
+  await assertFails(getDoc(doc(env.authenticatedContext(MALLORY, { pw: true }).firestore(), 'pw_pages', '2026_17')));
+});
+
+test('a user cannot write their own pass, trial flag or revocation record', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users', ALICE), { email: 'a@example.com', displayName: 'Alice' });
+  });
+  const d = db(ALICE);
+  await assertSucceeds(updateDoc(doc(d, 'users', ALICE), { displayName: 'Alice B' }));
+  const forever = { tier: 'pitwall', season: '2026', expiresAt: 9e15, source: 'grant', grantedAt: 0 };
+  await assertFails(updateDoc(doc(d, 'users', ALICE), { pass: forever }));
+  await assertFails(updateDoc(doc(d, 'users', ALICE), { pwTrialUsed: false }));
+  await assertFails(updateDoc(doc(d, 'users', ALICE), { pwRevoked: null }));
+  await assertFails(setDoc(doc(db(BOB), 'users', BOB), { pass: forever }));
+  await assertFails(setDoc(doc(db(BOB), 'users', BOB), { pwTrialUsed: false }));
+  await assertSucceeds(setDoc(doc(db(BOB), 'users', BOB), { displayName: 'Bob' }));
+  await assertFails(updateDoc(doc(db(MALLORY), 'users', ALICE), { pass: forever }));
+  await assertFails(getDoc(doc(db(MALLORY), 'users', ALICE)));
+});
+
+test('a league owner cannot stamp League Pro on their own league', async () => {
+  await seedLeague();
+  await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'L1'), { pro: true }));
+  await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'L1'), { pro: true, proUntil: 9e15 }));
+  await assertSucceeds(updateDoc(doc(db(OWNER), 'leagues', 'L1'), { name: 'Renamed' }));
+  await seedMember('L1', ALICE);
+  await assertFails(updateDoc(doc(db(ALICE), 'leagues', 'L1'), { pro: true }));
+  // grant records are closed entirely
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'pw_grants', 'evt_1'), { uid: ALICE }); });
+  await assertFails(getDoc(doc(db(ALICE), 'pw_grants', 'evt_1')));
+  await assertFails(setDoc(doc(db(ALICE), 'pw_grants', 'evt_2'), { uid: ALICE }));
+});

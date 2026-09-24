@@ -4,7 +4,9 @@ import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { examplePayload, EXAMPLE_LINEUP } from './data/example';
 import { EMPTY_ACCOUNT, loadAccount, type Account } from './lib/account';
 import { aceChange, planSave, teamLineup, CONTRACT_LENGTH } from './data/team';
+import { NO_PASS, passFromClaims, type PassState } from './data/access';
 import { executePlan, loadMarket, loadTeams, saveErrorText } from './lib/teamApi';
+import { callable } from './lib/firebase';
 import { StoreProvider, type RealContext } from './state';
 import { PREVIEW, hasFirebaseConfig } from './lib/env';
 import { auth } from './lib/firebase';
@@ -25,7 +27,7 @@ import { CompareTray, SlideOver } from './ui/SlideOver';
 
 const PAGE: Record<PageName, () => ReactElement> = { BRIEFING: Briefing, BOARD: Board, CIRCUIT: Circuit, 'PACE LAB': PaceLab, MARKET: Market, 'LINEUP LAB': LineupLab, SEASON: Season, WIRE: Wire };
 
-function Portal({ account, real, reloadReal, selectTeam, onSignOut }: { account: Account | null; real: RealContext | null; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; onSignOut?: () => void }) {
+function Portal({ account, real, pass, reloadReal, selectTeam, checkoutFn, onSignOut }: { account: Account | null; real: RealContext | null; pass?: PassState; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; checkoutFn?: () => Promise<string>; onSignOut?: () => void }) {
   const [page, go] = usePage();
   const payload = useMemo(() => examplePayload(), []);
   const Page = PAGE[page];
@@ -49,7 +51,7 @@ function Portal({ account, real, reloadReal, selectTeam, onSignOut }: { account:
     return after ? teamLineup(after.team) : target;
   } : undefined;
   return (
-    <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} selectTeam={selectTeam} saver={saver} go={go}>
+    <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} pass={pass} checkoutFn={checkoutFn} selectTeam={selectTeam} saver={saver} go={go}>
       <Wrap>
         <ContextBar page={page} account={account} onSignOut={onSignOut} />
         <main id="main"><Page /></main>
@@ -94,6 +96,7 @@ export function App() {
   const [real, setReal] = useState<RealContext | null>(null);
   const teamIdRef = useRef<string | null>(null);
   const uidRef = useRef<string | null>(null);
+  const [pass, setPass] = useState<PassState>(NO_PASS);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
@@ -131,6 +134,24 @@ export function App() {
     teamIdRef.current = id;
     setReal((cur) => (cur ? { ...cur, team: cur.teams.find((t) => t.id === id) ?? cur.team } : cur));
   }, []);
+  // The pass comes from the same auth claim the Firestore rules read, so the UI and the rules can
+  // never disagree. `getIdTokenResult(true)` forces a refresh, which is what picks up a purchase
+  // made moments ago in Stripe.
+  const refreshPass = useCallback(async (force = false) => {
+    const user = session.state === 'in' ? session.user : null;
+    if (!user) { setPass(NO_PASS); return; }
+    try {
+      const token = await user.getIdTokenResult(force);
+      setPass(passFromClaims(token.claims as Record<string, unknown>, Date.now()));
+    } catch { setPass(NO_PASS); }
+  }, [session]);
+
+  useEffect(() => {
+    // Coming back from a successful checkout: the webhook has just written the pass, so force a refresh.
+    const paid = new URLSearchParams(window.location.search).has('paid');
+    void refreshPass(paid);
+    if (paid) window.history.replaceState({}, '', '/');
+  }, [refreshPass]);
 
   useEffect(() => {
     if (!uid) { setReal(null); teamIdRef.current = null; return; }
@@ -140,7 +161,15 @@ export function App() {
     return () => { live = false; };
   }, [uid, reloadReal]);
 
-  if (PREVIEW) return <Portal account={null} real={null} />;
+  // The preview build (scroll budget, design review) renders as a pass holder: locked frames keep
+  // the same height, so the unlocked layout is the taller case and every control is reachable.
+  // The preview build (scroll budget, design review) renders as a pass holder, since locked frames
+  // keep the same height and the unlocked layout is the taller case. `?free=1` shows a free user's
+  // view for design review. Neither path exists in a production bundle: PREVIEW is build-time.
+  if (PREVIEW) {
+    const free = new URLSearchParams(window.location.search).has('free');
+    return <Portal account={null} real={null} pass={free ? NO_PASS : { access: 'pass', expiresAt: Number.MAX_SAFE_INTEGER, trial: false }} />;
+  }
   if (session.state === 'loading') return <main className="signin"><span className="lbl" role="status">Loading…</span></main>;
   if (pendingCode) {
     const code = pendingCode;
@@ -151,7 +180,13 @@ export function App() {
     );
   }
   if (session.state === 'out') return <SignIn notice={notice} />;
-  return <Portal account={account} real={real} reloadReal={reloadReal} selectTeam={selectTeam} onSignOut={() => void signOut(auth())} />;
+  const checkoutFn = async (): Promise<string> => {
+    const create = await callable<Record<string, never>, { url: string }>('pw-createCheckout');
+    const res = await create({});
+    if (!res.data?.url) throw new Error('Checkout could not be opened. Try again.');
+    return res.data.url;
+  };
+  return <Portal account={account} real={real} pass={pass} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';

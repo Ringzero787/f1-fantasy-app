@@ -46,9 +46,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
-                    && !('isAdmin' in request.resource.data);
+                    && !('isAdmin' in request.resource.data)
+                    && !('pass' in request.resource.data)
+                    && !('pwTrialUsed' in request.resource.data);
       allow update: if isOwner(userId)
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin']);
+                    // F-068: the pass, its trial flag and the revocation record are server-owned
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'pass', 'pwTrialUsed', 'pwRevoked']);
       allow delete: if isOwner(userId);
     }
 
@@ -69,6 +72,9 @@ service cloud.firestore {
           isLeagueOwner(leagueId)
           && request.resource.data.ownerId == resource.data.ownerId
           && request.resource.data.maxMembers >= resource.data.maxMembers
+          // F-068: League Pro is derived from the owner's pass and stamped by a function;
+          // an owner setting it by hand would hand themselves the paid features.
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pro', 'proUntil'])
         ) || (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'updatedAt'])
           && (
@@ -209,6 +215,22 @@ service cloud.firestore {
     match /pw_handoff_limits/{id} { allow read, write: if false; }
     match /pw_jobs/{id} { allow read, write: if false; }
     match /pw_runs/{id} { allow read, write: if false; }
+    match /pw_grants/{id} { allow read, write: if false; }
+
+    // Pit Wall Pass (F-068). The paywall is enforced here, not only in the UI: paid payloads need
+    // the `pw` claim, which functions stamp from users/{uid}.pass and no client can forge. The free
+    // look and every timing-derived frame (never sold, ADR-001) need only a signed-in user.
+    function hasPass() {
+      return isAuthenticated()
+             && request.auth.token.pw is number
+             && request.auth.token.pw * 1000 > request.time.toMillis();
+    }
+    match /pw_public/{id} { allow read: if isAuthenticated(); allow write: if false; }
+    match /pw_public_timing/{id} { allow read: if isAuthenticated(); allow write: if false; }
+    match /pw_news/{id} { allow read: if isAuthenticated(); allow write: if false; }
+    match /pw_pages/{id} { allow read: if hasPass(); allow write: if false; }
+    match /pw_entities/{id} { allow read: if hasPass(); allow write: if false; }
+    match /pw_projections/{id} { allow read: if hasPass(); allow write: if false; }
 
     match /fantasyTeams/{teamId} {
       // F-029: roster and points per race weekend, written by scoring only. Readable by

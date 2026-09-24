@@ -1,6 +1,7 @@
 import { money } from '../data/logic';
 import { useStore } from '../state';
 import { Arrow, Spark, Tabs, TeamBar, Tile, Tr } from '../ui/bits';
+import { LockedPage } from '../ui/Locked';
 
 export function Market() {
   const { payload: p, ui, set, open } = useStore();
@@ -44,5 +45,5 @@ export function Market() {
       </>
     );
   }
-  return <div className="page"><Tile span="c12" label="Market" right={<Tabs value={ui.mktTab} options={['PRICE MODEL', 'VALUE', 'OWNERSHIP'] as const} onChange={(v) => set('mktTab', v)} label="Market views" />}>{body}</Tile></div>;
+  return <LockedPage feature="market" title="Market"><div className="page"><Tile span="c12" label="Market" right={<Tabs value={ui.mktTab} options={['PRICE MODEL', 'VALUE', 'OWNERSHIP'] as const} onChange={(v) => set('mktTab', v)} label="Market views" />}>{body}</Tile></div></LockedPage>;
 }

@@ -63,6 +63,13 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
     }
     if (scheme === 'dark') await page.screenshot({ path: path.join(shots, `${size.name}-${name.toLowerCase().replace(/ /g, '-')}.png`) });
   }
+  // a free user's locked frames must fit too: the veil replaces nothing, so the height is the same,
+  // but measure one page to be sure the offer itself does not overflow
+  await open(page, BASE + '/market?lockedCheck=1');
+  const locked = await measure(page);
+  rows.push(`${size.name.padEnd(7)} ${scheme.padEnd(5)} ${'MARKET'.padEnd(10)} ${'locked view'.padEnd(22)} ${locked.ratio.toFixed(2)}`);
+  if (locked.ratio > LIMIT) failures.push(`${size.name} ${scheme} MARKET [locked]: ${locked.ratio.toFixed(2)} screens`);
+
   // the slide-over opens, traps nothing behind it, and closes on Escape
   await open(page, BASE + '/board');
   await page.locator('main tbody tr').first().click();
