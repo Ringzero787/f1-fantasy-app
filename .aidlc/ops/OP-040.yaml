@@ -1,0 +1,38 @@
+id: OP-040
+title: Briefing content, whole grid free, invented frames removed
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-25T02:25:08.347Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T02:25:08.589Z
+    head_sha: c4cfcd97b2a83eb0449b4cf280746bcf7482487f
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-040/dry-run-2026-09-25T02-25-08-589Z.log
+    log_sha256: ce8364f09b10cc3477584cd873c4fe25385461712e85d45d3958a923f6c9e0c8
+    lines: 65
+  - step: gates
+    at: 2026-09-25T02:27:27.455Z
+    head_sha: c4cfcd97b2a83eb0449b4cf280746bcf7482487f
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T02:27:27.460Z
+    head_sha: c4cfcd97b2a83eb0449b4cf280746bcf7482487f
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-040/apply-2026-09-25T02-27-27-460Z.log
+    log_sha256: e85405b48d6df3a2900ad5c17a84ad339121828a5d085cdc588295d3271bf377
+    lines: 75
+  - step: gates
+    at: 2026-09-25T02:29:45.434Z
+    head_sha: c4cfcd97b2a83eb0449b4cf280746bcf7482487f
+    exit: 0
+    gates:
+      G15: skip
