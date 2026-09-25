@@ -1,0 +1,38 @@
+id: OP-037
+title: "Portal fix: no wrong total on the free look, an error boundary, and tiles that clamp"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-25T00:19:48.826Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T00:19:53.366Z
+    head_sha: 4c73e98cc432e1caf5018d37677894d05b28f0db
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-037/dry-run-2026-09-25T00-19-53-366Z.log
+    log_sha256: 358d8bd27524ecfb7b5389327e701431b6b64d08e9582ed067cfc428185aba2e
+    lines: 65
+  - step: gates
+    at: 2026-09-25T00:22:10.537Z
+    head_sha: 4c73e98cc432e1caf5018d37677894d05b28f0db
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T00:22:10.543Z
+    head_sha: 4c73e98cc432e1caf5018d37677894d05b28f0db
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-037/apply-2026-09-25T00-22-10-543Z.log
+    log_sha256: 964cc685b6c3c54828f6bbebbd76830f18604b6a17779627bb6706e706cd81c6
+    lines: 76
+  - step: gates
+    at: 2026-09-25T00:24:28.644Z
+    head_sha: 4c73e98cc432e1caf5018d37677894d05b28f0db
+    exit: 0
+    gates:
+      G15: skip
