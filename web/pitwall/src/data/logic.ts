@@ -17,12 +17,48 @@ const must = (p: Payload, id: string): Entity => {
   return e;
 };
 
-export function projected(p: Payload, l: Lineup): number {
-  return l.drivers.reduce((s, id) => s + must(p, id).med * (id === l.ace ? 2 : 1), 0) + must(p, l.ctor).med;
+/**
+ * What a lineup projects, and how much of it is actually known.
+ *
+ * Two things make a member unknown, and neither may be treated as a zero. A real team can hold
+ * someone the payload leaves out — a driver dropped from the active grid, say — and the free look
+ * publishes a median of zero for everyone outside the top ten. Adding those up as zeros produces a
+ * total that is simply wrong, which is worse than showing nothing, so the count comes back with
+ * the points and the caller shows a dash when anything is missing.
+ */
+export interface LineupProjection { points: number; missing: number; complete: boolean }
+
+export function projectedLineup(p: Payload, l: Lineup): LineupProjection {
+  let points = 0, missing = 0;
+  for (const id of l.drivers) {
+    const e = entity(p, id);
+    if (!e || e.med <= 0) { missing += 1; continue; }
+    points += e.med * (id === l.ace ? 2 : 1);
+  }
+  const c = entity(p, l.ctor);
+  if (!c || c.med <= 0) missing += 1;
+  else points += c.med;
+  return { points, missing, complete: missing === 0 };
 }
+
+export const projected = (p: Payload, l: Lineup): number => projectedLineup(p, l).points;
+
+/** Prices are published for everyone, but an entity the payload omits still counts as nothing. */
 export function spent(p: Payload, l: Lineup): number {
-  return l.drivers.reduce((s, id) => s + must(p, id).price, 0) + must(p, l.ctor).price;
+  return l.drivers.reduce((s, id) => s + (entity(p, id)?.price ?? 0), 0) + (entity(p, l.ctor)?.price ?? 0);
 }
+/**
+ * Display names for the real team, whose documents hold full names ("Pierre Gasly", "Aston Martin
+ * Aramco Formula One Team"). The payload already carries short ones; these apply the same rules to
+ * the team document so a tile sized for a surname is not handed a full name.
+ */
+export const shortName = (name: string): string => name.trim().split(/\s+/).pop() ?? name;
+
+export function shortTeamName(name: string): string {
+  const words = name.replace(/\b(F1|Formula\s*(?:1|One)|Team|Racing|Scuderia|Petronas|Oracle|Aramco|MoneyGram|BWT|AMG|Motorsport)\b/gi, ' ').replace(/[-]/g, ' ').replace(/\s+/g, ' ').trim();
+  return words || name;
+}
+
 export const bank = (p: Payload, l: Lineup): number => p.budget - spent(p, l);
 export const rateMyTeam = (p: Payload, l: Lineup): number => Math.min(99, Math.round(projected(p, l) / 3.6));
 export const sameLineup = (a: Lineup, b: Lineup): boolean => a.ctor === b.ctor && a.ace === b.ace && a.drivers.join('|') === b.drivers.join('|');
@@ -34,7 +70,8 @@ export function swapRecs(p: Payload, l: Lineup): SwapRec[] {
   const room = bank(p, l);
   const out: SwapRec[] = [];
   for (const o of l.drivers) {
-    const od = must(p, o);
+    const od = entity(p, o);
+    if (!od) continue;
     for (const n of p.drivers) {
       if (l.drivers.includes(n.id) || n.price - od.price > room) continue;
       const gain = (n.med - od.med) * (o === l.ace ? 2 : 1);
@@ -61,7 +98,9 @@ function nearest(p: Payload, l: Lineup, d: Driver, keep: (x: Driver) => boolean 
 /** The Briefing's recommendation list: swaps first, then Ace, best-value hold, biggest risk, constructor. */
 export function briefRecs(p: Payload, l: Lineup): Rec[] {
   const out: Rec[] = [];
-  const mine = l.drivers.map((id) => must(p, id) as Driver);
+  // A real team can hold someone the payload leaves out, and there is nothing to say about them.
+  // Recommending around the rest is still useful, so they are skipped rather than thrown on.
+  const mine = l.drivers.map((id) => entity(p, id)).filter((e): e is Driver => !!e && !isCtor(e));
   const room = bank(p, l);
   for (const x of swapRecs(p, l)) {
     const n = must(p, x.in), o = must(p, x.out);
@@ -69,11 +108,11 @@ export function briefRecs(p: Payload, l: Lineup): Rec[] {
       why: `${n.name} projects ${n.med - o.med} points higher for ${x.cost >= 0 ? `${money(x.cost)} more` : `${money(-x.cost)} less`}, inside your ${money(room)} bank.` });
   }
   const best = [...mine].sort((a, b) => b.med - a.med);
-  const ace = must(p, l.ace);
-  if (best.length > 0 && best[0].id !== ace.id) {
+  const ace = entity(p, l.ace) ?? null;
+  if (ace && best.length > 0 && best[0].id !== ace.id) {
     out.push({ kind: 'ACE', a: ace.id, b: best[0].id, title: `Move ace to ${best[0].name}`, tag: `+${best[0].med - ace.med} PTS`, good: true, ace: best[0].id,
       why: `The ace doubles points. ${best[0].name} has the highest projection in your lineup.` });
-  } else if (best.length > 1) {
+  } else if (ace && best.length > 1) {
     out.push({ kind: 'ACE', a: ace.id, b: best[1].id, title: `Keep ace on ${ace.name}`, tag: 'HOLD',
       why: `${ace.name} out-projects your next best driver by ${ace.med - best[1].med} points, doubled.` });
   }
@@ -85,7 +124,8 @@ export function briefRecs(p: Payload, l: Lineup): Rec[] {
   const ra = r && (nearest(p, l, r, (x) => x.dnf < r.dnf && x.price - r.price <= room) ?? nearest(p, l, r));
   if (r && ra) out.push({ kind: 'RISK', a: r.id, b: ra.id, title: `Watch ${r.name}`, tag: `${r.dnf}% DNF`, bad: true, act: `${r.id}:${ra.id}`,
     why: `Highest retirement risk in your lineup. ${ra.name} is the nearest-priced option with a safer floor.` });
-  const c = must(p, l.ctor) as Constructor;
+  const c = entity(p, l.ctor) as Constructor | undefined;
+  if (!c) return out;
   const cb = p.constructors.filter((x) => x.id !== c.id && x.price - c.price <= room).sort((a, b) => b.med - a.med)[0];
   if (cb && cb.med > c.med) out.push({ kind: 'TEAM', a: c.id, b: cb.id, title: `${c.name} → ${cb.name}`, tag: `+${cb.med - c.med} PTS`, good: true, act: `CTOR:${cb.id}`, why: `${cb.name} projects higher and fits your bank.` });
   else if (cb) out.push({ kind: 'TEAM', a: c.id, b: cb.id, title: `Keep ${c.name}`, tag: 'HOLD', why: `No affordable constructor projects above ${c.name} (${c.med}). Best alternative: ${cb.name} at ${cb.med}.` });
@@ -143,7 +183,8 @@ export interface PoolOption { e: Entity; gain: number }
 /** Lineup Lab: every affordable replacement for one slot ("CTOR" or a driver id), best first. */
 export function swapPool(p: Payload, l: Lineup, slot: string, limit = 8): PoolOption[] {
   const isC = slot === 'CTOR';
-  const cur = must(p, isC ? l.ctor : slot);
+  const cur = entity(p, isC ? l.ctor : slot);
+  if (!cur) return [];
   const room = bank(p, l);
   const list: Entity[] = isC ? p.constructors : p.drivers;
   return list
@@ -165,7 +206,8 @@ export function applySwap(l: Lineup, act: string): Lineup {
 export function topPickRec(p: Payload, l: Lineup, slot: string): Rec | null {
   const top = swapPool(p, l, slot)[0];
   if (!top) return null;
-  const cur = must(p, slot === 'CTOR' ? l.ctor : slot);
+  const cur = entity(p, slot === 'CTOR' ? l.ctor : slot);
+  if (!cur) return null;
   const room = bank(p, l);
   const dearer = top.e.price >= cur.price;
   return top.gain > 0

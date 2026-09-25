@@ -1,4 +1,4 @@
-import { briefRecs, entity, money, projected, rateMyTeam, rivalMove } from '../data/logic';
+import { briefRecs, entity, money, projectedLineup, rateMyTeam, rivalMove } from '../data/logic';
 import { useStore } from '../state';
 import { Arrow, Empty, Meter, Money, Pill, Row, Tabs, TeamBar, Tile } from '../ui/bits';
 import { NOT_PUBLISHED } from '../data/coverage';
@@ -9,7 +9,7 @@ export function Briefing() {
   const { payload: p, has, ui, set, open, go } = useStore();
   const recs = briefRecs(p, ui.lineup);
   const sel = Math.min(ui.rec, recs.length - 1);
-  const proj = projected(p, ui.lineup);
+  const proj = projectedLineup(p, ui.lineup);
   const flags = ui.lineup.drivers.filter((id) => p.news.some((n) => n.entity === id && n.kind === 'PENALTY')).length;
 
   const rivals = p.rivals.map((r) => rivalMove(p, ui.lineup, r)).filter((v) => v !== null);
@@ -26,7 +26,9 @@ export function Briefing() {
       <span className="mut">{has.league ? `${p.league.name} · you are P${p.league.myRank}. ` : ''}Based on each rival's bank, best swap and how often they edit.</span>
     </>
   );
-  const moversBody = [...p.drivers].sort((a, b) => Math.abs(b.dprice) - Math.abs(a.dprice)).slice(0, 5).map((d) => (
+  // The predicted move is part of the price model. Without it every row reads "0", which is a
+  // ranking of nothing presented as a prediction.
+  const moversBody = !has.priceModel ? <Empty>{NOT_PUBLISHED.priceModel}</Empty> : [...p.drivers].sort((a, b) => Math.abs(b.dprice) - Math.abs(a.dprice)).slice(0, 5).map((d) => (
     <Row key={d.id} cols="1fr auto auto" onClick={() => open(d.id)} label={`${d.name}, ${money(d.price)}, predicted move ${d.dprice}`}>
       <span><TeamBar p={p} team={d.team} />{d.name}</span><span className="mut"><Money n={d.price} /></span><span className="num"><Arrow n={d.dprice} /></span>
     </Row>
@@ -54,9 +56,13 @@ export function Briefing() {
         })}
       </Tile>
       <Tile span="c4" variant="you" label="Your lineup">
-        <div className="big num">{proj}</div>
-        <div className="mut">Projected points · range {Math.round(proj * 0.72)} to {Math.round(proj * 1.3)}</div>
-        <Row two cols="1fr auto"><span>Rate my team</span><span className="num">{rateMyTeam(p, ui.lineup)} / 100</span></Row>
+        {proj.complete ? <>
+          <div className="big num">{proj.points}</div>
+          <div className="mut">Projected points · range {Math.round(proj.points * 0.72)} to {Math.round(proj.points * 1.3)}</div>
+        </> : (
+          <div className="mut">No projected total: {proj.missing} of your picks {proj.missing === 1 ? 'is' : 'are'} not projected in this view, and adding the rest up would be wrong.</div>
+        )}
+        <Row two cols="1fr auto"><span>Rate my team</span><span className="num">{proj.complete ? `${rateMyTeam(p, ui.lineup)} / 100` : '—'}</span></Row>
         <Row two cols="1fr auto"><span>Flags</span><span className={flags ? 'red' : 'mut'}>{flags} penalty risk · 0 open slots</span></Row>
         <button className="cta" type="button" onClick={() => go('LINEUP LAB')}>Open lineup lab →</button>
       </Tile>

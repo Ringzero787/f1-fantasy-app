@@ -1,4 +1,4 @@
-import { bank, entity, money, projected, swapPool, swapRecs, topPickRec } from '../data/logic';
+import { bank, entity, money, projectedLineup, swapPool, swapRecs, topPickRec } from '../data/logic';
 import { isCtor, type Entity } from '../data/types';
 import { useState } from 'react';
 import { useStore } from '../state';
@@ -17,7 +17,7 @@ export function LineupLab() {
   const l = ui.lineup, room = bank(p, l), slot = ui.slot, isC = slot === 'CTOR';
   const cur = slot ? entity(p, isC ? l.ctor : slot) : undefined;
   const pool = slot ? swapPool(p, l, slot) : [];
-  const proj = projected(p, l);
+  const proj = projectedLineup(p, l);
   const hindsight = [78, 64, 91, 55, 83];
 
   const tile = (e: Entity, ctor: boolean) => {
@@ -55,9 +55,9 @@ export function LineupLab() {
             <span className="mut">Tap a tile to see swaps</span>
           </div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div><div className="big num">{proj}</div><span className="mut">Projected pts{real ? ' · example model' : ''}</span></div>
+            <div>{proj.complete ? <div className="big num">{proj.points}</div> : null}<span className="mut">{proj.complete ? 'Projected pts' : `No total: ${proj.missing} pick${proj.missing === 1 ? ' is' : 's are'} not projected here`}</span></div>
             <div><div className="h2 num">{money(plan ? plan.bankAfter : room)}</div><span className="mut">{plan && plan.changed ? 'Bank after this save' : 'Bank'}{real ? '' : ` of ${money(p.budget)}`}</span></div>
-            {real ? null : <div><div className="h2 num">{Math.min(99, Math.round(18 + proj / 9))}%</div><span className="mut">League win chance</span></div>}
+            {real || !proj.complete ? null : <div><div className="h2 num">{Math.min(99, Math.round(18 + proj.points / 9))}%</div><span className="mut">League win chance</span></div>}
           </div>
           {real ? <RealRoster /> : <div className="lineup">{l.drivers.map((id) => tile(entity(p, id)!, false))}{tile(entity(p, l.ctor)!, true)}</div>}
           {blocked && dirty ? <p className="err" role="alert" style={{ margin: 0 }}>{blocked}</p> : null}

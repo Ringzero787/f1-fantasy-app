@@ -25,6 +25,7 @@ import { Tooltip } from './ui/bits';
 import { ContextBar, DISCLAIMER, Footer, Toast, Wrap } from './ui/Shell';
 import { SignIn } from './ui/SignIn';
 import { CompareTray, SlideOver } from './ui/SlideOver';
+import { Boundary } from './ui/Boundary';
 
 const PAGE: Record<PageName, () => ReactElement> = { BRIEFING: Briefing, BOARD: Board, CIRCUIT: Circuit, 'PACE LAB': PaceLab, MARKET: Market, 'LINEUP LAB': LineupLab, SEASON: Season, WIRE: Wire };
 
@@ -57,11 +58,11 @@ function Portal({ account, real, pass, published, reloadReal, selectTeam, checko
     <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} pass={pass} checkoutFn={checkoutFn} selectTeam={selectTeam} saver={saver} go={go}>
       <Wrap>
         <ContextBar page={page} account={account} onSignOut={onSignOut} />
-        <main id="main"><Page /></main>
+        <main id="main"><Boundary key={page} label={page.toLowerCase()}><Page /></Boundary></main>
         <CompareTray />
         <Footer page={page} />
       </Wrap>
-      <SlideOver /><Tooltip /><Toast />
+      <Boundary label="the detail panel"><SlideOver /></Boundary><Tooltip /><Toast />
     </StoreProvider>
   );
 }
@@ -187,7 +188,7 @@ export function App() {
     const free = params.has('free');
     // `?bare=1` renders what the worker publishes today, so the design preview and the scroll
     // budget also cover every "not published yet" state.
-    const published = params.has('bare') ? bareExamplePayload() : null;
+    const published = params.has('bare') ? bareExamplePayload(free) : null;
     return <Portal account={null} real={null} published={published} pass={free ? NO_PASS : { access: 'pass', expiresAt: Number.MAX_SAFE_INTEGER, trial: false }} />;
   }
   if (session.state === 'loading') return <main className="signin"><span className="lbl" role="status">Loading…</span></main>;

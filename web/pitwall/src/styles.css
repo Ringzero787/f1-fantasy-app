@@ -67,7 +67,8 @@ svg text{font:500 10px var(--mono);fill:var(--muted)}
 /* driver tile (lineup) */
 .lineup{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 @media(max-width:560px){.lineup{grid-template-columns:repeat(2,1fr)}}
-.dt{background:var(--card);border-radius:18px;padding:14px;min-height:124px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;border:1px solid transparent}
+.dt{background:var(--card);border-radius:18px;padding:14px;min-height:124px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;border:1px solid transparent;min-width:0;overflow:hidden}
+.dt>span{min-width:0;max-width:100%}
 .dt.ctor{background:var(--bg);border-color:var(--red)}
 .dt[aria-pressed="true"]{border-color:var(--fg)}
 .dt .nm{font:900 17px var(--disp);text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

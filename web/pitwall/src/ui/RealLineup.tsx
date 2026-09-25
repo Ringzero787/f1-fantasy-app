@@ -1,4 +1,4 @@
-import { money } from '../data/logic';
+import { money, shortName, shortTeamName } from '../data/logic';
 import { TEAM_SIZE, type Plan } from '../data/team';
 import { useStore } from '../state';
 import { Pill, TeamBar } from './bits';
@@ -17,7 +17,7 @@ export function RealRoster() {
       {slots.map((id, i) => {
         if (!id) return <button key={`open-${i}`} type="button" className="dt" style={{ borderStyle: 'dashed', borderColor: 'var(--borderS)' }} disabled><span className="mut">OPEN SEAT</span><span className="mut">Add from the app</span></button>;
         const own = byId.get(id); const m = market.drivers[id];
-        const name = own?.name ?? m?.name ?? id; const price = m?.price ?? own?.currentPrice ?? 0; const ace = id === ui.lineup.ace;
+        const name = shortName(own?.name ?? m?.name ?? id); const price = m?.price ?? own?.currentPrice ?? 0; const ace = id === ui.lineup.ace;
         const left = own ? Math.max(0, (own.contractLength ?? 3) - (own.racesHeld ?? 0)) : null;
         return (
           <button key={id} type="button" className="dt" aria-pressed={ui.slot === id} aria-label={`${name}, ${money(price)}${ace ? ', ace' : ''}${own ? '' : ', new'}. Show swaps`} onClick={() => toggleSlot(id)}>
@@ -37,7 +37,7 @@ export function RealRoster() {
         return (
           <button type="button" className="dt ctor" aria-pressed={ui.slot === 'CTOR'} aria-label={`${m?.name ?? cid}, constructor. Show swaps`} onClick={() => toggleSlot('CTOR')}>
             <span style={{ display: 'flex', justifyContent: 'space-between' }} className="mut"><span><span className="red">TEAM</span>{own ? '' : <> <Pill red>NEW</Pill></>}</span><span className="num">{money(m?.price ?? own?.currentPrice ?? 0)}</span></span>
-            <span><span className="nm">{m?.name ?? own?.name ?? cid}</span><span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(cid)} /></span><span className="num mut">{left === null ? 'new contract' : `${left} race${left === 1 ? '' : 's'} left`}</span></span></span>
+            <span><span className="nm">{shortTeamName(m?.name ?? own?.name ?? cid)}</span><span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(cid)} /></span><span className="num mut">{left === null ? 'new contract' : `${left} race${left === 1 ? '' : 's'} left`}</span></span></span>
           </button>
         );
       })()}
