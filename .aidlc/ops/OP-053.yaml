@@ -1,0 +1,47 @@
+id: OP-053
+title: Grant the owner a Pit Wall Pass for 2026 (beta grant, source grant)
+kind: uc-script
+status: applied
+params:
+  script: pitwallPass.js
+  backup: users/BPaoTtBMOSeQhm8hm8wJF9OpRN92
+created_at: 2026-09-25T17:27:59.721Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T17:33:38.844Z
+    head_sha: c669b0ad3b5b72d81b6b7078860ce4f1a7be79fe
+    command: node scripts/ops/run-script.js undercut 'pitwallPass.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-053/dry-run-2026-09-25T17-33-38-844Z.log
+    log_sha256: 22b62658a455ba67918dea6eb73550ff1b9a4715e67e7349867d4d0844ee4f69
+    lines: 7
+  - step: backup
+    at: 2026-09-25T17:33:49.332Z
+    head_sha: c669b0ad3b5b72d81b6b7078860ce4f1a7be79fe
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-053'/backup.json 'users/BPaoTtBMOSeQhm8hm8wJF9OpRN92'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-053/backup-2026-09-25T17-33-49-332Z.log
+    log_sha256: 7e7c252aca81ec74a58d80af07a5cae0d83cf185b0b06678d658fe1b75f64948
+    lines: 3
+  - step: gates
+    at: 2026-09-25T17:33:49.932Z
+    head_sha: c669b0ad3b5b72d81b6b7078860ce4f1a7be79fe
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T17:33:49.932Z
+    head_sha: c669b0ad3b5b72d81b6b7078860ce4f1a7be79fe
+    command: node scripts/ops/run-script.js undercut 'pitwallPass.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-053/apply-2026-09-25T17-33-49-932Z.log
+    log_sha256: 932ad71edcddde7d754f5d67e75aa254bad8ab67355ad6a23af5d123923b4282
+    lines: 8
+  - step: gates
+    at: 2026-09-25T17:33:51.694Z
+    head_sha: c669b0ad3b5b72d81b6b7078860ce4f1a7be79fe
+    exit: 0
+    gates:
+      G15: skip
