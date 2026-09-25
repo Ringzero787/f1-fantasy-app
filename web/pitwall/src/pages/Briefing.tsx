@@ -51,30 +51,29 @@ export function Briefing() {
 
   return (
     <div className="page">
-      <Tile span="c8" label={has.news ? 'What changed since yesterday' : `Top ten for ${p.round.name || 'this round'}`} right={<span className="mut only-wide">{has.news ? '5 min read · links out to sources' : 'Projected points for the coming round'}</span>}>
-        {/* Until the wire is publishing, this tile carries the thing that IS published: the board's
-            top ten, which every signed-in reader can see. An empty headline list on the page people
-            open first is worse than no page at all. */}
-        {!has.news ? (
-          <>
-            {topTen.map((d, i) => (
-              <Row key={d.id} cols="24px 1fr auto" onClick={() => open(d.id)} label={`${d.name}, projected ${d.med} points`}>
-                <span className="mut num">{i + 1}</span>
-                <span><TeamBar p={p} team={d.team} />{d.name}{ui.lineup.drivers.includes(d.id) ? <span className="mut"> · yours</span> : null}</span>
-                <span className="num">{d.med}</span>
+      {/* Two separate tiles, never one wearing the other's hat. The wire leads when it has
+          something; the top ten always has something, so it takes the slot when the wire does not
+          and the page never opens on an empty headline list. */}
+      {has.news ? (
+        <Tile span="c8" label="What changed since yesterday" right={<span className="mut only-wide">5 min read · links out to sources</span>}>
+          {p.news.slice(0, 4).map((n) => {
+            const e = n.entity ? entity(p, n.entity) : undefined;
+            return (
+              <Row key={n.text} cols="96px 1fr auto" onClick={e ? () => open(e.id) : undefined} label={`${n.kind}: ${n.text}`}>
+                <Pill red={n.tone === '-'}>{n.kind}</Pill><span>{e ? <TeamBar p={p} team={e.team} /> : null}{n.text}</span><span className="mut only-wide">{n.sources}</span>
               </Row>
-            ))}
-            <span className="mut">{NOT_PUBLISHED.news} Story clusters appear here once the news pipeline is running.</span>
-          </>
-        ) : null}
-        {p.news.slice(0, 4).map((n) => {
-          const e = n.entity ? entity(p, n.entity) : undefined;
-          return (
-            <Row key={n.text} cols="96px 1fr auto" onClick={e ? () => open(e.id) : undefined} label={`${n.kind}: ${n.text}`}>
-              <Pill red={n.tone === '-'}>{n.kind}</Pill><span>{e ? <TeamBar p={p} team={e.team} /> : null}{n.text}</span><span className="mut only-wide">{n.sources}</span>
-            </Row>
-          );
-        })}
+            );
+          })}
+        </Tile>
+      ) : null}
+      <Tile span="c8" label={`Top ten for ${p.round.name || 'this round'}`} right={<span className="mut only-wide">Projected points for the coming round</span>}>
+        {topTen.map((d, i) => (
+          <Row key={d.id} cols="24px 1fr auto" onClick={() => open(d.id)} label={`${d.name}, projected ${d.med} points`}>
+            <span className="mut num">{i + 1}</span>
+            <span><TeamBar p={p} team={d.team} />{d.name}{ui.lineup.drivers.includes(d.id) ? <span className="mut"> · yours</span> : null}</span>
+            <span className="num">{d.med}</span>
+          </Row>
+        ))}
       </Tile>
       <Tile span="c4" variant="you" label="Your lineup">
         {proj.complete ? <>

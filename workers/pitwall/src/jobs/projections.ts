@@ -56,7 +56,13 @@ export async function loadProjectionInputs(db: Db, season: string) {
       raceResults: r.results.raceResults, qualifyingResults: r.results.qualifyingResults ?? [], sprintResults: r.results.sprintResults ?? [],
     }))
     .sort((a: HistRace, b: HistRace) => a.round - b.round);
-  const upcoming = races.filter((r: Record<string, any>) => r.status === 'upcoming').sort((a: Record<string, any>, b: Record<string, any>) => num(a.round) - num(b.round));
+  const byRound = (a: Record<string, any>, b: Record<string, any>) => num(a.round) - num(b.round);
+  // The round being run is still the round people are deciding about: a weekend flips to
+  // `in_progress` at the first session, days before it is scored, and jumping to the next race then
+  // would abandon the one everyone is looking at. So the current round is the one in progress, and
+  // only when there is none does it become the next upcoming one.
+  const running = races.filter((r: Record<string, any>) => r.status === 'in_progress').sort(byRound);
+  const upcoming = [...running, ...races.filter((r: Record<string, any>) => r.status === 'upcoming').sort(byRound)];
   const drivers: DriverMeta[] = driversSnap.docs.map((d: Snap) => { const x = d.data(); return { id: d.id, number: num(x.number), name: String(x.name ?? d.id), constructorId: String(x.constructorId ?? ''), price: num(x.price), isActive: x.isActive !== false }; });
   const constructors: ConstructorMeta[] = ctorsSnap.docs.map((d: Snap) => { const x = d.data(); return { id: d.id, name: String(x.name ?? d.id), price: num(x.price), colors: x.colors as ConstructorMeta['colors'] }; });
   const history: History = { races: completed, scores: scoresSnap.docs.map((d: Snap) => d.data() as never), prices: [] };
@@ -68,7 +74,7 @@ export interface ProjectOptions { season: string; sessionKey: string; sim?: Part
 export async function runProjections(db: Db, opts: ProjectOptions): Promise<ProjectionRun> {
   const { history, upcoming, drivers, constructors } = await loadProjectionInputs(db, opts.season);
   const next = upcoming[0];
-  if (!next) throw new Error(`no upcoming race in season ${opts.season}`);
+  if (!next) throw new Error(`no round in progress or upcoming in season ${opts.season}`);
   const round = num(next.round);
   const active = drivers.filter((d) => d.isActive && d.constructorId);
   if (active.length === 0) throw new Error('no active drivers');
