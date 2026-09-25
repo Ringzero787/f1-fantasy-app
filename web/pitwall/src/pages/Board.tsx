@@ -1,7 +1,7 @@
 import { entity, money } from '../data/logic';
 import type { Driver } from '../data/types';
 import { useStore } from '../state';
-import { Arrow, AsTable, Chip, Range, Spark, Tabs, TeamBar, Tile, Tr } from '../ui/bits';
+import { Empty, Arrow, AsTable, Chip, Range, Spark, Tabs, TeamBar, Tile, Tr } from '../ui/bits';
 import { Locked } from '../ui/Locked';
 import { can } from '../data/access';
 
@@ -65,6 +65,10 @@ export function Board() {
     const shown = [...rows.slice(0, 8).filter((d) => d.id !== pick), rows.find((d) => d.id === pick)!];
     body = (
       <Locked feature="board.movement">
+        {/* The line is drawn from a sine wave, not from the per-session snapshots the worker
+            publishes to pw_projections, which nothing reads yet. A made-up trend under a
+            "movement" heading is worse than no chart at all. */}
+        {!has.mock ? <Empty>Projection movement is not published yet. It needs the per-session snapshots from across the weekend.</Empty> : <>
         <div className="scroll"><svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ minWidth: 560 }} role="img" aria-label="Projection movement across the weekend">
           {[20, 40, 60].map((v) => <g key={v}><line x1="50" x2={w - 40} y1={h - 30 - v * 2.6} y2={h - 30 - v * 2.6} stroke="var(--borderL)" /><text x="18" y={h - 27 - v * 2.6}>{v}</text></g>)}
           {SESSIONS.map((s, i) => <text key={s} x={50 + (i * (w - 90)) / 4} y={h - 8} textAnchor="middle">{s}</text>)}
@@ -77,6 +81,7 @@ export function Board() {
         </svg></div>
         <span className="mut">Projected points after each session (example shape). Click any driver to make them the highlighted line.</span>
         <AsTable caption="Projected points after each session" head={['Driver', ...SESSIONS]} rows={shown.map((d) => [d.name, ...pts(d).map((x) => Math.round((h - 30 - x[1]) / 2.6))])} />
+        </>}
       </Locked>
     );
   }

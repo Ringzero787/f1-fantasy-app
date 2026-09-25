@@ -36,7 +36,9 @@ export function Briefing() {
       <span><TeamBar p={p} team={d.team} />{d.name}</span><span className="mut"><Money n={d.price} /></span><span className="num"><Arrow n={d.dprice} /></span>
     </Row>
   ));
-  const weatherBody = (
+  // These percentages are invented, and a forecast is exactly the sort of thing a reader will take
+  // at face value, so they may only be drawn where the rest of the page is example data too.
+  const weatherBody = !has.mock ? <Empty>Session weather is not published yet.</Empty> : (
     <>
       {([['FP1 · Fri', 5], ['Quali · Sat', 15], ['Race · Sun', 35]] as Array<[string, number]>).map(([s, pct]) => (
         <Row key={s} cols="90px 1fr 40px"><span>{s}</span><Meter pct={pct} red={pct > 30} /><span className="num">{pct}%</span></Row>
