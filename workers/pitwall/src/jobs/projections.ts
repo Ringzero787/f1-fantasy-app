@@ -12,8 +12,10 @@
 import { assertAllowedInputs } from '../model/inputs';
 import { pointsToRise } from '../model/priceRules';
 import { fetchForecast, sessionWeather, MET_ATTRIBUTION, type SessionWeather } from '../model/weather';
+import { buildWeatherMap, fetchGrid, type WeatherMap } from '../model/weatherMap';
+import { buildWire, teamVariants, type Article, type WireItem } from '../model/wire';
 import { scoreWeekend } from '../model/scoreRace';
-import { buildPayload, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
+import { buildPayload, shortTeamName, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
 import { DEFAULT_SIM, simulate, type SimOptions } from '../model/simulate';
 import { estimateForm, type Entrant } from '../model/strength';
 import type { HistRace, History, Projection } from '../model/types';
@@ -23,7 +25,7 @@ import type { HistRace, History, Projection } from '../model/types';
  * firebase-admin dependency (the CLI and the service pass the real Firestore in).
  */
 interface Snap { id: string; data(): Record<string, unknown> }
-interface Query { where(field: string, op: string, value: unknown): Query; get(): Promise<{ docs: Snap[] }> }
+interface Query { where(field: string, op: string, value: unknown): Query; limit?(n: number): Query; get(): Promise<{ docs: Snap[] }> }
 interface Col extends Query { doc(id: string): { set(data: Record<string, unknown>): Promise<unknown> } }
 export interface Db { collection(name: string): Col }
 const toDate = (v: unknown): Date | null => (v && typeof (v as { toDate?: () => Date }).toDate === 'function' ? (v as { toDate: () => Date }).toDate() : null);
@@ -38,6 +40,8 @@ export interface ProjectionRun {
   wrote: string[];
   counts: { drivers: number; constructors: number; pastRaces: number };
   weather: SessionWeather[];
+  weatherMap: WeatherMap | null;
+  news: WireItem[];
 }
 
 /** Everything the job reads, in one place, so the input list can be asserted. */
@@ -69,6 +73,23 @@ export async function loadProjectionInputs(db: Db, season: string) {
   const constructors: ConstructorMeta[] = ctorsSnap.docs.map((d: Snap) => { const x = d.data(); return { id: d.id, name: String(x.name ?? d.id), price: num(x.price), colors: x.colors as ConstructorMeta['colors'] }; });
   const history: History = { races: completed, scores: scoresSnap.docs.map((d: Snap) => d.data() as never), prices: [] };
   return { history, upcoming, drivers, constructors };
+}
+
+/**
+ * Headlines for the wire. Read here rather than in loadProjectionInputs on purpose: `articles` is
+ * not a model input and the model's allowlist has to stay truthful (ADR-001).
+ */
+export async function loadWireArticles(db: Db, since: Date): Promise<Article[]> {
+  // The worker's Firestore surface is deliberately small (no orderBy), so the window is applied
+  // here and the ordering is done in memory; a week of feed items is a few hundred documents.
+  // Bounded all the same: a week is ~100 items, so 600 is a ceiling nobody reaches, not a page size.
+  const q = db.collection('articles').where('publishedAt', '>=', since);
+  const snap = await (q.limit ? q.limit(600) : q).get();
+  return snap.docs.map((d: Snap) => {
+    const x = d.data() as Record<string, any>;
+    const at: Date = typeof x.publishedAt?.toDate === 'function' ? x.publishedAt.toDate() : new Date(String(x.publishedAt ?? ''));
+    return { title: String(x.title ?? ''), summary: String(x.summary ?? ''), url: String(x.sourceUrl ?? ''), source: String(x.source ?? ''), category: String(x.category ?? 'general'), publishedAt: at };
+  });
 }
 
 export interface ProjectOptions { season: string; sessionKey: string; sim?: Partial<SimOptions>; apply: boolean; now?: Date }
@@ -128,10 +149,21 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
   ] as Array<[string, string, unknown]>)
     .map(([key, label, at]) => ({ key, label, at: toDate(at) }))
     .filter((x): x is { key: string; label: string; at: Date } => x.at !== null);
+  const now = opts.now ?? new Date();
   const forecast = await fetchForecast(String(next.circuitId ?? ''));
-  const weather = sessionWeather(sessionTimes, forecast, opts.now ?? new Date());
+  const weather = sessionWeather(sessionTimes, forecast, now);
+  // The grid around the circuit, so rain can be seen coming. Only for sessions still ahead.
+  const ahead = sessionTimes.filter((x) => x.at.getTime() > now.getTime() - 3600000);
+  const grid = ahead.length ? await fetchGrid(String(next.circuitId ?? '')) : null;
+  const weatherMap = grid ? buildWeatherMap(grid.center, ahead, grid.cells, now) : null;
+  // Headlines, tagged to whoever they name.
+  const names = {
+    drivers: Object.fromEntries(active.map((d) => [d.id, d.name.trim().split(/\s+/).pop() ?? d.name])),
+    constructors: Object.fromEntries(constructors.map((c) => [c.id, teamVariants(c.name, shortTeamName(c.name, c.id))])),
+  };
+  const news = buildWire(await loadWireArticles(db, new Date(now.getTime() - 7 * 86400000)).catch((err) => { console.warn('[pw] wire unavailable:', err instanceof Error ? err.message : err); return []; }), names, now);
 
-  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000, weather, weatherSource: weather.length ? MET_ATTRIBUTION : null });
+  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000, weather, weatherSource: weather.length || weatherMap ? MET_ATTRIBUTION : null, weatherMap, news });
 
   const id = `${opts.season}_${round}`;
   const wrote: string[] = [];
@@ -141,5 +173,5 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
     await db.collection('pw_projections').doc(`${id}_${opts.sessionKey}`).set({ season: opts.season, round, sessionKey: opts.sessionKey, asOf: full.asOf, projections: projections.map((p) => ({ ...p })) });
     wrote.push(`pw_pages/${id}`, `pw_public/${id}`, `pw_projections/${id}_${opts.sessionKey}`);
   }
-  return { season: opts.season, round, raceId: roundMeta.raceId, sessionKey: opts.sessionKey, projections, wrote, counts: { drivers: full.drivers.length, constructors: full.constructors.length, pastRaces: history.races.length }, weather };
+  return { season: opts.season, round, raceId: roundMeta.raceId, sessionKey: opts.sessionKey, projections, wrote, counts: { drivers: full.drivers.length, constructors: full.constructors.length, pastRaces: history.races.length }, weather, weatherMap, news };
 }

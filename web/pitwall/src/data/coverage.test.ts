@@ -24,7 +24,7 @@ const PUBLISHED = {
 describe('coverage', () => {
   it('reports the example payload as complete, so the design preview is unchanged', () => {
     const has = coverage(examplePayload());
-    expect(has).toEqual({ timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, mock: true });
+    expect(has).toEqual({ timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, weatherMap: true, mock: true });
   });
 
   it('separates "published as zero" from "not published at all"', () => {

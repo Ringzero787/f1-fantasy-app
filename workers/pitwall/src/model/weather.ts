@@ -45,6 +45,8 @@ export interface ForecastPoint {
   precipitationMm: number | null;
   symbol: string | null;
   windMs: number | null;
+  /** direction the wind comes from, degrees clockwise from north */
+  windFromDeg: number | null;
 }
 
 /** Pull the fields we need out of a Locationforecast body, ignoring everything else. */
@@ -66,6 +68,7 @@ export function readForecast(body: unknown): ForecastPoint[] {
       precipitationMm: num(amount),
       symbol: typeof near?.summary?.symbol_code === 'string' ? near.summary.symbol_code : null,
       windMs: num(instant.wind_speed),
+      windFromDeg: num(instant.wind_from_direction),
     });
   }
   return out;
@@ -130,7 +133,7 @@ export async function fetchForecast(circuitId: string, fetchImpl: typeof fetch =
   if (!place) return [];
   try {
     const url = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${place.lat}&lon=${place.lon}`;
-    const res = await fetchImpl(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } });
+    const res = await fetchImpl(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
     if (!res.ok) {
       console.warn(`[pw] weather: MET Norway returned ${res.status} for ${circuitId}`);
       return [];

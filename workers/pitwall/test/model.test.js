@@ -245,3 +245,79 @@ test('the forecast symbol becomes a phrase a reader can use', () => {
   assert.equal(skyPhrase('heavyrainshowers_day'), 'heavy showers');
   assert.equal(skyPhrase(null), null);
 });
+
+const { buildWire, tagEntity, kindOf, toneOf, headlineOnly, teamVariants } = require(D + 'wire.js');
+test('the wire tags headlines to whoever they name, ranks the useful ones first, and drops fluff', () => {
+  const names = { drivers: { russell: 'Russell', antonelli: 'Antonelli', gasly: 'Gasly' }, constructors: { mclaren: ['McLaren'], aston_martin: ['Aston Martin Aramco F1 Team', 'Aston', 'Martin', 'Aramco'] } };
+  const now = new Date('2026-09-25T15:00:00Z');
+  const at = (h) => new Date(now.getTime() - h * 3600000);
+  const items = buildWire([
+    { title: 'Russell charges to Baku pole as Antonelli exits Qualifying early', summary: 'body', url: 'https://x/1', source: 'F1', category: 'qualifying', publishedAt: at(1) },
+    { title: 'How 46 fashion designers reimagined McLaren’s F1 history', summary: 'body', url: 'https://x/2', source: 'F1', category: 'general', publishedAt: at(2) },
+    { title: 'Five things to watch this weekend', summary: 'body', url: 'https://x/3', source: 'F1', category: 'general', publishedAt: at(3) },
+    { title: 'Stewards hand Gasly a three-place grid drop', summary: 'body', url: 'https://x/4', source: 'FIA', category: 'regulation', publishedAt: at(5) },
+    { title: 'Russell charges to Baku pole as Antonelli exits Qualifying early', summary: 'dup', url: 'https://x/5', source: 'F1', category: 'qualifying', publishedAt: at(1) },
+    { title: 'Old news', summary: '', url: 'https://x/6', source: 'F1', category: 'race', publishedAt: at(24 * 9) },
+  ], names, now);
+  // a penalty outranks a pole headline even when the pole is fresher: it changes the grid
+  assert.deepEqual(items.map((i) => i.url), ['https://x/4', 'https://x/1', 'https://x/2']);
+  assert.equal(items[0].kind, 'PENALTY');
+  assert.equal(items[0].tone, '-');
+  assert.equal(items[0].entity, 'gasly');
+  assert.equal(items[1].entity, 'russell');          // a driver beats a team, first match wins
+  assert.equal(items[1].kind, 'QUALIFYING');
+  assert.equal(items[1].tone, '+');                  // "charges to ... pole"
+  assert.equal(headlineOnly(items[1]).detail, '');
+  assert.equal(headlineOnly(items[1]).url, 'https://x/1');
+  assert.equal(items[2].entity, 'mclaren');          // general survives only because it names someone
+});
+
+test('a headline with nobody on the grid in it is still typed and toned', () => {
+  const a = { title: 'FIA issues technical directive on floor flexing', summary: '', url: 'https://x', source: 'FIA', category: 'regulation', publishedAt: new Date() };
+  assert.equal(kindOf(a), 'REGULATION');
+  assert.equal(toneOf(a), '•');
+  assert.equal(tagEntity(a.title, { drivers: {}, constructors: {} }), null);
+});
+
+const { gridOffsets, offsetPlace, sessionFrames, buildWeatherMap } = require(D + 'weatherMap.js');
+test('the weather map is a 5x5 grid, row-major from the north-west, with frames around each session', () => {
+  const offs = gridOffsets(2);
+  assert.equal(offs.length, 25);
+  assert.deepEqual(offs[0], { dx: -2, dy: 2 });   // north-west: dy is north-positive, so the top row is +2
+  assert.deepEqual(offs[12], { dx: 0, dy: 0 });
+  const north = offsetPlace({ lat: 40.37, lon: 49.85 }, 0, 1, 40);
+  assert.ok(north.lat > 40.7 && north.lat < 40.75);
+  assert.equal(north.lon, 49.85);
+
+  const race = new Date('2026-09-26T11:00:00Z');
+  const point = (t, mm, wind) => ({ time: t.toISOString(), airTemperature: 20, precipitationMm: mm, symbol: null, windMs: wind, windFromDeg: 315 });
+  const cells = offs.map(({ dx, dy }) => ({ dx, dy, points: [-3, 0, 3].map((h) => point(new Date(race.getTime() + h * 3600000), dx === -2 && dy === 2 ? 2.5 : 0, 5)) }));
+  const frames = sessionFrames(race, cells, 2);
+  assert.equal(frames.length, 3);
+  assert.deepEqual(frames.map((f) => f.offsetH), [-3, 0, 3]);
+  assert.equal(frames[1].rainMm[0], 2.5);           // index 0 is the north-west corner, which the fixture made wet
+  assert.equal(frames[1].rainMm[12], 0);            // the circuit is dry
+  assert.equal(frames[1].windFromDeg, 315);
+  assert.equal(frames[1].windKph, 18);
+
+  const map = buildWeatherMap({ lat: 40.37, lon: 49.85 }, [
+    { key: 'race', label: 'Race', at: race },
+    { key: 'far', label: 'Far', at: new Date('2026-11-01T12:00:00Z') },
+  ], cells, new Date('2026-09-25T15:00:00Z'));
+  assert.deepEqual(map.sessions.map((s) => s.key), ['race']);
+  assert.equal(buildWeatherMap({ lat: 0, lon: 0 }, [{ key: 'race', label: 'Race', at: race }], offs.map(({ dx, dy }) => ({ dx, dy, points: [] })), new Date()), null);
+});
+
+test('a team is recognised by its names, never by a sponsor or a generic word alone', () => {
+  // fictitious teams, shaped like the real names: a sponsor, then the name, then the generic tail
+  const v = teamVariants('Harbour Petronas Racing Team', 'Harbour');
+  assert.ok(v.includes('Harbour'));
+  assert.ok(!v.includes('Team') && !v.includes('Petronas'));
+  const names = { drivers: {}, constructors: { harbour: v, slipstream: teamVariants('Oracle Slipstream Racing', 'Slipstream') } };
+  assert.equal(tagEntity('Team principal meeting called for Friday', names), null);
+  assert.equal(tagEntity('Racing resumes after the red flag', names), null);
+  assert.equal(tagEntity('Harbour bring a new floor', names), 'harbour');
+  // a feed item with a link that is not https is not published at all
+  const out = buildWire([{ title: 'Harbour bring a new floor', summary: '', url: 'http://x/1', source: 'F1', category: 'practice', publishedAt: new Date() }], names, new Date());
+  assert.equal(out.length, 0);
+});

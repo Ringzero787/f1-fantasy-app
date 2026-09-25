@@ -4,7 +4,7 @@ import type { Constructor, Driver, Lineup, Payload } from './types';
 
 const D = (id: string, price: number, med: number, extra: Partial<Driver> = {}): Driver => ({ id, num: 1, name: id.toUpperCase(), team: 'T', price, med, floor: med - 5, ceil: med + 5, form: [], dnf: 5, own: 10, pm: 0, cons: 50, dprice: 0, fit: [3], win: 0, pod: 0, t10: 0, ptsRise: Math.ceil(price * 0.011), ptsHold: Math.ceil(price * 0.006), pRise: 50, pFall: 50, q: 0, r: 0, val: +((med / price) * 100).toFixed(1), ...extra });
 const C = (id: string, price: number, med: number): Constructor => ({ id, name: id.toUpperCase(), team: id, price, med, floor: med, ceil: med, val: 1, ctor: true });
-const payload = (drivers: Driver[], ctors: Constructor[], budget: number): Payload => ({ example: true, asOf: '', round: { number: 1, name: 'Harbour', firstSession: '', locksIn: '', circuit: '' }, rounds: [], budget, teams: { T: { id: 'T', name: 'T', color: '#fff' } }, drivers, constructors: ctors, news: [], rivals: [], league: { name: 'L', size: 2, myRank: 1 }, weather: [], weatherSource: null });
+const payload = (drivers: Driver[], ctors: Constructor[], budget: number): Payload => ({ example: true, asOf: '', round: { number: 1, name: 'Harbour', firstSession: '', locksIn: '', circuit: '' }, rounds: [], budget, teams: { T: { id: 'T', name: 'T', color: '#fff' } }, drivers, constructors: ctors, news: [], rivals: [], league: { name: 'L', size: 2, myRank: 1 }, weather: [], weatherSource: null, weatherMap: null });
 
 const p = payload([D('a', 100, 30), D('b', 100, 20, { dnf: 18 }), D('c', 120, 28), D('d', 300, 60), D('e', 90, 10)], [C('x', 200, 40), C('y', 210, 55), C('z', 900, 99)], 500);
 const mine: Lineup = { drivers: ['a', 'b'], ctor: 'x', ace: 'b' };

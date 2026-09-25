@@ -10,6 +10,8 @@
  */
 import { blendPriceChange, pointsToRise, pointsToSoftFall } from './priceRules';
 import type { SessionWeather } from './weather';
+import type { WeatherMap } from './weatherMap';
+import { headlineOnly, type WireItem } from './wire';
 import type { Projection } from './types';
 
 export interface DriverMeta { id: string; number: number; name: string; constructorId: string; price: number; isActive: boolean }
@@ -39,6 +41,10 @@ export interface PayloadInputs {
   weather?: SessionWeather[];
   /** who the forecast came from, which their terms require us to print */
   weatherSource?: string | null;
+  /** the forecast grid around the circuit, when one could be fetched */
+  weatherMap?: WeatherMap | null;
+  /** headlines for the round from the app's own feeds */
+  news?: WireItem[];
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -83,17 +89,22 @@ export function buildPayload(i: PayloadInputs) {
     rounds: i.nextRounds.map((r) => r.label),
     budget: i.budget,
     teams, drivers, constructors,
-    news: [] as never[], rivals: [] as never[],
+    news: i.news ?? [], rivals: [] as never[],
     league: { name: '', size: 0, myRank: 0 },
     // Conditions are not analysis and are never sold (ADR-001), so they ride in both documents.
     weather: i.weather ?? [],
     weatherSource: i.weatherSource ?? null,
+    weatherMap: i.weatherMap ?? null,
     model: { runs: 10000, band: 'central 70% of finishing runs', pDnfSeparate: true },
   };
   // Free look: the projection itself is free for the whole grid, and the analysis built on it is
   // what the pass buys. Holding back medians past the top ten made a reader's own lineup impossible
   // to total, which is worse than useless: it produced a number that was simply wrong.
-  const stripped = { floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] as number[], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0 };
+  // Picked, not spread: a field added to the paid driver later is not free until it is named here.
+  const freeDriver = (d: (typeof drivers)[number]) => ({
+    id: d.id, num: d.num, name: d.name, team: d.team, price: d.price, med: d.med, fit: d.fit, q: d.q, r: d.r,
+    floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] as number[], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0,
+  });
   // Built field by field rather than spread from `full`: a spread would hand the free document
   // every field added to the paid one later, so the next thing published (tagged news, rival
   // lineups) would leak the day it lands. Adding something paid here has to be deliberate.
@@ -104,13 +115,15 @@ export function buildPayload(i: PayloadInputs) {
     rounds: full.rounds,
     budget: full.budget,
     teams: full.teams,
-    drivers: drivers.map((d) => ({ ...d, ...stripped })),
-    constructors: constructors.map((c) => ({ ...c, floor: 0, ceil: 0, val: 0 })),
-    news: [] as never[],
+    drivers: drivers.map(freeDriver),
+    constructors: constructors.map((c) => ({ id: c.id, name: c.name, team: c.team, price: c.price, med: c.med, ctor: c.ctor, floor: 0, ceil: 0, val: 0 })),
+    // Headlines are free and link to their source; the body is the pass (ADR-001).
+    news: full.news.map(headlineOnly),
     rivals: [] as never[],
     league: { name: '', size: 0, myRank: 0 },
     weather: full.weather,
     weatherSource: full.weatherSource,
+    weatherMap: full.weatherMap,
     model: full.model,
   };
   return { full, free };

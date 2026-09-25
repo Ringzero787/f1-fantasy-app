@@ -2,6 +2,7 @@ import { briefRecs, entity, money, projectedLineup, rateMyTeam, rivalMove } from
 import { useStore } from '../state';
 import { Arrow, Empty, Money, Pill, Row, Tabs, TeamBar, Tile } from '../ui/bits';
 import { NOT_PUBLISHED } from '../data/coverage';
+import { WeatherMap } from '../ui/WeatherMap';
 import { Compare } from '../ui/Compare';
 import { Locked } from '../ui/Locked';
 
@@ -43,12 +44,12 @@ export function Briefing() {
   // Real forecast, per session, from the payload. Amounts rather than chances, because that is
   // what the source measures; a fabricated probability is exactly what this tile used to show.
   const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short' });
-  const weatherBody = !has.weather ? <Empty>{NOT_PUBLISHED.weather}</Empty> : (
+  const weatherBody = !has.weather && !has.weatherMap ? <Empty>{NOT_PUBLISHED.weather}</Empty> : (
     <>
+      {has.weatherMap && p.weatherMap ? <WeatherMap map={p.weatherMap} /> : <span className="mut">{NOT_PUBLISHED.weatherMap}</span>}
       {p.weather.map((w) => (
-        <Row key={w.key} cols="1fr auto auto auto" label={`${w.label}: ${w.sky ?? ''}${w.tempC !== null ? `, ${w.tempC} degrees` : ''}${w.rainMm !== null ? `, ${w.rainMm} millimetres of rain` : ''}`}>
-          <span>{w.label} <span className="mut">· {day(w.at)}</span></span>
-          <span className="mut">{w.sky ?? '—'}</span>
+        <Row key={w.key} cols="1fr auto auto" dense label={`${w.label}: ${w.sky ?? ''}${w.tempC !== null ? `, ${w.tempC} degrees` : ''}${w.rainMm !== null ? `, ${w.rainMm} millimetres of rain` : ''}`}>
+          <span>{w.label} <span className="mut">· {day(w.at)}{w.sky ? ` · ${w.sky}` : ''}</span></span>
           <span className="num">{w.tempC !== null ? `${w.tempC}°` : '—'}</span>
           <span className={`num ${w.rainMm !== null && w.rainMm >= 1 ? 'red' : ''}`}>{w.rainMm !== null ? `${w.rainMm} mm` : '—'}</span>
         </Row>
@@ -67,20 +68,26 @@ export function Briefing() {
           {p.news.slice(0, 4).map((n) => {
             const e = n.entity ? entity(p, n.entity) : undefined;
             return (
-              <Row key={n.text} cols="96px 1fr auto" onClick={e ? () => open(e.id) : undefined} label={`${n.kind}: ${n.text}`}>
-                <Pill red={n.tone === '-'}>{n.kind}</Pill><span>{e ? <TeamBar p={p} team={e.team} /> : null}{n.text}</span><span className="mut only-wide">{n.sources}</span>
+              <Row key={n.url || n.text} cols="96px 1fr auto" onClick={e ? () => open(e.id) : undefined} label={`${n.kind}: ${n.text}`}>
+                <Pill red={n.tone === '-'}>{n.kind}</Pill>
+                <span>{e ? <TeamBar p={p} team={e.team} /> : null}{n.text}</span>
+                <span className="mut only-wide">{n.url ? <a href={n.url} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} style={{ color: 'inherit' }}>{n.sources} ↗</a> : n.sources}</span>
               </Row>
             );
           })}
         </Tile>
       ) : null}
-      <Tile span="c8" label={`Top ten for ${p.round.name || 'this round'}`} right={<span className="mut only-wide">Projected points for the coming round</span>}>
+      {/* Ten on a wide screen, five on a phone: the board has the whole grid, and on a phone the
+          extra five cost more scroll than they earn on the page people open first. */}
+      <Tile span="c8" label={<><span className="only-wide">Top ten</span><span className="only-narrow">Top five</span> for {p.round.name || 'this round'}</>} right={<span className="mut only-wide">Projected points for the coming round</span>}>
         {topTen.map((d, i) => (
-          <Row key={d.id} cols="24px 1fr auto" onClick={() => open(d.id)} label={`${d.name}, projected ${d.med} points`}>
+          <div key={d.id} className={i >= 5 ? 'only-wide' : undefined}>
+          <Row cols="24px 1fr auto" dense onClick={() => open(d.id)} label={`${d.name}, projected ${d.med} points`}>
             <span className="mut num">{i + 1}</span>
             <span><TeamBar p={p} team={d.team} />{d.name}{ui.lineup.drivers.includes(d.id) ? <span className="mut"> · yours</span> : null}</span>
             <span className="num">{d.med}</span>
           </Row>
+          </div>
         ))}
       </Tile>
       <Tile span="c4" variant="you" label="Your lineup">

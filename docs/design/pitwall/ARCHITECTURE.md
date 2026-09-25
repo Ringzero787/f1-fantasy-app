@@ -111,8 +111,20 @@ The pipeline lands one piece at a time: projections and the price model first, t
 
 - `workers/pitwall/src/model/payload.ts` `buildPayload` returns `{ full, free }`. The free document is built field by field, never spread from the full one, so a paid field added later is not inherited into the free look the day it ships. It lists the whole grid **with every median**: the projection itself is free and the analysis built on it is what the pass buys. Holding medians back past the top ten made a reader's own lineup impossible to total, which produced a number that was simply wrong (2026-09-25).
 - `web/pitwall/src/lib/payloadApi.ts` `loadPayload(hasPass)` reads the newest document from `pw_pages` or `pw_public`, ordered by `asOf` (document ids sort as text, so `2026_9` would follow `2026_17`). `toPayload` coerces every field, so a document written by an older or newer worker still renders. A refusal returns null and the browser-generated example set stands in.
-- `web/pitwall/src/data/coverage.ts` `coverage(payload)` answers which parts carry real data: `timing`, `ownership`, `fit`, `news`, `rivals`, `league`, `form`, `priceModel`, and `mock` for frames that exist only in the example set. It reaches pages through the store as `has`, and `NOT_PUBLISHED` holds one line of copy per gap. The example payload reports full coverage, so the design preview and the scroll budget still measure the tall case.
+- `web/pitwall/src/data/coverage.ts` `coverage(payload)` answers which parts carry real data: `timing`, `ownership`, `fit`, `news`, `rivals`, `league`, `form`, `priceModel`, `weather`, `weatherMap`, and `mock` for frames that exist only in the example set. It reaches pages through the store as `has`, and `NOT_PUBLISHED` holds one line of copy per gap. The example payload reports full coverage, so the design preview and the scroll budget still measure the tall case.
 - A frame with no source says so. It must never draw a shape from the row order: a leverage column built from a zero ownership is the row index, a flat circuit fit makes the outlook assert the same claim about every driver, and a zero pace gap puts the whole grid on pole.
+
+### Session forecast and forecast map (F-070)
+
+- `workers/pitwall/src/model/weather.ts` reads MET Norway Locationforecast 2.0 (compact) for the circuit (`circuits.ts` holds the 24 places) and `sessionWeather` picks the point nearest each session start (±90 min): sky, temperature, millimetres of rain, wind. Attributed on the tile via `payload.weatherSource`. Every request carries the identifying User-Agent and an 8 s timeout.
+- `workers/pitwall/src/model/weatherMap.ts` fetches the same forecast for a 5 x 5 grid 40 km apart (`gridOffsets`, row-major from the north-west; `dy` is north-positive so the first row is `+radius`), and `buildWeatherMap` produces per session within nine days three `MapFrame`s (-3 h, 0, +3 h): `rainMm[]` per cell, `null` where the source is silent, wind at the centre. A cell that fails to fetch is unknown, never dry.
+- `web/pitwall/src/ui/WeatherMap.tsx` draws the grid as SVG (index 0 top left), rings at 40 and 80 km, a compass, the wind arrow, session and frame tabs, a table alternative, and `looming(frame)` — one sentence naming the wettest cell upwind and how far. `payloadApi.toWeatherMap` drops any frame whose cell count is not `side²`.
+
+### The wire (F-070 first cut)
+
+- `workers/pitwall/src/model/wire.ts` maps the app's `articles` (official feeds) onto `WireItem`s: `tagEntity` (driver surname beats a team; `teamVariants` gives a team its short and full names and never a sponsor or generic word), `kindOf` (`PENALTY | REGULATION | CONTRACT | PRACTICE | QUALIFYING | RACE | NEWS`), `toneOf`, and `buildWire` (seven-day window, dedupe by title, drop general stories about nobody, `https` links only, score = entity + session kind + penalty + freshness, limit 30). The job reads `articles` outside the model's input allowlist. The free document carries `headlineOnly` items.
+- The portal's `NewsKind` is a superset (`UPGRADE | WEATHER | RELIABILITY` remain for the example set); `toNews` drops unknown kinds and non-https links.
+- `ui/bits.tsx` `Row` takes `dense` for the long lists (top ten, forecast rows) so they fit the scroll budget.
 
 ## 6. Compute: forge first, GCP as backup
 

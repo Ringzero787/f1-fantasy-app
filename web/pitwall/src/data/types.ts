@@ -25,9 +25,21 @@ export interface Constructor { id: string; name: string; team: string; price: nu
 export type Entity = Driver | Constructor;
 export const isCtor = (e: Entity): e is Constructor => (e as Constructor).ctor === true;
 
-export type NewsKind = 'PENALTY' | 'UPGRADE' | 'WEATHER' | 'RELIABILITY' | 'CONTRACT';
-export interface NewsItem { kind: NewsKind; entity: string | null; tone: '+' | '-' | '•'; text: string; sources: string; detail: string }
+export type NewsKind = 'PENALTY' | 'UPGRADE' | 'WEATHER' | 'RELIABILITY' | 'CONTRACT' | 'REGULATION' | 'PRACTICE' | 'QUALIFYING' | 'RACE' | 'NEWS';
+export interface NewsItem {
+  kind: NewsKind; entity: string | null; tone: '+' | '-' | '•'; text: string; sources: string;
+  /** the body; empty in the free document, which carries headlines only */
+  detail: string;
+  /** the story at its source; empty for the example set */
+  url: string;
+  publishedAt: string;
+}
 export interface Rival { name: string; rank: number; gap: number; lineup: string[]; bank: number; activity: number }
+
+/** One frame of the forecast grid around the circuit: rain per cell, row-major from the north-west. */
+export interface MapFrame { offsetH: number; at: string; rainMm: Array<number | null>; windFromDeg: number | null; windKph: number | null }
+export interface SessionMap { key: string; label: string; at: string; frames: MapFrame[] }
+export interface WeatherMap { center: { lat: number; lon: number }; radius: number; spacingKm: number; sessions: SessionMap[] }
 
 /** One session's forecast. Amounts, not chances: the source measures rainfall, so that is what is shown. */
 export interface SessionWeather { key: string; label: string; at: string; tempC: number | null; rainMm: number | null; sky: string | null; windKph: number | null }
@@ -48,6 +60,8 @@ export interface Payload {
   weather: SessionWeather[];
   /** who the forecast came from, which their terms require us to print */
   weatherSource: string | null;
+  /** the forecast grid around the circuit, when one was fetched */
+  weatherMap: WeatherMap | null;
 }
 
 export interface Lineup { drivers: string[]; ctor: string; ace: string }

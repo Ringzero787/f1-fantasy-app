@@ -38,6 +38,16 @@ admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECT
   for (const p of ctors) console.log(`${p.entityId.padEnd(12)} ${pad(p.floor.toFixed(0), 5)} ${pad(p.median.toFixed(0), 5)} ${pad(p.ceiling.toFixed(0), 5)} ${pad(p.expectedPriceChange.toFixed(0), 4)}`);
   console.log(run.weather.length ? '\nWEATHER       SKY            TEMP   RAIN   WIND' : '\nWEATHER: none for this round (no forecast within range, or no coordinates)');
   for (const w of run.weather) console.log(`${w.label.padEnd(13)} ${(w.sky ?? '—').padEnd(14)} ${pad(w.tempC === null ? '—' : `${w.tempC}°`, 5)} ${pad(w.rainMm === null ? '—' : `${w.rainMm}mm`, 6)} ${pad(w.windKph === null ? '—' : `${w.windKph}kph`, 6)}`);
+  if (run.weatherMap) {
+    const m = run.weatherMap;
+    console.log(`\nWEATHER MAP  ${2 * m.radius + 1}x${2 * m.radius + 1} cells at ${m.spacingKm} km · ${m.sessions.map((x) => `${x.label} (${x.frames.length} frames)`).join(', ')}`);
+    for (const sess of m.sessions) for (const f of sess.frames) {
+      const wet = f.rainMm.filter((v) => v !== null && v > 0).length;
+      console.log(`  ${sess.label.padEnd(12)} ${f.offsetH >= 0 ? '+' : ''}${f.offsetH}h  wet cells ${wet}/${f.rainMm.length}  wind ${f.windFromDeg === null ? '—' : `${f.windFromDeg}°`} ${f.windKph === null ? '' : `${f.windKph}kph`}`);
+    }
+  } else console.log('\nWEATHER MAP: none');
+  console.log(run.news.length ? `\nWIRE (${run.news.length})` : '\nWIRE: no headlines in the window');
+  for (const n of run.news) console.log(`  ${n.kind.padEnd(11)} ${n.tone} ${(n.entity ?? '—').padEnd(12)} ${n.text.slice(0, 80)}`);
   console.log(run.wrote.length ? `\nWrote: ${run.wrote.join(', ')}` : '\nNothing was written.');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
