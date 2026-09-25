@@ -48,6 +48,15 @@ admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECT
   } else console.log('\nWEATHER MAP: none');
   console.log(run.news.length ? `\nWIRE (${run.news.length})` : '\nWIRE: no headlines in the window');
   for (const n of run.news) console.log(`  ${n.kind.padEnd(11)} ${n.tone} ${(n.entity ?? '—').padEnd(12)} ${n.text.slice(0, 80)}`);
+  if (run.circuit) {
+    console.log(`\nCIRCUIT  ${run.circuit.name} · ${run.circuit.classes.join(', ')} · ${run.circuit.racesInClass} race(s) of the same class this season`);
+    console.log(`  fit ranking  ${run.circuit.fitRanking.map((f) => `${f.id} ${f.fit}`).join(' · ')}`);
+    for (const d of run.circuit.likeThis.slice(0, 5)) console.log(`  ${d.id.padEnd(12)} ${String(d.n).padStart(2)} race(s) like this · ${String(d.avgPts).padStart(5)} pts · avg P${d.avgFinish}`);
+  } else console.log('\nCIRCUIT: no characteristics for this venue');
+  console.log(`\nPACE (${run.pace.length})  driver · starts · avg grid · avg finish · gained · finished`);
+  for (const r of run.pace.slice(0, 8)) console.log(`  ${r.id.padEnd(12)} ${String(r.starts).padStart(2)}   ${String(r.avgGrid).padStart(5)}   ${String(r.avgFinish).padStart(5)}   ${String(r.gained).padStart(5)}   ${r.finishRate}%`);
+  console.log(`\nSEASON (${run.seasonTable.length})  driver · points · projected`);
+  for (const r of run.seasonTable.slice(0, 8)) console.log(`  ${r.id.padEnd(12)} ${String(r.points).padStart(5)}   ${String(r.projected).padStart(5)}`);
   console.log(run.wrote.length ? `\nWrote: ${run.wrote.join(', ')}` : '\nNothing was written.');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -44,6 +44,23 @@ export interface WeatherMap { center: { lat: number; lon: number }; radius: numb
 /** One session's forecast. Amounts, not chances: the source measures rainfall, so that is what is shown. */
 export interface SessionWeather { key: string; label: string; at: string; tempC: number | null; rainMm: number | null; sky: string | null; windKph: number | null }
 
+/** The circuit report (F-072 first cut): the venue's characteristics and this season's results at circuits like it. */
+export interface CircuitReport {
+  id: string; name: string; kind: string; speed: string; classes: string[];
+  laps: number; lapKm: number; pitLossS: number; strategy: string;
+  /** five-point ratings from our characteristics table */
+  profile: Array<{ label: string; v: number }>;
+  /** constructors by fit at this venue's classes; empty in the free document */
+  fitRanking: Array<{ id: string; fit: number; n: number }>;
+  /** each driver at circuits of the same class this season */
+  likeThis: Array<{ id: string; n: number; avgPts: number; avgFinish: number }>;
+  racesInClass: number;
+}
+/** Where a driver starts and finishes, averaged over this season's classifications. */
+export interface PaceRow { id: string; starts: number; avgGrid: number; avgFinish: number; gained: number; finishRate: number; dnfs: number }
+/** Points so far and where the season is heading on today's projections; `projected` is 0 in the free document. */
+export interface SeasonRow { id: string; points: number; projected: number; starts: number; dnfs: number }
+
 export interface Payload {
   example: boolean;
   asOf: string;
@@ -62,6 +79,12 @@ export interface Payload {
   weatherSource: string | null;
   /** the forecast grid around the circuit, when one was fetched */
   weatherMap: WeatherMap | null;
+  /** the circuit report, null until the venue has characteristics */
+  circuit: CircuitReport | null;
+  /** classification pace rows; empty until published */
+  pace: PaceRow[];
+  /** the season table; empty until published */
+  season: SeasonRow[];
 }
 
 export interface Lineup { drivers: string[]; ctor: string; ace: string }

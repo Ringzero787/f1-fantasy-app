@@ -127,6 +127,12 @@ The pipeline lands one piece at a time: projections and the price model first, t
 - `web/pitwall/src/data/wire.ts` is the reader's side: `newsKey` (hash of the link), `markRead`, `rate`, `taste`, `rank` (editorial order + 2 × personal), `forBriefing(items, prefs, 10)`. History lives in `users/{uid}/pitwall/wire` `{read, liked, updatedAt}` via `lib/wirePrefs.ts`, owner-only by rule, read capped at 400 keys. `ui/NewsRow.tsx` is the row with mark-read and thumbs.
 - `ui/bits.tsx` `Row` takes `dense` for the long lists (top ten, wire, forecast rows) so they fit the scroll budget.
 
+### Reports from our own classifications (F-072 first cut)
+
+- `workers/pitwall/src/model/circuitTraits.ts` is the circuit characteristics table: editorial five-point ratings per venue plus two classes (street/permanent, high/medium/low speed). `splits.ts` cuts this season's `raceScores` and results by those classes: `computeSplits` (points per entity overall and per class), `driverStarts` (average grid, finish, places gained, finish rate, retirements), `fitFor` (delta of class points against overall, ±1 step per 25%, neutral until 3 races overall and 2 in class), `buildCircuitReport`, `buildPace`, `buildSeasonTable` (points so far + median × remaining rounds). `HistRace` carries `circuitId` for this.
+- Payload fields `circuit: CircuitReport | null`, `pace: PaceRow[]`, `season: SeasonRow[]`; driver `fit[]` is now real. Free document: same, minus `circuit.fitRanking` and with `season[].projected = 0` — facts free, judgements paid (ADR-001). Coverage flags `circuit`, `pace`, `season`.
+- Pages: `Circuit.tsx` (profile, fit ranking behind `circuit.fit`, "at circuits like this one"), `PaceLab.tsx` (QUALI VS RACE scatter of avg grid vs avg finish, STARTS table, LONG RUN says timing is not licensed), `Season.tsx` (schedule difficulty, season table behind `season`, retirements, team value). The prototype's title simulation and power-unit tracker are gone: they had no source.
+
 ## 6. Compute: forge first, GCP as backup
 
 Heavy work runs on **forge**, following the pattern the studio already uses for its other products: a systemd service that pulls jobs from Firestore, holds no inbound ports, and can be restarted at any time. Cloud Functions are kept for the few things that must answer a request.

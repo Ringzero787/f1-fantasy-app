@@ -12,7 +12,7 @@ export function parseHistory(raw: Raw): History {
       const rr = r.results.raceResults as HistRace['raceResults'];
       const laps = typeof r.totalLaps === 'number' && r.totalLaps > 0 ? r.totalLaps : rr.reduce((m, x) => (x.status === 'finished' ? Math.max(m, x.laps ?? 0) : m), 0);
       return {
-        id: String(r.id), season: String(r.seasonId), round: Number(r.round) || 0, hasSprint: Array.isArray(r.results.sprintResults) && r.results.sprintResults.length > 0,
+        id: String(r.id), season: String(r.seasonId), circuitId: String(r.circuitId ?? ''), round: Number(r.round) || 0, hasSprint: Array.isArray(r.results.sprintResults) && r.results.sprintResults.length > 0,
         totalLaps: laps, raceResults: rr, qualifyingResults: r.results.qualifyingResults ?? [], sprintResults: r.results.sprintResults ?? [],
       };
     })

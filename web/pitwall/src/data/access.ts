@@ -30,7 +30,7 @@ export function passFromClaims(claims: Record<string, unknown> | undefined, now:
 export type Feature =
   | 'briefing.headlines' | 'briefing.recommendations' | 'briefing.rivals'
   | 'board.top10' | 'board.full' | 'board.probabilities' | 'board.movement'
-  | 'circuit' | 'pace'
+  | 'circuit' | 'circuit.fit' | 'pace'
   | 'market' | 'season'
   | 'lineup.edit' | 'lineup.rateMyTeam' | 'lineup.topPick' | 'lineup.whatIf'
   | 'entity.present' | 'entity.past' | 'entity.outlook'
@@ -47,11 +47,12 @@ export const can = (state: PassState, feature: Feature): boolean => state.access
 export const LOCKED_COPY: Partial<Record<Feature, string>> = {
   'briefing.recommendations': 'See which swaps the data backs, with the reason and the points behind each one.',
   'briefing.rivals': "See the move each rival is most likely to make, and whether it threatens you.",
+  'circuit.fit': 'See which cars suit this kind of circuit, from their results at circuits like it.',
   'board.full': 'See every driver and constructor with ranges, value, form and price movement.',
   'board.probabilities': 'See win, podium, top ten and retirement chances for the whole grid.',
   'board.movement': 'Follow how each projection moves through the weekend.',
   'market': 'See what each price move needs, and who is over or under owned in your league.',
-  'season': 'Plan the rest of the season: schedule difficulty, power unit limits and your team value.',
+  'season': 'See where the season is heading for every driver: points so far plus the projection for each remaining round.',
   'lineup.topPick': 'See the best replacement for any pick, compared side by side.',
   'lineup.whatIf': 'Try a lineup and see the projection, bank and fees before you save.',
   'entity.past': 'See a full season of form, splits by circuit type and a percentile profile.',

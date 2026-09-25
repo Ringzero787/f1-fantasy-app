@@ -11,7 +11,7 @@ export interface UIState {
   boardTab: 'PROJECTIONS' | 'PROBABILITIES' | 'MOVEMENT';
   preset: 'VALUE' | 'PACE' | 'OWNERSHIP' | 'RISK';
   sort: string;
-  paceTab: 'LONG RUN' | 'QUALI VS RACE' | 'PIT STOPS';
+  paceTab: 'QUALI VS RACE' | 'STARTS' | 'LONG RUN';
   mktTab: 'PRICE MODEL' | 'VALUE' | 'OWNERSHIP';
   lowerTab: 'RIVALS' | 'MOVERS' | 'WEATHER';
   lineup: Lineup;
@@ -83,7 +83,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
   const [saving, setSaving] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<string | null>(null);
   const [ui, setUi] = useState<UIState>(() => ({
-    boardTab: 'PROJECTIONS', preset: 'VALUE', sort: 'med', paceTab: 'LONG RUN', mktTab: 'PRICE MODEL', lowerTab: 'RIVALS',
+    boardTab: 'PROJECTIONS', preset: 'VALUE', sort: 'med', paceTab: 'QUALI VS RACE', mktTab: 'PRICE MODEL', lowerTab: 'RIVALS',
     lineup, saved: lineup, slot: null, over: null, overTab: 'PRESENT', focus: null, thr: 25, win: 'L10', wire: 'ALL', rec: 0, recOver: null, tray: [], toast: null,
   }));
   const patch = useCallback((fn: (u: UIState) => Partial<UIState>) => setUi((u) => ({ ...u, ...fn(u) })), []);

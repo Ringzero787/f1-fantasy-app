@@ -12,6 +12,7 @@ import { blendPriceChange, pointsToRise, pointsToSoftFall } from './priceRules';
 import type { SessionWeather } from './weather';
 import type { WeatherMap } from './weatherMap';
 import { headlineOnly, type WireItem } from './wire';
+import type { CircuitReport, PaceRow, SeasonRow } from './splits';
 import type { Projection } from './types';
 
 export interface DriverMeta { id: string; number: number; name: string; constructorId: string; price: number; isActive: boolean }
@@ -45,6 +46,12 @@ export interface PayloadInputs {
   weatherMap?: WeatherMap | null;
   /** headlines for the round from the app's own feeds */
   news?: WireItem[];
+  /** circuit fit per driver for each of nextRounds, from the results splits; neutral 3 when absent */
+  fit?: Map<string, number[]>;
+  /** the circuit report, the classification pace rows and the season table (F-072 first cut) */
+  circuit?: CircuitReport | null;
+  pace?: PaceRow[];
+  season?: SeasonRow[];
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -69,8 +76,8 @@ export function buildPayload(i: PayloadInputs) {
       form: hist, dnf: p ? Math.round(p.pDnf * 100) : 0, own: Math.round(i.ownership.get(d.id) ?? 0),
       pm: r1(med - implied), cons: hist.length ? Math.round((hits / hist.length) * 100) : 0,
       dprice: p ? Math.round(blendPriceChange(p.expectedPriceChange, i.pricingHistory?.get(d.id) ?? [], d.price)) : 0,
-      // circuit fit needs the characteristics table (F-070 "inputs that do not exist"); neutral until then
-      fit: i.nextRounds.map(() => 3),
+      // from the results splits by circuit class; neutral 3 where there is not enough to say
+      fit: i.fit?.get(d.id) ?? i.nextRounds.map(() => 3),
       win: p ? Math.round(p.pWin * 100) : 0, pod: p ? Math.round(p.pPodium * 100) : 0, t10: p ? Math.round(p.pTop10 * 100) : 0,
       // The price model, from the same rules production scores with, so the portal states it
       // rather than deriving a plausible-looking number from the price.
@@ -99,6 +106,9 @@ export function buildPayload(i: PayloadInputs) {
     weather: i.weather ?? [],
     weatherSource: i.weatherSource ?? null,
     weatherMap: i.weatherMap ?? null,
+    circuit: i.circuit ?? null,
+    pace: i.pace ?? [],
+    season: i.season ?? [],
     model: { runs: 10000, band: 'central 70% of finishing runs', pDnfSeparate: true },
   };
   // Free look: the projection itself is free for the whole grid, and the analysis built on it is
@@ -128,6 +138,12 @@ export function buildPayload(i: PayloadInputs) {
     weather: full.weather,
     weatherSource: full.weatherSource,
     weatherMap: full.weatherMap,
+    // Classification facts are free (ADR-001: the profile, where each driver started and finished);
+    // the two judgements built on them — how each car fits this venue, where the season is heading
+    // on the projections — are the pass.
+    circuit: full.circuit ? { ...full.circuit, fitRanking: [] } : null,
+    pace: full.pace,
+    season: full.season.map((r) => ({ ...r, projected: 0 })),
     model: full.model,
   };
   return { full, free };
