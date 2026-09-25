@@ -94,7 +94,7 @@ test('backtest on a perfectly regular season: tiny errors, full scoring parity, 
   assert.equal(rep.verdict.ships, rep.verdict.beatsBaseline && rep.verdict.bandInTarget && rep.verdict.priceOk);
 });
 
-const { buildPayload, shortTeamName } = require(D + 'payload.js');
+const { buildPayload, shortName, shortTeamName } = require(D + 'payload.js');
 test('payload builder writes the portal shape, a free look with only top-10 medians, and short team names', () => {
   const proj = [
     { entityId: 'a1', entityType: 'driver', floor: 20, median: 40.4, ceiling: 55, mean: 41, pWin: 0.3, pPodium: 0.6, pTop10: 0.95, pDnf: 0.08, aceMedian: 80.8, pRise: 0.6, pFall: 0.2, expectedPriceChange: 4.2 },
@@ -327,4 +327,10 @@ test('a headline is about the name it leads with, whatever order the grid is lis
   assert.equal(tagEntity('Stone rues mixed P2 as Reed a sitting duck', names), 'stone');
   assert.equal(tagEntity('Reed charges to pole as Stone exits early', names), 'reed');
   assert.equal(tagEntity('Harbour confirm a new floor for Stone', names), 'harbour');
+});
+
+test('a surname skips a generational suffix, so the wire can tag the driver', () => {
+  assert.equal(shortName('Carlos Stone Jr.'), 'Stone');
+  assert.equal(shortName('Reed'), 'Reed');
+  assert.equal(shortName('Ada Reed II'), 'Reed');
 });

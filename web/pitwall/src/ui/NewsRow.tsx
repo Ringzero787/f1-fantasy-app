@@ -21,22 +21,26 @@ export function NewsRow({ n, full = false }: { n: NewsItem; full?: boolean }) {
   const rating = wire.liked[key];
   const read = !!wire.read[key];
   const stop = (fn: () => void) => (ev: React.MouseEvent) => { ev.stopPropagation(); fn(); };
+  const meta = (
+    <span className="mut">
+      {n.publishedAt ? `${when(n.publishedAt)} · ` : ''}
+      {n.url ? <a href={n.url} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} style={{ color: 'inherit' }}>{n.sources} ↗</a> : n.sources}
+    </span>
+  );
   return (
     // The kind has its own column on a wide screen and sits inline on a phone, where a fixed
     // column would leave the headline a third of the width and four lines tall.
     <div className="newsrow">
-    <Row cols="96px 1fr auto" dense={!full} onClick={e ? () => open(e.id) : undefined} label={`${n.kind}: ${n.text}`}>
+    <Row cols="96px 1fr auto auto" dense={!full} onClick={e ? () => open(e.id) : undefined} label={`${n.kind}: ${n.text}`}>
       <span className="only-wide"><Pill red={n.tone === '-'}>{n.kind}</Pill></span>
       <span style={{ opacity: read ? 0.55 : 1 }}>
         <span className="only-narrow"><Pill red={n.tone === '-'}>{n.kind}</Pill> </span>
         {e ? <TeamBar p={p} team={e.team} /> : null}{n.text}
         {full && n.detail ? <><br /><span className="mut">{n.detail}</span></> : null}
-        <br />
-        <span className="mut">
-          {n.publishedAt ? `${when(n.publishedAt)} · ` : ''}
-          {n.url ? <a href={n.url} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} style={{ color: 'inherit' }}>{n.sources} ↗</a> : n.sources}
-        </span>
+        <span className="only-narrow"><br />{meta}</span>
       </span>
+      {/* the time and the source have their own column on a wide screen, so a headline is one line */}
+      <span className="mut only-wide nmeta">{meta}</span>
       <span className="srow nctl">
         <button type="button" className={`chip ${rating === 1 ? 'on' : ''}`} aria-pressed={rating === 1} aria-label={`More like this: ${n.text}`} title="More like this" onClick={stop(() => rateNews(key, 1))}>▲</button>
         <button type="button" className={`chip ${rating === -1 ? 'on' : ''}`} aria-pressed={rating === -1} aria-label={`Less like this: ${n.text}`} title="Less like this" onClick={stop(() => rateNews(key, -1))}>▼</button>

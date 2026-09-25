@@ -51,6 +51,7 @@ export function Briefing() {
   const weatherBody = !has.weather && !has.weatherMap ? <Empty>{NOT_PUBLISHED.weather}</Empty> : (
     <>
       {has.weatherMap && p.weatherMap ? <WeatherMap map={p.weatherMap} /> : <span className="mut">{NOT_PUBLISHED.weatherMap}</span>}
+      <div className="list">
       {p.weather.map((w) => (
         <Row key={w.key} cols="1fr auto auto" dense label={`${w.label}: ${w.sky ?? ''}${w.tempC !== null ? `, ${w.tempC} degrees` : ''}${w.rainMm !== null ? `, ${w.rainMm} millimetres of rain` : ''}`}>
           <span>{w.label} <span className="mut">· {day(w.at)}{w.sky ? ` · ${w.sky}` : ''}</span></span>
@@ -58,6 +59,7 @@ export function Briefing() {
           <span className={`num ${w.rainMm !== null && w.rainMm >= 1 ? 'red' : ''}`}>{w.rainMm !== null ? `${w.rainMm} mm` : '—'}</span>
         </Row>
       ))}
+      </div>
       <span className="mut">Rain is the amount expected in the session's hour. {p.weatherSource ?? ''}</span>
     </>
   );
@@ -67,17 +69,45 @@ export function Briefing() {
       {/* Two separate tiles, never one wearing the other's hat. The wire leads when it has
           something; the top ten always has something, so it takes the slot when the wire does not
           and the page never opens on an empty headline list. */}
+      {/* Two columns, each its own flow, so a short wire never leaves a hole beside a tall column
+          (a grid row would stretch to the tallest tile in it): the wire, the top ten and the rivals
+          on the left; the reader's own tile, the price movers and the weather on the right. On a
+          phone the reader's own tile comes first, then the wire, then the top five. */}
+      <div className="c4 stack first-narrow">
+      <Tile variant="you" label="Your lineup">
+        {proj.complete ? <>
+          <div className="big num">{proj.points}</div>
+          <div className="mut">Projected points · range {Math.round(proj.points * 0.72)} to {Math.round(proj.points * 1.3)}</div>
+        </> : (
+          <div className="mut">{pass.access === 'pass'
+            ? `No projected total: ${proj.missing} of your picks ${proj.missing === 1 ? 'is' : 'are'} not projected for this round, and adding the rest up would be wrong.`
+            : `No projected total: the free view carries only the top ten, and ${proj.missing} of your picks ${proj.missing === 1 ? 'is' : 'are'} outside it. The whole board comes with the pass.`}</div>
+        )}
+        <div className="list">
+          <Row two cols="1fr auto" dense><span>Rate my team</span><span className="num">{proj.complete ? `${rateMyTeam(p, ui.lineup)} / 100` : '—'}</span></Row>
+          <Row two cols="1fr auto" dense><span>Flags</span><span className={flags ? 'red' : 'mut'}>{flags} penalty risk · 0 open slots</span></Row>
+        </div>
+        <button className="cta" type="button" onClick={() => go('LINEUP LAB')}>Open lineup lab →</button>
+      </Tile>
+      <Tile span="only-wide" label="Price movers · predicted"><div className="list">{moversBody}</div></Tile>
+      <Tile span="only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
+      </div>
+      <div className="c8 stack">
       {has.news ? (
-        <Tile span="c8" label="What changed since yesterday" right={<span className="mut only-wide">{briefing.length ? `${briefing.length} unread · links out to sources` : 'links out to sources'}</span>}>
+        <Tile label="What changed since yesterday" right={<span className="mut only-wide">{briefing.length ? `${briefing.length} unread · links out to sources` : 'links out to sources'}</span>}>
           {briefing.length === 0 ? <Empty>You are caught up. New headlines appear here as the feeds carry them.</Empty> : null}
           {/* Ten on a wide screen, five on a phone, same as the top ten; the Wire carries all of them. */}
-          {briefing.map((n, i) => <div key={newsKey(n)} className={i >= 5 ? 'only-wide' : undefined}><NewsRow n={n} /></div>)}
+          <div className="list">{briefing.map((n, i) => <div key={newsKey(n)} className={i >= 5 ? 'only-wide' : undefined}><NewsRow n={n} /></div>)}</div>
           {briefing.length > 5 ? <span className="mut only-narrow">{briefing.length - 5} more unread on the Wire.</span> : null}
         </Tile>
       ) : null}
       {/* Ten on a wide screen, five on a phone: the board has the whole grid, and on a phone the
           extra five cost more scroll than they earn on the page people open first. */}
-      <Tile span="c8" label={<><span className="only-wide">Top ten</span><span className="only-narrow">Top five</span> for {p.round.name || 'this round'}</>} right={<span className="mut only-wide">Projected points for the coming round</span>}>
+      {/* The reader's own tile sits at the top right. Its column runs down beside both the wire and
+          the top ten (price movers, then the weather), so neither side leaves a hole. Rivals,
+          mostly "not published" today, gets the full width at the bottom. */}
+      <Tile label={<><span className="only-wide">Top ten</span><span className="only-narrow">Top five</span> for {p.round.name || 'this round'}</>} right={<span className="mut only-wide">Projected points for the coming round</span>}>
+        <div className="list">
         {topTen.map((d, i) => (
           <div key={d.id} className={i >= 5 ? 'only-wide' : undefined}>
           <Row cols="24px 1fr auto" dense onClick={() => open(d.id)} label={`${d.name}, projected ${d.med} points`}>
@@ -87,20 +117,10 @@ export function Briefing() {
           </Row>
           </div>
         ))}
+        </div>
       </Tile>
-      <Tile span="c4" variant="you" label="Your lineup">
-        {proj.complete ? <>
-          <div className="big num">{proj.points}</div>
-          <div className="mut">Projected points · range {Math.round(proj.points * 0.72)} to {Math.round(proj.points * 1.3)}</div>
-        </> : (
-          <div className="mut">{pass.access === 'pass'
-            ? `No projected total: ${proj.missing} of your picks ${proj.missing === 1 ? 'is' : 'are'} not projected for this round, and adding the rest up would be wrong.`
-            : `No projected total: the free view carries only the top ten, and ${proj.missing} of your picks ${proj.missing === 1 ? 'is' : 'are'} outside it. The whole board comes with the pass.`}</div>
-        )}
-        <Row two cols="1fr auto"><span>Rate my team</span><span className="num">{proj.complete ? `${rateMyTeam(p, ui.lineup)} / 100` : '—'}</span></Row>
-        <Row two cols="1fr auto"><span>Flags</span><span className={flags ? 'red' : 'mut'}>{flags} penalty risk · 0 open slots</span></Row>
-        <button className="cta" type="button" onClick={() => go('LINEUP LAB')}>Open lineup lab →</button>
-      </Tile>
+      <Tile span="only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals"><div className="list">{rivalsBody}</div></Locked></Tile>
+      </div>
       <Tile span="c12" label="Recommendations · your lineup against the data" right={<span className="mut">Click a recommendation to compare</span>}>
        <Locked feature="briefing.recommendations">
         <div className="recgrid">
@@ -117,9 +137,6 @@ export function Briefing() {
         </div>
        </Locked>
       </Tile>
-      <Tile span="c4 only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals">{rivalsBody}</Locked></Tile>
-      <Tile span="c4 only-wide" label="Price movers · predicted">{moversBody}</Tile>
-      <Tile span="c4 only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
       <Tile span="c12 only-narrow" label="This weekend" right={<Tabs value={ui.lowerTab} options={['RIVALS', 'MOVERS', 'WEATHER'] as const} onChange={(v) => set('lowerTab', v)} label="Weekend frames" />}>
         {ui.lowerTab === 'RIVALS' ? <Locked feature="briefing.rivals">{rivalsBody}</Locked> : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
       </Tile>

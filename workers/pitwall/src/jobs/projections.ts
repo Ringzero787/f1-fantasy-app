@@ -15,7 +15,7 @@ import { fetchForecast, sessionWeather, MET_ATTRIBUTION, type SessionWeather } f
 import { buildWeatherMap, fetchGrid, type WeatherMap } from '../model/weatherMap';
 import { buildWire, teamVariants, type Article, type WireItem } from '../model/wire';
 import { scoreWeekend } from '../model/scoreRace';
-import { buildPayload, shortTeamName, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
+import { buildPayload, shortName, shortTeamName, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
 import { DEFAULT_SIM, simulate, type SimOptions } from '../model/simulate';
 import { estimateForm, type Entrant } from '../model/strength';
 import type { HistRace, History, Projection } from '../model/types';
@@ -158,7 +158,7 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
   const weatherMap = grid ? buildWeatherMap(grid.center, ahead, grid.cells, now) : null;
   // Headlines, tagged to whoever they name.
   const names = {
-    drivers: Object.fromEntries(active.map((d) => [d.id, d.name.trim().split(/\s+/).pop() ?? d.name])),
+    drivers: Object.fromEntries(active.map((d) => [d.id, shortName(d.name)])),
     constructors: Object.fromEntries(constructors.map((c) => [c.id, teamVariants(c.name, shortTeamName(c.name, c.id))])),
   };
   // Thirty rather than eight: readers mark headlines read and they leave the page, so there has
