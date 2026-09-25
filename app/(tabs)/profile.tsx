@@ -21,6 +21,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { useAvatarGeneration, useScale, useTheme, useLayout } from '../../src/hooks';
 import { usePrefsStore } from '../../src/store/prefs.store';
 import { CONSTRUCTOR_THEMES, type ConstructorThemeId } from '../../src/config/themes';
+import { LanguagePicker } from '../../src/components/LanguagePicker';
 import { authService } from '../../src/services/auth.service';
 import { Card, RulesGuide } from '../../src/components';
 import { getGoogleIdToken, getAppleCredential } from '../../src/components/SocialAuthButtons';
@@ -512,6 +513,8 @@ export default function ProfileScreen() {
               );
             })}
           </View>
+
+          <LanguagePicker />
         </View>
       </Card>
 

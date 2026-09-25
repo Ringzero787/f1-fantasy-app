@@ -1,0 +1,61 @@
+{
+  "common": {
+    "back": "ZURÜCK",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "retry": "Erneut versuchen",
+    "loading": "Lädt",
+    "close": "Schließen",
+    "done": "Fertig"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Willkommen",
+      "subtitle": "Melde dich an, um dein Team aufzustellen, ein Ass zu wählen und gegen deine Freunde anzutreten.",
+      "noPasswords": "KEINE PASSWÖRTER. DEIN ACCOUNT IST DEIN ANMELDEMITTEL."
+    },
+    "register": {
+      "caption": "KONTO ERSTELLEN",
+      "title": "Neu hier",
+      "orWithEmail": "ODER MIT E-MAIL",
+      "displayNameLabel": "ANZEIGENAME",
+      "displayNamePlaceholder": "Dein Name",
+      "emailLabel": "E-MAIL",
+      "emailPlaceholder": "du@beispiel.de",
+      "passwordLabel": "PASSWORT",
+      "passwordPlaceholder": "Passwort erstellen",
+      "confirmPasswordLabel": "PASSWORT BESTÄTIGEN",
+      "confirmPasswordPlaceholder": "Wiederholen",
+      "submit": "KONTO ERSTELLEN",
+      "submitting": "WIRD ERSTELLT…",
+      "haveAccount": "BEREITS EIN KONTO? ANMELDEN",
+      "backToSignInLabel": "Zurück zur Anmeldung"
+    },
+    "forgot": {
+      "caption": "PASSWORT ZURÜCKSETZEN",
+      "captionSent": "E-MAIL GESENDET",
+      "title": "Passwort zurücksetzen",
+      "subtitle": "Gib die E-Mail-Adresse deines Kontos ein, wir senden dir einen Link zum Zurücksetzen.",
+      "sentTitle": "Prüfe deine E-Mails",
+      "sentBody": "Wir haben einen Link zum Zurücksetzen an {{email}} gesendet. Folge ihm, um ein neues Passwort zu wählen.",
+      "emailLabel": "E-MAIL",
+      "emailPlaceholder": "du@beispiel.de",
+      "submit": "LINK SENDEN",
+      "submitting": "WIRD GESENDET…",
+      "backToSignIn": "ZURÜCK ZUR ANMELDUNG"
+    },
+    "errors": {
+      "emailRequired": "E-Mail ist erforderlich",
+      "emailInvalid": "Bitte gib eine gültige E-Mail-Adresse ein",
+      "passwordsMismatch": "Passwörter stimmen nicht überein"
+    }
+  },
+  "settings": {
+    "language": "Sprache",
+    "display": "Anzeige"
+  },
+  "race": {
+    "racesRemaining_one": "Noch {{count}} Rennen in dieser Saison",
+    "racesRemaining_other": "Noch {{count}} Rennen in dieser Saison"
+  }
+}

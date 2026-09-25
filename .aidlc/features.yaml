@@ -1,4 +1,4 @@
-next_id: 80
+next_id: 81
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -858,5 +858,6 @@ features:
       - only
       - pick
       - marks
-  - { id: F-078, name: "TL: UI string extraction and localization", status: planned, created_at: 2026-09-24, summary: "Extract Track Limits user-facing strings into a catalog (newgame/src/locales/{lang}.json), route every screen through a translation function, then add `catalogs` and `scan` to localization in .aidlc/aidlc.yaml so G16 enforces parity. Release notes and the store blurb already translate at release.", keywords: [localization, i18n, translation, locales] }
-  - { id: F-079, name: "UC: UI string extraction and localization", status: idea, created_at: 2026-09-24, summary: "Same as F-078 for Undercut (app/, src/). Larger surface; do it after Track Limits proves the pattern.", keywords: [localization, i18n, translation, locales] }
+  - { id: F-078, name: "TL: UI string extraction and localization", status: planned, created_at: 2026-09-24, summary: "Same pattern as F-079, applied to Track Limits (newgame/). Do it after Undercut proves it: i18next + expo-localization, catalog at newgame/src/i18n/locales/{lang}.json, then add catalogs and scan to localization in .aidlc/aidlc.yaml.", keywords: [localization, i18n, translation, locales] }
+  - { id: F-079, name: "UC: UI string extraction and localization", status: building, spec: .aidlc/specs/F-079.md, created_at: 2026-09-24, summary: "Nine languages for F1 markets. Scaffolding, auth screens and catalogs landed; the rest of the app converts area by area (see spec).", keywords: [localization, i18n, translation, locales] }
+  - { id: F-080, name: "UC: right-to-left support and Arabic", status: idea, created_at: 2026-09-25, summary: "Mirror layouts (start/end instead of left/right, mirrored chevrons, text alignment, bidi where Latin names sit in translated text), verify on device, then add ar to localization.languages and set rtl_ready true. Four Gulf races make Arabic the highest-value next language.", keywords: [rtl, arabic, localization, i18n] }

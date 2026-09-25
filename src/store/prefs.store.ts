@@ -17,6 +17,9 @@ interface PrefsState {
   setUiMode: (mode: UiMode) => void;
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  /** Explicit language choice. null means follow the device locale. */
+  language: string | null;
+  setLanguage: (code: string | null) => void;
 
   // Review prompt tracking
   hasPromptedReview: boolean;
@@ -43,6 +46,8 @@ export const usePrefsStore = create<PrefsState>()(
       setUiMode: (mode: UiMode) => set({ uiMode: mode }),
       themeMode: 'system' as ThemeMode,
       setThemeMode: (mode: ThemeMode) => set({ themeMode: mode }),
+      language: null,
+      setLanguage: (code: string | null) => set({ language: code }),
 
       // Review prompt
       hasPromptedReview: false,

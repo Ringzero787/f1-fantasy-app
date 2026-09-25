@@ -24,6 +24,7 @@ import { useLayout } from '../src/hooks/useLayout';
 import { handleAmazonDeepLink } from '../src/utils/amazonSignIn';
 import { useRemoteConfigStore } from '../src/store/remoteConfig.store';
 import { usePrefsStore } from '../src/store/prefs.store';
+import { initI18n, setLanguage, SUPPORTED, type LanguageCode } from '../src/i18n';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,8 +52,13 @@ function extractInviteCode(url: string): string | null {
   return null;
 }
 
+// Start translations before anything renders, using the device locale. The player's saved choice is
+// applied below once the persisted prefs store has hydrated.
+initI18n();
+
 export default function RootLayout() {
   const { isTablet } = useLayout();
+  const savedLanguage = usePrefsStore((s) => s.language);
 
   // Grid type system (Unbounded UI + JetBrains Mono data). Don't block
   // rendering on the load — RN falls back to the system font until ready.
@@ -67,6 +73,11 @@ export default function RootLayout() {
     if (fontError) console.warn('[fonts] load failed:', fontError.message ?? fontError);
     else if (fontsLoaded) console.log('[fonts] loaded');
   }, [fontsLoaded, fontError]);
+
+  // Saved language wins over the device locale, once prefs have hydrated from storage
+  useEffect(() => {
+    if (savedLanguage && SUPPORTED.some((l) => l.code === savedLanguage)) setLanguage(savedLanguage as LanguageCode);
+  }, [savedLanguage]);
 
   // Load remote config from Firestore on startup
   useEffect(() => { useRemoteConfigStore.getState().initialize(); }, []);

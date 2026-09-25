@@ -1,0 +1,63 @@
+{
+  "common": {
+    "back": "WSTECZ",
+    "cancel": "Anuluj",
+    "save": "Zapisz",
+    "retry": "Ponów",
+    "loading": "Ładowanie",
+    "close": "Zamknij",
+    "done": "Gotowe"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Witaj",
+      "subtitle": "Zaloguj się, aby zbudować skład, wybrać asa i rywalizować ze znajomymi.",
+      "noPasswords": "BEZ HASEŁ. TWOJE KONTO JEST TWOIM LOGOWANIEM."
+    },
+    "register": {
+      "caption": "UTWÓRZ KONTO",
+      "title": "Nowy tutaj",
+      "orWithEmail": "LUB E-MAILEM",
+      "displayNameLabel": "NAZWA WYŚWIETLANA",
+      "displayNamePlaceholder": "Twoje imię",
+      "emailLabel": "E-MAIL",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "HASŁO",
+      "passwordPlaceholder": "Utwórz hasło",
+      "confirmPasswordLabel": "POTWIERDŹ HASŁO",
+      "confirmPasswordPlaceholder": "Powtórz je",
+      "submit": "UTWÓRZ KONTO",
+      "submitting": "TWORZENIE…",
+      "haveAccount": "MASZ JUŻ KONTO? ZALOGUJ SIĘ",
+      "backToSignInLabel": "Powrót do logowania"
+    },
+    "forgot": {
+      "caption": "ZRESETUJ HASŁO",
+      "captionSent": "E-MAIL WYSŁANY",
+      "title": "Zresetuj hasło",
+      "subtitle": "Podaj e-mail powiązany z kontem, a wyślemy link do resetowania hasła.",
+      "sentTitle": "Sprawdź swoją skrzynkę e-mail",
+      "sentBody": "Wysłaliśmy link do resetowania hasła na adres {{email}}. Kliknij go, aby ustawić nowe hasło.",
+      "emailLabel": "E-MAIL",
+      "emailPlaceholder": "you@example.com",
+      "submit": "WYŚLIJ LINK RESETUJĄCY",
+      "submitting": "WYSYŁANIE…",
+      "backToSignIn": "POWRÓT DO LOGOWANIA"
+    },
+    "errors": {
+      "emailRequired": "E-mail jest wymagany",
+      "emailInvalid": "Podaj prawidłowy adres e-mail",
+      "passwordsMismatch": "Hasła nie są zgodne"
+    }
+  },
+  "settings": {
+    "language": "Język",
+    "display": "Wyświetlanie"
+  },
+  "race": {
+    "racesRemaining_one": "{{count}} wyścig pozostały w tym sezonie",
+    "racesRemaining_few": "{{count}} wyścigi pozostałe w tym sezonie",
+    "racesRemaining_many": "{{count}} wyścigów pozostałych w tym sezonie",
+    "racesRemaining_other": "{{count}} wyścigu pozostałego w tym sezonie"
+  }
+}

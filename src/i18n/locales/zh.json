@@ -1,0 +1,60 @@
+{
+  "common": {
+    "back": "返回",
+    "cancel": "取消",
+    "save": "保存",
+    "retry": "重试",
+    "loading": "加载中",
+    "close": "关闭",
+    "done": "完成"
+  },
+  "auth": {
+    "signIn": {
+      "title": "欢迎",
+      "subtitle": "登录以组建阵容、选择王牌并和好友一较高下。",
+      "noPasswords": "无需密码。您的账户即是登录方式。"
+    },
+    "register": {
+      "caption": "创建账户",
+      "title": "新用户",
+      "orWithEmail": "或使用邮箱",
+      "displayNameLabel": "显示名称",
+      "displayNamePlaceholder": "您的名字",
+      "emailLabel": "邮箱",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "密码",
+      "passwordPlaceholder": "创建密码",
+      "confirmPasswordLabel": "确认密码",
+      "confirmPasswordPlaceholder": "重复输入",
+      "submit": "创建账户",
+      "submitting": "创建中…",
+      "haveAccount": "已有账户？立即登录",
+      "backToSignInLabel": "返回登录"
+    },
+    "forgot": {
+      "caption": "重置密码",
+      "captionSent": "邮件已发送",
+      "title": "重置密码",
+      "subtitle": "输入您账户的邮箱，我们将发送重置链接。",
+      "sentTitle": "请查收邮件",
+      "sentBody": "我们已向 {{email}} 发送了重置链接。请点击链接设置新密码。",
+      "emailLabel": "邮箱",
+      "emailPlaceholder": "you@example.com",
+      "submit": "发送重置链接",
+      "submitting": "发送中…",
+      "backToSignIn": "返回登录"
+    },
+    "errors": {
+      "emailRequired": "请输入邮箱",
+      "emailInvalid": "请输入有效的邮箱地址",
+      "passwordsMismatch": "两次输入的密码不一致"
+    }
+  },
+  "settings": {
+    "language": "语言",
+    "display": "显示"
+  },
+  "race": {
+    "racesRemaining_other": "本赛季还剩 {{count}} 场比赛"
+  }
+}

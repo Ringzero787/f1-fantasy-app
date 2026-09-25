@@ -1,0 +1,62 @@
+{
+  "common": {
+    "back": "ATRÁS",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "retry": "Reintentar",
+    "loading": "Cargando",
+    "close": "Cerrar",
+    "done": "Listo"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Bienvenido",
+      "subtitle": "Inicia sesión para armar tu alineación, elegir un as y competir con tus amigos.",
+      "noPasswords": "SIN CONTRASEÑAS. TU CUENTA ES TU INICIO DE SESIÓN."
+    },
+    "register": {
+      "caption": "CREAR CUENTA",
+      "title": "Nuevo aquí",
+      "orWithEmail": "O CON CORREO ELECTRÓNICO",
+      "displayNameLabel": "NOMBRE VISIBLE",
+      "displayNamePlaceholder": "Tu nombre",
+      "emailLabel": "CORREO ELECTRÓNICO",
+      "emailPlaceholder": "tu@ejemplo.com",
+      "passwordLabel": "CONTRASEÑA",
+      "passwordPlaceholder": "Crea una contraseña",
+      "confirmPasswordLabel": "CONFIRMAR CONTRASEÑA",
+      "confirmPasswordPlaceholder": "Repítela",
+      "submit": "CREAR CUENTA",
+      "submitting": "CREANDO…",
+      "haveAccount": "¿YA TIENES UNA CUENTA? INICIA SESIÓN",
+      "backToSignInLabel": "Volver al inicio de sesión"
+    },
+    "forgot": {
+      "caption": "RESTABLECER CONTRASEÑA",
+      "captionSent": "CORREO ENVIADO",
+      "title": "Restablecer contraseña",
+      "subtitle": "Ingresa el correo de tu cuenta y te enviaremos un enlace para restablecerla.",
+      "sentTitle": "Revisa tu correo",
+      "sentBody": "Enviamos un enlace de restablecimiento a {{email}}. Síguelo para elegir una nueva contraseña.",
+      "emailLabel": "CORREO ELECTRÓNICO",
+      "emailPlaceholder": "tu@ejemplo.com",
+      "submit": "ENVIAR ENLACE",
+      "submitting": "ENVIANDO…",
+      "backToSignIn": "VOLVER AL INICIO DE SESIÓN"
+    },
+    "errors": {
+      "emailRequired": "El correo electrónico es obligatorio",
+      "emailInvalid": "Ingresa un correo electrónico válido",
+      "passwordsMismatch": "Las contraseñas no coinciden"
+    }
+  },
+  "settings": {
+    "language": "Idioma",
+    "display": "Pantalla"
+  },
+  "race": {
+    "racesRemaining_one": "{{count}} carrera restante esta temporada",
+    "racesRemaining_many": "{{count}} carreras restantes esta temporada",
+    "racesRemaining_other": "{{count}} carreras restantes esta temporada"
+  }
+}

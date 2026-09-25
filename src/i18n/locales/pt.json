@@ -1,0 +1,62 @@
+{
+  "common": {
+    "back": "VOLTAR",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "retry": "Tentar novamente",
+    "loading": "Carregando",
+    "close": "Fechar",
+    "done": "Concluído"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Bem-vindo",
+      "subtitle": "Entre para montar sua escalação, escolher um ás e competir com seus amigos.",
+      "noPasswords": "SEM SENHAS. SUA CONTA É SEU LOGIN."
+    },
+    "register": {
+      "caption": "CRIAR CONTA",
+      "title": "Novo por aqui",
+      "orWithEmail": "OU COM E-MAIL",
+      "displayNameLabel": "NOME DE EXIBIÇÃO",
+      "displayNamePlaceholder": "Seu nome",
+      "emailLabel": "E-MAIL",
+      "emailPlaceholder": "voce@exemplo.com",
+      "passwordLabel": "SENHA",
+      "passwordPlaceholder": "Crie uma senha",
+      "confirmPasswordLabel": "CONFIRME A SENHA",
+      "confirmPasswordPlaceholder": "Repita a senha",
+      "submit": "CRIAR CONTA",
+      "submitting": "CRIANDO…",
+      "haveAccount": "JÁ TEM UMA CONTA? ENTRAR",
+      "backToSignInLabel": "Voltar para o login"
+    },
+    "forgot": {
+      "caption": "REDEFINIR SENHA",
+      "captionSent": "E-MAIL ENVIADO",
+      "title": "Redefinir senha",
+      "subtitle": "Digite o e-mail da sua conta e enviaremos um link de redefinição.",
+      "sentTitle": "Verifique seu e-mail",
+      "sentBody": "Enviamos um link de redefinição para {{email}}. Siga-o para escolher uma nova senha.",
+      "emailLabel": "E-MAIL",
+      "emailPlaceholder": "voce@exemplo.com",
+      "submit": "ENVIAR LINK DE REDEFINIÇÃO",
+      "submitting": "ENVIANDO…",
+      "backToSignIn": "VOLTAR PARA O LOGIN"
+    },
+    "errors": {
+      "emailRequired": "O e-mail é obrigatório",
+      "emailInvalid": "Digite um e-mail válido",
+      "passwordsMismatch": "As senhas não coincidem"
+    }
+  },
+  "settings": {
+    "language": "Idioma",
+    "display": "Exibição"
+  },
+  "race": {
+    "racesRemaining_one": "{{count}} corrida restante nesta temporada",
+    "racesRemaining_many": "{{count}} corridas restantes nesta temporada",
+    "racesRemaining_other": "{{count}} corridas restantes nesta temporada"
+  }
+}
