@@ -23,8 +23,11 @@ const { currentSeason, passActive } = require(path.join(__dirname, '..', 'lib', 
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
-const action = args[0];
-const opt = (name) => { const a = args.find((x) => x.startsWith(`--${name}=`)); return a ? a.split('=').slice(1).join('=') : undefined; };
+// The `uc-script` op kind passes only the file name and --apply, so the action and its options
+// may also arrive as PW_ACTION / PW_EMAIL / PW_SEASON / PW_REASON; the op log records the masked
+// email either way.
+const action = args.find((x) => !x.startsWith('--')) ?? process.env.PW_ACTION;
+const opt = (name) => { const a = args.find((x) => x.startsWith(`--${name}=`)); return a ? a.split('=').slice(1).join('=') : process.env[`PW_${name.toUpperCase()}`]; };
 const mask = (e) => (typeof e === 'string' ? e.replace(/^(.).*(@.*)$/, '$1***$2') : '(no email)');
 
 (async () => {
