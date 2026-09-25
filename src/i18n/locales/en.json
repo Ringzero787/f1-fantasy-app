@@ -1,0 +1,61 @@
+{
+  "common": {
+    "back": "BACK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "retry": "Retry",
+    "loading": "Loading",
+    "close": "Close",
+    "done": "Done"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Welcome",
+      "subtitle": "Sign in to build your lineup, pick an ace and race your friends.",
+      "noPasswords": "NO PASSWORDS. YOUR ACCOUNT IS YOUR SIGN-IN."
+    },
+    "register": {
+      "caption": "CREATE ACCOUNT",
+      "title": "New here",
+      "orWithEmail": "OR WITH EMAIL",
+      "displayNameLabel": "DISPLAY NAME",
+      "displayNamePlaceholder": "Your name",
+      "emailLabel": "EMAIL",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "PASSWORD",
+      "passwordPlaceholder": "Create a password",
+      "confirmPasswordLabel": "CONFIRM PASSWORD",
+      "confirmPasswordPlaceholder": "Repeat it",
+      "submit": "CREATE ACCOUNT",
+      "submitting": "CREATING…",
+      "haveAccount": "ALREADY HAVE AN ACCOUNT? SIGN IN",
+      "backToSignInLabel": "Back to sign in"
+    },
+    "forgot": {
+      "caption": "RESET PASSWORD",
+      "captionSent": "EMAIL SENT",
+      "title": "Reset password",
+      "subtitle": "Enter the email on your account and we'll send a reset link.",
+      "sentTitle": "Check your email",
+      "sentBody": "We sent a reset link to {{email}}. Follow it to choose a new password.",
+      "emailLabel": "EMAIL",
+      "emailPlaceholder": "you@example.com",
+      "submit": "SEND RESET LINK",
+      "submitting": "SENDING…",
+      "backToSignIn": "BACK TO SIGN IN"
+    },
+    "errors": {
+      "emailRequired": "Email is required",
+      "emailInvalid": "Please enter a valid email",
+      "passwordsMismatch": "Passwords do not match"
+    }
+  },
+  "settings": {
+    "language": "Language",
+    "display": "Display"
+  },
+  "race": {
+    "racesRemaining_one": "{{count}} race remaining this season",
+    "racesRemaining_other": "{{count}} races remaining this season"
+  }
+}

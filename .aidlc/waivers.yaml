@@ -17,3 +17,21 @@ waivers:
       Owner approved on 2026-09-24.
     by: nathan
     date: 2026-09-24
+  - gate: G06
+    finding: Hydration-gated language apply
+    reason: "False positive: LaunchReveal holds the native splash via
+      preventAutoHideAsync() until its overlay paints, then animates over the
+      app, so content is covered for far longer than an AsyncStorage read.
+      Evidence now cited in bootstrap.ts and the F-079 spec, with the fallback
+      to record if that choreography is ever removed."
+    by: nathan
+    date: 2026-09-25
+  - gate: G16
+    finding: Plural form missing ICU syntax
+    reason: "False positive: i18next parses suffix plural keys
+      (races_one/races_other) with compatibilityJSON v4; ICU message syntax
+      needs the separate i18next-icu plugin and would break these catalogs. The
+      gate prompt has been corrected upstream (G16@2) so it no longer recommends
+      converting between plural styles."
+    by: nathan
+    date: 2026-09-25

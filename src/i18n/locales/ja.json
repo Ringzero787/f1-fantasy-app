@@ -1,0 +1,60 @@
+{
+  "common": {
+    "back": "戻る",
+    "cancel": "キャンセル",
+    "save": "保存",
+    "retry": "再試行",
+    "loading": "読み込み中",
+    "close": "閉じる",
+    "done": "完了"
+  },
+  "auth": {
+    "signIn": {
+      "title": "ようこそ",
+      "subtitle": "サインインしてラインナップを組み、エースを選んで友達と競おう。",
+      "noPasswords": "パスワード不要。アカウントがそのままサインイン方法です。"
+    },
+    "register": {
+      "caption": "アカウント作成",
+      "title": "はじめての方",
+      "orWithEmail": "またはメールアドレスで",
+      "displayNameLabel": "表示名",
+      "displayNamePlaceholder": "あなたの名前",
+      "emailLabel": "メールアドレス",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "パスワード",
+      "passwordPlaceholder": "パスワードを作成",
+      "confirmPasswordLabel": "パスワード（確認）",
+      "confirmPasswordPlaceholder": "もう一度入力",
+      "submit": "アカウント作成",
+      "submitting": "作成中…",
+      "haveAccount": "アカウントをお持ちの方はサインイン",
+      "backToSignInLabel": "サインインに戻る"
+    },
+    "forgot": {
+      "caption": "パスワード再設定",
+      "captionSent": "メール送信済み",
+      "title": "パスワードを再設定",
+      "subtitle": "アカウントのメールアドレスを入力すると、再設定用のリンクをお送りします。",
+      "sentTitle": "メールをご確認ください",
+      "sentBody": "{{email}} に再設定用のリンクを送信しました。リンクから新しいパスワードを設定してください。",
+      "emailLabel": "メールアドレス",
+      "emailPlaceholder": "you@example.com",
+      "submit": "再設定リンクを送信",
+      "submitting": "送信中…",
+      "backToSignIn": "サインインに戻る"
+    },
+    "errors": {
+      "emailRequired": "メールアドレスを入力してください",
+      "emailInvalid": "有効なメールアドレスを入力してください",
+      "passwordsMismatch": "パスワードが一致しません"
+    }
+  },
+  "settings": {
+    "language": "言語",
+    "display": "表示"
+  },
+  "race": {
+    "racesRemaining_other": "今シーズン残り{{count}}レース"
+  }
+}

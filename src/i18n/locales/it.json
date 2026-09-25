@@ -1,0 +1,62 @@
+{
+  "common": {
+    "back": "INDIETRO",
+    "cancel": "Annulla",
+    "save": "Salva",
+    "retry": "Riprova",
+    "loading": "Caricamento",
+    "close": "Chiudi",
+    "done": "Fatto"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Benvenuto",
+      "subtitle": "Accedi per creare la tua formazione, scegliere un asso e sfidare i tuoi amici.",
+      "noPasswords": "NIENTE PASSWORD. IL TUO ACCOUNT È IL TUO ACCESSO."
+    },
+    "register": {
+      "caption": "CREA ACCOUNT",
+      "title": "Nuovo qui",
+      "orWithEmail": "OPPURE CON EMAIL",
+      "displayNameLabel": "NOME VISUALIZZATO",
+      "displayNamePlaceholder": "Il tuo nome",
+      "emailLabel": "EMAIL",
+      "emailPlaceholder": "tu@esempio.com",
+      "passwordLabel": "PASSWORD",
+      "passwordPlaceholder": "Crea una password",
+      "confirmPasswordLabel": "CONFERMA PASSWORD",
+      "confirmPasswordPlaceholder": "Ripetila",
+      "submit": "CREA ACCOUNT",
+      "submitting": "CREAZIONE…",
+      "haveAccount": "HAI GIÀ UN ACCOUNT? ACCEDI",
+      "backToSignInLabel": "Torna all'accesso"
+    },
+    "forgot": {
+      "caption": "REIMPOSTA PASSWORD",
+      "captionSent": "EMAIL INVIATA",
+      "title": "Reimposta password",
+      "subtitle": "Inserisci l'email del tuo account e ti invieremo un link per il reset.",
+      "sentTitle": "Controlla la tua email",
+      "sentBody": "Abbiamo inviato un link di reset a {{email}}. Seguilo per scegliere una nuova password.",
+      "emailLabel": "EMAIL",
+      "emailPlaceholder": "tu@esempio.com",
+      "submit": "INVIA LINK DI RESET",
+      "submitting": "INVIO IN CORSO…",
+      "backToSignIn": "TORNA ALL'ACCESSO"
+    },
+    "errors": {
+      "emailRequired": "L'email è obbligatoria",
+      "emailInvalid": "Inserisci un'email valida",
+      "passwordsMismatch": "Le password non coincidono"
+    }
+  },
+  "settings": {
+    "language": "Lingua",
+    "display": "Schermo"
+  },
+  "race": {
+    "racesRemaining_one": "{{count}} gara rimanente questa stagione",
+    "racesRemaining_other": "{{count}} gare rimanenti questa stagione",
+    "racesRemaining_many": "{{count}} gare rimanenti questa stagione"
+  }
+}

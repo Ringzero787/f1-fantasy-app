@@ -167,17 +167,24 @@ gates:
   G05: { max_tokens: 16000 }
   G06: { max_tokens: 16000 }
   G09: { blocking: warn }
-# Localization (decision 13). Both apps ship worldwide on Play, the App Store and Amazon, so the
-# release notes and store blurb are translated at release time. The set is the core eight plus Dutch:
-# the Netherlands is a top-three market for anything F1. No `catalogs` yet because neither app has a
-# string-extraction layer (F-078 for Track Limits, F-079 for Undercut); once one lands, add e.g.
-#   catalogs: [{ path: "newgame/src/locales/{lang}.json", name: "Track Limits UI" }]
-# and `scan` globs so new hardcoded user-facing text is caught in review.
+# Localization (decision 13). Undercut is the global flagship; Track Limits follows the same set.
+# Nine languages chosen for F1's actual markets rather than a generic top-ten:
+#   es Spain + Mexico + LatAm · pt Brazil · fr France/Belgium/Canada · de Germany/Austria/Switzerland
+#   it Italy (Ferrari) · nl Netherlands · pl Poland · ja Japan (Suzuka, Honda) · zh China
+# Korean is deliberately out: no race, little F1 following. Arabic is deferred until RTL layouts are
+# done (four Gulf races make it the obvious next one) — see F-080.
 localization:
   source: en
-  languages: [core-8, nl]
+  languages: [es, pt, fr, de, it, nl, pl, ja, zh]
+  catalogs:
+    - { path: "src/i18n/locales/{lang}.json", name: "Undercut UI" }
+  # Only the screens already converted are scanned, so the gate reports real regressions instead of
+  # the whole unconverted backlog. Extend this list as each area moves onto the translation layer (F-079).
+  scan:
+    - "app/(auth)/**/*.tsx"
   release_notes: true
   store_blurb_heading: "Play Console blurb"
+  rtl_ready: false
 
 trademark:
   # F1 marks are aggressively enforced. Fine as descriptive text; never in an app, feature, pack or league name.

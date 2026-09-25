@@ -24,6 +24,7 @@ import { useLayout } from '../src/hooks/useLayout';
 import { handleAmazonDeepLink } from '../src/utils/amazonSignIn';
 import { useRemoteConfigStore } from '../src/store/remoteConfig.store';
 import { usePrefsStore } from '../src/store/prefs.store';
+import '../src/i18n/bootstrap';
 
 const queryClient = new QueryClient({
   defaultOptions: {

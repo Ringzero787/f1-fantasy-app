@@ -1,0 +1,61 @@
+{
+  "common": {
+    "back": "TERUG",
+    "cancel": "Annuleren",
+    "save": "Opslaan",
+    "retry": "Opnieuw proberen",
+    "loading": "Laden",
+    "close": "Sluiten",
+    "done": "Klaar"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Welkom",
+      "subtitle": "Log in om je line-up samen te stellen, een ace te kiezen en tegen je vrienden te racen.",
+      "noPasswords": "GEEN WACHTWOORDEN. JE ACCOUNT IS JE INLOG."
+    },
+    "register": {
+      "caption": "ACCOUNT AANMAKEN",
+      "title": "Nieuw hier",
+      "orWithEmail": "OF MET E-MAIL",
+      "displayNameLabel": "WEERGAVENAAM",
+      "displayNamePlaceholder": "Je naam",
+      "emailLabel": "E-MAIL",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "WACHTWOORD",
+      "passwordPlaceholder": "Maak een wachtwoord aan",
+      "confirmPasswordLabel": "BEVESTIG WACHTWOORD",
+      "confirmPasswordPlaceholder": "Herhaal het",
+      "submit": "ACCOUNT AANMAKEN",
+      "submitting": "BEZIG MET AANMAKEN…",
+      "haveAccount": "AL EEN ACCOUNT? LOG IN",
+      "backToSignInLabel": "Terug naar inloggen"
+    },
+    "forgot": {
+      "caption": "WACHTWOORD RESETTEN",
+      "captionSent": "E-MAIL VERZONDEN",
+      "title": "Wachtwoord resetten",
+      "subtitle": "Vul het e-mailadres van je account in en we sturen je een reset-link.",
+      "sentTitle": "Check je e-mail",
+      "sentBody": "We hebben een reset-link gestuurd naar {{email}}. Volg deze om een nieuw wachtwoord te kiezen.",
+      "emailLabel": "E-MAIL",
+      "emailPlaceholder": "you@example.com",
+      "submit": "STUUR RESET-LINK",
+      "submitting": "BEZIG MET VERZENDEN…",
+      "backToSignIn": "TERUG NAAR INLOGGEN"
+    },
+    "errors": {
+      "emailRequired": "E-mail is verplicht",
+      "emailInvalid": "Voer een geldig e-mailadres in",
+      "passwordsMismatch": "Wachtwoorden komen niet overeen"
+    }
+  },
+  "settings": {
+    "language": "Taal",
+    "display": "Weergave"
+  },
+  "race": {
+    "racesRemaining_one": "Nog {{count}} race dit seizoen",
+    "racesRemaining_other": "Nog {{count}} races dit seizoen"
+  }
+}

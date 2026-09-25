@@ -1,0 +1,62 @@
+{
+  "common": {
+    "back": "RETOUR",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "retry": "Réessayer",
+    "loading": "Chargement",
+    "close": "Fermer",
+    "done": "Terminé"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Bienvenue",
+      "subtitle": "Connectez-vous pour créer votre équipe, choisir un as et défier vos amis.",
+      "noPasswords": "PAS DE MOT DE PASSE. VOTRE COMPTE EST VOTRE CONNEXION."
+    },
+    "register": {
+      "caption": "CRÉER UN COMPTE",
+      "title": "Nouveau ici",
+      "orWithEmail": "OU AVEC UN EMAIL",
+      "displayNameLabel": "NOM D'AFFICHAGE",
+      "displayNamePlaceholder": "Votre nom",
+      "emailLabel": "EMAIL",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "MOT DE PASSE",
+      "passwordPlaceholder": "Créez un mot de passe",
+      "confirmPasswordLabel": "CONFIRMER LE MOT DE PASSE",
+      "confirmPasswordPlaceholder": "Répétez-le",
+      "submit": "CRÉER UN COMPTE",
+      "submitting": "CRÉATION…",
+      "haveAccount": "DÉJÀ UN COMPTE ? CONNECTEZ-VOUS",
+      "backToSignInLabel": "Retour à la connexion"
+    },
+    "forgot": {
+      "caption": "RÉINITIALISER LE MOT DE PASSE",
+      "captionSent": "EMAIL ENVOYÉ",
+      "title": "Réinitialiser le mot de passe",
+      "subtitle": "Saisissez l'email de votre compte et nous vous enverrons un lien de réinitialisation.",
+      "sentTitle": "Consultez votre email",
+      "sentBody": "Nous avons envoyé un lien de réinitialisation à {{email}}. Suivez-le pour choisir un nouveau mot de passe.",
+      "emailLabel": "EMAIL",
+      "emailPlaceholder": "you@example.com",
+      "submit": "ENVOYER LE LIEN",
+      "submitting": "ENVOI…",
+      "backToSignIn": "RETOUR À LA CONNEXION"
+    },
+    "errors": {
+      "emailRequired": "L'email est requis",
+      "emailInvalid": "Veuillez saisir un email valide",
+      "passwordsMismatch": "Les mots de passe ne correspondent pas"
+    }
+  },
+  "settings": {
+    "language": "Langue",
+    "display": "Affichage"
+  },
+  "race": {
+    "racesRemaining_one": "{{count}} course restante cette saison",
+    "racesRemaining_many": "{{count}} courses restantes cette saison",
+    "racesRemaining_other": "{{count}} courses restantes cette saison"
+  }
+}

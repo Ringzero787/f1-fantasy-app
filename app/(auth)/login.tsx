@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -10,6 +11,7 @@ import { amazonSignIn } from '../../src/utils/amazonSignIn';
 import { functions } from '../../src/config/firebase';
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const { colors, family, scaled, mono, title } = useSimpleTheme();
   const { signInWithGoogle, signInWithApple, signInWithAmazon, enterDemoMode, isLoading, error, clearError } = useAuth();
 
@@ -47,9 +49,9 @@ export default function LoginScreen() {
     <AuthShell onWordmarkLongPress={() => { enterDemoMode(); router.replace('/'); }}>
       <View style={{ gap: 18 }}>
         <View style={{ gap: 8 }}>
-          <Text style={title}>Welcome</Text>
+          <Text style={title}>{t('auth.signIn.title')}</Text>
           <Text style={{ fontFamily: family.ui.regular, fontSize: scaled(12), lineHeight: scaled(18), color: colors.text.muted }}>
-            Sign in to build your lineup, pick an ace and race your friends.
+            {t('auth.signIn.subtitle')}
           </Text>
         </View>
         <AuthError messages={error ? [error] : []} />
@@ -59,7 +61,7 @@ export default function LoginScreen() {
           onAmazonSignIn={isAmazonBuild ? handleAmazonSignIn : undefined}
           disabled={isLoading}
         />
-        <Text style={[mono(10, 'medium'), { color: colors.text.muted, textAlign: 'center', marginTop: 8 }]}>NO PASSWORDS. YOUR ACCOUNT IS YOUR SIGN-IN.</Text>
+        <Text style={[mono(10, 'medium'), { color: colors.text.muted, textAlign: 'center', marginTop: 8 }]}>{t('auth.signIn.noPasswords')}</Text>
       </View>
     </AuthShell>
   );
