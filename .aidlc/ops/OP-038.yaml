@@ -1,0 +1,38 @@
+id: OP-038
+title: "F-060 purchase validation: StoreKit 2 signed transactions, Amazon receipts, and the pass grant"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:validatePurchase
+created_at: 2026-09-25T01:33:27.682Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T01:33:31.805Z
+    head_sha: 84114d585d94ba2aee4b064a7950c94d4f5531c8
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-038/dry-run-2026-09-25T01-33-31-805Z.log
+    log_sha256: c69d3d1863da00a46efb67675315daf45b9888412a8d3b09ab754bbf48e82253
+    lines: 51
+  - step: gates
+    at: 2026-09-25T01:33:39.257Z
+    head_sha: 84114d585d94ba2aee4b064a7950c94d4f5531c8
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T01:33:39.262Z
+    head_sha: 84114d585d94ba2aee4b064a7950c94d4f5531c8
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:validatePurchase' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-038/apply-2026-09-25T01-33-39-262Z.log
+    log_sha256: 36b40a8f93f45accb1c6e8b93e3fa4550af8426eaf2d82214a37fb43f96810e6
+    lines: 35
+  - step: gates
+    at: 2026-09-25T01:36:05.609Z
+    head_sha: 84114d585d94ba2aee4b064a7950c94d4f5531c8
+    exit: 0
+    gates:
+      G15: skip
