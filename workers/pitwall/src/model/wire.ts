@@ -54,16 +54,25 @@ const BAD = /\b(penalt(y|ies)|grid drop|disqualif|crash|retire|exit|damage|repri
 const GOOD = /\b(pole|wins?|victory|fastest|charges? to|perfect|upgrade|extends? (his|her|the) lead|top(s|ped)? the)\b/i;
 const PENALTY = /\b(penalt(y|ies)|steward|grid drop|reprimand|disqualif|fined?)\b/i;
 
-/** Which driver or team the headline names. The first match wins; a driver beats a team. */
+/**
+ * Which driver or team the headline names. The one named first wins ("Leclerc rues P2 as
+ * Hamilton..." is about Leclerc), and a driver beats a team named at the same spot. The first
+ * published wire tagged by iteration order instead, which put Hamilton on Leclerc's story.
+ */
 export function tagEntity(title: string, names: EntityNames): string | null {
   const t = ` ${title.toLowerCase()} `;
-  for (const [id, surname] of Object.entries(names.drivers)) {
-    if (surname.length >= 4 && t.includes(surname.toLowerCase())) return id;
-  }
-  for (const [id, variants] of Object.entries(names.constructors)) {
-    if (variants.some((v) => v.length >= 3 && t.includes(v.toLowerCase()))) return id;
-  }
-  return null;
+  type Hit = { id: string; at: number };
+  const earliest = (hits: Hit[]): Hit | null => hits.reduce<Hit | null>((b, h) => (!b || h.at < b.at ? h : b), null);
+  const hit = (id: string, name: string): Hit | null => {
+    if (name.length < 3) return null;
+    const at = t.indexOf(name.toLowerCase());
+    return at >= 0 ? { id, at } : null;
+  };
+  const driver = earliest(Object.entries(names.drivers).flatMap(([id, surname]) => (surname.length >= 4 ? hit(id, surname) ?? [] : [])));
+  const team = earliest(Object.entries(names.constructors).flatMap(([id, variants]) => variants.flatMap((v) => hit(id, v) ?? [])));
+  // a driver named at the same spot as a team (a team named after a driver) is the driver's
+  if (driver && (!team || driver.at <= team.at)) return driver.id;
+  return team ? team.id : null;
 }
 
 export function kindOf(a: Article): WireKind {
