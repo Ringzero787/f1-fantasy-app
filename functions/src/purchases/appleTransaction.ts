@@ -48,6 +48,20 @@ export interface AppleTransaction {
   type?: string;
 }
 
+/**
+ * Apple marks the certificates in this chain with its own extensions. Checking only that a chain
+ * ends at Apple's root would accept any certificate Apple has ever signed, for anything; these say
+ * "this is the App Store transaction signing chain" specifically.
+ *
+ * DER encodings of 1.2.840.113635.100.6.11.1 (App Store server signing, on the leaf) and
+ * 1.2.840.113635.100.6.2.1 (Worldwide Developer Relations, on the intermediate).
+ */
+const OID_APP_STORE_SIGNING = Buffer.from('060a2a864886f76364060b01', 'hex');
+const OID_WWDR = Buffer.from('060a2a864886f76364060201', 'hex');
+
+/** Node exposes no extension reader, so the encoded OID is looked for in the certificate itself. */
+const hasExtension = (cert: X509Certificate, oid: Buffer): boolean => cert.raw.includes(oid);
+
 export type VerifyResult =
   | { valid: true; transaction: AppleTransaction }
   | { valid: false; error: string };
@@ -108,6 +122,10 @@ export function verifyAppleTransaction(
   // The chain has to end at Apple's root, compared by raw bytes rather than by name.
   const root = new X509Certificate(opts.rootCa ?? APPLE_ROOT_CA_G3);
   if (!chain[chain.length - 1].raw.equals(root.raw)) return { valid: false, error: 'chain does not end at the Apple root' };
+
+  // And it has to be the App Store signing chain, not merely something Apple signed once.
+  if (!hasExtension(chain[0], OID_APP_STORE_SIGNING)) return { valid: false, error: 'leaf is not an App Store signing certificate' };
+  if (!chain.slice(1, -1).some((c) => hasExtension(c, OID_WWDR))) return { valid: false, error: 'chain has no Apple developer relations intermediate' };
 
   // Finally the signature over exactly what was sent.
   const signed = Buffer.from(`${rawHeader}.${rawPayload}`, 'utf8');

@@ -21,12 +21,20 @@ const BUNDLE = 'com.undercut.app';
 const PRODUCT = 'pitwall.pass.season';
 
 /** A throwaway root → intermediate → leaf chain, and one transaction signed by the leaf. */
-function makeFixture() {
+function makeFixture({ markings = true } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'apple-jws-'));
   const ssl = (...args) => execFileSync('openssl', args, { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
-  const exts = (ca) => {
+  // Apple marks its own chain: the intermediate carries the developer-relations extension and the
+  // leaf the App Store signing one. The verifier requires both, so the fixture must carry them.
+  const OID_WWDR = '1.2.840.113635.100.6.2.1';
+  const OID_APP_STORE_SIGNING = '1.2.840.113635.100.6.11.1';
+  const exts = (ca, oid) => {
     const file = `${ca ? 'ca' : 'leaf'}.ext`;
-    writeFileSync(path.join(dir, file), `basicConstraints=critical,CA:${ca ? 'TRUE' : 'FALSE'}\nkeyUsage=critical,${ca ? 'keyCertSign,cRLSign' : 'digitalSignature'}\n`);
+    writeFileSync(path.join(dir, file), [
+      `basicConstraints=critical,CA:${ca ? 'TRUE' : 'FALSE'}`,
+      `keyUsage=critical,${ca ? 'keyCertSign,cRLSign' : 'digitalSignature'}`,
+      ...(oid ? [`${oid}=DER:05:00`] : []),
+    ].join('\n') + '\n');
     return file;
   };
   const key = (name) => ssl('ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', `${name}.key`);
@@ -36,11 +44,11 @@ function makeFixture() {
   ssl('req', '-x509', '-new', '-key', 'root.key', '-sha256', '-days', '3650', '-out', 'root.pem',
     '-subj', '/CN=Test Root',
     '-addext', 'basicConstraints=critical,CA:TRUE', '-addext', 'keyUsage=critical,keyCertSign,cRLSign');
-  for (const [name, issuer, ca] of [['int', 'root', true], ['leaf', 'int', false]]) {
+  for (const [name, issuer, ca, oid] of [['int', 'root', true, markings ? OID_WWDR : null], ['leaf', 'int', false, markings ? OID_APP_STORE_SIGNING : null]]) {
     key(name);
     ssl('req', '-new', '-key', `${name}.key`, '-out', `${name}.csr`, '-subj', `/CN=Test ${name}`);
     ssl('x509', '-req', '-in', `${name}.csr`, '-CA', `${issuer}.pem`, '-CAkey', `${issuer}.key`,
-      '-CAcreateserial', '-out', `${name}.pem`, '-days', '3650', '-sha256', '-extfile', exts(ca));
+      '-CAcreateserial', '-out', `${name}.pem`, '-days', '3650', '-sha256', '-extfile', exts(ca, oid));
   }
 
   const der = (f) => new X509Certificate(readFileSync(path.join(dir, f))).raw.toString('base64');
@@ -72,6 +80,8 @@ try {
 if (!unavailable) fixture = makeFixture();
 
 const OPTS = () => ({ expectedBundleId: BUNDLE, expectedProductId: PRODUCT, rootCa: fixture.testRootCa });
+let unmarked = null;
+if (fixture) unmarked = makeFixture({ markings: false });
 const PLAIN = { expectedBundleId: BUNDLE, expectedProductId: PRODUCT };
 const chainTest = (name, fn) => test(name, { skip: fixture ? false : `openssl unavailable: ${unavailable}` }, fn);
 
@@ -81,6 +91,14 @@ chainTest('accepts a transaction signed by a chain that ends at the pinned root'
   assert.equal(result.transaction.transactionId, fixture.payload.transactionId);
   assert.equal(result.transaction.productId, PRODUCT);
   assert.equal(result.transaction.environment, 'Sandbox');
+});
+
+chainTest('refuses a chain Apple never marked as App Store signing', () => {
+  // Properly signed, chains to the same root, and is not a transaction-signing certificate. Without
+  // this check anything Apple has ever signed would be accepted.
+  const result = verifyAppleTransaction(unmarked.jws, { expectedBundleId: BUNDLE, expectedProductId: PRODUCT, rootCa: unmarked.testRootCa });
+  assert.equal(result.valid, false);
+  assert.match(result.error, /App Store signing|developer relations/);
 });
 
 chainTest('refuses a chain that does not end at the pinned root', () => {

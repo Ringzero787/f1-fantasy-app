@@ -154,6 +154,12 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
   const isAmazon = platform === 'amazon';
   /** 'Production' or 'Sandbox' when the store says so. */
   let environment: string | null = null;
+  /**
+   * The identifier the store itself confirmed, which is what the purchase is keyed on.
+   * Apple: the transaction id inside the signed transaction. Google and Amazon: the token, which
+   * the store's own endpoint has just accepted, and which the caller cannot forge.
+   */
+  let storeTransactionId = '';
 
   if (!productId) {
     throw new functions.https.HttpsError('invalid-argument', 'productId is required');
@@ -182,27 +188,6 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
 
   const userId = context.auth.uid;
 
-  // Check for duplicate (idempotent) — iOS uses transactionId, Android uses purchaseToken
-  if (isIOS && transactionId) {
-    const existing = await db
-      .collection('purchases')
-      .where('transactionId', '==', transactionId)
-      .limit(1)
-      .get();
-    if (!existing.empty) {
-      return { success: true, purchaseId: existing.docs[0].id, duplicate: true };
-    }
-  } else if (!isIOS && purchaseToken) {
-    const existing = await db
-      .collection('purchases')
-      .where('purchaseToken', '==', purchaseToken)
-      .limit(1)
-      .get();
-    if (!existing.empty) {
-      return { success: true, purchaseId: existing.docs[0].id, duplicate: true };
-    }
-  }
-
   // Reject demo tokens server-side — demo bypass should only exist in client store
   if (typeof purchaseToken === 'string' && purchaseToken.startsWith('demo_')) {
     throw new functions.https.HttpsError(
@@ -226,8 +211,15 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
     // A sandbox transaction is properly signed and is not a sale. Both are accepted so the store
     // review and our own testing work, but which one it was is recorded, so a pass granted from a
     // test purchase can be found and revoked rather than being indistinguishable from a paid one.
-    if ('transaction' in verification && verification.transaction.environment) {
-      environment = verification.transaction.environment;
+    if ('transaction' in verification) {
+      if (verification.transaction.environment) environment = verification.transaction.environment;
+      storeTransactionId = String(verification.transaction.transactionId ?? '');
+    } else {
+      // Legacy receipt path: verifyAppleReceipt returns the transaction id it found in the receipt.
+      storeTransactionId = String(verification.transactionId ?? '');
+    }
+    if (!storeTransactionId) {
+      throw new functions.https.HttpsError('permission-denied', 'The purchase carries no transaction id.');
     }
   } else if (isAmazon) {
     const verification = await verifyAmazonReceipt(purchaseToken, userIdAmazon, productId);
@@ -235,12 +227,28 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
       console.warn(`Invalid Amazon receipt from user ${userId}: ${verification.error}`);
       throw new functions.https.HttpsError('permission-denied', 'Invalid Amazon receipt');
     }
+    storeTransactionId = String(purchaseToken);
   } else {
     const verification = await verifyGooglePlayPurchase(productId, purchaseToken);
     if (!verification.valid) {
       console.warn(`Invalid purchase token from user ${userId}: ${verification.error}`);
       throw new functions.https.HttpsError('permission-denied', 'Invalid purchase token');
     }
+    storeTransactionId = String(purchaseToken);
+  }
+
+  // Only now is there something worth trusting. The duplicate check runs on the identifier the
+  // store confirmed, never on one the caller supplied: a caller can send a valid receipt with any
+  // transactionId it likes, and could otherwise pass someone else's receipt to have a second
+  // account entitled from one purchase.
+  const existing = await db.collection('purchases').where('storeTransactionId', '==', storeTransactionId).limit(1).get();
+  if (!existing.empty) {
+    const first = existing.docs[0];
+    if (first.data().userId !== userId) {
+      console.warn(`purchase ${storeTransactionId} already belongs to another account; refusing to entitle ${userId}`);
+      throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.');
+    }
+    return { success: true, purchaseId: first.id, duplicate: true };
   }
 
   // Record the purchase with platform-specific fields
@@ -249,6 +257,7 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
     productId,
     platform: isIOS ? 'ios' : isAmazon ? 'amazon' : 'android',
     status: 'validated',
+    storeTransactionId,
     validatedAt: admin.firestore.FieldValue.serverTimestamp(),
     ...(environment ? { environment } : {}),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),

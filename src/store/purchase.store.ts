@@ -298,6 +298,14 @@ export const usePurchaseStore = create<PurchaseState>()(
           Alert.alert('Demo mode', 'The Pit Wall Pass cannot be bought in demo mode.');
           return;
         }
+        // Refuse before the store takes any money. A second pass would buy nothing: the server
+        // never shortens an existing one, so the charge would be for an entitlement already held.
+        // Forced, because a stale token is exactly how someone ends up buying twice.
+        await usePitWallStore.getState().refresh(true);
+        if (usePitWallStore.getState().pass.active) {
+          Alert.alert('Pit Wall Pass', 'You already have a pass for this season.');
+          return;
+        }
         set({ isPurchasing: true });
         try {
           await buy(PRODUCT_IDS.PITWALL_PASS);
