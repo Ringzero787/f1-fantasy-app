@@ -1,0 +1,47 @@
+id: OP-041
+title: "Follow the round in progress: republish for Baku while its weekend runs"
+kind: pitwall-job
+status: applied
+params:
+  job: projections
+  session: quali
+created_at: 2026-09-25T14:08:28.219Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T14:08:28.474Z
+    head_sha: 596ea3c204751d7039d07e53d7a7c607b4d1f9d5
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'quali'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-041/dry-run-2026-09-25T14-08-28-474Z.log
+    log_sha256: 1a6320b128bd55f0508c37ddd983b50ff11d47eaccb83103a3b2bdd79d7cc7e9
+    lines: 45
+  - step: backup
+    at: 2026-09-25T14:08:34.515Z
+    head_sha: 596ea3c204751d7039d07e53d7a7c607b4d1f9d5
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-041'/backup.json pw_pages pw_public pw_projections
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-041/backup-2026-09-25T14-08-34-515Z.log
+    log_sha256: 5556025537ebaa5c22baf87f508d98a0c01ad70c8dbf1e75863caebf490b3a20
+    lines: 3
+  - step: gates
+    at: 2026-09-25T14:08:35.433Z
+    head_sha: 596ea3c204751d7039d07e53d7a7c607b4d1f9d5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T14:08:35.433Z
+    head_sha: 596ea3c204751d7039d07e53d7a7c607b4d1f9d5
+    command: bash scripts/ops/pitwall-job.sh apply 'projections' 'quali'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-041/apply-2026-09-25T14-08-35-433Z.log
+    log_sha256: 574c585f441ac2893bd3c3ba06a106fa62ef77b3a9a0211f9aecb3257ed50de4
+    lines: 45
+  - step: gates
+    at: 2026-09-25T14:08:38.059Z
+    head_sha: 596ea3c204751d7039d07e53d7a7c607b4d1f9d5
+    exit: 0
+    gates:
+      G15: skip
