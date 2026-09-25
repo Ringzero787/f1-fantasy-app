@@ -24,7 +24,7 @@ const PUBLISHED = {
 describe('coverage', () => {
   it('reports the example payload as complete, so the design preview is unchanged', () => {
     const has = coverage(examplePayload());
-    expect(has).toEqual({ timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, weatherMap: true, mock: true });
+    expect(has).toEqual({ timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, weatherMap: true, circuit: true, pace: true, season: true, mock: true });
   });
 
   it('separates "published as zero" from "not published at all"', () => {
@@ -91,5 +91,24 @@ describe('weather', () => {
   it('is not published when the list is empty or missing', () => {
     expect(coverage(toPayload(PUBLISHED)).weather).toBe(false);
     expect(toPayload({ drivers: [{ id: 'x' }] }).weatherSource).toBeNull();
+  });
+});
+
+describe('the reports from the classifications (F-072)', () => {
+  it('are published only when they carry something, and coerced field by field', () => {
+    const p = toPayload({ drivers: [], circuit: { id: 'baku', name: 'Baku', classes: ['street', 'x', 3], profile: [{ label: 'Overtaking ease', v: 4 }, { label: 'bad', v: 9 }], fitRanking: [{ id: 'a', fit: 4, n: 3 }, { id: 'b', fit: 0 }], likeThis: [{ id: 'a', n: 2, avgPts: 30, avgFinish: 4.5 }], racesInClass: 2 },
+      pace: [{ id: 'a', starts: 3, avgGrid: 4, avgFinish: 3, gained: 1, finishRate: 100, dnfs: 0 }, { id: 'b', starts: 0 }],
+      season: [{ id: 'a', points: 90, projected: 300, starts: 3, dnfs: 0 }] });
+    expect(p.circuit?.profile).toHaveLength(1);
+    expect(p.circuit?.fitRanking.map((f) => f.id)).toEqual(['a']);
+    expect(p.circuit?.classes).toEqual(['street', 'x']);
+    expect(p.pace.map((r) => r.id)).toEqual(['a']);           // a row with no starts is an average of nothing
+    const c = coverage(p);
+    expect([c.circuit, c.pace, c.season]).toEqual([true, true, true]);
+  });
+  it('count as not published when absent, empty, or a report with no profile', () => {
+    const c = coverage(toPayload({ drivers: [], circuit: { id: 'x', name: 'X', profile: [] }, pace: [], season: [] }));
+    expect([c.circuit, c.pace, c.season]).toEqual([false, false, false]);
+    expect(coverage(toPayload({ drivers: [] })).circuit).toBe(false);
   });
 });

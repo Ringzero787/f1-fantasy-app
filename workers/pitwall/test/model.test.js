@@ -334,3 +334,71 @@ test('a surname skips a generational suffix, so the wire can tag the driver', ()
   assert.equal(shortName('Reed'), 'Reed');
   assert.equal(shortName('Ada Reed II'), 'Reed');
 });
+
+// ---- F-072 first cut: splits from our own classifications
+const { computeSplits, driverStarts, fitFor, buildCircuitReport, buildPace, buildSeasonTable } = require(D + 'splits.js');
+const { traitsOf, classesOf } = require(D + 'circuitTraits.js');
+
+const histRace = (id, circuitId, rows) => ({ id, season: '2026', circuitId, round: 1, hasSprint: false, totalLaps: 50, qualifyingResults: [], sprintResults: [],
+  raceResults: rows.map(([driverId, gridPosition, position, status]) => ({ driverId, constructorId: 'c', gridPosition, position, status: status ?? 'finished' })) });
+
+test('a circuit belongs to a street/permanent class and a speed class', () => {
+  assert.deepEqual(classesOf(traitsOf('baku')), ['street', 'high-speed']);
+  assert.equal(traitsOf('nowhere'), undefined);
+});
+
+test('fit is the delta of points at circuits of this class against points everywhere, neutral until there is enough', () => {
+  // streetking: 40 at the two street circuits, 20 at the two permanent ones
+  const races = [histRace('r1', 'baku', []), histRace('r2', 'monaco', []), histRace('r3', 'monza', []), histRace('r4', 'barcelona', [])];
+  const scores = [
+    ...[['r1', 40], ['r2', 40], ['r3', 20], ['r4', 20]].map(([raceId, totalPoints]) => ({ raceId, round: 1, entityId: 'streetking', entityType: 'driver', totalPoints })),
+    ...[['r1', 20], ['r2', 20], ['r3', 20], ['r4', 20]].map(([raceId, totalPoints]) => ({ raceId, round: 1, entityId: 'flat', entityType: 'driver', totalPoints })),
+    ...[['r1', 30]].map(([raceId, totalPoints]) => ({ raceId, round: 1, entityId: 'rookie', entityType: 'driver', totalPoints })),
+  ];
+  const s = computeSplits(races, scores);
+  assert.equal(s.get('streetking').overall.avg, 30);
+  assert.equal(s.get('streetking').byClass['street'].avg, 40);
+  assert.equal(fitFor(s.get('streetking'), traitsOf('las_vegas')), 4);    // street + high-speed: scores well on streets
+  assert.equal(fitFor(s.get('streetking'), traitsOf('hungaroring')), 2);  // permanent: scores badly there; low-speed has one race, ignored
+  assert.equal(fitFor(s.get('flat'), traitsOf('baku')), 3);
+  assert.equal(fitFor(s.get('rookie'), traitsOf('baku')), 3);             // one race: neutral, not a verdict
+  assert.equal(fitFor(undefined, traitsOf('baku')), 3);
+});
+
+test('starts and finishes are averaged from the classification, and a retirement is not a finish', () => {
+  const races = [histRace('r1', 'baku', [['a', 3, 1], ['b', 10, 5], ['c', 8, 0, 'dnf']]), histRace('r2', 'monza', [['a', 1, 3], ['b', 12, 7], ['c', 6, 6]])];
+  const st = driverStarts(races);
+  assert.deepEqual(st.get('a'), { starts: 2, avgGrid: 2, avgFinish: 2, gained: 0, finishRate: 100, dnfs: 0 });
+  assert.equal(st.get('b').gained, 5);
+  assert.equal(st.get('c').finishRate, 50);
+  assert.equal(st.get('c').avgFinish, 6);                                 // the retirement does not count as P0
+  const pace = buildPace(['a', 'b', 'c', 'nobody'], st);
+  assert.deepEqual(pace.map((r) => r.id), ['a', 'b', 'c']);
+});
+
+test('the circuit report names the venue, its classes, and each driver at circuits like it', () => {
+  const races = [histRace('r1', 'baku', [['a', 2, 1]]), histRace('r2', 'monaco', [['a', 4, 4]]), histRace('r3', 'monza', [['a', 1, 2]])];
+  const scores = [['r1', 40], ['r2', 20], ['r3', 35]].map(([raceId, totalPoints]) => ({ raceId, round: 1, entityId: 'a', entityType: 'driver', totalPoints }));
+  const rep = buildCircuitReport('las_vegas', races, scores, ['a'], ['c'], computeSplits(races, scores));
+  assert.equal(rep.name, 'Las Vegas');
+  assert.deepEqual(rep.classes, ['street', 'high-speed']);
+  assert.equal(rep.racesInClass, 3);                                      // baku (both), monaco (street), monza (high-speed)
+  assert.equal(rep.profile.length, 5);
+  assert.equal(rep.likeThis[0].id, 'a');
+  assert.deepEqual([rep.likeThis[0].n, rep.likeThis[0].avgPts], [3, 31.7]);           // (40 + 20 + 35) / 3: each race once, not an average of class averages
+  assert.equal(rep.fitRanking[0].id, 'c');
+  assert.equal(buildCircuitReport('nowhere', races, scores, ['a'], ['c'], new Map()), null);
+});
+
+test('the season table adds the median for each remaining round to the points so far', () => {
+  const rows = buildSeasonTable(['a', 'b'], new Map([['a', [10, 20]], ['b', [40]]]), new Map([['a', 30], ['b', 5]]), 4, new Map());
+  assert.deepEqual(rows.map((r) => [r.id, r.points, r.projected]), [['a', 30, 150], ['b', 40, 60]]);
+});
+
+test('the free season table is ordered by points so far, so the paid ranking does not leak through the row order', () => {
+  const season = [{ id: 'a', points: 10, projected: 300, starts: 3, dnfs: 0 }, { id: 'b', points: 90, projected: 100, starts: 3, dnfs: 0 }];
+  const inputs = { round: { season: '2026', round: 1, raceId: 'r', name: 'x', city: 'x', circuit: 'x', firstSession: null, lockAt: null, hasSprint: false }, nextRounds: [], drivers: [], constructors: [], projections: [], form: new Map(), ownership: new Map(), priceImplied: () => 0, asOf: new Date(), budget: 1000, season };
+  const { full, free } = buildPayload(inputs);
+  assert.deepEqual(full.season.map((r) => r.id), ['a', 'b']);
+  assert.deepEqual(free.season.map((r) => [r.id, r.projected]), [['b', 0], ['a', 0]]);
+});

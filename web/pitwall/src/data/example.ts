@@ -4,7 +4,7 @@
  * worker publishes real payloads (F-070, F-072). The UI shows an "EXAMPLE DATA" pill whenever
  * `payload.example` is true. Nothing here is a real projection, price or probability.
  */
-import type { Constructor, Driver, Lineup, NewsItem, Payload, Rival, Team } from './types';
+import type { CircuitReport, Constructor, Driver, Lineup, NewsItem, PaceRow, Payload, Rival, SeasonRow, Team } from './types';
 
 const TEAMS: Record<string, Team> = Object.fromEntries(([
   ['mclaren', 'McLaren', '#FF8000'], ['red_bull', 'Red Bull', '#3671C6'], ['ferrari', 'Ferrari', '#E80020'], ['mercedes', 'Mercedes', '#27F4D2'],
@@ -61,12 +61,22 @@ export function examplePayload(): Payload {
     { name: 'Backmarkers', rank: 4, gap: -64, lineup: ['verstappen', 'leclerc', 'gasly', 'ocon', 'bottas'], bank: 90, activity: 0.3 },
     { name: 'Slipstream', rank: 5, gap: -102, lineup: ['piastri', 'hamilton', 'alonso', 'bearman', 'lindblad'], bank: 150, activity: 0.1 },
   ];
+  // F-072 frames from the classifications: the venue, where each driver starts and finishes, the season table
+  const circuit: CircuitReport = {
+    id: 'baku', name: 'Baku', kind: 'street', speed: 'high', classes: ['street', 'high-speed'], laps: 51, lapKm: 6.003, pitLossS: 19, strategy: '1 stop',
+    profile: [['Straight-line share', 5], ['Slow-corner share', 4], ['Overtaking ease', 4], ['Safety-car rate', 5], ['Tyre stress', 2]].map(([label, v]) => ({ label: label as string, v: v as number })),
+    fitRanking: constructors.map((c, i) => ({ id: c.id, fit: Math.max(1, 5 - Math.floor(i / 2)), n: 6 })),
+    likeThis: drivers.map((d) => ({ id: d.id, n: 6, avgPts: Math.round(d.med * (0.8 + rnd() * 0.4)), avgFinish: +(1 + rnd() * 15).toFixed(1) })).sort((a, b) => b.avgPts - a.avgPts),
+    racesInClass: 6,
+  };
+  const pace: PaceRow[] = drivers.map((d, i) => { const g = +(1 + i * 0.8 + rnd() * 2).toFixed(1); const f = +(Math.max(1, g - 2 + rnd() * 4)).toFixed(1); return { id: d.id, starts: 14, avgGrid: g, avgFinish: f, gained: +(g - f).toFixed(1), finishRate: 100 - Math.round(rnd() * 20), dnfs: Math.round(rnd() * 3) }; });
+  const season: SeasonRow[] = drivers.map((d) => { const pts = d.form.reduce((a, b) => a + b, 0); return { id: d.id, points: pts, projected: pts + d.med * 8, starts: 14, dnfs: Math.round(rnd() * 3) }; }).sort((a, b) => b.projected - a.projected);
   return {
     example: true, asOf: '19 Sep 06:00 UTC',
     round: { number: 17, name: 'Baku', firstSession: 'FP1 Fri 25 Sep', locksIn: '6d 04h', circuit: 'Baku City Circuit' },
     rounds: ['BAK', 'SIN', 'AUS', 'MEX', 'SAO', 'LVG'], budget: 2250, teams: TEAMS, drivers, constructors, news, rivals,
     league: { name: 'Sunday Drivers', size: 10, myRank: 2 },
-    weather, weatherSource: 'Example forecast',
+    weather, weatherSource: 'Example forecast', circuit, pace, season,
     // a 5x5 grid with a band of rain to the north-west drifting towards the circuit, so the map
     // has something to draw in the design preview
     weatherMap: { center: { lat: 40.37, lon: 49.85 }, radius: 2, spacingKm: 40, sessions: [{ key: 'race', label: 'Race', at: '2026-09-27T11:00:00.000Z', frames: [-3, 0, 3].map((offsetH) => ({
@@ -99,5 +109,8 @@ export function bareExamplePayload(free = false): Payload {
     rivals: [],
     league: { name: '', size: 0, myRank: 0 },
     drivers: p.drivers.map((d) => strip({ ...d, own: 0, q: 0, r: 0, fit: d.fit.map(() => 3) })),
+    // the worker publishes these now, so the bare preview keeps them; the free look loses the two judgements
+    circuit: p.circuit && free ? { ...p.circuit, fitRanking: [] } : p.circuit,
+    season: free ? p.season.map((r) => ({ ...r, projected: 0 })) : p.season,
   };
 }

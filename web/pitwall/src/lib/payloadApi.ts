@@ -10,7 +10,7 @@
  * worker has not started publishing yet must leave the page rendering, not crash it.
  */
 import { firestore } from './firebase';
-import type { Constructor, Driver, MapFrame, NewsItem, NewsKind, Payload, Rival, SessionMap, SessionWeather, Team, WeatherMap } from '../data/types';
+import type { CircuitReport, Constructor, Driver, MapFrame, NewsItem, NewsKind, PaceRow, Payload, Rival, SeasonRow, SessionMap, SessionWeather, Team, WeatherMap } from '../data/types';
 
 const NEWS_KINDS: readonly NewsKind[] = ['PENALTY', 'UPGRADE', 'WEATHER', 'RELIABILITY', 'CONTRACT', 'REGULATION', 'PRACTICE', 'QUALIFYING', 'RACE', 'NEWS'];
 
@@ -76,6 +76,24 @@ function toWeatherMap(raw: unknown): WeatherMap | null {
   return { center: { lat: num(c.lat), lon: num(c.lon) }, radius, spacingKm, sessions };
 }
 
+function toCircuit(raw: unknown): CircuitReport | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const c = raw as Record<string, unknown>;
+  if (!str(c.id) || !str(c.name)) return null;
+  return {
+    id: str(c.id), name: str(c.name), kind: str(c.kind), speed: str(c.speed),
+    classes: Array.isArray(c.classes) ? c.classes.filter((x): x is string => typeof x === 'string') : [],
+    laps: num(c.laps), lapKm: num(c.lapKm), pitLossS: num(c.pitLossS), strategy: str(c.strategy),
+    profile: objects(c.profile).map((x) => ({ label: str(x.label), v: num(x.v) })).filter((x) => x.label && x.v >= 1 && x.v <= 5),
+    fitRanking: objects(c.fitRanking).map((x) => ({ id: str(x.id), fit: num(x.fit), n: num(x.n) })).filter((x) => x.id && x.fit >= 1 && x.fit <= 5),
+    likeThis: objects(c.likeThis).map((x) => ({ id: str(x.id), n: num(x.n), avgPts: num(x.avgPts), avgFinish: num(x.avgFinish) })).filter((x) => x.id),
+    racesInClass: num(c.racesInClass),
+  };
+}
+
+const toPace = (v: Record<string, unknown>): PaceRow => ({ id: str(v.id), starts: num(v.starts), avgGrid: num(v.avgGrid), avgFinish: num(v.avgFinish), gained: num(v.gained), finishRate: num(v.finishRate), dnfs: num(v.dnfs) });
+const toSeason = (v: Record<string, unknown>): SeasonRow => ({ id: str(v.id), points: num(v.points), projected: num(v.projected), starts: num(v.starts), dnfs: num(v.dnfs) });
+
 function toRival(v: Record<string, unknown>): Rival {
   return {
     name: str(v.name), rank: num(v.rank), gap: num(v.gap),
@@ -122,6 +140,10 @@ export function toPayload(raw: Record<string, unknown>): Payload {
     weather: objects(raw.weather).map(toWeather).filter((w): w is SessionWeather => w !== null),
     weatherSource: typeof raw.weatherSource === 'string' ? raw.weatherSource : null,
     weatherMap: toWeatherMap(raw.weatherMap),
+    circuit: toCircuit(raw.circuit),
+    // a row needs a driver and at least one start; a zero-start row would draw an average of nothing
+    pace: objects(raw.pace).map(toPace).filter((r) => r.id && r.starts > 0),
+    season: objects(raw.season).map(toSeason).filter((r) => r.id),
   };
 }
 

@@ -16,6 +16,8 @@ import { buildWeatherMap, fetchGrid, type WeatherMap } from '../model/weatherMap
 import { buildWire, teamVariants, type Article, type WireItem } from '../model/wire';
 import { scoreWeekend } from '../model/scoreRace';
 import { buildPayload, shortName, shortTeamName, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
+import { buildCircuitReport, buildPace, buildSeasonTable, computeSplits, driverStarts, fitFor, type CircuitReport, type PaceRow, type SeasonRow } from '../model/splits';
+import { traitsOf } from '../model/circuitTraits';
 import { DEFAULT_SIM, simulate, type SimOptions } from '../model/simulate';
 import { estimateForm, type Entrant } from '../model/strength';
 import type { HistRace, History, Projection } from '../model/types';
@@ -42,6 +44,9 @@ export interface ProjectionRun {
   weather: SessionWeather[];
   weatherMap: WeatherMap | null;
   news: WireItem[];
+  circuit: CircuitReport | null;
+  pace: PaceRow[];
+  seasonTable: SeasonRow[];
 }
 
 /** Everything the job reads, in one place, so the input list can be asserted. */
@@ -57,7 +62,7 @@ export async function loadProjectionInputs(db: Db, season: string) {
   const completed: HistRace[] = races
     .filter((r: Record<string, any>) => r.status === 'completed' && Array.isArray(r.results?.raceResults) && r.results.raceResults.length > 0)
     .map((r: Record<string, any>) => ({
-      id: r.id, season: String(r.seasonId), round: num(r.round), hasSprint: Array.isArray(r.results.sprintResults) && r.results.sprintResults.length > 0,
+      id: r.id, season: String(r.seasonId), circuitId: String(r.circuitId ?? ''), round: num(r.round), hasSprint: Array.isArray(r.results.sprintResults) && r.results.sprintResults.length > 0,
       totalLaps: num(r.totalLaps) || r.results.raceResults.reduce((m: number, x: Record<string, unknown>) => (x.status === 'finished' ? Math.max(m, num(x.laps)) : m), 0),
       raceResults: r.results.raceResults, qualifyingResults: r.results.qualifyingResults ?? [], sprintResults: r.results.sprintResults ?? [],
     }))
@@ -138,7 +143,17 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
     circuit: String(next.circuitName ?? next.circuitId ?? ''), firstSession: toDate(schedule.fp1), hasSprint: next.hasSprint === true,
     lockAt: next.hasSprint === true ? toDate(schedule.sprintQualifying) ?? toDate(schedule.qualifying) : toDate(schedule.fp3) ?? toDate(schedule.qualifying),
   };
-  const nextRounds = upcoming.slice(0, 6).map((r: Record<string, any>) => ({ round: num(r.round), label: String(r.circuitId ?? r.city ?? r.id).slice(0, 3).toUpperCase(), hasSprint: r.hasSprint === true }));
+  const nextRounds = upcoming.slice(0, 6).map((r: Record<string, any>) => ({ round: num(r.round), label: String(r.circuitId ?? r.city ?? r.id).slice(0, 3).toUpperCase(), hasSprint: r.hasSprint === true, circuitId: String(r.circuitId ?? '') }));
+  // Splits from our own classifications (F-072 first cut): fit per coming round, the circuit
+  // report, where each driver starts and finishes, and where the season is heading.
+  const splits = computeSplits(history.races, history.scores);
+  const starts = driverStarts(history.races);
+  const activeIds = active.map((d) => d.id);
+  const fit = new Map(activeIds.map((id) => [id, nextRounds.map((r) => fitFor(splits.get(id), traitsOf(r.circuitId)))]));
+  const circuit = buildCircuitReport(String(next.circuitId ?? ''), history.races, history.scores, activeIds, constructors.map((c) => c.id), splits);
+  const pace = buildPace(activeIds, starts);
+  const median = new Map(projections.map((p) => [p.entityId, p.median]));
+  const seasonTable = buildSeasonTable(activeIds, byEntity, median, upcoming.length, starts);
   // What a pick has to score to be worth its price. Undercut has no neutral band: below this it falls.
   const priceImplied = pointsToRise;
   // Conditions for each session of this round. A failure here is no weather, never a guess.
@@ -165,7 +180,7 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
   // to be a backlog for the next ten to come from.
   const news = buildWire(await loadWireArticles(db, new Date(now.getTime() - 7 * 86400000)).catch((err) => { console.warn('[pw] wire unavailable:', err instanceof Error ? err.message : err); return []; }), names, now, { limit: 30 });
 
-  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000, weather, weatherSource: weather.length || weatherMap ? MET_ATTRIBUTION : null, weatherMap, news });
+  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000, weather, weatherSource: weather.length || weatherMap ? MET_ATTRIBUTION : null, weatherMap, news, fit, circuit, pace, season: seasonTable });
 
   const id = `${opts.season}_${round}`;
   const wrote: string[] = [];
@@ -175,5 +190,5 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
     await db.collection('pw_projections').doc(`${id}_${opts.sessionKey}`).set({ season: opts.season, round, sessionKey: opts.sessionKey, asOf: full.asOf, projections: projections.map((p) => ({ ...p })) });
     wrote.push(`pw_pages/${id}`, `pw_public/${id}`, `pw_projections/${id}_${opts.sessionKey}`);
   }
-  return { season: opts.season, round, raceId: roundMeta.raceId, sessionKey: opts.sessionKey, projections, wrote, counts: { drivers: full.drivers.length, constructors: full.constructors.length, pastRaces: history.races.length }, weather, weatherMap, news };
+  return { season: opts.season, round, raceId: roundMeta.raceId, sessionKey: opts.sessionKey, projections, wrote, counts: { drivers: full.drivers.length, constructors: full.constructors.length, pastRaces: history.races.length }, weather, weatherMap, news, circuit, pace, seasonTable };
 }

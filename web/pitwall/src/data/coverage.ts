@@ -35,11 +35,17 @@ export interface Coverage {
   weather: boolean;
   /** the forecast grid around the circuit */
   weatherMap: boolean;
+  /** the circuit report: characteristics and results at circuits like this one */
+  circuit: boolean;
+  /** where each driver starts and finishes, from the classifications */
+  pace: boolean;
+  /** the season table */
+  season: boolean;
   /** frames that still have no published source at all and only exist in the example set */
   mock: boolean;
 }
 
-export const FULL_COVERAGE: Coverage = { timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, weatherMap: true, mock: true };
+export const FULL_COVERAGE: Coverage = { timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, weatherMap: true, circuit: true, pace: true, season: true, mock: true };
 
 export function coverage(p: Payload): Coverage {
   const fitValues = new Set<number>();
@@ -55,6 +61,9 @@ export function coverage(p: Payload): Coverage {
     priceModel: p.drivers.some((d) => d.ptsRise > 0),
     weather: p.weather.length > 0,
     weatherMap: p.weatherMap !== null && p.weatherMap.sessions.length > 0,
+    circuit: p.circuit !== null && p.circuit.profile.length > 0,
+    pace: p.pace.some((r) => r.starts > 0),
+    season: p.season.some((r) => r.points !== 0 || r.starts > 0),
     // Circuit characteristics, the title simulation, power unit use and price history have no
     // published source yet (F-072 and the pipeline work behind it). They are drawn from the row
     // order in the example set, which is fine for a demo and a lie against real data.
@@ -74,5 +83,8 @@ export const NOT_PUBLISHED: Record<keyof Coverage, string> = {
   priceModel: 'The price model is not published yet.',
   weather: 'No session forecast for this round yet.',
   weatherMap: 'No forecast map for this round yet.',
+  circuit: 'No circuit report for this venue yet.',
+  pace: 'No classifications for this season yet.',
+  season: 'The season table is not published yet.',
   mock: 'Not published yet.',
 };

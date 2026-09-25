@@ -6,6 +6,8 @@ export interface HistSprintResult { driverId: string; position: number; status: 
 export interface HistRace {
   id: string;
   season: string;
+  /** the venue, so results can be cut by circuit class (empty when the race doc does not say) */
+  circuitId: string;
   round: number;
   hasSprint: boolean;
   totalLaps: number;

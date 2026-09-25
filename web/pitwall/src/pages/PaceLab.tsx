@@ -1,68 +1,64 @@
-import { useStore } from '../state';
-import { AsTable, Empty, Meter, Pill, Tabs, TeamBar, Tile, Tr } from '../ui/bits';
+import { entity } from '../data/logic';
 import { NOT_PUBLISHED } from '../data/coverage';
+import { useStore } from '../state';
+import { AsTable, Empty, Pill, Tabs, TeamBar, Tile, Tr } from '../ui/bits';
 
-// Every frame on this page is timing-derived, so it is part of the FREE look and never sits behind the pass (ADR-001).
+/**
+ * The pace lab (F-072 first cut). Every frame is built from the classifications the app keeps:
+ * where each driver started and finished. That is a fact, not a lap time, so the page is FREE for
+ * every signed-in reader (ADR-001). Long runs and pit stops need session timing, which is not
+ * licensed; those tabs say so rather than drawing a shape from the row order.
+ */
 export function PaceLab() {
   const { payload: p, has, ui, set, open } = useStore();
+  const rows = p.pace.map((r) => ({ r, e: entity(p, r.id) })).filter((x): x is { r: typeof x.r; e: NonNullable<typeof x.e> } => !!x.e);
   let body;
-  // Every frame here is built from session timing. Without it the long-run gaps collapse to zero,
-  // the scatter stacks every car on one point and the stop times would be invented from the row
-  // order, so the page says what is missing instead of drawing a shape that means nothing.
-  if (!has.timing) {
-    body = <Empty>{NOT_PUBLISHED.timing} Long runs, the qualifying-against-race scatter and pit stop times appear once the session data for this round is in.</Empty>;
-  } else if (ui.paceTab === 'LONG RUN') {
-    const top = [...p.drivers].sort((a, b) => a.r - b.r).slice(0, 12);
-    body = (
-      <>
-        <div className="scroll"><table>
-          <thead><tr><th scope="col">Driver</th><th scope="col">Compound</th><th scope="col">Laps</th><th scope="col">Gap to best · s/lap</th><th scope="col">Deg · s/lap²</th></tr></thead>
-          <tbody>{top.map((d) => (
-            <Tr key={d.id} onClick={() => open(d.id)} focus={ui.focus === d.id} label={`${d.name} long run`}>
-              <td><TeamBar p={p} team={d.team} /><b>{d.name}</b></td><td>{d.num % 2 ? 'MEDIUM' : 'HARD'}</td><td>{9 + (d.num % 7)}</td>
-              <td><Meter pct={(d.r / 1.2) * 100} style={{ display: 'inline-block', width: 120, verticalAlign: 'middle' }} /> +{d.r.toFixed(2)}</td><td>{(0.03 + d.q / 20).toFixed(3)}</td>
-            </Tr>
-          ))}</tbody>
-        </table></div>
-        <span className="mut">Practice race simulations, fuel-corrected (example values).</span>
-      </>
-    );
+  if (!has.pace) {
+    body = <Empty>{NOT_PUBLISHED.pace} Where each driver starts and finishes appears once a race of the season has been classified.</Empty>;
   } else if (ui.paceTab === 'QUALI VS RACE') {
-    const w = 760, h = 300, X = (v: number) => 60 + (v / 1.2) * (w - 100), Y = (v: number) => h - 40 - (v / 1.2) * (h - 70);
+    const w = 760, h = 320, maxP = 22;
+    const X = (v: number) => 60 + ((v - 1) / (maxP - 1)) * (w - 100), Y = (v: number) => 30 + ((v - 1) / (maxP - 1)) * (h - 70);
     body = (
       <>
-        <div className="scroll"><svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ minWidth: 560 }} role="img" aria-label="Qualifying gap against race pace gap">
-          <line x1={X(0.6)} x2={X(0.6)} y1="30" y2={h - 40} stroke="var(--borderL)" /><line x1="60" x2={w - 40} y1={Y(0.6)} y2={Y(0.6)} stroke="var(--borderL)" />
-          <text x="66" y="24">QUALIFIES WELL · RACES SLOW</text><text x={w - 44} y={h - 46} textAnchor="end">QUALIFIES SLOW · RACES WELL → POSITIONS GAINED</text>
-          <text x={w / 2} y={h - 8} textAnchor="middle">QUALI GAP TO POLE (S)</text>
-          {p.drivers.map((d) => { const me = ui.lineup.drivers.includes(d.id); return (
-            <g key={d.id} className="click" onClick={() => open(d.id)} data-tip={`${d.name}${me ? ' · in your lineup' : ''}\nQuali +${d.q}s · race +${d.r}s/lap`}>
-              <circle cx={X(d.q)} cy={Y(d.r)} r="12" fill="transparent" />
+        <div className="scroll"><svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ minWidth: 560 }} role="img" aria-label="Average grid slot against average finish">
+          <line x1={X(1)} y1={Y(1)} x2={X(maxP)} y2={Y(maxP)} stroke="var(--borderL)" strokeDasharray="4 4" />
+          <text x="66" y="22">FINISHES AHEAD OF WHERE IT STARTS ↑</text><text x={w - 44} y={h - 46} textAnchor="end">LOSES PLACES ON SUNDAY ↓</text>
+          <text x={w / 2} y={h - 8} textAnchor="middle">AVERAGE GRID SLOT</text>
+          <text x="14" y={h / 2} textAnchor="middle" transform={`rotate(-90 14 ${h / 2})`}>AVERAGE FINISH</text>
+          {rows.map(({ r, e }) => { const me = ui.lineup.drivers.includes(r.id); return (
+            <g key={r.id} className="click" onClick={() => open(r.id)} data-tip={`${e.name}${me ? ' · in your lineup' : ''}\nStarts P${r.avgGrid} · finishes P${r.avgFinish} · ${r.gained >= 0 ? '+' : ''}${r.gained} places · ${r.starts} starts`}>
+              <circle cx={X(r.avgGrid)} cy={Y(r.avgFinish)} r="12" fill="transparent" />
               {/* your drivers are red AND larger AND labelled: colour is never the only cue */}
-              <circle cx={X(d.q)} cy={Y(d.r)} r={me ? 7 : 5} fill={me ? 'var(--red)' : 'var(--fg2)'} stroke="var(--card)" strokeWidth="2" />
-              {me ? <text x={X(d.q) + 10} y={Y(d.r) + 3} style={{ fill: 'var(--fg)' }}>{d.name.slice(0, 3).toUpperCase()}</text> : null}
+              <circle cx={X(r.avgGrid)} cy={Y(r.avgFinish)} r={me ? 7 : 5} fill={me ? 'var(--red)' : 'var(--fg2)'} stroke="var(--card)" strokeWidth="2" />
+              {me ? <text x={X(r.avgGrid) + 10} y={Y(r.avgFinish) + 3} style={{ fill: 'var(--fg)' }}>{e.name.slice(0, 3).toUpperCase()}</text> : null}
             </g>
           ); })}
         </svg></div>
-        <span className="mut">Larger labelled marks are in your lineup. Bottom-right cars gain places on Sunday, which Undercut scoring rewards.</span>
-        <AsTable caption="Qualifying gap and race pace gap per driver" head={['Driver', 'Quali gap (s)', 'Race gap (s/lap)', 'In your lineup']} rows={p.drivers.map((d) => [d.name, d.q, d.r, ui.lineup.drivers.includes(d.id) ? 'yes' : 'no'])} />
+        <span className="mut">Average grid slot against average finish this season, classified finishes only. Above the line gains places on Sunday, which Undercut scoring rewards. Larger labelled marks are in your lineup.</span>
+        <AsTable caption="Average grid and finish per driver" head={['Driver', 'Starts', 'Avg grid', 'Avg finish', 'Places gained', 'In your lineup']} rows={rows.map(({ r, e }) => [e.name, r.starts, r.avgGrid, r.avgFinish, r.gained, ui.lineup.drivers.includes(r.id) ? 'yes' : 'no'])} />
+      </>
+    );
+  } else if (ui.paceTab === 'STARTS') {
+    body = (
+      <>
+        <div className="scroll"><table>
+          <thead><tr><th scope="col">Driver</th><th scope="col">Starts</th><th scope="col">Avg grid</th><th scope="col">Avg finish</th><th scope="col">Places gained</th><th scope="col">Finished</th><th scope="col">Retired</th></tr></thead>
+          <tbody>{rows.map(({ r, e }) => (
+            <Tr key={r.id} onClick={() => open(r.id)} me={ui.lineup.drivers.includes(r.id)} focus={ui.focus === r.id} label={`${e.name} starts and finishes`}>
+              <td><TeamBar p={p} team={e.team} /><b>{e.name}</b></td><td>{r.starts}</td><td>P{r.avgGrid}</td><td>P{r.avgFinish}</td>
+              <td className={r.gained > 0 ? 'pos' : r.gained < 0 ? 'red' : 'mut'}>{r.gained > 0 ? `+${r.gained}` : r.gained}</td><td>{r.finishRate}%</td><td className={r.dnfs ? 'red' : 'mut'}>{r.dnfs}</td>
+            </Tr>
+          ))}</tbody>
+        </table></div>
+        <span className="mut">From this season's classifications. A retirement counts as a start but not a finish.</span>
       </>
     );
   } else {
-    body = (
-      <div className="scroll"><table>
-        <thead><tr><th scope="col">Team</th><th scope="col">Median stop</th><th scope="col">Best</th><th scope="col">Stops under 2.5s</th><th scope="col">Slow-stop rate</th></tr></thead>
-        <tbody>{p.constructors.map((c, i) => (
-          <Tr key={c.id} onClick={() => open(c.id)} focus={ui.focus === c.id} label={`${c.name} pit stops`}>
-            <td><TeamBar p={p} team={c.id} /><b>{c.name}</b></td><td>{(2.2 + i * 0.09).toFixed(2)}s</td><td>{(1.9 + i * 0.05).toFixed(2)}s</td><td>{82 - i * 6}%</td><td>{3 + i}%</td>
-          </Tr>
-        ))}</tbody>
-      </table></div>
-    );
+    body = <Empty>Long-run pace, degradation and pit stop times need session timing, which Pit Wall does not license. What it does have is above: where every driver starts and finishes.</Empty>;
   }
   return (
     <div className="page">
-      <Tile span="c12" label="Pace lab" right={<div className="th"><Pill>Free for everyone</Pill>{has.timing ? <Tabs value={ui.paceTab} options={['LONG RUN', 'QUALI VS RACE', 'PIT STOPS'] as const} onChange={(v) => set('paceTab', v)} label="Pace views" /> : null}</div>}>
+      <Tile span="c12" label="Pace lab" right={<div className="th"><Pill>Free for everyone</Pill>{has.pace ? <Tabs value={ui.paceTab} options={['QUALI VS RACE', 'STARTS', 'LONG RUN'] as const} onChange={(v) => set('paceTab', v)} label="Pace views" /> : null}</div>}>
         {body}
       </Tile>
     </div>
