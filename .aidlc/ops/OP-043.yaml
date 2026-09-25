@@ -1,0 +1,47 @@
+id: OP-043
+title: First real session forecast for Baku, from MET Norway
+kind: pitwall-job
+status: applied
+params:
+  job: projections
+  session: fp3
+created_at: 2026-09-25T14:33:11.486Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T14:33:11.729Z
+    head_sha: f63df2ff754ff2b6160d717a5e2b9259ca03b15e
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'fp3'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-043/dry-run-2026-09-25T14-33-11-729Z.log
+    log_sha256: 7ac5674a27a2111cdece849a173d61f6baca69f968dd7cefd912026d2716b75e
+    lines: 47
+  - step: backup
+    at: 2026-09-25T14:33:25.829Z
+    head_sha: f63df2ff754ff2b6160d717a5e2b9259ca03b15e
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-043'/backup.json pw_pages pw_public pw_projections
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-043/backup-2026-09-25T14-33-25-829Z.log
+    log_sha256: 06ef143be9f943df7a626387c61a0831784ee4e3174c7ce71adeebe4d73e39c5
+    lines: 3
+  - step: gates
+    at: 2026-09-25T14:33:26.857Z
+    head_sha: f63df2ff754ff2b6160d717a5e2b9259ca03b15e
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T14:33:26.860Z
+    head_sha: f63df2ff754ff2b6160d717a5e2b9259ca03b15e
+    command: bash scripts/ops/pitwall-job.sh apply 'projections' 'fp3'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-043/apply-2026-09-25T14-33-26-860Z.log
+    log_sha256: f2801919d4bcd49540fa769262080590b78e33e7162fc8b3a3278e134ae72981
+    lines: 47
+  - step: gates
+    at: 2026-09-25T14:33:30.094Z
+    head_sha: f63df2ff754ff2b6160d717a5e2b9259ca03b15e
+    exit: 0
+    gates:
+      G15: skip
