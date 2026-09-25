@@ -2,12 +2,20 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { secureStorage } from '../utils/secureStorage';
 import { Alert, Platform } from 'react-native';
-import { PRODUCT_IDS, AVATAR_PACK_CREDITS } from '../config/products';
+import { PRODUCT_IDS, ALL_PRODUCT_IDS, AVATAR_PACK_CREDITS } from '../config/products';
 import { functions, httpsCallable } from '../config/firebase';
+import { usePitWallStore } from './pitwall.store';
+import { receiptOf, storeOf, type StorePurchase } from '../pitwall/receipt';
 
 // Module-level pending context for bridging requestPurchase → listener callback
 let pendingLeagueId: string | null = null;
 let pendingUserId: string | null = null;
+
+/** One purchase request, shaped per platform the way the library expects. */
+const buy = async (sku: string): Promise<void> => {
+  const Iap = require('expo-iap');
+  await Iap.requestPurchase({ request: { apple: { sku }, google: { skus: [sku] } }, type: 'in-app' });
+};
 
 interface PurchaseHistoryEntry {
   sku: string;
@@ -46,6 +54,8 @@ interface PurchaseState {
   purchaseLeagueExpansion: (leagueId?: string) => Promise<void>;
   purchaseAvatarPack: (userId: string) => Promise<void>;
   purchaseLeagueSlot: () => Promise<void>;
+  /** Buy the Pit Wall Pass. Resolves once the store has the order; the entitlement lands when the server grants it. */
+  purchasePitWallPass: () => Promise<void>;
   isLeagueExpanded: (leagueId: string) => boolean;
   getBonusCredits: (userId: string) => number;
   consumeBonusCredit: (userId: string) => void;
@@ -84,20 +94,18 @@ export const usePurchaseStore = create<PurchaseState>()(
         }
 
         try {
-          const RNIap = require('react-native-iap');
-          await RNIap.initConnection();
+          const Iap = require('expo-iap');
+          await Iap.initConnection();
 
-          // Fetch products
-          await RNIap.getProducts({
-            skus: [PRODUCT_IDS.LEAGUE_EXPANSION, PRODUCT_IDS.AVATAR_PACK, PRODUCT_IDS.LEAGUE_SLOT],
-          });
+          // Ask the store about every product, so a missing one shows up in the log at start-up
+          // rather than as a failed purchase later.
+          await Iap.fetchProducts({ skus: [...ALL_PRODUCT_IDS], type: 'in-app' });
 
-          // Register purchase listener
-          RNIap.purchaseUpdatedListener(async (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }) => {
+          Iap.purchaseUpdatedListener(async (purchase: StorePurchase) => {
             await get().handlePurchaseComplete(purchase);
           });
 
-          RNIap.purchaseErrorListener((error: { code: string; message: string }) => {
+          Iap.purchaseErrorListener((error: { code: string; message: string }) => {
             get().handlePurchaseError(error);
           });
 
@@ -115,17 +123,20 @@ export const usePurchaseStore = create<PurchaseState>()(
 
       cleanupIAP: () => {
         try {
-          const RNIap = require('react-native-iap');
-          RNIap.endConnection();
-        } catch {}
+          require('expo-iap').endConnection();
+        } catch { /* never initialised */ }
         set({ isInitialized: false });
       },
 
-      recordPurchaseOnServer: async (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string) => {
+      recordPurchaseOnServer: async (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string; userIdAmazon?: string }, platform: string) => {
         try {
           const validatePurchaseFn = httpsCallable(functions, 'validatePurchase');
           await validatePurchaseFn({ productId, ...verificationData, platform });
         } catch (err) {
+          // For everything else the entitlement is already on the device and this call only
+          // persists it. The Pit Wall Pass is the opposite: the server grant IS the entitlement,
+          // so a failure here has to be visible and the receipt has to survive for a retry.
+          if (productId === PRODUCT_IDS.PITWALL_PASS) throw err;
           console.warn('Failed to record purchase on server:', err);
         }
       },
@@ -202,12 +213,7 @@ export const usePurchaseStore = create<PurchaseState>()(
         set({ isPurchasing: true });
         pendingLeagueId = leagueId || null;
         try {
-          const RNIap = require('react-native-iap');
-          await RNIap.requestPurchase(
-            Platform.OS === 'ios'
-              ? { sku: PRODUCT_IDS.LEAGUE_EXPANSION }
-              : { skus: [PRODUCT_IDS.LEAGUE_EXPANSION] }
-          );
+          await buy(PRODUCT_IDS.LEAGUE_EXPANSION);
         } catch (err: any) {
           set({ isPurchasing: false });
           pendingLeagueId = null;
@@ -243,12 +249,7 @@ export const usePurchaseStore = create<PurchaseState>()(
         set({ isPurchasing: true });
         pendingUserId = userId;
         try {
-          const RNIap = require('react-native-iap');
-          await RNIap.requestPurchase(
-            Platform.OS === 'ios'
-              ? { sku: PRODUCT_IDS.AVATAR_PACK }
-              : { skus: [PRODUCT_IDS.AVATAR_PACK] }
-          );
+          await buy(PRODUCT_IDS.AVATAR_PACK);
         } catch (err: any) {
           set({ isPurchasing: false });
           pendingUserId = null;
@@ -279,12 +280,7 @@ export const usePurchaseStore = create<PurchaseState>()(
 
         set({ isPurchasing: true });
         try {
-          const RNIap = require('react-native-iap');
-          await RNIap.requestPurchase(
-            Platform.OS === 'ios'
-              ? { sku: PRODUCT_IDS.LEAGUE_SLOT }
-              : { skus: [PRODUCT_IDS.LEAGUE_SLOT] }
-          );
+          await buy(PRODUCT_IDS.LEAGUE_SLOT);
         } catch (err: any) {
           set({ isPurchasing: false });
           if (err?.code !== 'E_USER_CANCELLED') {
@@ -296,10 +292,34 @@ export const usePurchaseStore = create<PurchaseState>()(
         }
       },
 
+      purchasePitWallPass: async () => {
+        const { useAuthStore } = require('./auth.store');
+        if (useAuthStore.getState().isDemoMode) {
+          Alert.alert('Demo mode', 'The Pit Wall Pass cannot be bought in demo mode.');
+          return;
+        }
+        // Refuse before the store takes any money. A second pass would buy nothing: the server
+        // never shortens an existing one, so the charge would be for an entitlement already held.
+        // Forced, because a stale token is exactly how someone ends up buying twice.
+        await usePitWallStore.getState().refresh(true);
+        if (usePitWallStore.getState().pass.active) {
+          Alert.alert('Pit Wall Pass', 'You already have a pass for this season.');
+          return;
+        }
+        set({ isPurchasing: true });
+        try {
+          await buy(PRODUCT_IDS.PITWALL_PASS);
+        } catch (err: any) {
+          set({ isPurchasing: false });
+          if (err?.code !== 'E_USER_CANCELLED') {
+            Alert.alert('Purchase Unavailable', 'The Pit Wall Pass is not available right now. Please try again later.');
+          }
+        }
+      },
+
       handlePurchaseComplete: async (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }) => {
         try {
-          const RNIap = require('react-native-iap');
-          const { productId, purchaseToken, transactionReceipt, transactionId } = purchase;
+          const { productId } = purchase;
 
           if (productId === PRODUCT_IDS.LEAGUE_EXPANSION) {
             set((state) => ({
@@ -341,18 +361,31 @@ export const usePurchaseStore = create<PurchaseState>()(
             pendingUserId = null;
           }
 
-          // Finish the transaction (consumable so it can be re-purchased)
-          await RNIap.finishTransaction({ purchase, isConsumable: true });
+          if (productId === PRODUCT_IDS.PITWALL_PASS) {
+            // The pass is not granted on the device. The server checks the receipt with the store,
+            // writes the pass and a trigger stamps the auth claim the Firestore rules read. Only
+            // once that has happened is the transaction finished, so a failure leaves the receipt
+            // with the store to be retried rather than losing a paid pass.
+            await get().recordPurchaseOnServer(productId, receiptOf(purchase, Platform.OS), storeOf(purchase, Platform.OS));
+            await require('expo-iap').finishTransaction({ purchase, isConsumable: true });
+            set((state) => ({ purchaseHistory: [...state.purchaseHistory, { sku: productId, date: new Date().toISOString() }] }));
+            // Pick up the claim now rather than an hour from now, when the token would refresh.
+            await usePitWallStore.getState().refresh(true);
+            Alert.alert('Pit Wall Pass', 'Your pass is active. Open Pit Wall from your profile.');
+            return;
+          }
+
+          // Finish the transaction (consumable so it can be re-purchased next season)
+          await require('expo-iap').finishTransaction({ purchase, isConsumable: true });
 
           // Record on server for persistence across reinstalls
-          const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-          if (platform === 'ios' && transactionReceipt) {
-            get().recordPurchaseOnServer(productId, { transactionReceipt, transactionId }, platform).catch(() => {});
-          } else if (purchaseToken) {
-            get().recordPurchaseOnServer(productId, { purchaseToken }, platform).catch(() => {});
-          }
+          await get().recordPurchaseOnServer(productId, receiptOf(purchase, Platform.OS), storeOf(purchase, Platform.OS)).catch(() => {});
         } catch (err) {
           console.error('Error completing purchase:', err);
+          if (purchase.productId === PRODUCT_IDS.PITWALL_PASS) {
+            // Unfinished, so the store hands it back on the next start and this runs again.
+            Alert.alert('Pit Wall Pass', 'The purchase went through but activating it failed. It will finish by itself next time you open the app.');
+          }
         } finally {
           set({ isPurchasing: false });
         }

@@ -35,6 +35,23 @@ if grep -q "google-signin" android/settings.gradle; then
   echo "Amazon prebuild still links @react-native-google-signin — EXPO_PUBLIC_STORE=amazon did not reach app.config.js" >&2
   exit 5
 fi
+# The Amazon Appstore needs the Amazon flavour of the billing library and the matching gradle
+# flavour. Getting this wrong produces a build that installs, runs, and cannot sell anything, so it
+# is asserted rather than trusted: the plugin option is nested (modules.amazon.fireOS) and a typo in
+# it fails silently.
+if ! grep -q '^fireOsEnabled=true' android/gradle.properties; then
+  echo "Amazon prebuild did not enable the Fire OS billing flavour — check the expo-iap plugin options in app.config.js" >&2
+  exit 5
+fi
+if ! grep -q 'openiap-google-amazon' android/app/build.gradle; then
+  echo "Amazon prebuild linked the Play billing library instead of the Amazon one" >&2
+  exit 5
+fi
+if ! grep -q 'missingDimensionStrategy "platform", "amazon"' android/app/build.gradle; then
+  echo "Amazon prebuild left the gradle platform flavour on play" >&2
+  exit 5
+fi
+
 printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m\n' >> android/gradle.properties
 FONTS=$(ls android/app/src/main/assets/fonts/*.ttf 2>/dev/null | wc -l)
 if [ "$FONTS" -lt 5 ]; then

@@ -12,6 +12,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { useLeagueStore } from '../../store/league.store';
 import { usePrefsStore, type ThemeMode } from '../../store/prefs.store';
 import { usePitWallStore } from '../../store/pitwall.store';
+import { usePurchaseStore } from '../../store/purchase.store';
 import { portalUrl } from '../../pitwall/client';
 import { pitWallSurface } from '../../pitwall/config';
 import { isAmazonBuild } from '../../utils/storeDetection';
@@ -204,7 +205,17 @@ export function GridProfileScreen() {
     }
   }, [openingPortal, colors.primary, colors.surface, refreshPitWall, pwSurface?.url]);
 
-  const passValue = openingPortal
+  // With mode 'iap' the pass is sold through the store, so the row starts a purchase instead of
+  // opening the site. Everywhere else it opens the portal and the pass is bought on the web.
+  const buyPass = usePurchaseStore((s) => s.purchasePitWallPass);
+  const buying = usePurchaseStore((s) => s.isPurchasing);
+  const sellsInApp = pwSurface?.mode === 'iap' && !pwPass.active;
+
+  const passValue = buying && sellsInApp
+    ? 'Opening store…'
+    : sellsInApp
+      ? 'Get the pass'
+      : openingPortal
     ? 'Opening…'
     : pwPass.active && pwPass.expiresAt
       ? `${pwSurface?.pass ?? 'Pass'} to ${new Date(pwPass.expiresAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
@@ -249,7 +260,7 @@ export function GridProfileScreen() {
           </View>
           <LinkRow label="AVATAR" valueText={user?.photoURL ? 'Change' : 'Add'} onPress={() => setAvatarOpen(true)} />
           <LinkRow label="LEAGUE" valueText={league ? league.name : 'Join or create'} accent={!league} onPress={() => router.push('/(simple)/league-manager' as never)} />
-          {pwSurface ? <LinkRow label={pwSurface.label} valueText={passValue} accent={pwPass.active} onPress={openPitWall} /> : null}
+          {pwSurface ? <LinkRow label={pwSurface.label} valueText={passValue} accent={pwPass.active || sellsInApp} onPress={sellsInApp ? () => void buyPass() : openPitWall} /> : null}
           {/* At large display sizes the pills stack under their labels so every segment stays on screen */}
           <View style={[row, stackPills && { flexDirection: 'column', alignItems: 'stretch' }]}>
             <MonoLabel>APPEARANCE</MonoLabel>

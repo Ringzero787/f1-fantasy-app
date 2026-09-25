@@ -38,6 +38,12 @@ npx expo prebuild --platform android --clean --no-install
 # printf with a leading newline: the generated file has no trailing newline
 # (expo-build-properties writes android.buildToolsVersion last), so a bare
 # echo >> would glue this onto that value and break the build.
+# And the reverse of the Amazon build's check: a Play build must carry the Play billing flavour.
+if grep -q '^fireOsEnabled=true' android/gradle.properties || grep -q 'openiap-google-amazon' android/app/build.gradle; then
+  echo "this prebuild carries the Amazon billing flavour — EXPO_PUBLIC_STORE is set to amazon" >&2
+  exit 5
+fi
+
 printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m\n' >> android/gradle.properties
 
 # The Grid faces must be embedded natively: expo-font's runtime asset

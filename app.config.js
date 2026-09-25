@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Undercut",
     slug: "f1-fantasy-app",
-    version: "2.3.4",
+    version: "2.4.0",
     orientation: "default",
     icon: "./assets/icon.png",
     scheme: "theundercut",
@@ -23,7 +23,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "42",
+      buildNumber: "43",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -36,7 +36,7 @@ module.exports = {
         backgroundColor: "#0E0E0E"
       },
       package: "com.undercut.app",
-      versionCode: 59,
+      versionCode: 60,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",
@@ -108,6 +108,11 @@ module.exports = {
         }
       ],
       ...(process.env.EXPO_PUBLIC_STORE === 'amazon' ? [] : ["@react-native-google-signin/google-signin"]),
+      // In-app purchase. The Amazon build must use the Amazon flavour of the billing library, which
+      // is a different native dependency and a different gradle flavour, so the same switch that
+      // drops Google Sign-In selects it. The build scripts assert the result either way, because
+      // getting this wrong produces a build that looks fine and cannot sell anything.
+      ["expo-iap", { modules: { amazon: { fireOS: process.env.EXPO_PUBLIC_STORE === 'amazon' } } }],
       "expo-apple-authentication",
       "expo-notifications",
       "expo-secure-store",

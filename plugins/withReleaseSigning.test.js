@@ -74,3 +74,19 @@ test('refuses to silently no-op when the template it anchors on is gone', () => 
   const noRelease = GENERATED.replace(/release \{\n            signingConfig signingConfigs\.debug\n            shrinkResources false\n        \}\n/, '');
   assert.throws(() => injectReleaseSigning(noRelease, 'pw'), /buildTypes\.release still does not use/);
 });
+
+// expo-iap's config plugin rewrites the generated file into Groovy's assignment form. Before this
+// was handled, a store build failed outright rather than shipping debug-signed, which is the right
+// way round, but the build still has to work.
+test('handles the assignment form another plugin can leave behind', () => {
+  const assigned = GENERATED.replace(/signingConfig signingConfigs\.debug/g, 'signingConfig = signingConfigs.debug');
+  const out = injectReleaseSigning(assigned, 'pw#1');
+  assert.match(out, /release \{\n            signingConfig = signingConfigs\.release/);
+  // the debug build type is left exactly as it was
+  assert.match(out, /debug \{\n            signingConfig = signingConfigs\.debug/);
+});
+
+test('still refuses when there is no release signing config to switch', () => {
+  const noRelease = GENERATED.replace(/    buildTypes \{[\s\S]*?\n    \}\n/, '    buildTypes {\n    }\n');
+  assert.throws(() => injectReleaseSigning(noRelease, 'pw'), /does not use signingConfigs\.release/);
+});

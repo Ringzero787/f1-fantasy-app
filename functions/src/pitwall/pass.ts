@@ -5,7 +5,8 @@
  * source of a user's access; League Pro is derived from it (a league is Pro while its owner
  * holds one), so there is one purchase flow, one store product and one thing to support.
  */
-export type PassSource = 'stripe' | 'play' | 'apple' | 'grant';
+/** Where a pass came from. Every route ends at the same entitlement (ADR-001). */
+export type PassSource = 'stripe' | 'play' | 'apple' | 'amazon' | 'grant';
 export const PASS_PRODUCT = 'pitwall.pass.season';
 export const PASS_PRICE_USD = 14.99;
 export const PASS_TIER = 'pitwall';
