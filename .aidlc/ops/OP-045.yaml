@@ -1,0 +1,47 @@
+id: OP-045
+title: Publish the first wire and the forecast map for Baku (F-070)
+kind: pitwall-job
+status: applied
+params:
+  job: projections
+  session: fp3
+created_at: 2026-09-25T15:58:45.948Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T15:58:51.802Z
+    head_sha: 4583f08577b03e281b563c5be39208dc9dc36819
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'fp3'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-045/dry-run-2026-09-25T15-58-51-802Z.log
+    log_sha256: e80d4f9674284b6d2c3e4241aa9034fe22de54af7e6069b8903463223848928e
+    lines: 60
+  - step: backup
+    at: 2026-09-25T15:59:15.085Z
+    head_sha: 4583f08577b03e281b563c5be39208dc9dc36819
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-045'/backup.json pw_pages pw_public pw_projections
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-045/backup-2026-09-25T15-59-15-085Z.log
+    log_sha256: c0060d11bfd4a3245cc603a2ee2db33c3113770c266b401e126067b613516f07
+    lines: 3
+  - step: gates
+    at: 2026-09-25T15:59:15.965Z
+    head_sha: 4583f08577b03e281b563c5be39208dc9dc36819
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T15:59:15.966Z
+    head_sha: 4583f08577b03e281b563c5be39208dc9dc36819
+    command: bash scripts/ops/pitwall-job.sh apply 'projections' 'fp3'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-045/apply-2026-09-25T15-59-15-966Z.log
+    log_sha256: 2f634b607ea74a42a11637176b5b8f54300e46e5e99f5879426fc52e9d68bc51
+    lines: 60
+  - step: gates
+    at: 2026-09-25T15:59:22.394Z
+    head_sha: 4583f08577b03e281b563c5be39208dc9dc36819
+    exit: 0
+    gates:
+      G15: skip

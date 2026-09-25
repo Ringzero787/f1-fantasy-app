@@ -1,0 +1,38 @@
+id: OP-046
+title: "Portal deploy: the wire tile and the forecast map (F-070)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-25T15:58:51.545Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T15:59:30.411Z
+    head_sha: 4583f08577b03e281b563c5be39208dc9dc36819
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-046/dry-run-2026-09-25T15-59-30-411Z.log
+    log_sha256: 35852f22a248154fb83edbcc19d15d71eec2b4198fd350fb59c55399dfce5dc5
+    lines: 66
+  - step: gates
+    at: 2026-09-25T16:01:52.383Z
+    head_sha: 4583f08577b03e281b563c5be39208dc9dc36819
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T16:01:52.388Z
+    head_sha: 4583f08577b03e281b563c5be39208dc9dc36819
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-046/apply-2026-09-25T16-01-52-388Z.log
+    log_sha256: 6a49577be1c85b66526fcec231bc3f16e49c2fe1a7df5243e287ba7c389ed90a
+    lines: 77
+  - step: gates
+    at: 2026-09-25T16:04:25.299Z
+    head_sha: 4583f08577b03e281b563c5be39208dc9dc36819
+    exit: 0
+    gates:
+      G15: skip
