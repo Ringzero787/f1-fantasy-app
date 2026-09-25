@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useStore } from '../state';
 import { aceChange, planSave, CONTRACT_LENGTH } from '../data/team';
 import { RealRoster, SavePreview } from '../ui/RealLineup';
-import { Arrow, AsTable, FitCell, Pill, TeamBar, Tile, Tr } from '../ui/bits';
+import { Empty, Arrow, AsTable, FitCell, Pill, TeamBar, Tile, Tr } from '../ui/bits';
 import { Compare } from '../ui/Compare';
 
 export function LineupLab() {
@@ -73,9 +73,13 @@ export function LineupLab() {
           {confirming && plan ? <SavePreview plan={plan} aceTo={ace?.to ?? null} onCancel={() => setConfirming(false)} onConfirm={async () => { setConfirming(false); await save(); }} /> : null}
         </section>
         <Tile label="Hindsight · last 5 rounds">
+          {/* Fixed numbers, not this team's rounds. Hindsight needs the scored lineups, which
+              nothing publishes yet. */}
+          {!has.mock ? <Empty>Hindsight is not published yet. It needs what your lineup actually scored against the best possible one.</Empty> : <>
           <div className="bars" style={{ height: 56 }}>{hindsight.map((v, i) => <span key={i} className="hit" style={{ height: `${v}%` }} data-tip={`You scored ${v}% of the optimal lineup`} />)}</div>
           <span className="mut">Your score as a share of the best possible lineup. Ace calls cost you most: 2 of 5 correct.</span>
           <AsTable caption="Share of the optimal lineup scored per round" head={['Round', 'Share of optimal']} rows={hindsight.map((v, i) => [`RD ${p.round.number - 5 + i}`, `${v}%`])} />
+          </>}
         </Tile>
       </div>
       <div className="c6" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

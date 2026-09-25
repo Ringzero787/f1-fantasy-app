@@ -73,18 +73,18 @@ export const EXAMPLE_LINEUP: Lineup = { drivers: ['norris', 'leclerc', 'sainz', 
  */
 export function bareExamplePayload(free = false): Payload {
   const p = examplePayload();
-  // The free document strips everything the pass buys and zeroes the median past the top ten,
-  // exactly as the worker does, so the preview shows what a signed-out-of-the-pass user sees.
-  const strip = (d: Payload['drivers'][number], i: number) => (free
-    ? { ...d, med: i < 10 ? d.med : 0, floor: 0, ceil: 0, dnf: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0 }
+  // The free document keeps every median and strips what the pass buys, exactly as the worker
+  // does, so the preview shows what a reader without a pass sees.
+  const strip = (d: Payload['drivers'][number]) => (free
+    ? { ...d, floor: 0, ceil: 0, dnf: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0 }
     : d);
   return {
     ...p,
-    constructors: free ? p.constructors.map((c, i) => ({ ...c, med: i < 3 ? c.med : 0, floor: 0, ceil: 0, val: 0 })) : p.constructors,
+    constructors: free ? p.constructors.map((c) => ({ ...c, floor: 0, ceil: 0, val: 0 })) : p.constructors,
     example: false,
     news: [],
     rivals: [],
     league: { name: '', size: 0, myRank: 0 },
-    drivers: p.drivers.map((d, i) => strip({ ...d, own: 0, q: 0, r: 0, fit: d.fit.map(() => 3) }, i)),
+    drivers: p.drivers.map((d) => strip({ ...d, own: 0, q: 0, r: 0, fit: d.fit.map(() => 3) })),
   };
 }

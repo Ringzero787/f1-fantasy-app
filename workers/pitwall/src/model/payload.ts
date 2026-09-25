@@ -41,7 +41,7 @@ const shortName = (name: string) => name.trim().split(/\s+/).pop() ?? name;
 
 export function buildPayload(i: PayloadInputs) {
   const byId = new Map(i.projections.map((p) => [p.entityId, p]));
-  const teams = Object.fromEntries(i.constructors.map((c) => [c.id, { id: c.id, name: shortTeamName(c.name), color: c.colors?.primary ?? '#7A7A7A' }]));
+  const teams = Object.fromEntries(i.constructors.map((c) => [c.id, { id: c.id, name: shortTeamName(c.name, c.id), color: c.colors?.primary ?? '#7A7A7A' }]));
   const drivers = i.drivers.filter((d) => d.isActive).map((d) => {
     const p = byId.get(d.id);
     const med = p ? Math.round(p.median) : 0;
@@ -68,7 +68,7 @@ export function buildPayload(i: PayloadInputs) {
   }).sort((a, b) => b.med - a.med);
   const constructors = i.constructors.map((c) => {
     const p = byId.get(c.id); const med = p ? Math.round(p.median) : 0;
-    return { id: c.id, name: shortTeamName(c.name), team: c.id, price: c.price, med, floor: p ? Math.round(p.floor) : 0, ceil: p ? Math.round(p.ceiling) : 0, val: c.price > 0 ? r1((med / c.price) * 100) : 0, ctor: true as const };
+    return { id: c.id, name: shortTeamName(c.name, c.id), team: c.id, price: c.price, med, floor: p ? Math.round(p.floor) : 0, ceil: p ? Math.round(p.ceiling) : 0, val: c.price > 0 ? r1((med / c.price) * 100) : 0, ctor: true as const };
   }).sort((a, b) => b.med - a.med);
 
   const full = {
@@ -82,9 +82,9 @@ export function buildPayload(i: PayloadInputs) {
     league: { name: '', size: 0, myRank: 0 },
     model: { runs: 10000, band: 'central 70% of finishing runs', pDnfSeparate: true },
   };
-  // Free look: the top-10 medians and nothing else the pass buys. Every driver and constructor is
-  // still listed, because identity and price are not what is being sold and the portal needs the
-  // whole grid to edit a lineup — a free user holding the 11th-ranked driver must still see them.
+  // Free look: the projection itself is free for the whole grid, and the analysis built on it is
+  // what the pass buys. Holding back medians past the top ten made a reader's own lineup impossible
+  // to total, which is worse than useless: it produced a number that was simply wrong.
   const stripped = { floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] as number[], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0 };
   // Built field by field rather than spread from `full`: a spread would hand the free document
   // every field added to the paid one later, so the next thing published (tagged news, rival
@@ -96,8 +96,8 @@ export function buildPayload(i: PayloadInputs) {
     rounds: full.rounds,
     budget: full.budget,
     teams: full.teams,
-    drivers: drivers.map((d, i) => ({ ...d, ...stripped, med: i < 10 ? d.med : 0 })),
-    constructors: constructors.map((c, i) => ({ ...c, floor: 0, ceil: 0, val: 0, med: i < 3 ? c.med : 0 })),
+    drivers: drivers.map((d) => ({ ...d, ...stripped })),
+    constructors: constructors.map((c) => ({ ...c, floor: 0, ceil: 0, val: 0 })),
     news: [] as never[],
     rivals: [] as never[],
     league: { name: '', size: 0, myRank: 0 },
@@ -106,8 +106,23 @@ export function buildPayload(i: PayloadInputs) {
   return { full, free };
 }
 
-export function shortTeamName(name: string): string {
-  // "Oracle Red Bull Racing" -> "Red Bull", "Mercedes-AMG Petronas F1 Team" -> "Mercedes": strip sponsors and series words
-  const words = name.replace(/\b(F1|Formula\s*1|Team|Racing|Scuderia|Petronas|Oracle|Aramco|MoneyGram|BWT|AMG|Motorsport)\b/gi, ' ').replace(/[-]/g, ' ').replace(/\s+/g, ' ').trim();
+/**
+ * Short constructor names by id, the same list the app uses in `src/simple/grid/entityNames.ts`,
+ * so a team reads the same in the app and the portal.
+ */
+const TEAM_NAMES: Record<string, string> = {
+  mclaren: 'McLaren', ferrari: 'Ferrari', mercedes: 'Mercedes', red_bull: 'Red Bull',
+  williams: 'Williams', haas: 'Haas', aston_martin: 'Aston Martin', alpine: 'Alpine',
+  rb: 'RB', racing_bulls: 'RB', audi: 'Audi', cadillac: 'Cadillac',
+};
+
+export function shortTeamName(name: string, id?: string): string {
+  if (id && TEAM_NAMES[id]) return TEAM_NAMES[id];
+  // Fallback for an id we do not know: strip sponsors and series words. Note it cannot be trusted
+  // on its own — "Racing Bulls" comes out of it as "Bulls", which is why the map above exists.
+  const stripped = name.replace(/\b(F1|Formula\s*(?:1|One)|Team|Scuderia|Petronas|Oracle|Aramco|MoneyGram|BWT|AMG|Motorsport)\b/gi, ' ').replace(/[-]/g, ' ').replace(/\s+/g, ' ').trim();
+  // "Racing" only ever goes from the end: "Oracle Red Bull Racing" is Red Bull, and "Racing Bulls"
+  // is not "Bulls".
+  const words = stripped.replace(/\s+Racing$/i, '').trim();
   return words || name;
 }

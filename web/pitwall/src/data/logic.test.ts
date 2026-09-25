@@ -105,5 +105,12 @@ describe('display names for the real team', () => {
     expect(shortName('Gasly')).toBe('Gasly');
     expect(shortTeamName('Aston Martin Aramco Formula One Team')).toBe('Aston Martin');
     expect(shortTeamName('Mercedes-AMG Petronas F1 Team')).toBe('Mercedes');
+    // the id wins where we know it: stripping sponsor words alone turns this one into "Bulls"
+    expect(shortTeamName('Racing Bulls', 'racing_bulls')).toBe('RB');
+    // and the fallback alone no longer mangles it, because Racing only goes from the end
+    expect(shortTeamName('Racing Bulls')).toBe('Racing Bulls');
+    expect(shortTeamName('Oracle Red Bull Racing')).toBe('Red Bull');
+    expect(shortTeamName('Visa Cash App Racing Bulls', 'racing_bulls')).toBe('RB');
+    expect(shortTeamName('Aston Martin Aramco F1 Team', 'aston_martin')).toBe('Aston Martin');
   });
 });

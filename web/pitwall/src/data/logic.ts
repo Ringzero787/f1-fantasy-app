@@ -54,8 +54,23 @@ export function spent(p: Payload, l: Lineup): number {
  */
 export const shortName = (name: string): string => name.trim().split(/\s+/).pop() ?? name;
 
-export function shortTeamName(name: string): string {
-  const words = name.replace(/\b(F1|Formula\s*(?:1|One)|Team|Racing|Scuderia|Petronas|Oracle|Aramco|MoneyGram|BWT|AMG|Motorsport)\b/gi, ' ').replace(/[-]/g, ' ').replace(/\s+/g, ' ').trim();
+/**
+ * Short constructor names, by id, matching `src/simple/grid/entityNames.ts` in the app so a team
+ * reads the same in both. The sponsor-stripping fallback below is only for an id we do not know:
+ * it cannot be trusted on its own, because "Racing Bulls" comes out of it as "Bulls".
+ */
+const TEAM_NAMES: Record<string, string> = {
+  mclaren: 'McLaren', ferrari: 'Ferrari', mercedes: 'Mercedes', red_bull: 'Red Bull',
+  williams: 'Williams', haas: 'Haas', aston_martin: 'Aston Martin', alpine: 'Alpine',
+  rb: 'RB', racing_bulls: 'RB', audi: 'Audi', cadillac: 'Cadillac',
+};
+
+export function shortTeamName(name: string, id?: string): string {
+  if (id && TEAM_NAMES[id]) return TEAM_NAMES[id];
+  const stripped = name.replace(/\b(F1|Formula\s*(?:1|One)|Team|Scuderia|Petronas|Oracle|Aramco|MoneyGram|BWT|AMG|Motorsport)\b/gi, ' ').replace(/[-]/g, ' ').replace(/\s+/g, ' ').trim();
+  // "Racing" only ever goes from the end: "Oracle Red Bull Racing" is Red Bull, and "Racing Bulls"
+  // is not "Bulls".
+  const words = stripped.replace(/\s+Racing$/i, '').trim();
   return words || name;
 }
 

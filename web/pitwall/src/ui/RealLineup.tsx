@@ -37,7 +37,7 @@ export function RealRoster() {
         return (
           <button type="button" className="dt ctor" aria-pressed={ui.slot === 'CTOR'} aria-label={`${m?.name ?? cid}, constructor. Show swaps`} onClick={() => toggleSlot('CTOR')}>
             <span style={{ display: 'flex', justifyContent: 'space-between' }} className="mut"><span><span className="red">TEAM</span>{own ? '' : <> <Pill red>NEW</Pill></>}</span><span className="num">{money(m?.price ?? own?.currentPrice ?? 0)}</span></span>
-            <span><span className="nm">{shortTeamName(m?.name ?? own?.name ?? cid)}</span><span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(cid)} /></span><span className="num mut">{left === null ? 'new contract' : `${left} race${left === 1 ? '' : 's'} left`}</span></span></span>
+            <span><span className="nm">{shortTeamName(m?.name ?? own?.name ?? cid, cid)}</span><span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(cid)} /></span><span className="num mut">{left === null ? 'new contract' : `${left} race${left === 1 ? '' : 's'} left`}</span></span></span>
           </button>
         );
       })()}

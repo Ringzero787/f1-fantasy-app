@@ -41,8 +41,10 @@ function Present({ d }: { d: Entity }) {
 }
 
 function Past({ d }: { d: Entity }) {
+  const { has } = useStore();
   const drv = isCtor(d) ? null : d;
-  const hist = drv ? drv.form : Array.from({ length: 16 }, (_, i) => d.med + Math.round(Math.sin(i) * 12));
+  // A constructor has no published per-round series; the example set draws a curve for it.
+  const hist = drv ? drv.form : has.mock ? Array.from({ length: 16 }, (_, i) => d.med + Math.round(Math.sin(i) * 12)) : [];
   const mx = Math.max(...hist, 1);
   const splits: Array<[string, number]> = [['Street circuits', 1.12], ['High-speed', 0.96], ['High-downforce', 0.9], ['Wet sessions', 1.2], ['Sprint weekends', 1.05]];
   return (
@@ -50,10 +52,13 @@ function Past({ d }: { d: Entity }) {
       <div><Lbl>Season so far · {hist.length} rounds</Lbl>
         <div className="bars" style={{ marginTop: 10 }}>{hist.map((v, i) => <span key={i} className="hit" style={{ height: `${(v / mx) * 100}%` }} data-tip={`RD ${i + 1}: ${v} pts`} />)}</div>
         <AsTable caption="Points per round this season" head={['Round', 'Points']} rows={hist.map((v, i) => [`RD ${i + 1}`, v])} /></div>
-      <div><Lbl>Splits · avg points</Lbl>{splits.map(([l, f]) => <Row key={l} cols="1fr auto auto"><span>{l}</span><span className="num">{(d.med * f).toFixed(1)}</span><span className="num"><Arrow n={Math.round(d.med * f - d.med)} /></span></Row>)}</div>
-      <div><Lbl>Season profile · percentile vs field</Lbl>{['Qualifying', 'Starts', 'Lap one', 'Race pace', 'Tyre management', 'Pit stops', 'Overtaking'].map((l, i) => { const v = Math.min(98, Math.round(d.med * 1.4 + ((d.price * 7 + i * 13) % 25))); return (
+      {/* Both of these are arithmetic on the projection dressed up as measurement: the split
+          multipliers are fixed, and the "percentiles" are a hash of the price. They may only be
+          drawn against the example set. */}
+      {has.mock ? <div><Lbl>Splits · avg points</Lbl>{splits.map(([l, f]) => <Row key={l} cols="1fr auto auto"><span>{l}</span><span className="num">{(d.med * f).toFixed(1)}</span><span className="num"><Arrow n={Math.round(d.med * f - d.med)} /></span></Row>)}</div> : null}
+      {has.mock ? <div><Lbl>Season profile · percentile vs field</Lbl>{['Qualifying', 'Starts', 'Lap one', 'Race pace', 'Tyre management', 'Pit stops', 'Overtaking'].map((l, i) => { const v = Math.min(98, Math.round(d.med * 1.4 + ((d.price * 7 + i * 13) % 25))); return (
         <Row key={l} cols="1fr 110px 30px"><span>{l}</span><Meter pct={v} /><span className="num">{v}</span></Row>
-      ); })}</div>
+      ); })}</div> : <div><Lbl>Splits and season profile</Lbl><Empty>Not published yet. These need the per-circuit and per-session history behind a driver's season.</Empty></div>}
     </>
   );
 }
