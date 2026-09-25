@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from "../config/constants";
 import { useTheme } from "../hooks";
 import { usePrefsStore } from "../store/prefs.store";
-import { SUPPORTED, setLanguage, type LanguageCode } from "../i18n";
+import { SUPPORTED, type LanguageCode } from "../i18n";
 
 /**
  * Language row for the profile Display section. Choosing a language persists it, so it survives a
@@ -19,17 +19,15 @@ export function LanguagePicker() {
   const setSaved = usePrefsStore((s) => s.setLanguage);
   const active = (saved ?? i18n.resolvedLanguage ?? i18n.language ?? "en").split("-")[0];
 
-  const choose = (code: LanguageCode) => {
-    setSaved(code);
-    setLanguage(code);
-  };
+  // Storing the choice is enough: src/i18n/bootstrap subscribes to the store and switches i18next.
+  const choose = (code: LanguageCode) => setSaved(code);
 
   return (
     <>
       <View style={styles.divider} />
       <View style={styles.row}>
         <View style={[styles.iconBox, { backgroundColor: theme.primary + "15" }]}>
-          <Ionicons name="language-outline" size={18} color={theme.primary} />
+          <Ionicons name="language-outline" size={18} color={theme.primary} accessibilityElementsHidden importantForAccessibility="no" />
         </View>
         <Text style={styles.label}>{t("settings.language")}</Text>
       </View>
