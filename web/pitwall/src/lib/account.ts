@@ -20,8 +20,18 @@ export async function loadAccount(uid: string): Promise<Account> {
       out.leagueName = (league?.data()?.name as string | undefined) ?? null;
     }
   }
-  const next = await m.getDocs(m.query(m.collection(db, 'races'), m.where('seasonId', '==', '2026'), m.where('status', '==', 'upcoming'), m.orderBy('round'), m.limit(1))).catch(() => null);
-  const race = next?.docs[0]?.data();
+  // The round being run, else the next one. Asking only for `upcoming` skipped the weekend in
+  // progress, so the bar announced the next race while every projection on the page was for the one
+  // being run — the page contradicted itself from the first line.
+  const rounds = await m.getDocs(m.query(
+    m.collection(db, 'races'),
+    m.where('seasonId', '==', '2026'),
+    m.where('status', 'in', ['in_progress', 'upcoming']),
+    m.orderBy('round'),
+    m.limit(6),
+  )).catch(() => null);
+  const docs = (rounds?.docs ?? []).map((d) => d.data());
+  const race = docs.find((r) => r.status === 'in_progress') ?? docs[0];
   if (race) {
     const s = (race.schedule ?? {}) as Record<string, unknown>;
     const schedule: RaceSchedule = { fp1: toDate(s.fp1), fp3: toDate(s.fp3), sprintQualifying: toDate(s.sprintQualifying), qualifying: toDate(s.qualifying), race: toDate(s.race) };
