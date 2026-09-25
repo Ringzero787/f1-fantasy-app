@@ -70,11 +70,17 @@ function injectReleaseSigning(src, pw) {
     }
   }
   // 2. Switch buildTypes.release to use signingConfigs.release instead of debug.
+  //    Groovy accepts both the method-call form the Android template generates
+  //    (`signingConfig signingConfigs.debug`) and the assignment form
+  //    (`signingConfig = signingConfigs.debug`). expo-iap's plugin rewrites the
+  //    generated file into the assignment form, so both are matched here and the
+  //    operator is kept as it was found. This check must never be relaxed into a
+  //    silent no-op: without it a store build would go out signed with the debug key.
   out = out.replace(
-    /(buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?signingConfig\s+)signingConfigs\.debug/,
+    /(buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?signingConfig\s*(?:=\s*|\s))signingConfigs\.debug/,
     '$1signingConfigs.release',
   );
-  if (!/buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?signingConfig\s+signingConfigs\.release/.test(out)) {
+  if (!/buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?signingConfig\s*(?:=\s*|\s)signingConfigs\.release/.test(out)) {
     throw new Error('withReleaseSigning: buildTypes.release still does not use signingConfigs.release — the Android template changed; update the anchor');
   }
   return out;

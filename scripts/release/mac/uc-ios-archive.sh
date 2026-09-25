@@ -44,7 +44,12 @@ npm ci --legacy-peer-deps
 echo "== prebuild ios"
 npx expo prebuild --platform ios --clean --no-install
 echo "== pod install"
-(cd ios && pod install)
+# A pod the Mac's spec repo has never seen (expo-iap's `openiap`) fails resolution until the repo
+# is refreshed. Refreshing every time costs minutes, so it is only done on the retry.
+(cd ios && pod install) || {
+  echo "== pod install failed; refreshing the spec repo and retrying"
+  (cd ios && pod install --repo-update)
+}
 
 echo "== keychain"
 security create-keychain -p "$KC_PW" "$KC"

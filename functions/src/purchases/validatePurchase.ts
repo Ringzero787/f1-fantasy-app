@@ -2,12 +2,17 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { GoogleAuth } from 'google-auth-library';
 import { warnIfNoAppCheck } from '../utils/appCheck';
+import { verifyAppleTransaction } from './appleTransaction';
+import { PASS_PRODUCT, currentSeason } from '../pitwall/pass';
+import { grantPass } from '../pitwall/passStore';
 
 const db = admin.firestore();
 
 // The Play package the purchase token belongs to. This was 'com.f1fantasy.app'
 // (a pre-launch id), which made every Google Play verification fail.
 export const PLAY_PACKAGE_NAME = 'com.undercut.app';
+/** The same identifier on the App Store; a signed transaction names the app it belongs to. */
+export const IOS_BUNDLE_ID = 'com.undercut.app';
 const PACKAGE_NAME = PLAY_PACKAGE_NAME;
 
 /**
@@ -102,6 +107,38 @@ async function verifyGooglePlayPurchase(
 }
 
 /**
+ * Verify an Amazon Appstore receipt with Amazon's Receipt Verification Service.
+ *
+ * Amazon needs three things: the shared secret from the developer console, the receipt id (which
+ * the client sends as the purchase token) and the Amazon user id, which is per app and per user
+ * and is only available from the purchase itself. The secret lives in the function config beside
+ * Apple's, deliberately not as a declared secret: firebase resolves every declared secret before
+ * it filters a deploy by target, so one missing value would block every functions deploy.
+ */
+async function verifyAmazonReceipt(
+  receiptId: string,
+  amazonUserId: string,
+  productId: string
+): Promise<{ valid: boolean; error?: string }> {
+  const sharedSecret = functions.config().amazon?.shared_secret;
+  if (!sharedSecret) return { valid: false, error: 'Amazon shared secret not configured' };
+  try {
+    const url = `https://appstore-sdk.amazon.com/version/1.0/verifyReceiptId/developer/${encodeURIComponent(sharedSecret)}/user/${encodeURIComponent(amazonUserId)}/receiptId/${encodeURIComponent(receiptId)}`;
+    const response = await fetch(url);
+    if (!response.ok) return { valid: false, error: `Amazon RVS returned ${response.status}` };
+    const data = (await response.json()) as Record<string, unknown>;
+    if (data.productId !== productId) return { valid: false, error: `Receipt is for ${String(data.productId)}, not ${productId}` };
+    // cancelDate is set when a purchase was refunded or revoked.
+    if (data.cancelDate) return { valid: false, error: 'Purchase was cancelled' };
+    return { valid: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Amazon receipt verification failed:', message);
+    return { valid: false, error: message };
+  }
+}
+
+/**
  * Records a validated purchase in Firestore.
  * Idempotent: duplicate purchaseTokens are rejected gracefully.
  * Validates purchase tokens against Google Play (skipped for demo tokens).
@@ -112,8 +149,11 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
   }
   warnIfNoAppCheck(context, 'validatePurchase');
 
-  const { productId, purchaseToken, transactionReceipt, transactionId, platform } = data;
+  const { productId, purchaseToken, transactionReceipt, transactionId, platform, userIdAmazon } = data;
   const isIOS = platform === 'ios';
+  const isAmazon = platform === 'amazon';
+  /** 'Production' or 'Sandbox' when the store says so. */
+  let environment: string | null = null;
 
   if (!productId) {
     throw new functions.https.HttpsError('invalid-argument', 'productId is required');
@@ -130,6 +170,13 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
     throw new functions.https.HttpsError(
       'invalid-argument',
       'purchaseToken is required for Android purchases'
+    );
+  }
+
+  if (isAmazon && !userIdAmazon) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'userIdAmazon is required for Amazon purchases'
     );
   }
 
@@ -166,10 +213,27 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
 
   // Verify purchase with the appropriate store
   if (isIOS) {
-    const verification = await verifyAppleReceipt(transactionReceipt, productId);
+    // StoreKit 2 (2.4.0 and later) sends a signed transaction, which the deprecated verifyReceipt
+    // endpoint cannot read. Older builds still send a base64 app receipt, so both are accepted.
+    const jws = typeof transactionReceipt === 'string' && transactionReceipt.split('.').length === 3;
+    const verification = jws
+      ? verifyAppleTransaction(transactionReceipt, { expectedBundleId: IOS_BUNDLE_ID, expectedProductId: productId })
+      : await verifyAppleReceipt(transactionReceipt, productId);
     if (!verification.valid) {
-      console.warn(`Invalid iOS receipt from user ${userId}: ${verification.error}`);
-      throw new functions.https.HttpsError('permission-denied', 'Invalid iOS receipt');
+      console.warn(`Invalid iOS purchase from user ${userId}: ${verification.error}`);
+      throw new functions.https.HttpsError('permission-denied', 'Invalid iOS purchase');
+    }
+    // A sandbox transaction is properly signed and is not a sale. Both are accepted so the store
+    // review and our own testing work, but which one it was is recorded, so a pass granted from a
+    // test purchase can be found and revoked rather than being indistinguishable from a paid one.
+    if ('transaction' in verification && verification.transaction.environment) {
+      environment = verification.transaction.environment;
+    }
+  } else if (isAmazon) {
+    const verification = await verifyAmazonReceipt(purchaseToken, userIdAmazon, productId);
+    if (!verification.valid) {
+      console.warn(`Invalid Amazon receipt from user ${userId}: ${verification.error}`);
+      throw new functions.https.HttpsError('permission-denied', 'Invalid Amazon receipt');
     }
   } else {
     const verification = await verifyGooglePlayPurchase(productId, purchaseToken);
@@ -183,9 +247,10 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
   const purchaseRecord: Record<string, unknown> = {
     userId,
     productId,
-    platform: isIOS ? 'ios' : 'android',
+    platform: isIOS ? 'ios' : isAmazon ? 'amazon' : 'android',
     status: 'validated',
     validatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    ...(environment ? { environment } : {}),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
@@ -194,9 +259,18 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
     if (transactionId) purchaseRecord.transactionId = transactionId;
   } else {
     purchaseRecord.purchaseToken = purchaseToken;
+    if (isAmazon) purchaseRecord.userIdAmazon = userIdAmazon;
   }
 
   const purchaseRef = await db.collection('purchases').add(purchaseRecord);
+
+  // The Pit Wall Pass is the one product the device does not grant itself: the entitlement is a
+  // custom auth claim the Firestore rules read, stamped from users/{uid}.pass by a trigger. The
+  // grant is keyed on the purchase record, so a replayed receipt cannot extend a pass twice.
+  if (productId === PASS_PRODUCT) {
+    const pass = await grantPass(db, userId, currentSeason(Date.now()), isIOS ? 'apple' : isAmazon ? 'amazon' : 'play', purchaseRef.id);
+    console.log(`[pw] pass granted from ${platform} for ${userId} until ${new Date(pass.expiresAt).toISOString()}`);
+  }
 
   return { success: true, purchaseId: purchaseRef.id };
 });

@@ -2,9 +2,19 @@ export const PRODUCT_IDS = {
   LEAGUE_EXPANSION: 'league.expansion',
   AVATAR_PACK: 'avatar.pack',
   LEAGUE_SLOT: 'league.slot',
+  /**
+   * Pit Wall Pass, one season. Same id in every store and the same id the Stripe checkout puts in
+   * its metadata, so one entitlement is granted whatever the purchase route (F-068, F-077).
+   * Unlike the others this is NOT granted on the device: the server validates the receipt and
+   * writes the pass, a trigger stamps the auth claim, and the Firestore rules read that claim.
+   */
+  PITWALL_PASS: 'pitwall.pass.season',
 } as const;
 
 export const AVATAR_PACK_CREDITS = 20;
+
+/** Everything the store is asked about at start-up. */
+export const ALL_PRODUCT_IDS = Object.values(PRODUCT_IDS);
 
 export const PRODUCTS = {
   [PRODUCT_IDS.LEAGUE_EXPANSION]: {
@@ -27,6 +37,17 @@ export const PRODUCTS = {
       '20 extra AI avatar generations',
       'Use for team, league, or profile avatars',
       'Credits never expire',
+    ],
+  },
+  [PRODUCT_IDS.PITWALL_PASS]: {
+    title: 'Pit Wall Pass',
+    description: 'The full Pit Wall portal for the season, and League Pro for the leagues you own',
+    price: '$14.99',
+    icon: 'analytics' as const,
+    benefits: [
+      'Projections, ranges and retirement risk for the whole grid',
+      'Recommended swaps with the points behind each one',
+      'League Pro for every league you own',
     ],
   },
   [PRODUCT_IDS.LEAGUE_SLOT]: {
