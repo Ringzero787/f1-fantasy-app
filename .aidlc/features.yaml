@@ -1,4 +1,4 @@
-next_id: 81
+next_id: 82
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -858,6 +858,55 @@ features:
       - only
       - pick
       - marks
-  - { id: F-078, name: "TL: UI string extraction and localization", status: planned, created_at: 2026-09-24, summary: "Same pattern as F-079, applied to Track Limits (newgame/). Do it after Undercut proves it: i18next + expo-localization, catalog at newgame/src/i18n/locales/{lang}.json, then add catalogs and scan to localization in .aidlc/aidlc.yaml.", keywords: [localization, i18n, translation, locales] }
-  - { id: F-079, name: "UC: UI string extraction and localization", status: building, spec: .aidlc/specs/F-079.md, created_at: 2026-09-24, summary: "Nine languages for F1 markets. Scaffolding, auth screens and catalogs landed; the rest of the app converts area by area (see spec).", keywords: [localization, i18n, translation, locales] }
-  - { id: F-080, name: "UC: right-to-left support and Arabic", status: idea, created_at: 2026-09-25, summary: "Mirror layouts (start/end instead of left/right, mirrored chevrons, text alignment, bidi where Latin names sit in translated text), verify on device, then add ar to localization.languages and set rtl_ready true. Four Gulf races make Arabic the highest-value next language.", keywords: [rtl, arabic, localization, i18n] }
+  - id: F-078
+    name: "TL: UI string extraction and localization"
+    status: planned
+    created_at: 2026-09-24
+    summary: "Same pattern as F-079, applied to Track Limits (newgame/). Do it after Undercut proves it: i18next +
+      expo-localization, catalog at newgame/src/i18n/locales/{lang}.json, then add catalogs and scan to localization in
+      .aidlc/aidlc.yaml."
+    keywords:
+      - localization
+      - i18n
+      - translation
+      - locales
+  - id: F-079
+    name: "UC: UI string extraction and localization"
+    status: building
+    spec: .aidlc/specs/F-079.md
+    created_at: 2026-09-24
+    summary: Nine languages for F1 markets. Scaffolding, auth screens and catalogs landed; the rest of the app converts area
+      by area (see spec).
+    keywords:
+      - localization
+      - i18n
+      - translation
+      - locales
+  - id: F-080
+    name: "UC: right-to-left support and Arabic"
+    status: idea
+    created_at: 2026-09-25
+    summary: Mirror layouts (start/end instead of left/right, mirrored chevrons, text alignment, bidi where Latin names sit
+      in translated text), verify on device, then add ar to localization.languages and set rtl_ready true. Four Gulf
+      races make Arabic the highest-value next language.
+    keywords:
+      - rtl
+      - arabic
+      - localization
+      - i18n
+  - id: F-081
+    name: "UC: Global launch — five languages, store listings live for SEO, then open the countries"
+    status: planned
+    spec: .aidlc/specs/F-081.md
+    created_at: 2026-09-25
+    keywords:
+      - global
+      - launch
+      - five
+      - languages
+      - store
+      - listings
+      - live
+      - then
+      - open
+      - countries
