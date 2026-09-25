@@ -10,11 +10,12 @@
  * worker has not started publishing yet must leave the page rendering, not crash it.
  */
 import { firestore } from './firebase';
-import type { Constructor, Driver, NewsItem, NewsKind, Payload, Rival, SessionWeather, Team } from '../data/types';
+import type { Constructor, Driver, MapFrame, NewsItem, NewsKind, Payload, Rival, SessionMap, SessionWeather, Team, WeatherMap } from '../data/types';
 
-const NEWS_KINDS: readonly NewsKind[] = ['PENALTY', 'UPGRADE', 'WEATHER', 'RELIABILITY', 'CONTRACT'];
+const NEWS_KINDS: readonly NewsKind[] = ['PENALTY', 'UPGRADE', 'WEATHER', 'RELIABILITY', 'CONTRACT', 'REGULATION', 'PRACTICE', 'QUALIFYING', 'RACE', 'NEWS'];
 
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const str = (v: unknown, d = '') => (typeof v === 'string' ? v : d);
 const nums = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => typeof x === 'number' && Number.isFinite(x)) : []);
 
@@ -45,7 +46,34 @@ function toNews(v: Record<string, unknown>): NewsItem | null {
     kind, entity: typeof v.entity === 'string' ? v.entity : null,
     tone: tone === '+' || tone === '-' ? tone : '•',
     text: str(v.text), sources: str(v.sources), detail: str(v.detail),
+    // only https links reach the page: the field comes from a feed we fetch, not from a reader
+    url: /^https:\/\//.test(str(v.url)) ? str(v.url) : '',
+    publishedAt: str(v.publishedAt),
   };
+}
+
+function toFrame(v: Record<string, unknown>): MapFrame | null {
+  if (!Array.isArray(v.rainMm)) return null;
+  return {
+    offsetH: num(v.offsetH), at: str(v.at),
+    rainMm: v.rainMm.map((x) => (typeof x === 'number' && Number.isFinite(x) ? x : null)),
+    windFromDeg: numOrNull(v.windFromDeg), windKph: numOrNull(v.windKph),
+  };
+}
+
+function toWeatherMap(raw: unknown): WeatherMap | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const m = raw as Record<string, unknown>;
+  const c = (m.center && typeof m.center === 'object' ? m.center : {}) as Record<string, unknown>;
+  const radius = num(m.radius), spacingKm = num(m.spacingKm);
+  const side = 2 * radius + 1;
+  const sessions: SessionMap[] = objects(m.sessions).map((s) => ({
+    key: str(s.key), label: str(s.label), at: str(s.at),
+    // a frame with the wrong number of cells would draw a scrambled grid; drop it instead
+    frames: objects(s.frames).map(toFrame).filter((f): f is MapFrame => f !== null && f.rainMm.length === side * side),
+  })).filter((s) => s.key && s.frames.length > 0);
+  if (!radius || !spacingKm || !sessions.length) return null;
+  return { center: { lat: num(c.lat), lon: num(c.lon) }, radius, spacingKm, sessions };
 }
 
 function toRival(v: Record<string, unknown>): Rival {
@@ -55,8 +83,6 @@ function toRival(v: Record<string, unknown>): Rival {
     bank: num(v.bank), activity: num(v.activity),
   };
 }
-
-const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 function toWeather(v: Record<string, unknown>): SessionWeather | null {
   const key = str(v.key), label = str(v.label), at = str(v.at);
@@ -95,6 +121,7 @@ export function toPayload(raw: Record<string, unknown>): Payload {
     league: { name: str(league.name), size: num(league.size), myRank: num(league.myRank) },
     weather: objects(raw.weather).map(toWeather).filter((w): w is SessionWeather => w !== null),
     weatherSource: typeof raw.weatherSource === 'string' ? raw.weatherSource : null,
+    weatherMap: toWeatherMap(raw.weatherMap),
   };
 }
 

@@ -33,11 +33,13 @@ export interface Coverage {
   priceModel: boolean;
   /** a session forecast for this round */
   weather: boolean;
+  /** the forecast grid around the circuit */
+  weatherMap: boolean;
   /** frames that still have no published source at all and only exist in the example set */
   mock: boolean;
 }
 
-export const FULL_COVERAGE: Coverage = { timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, mock: true };
+export const FULL_COVERAGE: Coverage = { timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, weatherMap: true, mock: true };
 
 export function coverage(p: Payload): Coverage {
   const fitValues = new Set<number>();
@@ -52,6 +54,7 @@ export function coverage(p: Payload): Coverage {
     form: p.drivers.some((d) => d.form.length > 0),
     priceModel: p.drivers.some((d) => d.ptsRise > 0),
     weather: p.weather.length > 0,
+    weatherMap: p.weatherMap !== null && p.weatherMap.sessions.length > 0,
     // Circuit characteristics, the title simulation, power unit use and price history have no
     // published source yet (F-072 and the pipeline work behind it). They are drawn from the row
     // order in the example set, which is fine for a demo and a lie against real data.
@@ -64,11 +67,12 @@ export const NOT_PUBLISHED: Record<keyof Coverage, string> = {
   timing: 'Session timing has not been published for this round yet.',
   ownership: 'League ownership is not published yet.',
   fit: 'Circuit fit is not published yet.',
-  news: 'No tagged stories for this round yet.',
+  news: 'No headlines from the official feeds in the last week.',
   rivals: 'Rival lineups are not published yet.',
   league: 'No league context for this team yet.',
   form: 'No scored rounds yet this season.',
   priceModel: 'The price model is not published yet.',
   weather: 'No session forecast for this round yet.',
+  weatherMap: 'No forecast map for this round yet.',
   mock: 'Not published yet.',
 };

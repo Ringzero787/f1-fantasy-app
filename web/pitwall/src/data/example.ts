@@ -49,11 +49,11 @@ export function examplePayload(): Payload {
     { key: 'race', label: 'Race', at: '2026-09-27T11:00:00.000Z', tempC: 21, rainMm: 1.4, sky: 'light showers', windKph: 22 },
   ];
   const news: NewsItem[] = [
-    { kind: 'PENALTY', entity: 'hamilton', tone: '-', text: 'Ferrari confirms a new energy store for Hamilton: 10-place grid drop in Baku.', sources: '2 sources', detail: 'Governing-body doc 14 · team release' },
-    { kind: 'UPGRADE', entity: 'mclaren', tone: '+', text: 'McLaren brings a low-drag rear wing; long straights suit it.', sources: '3 sources', detail: 'Team release · 2 outlets' },
-    { kind: 'WEATHER', entity: null, tone: '•', text: 'Race-day rain chance up from 10% to 35%. Wet delta favours Verstappen, Alonso.', sources: 'model', detail: 'Forecast feed' },
-    { kind: 'RELIABILITY', entity: 'alonso', tone: '-', text: 'Aston Martin investigating a gearbox issue from Madrid; no penalty yet.', sources: '2 sources', detail: '2 outlets · unconfirmed' },
-    { kind: 'CONTRACT', entity: 'colapinto', tone: '•', text: 'Alpine seat for 2027 still open; no change to this weekend.', sources: '4 sources', detail: '4 outlets' },
+    { kind: 'PENALTY', entity: 'hamilton', tone: '-', text: 'Ferrari confirms a new energy store for Hamilton: 10-place grid drop in Baku.', sources: '2 sources', detail: 'Governing-body doc 14 · team release', url: '', publishedAt: '2026-09-24T09:00:00.000Z' },
+    { kind: 'UPGRADE', entity: 'mclaren', tone: '+', text: 'McLaren brings a low-drag rear wing; long straights suit it.', sources: '3 sources', detail: 'Team release · 2 outlets', url: '', publishedAt: '2026-09-24T09:00:00.000Z' },
+    { kind: 'WEATHER', entity: null, tone: '•', text: 'Race-day rain chance up from 10% to 35%. Wet delta favours Verstappen, Alonso.', sources: 'model', detail: 'Forecast feed', url: '', publishedAt: '2026-09-24T09:00:00.000Z' },
+    { kind: 'RELIABILITY', entity: 'alonso', tone: '-', text: 'Aston Martin investigating a gearbox issue from Madrid; no penalty yet.', sources: '2 sources', detail: '2 outlets · unconfirmed', url: '', publishedAt: '2026-09-24T09:00:00.000Z' },
+    { kind: 'CONTRACT', entity: 'colapinto', tone: '•', text: 'Alpine seat for 2027 still open; no change to this weekend.', sources: '4 sources', detail: '4 outlets', url: '', publishedAt: '2026-09-24T09:00:00.000Z' },
   ];
   const rivals: Rival[] = [
     { name: 'Turn One', rank: 1, gap: 33, lineup: ['verstappen', 'russell', 'hadjar', 'albon', 'lawson'], bank: 120, activity: 0.85 },
@@ -67,6 +67,13 @@ export function examplePayload(): Payload {
     rounds: ['BAK', 'SIN', 'AUS', 'MEX', 'SAO', 'LVG'], budget: 2250, teams: TEAMS, drivers, constructors, news, rivals,
     league: { name: 'Sunday Drivers', size: 10, myRank: 2 },
     weather, weatherSource: 'Example forecast',
+    // a 5x5 grid with a band of rain to the north-west drifting towards the circuit, so the map
+    // has something to draw in the design preview
+    weatherMap: { center: { lat: 40.37, lon: 49.85 }, radius: 2, spacingKm: 40, sessions: [{ key: 'race', label: 'Race', at: '2026-09-27T11:00:00.000Z', frames: [-3, 0, 3].map((offsetH) => ({
+      offsetH, at: new Date(Date.parse('2026-09-27T11:00:00.000Z') + offsetH * 3600000).toISOString(),
+      rainMm: Array.from({ length: 25 }, (_, i) => { const dx = (i % 5) - 2, dy = Math.floor(i / 5) - 2; const shift = (offsetH + 3) / 3; const d = Math.hypot(dx + 2 - shift * 1.2, dy + 2 - shift * 1.2); return d < 1.6 ? Math.round((1.6 - d) * 30) / 10 : 0; }),
+      windFromDeg: 315, windKph: 22,
+    })) }] },
   };
 }
 

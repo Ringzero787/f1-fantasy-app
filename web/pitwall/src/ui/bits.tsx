@@ -77,8 +77,8 @@ export const Meter = ({ pct, red, style }: { pct: number; red?: boolean; style?:
 const onKey = (fn: () => void) => (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
 
 /** A clickable row: real button semantics for keyboard and screen readers. */
-export function Row({ cols, onClick, selected, pad, two, tip, label, children }: { cols?: string; onClick?: () => void; selected?: boolean; pad?: boolean; two?: boolean; tip?: string; label?: string; children: ReactNode }) {
-  const cls = `row ${onClick ? 'click' : ''} ${selected ? 'sel' : ''} ${pad ? 'pad' : ''} ${two ? 'two' : ''}`;
+export function Row({ cols, onClick, selected, pad, two, dense, tip, label, children }: { cols?: string; onClick?: () => void; selected?: boolean; pad?: boolean; two?: boolean; dense?: boolean; tip?: string; label?: string; children: ReactNode }) {
+  const cls = `row ${onClick ? 'click' : ''} ${selected ? 'sel' : ''} ${pad ? 'pad' : ''} ${two ? 'two' : ''} ${dense ? 'dense' : ''}`;
   const style = cols ? { gridTemplateColumns: cols } : undefined;
   if (!onClick) return <div className={cls} style={style} data-tip={tip}>{children}</div>;
   return <div className={cls} style={style} role="button" tabIndex={0} aria-pressed={selected} aria-label={label} data-tip={tip} onClick={onClick} onKeyDown={onKey(onClick)}>{children}</div>;
