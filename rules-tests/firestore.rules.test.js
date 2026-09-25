@@ -358,3 +358,20 @@ test('a league owner cannot stamp League Pro on their own league', async () => {
   await assertFails(getDoc(doc(db(ALICE), 'pw_grants', 'evt_1')));
   await assertFails(setDoc(doc(db(ALICE), 'pw_grants', 'evt_2'), { uid: ALICE }));
 });
+
+// ── F-071 the wire: reading history and ratings are the reader's own, and nobody else's ──
+test('a reader keeps their own wire history; nobody else, admin included, can read it', async () => {
+  const mine = doc(db(ALICE), 'users', ALICE, 'pitwall', 'wire');
+  await assertSucceeds(setDoc(mine, { read: { k1: 1 }, liked: { k1: 1 }, updatedAt: 1 }));
+  await assertSucceeds(getDoc(mine));
+  // only the two maps and the stamp: the document is not a place to park other data
+  await assertFails(setDoc(mine, { read: {}, liked: {}, updatedAt: 1, notes: 'x' }));
+  await assertFails(setDoc(mine, { read: 'k1', liked: {}, updatedAt: 1 }));
+  // one document, by name
+  await assertFails(setDoc(doc(db(ALICE), 'users', ALICE, 'pitwall', 'other'), { read: {}, liked: {}, updatedAt: 1 }));
+  // another reader, and an admin, get nothing
+  await assertFails(getDoc(doc(db(MALLORY), 'users', ALICE, 'pitwall', 'wire')));
+  await assertFails(setDoc(doc(db(MALLORY), 'users', ALICE, 'pitwall', 'wire'), { read: {}, liked: {}, updatedAt: 1 }));
+  const adminDb = env.authenticatedContext('admin-1', { admin: true }).firestore();
+  await assertFails(getDoc(doc(adminDb, 'users', ALICE, 'pitwall', 'wire')));
+});

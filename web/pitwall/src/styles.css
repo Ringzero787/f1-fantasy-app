@@ -113,6 +113,11 @@ a{color:inherit}
 .name{min-width:0}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .srow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+/* the three controls on a headline: small, and stacked on a phone so the row keeps one width */
+.nctl{gap:4px;flex-wrap:nowrap}
+.nctl .chip{padding:4px 7px}
+.row.dense .nctl .chip{padding:3px 6px}
+@media(max-width:560px){.newsrow .row{grid-template-columns:1fr auto !important}}
 button.linkish{text-decoration:underline;text-underline-offset:3px}
 .tray{position:sticky;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--border);padding:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .tray .chip{display:inline-flex;gap:8px;align-items:center}
