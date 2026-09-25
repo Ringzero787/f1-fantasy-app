@@ -48,7 +48,11 @@ export interface PayloadInputs {
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
-const shortName = (name: string) => name.trim().split(/\s+/).pop() ?? name;
+/** The surname as shown: the last word that is not a generational suffix ("Carlos Sainz Jr." is Sainz). */
+export function shortName(name: string): string {
+  const words = name.trim().split(/\s+/).filter((w) => !/^(jr|sr|ii|iii|iv)\.?$/i.test(w));
+  return words[words.length - 1] ?? name;
+}
 
 export function buildPayload(i: PayloadInputs) {
   const byId = new Map(i.projections.map((p) => [p.entityId, p]));

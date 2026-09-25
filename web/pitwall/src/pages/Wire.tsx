@@ -17,7 +17,7 @@ export function Wire() {
       <Tile span="c12" label="The wire · from the official feeds" right={<div className="th">{cats.map((c) => <Chip key={c} on={ui.wire === c} onClick={() => set('wire', c)}>{c}</Chip>)}{readCount ? <Chip on={showRead} onClick={() => setShowRead((v) => !v)}>{showRead ? 'HIDE READ' : `READ · ${readCount}`}</Chip> : null}</div>}>
         {!has.news ? <Empty>{NOT_PUBLISHED.news}</Empty> : null}
         {list.length === 0 && has.news ? <Empty>{showRead ? 'Nothing here.' : 'You are caught up.'}</Empty> : null}
-        {list.map((n) => <NewsRow key={newsKey(n)} n={n} full />)}
+        <div className="list">{list.map((n) => <NewsRow key={newsKey(n)} n={n} full />)}</div>
       </Tile>
     </div>
   );

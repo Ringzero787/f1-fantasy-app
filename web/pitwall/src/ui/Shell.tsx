@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { bank, money, projectedLineup } from '../data/logic';
 import type { Account } from '../lib/account';
+import { asOfLabel } from '../lib/lock';
 import { PAGES, type PageName } from '../lib/router';
 import { toggleTheme } from '../lib/theme';
 import { useStore } from '../state';
@@ -17,13 +18,13 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
       <div className="ctxrow">
         <div className="brand"><h1>Pit Wall</h1><span className="lbl only-wide">Undercut · analytics</span>{p.example ? <Pill red>Example data</Pill> : null}</div>
         <div className="grp">
-          <span className="mut only-wide">Data as of {p.asOf}</span>
+          <span className="mut only-wide">Data as of {asOfLabel(p.asOf)}</span>
           <button className="ghost" type="button" onClick={() => toggleTheme()}>Light / dark</button>
           {onSignOut ? <button className="ghost" type="button" onClick={onSignOut}>Sign out</button> : null}
         </div>
       </div>
       <div className="ctxrow">
-        <div className="grp"><span>{round}</span><span className="mut only-wide">{account?.firstSession ?? p.round.firstSession}</span><span className="red">Locks in {account?.locksIn ?? p.round.locksIn}</span></div>
+        <div className="grp"><span>{round}</span><span className="mut only-wide">{account?.firstSession ?? p.round.firstSession}</span>{(() => { const l = account?.locksIn ?? p.round.locksIn; return <span className="red">{l === 'LOCKED' ? 'Lineups locked' : `Locks in ${l}`}</span>; })()}</div>
         <div className="grp">
           <span className="mut">Team</span><span>{account?.teamName ?? (account ? 'No team yet' : 'Late Brakers')}</span>
           <span className="mut">Bank</span><span className="num">{account ? (account.bank === null ? '—' : money(account.bank)) : money(bank(p, ui.lineup))}</span>

@@ -52,7 +52,11 @@ export function spent(p: Payload, l: Lineup): number {
  * Aramco Formula One Team"). The payload already carries short ones; these apply the same rules to
  * the team document so a tile sized for a surname is not handed a full name.
  */
-export const shortName = (name: string): string => name.trim().split(/\s+/).pop() ?? name;
+/** The surname as shown; a generational suffix is not a name ("Carlos Sainz Jr." is Sainz). */
+export const shortName = (name: string): string => {
+  const words = name.trim().split(/\s+/).filter((w) => !/^(jr|sr|ii|iii|iv)\.?$/i.test(w));
+  return words[words.length - 1] ?? name;
+};
 
 /**
  * Short constructor names, by id, matching `src/simple/grid/entityNames.ts` in the app so a team

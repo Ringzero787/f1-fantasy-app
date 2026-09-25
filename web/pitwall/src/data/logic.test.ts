@@ -102,6 +102,7 @@ describe('a lineup the payload does not fully carry', () => {
 describe('display names for the real team', () => {
   it('shortens a full driver name to the surname and strips sponsor words from a team', () => {
     expect(shortName('Pierre Gasly')).toBe('Gasly');
+    expect(shortName('Carlos Sainz Jr.')).toBe('Sainz');
     expect(shortName('Gasly')).toBe('Gasly');
     expect(shortTeamName('Aston Martin Aramco Formula One Team')).toBe('Aston Martin');
     expect(shortTeamName('Mercedes-AMG Petronas F1 Team')).toBe('Mercedes');
