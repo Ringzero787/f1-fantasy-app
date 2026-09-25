@@ -1,0 +1,47 @@
+id: OP-054
+title: Publish circuit fit, the circuit report, pace rows and the season table (F-072 first cut)
+kind: pitwall-job
+status: applied
+params:
+  job: projections
+  session: fp3
+created_at: 2026-09-25T18:48:29.228Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T18:48:29.738Z
+    head_sha: 6e8d74affe976a7b8b0fe07130a48d505652685d
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'fp3'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-054/dry-run-2026-09-25T18-48-29-738Z.log
+    log_sha256: 33f229b50700fd808f9e1d944b976012d2ba907292f0ef5ef93395183d50e0d1
+    lines: 107
+  - step: backup
+    at: 2026-09-25T18:52:27.452Z
+    head_sha: 6e8d74affe976a7b8b0fe07130a48d505652685d
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-054'/backup.json pw_pages pw_public pw_projections
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-054/backup-2026-09-25T18-52-27-452Z.log
+    log_sha256: 1c429fa635e11e64eded48a365af4e206d0cc7f29ecbaffced98f806a36f326d
+    lines: 3
+  - step: gates
+    at: 2026-09-25T18:52:28.500Z
+    head_sha: 6e8d74affe976a7b8b0fe07130a48d505652685d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T18:52:28.502Z
+    head_sha: 6e8d74affe976a7b8b0fe07130a48d505652685d
+    command: bash scripts/ops/pitwall-job.sh apply 'projections' 'fp3'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-054/apply-2026-09-25T18-52-28-502Z.log
+    log_sha256: 5499ca8ce753dcc300ece3408c8f50e7bbfa72c62700943556a96762f99481ef
+    lines: 107
+  - step: gates
+    at: 2026-09-25T18:52:35.193Z
+    head_sha: 6e8d74affe976a7b8b0fe07130a48d505652685d
+    exit: 0
+    gates:
+      G15: skip

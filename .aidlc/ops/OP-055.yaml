@@ -1,0 +1,38 @@
+id: OP-055
+title: "Portal deploy: Circuit, Pace Lab and Season from our own classifications"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-25T18:48:29.480Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T18:48:37.264Z
+    head_sha: 6e8d74affe976a7b8b0fe07130a48d505652685d
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-055/dry-run-2026-09-25T18-48-37-264Z.log
+    log_sha256: b3faaab7048b9ad9f5a423dc7689cc3ca6c7b2a4c1415b6fd53affd1afa99866
+    lines: 67
+  - step: gates
+    at: 2026-09-25T18:52:36.376Z
+    head_sha: 6e8d74affe976a7b8b0fe07130a48d505652685d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T18:52:36.382Z
+    head_sha: 6e8d74affe976a7b8b0fe07130a48d505652685d
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-055/apply-2026-09-25T18-52-36-382Z.log
+    log_sha256: dcbe85a118c5212e3c228d7631aa0e1865003e14e9f009ffa20c0abd6d46b622
+    lines: 77
+  - step: gates
+    at: 2026-09-25T18:56:15.055Z
+    head_sha: 6e8d74affe976a7b8b0fe07130a48d505652685d
+    exit: 0
+    gates:
+      G15: skip
