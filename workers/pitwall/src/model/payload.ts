@@ -41,7 +41,7 @@ const shortName = (name: string) => name.trim().split(/\s+/).pop() ?? name;
 
 export function buildPayload(i: PayloadInputs) {
   const byId = new Map(i.projections.map((p) => [p.entityId, p]));
-  const teams = Object.fromEntries(i.constructors.map((c) => [c.id, { id: c.id, name: shortTeamName(c.name), color: c.colors?.primary ?? '#7A7A7A' }]));
+  const teams = Object.fromEntries(i.constructors.map((c) => [c.id, { id: c.id, name: shortTeamName(c.name, c.id), color: c.colors?.primary ?? '#7A7A7A' }]));
   const drivers = i.drivers.filter((d) => d.isActive).map((d) => {
     const p = byId.get(d.id);
     const med = p ? Math.round(p.median) : 0;
@@ -68,7 +68,7 @@ export function buildPayload(i: PayloadInputs) {
   }).sort((a, b) => b.med - a.med);
   const constructors = i.constructors.map((c) => {
     const p = byId.get(c.id); const med = p ? Math.round(p.median) : 0;
-    return { id: c.id, name: shortTeamName(c.name), team: c.id, price: c.price, med, floor: p ? Math.round(p.floor) : 0, ceil: p ? Math.round(p.ceiling) : 0, val: c.price > 0 ? r1((med / c.price) * 100) : 0, ctor: true as const };
+    return { id: c.id, name: shortTeamName(c.name, c.id), team: c.id, price: c.price, med, floor: p ? Math.round(p.floor) : 0, ceil: p ? Math.round(p.ceiling) : 0, val: c.price > 0 ? r1((med / c.price) * 100) : 0, ctor: true as const };
   }).sort((a, b) => b.med - a.med);
 
   const full = {
@@ -106,8 +106,23 @@ export function buildPayload(i: PayloadInputs) {
   return { full, free };
 }
 
-export function shortTeamName(name: string): string {
-  // "Oracle Red Bull Racing" -> "Red Bull", "Mercedes-AMG Petronas F1 Team" -> "Mercedes": strip sponsors and series words
-  const words = name.replace(/\b(F1|Formula\s*1|Team|Racing|Scuderia|Petronas|Oracle|Aramco|MoneyGram|BWT|AMG|Motorsport)\b/gi, ' ').replace(/[-]/g, ' ').replace(/\s+/g, ' ').trim();
+/**
+ * Short constructor names by id, the same list the app uses in `src/simple/grid/entityNames.ts`,
+ * so a team reads the same in the app and the portal.
+ */
+const TEAM_NAMES: Record<string, string> = {
+  mclaren: 'McLaren', ferrari: 'Ferrari', mercedes: 'Mercedes', red_bull: 'Red Bull',
+  williams: 'Williams', haas: 'Haas', aston_martin: 'Aston Martin', alpine: 'Alpine',
+  rb: 'RB', racing_bulls: 'RB', audi: 'Audi', cadillac: 'Cadillac',
+};
+
+export function shortTeamName(name: string, id?: string): string {
+  if (id && TEAM_NAMES[id]) return TEAM_NAMES[id];
+  // Fallback for an id we do not know: strip sponsors and series words. Note it cannot be trusted
+  // on its own — "Racing Bulls" comes out of it as "Bulls", which is why the map above exists.
+  const stripped = name.replace(/\b(F1|Formula\s*(?:1|One)|Team|Scuderia|Petronas|Oracle|Aramco|MoneyGram|BWT|AMG|Motorsport)\b/gi, ' ').replace(/[-]/g, ' ').replace(/\s+/g, ' ').trim();
+  // "Racing" only ever goes from the end: "Oracle Red Bull Racing" is Red Bull, and "Racing Bulls"
+  // is not "Bulls".
+  const words = stripped.replace(/\s+Racing$/i, '').trim();
   return words || name;
 }

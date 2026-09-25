@@ -6,10 +6,13 @@ import { Compare } from '../ui/Compare';
 import { Locked } from '../ui/Locked';
 
 export function Briefing() {
-  const { payload: p, has, ui, set, open, go } = useStore();
+  const { payload: p, has, pass, ui, set, open, go } = useStore();
   const recs = briefRecs(p, ui.lineup);
   const sel = Math.min(ui.rec, recs.length - 1);
   const proj = projectedLineup(p, ui.lineup);
+  // The free document publishes the top ten medians and zeroes the rest, so this is exactly what
+  // the reader is entitled to see, whether or not they hold a pass.
+  const topTen = [...p.drivers].filter((d) => d.med > 0).sort((a, b) => b.med - a.med).slice(0, 10);
   const flags = ui.lineup.drivers.filter((id) => p.news.some((n) => n.entity === id && n.kind === 'PENALTY')).length;
 
   const rivals = p.rivals.map((r) => rivalMove(p, ui.lineup, r)).filter((v) => v !== null);
@@ -44,8 +47,22 @@ export function Briefing() {
 
   return (
     <div className="page">
-      <Tile span="c8" label="What changed since yesterday" right={<span className="mut only-wide">5 min read · links out to sources</span>}>
-        {!has.news ? <Empty>{NOT_PUBLISHED.news}</Empty> : null}
+      <Tile span="c8" label={has.news ? 'What changed since yesterday' : `Top ten for ${p.round.name || 'this round'}`} right={<span className="mut only-wide">{has.news ? '5 min read · links out to sources' : 'Projected points for the coming round'}</span>}>
+        {/* Until the wire is publishing, this tile carries the thing that IS published: the board's
+            top ten, which every signed-in reader can see. An empty headline list on the page people
+            open first is worse than no page at all. */}
+        {!has.news ? (
+          <>
+            {topTen.map((d, i) => (
+              <Row key={d.id} cols="24px 1fr auto" onClick={() => open(d.id)} label={`${d.name}, projected ${d.med} points`}>
+                <span className="mut num">{i + 1}</span>
+                <span><TeamBar p={p} team={d.team} />{d.name}{ui.lineup.drivers.includes(d.id) ? <span className="mut"> · yours</span> : null}</span>
+                <span className="num">{d.med}</span>
+              </Row>
+            ))}
+            <span className="mut">{NOT_PUBLISHED.news} Story clusters appear here once the news pipeline is running.</span>
+          </>
+        ) : null}
         {p.news.slice(0, 4).map((n) => {
           const e = n.entity ? entity(p, n.entity) : undefined;
           return (
@@ -60,7 +77,9 @@ export function Briefing() {
           <div className="big num">{proj.points}</div>
           <div className="mut">Projected points · range {Math.round(proj.points * 0.72)} to {Math.round(proj.points * 1.3)}</div>
         </> : (
-          <div className="mut">No projected total: {proj.missing} of your picks {proj.missing === 1 ? 'is' : 'are'} not projected in this view, and adding the rest up would be wrong.</div>
+          <div className="mut">{pass.access === 'pass'
+            ? `No projected total: ${proj.missing} of your picks ${proj.missing === 1 ? 'is' : 'are'} not projected for this round, and adding the rest up would be wrong.`
+            : `No projected total: the free view carries only the top ten, and ${proj.missing} of your picks ${proj.missing === 1 ? 'is' : 'are'} outside it. The whole board comes with the pass.`}</div>
         )}
         <Row two cols="1fr auto"><span>Rate my team</span><span className="num">{proj.complete ? `${rateMyTeam(p, ui.lineup)} / 100` : '—'}</span></Row>
         <Row two cols="1fr auto"><span>Flags</span><span className={flags ? 'red' : 'mut'}>{flags} penalty risk · 0 open slots</span></Row>

@@ -126,6 +126,10 @@ test('payload builder writes the portal shape, a free look with only top-10 medi
   assert.equal(free.drivers[0].id, 'a1');
   assert.equal(free.drivers[0].price, 300);
   assert.equal(shortTeamName('Mercedes-AMG Petronas F1 Team'), 'Mercedes');
+  // the id wins where we know it: the fallback alone turns "Racing Bulls" into "Bulls"
+  assert.equal(shortTeamName('Racing Bulls', 'racing_bulls'), 'RB');
+  assert.equal(shortTeamName('Visa Cash App Racing Bulls', 'racing_bulls'), 'RB');
+  assert.equal(shortTeamName('Aston Martin Aramco F1 Team', 'aston_martin'), 'Aston Martin');
   assert.equal(shortTeamName('Scuderia Ferrari'), 'Ferrari');
   assert.equal(shortTeamName('Williams Racing'), 'Williams');
 });
