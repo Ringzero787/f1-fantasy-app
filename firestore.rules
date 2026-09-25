@@ -53,6 +53,18 @@ service cloud.firestore {
                     // F-068: the pass, its trial flag and the revocation record are server-owned
                     && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'pass', 'pwTrialUsed', 'pwRevoked']);
       allow delete: if isOwner(userId);
+
+      // F-071: what this person has read and rated on the Pit Wall wire. Private to them: it is
+      // a reading history, so no admin read either. Two maps and a timestamp, nothing else, so a
+      // client cannot park arbitrary data here.
+      match /pitwall/{docId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId)
+                     && docId == 'wire'
+                     && request.resource.data.keys().hasOnly(['read', 'liked', 'updatedAt'])
+                     && request.resource.data.read is map
+                     && request.resource.data.liked is map;
+      }
     }
 
     // Leagues collection

@@ -161,7 +161,9 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
     drivers: Object.fromEntries(active.map((d) => [d.id, d.name.trim().split(/\s+/).pop() ?? d.name])),
     constructors: Object.fromEntries(constructors.map((c) => [c.id, teamVariants(c.name, shortTeamName(c.name, c.id))])),
   };
-  const news = buildWire(await loadWireArticles(db, new Date(now.getTime() - 7 * 86400000)).catch((err) => { console.warn('[pw] wire unavailable:', err instanceof Error ? err.message : err); return []; }), names, now);
+  // Thirty rather than eight: readers mark headlines read and they leave the page, so there has
+  // to be a backlog for the next ten to come from.
+  const news = buildWire(await loadWireArticles(db, new Date(now.getTime() - 7 * 86400000)).catch((err) => { console.warn('[pw] wire unavailable:', err instanceof Error ? err.message : err); return []; }), names, now, { limit: 30 });
 
   const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000, weather, weatherSource: weather.length || weatherMap ? MET_ATTRIBUTION : null, weatherMap, news });
 

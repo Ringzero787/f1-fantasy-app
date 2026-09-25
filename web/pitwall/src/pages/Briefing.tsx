@@ -1,13 +1,17 @@
-import { briefRecs, entity, money, projectedLineup, rateMyTeam, rivalMove } from '../data/logic';
+import { briefRecs, money, projectedLineup, rateMyTeam, rivalMove } from '../data/logic';
 import { useStore } from '../state';
 import { Arrow, Empty, Money, Pill, Row, Tabs, TeamBar, Tile } from '../ui/bits';
 import { NOT_PUBLISHED } from '../data/coverage';
 import { WeatherMap } from '../ui/WeatherMap';
+import { forBriefing, newsKey } from '../data/wire';
+import { NewsRow } from '../ui/NewsRow';
 import { Compare } from '../ui/Compare';
 import { Locked } from '../ui/Locked';
 
 export function Briefing() {
-  const { payload: p, has, pass, ui, set, open, go } = useStore();
+  const { payload: p, has, pass, wire, ui, set, open, go } = useStore();
+  // the next ten this reader has not marked read, in their order
+  const briefing = forBriefing(p.news, wire, 10);
   const recs = briefRecs(p, ui.lineup);
   const sel = Math.min(ui.rec, recs.length - 1);
   const proj = projectedLineup(p, ui.lineup);
@@ -64,17 +68,11 @@ export function Briefing() {
           something; the top ten always has something, so it takes the slot when the wire does not
           and the page never opens on an empty headline list. */}
       {has.news ? (
-        <Tile span="c8" label="What changed since yesterday" right={<span className="mut only-wide">5 min read · links out to sources</span>}>
-          {p.news.slice(0, 4).map((n) => {
-            const e = n.entity ? entity(p, n.entity) : undefined;
-            return (
-              <Row key={n.url || n.text} cols="96px 1fr auto" onClick={e ? () => open(e.id) : undefined} label={`${n.kind}: ${n.text}`}>
-                <Pill red={n.tone === '-'}>{n.kind}</Pill>
-                <span>{e ? <TeamBar p={p} team={e.team} /> : null}{n.text}</span>
-                <span className="mut only-wide">{n.url ? <a href={n.url} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} style={{ color: 'inherit' }}>{n.sources} ↗</a> : n.sources}</span>
-              </Row>
-            );
-          })}
+        <Tile span="c8" label="What changed since yesterday" right={<span className="mut only-wide">{briefing.length ? `${briefing.length} unread · links out to sources` : 'links out to sources'}</span>}>
+          {briefing.length === 0 ? <Empty>You are caught up. New headlines appear here as the feeds carry them.</Empty> : null}
+          {/* Ten on a wide screen, five on a phone, same as the top ten; the Wire carries all of them. */}
+          {briefing.map((n, i) => <div key={newsKey(n)} className={i >= 5 ? 'only-wide' : undefined}><NewsRow n={n} /></div>)}
+          {briefing.length > 5 ? <span className="mut only-narrow">{briefing.length - 5} more unread on the Wire.</span> : null}
         </Tile>
       ) : null}
       {/* Ten on a wide screen, five on a phone: the board has the whole grid, and on a phone the

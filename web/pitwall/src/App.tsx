@@ -7,6 +7,8 @@ import { aceChange, planSave, teamLineup, CONTRACT_LENGTH } from './data/team';
 import { NO_PASS, passFromClaims, payloadForAccess, type PassState } from './data/access';
 import { executePlan, loadMarket, loadTeams, saveErrorText } from './lib/teamApi';
 import { loadPayload } from './lib/payloadApi';
+import { loadWirePrefs, saveWirePrefs } from './lib/wirePrefs';
+import type { WirePrefs } from './data/wire';
 import { callable } from './lib/firebase';
 import { StoreProvider, type RealContext } from './state';
 import { PREVIEW, hasFirebaseConfig } from './lib/env';
@@ -29,7 +31,7 @@ import { Boundary } from './ui/Boundary';
 
 const PAGE: Record<PageName, () => ReactElement> = { BRIEFING: Briefing, BOARD: Board, CIRCUIT: Circuit, 'PACE LAB': PaceLab, MARKET: Market, 'LINEUP LAB': LineupLab, SEASON: Season, WIRE: Wire };
 
-function Portal({ account, real, pass, published, reloadReal, selectTeam, checkoutFn, onSignOut }: { account: Account | null; real: RealContext | null; pass?: PassState; published?: Payload | null; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; checkoutFn?: () => Promise<string>; onSignOut?: () => void }) {
+function Portal({ account, real, pass, published, reloadReal, selectTeam, checkoutFn, wire, onWire, onSignOut }: { account: Account | null; real: RealContext | null; pass?: PassState; published?: Payload | null; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; checkoutFn?: () => Promise<string>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; onSignOut?: () => void }) {
   const [page, go] = usePage();
   // The published payload when the worker has put one out and the rules let this user read it;
   // the browser-generated example set otherwise, which labels itself on every page.
@@ -55,7 +57,7 @@ function Portal({ account, real, pass, published, reloadReal, selectTeam, checko
     return after ? teamLineup(after.team) : target;
   } : undefined;
   return (
-    <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} pass={pass} checkoutFn={checkoutFn} selectTeam={selectTeam} saver={saver} go={go}>
+    <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} pass={pass} checkoutFn={checkoutFn} selectTeam={selectTeam} saver={saver} wire={wire} onWire={onWire} go={go}>
       <Wrap>
         <ContextBar page={page} account={account} onSignOut={onSignOut} />
         <main id="main"><Boundary key={page} label={page.toLowerCase()}><Page /></Boundary></main>
@@ -105,6 +107,7 @@ export function App() {
   // pass-gated payload on screen while the next read is in flight.
   const [published, setPublished] = useState<{ access: PassState['access']; payload: Payload } | null>(null);
   const [payloadStatus, setPayloadStatus] = useState<'loading' | 'ready' | 'empty'>('loading');
+  const [wirePrefs, setWirePrefs] = useState<WirePrefs | undefined>(undefined);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
@@ -175,6 +178,15 @@ export function App() {
     return () => { live = false; };
   }, [uid, pass.access]);
 
+  // The reader's wire history, loaded once per sign-in and saved on every change.
+  useEffect(() => {
+    if (!uid) { setWirePrefs(undefined); return; }
+    let live = true;
+    void loadWirePrefs(uid).then((p) => { if (live) setWirePrefs(p); });
+    return () => { live = false; };
+  }, [uid]);
+  const onWire = useCallback((prefs: WirePrefs) => { if (uid) void saveWirePrefs(uid, prefs); }, [uid]);
+
   useEffect(() => {
     if (!uid) { setReal(null); teamIdRef.current = null; return; }
     let live = true;
@@ -225,7 +237,7 @@ export function App() {
       </main>
     );
   }
-  return <Portal account={account} real={real} pass={pass} published={current} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
+  return <Portal account={account} real={real} pass={pass} published={current} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} wire={wirePrefs} onWire={onWire} onSignOut={() => void signOut(auth())} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';

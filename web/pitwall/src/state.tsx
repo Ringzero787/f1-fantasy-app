@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { applySwap, sameLineup } from './data/logic';
 import type { Lineup, Payload } from './data/types';
 import type { MarketPrices, RealTeam } from './data/team';
 import { NO_PASS, type PassState } from './data/access';
 import { coverage, type Coverage } from './data/coverage';
+import { EMPTY_PREFS, markRead as markReadPrefs, rate as ratePrefs, type Rating, type WirePrefs } from './data/wire';
 import type { PageName } from './lib/router';
 
 export interface UIState {
@@ -39,6 +40,12 @@ interface Store {
   payload: Payload;
   /** which parts of the payload carry real data, so a page can say "not published yet" instead of showing a zero */
   has: Coverage;
+  /** what this reader has read and rated on the wire */
+  wire: WirePrefs;
+  /** a headline marked read leaves the Briefing; the next one takes its place */
+  markRead: (key: string) => void;
+  /** thumbs up or down; the same thumb again clears it */
+  rateNews: (key: string, rating: Rating) => void;
   real: RealContext | null;
   pass: PassState;
   /** null = idle, 'starting' = opening Stripe, any other string = the error to show */
@@ -72,7 +79,7 @@ export const useStore = (): Store => {
   return s;
 };
 
-export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutFn, selectTeam, saver, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; pass?: PassState; checkoutFn?: () => Promise<string>; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void) => Promise<Lineup>; go: (p: PageName) => void; children: ReactNode }) {
+export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutFn, selectTeam, saver, wire: wireIn, onWire, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; pass?: PassState; checkoutFn?: () => Promise<string>; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void) => Promise<Lineup>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; go: (p: PageName) => void; children: ReactNode }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<string | null>(null);
   const [ui, setUi] = useState<UIState>(() => ({
@@ -86,8 +93,17 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
   }, [patch]);
 
   const has = useMemo(() => coverage(payload), [payload]);
+  // The reader's wire history: seeded from the server, changed here, and handed back to be saved.
+  // Seeded from the server (and emptied on sign-out, so the next reader never inherits a history).
+  const [wire, setWire] = useState<WirePrefs>(wireIn ?? EMPTY_PREFS);
+  useEffect(() => { setWire(wireIn ?? EMPTY_PREFS); }, [wireIn]);
+  // Functional updates: two marks in one tick both land, rather than the second overwriting the
+  // first from a stale closure. The save is a whole-document write, so running it twice is harmless.
+  const changeWire = useCallback((fn: (w: WirePrefs) => WirePrefs) => setWire((w) => { const next = fn(w); onWire?.(next); return next; }), [onWire]);
+  const markRead = useCallback((key: string) => changeWire((w) => markReadPrefs(w, key, Date.now())), [changeWire]);
+  const rateNews = useCallback((key: string, rating: Rating) => changeWire((w) => ratePrefs(w, key, rating)), [changeWire]);
   const store = useMemo<Store>(() => ({
-    payload, has, ui, go, real, saving, pass, checkout,
+    payload, has, wire, markRead, rateNews, ui, go, real, saving, pass, checkout,
     startCheckout: async () => {
       if (!checkoutFn) { toast('Checkout is not available in this preview.'); return; }
       setCheckout('starting');
@@ -127,7 +143,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     }),
     toast,
     selectTeam: (id: string) => { selectTeam?.(id); patch(() => ({ slot: null })); },
-  }), [payload, has, ui, go, patch, toast, real, saver, saving, pass, checkout, checkoutFn, selectTeam]);
+  }), [payload, has, wire, markRead, rateNews, ui, go, patch, toast, real, saver, saving, pass, checkout, checkoutFn, selectTeam]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

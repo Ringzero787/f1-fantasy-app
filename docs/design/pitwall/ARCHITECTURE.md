@@ -120,11 +120,12 @@ The pipeline lands one piece at a time: projections and the price model first, t
 - `workers/pitwall/src/model/weatherMap.ts` fetches the same forecast for a 5 x 5 grid 40 km apart (`gridOffsets`, row-major from the north-west; `dy` is north-positive so the first row is `+radius`), and `buildWeatherMap` produces per session within nine days three `MapFrame`s (-3 h, 0, +3 h): `rainMm[]` per cell, `null` where the source is silent, wind at the centre. A cell that fails to fetch is unknown, never dry.
 - `web/pitwall/src/ui/WeatherMap.tsx` draws the grid as SVG (index 0 top left), rings at 40 and 80 km, a compass, the wind arrow, session and frame tabs, a table alternative, and `looming(frame)` — one sentence naming the wettest cell upwind and how far. `payloadApi.toWeatherMap` drops any frame whose cell count is not `side²`.
 
-### The wire (F-070 first cut)
+### The wire (F-070 first cut, F-071 reader history)
 
 - `workers/pitwall/src/model/wire.ts` maps the app's `articles` (official feeds) onto `WireItem`s: `tagEntity` (driver surname beats a team; `teamVariants` gives a team its short and full names and never a sponsor or generic word), `kindOf` (`PENALTY | REGULATION | CONTRACT | PRACTICE | QUALIFYING | RACE | NEWS`), `toneOf`, and `buildWire` (seven-day window, dedupe by title, drop general stories about nobody, `https` links only, score = entity + session kind + penalty + freshness, limit 30). The job reads `articles` outside the model's input allowlist. The free document carries `headlineOnly` items.
 - The portal's `NewsKind` is a superset (`UPGRADE | WEATHER | RELIABILITY` remain for the example set); `toNews` drops unknown kinds and non-https links.
-- `ui/bits.tsx` `Row` takes `dense` for the long lists (top ten, forecast rows) so they fit the scroll budget.
+- `web/pitwall/src/data/wire.ts` is the reader's side: `newsKey` (hash of the link), `markRead`, `rate`, `taste`, `rank` (editorial order + 2 × personal), `forBriefing(items, prefs, 10)`. History lives in `users/{uid}/pitwall/wire` `{read, liked, updatedAt}` via `lib/wirePrefs.ts`, owner-only by rule, read capped at 400 keys. `ui/NewsRow.tsx` is the row with mark-read and thumbs.
+- `ui/bits.tsx` `Row` takes `dense` for the long lists (top ten, wire, forecast rows) so they fit the scroll budget.
 
 ## 6. Compute: forge first, GCP as backup
 

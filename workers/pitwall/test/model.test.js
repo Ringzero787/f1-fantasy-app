@@ -321,3 +321,10 @@ test('a team is recognised by its names, never by a sponsor or a generic word al
   const out = buildWire([{ title: 'Harbour bring a new floor', summary: '', url: 'http://x/1', source: 'F1', category: 'practice', publishedAt: new Date() }], names, new Date());
   assert.equal(out.length, 0);
 });
+
+test('a headline is about the name it leads with, whatever order the grid is listed in', () => {
+  const names = { drivers: { reed: 'Reed', stone: 'Stone' }, constructors: { harbour: ['Harbour'] } };
+  assert.equal(tagEntity('Stone rues mixed P2 as Reed a sitting duck', names), 'stone');
+  assert.equal(tagEntity('Reed charges to pole as Stone exits early', names), 'reed');
+  assert.equal(tagEntity('Harbour confirm a new floor for Stone', names), 'harbour');
+});
