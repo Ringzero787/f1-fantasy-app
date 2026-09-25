@@ -379,17 +379,26 @@ test('starts and finishes are averaged from the classification, and a retirement
 test('the circuit report names the venue, its classes, and each driver at circuits like it', () => {
   const races = [histRace('r1', 'baku', [['a', 2, 1]]), histRace('r2', 'monaco', [['a', 4, 4]]), histRace('r3', 'monza', [['a', 1, 2]])];
   const scores = [['r1', 40], ['r2', 20], ['r3', 35]].map(([raceId, totalPoints]) => ({ raceId, round: 1, entityId: 'a', entityType: 'driver', totalPoints }));
-  const rep = buildCircuitReport('las_vegas', races, ['a'], ['c'], computeSplits(races, scores));
+  const rep = buildCircuitReport('las_vegas', races, scores, ['a'], ['c'], computeSplits(races, scores));
   assert.equal(rep.name, 'Las Vegas');
   assert.deepEqual(rep.classes, ['street', 'high-speed']);
   assert.equal(rep.racesInClass, 3);                                      // baku (both), monaco (street), monza (high-speed)
   assert.equal(rep.profile.length, 5);
   assert.equal(rep.likeThis[0].id, 'a');
+  assert.deepEqual([rep.likeThis[0].n, rep.likeThis[0].avgPts], [3, 31.7]);           // (40 + 20 + 35) / 3: each race once, not an average of class averages
   assert.equal(rep.fitRanking[0].id, 'c');
-  assert.equal(buildCircuitReport('nowhere', races, ['a'], ['c'], new Map()), null);
+  assert.equal(buildCircuitReport('nowhere', races, scores, ['a'], ['c'], new Map()), null);
 });
 
 test('the season table adds the median for each remaining round to the points so far', () => {
   const rows = buildSeasonTable(['a', 'b'], new Map([['a', [10, 20]], ['b', [40]]]), new Map([['a', 30], ['b', 5]]), 4, new Map());
   assert.deepEqual(rows.map((r) => [r.id, r.points, r.projected]), [['a', 30, 150], ['b', 40, 60]]);
+});
+
+test('the free season table is ordered by points so far, so the paid ranking does not leak through the row order', () => {
+  const season = [{ id: 'a', points: 10, projected: 300, starts: 3, dnfs: 0 }, { id: 'b', points: 90, projected: 100, starts: 3, dnfs: 0 }];
+  const inputs = { round: { season: '2026', round: 1, raceId: 'r', name: 'x', city: 'x', circuit: 'x', firstSession: null, lockAt: null, hasSprint: false }, nextRounds: [], drivers: [], constructors: [], projections: [], form: new Map(), ownership: new Map(), priceImplied: () => 0, asOf: new Date(), budget: 1000, season };
+  const { full, free } = buildPayload(inputs);
+  assert.deepEqual(full.season.map((r) => r.id), ['a', 'b']);
+  assert.deepEqual(free.season.map((r) => [r.id, r.projected]), [['b', 0], ['a', 0]]);
 });

@@ -143,7 +143,8 @@ export function buildPayload(i: PayloadInputs) {
     // on the projections — are the pass.
     circuit: full.circuit ? { ...full.circuit, fitRanking: [] } : null,
     pace: full.pace,
-    season: full.season.map((r) => ({ ...r, projected: 0 })),
+    // re-ordered by points so far: the paid ranking must not leak through the row order
+    season: full.season.map((r) => ({ ...r, projected: 0 })).sort((a, b) => b.points - a.points),
     model: full.model,
   };
   return { full, free };

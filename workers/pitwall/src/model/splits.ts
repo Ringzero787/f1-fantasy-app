@@ -60,6 +60,8 @@ export function driverStarts(races: HistRace[]): Map<string, DriverStarts> {
   const mean = (xs: number[]) => (xs.length ? xs.reduce((p, q) => p + q, 0) / xs.length : 0);
   const out = new Map<string, DriverStarts>();
   for (const [id, a] of acc) out.set(id, { starts: a.starts, avgGrid: r1(mean(a.grid)), avgFinish: r1(mean(a.finish)), gained: r1(mean(a.gained)), finishRate: a.starts ? Math.round((a.finished / a.starts) * 100) : 0, dnfs: a.dnfs });
+  // a grid slot or finish outside 1..30 is a malformed row, not a classification
+  for (const [id, a] of out) if (a.avgGrid < 0 || a.avgGrid > 30 || a.avgFinish < 0 || a.avgFinish > 30) out.delete(id);
   return out;
 }
 
@@ -88,18 +90,19 @@ export interface CircuitReport {
   racesInClass: number;
 }
 
-export function buildCircuitReport(circuitId: string, races: HistRace[], driverIds: string[], constructorIds: string[], splits: Map<string, EntitySplits>): CircuitReport | null {
+export function buildCircuitReport(circuitId: string, races: HistRace[], scores: HistScore[], driverIds: string[], constructorIds: string[], splits: Map<string, EntitySplits>): CircuitReport | null {
   const t = traitsOf(circuitId);
   if (!t) return null;
   const classes = classesOf(t);
+  // the races that share a class with this venue, counted once each however many classes they share
   const same = races.filter((r) => { const rt = traitsOf(r.circuitId); return rt ? classesOf(rt).some((c) => classes.includes(c)) : false; });
+  const sameIds = new Set(same.map((r) => r.id));
   const starts = driverStarts(same);
+  // points over those races directly, not an average of two class averages (which would weight a
+  // race in both classes twice and a class with one race the same as a class with five)
   const inClass = (id: string) => {
-    const s = splits.get(id);
-    if (!s) return { n: 0, avg: 0 };
-    const hits = classes.map((c) => s.byClass[c]).filter((x): x is Split => !!x);
-    const n = Math.max(0, ...hits.map((h) => h.n));
-    return { n, avg: hits.length ? r1(hits.reduce((p, h) => p + h.avg, 0) / hits.length) : 0 };
+    const pts = scores.filter((x) => x.entityId === id && sameIds.has(x.raceId)).map((x) => x.totalPoints);
+    return { n: pts.length, avg: pts.length ? r1(pts.reduce((p, q) => p + q, 0) / pts.length) : 0 };
   };
   return {
     id: t.id, name: t.name, kind: t.kind, speed: t.speed, classes,

@@ -150,7 +150,7 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
   const starts = driverStarts(history.races);
   const activeIds = active.map((d) => d.id);
   const fit = new Map(activeIds.map((id) => [id, nextRounds.map((r) => fitFor(splits.get(id), traitsOf(r.circuitId)))]));
-  const circuit = buildCircuitReport(String(next.circuitId ?? ''), history.races, activeIds, constructors.map((c) => c.id), splits);
+  const circuit = buildCircuitReport(String(next.circuitId ?? ''), history.races, history.scores, activeIds, constructors.map((c) => c.id), splits);
   const pace = buildPace(activeIds, starts);
   const median = new Map(projections.map((p) => [p.entityId, p.median]));
   const seasonTable = buildSeasonTable(activeIds, byEntity, median, upcoming.length, starts);
