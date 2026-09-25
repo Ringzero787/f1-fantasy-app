@@ -103,6 +103,7 @@ Pages render from precomputed payloads, so a page view is 1 to 3 reads and no pa
 - Raw laps, stints and pit data go to Cloud Storage (`pitwall/raw/{season}/{sessionKey}.json.gz`), not Firestore. Only derived aggregates are served.
 - **Per-user views are computed in the browser** from a page payload plus documents the user can already read: their `fantasyTeams`, their league `members`, and league-mates' teams (already readable by league members). That covers Briefing recommendations, rivals' likely moves, the top pick and what-if in the Lineup Lab, exactly as the prototype does. No per-user server compute in v1; a `pw.optimize` callable comes later for the full optimizer.
 - Existing collections reused read-only: `drivers`, `constructors`, `priceHistory`, `raceScores`, `races`, `articles`.
+- **External data: MET Norway Locationforecast** (`workers/pitwall/src/model/weather.ts`), for the session forecast on the Briefing. Licensed under the Norwegian Licence for Open Government Data (NLOD) / CC BY 4.0, which permits commercial use; their terms require attribution, which the portal prints under the tile, and a User-Agent naming the application and a contact address, which every request sends. Circuit coordinates live in `circuits.ts`. Conditions are never sold (ADR-001), so the forecast rides in both documents. A failed or out-of-range forecast yields no weather, never a guess.
 
 ### Partial payloads and honest empty states (F-070)
 

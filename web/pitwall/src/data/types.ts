@@ -29,6 +29,9 @@ export type NewsKind = 'PENALTY' | 'UPGRADE' | 'WEATHER' | 'RELIABILITY' | 'CONT
 export interface NewsItem { kind: NewsKind; entity: string | null; tone: '+' | '-' | '•'; text: string; sources: string; detail: string }
 export interface Rival { name: string; rank: number; gap: number; lineup: string[]; bank: number; activity: number }
 
+/** One session's forecast. Amounts, not chances: the source measures rainfall, so that is what is shown. */
+export interface SessionWeather { key: string; label: string; at: string; tempC: number | null; rainMm: number | null; sky: string | null; windKph: number | null }
+
 export interface Payload {
   example: boolean;
   asOf: string;
@@ -41,6 +44,10 @@ export interface Payload {
   news: NewsItem[];
   rivals: Rival[];
   league: { name: string; size: number; myRank: number };
+  /** session forecast for this round; empty until one is published */
+  weather: SessionWeather[];
+  /** who the forecast came from, which their terms require us to print */
+  weatherSource: string | null;
 }
 
 export interface Lineup { drivers: string[]; ctor: string; ace: string }

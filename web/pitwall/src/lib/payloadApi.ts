@@ -10,7 +10,7 @@
  * worker has not started publishing yet must leave the page rendering, not crash it.
  */
 import { firestore } from './firebase';
-import type { Constructor, Driver, NewsItem, NewsKind, Payload, Rival, Team } from '../data/types';
+import type { Constructor, Driver, NewsItem, NewsKind, Payload, Rival, SessionWeather, Team } from '../data/types';
 
 const NEWS_KINDS: readonly NewsKind[] = ['PENALTY', 'UPGRADE', 'WEATHER', 'RELIABILITY', 'CONTRACT'];
 
@@ -56,6 +56,14 @@ function toRival(v: Record<string, unknown>): Rival {
   };
 }
 
+const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+function toWeather(v: Record<string, unknown>): SessionWeather | null {
+  const key = str(v.key), label = str(v.label), at = str(v.at);
+  if (!key || !label || !at) return null;
+  return { key, label, at, tempC: numOrNull(v.tempC), rainMm: numOrNull(v.rainMm), sky: typeof v.sky === 'string' ? v.sky : null, windKph: numOrNull(v.windKph) };
+}
+
 const objects = (v: unknown): Array<Record<string, unknown>> =>
   (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object') : []);
 
@@ -85,6 +93,8 @@ export function toPayload(raw: Record<string, unknown>): Payload {
     news: objects(raw.news).map(toNews).filter((n): n is NewsItem => n !== null),
     rivals: objects(raw.rivals).map(toRival).filter((r) => r.name),
     league: { name: str(league.name), size: num(league.size), myRank: num(league.myRank) },
+    weather: objects(raw.weather).map(toWeather).filter((w): w is SessionWeather => w !== null),
+    weatherSource: typeof raw.weatherSource === 'string' ? raw.weatherSource : null,
   };
 }
 

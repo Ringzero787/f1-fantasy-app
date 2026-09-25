@@ -24,7 +24,7 @@ const PUBLISHED = {
 describe('coverage', () => {
   it('reports the example payload as complete, so the design preview is unchanged', () => {
     const has = coverage(examplePayload());
-    expect(has).toEqual({ timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, mock: true });
+    expect(has).toEqual({ timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, mock: true });
   });
 
   it('separates "published as zero" from "not published at all"', () => {
@@ -73,5 +73,23 @@ describe('toPayload', () => {
     expect(p.drivers.map((d) => d.id)).toEqual(['ok']);
     expect(p.news.map((n) => n.kind)).toEqual(['PENALTY']);
     expect(p.rivals).toEqual([]);
+  });
+});
+
+describe('weather', () => {
+  it('is published when the payload carries a session forecast, and coerced field by field', () => {
+    const p = toPayload({ ...PUBLISHED, weather: [
+      { key: 'race', label: 'Race', at: '2026-09-26T11:00:00.000Z', tempC: 25, rainMm: 0.4, sky: 'light rain', windKph: 17 },
+      { key: '', label: 'broken', at: '' },
+    ], weatherSource: 'Forecast from MET Norway' });
+    expect(coverage(p).weather).toBe(true);
+    expect(p.weather).toHaveLength(1);
+    expect(p.weather[0]).toEqual({ key: 'race', label: 'Race', at: '2026-09-26T11:00:00.000Z', tempC: 25, rainMm: 0.4, sky: 'light rain', windKph: 17 });
+    expect(p.weatherSource).toBe('Forecast from MET Norway');
+  });
+
+  it('is not published when the list is empty or missing', () => {
+    expect(coverage(toPayload(PUBLISHED)).weather).toBe(false);
+    expect(toPayload({ drivers: [{ id: 'x' }] }).weatherSource).toBeNull();
   });
 });

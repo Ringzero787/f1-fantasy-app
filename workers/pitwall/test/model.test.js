@@ -206,3 +206,42 @@ test('the free look carries nothing the pass sells, even as the full payload gro
   const d = free.drivers[0];
   assert.deepEqual([d.floor, d.ceil, d.dnf, d.own, d.pm, d.cons, d.dprice, d.win, d.pod, d.t10, d.val, d.ptsRise, d.pRise, d.form.length], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 });
+
+const { readForecast, sessionWeather, skyPhrase, pointFor } = require(D + 'weather.js');
+test('session weather reports what the forecast measures and nothing else', () => {
+  const body = { properties: { timeseries: [
+    { time: '2026-09-26T10:00:00Z', data: { instant: { details: { air_temperature: 24.4, wind_speed: 5 } }, next_1_hours: { summary: { symbol_code: 'clearsky_day' }, details: { precipitation_amount: 0 } } } },
+    { time: '2026-09-26T11:00:00Z', data: { instant: { details: { air_temperature: 25.3, wind_speed: 4.7 } }, next_1_hours: { summary: { symbol_code: 'lightrain' }, details: { precipitation_amount: 0.42 } } } },
+    { time: '2026-10-04T07:00:00Z', data: { instant: { details: { air_temperature: 30 } }, next_6_hours: { summary: { symbol_code: 'rain' }, details: { precipitation_amount: 3 } } } },
+  ] } };
+  const points = readForecast(body);
+  assert.equal(points.length, 3);
+  assert.equal(points[1].precipitationMm, 0.42);
+
+  const now = new Date('2026-09-25T14:00:00Z');
+  const out = sessionWeather([
+    { key: 'race', label: 'Race', at: new Date('2026-09-26T11:00:00Z') },
+    { key: 'next', label: 'Next round', at: new Date('2026-10-04T07:00:00Z') },
+    // beyond the horizon, so it is left out rather than guessed
+    { key: 'far', label: 'Far', at: new Date('2026-11-01T12:00:00Z') },
+  ], points, now);
+  assert.deepEqual(out.map((w) => w.key), ['race', 'next']);
+  assert.deepEqual([out[0].tempC, out[0].rainMm, out[0].sky, out[0].windKph], [25, 0.4, 'light rain', 17]);
+});
+
+test('a session with no forecast within the hour gets none, and a bad body yields nothing', () => {
+  const points = readForecast({ properties: { timeseries: [
+    { time: '2026-09-26T00:00:00Z', data: { instant: { details: { air_temperature: 20 } } } },
+  ] } });
+  assert.equal(pointFor(points, new Date('2026-09-26T11:00:00Z')), null);
+  assert.deepEqual(sessionWeather([{ key: 'race', label: 'Race', at: new Date('2026-09-26T11:00:00Z') }], points, new Date('2026-09-25T14:00:00Z')), []);
+  assert.deepEqual(readForecast(null), []);
+  assert.deepEqual(readForecast({ properties: {} }), []);
+});
+
+test('the forecast symbol becomes a phrase a reader can use', () => {
+  assert.equal(skyPhrase('clearsky_day'), 'clear');
+  assert.equal(skyPhrase('partlycloudy_night'), 'part cloud');
+  assert.equal(skyPhrase('heavyrainshowers_day'), 'heavy showers');
+  assert.equal(skyPhrase(null), null);
+});
