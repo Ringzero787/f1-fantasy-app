@@ -2,7 +2,7 @@
 collects_data: true
 shares_data: false
 sells_data: false
-processors: [Google Firebase (Auth, Firestore, Cloud Functions, FCM), Expo (EAS Update, push)]
+processors: [Google Firebase (Auth, Firestore, Cloud Functions, FCM), Expo (EAS Update, push), Google Play Billing, Apple App Store, Amazon Appstore, Stripe (web checkout), Cloudflare Pages (Pit Wall portal)]
 data_types:
   - { type: email, category: personal_info, purpose: account, shared: false, optional: false, notes: "Google / Apple sign-in" }
   - { type: name, category: personal_info, purpose: account, shared: false, optional: true, notes: "display name / call sign" }
@@ -10,5 +10,10 @@ data_types:
   - { type: user_generated_content, category: app_activity, purpose: app_functionality, shared: false, optional: true, notes: "teams, picks, league chat (Undercut)" }
   - { type: device_or_push_token, category: device_ids, purpose: push_notifications, shared: false, optional: true }
   - { type: crash_logs, category: app_info_performance, purpose: reliability, shared: false, optional: false }
-not_collected: [location, financial, health, contacts, calendar, sms, photos_videos, browsing_history]
+  # Undercut only, from the Pit Wall Pass (F-060 in the stores, F-068 on the web). Card details are
+  # never seen by the app or by us: the store or Stripe takes the payment and returns a receipt.
+  - { type: purchase_history, category: financial_info, purpose: app_functionality, shared: false, optional: true, notes: "store receipt identifiers and the pass a purchase granted; no card details" }
+# `financial` is no longer here: purchase history is collected for Undercut. Payment methods,
+# card numbers and credit information still are not, and never reach the app.
+not_collected: [location, payment_info, credit_score, health, contacts, calendar, sms, photos_videos, browsing_history]
 security_practices: { encrypted_in_transit: true, deletion_request: true, in_app_deletion: false }
