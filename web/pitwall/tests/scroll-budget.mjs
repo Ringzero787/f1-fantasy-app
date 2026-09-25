@@ -65,14 +65,17 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
   }
   // Every page again with only what the worker publishes today (`?bare=1`), so the "not published
   // yet" states are measured and proven to render without a page error, not just the example set.
-  for (const [name, route] of PAGES) {
-    await open(page, BASE + route + (route.includes('?') ? '&' : '?') + 'bare=1');
+  // `bare` is what the worker publishes today; `bare&free` is that seen without a pass, which is
+  // what most people see. Both must fit and render without a page error.
+  for (const variant of ['bare=1', 'bare=1&free=1']) for (const [name, route] of PAGES) {
+    await open(page, BASE + route + (route.includes('?') ? '&' : '?') + variant);
     await page.waitForSelector('.page');
     await page.waitForTimeout(60);
+    const label = variant.includes('free') ? 'bare free look' : 'bare';
     const m = await measure(page);
-    rows.push(`${size.name.padEnd(7)} ${scheme.padEnd(5)} ${name.padEnd(10)} ${'bare'.padEnd(22)} ${m.ratio.toFixed(2)}`);
-    if (m.ratio > LIMIT) failures.push(`${size.name} ${scheme} ${name} [bare]: ${m.ratio.toFixed(2)} screens (limit ${LIMIT})`);
-    if (m.overflowX > 1) failures.push(`${size.name} ${scheme} ${name} [bare]: overflows sideways by ${m.overflowX}px`);
+    rows.push(`${size.name.padEnd(7)} ${scheme.padEnd(5)} ${name.padEnd(10)} ${label.padEnd(22)} ${m.ratio.toFixed(2)}`);
+    if (m.ratio > LIMIT) failures.push(`${size.name} ${scheme} ${name} [${label}]: ${m.ratio.toFixed(2)} screens (limit ${LIMIT})`);
+    if (m.overflowX > 1) failures.push(`${size.name} ${scheme} ${name} [${label}]: overflows sideways by ${m.overflowX}px`);
   }
 
   // a free user's locked frames must fit too: the veil replaces nothing, so the height is the same,

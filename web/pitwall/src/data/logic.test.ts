@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySwap, bank, briefRecs, compareRows, projected, rateMyTeam, rivalMove, sameLineup, spent, swapPool, swapRecs, topPickRec } from './logic';
+import { applySwap, bank, briefRecs, compareRows, projected, projectedLineup, rateMyTeam, rivalMove, sameLineup, shortName, shortTeamName, spent, swapPool, swapRecs, topPickRec } from './logic';
 import type { Constructor, Driver, Lineup, Payload } from './types';
 
 const D = (id: string, price: number, med: number, extra: Partial<Driver> = {}): Driver => ({ id, num: 1, name: id.toUpperCase(), team: 'T', price, med, floor: med - 5, ceil: med + 5, form: [], dnf: 5, own: 10, pm: 0, cons: 50, dprice: 0, fit: [3], win: 0, pod: 0, t10: 0, ptsRise: Math.ceil(price * 0.011), ptsHold: Math.ceil(price * 0.006), pRise: 50, pFall: 50, q: 0, r: 0, val: +((med / price) * 100).toFixed(1), ...extra });
@@ -63,5 +63,47 @@ describe('pit wall lineup logic', () => {
     expect(applySwap(mine, 'garbage')).toBe(mine);
     expect(topPickRec(p, mine, 'b')).toMatchObject({ kind: 'TOP PICK', act: 'b:c', good: true });
     expect(topPickRec(p, { ...mine, drivers: ['a', 'c'], ace: 'c' }, 'c')).toMatchObject({ kind: 'BEST ALTERNATIVE', tag: 'HOLD' });
+  });
+});
+
+describe('a lineup the payload does not fully carry', () => {
+  // A real team can hold someone the payload leaves out, and a free-look document publishes a
+  // median of zero for everyone outside the top ten. Neither may be added up as a real zero.
+  const known = [D('a', 300, 50), D('b', 200, 30)];
+  const ctor = C('T', 400, 60);
+  const p = payload(known, [ctor], 1000);
+
+  it('reports what it cannot know instead of returning a smaller number', () => {
+    const complete = projectedLineup(p, { drivers: ['a', 'b'], ctor: 'T', ace: 'a' });
+    expect(complete).toEqual({ points: 50 * 2 + 30 + 60, missing: 0, complete: true });
+
+    const withUnknown = projectedLineup(p, { drivers: ['a', 'ghost'], ctor: 'T', ace: 'a' });
+    expect(withUnknown.missing).toBe(1);
+    expect(withUnknown.complete).toBe(false);
+
+    const stripped = projectedLineup(payload([D('a', 300, 50), D('b', 200, 0)], [ctor], 1000), { drivers: ['a', 'b'], ctor: 'T', ace: 'a' });
+    expect(stripped.missing).toBe(1);
+    expect(stripped.complete).toBe(false);
+  });
+
+  it('still recommends around the picks it does know, rather than throwing', () => {
+    const l = { drivers: ['a', 'ghost'], ctor: 'T', ace: 'a' };
+    expect(() => briefRecs(p, l)).not.toThrow();
+    expect(() => spent(p, l)).not.toThrow();
+    expect(() => swapPool(p, l, 'ghost')).not.toThrow();
+    expect(swapPool(p, l, 'ghost')).toEqual([]);
+  });
+
+  it('says nothing at all when even the constructor is missing', () => {
+    expect(briefRecs(p, { drivers: ['a'], ctor: 'gone', ace: 'a' }).every((r) => r.kind !== 'TEAM')).toBe(true);
+  });
+});
+
+describe('display names for the real team', () => {
+  it('shortens a full driver name to the surname and strips sponsor words from a team', () => {
+    expect(shortName('Pierre Gasly')).toBe('Gasly');
+    expect(shortName('Gasly')).toBe('Gasly');
+    expect(shortTeamName('Aston Martin Aramco Formula One Team')).toBe('Aston Martin');
+    expect(shortTeamName('Mercedes-AMG Petronas F1 Team')).toBe('Mercedes');
   });
 });

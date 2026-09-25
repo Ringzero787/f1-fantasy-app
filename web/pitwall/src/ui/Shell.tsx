@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { bank, money, projected } from '../data/logic';
+import { bank, money, projectedLineup } from '../data/logic';
 import type { Account } from '../lib/account';
 import { PAGES, type PageName } from '../lib/router';
 import { toggleTheme } from '../lib/theme';
@@ -27,7 +27,7 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
         <div className="grp">
           <span className="mut">Team</span><span>{account?.teamName ?? (account ? 'No team yet' : 'Late Brakers')}</span>
           <span className="mut">Bank</span><span className="num">{account ? (account.bank === null ? '—' : money(account.bank)) : money(bank(p, ui.lineup))}</span>
-          <span className="mut only-wide">Proj</span><span className="num only-wide">{projected(p, ui.lineup)} pts</span>
+          <span className="mut only-wide">Proj</span><span className="num only-wide">{(() => { const q = projectedLineup(p, ui.lineup); return q.complete ? `${q.points} pts` : '—'; })()}</span>
         </div>
       </div>
       <nav className="tabs" role="tablist" aria-label="Pit Wall pages">
