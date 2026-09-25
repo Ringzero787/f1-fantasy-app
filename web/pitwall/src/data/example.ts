@@ -43,6 +43,11 @@ export function examplePayload(): Payload {
   });
   for (const d of drivers) { d.val = +((d.med / d.price) * 100).toFixed(1); d.pod = Math.min(88, d.win * 2 + Math.round(rnd() * 8)); d.t10 = Math.min(97, Math.round(d.med * 1.7 + 10)); }
   const constructors: Constructor[] = CTORS.map(([id, price, med]) => ({ id, name: TEAMS[id].name, team: id, price, med, ctor: true, floor: Math.round(med * 0.7), ceil: Math.round(med * 1.3), val: +((med / price) * 100).toFixed(1) }));
+  const weather = [
+    { key: 'fp1', label: 'FP1', at: '2026-09-25T08:30:00.000Z', tempC: 24, rainMm: 0, sky: 'clear', windKph: 12 },
+    { key: 'qualifying', label: 'Qualifying', at: '2026-09-26T12:00:00.000Z', tempC: 23, rainMm: 0.2, sky: 'part cloud', windKph: 18 },
+    { key: 'race', label: 'Race', at: '2026-09-27T11:00:00.000Z', tempC: 21, rainMm: 1.4, sky: 'light showers', windKph: 22 },
+  ];
   const news: NewsItem[] = [
     { kind: 'PENALTY', entity: 'hamilton', tone: '-', text: 'Ferrari confirms a new energy store for Hamilton: 10-place grid drop in Baku.', sources: '2 sources', detail: 'Governing-body doc 14 · team release' },
     { kind: 'UPGRADE', entity: 'mclaren', tone: '+', text: 'McLaren brings a low-drag rear wing; long straights suit it.', sources: '3 sources', detail: 'Team release · 2 outlets' },
@@ -61,6 +66,7 @@ export function examplePayload(): Payload {
     round: { number: 17, name: 'Baku', firstSession: 'FP1 Fri 25 Sep', locksIn: '6d 04h', circuit: 'Baku City Circuit' },
     rounds: ['BAK', 'SIN', 'AUS', 'MEX', 'SAO', 'LVG'], budget: 2250, teams: TEAMS, drivers, constructors, news, rivals,
     league: { name: 'Sunday Drivers', size: 10, myRank: 2 },
+    weather, weatherSource: 'Example forecast',
   };
 }
 

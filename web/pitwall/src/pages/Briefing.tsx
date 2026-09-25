@@ -1,6 +1,6 @@
 import { briefRecs, entity, money, projectedLineup, rateMyTeam, rivalMove } from '../data/logic';
 import { useStore } from '../state';
-import { Arrow, Empty, Meter, Money, Pill, Row, Tabs, TeamBar, Tile } from '../ui/bits';
+import { Arrow, Empty, Money, Pill, Row, Tabs, TeamBar, Tile } from '../ui/bits';
 import { NOT_PUBLISHED } from '../data/coverage';
 import { Compare } from '../ui/Compare';
 import { Locked } from '../ui/Locked';
@@ -40,12 +40,20 @@ export function Briefing() {
   ));
   // These percentages are invented, and a forecast is exactly the sort of thing a reader will take
   // at face value, so they may only be drawn where the rest of the page is example data too.
-  const weatherBody = !has.mock ? <Empty>Session weather is not published yet.</Empty> : (
+  // Real forecast, per session, from the payload. Amounts rather than chances, because that is
+  // what the source measures; a fabricated probability is exactly what this tile used to show.
+  const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short' });
+  const weatherBody = !has.weather ? <Empty>{NOT_PUBLISHED.weather}</Empty> : (
     <>
-      {([['FP1 · Fri', 5], ['Quali · Sat', 15], ['Race · Sun', 35]] as Array<[string, number]>).map(([s, pct]) => (
-        <Row key={s} cols="90px 1fr 40px"><span>{s}</span><Meter pct={pct} red={pct > 30} /><span className="num">{pct}%</span></Row>
+      {p.weather.map((w) => (
+        <Row key={w.key} cols="1fr auto auto auto" label={`${w.label}: ${w.sky ?? ''}${w.tempC !== null ? `, ${w.tempC} degrees` : ''}${w.rainMm !== null ? `, ${w.rainMm} millimetres of rain` : ''}`}>
+          <span>{w.label} <span className="mut">· {day(w.at)}</span></span>
+          <span className="mut">{w.sky ?? '—'}</span>
+          <span className="num">{w.tempC !== null ? `${w.tempC}°` : '—'}</span>
+          <span className={`num ${w.rainMm !== null && w.rainMm >= 1 ? 'red' : ''}`}>{w.rainMm !== null ? `${w.rainMm} mm` : '—'}</span>
+        </Row>
       ))}
-      <span className="mut">Rain probability. Click a driver anywhere for their wet against dry delta.</span>
+      <span className="mut">Rain is the amount expected in the session's hour. {p.weatherSource ?? ''}</span>
     </>
   );
 

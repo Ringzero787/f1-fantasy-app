@@ -36,6 +36,8 @@ admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECT
   const ctors = run.projections.filter((p) => p.entityType === 'constructor').sort((a, b) => b.median - a.median);
   console.log('\nCONSTRUCTOR   FLOOR   MED  CEIL   d$');
   for (const p of ctors) console.log(`${p.entityId.padEnd(12)} ${pad(p.floor.toFixed(0), 5)} ${pad(p.median.toFixed(0), 5)} ${pad(p.ceiling.toFixed(0), 5)} ${pad(p.expectedPriceChange.toFixed(0), 4)}`);
+  console.log(run.weather.length ? '\nWEATHER       SKY            TEMP   RAIN   WIND' : '\nWEATHER: none for this round (no forecast within range, or no coordinates)');
+  for (const w of run.weather) console.log(`${w.label.padEnd(13)} ${(w.sky ?? '—').padEnd(14)} ${pad(w.tempC === null ? '—' : `${w.tempC}°`, 5)} ${pad(w.rainMm === null ? '—' : `${w.rainMm}mm`, 6)} ${pad(w.windKph === null ? '—' : `${w.windKph}kph`, 6)}`);
   console.log(run.wrote.length ? `\nWrote: ${run.wrote.join(', ')}` : '\nNothing was written.');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

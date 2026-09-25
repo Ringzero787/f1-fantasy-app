@@ -9,6 +9,7 @@
  *                               no price model, no rivals, headlines only
  */
 import { blendPriceChange, pointsToRise, pointsToSoftFall } from './priceRules';
+import type { SessionWeather } from './weather';
 import type { Projection } from './types';
 
 export interface DriverMeta { id: string; number: number; name: string; constructorId: string; price: number; isActive: boolean }
@@ -34,6 +35,10 @@ export interface PayloadInputs {
   pricingHistory?: PricingHistory;
   asOf: Date;
   budget: number;
+  /** session forecast for this round, empty when there is none to be had */
+  weather?: SessionWeather[];
+  /** who the forecast came from, which their terms require us to print */
+  weatherSource?: string | null;
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -80,6 +85,9 @@ export function buildPayload(i: PayloadInputs) {
     teams, drivers, constructors,
     news: [] as never[], rivals: [] as never[],
     league: { name: '', size: 0, myRank: 0 },
+    // Conditions are not analysis and are never sold (ADR-001), so they ride in both documents.
+    weather: i.weather ?? [],
+    weatherSource: i.weatherSource ?? null,
     model: { runs: 10000, band: 'central 70% of finishing runs', pDnfSeparate: true },
   };
   // Free look: the projection itself is free for the whole grid, and the analysis built on it is
@@ -101,6 +109,8 @@ export function buildPayload(i: PayloadInputs) {
     news: [] as never[],
     rivals: [] as never[],
     league: { name: '', size: 0, myRank: 0 },
+    weather: full.weather,
+    weatherSource: full.weatherSource,
     model: full.model,
   };
   return { full, free };

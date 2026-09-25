@@ -104,6 +104,7 @@ export function App() {
   // Tagged with the access it was fetched for: a pass that lapses or a sign-out must not leave a
   // pass-gated payload on screen while the next read is in flight.
   const [published, setPublished] = useState<{ access: PassState['access']; payload: Payload } | null>(null);
+  const [payloadStatus, setPayloadStatus] = useState<'loading' | 'ready' | 'empty'>('loading');
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
@@ -163,10 +164,14 @@ export function App() {
   // The published payload. Which document it comes from follows the pass, so a purchase swaps the
   // free look for the full one without a reload; the rules refuse the rest either way.
   useEffect(() => {
-    if (!uid) { setPublished(null); return; }
+    if (!uid) { setPublished(null); setPayloadStatus('loading'); return; }
     let live = true;
     const access = pass.access;
-    void loadPayload(access === 'pass').then((p) => { if (live && p) setPublished({ access, payload: p }); });
+    setPayloadStatus('loading');
+    void loadPayload(access === 'pass').then((p) => {
+      if (!live) return;
+      if (p) { setPublished({ access, payload: p }); setPayloadStatus('ready'); } else setPayloadStatus('empty');
+    });
     return () => { live = false; };
   }, [uid, pass.access]);
 
@@ -207,7 +212,20 @@ export function App() {
     if (!res.data?.url) throw new Error('Checkout could not be opened. Try again.');
     return res.data.url;
   };
-  return <Portal account={account} real={real} pass={pass} published={payloadForAccess(published, pass.access)} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
+  // A signed-in reader is never shown the example set. It has news, a weather panel, rivals and a
+  // full board, so falling back to it looks exactly like a working page carrying last week's
+  // product, and the swap when the real payload lands reads as the page resetting itself.
+  const current = payloadForAccess(published, pass.access);
+  if (!current) {
+    return (
+      <main className="signin">
+        <span className="lbl" role="status">
+          {payloadStatus === 'empty' ? 'No round has been published yet. Check back once the next one is up.' : 'Loading this round…'}
+        </span>
+      </main>
+    );
+  }
+  return <Portal account={account} real={real} pass={pass} published={current} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} onSignOut={() => void signOut(auth())} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';

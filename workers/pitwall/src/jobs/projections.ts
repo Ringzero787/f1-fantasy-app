@@ -11,6 +11,7 @@
  */
 import { assertAllowedInputs } from '../model/inputs';
 import { pointsToRise } from '../model/priceRules';
+import { fetchForecast, sessionWeather, MET_ATTRIBUTION, type SessionWeather } from '../model/weather';
 import { scoreWeekend } from '../model/scoreRace';
 import { buildPayload, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
 import { DEFAULT_SIM, simulate, type SimOptions } from '../model/simulate';
@@ -36,6 +37,7 @@ export interface ProjectionRun {
   projections: Projection[];
   wrote: string[];
   counts: { drivers: number; constructors: number; pastRaces: number };
+  weather: SessionWeather[];
 }
 
 /** Everything the job reads, in one place, so the input list can be asserted. */
@@ -118,7 +120,18 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
   const nextRounds = upcoming.slice(0, 6).map((r: Record<string, any>) => ({ round: num(r.round), label: String(r.circuitId ?? r.city ?? r.id).slice(0, 3).toUpperCase(), hasSprint: r.hasSprint === true }));
   // What a pick has to score to be worth its price. Undercut has no neutral band: below this it falls.
   const priceImplied = pointsToRise;
-  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000 });
+  // Conditions for each session of this round. A failure here is no weather, never a guess.
+  const sessionTimes = ([
+    ['fp1', 'FP1', schedule.fp1], ['fp2', 'FP2', schedule.fp2], ['fp3', 'FP3', schedule.fp3],
+    ['sprintQualifying', 'Sprint quali', schedule.sprintQualifying], ['sprint', 'Sprint', schedule.sprint],
+    ['qualifying', 'Qualifying', schedule.qualifying], ['race', 'Race', schedule.race],
+  ] as Array<[string, string, unknown]>)
+    .map(([key, label, at]) => ({ key, label, at: toDate(at) }))
+    .filter((x): x is { key: string; label: string; at: Date } => x.at !== null);
+  const forecast = await fetchForecast(String(next.circuitId ?? ''));
+  const weather = sessionWeather(sessionTimes, forecast, opts.now ?? new Date());
+
+  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000, weather, weatherSource: weather.length ? MET_ATTRIBUTION : null });
 
   const id = `${opts.season}_${round}`;
   const wrote: string[] = [];
@@ -128,5 +141,5 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
     await db.collection('pw_projections').doc(`${id}_${opts.sessionKey}`).set({ season: opts.season, round, sessionKey: opts.sessionKey, asOf: full.asOf, projections: projections.map((p) => ({ ...p })) });
     wrote.push(`pw_pages/${id}`, `pw_public/${id}`, `pw_projections/${id}_${opts.sessionKey}`);
   }
-  return { season: opts.season, round, raceId: roundMeta.raceId, sessionKey: opts.sessionKey, projections, wrote, counts: { drivers: full.drivers.length, constructors: full.constructors.length, pastRaces: history.races.length } };
+  return { season: opts.season, round, raceId: roundMeta.raceId, sessionKey: opts.sessionKey, projections, wrote, counts: { drivers: full.drivers.length, constructors: full.constructors.length, pastRaces: history.races.length }, weather };
 }
