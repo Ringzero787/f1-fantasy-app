@@ -94,11 +94,14 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
 
   const has = useMemo(() => coverage(payload), [payload]);
   // The reader's wire history: seeded from the server, changed here, and handed back to be saved.
+  // Seeded from the server (and emptied on sign-out, so the next reader never inherits a history).
   const [wire, setWire] = useState<WirePrefs>(wireIn ?? EMPTY_PREFS);
-  useEffect(() => { if (wireIn) setWire(wireIn); }, [wireIn]);
-  const changeWire = useCallback((next: WirePrefs) => { setWire(next); onWire?.(next); }, [onWire]);
-  const markRead = useCallback((key: string) => changeWire(markReadPrefs(wire, key, Date.now())), [wire, changeWire]);
-  const rateNews = useCallback((key: string, rating: Rating) => changeWire(ratePrefs(wire, key, rating)), [wire, changeWire]);
+  useEffect(() => { setWire(wireIn ?? EMPTY_PREFS); }, [wireIn]);
+  // Functional updates: two marks in one tick both land, rather than the second overwriting the
+  // first from a stale closure. The save is a whole-document write, so running it twice is harmless.
+  const changeWire = useCallback((fn: (w: WirePrefs) => WirePrefs) => setWire((w) => { const next = fn(w); onWire?.(next); return next; }), [onWire]);
+  const markRead = useCallback((key: string) => changeWire((w) => markReadPrefs(w, key, Date.now())), [changeWire]);
+  const rateNews = useCallback((key: string, rating: Rating) => changeWire((w) => ratePrefs(w, key, rating)), [changeWire]);
   const store = useMemo<Store>(() => ({
     payload, has, wire, markRead, rateNews, ui, go, real, saving, pass, checkout,
     startCheckout: async () => {
