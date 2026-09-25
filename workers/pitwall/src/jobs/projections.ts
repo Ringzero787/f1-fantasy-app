@@ -25,7 +25,7 @@ import type { HistRace, History, Projection } from '../model/types';
  * firebase-admin dependency (the CLI and the service pass the real Firestore in).
  */
 interface Snap { id: string; data(): Record<string, unknown> }
-interface Query { where(field: string, op: string, value: unknown): Query; get(): Promise<{ docs: Snap[] }> }
+interface Query { where(field: string, op: string, value: unknown): Query; limit?(n: number): Query; get(): Promise<{ docs: Snap[] }> }
 interface Col extends Query { doc(id: string): { set(data: Record<string, unknown>): Promise<unknown> } }
 export interface Db { collection(name: string): Col }
 const toDate = (v: unknown): Date | null => (v && typeof (v as { toDate?: () => Date }).toDate === 'function' ? (v as { toDate: () => Date }).toDate() : null);
@@ -82,7 +82,9 @@ export async function loadProjectionInputs(db: Db, season: string) {
 export async function loadWireArticles(db: Db, since: Date): Promise<Article[]> {
   // The worker's Firestore surface is deliberately small (no orderBy), so the window is applied
   // here and the ordering is done in memory; a week of feed items is a few hundred documents.
-  const snap = await db.collection('articles').where('publishedAt', '>=', since).get();
+  // Bounded all the same: a week is ~100 items, so 600 is a ceiling nobody reaches, not a page size.
+  const q = db.collection('articles').where('publishedAt', '>=', since);
+  const snap = await (q.limit ? q.limit(600) : q).get();
   return snap.docs.map((d: Snap) => {
     const x = d.data() as Record<string, any>;
     const at: Date = typeof x.publishedAt?.toDate === 'function' ? x.publishedAt.toDate() : new Date(String(x.publishedAt ?? ''));

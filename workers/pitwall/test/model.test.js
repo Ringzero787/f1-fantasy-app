@@ -309,14 +309,15 @@ test('the weather map is a 5x5 grid, row-major from the north-west, with frames 
 });
 
 test('a team is recognised by its names, never by a sponsor or a generic word alone', () => {
-  const v = teamVariants('Aston Martin Aramco F1 Team', 'Aston Martin');
-  assert.ok(v.includes('Aston Martin'));
-  assert.ok(!v.includes('Team') && !v.includes('Aramco'));
-  const names = { drivers: {}, constructors: { aston_martin: v, red_bull: teamVariants('Oracle Red Bull Racing', 'Red Bull') } };
+  // fictitious teams, shaped like the real names: a sponsor, then the name, then the generic tail
+  const v = teamVariants('Harbour Petronas Racing Team', 'Harbour');
+  assert.ok(v.includes('Harbour'));
+  assert.ok(!v.includes('Team') && !v.includes('Petronas'));
+  const names = { drivers: {}, constructors: { harbour: v, slipstream: teamVariants('Oracle Slipstream Racing', 'Slipstream') } };
   assert.equal(tagEntity('Team principal meeting called for Friday', names), null);
   assert.equal(tagEntity('Racing resumes after the red flag', names), null);
-  assert.equal(tagEntity('Aston Martin bring a new floor', names), 'aston_martin');
+  assert.equal(tagEntity('Harbour bring a new floor', names), 'harbour');
   // a feed item with a link that is not https is not published at all
-  const out = buildWire([{ title: 'Aston Martin bring a new floor', summary: '', url: 'http://x/1', source: 'F1', category: 'practice', publishedAt: new Date() }], names, new Date());
+  const out = buildWire([{ title: 'Harbour bring a new floor', summary: '', url: 'http://x/1', source: 'F1', category: 'practice', publishedAt: new Date() }], names, new Date());
   assert.equal(out.length, 0);
 });
