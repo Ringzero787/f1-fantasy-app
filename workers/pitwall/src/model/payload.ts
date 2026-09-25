@@ -82,9 +82,9 @@ export function buildPayload(i: PayloadInputs) {
     league: { name: '', size: 0, myRank: 0 },
     model: { runs: 10000, band: 'central 70% of finishing runs', pDnfSeparate: true },
   };
-  // Free look: the top-10 medians and nothing else the pass buys. Every driver and constructor is
-  // still listed, because identity and price are not what is being sold and the portal needs the
-  // whole grid to edit a lineup — a free user holding the 11th-ranked driver must still see them.
+  // Free look: the projection itself is free for the whole grid, and the analysis built on it is
+  // what the pass buys. Holding back medians past the top ten made a reader's own lineup impossible
+  // to total, which is worse than useless: it produced a number that was simply wrong.
   const stripped = { floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] as number[], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0 };
   // Built field by field rather than spread from `full`: a spread would hand the free document
   // every field added to the paid one later, so the next thing published (tagged news, rival
@@ -96,8 +96,8 @@ export function buildPayload(i: PayloadInputs) {
     rounds: full.rounds,
     budget: full.budget,
     teams: full.teams,
-    drivers: drivers.map((d, i) => ({ ...d, ...stripped, med: i < 10 ? d.med : 0 })),
-    constructors: constructors.map((c, i) => ({ ...c, floor: 0, ceil: 0, val: 0, med: i < 3 ? c.med : 0 })),
+    drivers: drivers.map((d) => ({ ...d, ...stripped })),
+    constructors: constructors.map((c) => ({ ...c, floor: 0, ceil: 0, val: 0 })),
     news: [] as never[],
     rivals: [] as never[],
     league: { name: '', size: 0, myRank: 0 },

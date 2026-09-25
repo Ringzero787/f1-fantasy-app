@@ -2,9 +2,12 @@
  * What a signed-in user can see (F-068). The rules are the real gate; this decides what the UI
  * shows so a locked frame can render its true layout with the offer over it, rather than vanishing.
  *
- * Free for everyone signed in: Briefing headlines, the Board's top-ten medians, Wire headlines,
- * the lineup with manual editing, Rate My Team, and every timing-derived frame (Pace Lab and the
- * circuit history), which is never sold (ADR-001).
+ * Free for everyone signed in: the projection for every driver and constructor, Briefing
+ * headlines, Wire headlines, the lineup with manual editing, Rate My Team, and every
+ * timing-derived frame (Pace Lab and the circuit history), which is never sold (ADR-001).
+ *
+ * The pass buys what is built on the projection: the recommendations and the reasoning, the
+ * ranges, the probabilities, form, the price model, rivals, and the deep dives.
  */
 export type Access = 'free' | 'pass';
 

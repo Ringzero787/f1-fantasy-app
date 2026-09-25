@@ -11,7 +11,7 @@ const SESSIONS = ['THU', 'FP1', 'FP2', 'FP3', 'QUALI'];
 
 export function Board() {
   const { payload: p, has, ui, set, open, pass } = useStore();
-  // Free: the top ten, median only. The full table, presets and the other tabs need the pass.
+  // Free: every driver, median only. The extra columns, presets and the other tabs need the pass.
   const full = can(pass, 'board.full');
   // A preset whose columns are not published would show a column of zeros, so it is not offered.
   const presets = (['VALUE', 'PACE', 'OWNERSHIP', 'RISK'] as const).filter((k) => (k === 'PACE' ? has.timing : k === 'OWNERSHIP' ? has.ownership : true));
@@ -21,7 +21,9 @@ export function Board() {
   // Leverage is ownership against rank: without ownership it collapses to the row index, which
   // would read as analysis, so it is left undefined and the cell shows a dash.
   const all = [...p.drivers].sort((a, b) => (Number(b[key]) || 0) - (Number(a[key]) || 0)).map((d, i) => (has.ownership ? { ...d, lev: Math.round(d.own / 5 - i) } : d));
-  const rows = full ? all : all.slice(0, 10);
+  // Every driver's projection is free; the pass buys the columns beside it — ranges, value, form,
+  // the price model and the probabilities. Slicing the grid to ten hid picks people actually hold.
+  const rows = all;
   const sortBtn = (k: string) => (
     <th key={k} scope="col" aria-sort={ui.sort === k ? 'descending' : undefined}><button type="button" onClick={() => set('sort', k)}>{HEAD[k]}{ui.sort === k ? ' ▾' : ''}</button></th>
   );
@@ -30,7 +32,7 @@ export function Board() {
   if (ui.boardTab === 'PROJECTIONS') {
     body = (
       <div className="scroll"><table>
-        {/* Free look: the top ten and their median only. Ranges, value, form and price movement are the pass. */}
+        {/* Free look: every driver and their median. Ranges, value, form and price movement are the pass. */}
         <thead><tr><th scope="col">Driver</th>{full ? <th scope="col">Floor · median · ceiling</th> : null}{sortBtn('med')}{full ? cols.map((c) => sortBtn(String(c))) : null}{full ? <><th scope="col">Next $</th><th scope="col">Form</th></> : null}</tr></thead>
         <tbody>{rows.map((d) => (
           <Tr key={d.id} onClick={() => open(d.id)} me={ui.lineup.drivers.includes(d.id)} focus={ui.focus === d.id} label={`${d.name}, projection ${d.med}`}>
@@ -94,7 +96,7 @@ export function Board() {
         </div>}>
         {body}
         {full || ui.boardTab !== 'PROJECTIONS' ? null : (
-          <Locked feature="board.full"><div className="mut" style={{ padding: '10px 0' }}>The rest of the grid, with ranges, value, form and price movement.</div></Locked>
+          <Locked feature="board.full"><div className="mut" style={{ padding: '10px 0' }}>Ranges, value, form, the price model and the chance of a win, a podium or a retirement.</div></Locked>
         )}
       </Tile>
     </div>

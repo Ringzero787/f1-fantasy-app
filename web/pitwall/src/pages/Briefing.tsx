@@ -31,7 +31,9 @@ export function Briefing() {
   );
   // The predicted move is part of the price model. Without it every row reads "0", which is a
   // ranking of nothing presented as a prediction.
-  const moversBody = !has.priceModel ? <Empty>{NOT_PUBLISHED.priceModel}</Empty> : [...p.drivers].sort((a, b) => Math.abs(b.dprice) - Math.abs(a.dprice)).slice(0, 5).map((d) => (
+  const moversBody = !has.priceModel
+    ? <Empty>{pass.access === 'pass' ? NOT_PUBLISHED.priceModel : 'The predicted price move comes with the Pit Wall Pass.'}</Empty>
+    : [...p.drivers].sort((a, b) => Math.abs(b.dprice) - Math.abs(a.dprice)).slice(0, 5).map((d) => (
     <Row key={d.id} cols="1fr auto auto" onClick={() => open(d.id)} label={`${d.name}, ${money(d.price)}, predicted move ${d.dprice}`}>
       <span><TeamBar p={p} team={d.team} />{d.name}</span><span className="mut"><Money n={d.price} /></span><span className="num"><Arrow n={d.dprice} /></span>
     </Row>

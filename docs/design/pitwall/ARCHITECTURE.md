@@ -90,7 +90,7 @@ Pages render from precomputed payloads, so a page view is 1 to 3 reads and no pa
 
 | Collection | Doc id | Contents | Read access |
 |---|---|---|---|
-| `pw_public` | `{season}_{round}` | Free look: briefing headlines, board top 10 with median only, wire headlines, Rate My Team inputs, data-as-of | any signed-in user |
+| `pw_public` | `{season}_{round}` | Free look: the projection (median) for every driver and constructor, briefing headlines, wire headlines, Rate My Team inputs, data-as-of | any signed-in user |
 | `pw_public_timing` | `{season}_{round}_{frame}` | Every timing-derived frame (Pace Lab, circuit lap history, pit stops, stint degradation). Free only, never read by pass-gated builders (ADR-001) | any signed-in user |
 | `pw_pages` | `{season}_{round}_{page}` | Full payload per page (board, circuit, pace, market, season, wire) | pass claim |
 | `pw_entities` | `{season}_{round}_{entityId}` | Slide-over payload: past, present, outlook, tagged news | pass claim |
@@ -108,7 +108,7 @@ Pages render from precomputed payloads, so a page view is 1 to 3 reads and no pa
 
 The pipeline lands one piece at a time: projections and the price model first, then timing, ownership, circuit fit, news and rivals. A payload therefore arrives with fields nobody has filled in, and a zero in one of them is not a measurement.
 
-- `workers/pitwall/src/model/payload.ts` `buildPayload` returns `{ full, free }`. The free document is built field by field, never spread from the full one, so a paid field added later is not inherited into the free look the day it ships. It lists the whole grid with projections stripped past the top ten: identity and price are not what the pass sells, and the portal needs every driver to edit a lineup.
+- `workers/pitwall/src/model/payload.ts` `buildPayload` returns `{ full, free }`. The free document is built field by field, never spread from the full one, so a paid field added later is not inherited into the free look the day it ships. It lists the whole grid **with every median**: the projection itself is free and the analysis built on it is what the pass buys. Holding medians back past the top ten made a reader's own lineup impossible to total, which produced a number that was simply wrong (2026-09-25).
 - `web/pitwall/src/lib/payloadApi.ts` `loadPayload(hasPass)` reads the newest document from `pw_pages` or `pw_public`, ordered by `asOf` (document ids sort as text, so `2026_9` would follow `2026_17`). `toPayload` coerces every field, so a document written by an older or newer worker still renders. A refusal returns null and the browser-generated example set stands in.
 - `web/pitwall/src/data/coverage.ts` `coverage(payload)` answers which parts carry real data: `timing`, `ownership`, `fit`, `news`, `rivals`, `league`, `form`, `priceModel`, and `mock` for frames that exist only in the example set. It reaches pages through the store as `has`, and `NOT_PUBLISHED` holds one line of copy per gap. The example payload reports full coverage, so the design preview and the scroll budget still measure the tall case.
 - A frame with no source says so. It must never draw a shape from the row order: a leverage column built from a zero ownership is the row index, a flat circuit fit makes the outlook assert the same claim about every driver, and a zero pace gap puts the whole grid on pole.

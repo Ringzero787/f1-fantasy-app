@@ -118,6 +118,10 @@ test('payload builder writes the portal shape, a free look with only top-10 medi
   assert.equal(full.round.locksIn, '2026-09-26T08:30:00.000Z');
   assert.equal(free.drivers[0].floor, 0);
   assert.equal(free.drivers[0].med, 40);
+  // every projection is free, including the ones outside the top ten: a reader has to be able to
+  // total their own lineup, whoever is in it
+  assert.ok(free.drivers.every((d, i) => d.med === full.drivers[i].med));
+  assert.ok(free.constructors.every((c, i) => c.med === full.constructors[i].med));
   assert.equal(free.drivers[0].form.length, 0);
   // the whole grid stays listed so a free user can still see and edit a lineup; only the
   // projections are withheld past the top ten
