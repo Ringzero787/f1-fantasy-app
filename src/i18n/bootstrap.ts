@@ -3,8 +3,15 @@
  *
  * Zustand's persisted prefs hydrate from AsyncStorage asynchronously, so the saved language is not
  * available synchronously at launch. Rather than render English and correct it a frame later, this
- * applies the stored choice the moment hydration finishes — which happens while the launch reveal is
- * still covering the screen — and then keeps i18next in step with the store for every later change.
+ * applies the stored choice the moment hydration finishes, then keeps i18next in step with the store
+ * for every later change.
+ *
+ * Why that is enough to avoid a visible flash: LaunchReveal (src/simple/grid/LaunchReveal.tsx) calls
+ * SplashScreen.preventAutoHideAsync() at module load and only releases the native splash after its own
+ * full-screen overlay has painted, then runs a reveal animation over the app. App content is therefore
+ * covered for far longer than an AsyncStorage read. It is mounted unconditionally by the root layout,
+ * so warm starts and OTA reloads are covered too. If that choreography is ever removed, gate the first
+ * render on usePrefsStore.persist.hasHydrated() instead.
  */
 import { usePrefsStore } from "../store/prefs.store";
 import { initI18n, isSupported, setLanguage } from "./index";
