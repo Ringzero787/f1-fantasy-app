@@ -1,0 +1,37 @@
+id: OP-047
+title: "Rules: a reader's private wire history under users/{uid}/pitwall (F-071)"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-09-25T16:20:30.560Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T16:24:30.009Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    command: git --no-pager diff 'a73fad6ccad0f0c2c35666ebc8e424672f0c41cb' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-047/dry-run-2026-09-25T16-24-30-009Z.log
+    log_sha256: b5b676ecf67abc938d6230eaad3e098cfbed2cbce60c45c19821c9660cf30820
+    lines: 23
+  - step: gates
+    at: 2026-09-25T16:24:45.062Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T16:24:45.067Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-047/apply-2026-09-25T16-24-45-067Z.log
+    log_sha256: c18c92dc711ff106dc37ceff96ef7422f64855c88aa12a19e0be9b279dc288e6
+    lines: 13
+  - step: gates
+    at: 2026-09-25T16:24:48.625Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,38 @@
+id: OP-049
+title: "Portal deploy: mark read and thumbs on the wire (F-071)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-25T16:20:31.026Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T16:20:45.591Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-049/dry-run-2026-09-25T16-20-45-591Z.log
+    log_sha256: 9b8f2b7a5cbd098e4ec3c8e9ff3298da5299f4dc538f1f161fac730031ec1915
+    lines: 67
+  - step: gates
+    at: 2026-09-25T16:24:49.789Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T16:24:49.795Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-049/apply-2026-09-25T16-24-49-795Z.log
+    log_sha256: bebc86ca248ee42f2b0db58e16392cdecdd36cca70ef4440b65697ebd291fb01
+    lines: 78
+  - step: gates
+    at: 2026-09-25T16:28:32.083Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    exit: 0
+    gates:
+      G15: skip

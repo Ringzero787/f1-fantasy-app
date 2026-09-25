@@ -1,0 +1,47 @@
+id: OP-048
+title: Publish thirty headlines for the reader's wire (F-071)
+kind: pitwall-job
+status: applied
+params:
+  job: projections
+  session: fp3
+created_at: 2026-09-25T16:20:30.796Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-25T16:20:39.154Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'fp3'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-048/dry-run-2026-09-25T16-20-39-154Z.log
+    log_sha256: 1c8f57b28a238a79bbcceddd693b7a94c86052602dac545d33be77816955565d
+    lines: 82
+  - step: backup
+    at: 2026-09-25T16:24:30.275Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-048'/backup.json pw_pages pw_public pw_projections
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-048/backup-2026-09-25T16-24-30-275Z.log
+    log_sha256: c09c0e509f9aa86f5962427a00507a6f9d19a557fc5ec0fabfc2229abf97495b
+    lines: 3
+  - step: gates
+    at: 2026-09-25T16:24:31.922Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-25T16:24:31.922Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    command: bash scripts/ops/pitwall-job.sh apply 'projections' 'fp3'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-048/apply-2026-09-25T16-24-31-922Z.log
+    log_sha256: a7b3fda938a3c684ed801e89ffe9e5bc51f57de07e75e5e64db78ed12f0f8746
+    lines: 82
+  - step: gates
+    at: 2026-09-25T16:24:38.413Z
+    head_sha: 8fcbc1a8abe39cde0b348779bc7fd4b7b7858de9
+    exit: 0
+    gates:
+      G15: skip
