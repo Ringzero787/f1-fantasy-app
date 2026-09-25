@@ -13,9 +13,9 @@ import { assertAllowedInputs } from '../model/inputs';
 import { pointsToRise } from '../model/priceRules';
 import { fetchForecast, sessionWeather, MET_ATTRIBUTION, type SessionWeather } from '../model/weather';
 import { buildWeatherMap, fetchGrid, type WeatherMap } from '../model/weatherMap';
-import { buildWire, type Article, type WireItem } from '../model/wire';
+import { buildWire, teamVariants, type Article, type WireItem } from '../model/wire';
 import { scoreWeekend } from '../model/scoreRace';
-import { buildPayload, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
+import { buildPayload, shortTeamName, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
 import { DEFAULT_SIM, simulate, type SimOptions } from '../model/simulate';
 import { estimateForm, type Entrant } from '../model/strength';
 import type { HistRace, History, Projection } from '../model/types';
@@ -157,7 +157,7 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
   // Headlines, tagged to whoever they name.
   const names = {
     drivers: Object.fromEntries(active.map((d) => [d.id, d.name.trim().split(/\s+/).pop() ?? d.name])),
-    constructors: Object.fromEntries(constructors.map((c) => [c.id, [c.name, ...c.name.split(/\s+/).filter((w) => w.length >= 4)]])),
+    constructors: Object.fromEntries(constructors.map((c) => [c.id, teamVariants(c.name, shortTeamName(c.name, c.id))])),
   };
   const news = buildWire(await loadWireArticles(db, new Date(now.getTime() - 7 * 86400000)).catch((err) => { console.warn('[pw] wire unavailable:', err instanceof Error ? err.message : err); return []; }), names, now);
 

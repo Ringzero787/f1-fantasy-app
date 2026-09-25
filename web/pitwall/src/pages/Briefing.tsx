@@ -46,11 +46,10 @@ export function Briefing() {
   const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short' });
   const weatherBody = !has.weather && !has.weatherMap ? <Empty>{NOT_PUBLISHED.weather}</Empty> : (
     <>
-      {has.weatherMap && p.weatherMap ? <WeatherMap map={p.weatherMap} /> : null}
+      {has.weatherMap && p.weatherMap ? <WeatherMap map={p.weatherMap} /> : <span className="mut">{NOT_PUBLISHED.weatherMap}</span>}
       {p.weather.map((w) => (
-        <Row key={w.key} cols="1fr auto auto auto" label={`${w.label}: ${w.sky ?? ''}${w.tempC !== null ? `, ${w.tempC} degrees` : ''}${w.rainMm !== null ? `, ${w.rainMm} millimetres of rain` : ''}`}>
-          <span>{w.label} <span className="mut">· {day(w.at)}</span></span>
-          <span className="mut">{w.sky ?? '—'}</span>
+        <Row key={w.key} cols="1fr auto auto" dense label={`${w.label}: ${w.sky ?? ''}${w.tempC !== null ? `, ${w.tempC} degrees` : ''}${w.rainMm !== null ? `, ${w.rainMm} millimetres of rain` : ''}`}>
+          <span>{w.label} <span className="mut">· {day(w.at)}{w.sky ? ` · ${w.sky}` : ''}</span></span>
           <span className="num">{w.tempC !== null ? `${w.tempC}°` : '—'}</span>
           <span className={`num ${w.rainMm !== null && w.rainMm >= 1 ? 'red' : ''}`}>{w.rainMm !== null ? `${w.rainMm} mm` : '—'}</span>
         </Row>

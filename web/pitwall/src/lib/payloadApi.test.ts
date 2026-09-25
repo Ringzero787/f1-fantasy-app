@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadPayload } from './payloadApi';
+import { loadPayload, toPayload } from './payloadApi';
 
 // The Firestore module is loaded on demand inside `firestore()`, so the whole helper is stubbed.
 const getDocs = vi.fn();
@@ -66,5 +66,42 @@ describe('loadPayload', () => {
   it('treats a refusal by the rules as "no payload", not an error to show', async () => {
     getDocs.mockRejectedValue(Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }));
     await expect(loadPayload(true)).resolves.toBeNull();
+  });
+});
+
+describe('toPayload: the forecast map and the wire', () => {
+  const frame = (n: number) => ({ offsetH: 0, at: '2026-09-27T11:00:00.000Z', rainMm: Array.from({ length: n }, () => 0.2), windFromDeg: 315, windKph: 22 });
+  const map = (frames: unknown[]) => ({ center: { lat: 40.37, lon: 49.85 }, radius: 2, spacingKm: 40, sessions: [{ key: 'race', label: 'Race', at: '2026-09-27T11:00:00.000Z', frames }] });
+
+  it('keeps a map whose frames have one cell per grid point', () => {
+    const p = toPayload({ ...DOC, weatherMap: map([frame(25)]) });
+    expect(p.weatherMap?.sessions[0].frames).toHaveLength(1);
+    expect(p.weatherMap?.radius).toBe(2);
+  });
+
+  it('drops a frame with the wrong number of cells, and the map when no frame survives', () => {
+    // a scrambled grid is worse than no grid: 24 cells would shift every row by one
+    const p = toPayload({ ...DOC, weatherMap: map([frame(24), frame(25)]) });
+    expect(p.weatherMap?.sessions[0].frames).toHaveLength(1);
+    expect(toPayload({ ...DOC, weatherMap: map([frame(24)]) }).weatherMap).toBeNull();
+    expect(toPayload({ ...DOC, weatherMap: 'no' }).weatherMap).toBeNull();
+    expect(toPayload({ ...DOC, weatherMap: { radius: 2, spacingKm: 40, sessions: [] } }).weatherMap).toBeNull();
+  });
+
+  it('reads a silent cell as unknown rather than dry', () => {
+    const f = { ...frame(25), rainMm: [null, 'x', 1.5, ...Array.from({ length: 22 }, () => 0)] };
+    const p = toPayload({ ...DOC, weatherMap: map([f]) });
+    expect(p.weatherMap?.sessions[0].frames[0].rainMm.slice(0, 3)).toEqual([null, null, 1.5]);
+  });
+
+  it('lets only an https link through on a headline, and drops a kind it does not know', () => {
+    const news = [
+      { kind: 'PENALTY', entity: 'stone', tone: '-', text: 'Grid drop', sources: 'F1', detail: '', url: 'https://example.com/a', publishedAt: '2026-09-25T10:00:00.000Z' },
+      { kind: 'PENALTY', entity: null, tone: '?', text: 'Odd link', sources: 'F1', detail: '', url: 'javascript:alert(1)', publishedAt: '' },
+      { kind: 'GOSSIP', text: 'Not a kind we show', url: 'https://example.com/c' },
+    ];
+    const p = toPayload({ ...DOC, news });
+    expect(p.news.map((n) => n.url)).toEqual(['https://example.com/a', '']);
+    expect(p.news[1].tone).toBe('•');
   });
 });

@@ -100,7 +100,11 @@ export function buildPayload(i: PayloadInputs) {
   // Free look: the projection itself is free for the whole grid, and the analysis built on it is
   // what the pass buys. Holding back medians past the top ten made a reader's own lineup impossible
   // to total, which is worse than useless: it produced a number that was simply wrong.
-  const stripped = { floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] as number[], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0 };
+  // Picked, not spread: a field added to the paid driver later is not free until it is named here.
+  const freeDriver = (d: (typeof drivers)[number]) => ({
+    id: d.id, num: d.num, name: d.name, team: d.team, price: d.price, med: d.med, fit: d.fit, q: d.q, r: d.r,
+    floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] as number[], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0,
+  });
   // Built field by field rather than spread from `full`: a spread would hand the free document
   // every field added to the paid one later, so the next thing published (tagged news, rival
   // lineups) would leak the day it lands. Adding something paid here has to be deliberate.
@@ -111,8 +115,8 @@ export function buildPayload(i: PayloadInputs) {
     rounds: full.rounds,
     budget: full.budget,
     teams: full.teams,
-    drivers: drivers.map((d) => ({ ...d, ...stripped })),
-    constructors: constructors.map((c) => ({ ...c, floor: 0, ceil: 0, val: 0 })),
+    drivers: drivers.map(freeDriver),
+    constructors: constructors.map((c) => ({ id: c.id, name: c.name, team: c.team, price: c.price, med: c.med, ctor: c.ctor, floor: 0, ceil: 0, val: 0 })),
     // Headlines are free and link to their source; the body is the pass (ADR-001).
     news: full.news.map(headlineOnly),
     rivals: [] as never[],

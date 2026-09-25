@@ -29,6 +29,16 @@ export interface EntityNames {
   constructors: Record<string, string[]>;
 }
 
+/** Words that appear in team names and mean nothing on their own; never a tag by themselves. */
+const GENERIC = new Set(['team', 'racing', 'formula', 'motorsport', 'scuderia', 'petronas', 'oracle', 'aramco', 'moneygram', 'bwt', 'amg', 'cash', 'visa', 'app', 'kick', 'stake', 'hp', 'sauber', 'grand', 'prix']);
+
+/** The names a constructor can be recognised by: its short name and its full name, never a sponsor or a generic word alone. */
+export function teamVariants(full: string, short: string): string[] {
+  const out = new Set<string>([short, full]);
+  for (const w of full.split(/\s+/)) if (w.length >= 4 && !GENERIC.has(w.toLowerCase())) out.add(w);
+  return [...out].filter((v) => v.length >= 3 && !GENERIC.has(v.toLowerCase()));
+}
+
 export interface WireItem {
   kind: WireKind;
   entity: string | null;
@@ -87,7 +97,8 @@ export function buildWire(articles: Article[], names: EntityNames, now: Date, op
   const seen = new Set<string>();
   const scored: Array<{ item: WireItem; score: number }> = [];
   for (const a of articles) {
-    if (!a.title || !a.url || !(a.publishedAt instanceof Date) || Number.isNaN(a.publishedAt.getTime())) continue;
+    // only a real https link is published: the field comes from a feed, and it ends up as an anchor
+    if (!a.title || !/^https:\/\//.test(a.url) || !(a.publishedAt instanceof Date) || Number.isNaN(a.publishedAt.getTime())) continue;
     if (a.publishedAt.getTime() < since || a.publishedAt.getTime() > now.getTime() + 3600000) continue;
     const key = a.title.trim().toLowerCase();
     if (seen.has(key)) continue;

@@ -246,7 +246,7 @@ test('the forecast symbol becomes a phrase a reader can use', () => {
   assert.equal(skyPhrase(null), null);
 });
 
-const { buildWire, tagEntity, kindOf, toneOf, headlineOnly } = require(D + 'wire.js');
+const { buildWire, tagEntity, kindOf, toneOf, headlineOnly, teamVariants } = require(D + 'wire.js');
 test('the wire tags headlines to whoever they name, ranks the useful ones first, and drops fluff', () => {
   const names = { drivers: { russell: 'Russell', antonelli: 'Antonelli', gasly: 'Gasly' }, constructors: { mclaren: ['McLaren'], aston_martin: ['Aston Martin Aramco F1 Team', 'Aston', 'Martin', 'Aramco'] } };
   const now = new Date('2026-09-25T15:00:00Z');
@@ -283,7 +283,7 @@ const { gridOffsets, offsetPlace, sessionFrames, buildWeatherMap } = require(D +
 test('the weather map is a 5x5 grid, row-major from the north-west, with frames around each session', () => {
   const offs = gridOffsets(2);
   assert.equal(offs.length, 25);
-  assert.deepEqual(offs[0], { dx: -2, dy: -2 });
+  assert.deepEqual(offs[0], { dx: -2, dy: 2 });   // north-west: dy is north-positive, so the top row is +2
   assert.deepEqual(offs[12], { dx: 0, dy: 0 });
   const north = offsetPlace({ lat: 40.37, lon: 49.85 }, 0, 1, 40);
   assert.ok(north.lat > 40.7 && north.lat < 40.75);
@@ -291,11 +291,11 @@ test('the weather map is a 5x5 grid, row-major from the north-west, with frames 
 
   const race = new Date('2026-09-26T11:00:00Z');
   const point = (t, mm, wind) => ({ time: t.toISOString(), airTemperature: 20, precipitationMm: mm, symbol: null, windMs: wind, windFromDeg: 315 });
-  const cells = offs.map(({ dx, dy }) => ({ dx, dy, points: [-3, 0, 3].map((h) => point(new Date(race.getTime() + h * 3600000), dx === -2 && dy === -2 ? 2.5 : 0, 5)) }));
+  const cells = offs.map(({ dx, dy }) => ({ dx, dy, points: [-3, 0, 3].map((h) => point(new Date(race.getTime() + h * 3600000), dx === -2 && dy === 2 ? 2.5 : 0, 5)) }));
   const frames = sessionFrames(race, cells, 2);
   assert.equal(frames.length, 3);
   assert.deepEqual(frames.map((f) => f.offsetH), [-3, 0, 3]);
-  assert.equal(frames[1].rainMm[0], 2.5);           // the north-west corner is wet
+  assert.equal(frames[1].rainMm[0], 2.5);           // index 0 is the north-west corner, which the fixture made wet
   assert.equal(frames[1].rainMm[12], 0);            // the circuit is dry
   assert.equal(frames[1].windFromDeg, 315);
   assert.equal(frames[1].windKph, 18);
@@ -306,4 +306,17 @@ test('the weather map is a 5x5 grid, row-major from the north-west, with frames 
   ], cells, new Date('2026-09-25T15:00:00Z'));
   assert.deepEqual(map.sessions.map((s) => s.key), ['race']);
   assert.equal(buildWeatherMap({ lat: 0, lon: 0 }, [{ key: 'race', label: 'Race', at: race }], offs.map(({ dx, dy }) => ({ dx, dy, points: [] })), new Date()), null);
+});
+
+test('a team is recognised by its names, never by a sponsor or a generic word alone', () => {
+  const v = teamVariants('Aston Martin Aramco F1 Team', 'Aston Martin');
+  assert.ok(v.includes('Aston Martin'));
+  assert.ok(!v.includes('Team') && !v.includes('Aramco'));
+  const names = { drivers: {}, constructors: { aston_martin: v, red_bull: teamVariants('Oracle Red Bull Racing', 'Red Bull') } };
+  assert.equal(tagEntity('Team principal meeting called for Friday', names), null);
+  assert.equal(tagEntity('Racing resumes after the red flag', names), null);
+  assert.equal(tagEntity('Aston Martin bring a new floor', names), 'aston_martin');
+  // a feed item with a link that is not https is not published at all
+  const out = buildWire([{ title: 'Aston Martin bring a new floor', summary: '', url: 'http://x/1', source: 'F1', category: 'practice', publishedAt: new Date() }], names, new Date());
+  assert.equal(out.length, 0);
 });

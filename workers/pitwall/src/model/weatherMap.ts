@@ -42,10 +42,14 @@ export interface WeatherMap {
   sessions: SessionMap[];
 }
 
-/** Offsets of a (2r+1)² grid, row-major from the north-west corner. */
+/**
+ * Offsets of a (2r+1)² grid, row-major from the north-west corner. `dy` is north-positive (it is
+ * added to latitude), so the first row is dy = +radius: the portal draws index 0 at the top of the
+ * map, and the top of a map is north. Getting this backwards flips the whole picture.
+ */
 export function gridOffsets(radius = GRID_RADIUS): Array<{ dx: number; dy: number }> {
   const out: Array<{ dx: number; dy: number }> = [];
-  for (let dy = -radius; dy <= radius; dy += 1) for (let dx = -radius; dx <= radius; dx += 1) out.push({ dx, dy });
+  for (let dy = radius; dy >= -radius; dy -= 1) for (let dx = -radius; dx <= radius; dx += 1) out.push({ dx, dy });
   return out;
 }
 
@@ -102,7 +106,8 @@ export async function fetchGrid(circuitId: string, fetchImpl: typeof fetch = fet
     const place = offsetPlace(center, dx, dy);
     let points: ForecastPoint[] = [];
     try {
-      const res = await fetchImpl(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${place.lat}&lon=${place.lon}`, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } });
+      // Bounded: one slow cell must not hold the whole job, and the map draws a missing cell as unknown.
+      const res = await fetchImpl(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${place.lat}&lon=${place.lon}`, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
       if (res.ok) points = readForecast(await res.json());
       else console.warn(`[pw] weather map: MET Norway returned ${res.status} for cell ${dx},${dy}`);
     } catch (err) {
