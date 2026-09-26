@@ -167,3 +167,7 @@ details.tbl>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spac
   background:color-mix(in srgb,var(--surface) 72%,transparent)}
 .locked-veil p{margin:0;max-width:44ch;color:var(--fg2);font-family:var(--disp);font-size:13px;line-height:1.5}
 @media(prefers-reduced-motion:reduce){.locked-body{filter:none;opacity:.35}}
+/* a roster tile with its ace control underneath */
+.dtw{display:flex;flex-direction:column;gap:4px;min-width:0}
+.dtw .dt{width:100%}
+.acebtn{align-self:flex-start;font-size:10px}

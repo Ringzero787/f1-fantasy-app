@@ -2,7 +2,7 @@ import { OPEN_SEAT, bank, entity, money, projectedLineup, swapPool, swapRecs, to
 import { isCtor, type Entity } from '../data/types';
 import { useState } from 'react';
 import { useStore } from '../state';
-import { aceChange, planSave, CONTRACT_LENGTH } from '../data/team';
+import { ACE_MAX_PRICE, aceChange, planSave, CONTRACT_LENGTH } from '../data/team';
 import { RealRoster, SavePreview } from '../ui/RealLineup';
 import { Empty, Arrow, AsTable, FitCell, Pill, TeamBar, Tile, Tr } from '../ui/bits';
 import { Compare } from '../ui/Compare';
@@ -88,7 +88,9 @@ export function LineupLab() {
             {cur ? (
               <Tile label={`Replace ${cur.name} · top pick`}>
                 {top ? <Compare rec={top} /> : <span className="mut">Nothing affordable. Free budget elsewhere first.</span>}
-                {!isC ? <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setAce(cur.id)} disabled={l.ace === cur.id}>{l.ace === cur.id ? 'Ace is on this driver' : `Make ${cur.name} the ace`}</button> : null}
+                {!isC ? (cur.price > ACE_MAX_PRICE
+                  ? <span className="mut">Only a pick at {money(ACE_MAX_PRICE)} or under can be the ace; {cur.name} is {money(cur.price)}.</span>
+                  : <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setAce(cur.id)} disabled={l.ace === cur.id}>{l.ace === cur.id ? 'Ace is on this driver' : `Make ${cur.name} the ace`}</button>) : null}
               </Tile>
             ) : (
               <Tile label={isC ? 'Empty constructor seat' : 'Open driver seat'}>
