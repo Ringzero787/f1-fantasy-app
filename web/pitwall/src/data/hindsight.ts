@@ -10,13 +10,16 @@
  *
  * Pure. 22 drivers choose 5 is 26k combinations, times eleven constructors: fine in a browser.
  */
+import { ACE_MAX_PRICE } from './team';
+
 export interface SnapshotRoster { drivers: Array<{ driverId: string; currentPrice: number }>; constructor: { constructorId: string; currentPrice: number } | null; aceDriverId: string | null }
 export interface Snapshot { raceId: string; round: number; roster: SnapshotRoster; /** points per phase as scored, summed by the caller */ points: number }
 export interface Scored { id: string; ctor: boolean; points: number; price: number }
 export interface Best { points: number; drivers: string[]; ctor: string; ace: string | null }
 export interface HindsightRow { raceId: string; round: number; actual: number; best: number; /** 0..100 */ share: number; bestLineup: Best; spend: number }
 
-export const ACE_CAP = 200;
+/** the app's ace cap, one constant */
+export const ACE_CAP = ACE_MAX_PRICE;
 const SLOTS = 5;
 
 /** The best lineup the spend could buy for that weekend, with hindsight. */

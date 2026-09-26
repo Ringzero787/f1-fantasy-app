@@ -127,7 +127,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     // pending it is written at once (the app's own direct ace write); with other edits pending
     // it rides along with the save. The cap is the app's rule, said here rather than at save time.
     setAce: (id) => {
-      if (!ui.lineup.drivers.includes(id)) return;
+      if (!ui.lineup.drivers.includes(id) || saving) return;   // one write at a time
       const e = entity(payload, id);
       if (e && e.price > ACE_MAX_PRICE) { toast(`Only a pick at $${ACE_MAX_PRICE} or under can be the ace; ${e.name} is $${e.price}.`); return; }
       const next = { ...ui.lineup, ace: id };
