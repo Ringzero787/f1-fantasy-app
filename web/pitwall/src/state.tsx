@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { applySwap, sameLineup } from './data/logic';
+import { applySwap, sameLineup, entity } from './data/logic';
 import type { Lineup, Payload } from './data/types';
 import type { MarketPrices, RealTeam } from './data/team';
 import { NO_PASS, type PassState } from './data/access';
 import { coverage, type Coverage } from './data/coverage';
+import { ACE_MAX_PRICE } from './data/team';
 import { EMPTY_PREFS, markRead as markReadPrefs, rate as ratePrefs, type Rating, type WirePrefs } from './data/wire';
 import type { PageName } from './lib/router';
 
@@ -122,7 +123,18 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     swapInSlot: (id) => patch((u) => (u.slot ? { lineup: applySwap(u.lineup, `${u.slot}:${id}`), slot: null } : {})),
     applyAct: (act) => patch((u) => ({ lineup: applySwap(u.lineup, act) })),
     tryAct: (act) => { patch((u) => ({ lineup: applySwap(u.lineup, act), rec: 0, slot: null, over: null, recOver: null })); go('LINEUP LAB'); toast('Swap applied as a what-if. Save it in the lineup lab.'); },
-    setAce: (id) => patch((u) => (u.lineup.drivers.includes(id) ? { lineup: { ...u.lineup, ace: id } } : {})),
+    // The ace can be moved from anywhere it is shown. With a real team and nothing else
+    // pending it is written at once (the app's own direct ace write); with other edits pending
+    // it rides along with the save. The cap is the app's rule, said here rather than at save time.
+    setAce: (id) => {
+      if (!ui.lineup.drivers.includes(id) || saving) return;   // one write at a time
+      const e = entity(payload, id);
+      if (e && e.price > ACE_MAX_PRICE) { toast(`Only a pick at $${ACE_MAX_PRICE} or under can be the ace; ${e.name} is $${e.price}.`); return; }
+      const next = { ...ui.lineup, ace: id };
+      patch(() => ({ lineup: next }));
+      if (!saver || !sameLineup({ ...next, ace: ui.saved.ace }, ui.saved)) return;
+      void saver(next, setSaving).then((saved) => { patch(() => ({ lineup: saved, saved })); toast(`Ace moved to ${e?.name ?? id} and saved.`); }).catch((err: Error) => { patch((u) => ({ lineup: u.saved })); toast(err.message); }).finally(() => setSaving(null));
+    },
     save: async () => {
       if (!saver) { patch((u) => ({ saved: u.lineup })); toast('Example data: nothing to save.'); return true; }
       try {
