@@ -1,0 +1,47 @@
+id: OP-058
+title: First projections for the next round after Baku was scored
+kind: pitwall-job
+status: applied
+params:
+  job: projections
+  session: daily
+created_at: 2026-09-26T22:33:43.390Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-26T22:33:43.679Z
+    head_sha: 77f39a65161f88d58b850dd73f579b59e4f94a4a
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'daily'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-058/dry-run-2026-09-26T22-33-43-679Z.log
+    log_sha256: 130fffce5cdee03f34edd3cc463ea81e9ed4943c9bd6535c0b9d36d2d5fd299c
+    lines: 117
+  - step: backup
+    at: 2026-09-26T22:34:21.796Z
+    head_sha: 77f39a65161f88d58b850dd73f579b59e4f94a4a
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-058'/backup.json pw_pages pw_public pw_projections
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-058/backup-2026-09-26T22-34-21-796Z.log
+    log_sha256: b143e0705b70747f461a8747f1a615d85a58c8a8021a63744746c2b26d7ecb60
+    lines: 3
+  - step: gates
+    at: 2026-09-26T22:34:22.772Z
+    head_sha: 77f39a65161f88d58b850dd73f579b59e4f94a4a
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-26T22:34:22.772Z
+    head_sha: 77f39a65161f88d58b850dd73f579b59e4f94a4a
+    command: bash scripts/ops/pitwall-job.sh apply 'projections' 'daily'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-058/apply-2026-09-26T22-34-22-772Z.log
+    log_sha256: d3b2a2300956b9391144cb9e97504005911f75879d760ceae3ee72af4e2e36b1
+    lines: 117
+  - step: gates
+    at: 2026-09-26T22:34:29.497Z
+    head_sha: 77f39a65161f88d58b850dd73f579b59e4f94a4a
+    exit: 0
+    gates:
+      G15: skip
