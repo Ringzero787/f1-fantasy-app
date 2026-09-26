@@ -1,0 +1,38 @@
+id: OP-057
+title: "Portal deploy: open seats fillable in the lineup lab"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-26T21:24:21.241Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-26T21:24:21.519Z
+    head_sha: 560c55edf2eb42a1c9d8a48eb17131c9f1148f49
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-057/dry-run-2026-09-26T21-24-21-519Z.log
+    log_sha256: 21b323eadb74209b78c2146f65360291abb7307884576e6aae53af5156d7c957
+    lines: 67
+  - step: gates
+    at: 2026-09-26T21:27:51.858Z
+    head_sha: 560c55edf2eb42a1c9d8a48eb17131c9f1148f49
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-26T21:27:51.982Z
+    head_sha: 560c55edf2eb42a1c9d8a48eb17131c9f1148f49
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-057/apply-2026-09-26T21-27-51-982Z.log
+    log_sha256: 528079d5224c4b3e95c66ca7a5e3d4cb5691eb7fc2cec5523f157208d7992ca0
+    lines: 77
+  - step: gates
+    at: 2026-09-26T21:31:28.287Z
+    head_sha: 560c55edf2eb42a1c9d8a48eb17131c9f1148f49
+    exit: 0
+    gates:
+      G15: skip
