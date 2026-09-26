@@ -75,7 +75,7 @@ describe('a lineup the payload does not fully carry', () => {
 
   it('reports what it cannot know instead of returning a smaller number', () => {
     const complete = projectedLineup(p, { drivers: ['a', 'b'], ctor: 'T', ace: 'a' });
-    expect(complete).toEqual({ points: 50 * 2 + 30 + 60, missing: 0, complete: true });
+    expect(complete).toEqual({ points: 50 * 2 + 30 + 60, missing: 0, open: 3, complete: true });
 
     const withUnknown = projectedLineup(p, { drivers: ['a', 'ghost'], ctor: 'T', ace: 'a' });
     expect(withUnknown.missing).toBe(1);
@@ -84,6 +84,14 @@ describe('a lineup the payload does not fully carry', () => {
     const stripped = projectedLineup(payload([D('a', 300, 50), D('b', 200, 0)], [ctor], 1000), { drivers: ['a', 'b'], ctor: 'T', ace: 'a' });
     expect(stripped.missing).toBe(1);
     expect(stripped.complete).toBe(false);
+  });
+
+  it('an open slot is not a missing projection: the total of what is held stands, and the slot is counted', () => {
+    // two drivers and no constructor: the total is the two, the four open slots are said
+    const q = projectedLineup(p, { drivers: ['a', 'b'], ctor: '', ace: 'a' });
+    expect(q).toEqual({ points: 50 * 2 + 30, missing: 0, open: 4, complete: true });
+    // an empty string in the driver list is an open slot too, not a ghost
+    expect(projectedLineup(p, { drivers: ['a', ''], ctor: 'T', ace: 'a' }).open).toBe(4);
   });
 
   it('still recommends around the picks it does know, rather than throwing', () => {
