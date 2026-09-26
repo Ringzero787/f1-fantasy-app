@@ -5,6 +5,7 @@ import { useStore } from '../state';
 import { Arrow, AsTable, Chip, Empty, FitCell, Lbl, Meter, Pill, Range, Row, Tabs, TeamBar } from './bits';
 import { NOT_PUBLISHED } from '../data/coverage';
 import { Compare } from './Compare';
+import { ACE_MAX_PRICE } from '../data/team';
 
 function Present({ d }: { d: Entity }) {
   const { payload: p, has, pass, ui, set } = useStore();
@@ -100,7 +101,7 @@ function TrayCompare() {
 
 /** Right slide-over: depth comes from here, so pages never grow past the three-screen budget. */
 export function SlideOver() {
-  const { payload: p, ui, set, close, togglePin } = useStore();
+  const { payload: p, ui, set, close, togglePin, setAce, saving } = useStore();
   const ref = useRef<HTMLElement>(null);
   const showRec = ui.recOver !== null;
   const showTray = ui.over === 'TRAY';
@@ -129,7 +130,13 @@ export function SlideOver() {
       <>
         <div style={{ marginTop: -6 }}><TeamBar p={p} team={d.team} /><span className="num">{money(d.price)}</span>{!isCtor(d) ? <> · next <Arrow n={d.dprice} /></> : null} · {mine ? <span className="red">IN YOUR LINEUP</span> : <span className="mut">not owned</span>}</div>
         <div className="srow"><Tabs value={ui.overTab === 'COMPARE' ? 'PRESENT' : ui.overTab} options={['PAST', 'PRESENT', 'OUTLOOK'] as const} onChange={(v) => set('overTab', v)} small={false} label="Detail views" /></div>
-        <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={() => togglePin(d.id)} aria-pressed={ui.tray.includes(d.id)}>{ui.tray.includes(d.id) ? 'Pinned to compare ✓' : 'Pin to compare'}</button>
+        <div className="srow">
+          <button type="button" className="ghost" onClick={() => togglePin(d.id)} aria-pressed={ui.tray.includes(d.id)}>{ui.tray.includes(d.id) ? 'Pinned to compare ✓' : 'Pin to compare'}</button>
+          {/* the ace can be moved from wherever a driver of the lineup is shown */}
+          {!isCtor(d) && ui.lineup.drivers.includes(d.id) ? (ui.lineup.ace === d.id
+            ? <span className="chip" aria-pressed="true">Ace 2×</span>
+            : <button type="button" className="ghost" onClick={() => setAce(d.id)} disabled={!!saving}>{d.price > ACE_MAX_PRICE ? `Ace needs ≤ ${money(ACE_MAX_PRICE)}` : 'Make ace'}</button>) : null}
+        </div>
         {ui.overTab === 'PAST' ? <Past d={d} /> : ui.overTab === 'OUTLOOK' ? <Outlook d={d} /> : <Present d={d} />}
       </>
     );

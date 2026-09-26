@@ -1,4 +1,7 @@
+import { useEffect } from 'react';
 import { OPEN_SEAT, bank, entity, money, projectedLineup, swapPool, swapRecs, topPickRec } from '../data/logic';
+import { loadHindsight } from '../lib/hindsightApi';
+import type { HindsightRow } from '../data/hindsight';
 import { isCtor, type Entity } from '../data/types';
 import { useState } from 'react';
 import { useStore } from '../state';
@@ -19,6 +22,9 @@ export function LineupLab() {
   const pool = slot ? swapPool(p, l, slot) : [];
   const proj = projectedLineup(p, l);
   const hindsight = [78, 64, 91, 55, 83];
+  // Real hindsight from the team's snapshots, loaded when the lab opens; the example set keeps its bars.
+  const [rows, setRows] = useState<HindsightRow[] | null>(null);
+  useEffect(() => { let live = true; setRows(null); if (real) void loadHindsight(real.team.id).then((r) => { if (live) setRows(r); }); return () => { live = false; }; }, [real?.team.id]);
 
   const tile = (e: Entity, ctor: boolean) => {
     const key = ctor ? 'CTOR' : e.id, ace = !ctor && e.id === l.ace;
@@ -72,10 +78,16 @@ export function LineupLab() {
           </div>
           {confirming && plan ? <SavePreview plan={plan} aceTo={ace?.to ?? null} onCancel={() => setConfirming(false)} onConfirm={async () => { setConfirming(false); await save(); }} /> : null}
         </section>
-        <Tile label="Hindsight · last 5 rounds">
-          {/* Fixed numbers, not this team's rounds. Hindsight needs the scored lineups, which
-              nothing publishes yet. */}
-          {!has.mock ? <Empty>Hindsight is not published yet. It needs what your lineup actually scored against the best possible one.</Empty> : <>
+        <Tile label="Hindsight · last 5 rounds" right={<span className="mut only-wide">What you scored against the best the same money could buy</span>}>
+          {real ? (
+            rows === null ? <span className="mut">Working out the best lineup for each round…</span>
+            : rows.length === 0 ? <Empty>No scored round on record for this team yet. Hindsight starts with the first weekend scored after round 17, when the roster snapshots began.</Empty>
+            : <>
+              <div className="bars" style={{ height: 56 }}>{rows.map((r) => <span key={r.raceId} className="hit" style={{ height: `${r.share}%` }} data-tip={`RD ${r.round}: you scored ${r.actual} of a possible ${r.best} (${r.share}%)\nBest for ${money(r.spend)}: ${r.bestLineup.drivers.map((id) => entity(p, id)?.name ?? id).join(', ')} + ${entity(p, r.bestLineup.ctor)?.name ?? r.bestLineup.ctor}${r.bestLineup.ace ? ` · ace ${entity(p, r.bestLineup.ace)?.name ?? r.bestLineup.ace}` : ''}`} />)}</div>
+              <span className="mut">{rows.length === 1 ? `Round ${rows[0].round}: ${rows[0].actual} of a possible ${rows[0].best} points, ${rows[0].share}%.` : `Your score as a share of the best lineup the same money could have bought, per round.`} Hover a bar for that lineup.</span>
+              <AsTable caption="Share of the best affordable lineup scored per round" head={['Round', 'You', 'Best possible', 'Share', 'Best lineup']} rows={rows.map((r) => [`RD ${r.round}`, r.actual, r.best, `${r.share}%`, `${r.bestLineup.drivers.map((id) => entity(p, id)?.name ?? id).join(', ')} + ${entity(p, r.bestLineup.ctor)?.name ?? r.bestLineup.ctor}`])} />
+            </>
+          ) : !has.mock ? <Empty>Hindsight needs a signed-in team: what your lineup scored against the best the same money could have bought.</Empty> : <>
           <div className="bars" style={{ height: 56 }}>{hindsight.map((v, i) => <span key={i} className="hit" style={{ height: `${v}%` }} data-tip={`You scored ${v}% of the optimal lineup`} />)}</div>
           <span className="mut">Your score as a share of the best possible lineup. Ace calls cost you most: 2 of 5 correct.</span>
           <AsTable caption="Share of the optimal lineup scored per round" head={['Round', 'Share of optimal']} rows={hindsight.map((v, i) => [`RD ${p.round.number - 5 + i}`, `${v}%`])} />
