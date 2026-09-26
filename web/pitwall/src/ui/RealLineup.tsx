@@ -1,11 +1,11 @@
 import { OPEN_SEAT, money, shortName, shortTeamName } from '../data/logic';
-import { TEAM_SIZE, type Plan } from '../data/team';
+import { ACE_MAX_PRICE, TEAM_SIZE, type Plan } from '../data/team';
 import { useStore } from '../state';
 import { Pill, TeamBar } from './bits';
 
 /** The user's real roster as tiles: names, prices and contracts from the team document. */
 export function RealRoster() {
-  const { payload: p, ui, real, toggleSlot } = useStore();
+  const { payload: p, ui, real, toggleSlot, setAce } = useStore();
   if (!real) return null;
   const { team, market } = real;
   const byId = new Map(team.drivers.map((d) => [d.driverId, d]));
@@ -20,8 +20,11 @@ export function RealRoster() {
         const own = byId.get(id); const m = market.drivers[id];
         const name = shortName(own?.name ?? m?.name ?? id); const price = m?.price ?? own?.currentPrice ?? 0; const ace = id === ui.lineup.ace;
         const left = own ? Math.max(0, (own.contractLength ?? 3) - (own.racesHeld ?? 0)) : null;
+        // The ace is set from the tile itself. The rule is the app's: only a pick at or under the cap.
+        const canAce = price <= ACE_MAX_PRICE;
         return (
-          <button key={id} type="button" className="dt" aria-pressed={ui.slot === id} aria-label={`${name}, ${money(price)}${ace ? ', ace' : ''}${own ? '' : ', new'}. Show swaps`} onClick={() => toggleSlot(id)}>
+          <span key={id} className="dtw">
+          <button type="button" className="dt" aria-pressed={ui.slot === id} aria-label={`${name}, ${money(price)}${ace ? ', ace' : ''}${own ? '' : ', new'}. Show swaps`} onClick={() => toggleSlot(id)}>
             <span style={{ display: 'flex', justifyContent: 'space-between' }} className="mut">
               <span>{own ? '' : <Pill red>NEW</Pill>}{ace ? <> <Pill red>ACE 2×</Pill></> : null}</span><span className="num">{money(price)}</span>
             </span>
@@ -29,6 +32,10 @@ export function RealRoster() {
               <span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(own?.constructorId ?? '')} /></span>
                 <span className="num mut">{left === null ? 'new contract' : `${left} race${left === 1 ? '' : 's'} left`}</span></span></span>
           </button>
+          {ace ? null : canAce
+            ? <button type="button" className="chip acebtn" aria-label={`Make ${name} the ace`} onClick={() => setAce(id)}>Make ace</button>
+            : <span className="mut acebtn" title={`Only a pick at $${ACE_MAX_PRICE} or under can be the ace`}>ace ≤ ${ACE_MAX_PRICE}</span>}
+          </span>
         );
       })}
       {(() => {
