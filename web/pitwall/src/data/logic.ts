@@ -231,7 +231,8 @@ export function swapPool(p: Payload, l: Lineup, slot: string, limit = 8): PoolOp
   const list: Entity[] = isC ? p.constructors : p.drivers;
   const curPrice = cur?.price ?? 0, curMed = cur?.med ?? 0;
   return list
-    .filter((x) => x.id !== cur?.id && !l.drivers.includes(x.id) && x.id !== l.ctor && x.med > 0 && x.price - curPrice <= room)
+    // for a filled slot the filter is what it always was; an empty seat also skips a pick with no projection
+    .filter((x) => x.id !== cur?.id && !l.drivers.includes(x.id) && (cur || (x.id !== l.ctor && x.med > 0)) && x.price - curPrice <= room)
     .map((x) => ({ e: x, gain: (x.med - curMed) * (cur && slot === l.ace ? 2 : 1) }))
     .sort((a, b) => b.gain - a.gain)
     .slice(0, limit);
