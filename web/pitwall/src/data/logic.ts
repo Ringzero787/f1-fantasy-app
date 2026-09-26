@@ -214,24 +214,38 @@ export function rivalMove(p: Payload, mine: Lineup, r: Rival): RivalMove | null 
 export interface PoolOption { e: Entity; gain: number }
 
 /** Lineup Lab: every affordable replacement for one slot ("CTOR" or a driver id), best first. */
+/** The slot key for an empty driver seat. A constructor seat is 'CTOR' whether or not it is filled. */
+export const OPEN_SEAT = 'OPEN';
+
+/**
+ * What could go in a slot within the bank. For a filled slot the gain is against the current
+ * pick and the price against its sale; for an empty seat (a driver seat 'OPEN', or 'CTOR' with no
+ * constructor) the whole price has to fit and the gain is the pick's own projection. An empty
+ * seat used to be dead: the roster said "add from the app", which is not what a lineup lab is for.
+ */
 export function swapPool(p: Payload, l: Lineup, slot: string, limit = 8): PoolOption[] {
   const isC = slot === 'CTOR';
-  const cur = entity(p, isC ? l.ctor : slot);
-  if (!cur) return [];
+  const cur = slot === OPEN_SEAT ? undefined : entity(p, isC ? l.ctor : slot);
+  if (!cur && slot !== OPEN_SEAT && !isC) return [];
   const room = bank(p, l);
   const list: Entity[] = isC ? p.constructors : p.drivers;
+  const curPrice = cur?.price ?? 0, curMed = cur?.med ?? 0;
   return list
-    .filter((x) => x.id !== cur.id && !l.drivers.includes(x.id) && x.price - cur.price <= room)
-    .map((x) => ({ e: x, gain: (x.med - cur.med) * (slot === l.ace ? 2 : 1) }))
+    .filter((x) => x.id !== cur?.id && !l.drivers.includes(x.id) && x.id !== l.ctor && x.med > 0 && x.price - curPrice <= room)
+    .map((x) => ({ e: x, gain: (x.med - curMed) * (cur && slot === l.ace ? 2 : 1) }))
     .sort((a, b) => b.gain - a.gain)
     .slice(0, limit);
 }
 
-/** Apply "OUT:IN" or "CTOR:IN"; the Ace follows a swapped driver. */
+/** Apply "OUT:IN", "CTOR:IN" or "OPEN:IN" (fill an empty seat); the Ace follows a swapped driver. */
 export function applySwap(l: Lineup, act: string): Lineup {
   const [o, n] = act.split(':');
   if (!o || !n) return l;
   if (o === 'CTOR') return { ...l, ctor: n };
+  if (o === OPEN_SEAT) {
+    const held = l.drivers.filter(Boolean);
+    return held.length >= 5 || held.includes(n) ? l : { ...l, drivers: [...held, n] };
+  }
   return { drivers: l.drivers.map((x) => (x === o ? n : x)), ctor: l.ctor, ace: l.ace === o ? n : l.ace };
 }
 

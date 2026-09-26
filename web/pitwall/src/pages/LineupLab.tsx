@@ -1,4 +1,4 @@
-import { bank, entity, money, projectedLineup, swapPool, swapRecs, topPickRec } from '../data/logic';
+import { OPEN_SEAT, bank, entity, money, projectedLineup, swapPool, swapRecs, topPickRec } from '../data/logic';
 import { isCtor, type Entity } from '../data/types';
 import { useState } from 'react';
 import { useStore } from '../state';
@@ -83,17 +83,23 @@ export function LineupLab() {
         </Tile>
       </div>
       <div className="c6" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {slot && cur ? (
+        {slot && (cur || slot === OPEN_SEAT || isC) ? (
           <>
-            <Tile label={`Replace ${cur.name} · top pick`}>
-              {top ? <Compare rec={top} /> : <span className="mut">Nothing affordable. Free budget elsewhere first.</span>}
-              {!isC ? <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setAce(cur.id)} disabled={l.ace === cur.id}>{l.ace === cur.id ? 'Ace is on this driver' : `Make ${cur.name} the ace`}</button> : null}
-            </Tile>
-            <Tile label={`All options within ${money(room)} bank · tap to swap`}>
+            {cur ? (
+              <Tile label={`Replace ${cur.name} · top pick`}>
+                {top ? <Compare rec={top} /> : <span className="mut">Nothing affordable. Free budget elsewhere first.</span>}
+                {!isC ? <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setAce(cur.id)} disabled={l.ace === cur.id}>{l.ace === cur.id ? 'Ace is on this driver' : `Make ${cur.name} the ace`}</button> : null}
+              </Tile>
+            ) : (
+              <Tile label={isC ? 'Empty constructor seat' : 'Open driver seat'}>
+                <span className="mut">{pool.length ? `${pool.length} option${pool.length === 1 ? '' : 's'} fit in the ${money(room)} bank. The best projection leads.` : `Nothing fits in the ${money(room)} bank. Sell something first, or wait for prices to move.`}</span>
+              </Tile>
+            )}
+            <Tile label={`All options within ${money(room)} bank · tap to ${cur ? 'swap' : 'fill the seat'}`}>
               <div className="scroll"><table>
                 <thead><tr><th scope="col">{isC ? 'Team' : 'Driver'}</th><th scope="col">Gain</th><th scope="col">Price</th><th scope="col">Proj</th><th scope="col">Pts/$100</th>{isC ? null : <>{has.fit ? <th scope="col">Fit</th> : null}<th scope="col">DNF</th><th scope="col">Next $</th></>}</tr></thead>
                 <tbody>
-                  <tr className="me"><td><TeamBar p={p} team={cur.team} /><b>{cur.name}</b> <span className="mut">now</span></td><td className="mut">—</td>{stat(cur)}</tr>
+                  {cur ? <tr className="me"><td><TeamBar p={p} team={cur.team} /><b>{cur.name}</b> <span className="mut">now</span></td><td className="mut">—</td>{stat(cur)}</tr> : null}
                   {pool.map(({ e, gain }, n) => (
                     <Tr key={e.id} onClick={() => swapInSlot(e.id)} label={`Swap in ${e.name}, ${gain > 0 ? 'plus' : 'minus'} ${Math.abs(gain).toFixed(0)} points`}>
                       <td><TeamBar p={p} team={e.team} /><b>{e.name}</b>{n === 0 && gain > 0 ? <> <Pill red>TOP</Pill></> : null}</td>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySwap, bank, briefRecs, compareRows, projected, projectedLineup, rateMyTeam, rivalMove, sameLineup, shortName, shortTeamName, spent, swapPool, swapRecs, topPickRec } from './logic';
+import { OPEN_SEAT, applySwap, bank, briefRecs, compareRows, projected, projectedLineup, rateMyTeam, rivalMove, sameLineup, shortName, shortTeamName, spent, swapPool, swapRecs, topPickRec } from './logic';
 import type { Constructor, Driver, Lineup, Payload } from './types';
 
 const D = (id: string, price: number, med: number, extra: Partial<Driver> = {}): Driver => ({ id, num: 1, name: id.toUpperCase(), team: 'T', price, med, floor: med - 5, ceil: med + 5, form: [], dnf: 5, own: 10, pm: 0, cons: 50, dprice: 0, fit: [3], win: 0, pod: 0, t10: 0, ptsRise: Math.ceil(price * 0.011), ptsHold: Math.ceil(price * 0.006), pRise: 50, pFall: 50, q: 0, r: 0, val: +((med / price) * 100).toFixed(1), ...extra });
@@ -121,5 +121,26 @@ describe('display names for the real team', () => {
     expect(shortTeamName('Oracle Red Bull Racing')).toBe('Red Bull');
     expect(shortTeamName('Visa Cash App Racing Bulls', 'racing_bulls')).toBe('RB');
     expect(shortTeamName('Aston Martin Aramco F1 Team', 'aston_martin')).toBe('Aston Martin');
+  });
+});
+
+describe('open seats', () => {
+  // a, b held with x; c (120), d (300), e (90) available; bank = 500 - 100 - 100 - 200 = 100
+  it('offers what fits the bank for an empty driver seat and fills it on swap', () => {
+    const pool = swapPool(p, mine, OPEN_SEAT);
+    expect(pool.map((o) => o.e.id)).toEqual(['e']);              // c and d cost more than the $100 bank
+    expect(pool[0].gain).toBe(10);                                 // the pick's own projection: nothing is sold
+    const filled = applySwap(mine, `${OPEN_SEAT}:e`);
+    expect(filled.drivers).toEqual(['a', 'b', 'e']);
+    expect(applySwap(filled, `${OPEN_SEAT}:e`).drivers).toEqual(['a', 'b', 'e']);   // never twice
+  });
+  it('offers constructors for an empty constructor seat', () => {
+    const none: Lineup = { drivers: ['a', 'b'], ctor: '', ace: 'a' };
+    expect(swapPool(p, none, 'CTOR').map((o) => o.e.id)).toEqual(['y', 'x']);      // z at 900 does not fit; y projects more
+    expect(applySwap(none, 'CTOR:y').ctor).toBe('y');
+  });
+  it('a full lineup takes nobody more', () => {
+    const full: Lineup = { drivers: ['a', 'b', 'c', 'd', 'e'], ctor: 'x', ace: 'a' };
+    expect(applySwap(full, `${OPEN_SEAT}:a`).drivers).toHaveLength(5);
   });
 });
