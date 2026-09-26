@@ -26,19 +26,33 @@ const must = (p: Payload, id: string): Entity => {
  * total that is simply wrong, which is worse than showing nothing, so the count comes back with
  * the points and the caller shows a dash when anything is missing.
  */
-export interface LineupProjection { points: number; missing: number; complete: boolean }
+/**
+ * `missing` is a pick the payload cannot project (an id it does not carry, or a median withheld
+ * from the free look): adding the rest up would be wrong, so there is no total. `open` is a slot
+ * with nothing in it: an open slot scores nothing, so the total of what is held is right and is
+ * shown, with the open slots said out loud. The two used to be one number, and a team with an
+ * empty constructor slot read as "1 of your picks is not projected" (2026-09-26).
+ */
+export interface LineupProjection { points: number; missing: number; open: number; complete: boolean }
+
+export const LINEUP_DRIVER_SLOTS = 5;
 
 export function projectedLineup(p: Payload, l: Lineup): LineupProjection {
   let points = 0, missing = 0;
-  for (const id of l.drivers) {
+  const held = l.drivers.filter((id) => id);
+  for (const id of held) {
     const e = entity(p, id);
     if (!e || e.med <= 0) { missing += 1; continue; }
     points += e.med * (id === l.ace ? 2 : 1);
   }
-  const c = entity(p, l.ctor);
-  if (!c || c.med <= 0) missing += 1;
-  else points += c.med;
-  return { points, missing, complete: missing === 0 };
+  let open = Math.max(0, LINEUP_DRIVER_SLOTS - held.length);
+  if (!l.ctor) open += 1;
+  else {
+    const c = entity(p, l.ctor);
+    if (!c || c.med <= 0) missing += 1;
+    else points += c.med;
+  }
+  return { points, missing, open, complete: missing === 0 };
 }
 
 export const projected = (p: Payload, l: Lineup): number => projectedLineup(p, l).points;

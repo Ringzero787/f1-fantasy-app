@@ -77,7 +77,7 @@ export function Briefing() {
       <Tile variant="you" label="Your lineup">
         {proj.complete ? <>
           <div className="big num">{proj.points}</div>
-          <div className="mut">Projected points · range {Math.round(proj.points * 0.72)} to {Math.round(proj.points * 1.3)}</div>
+          <div className="mut">Projected points · range {Math.round(proj.points * 0.72)} to {Math.round(proj.points * 1.3)}{proj.open ? ` · ${proj.open} open slot${proj.open === 1 ? '' : 's'} scoring nothing` : ''}</div>
         </> : (
           <div className="mut">{pass.access === 'pass'
             ? `No projected total: ${proj.missing} of your picks ${proj.missing === 1 ? 'is' : 'are'} not projected for this round, and adding the rest up would be wrong.`
@@ -85,7 +85,7 @@ export function Briefing() {
         )}
         <div className="list">
           <Row two cols="1fr auto" dense><span>Rate my team</span><span className="num">{proj.complete ? `${rateMyTeam(p, ui.lineup)} / 100` : '—'}</span></Row>
-          <Row two cols="1fr auto" dense><span>Flags</span><span className={flags ? 'red' : 'mut'}>{flags} penalty risk · 0 open slots</span></Row>
+          <Row two cols="1fr auto" dense><span>Flags</span><span className={flags || proj.open ? 'red' : 'mut'}>{flags} penalty risk · {proj.open} open slot{proj.open === 1 ? '' : 's'}</span></Row>
         </div>
         <button className="cta" type="button" onClick={() => go('LINEUP LAB')}>Open lineup lab →</button>
       </Tile>
