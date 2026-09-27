@@ -1,0 +1,38 @@
+id: OP-066
+title: "Portal deploy: league ownership and rivals"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-27T21:08:44.506Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-27T21:08:47.025Z
+    head_sha: 2fd7c2a8210e0f55844a0bea7066ec84a8090ea9
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-066/dry-run-2026-09-27T21-08-47-025Z.log
+    log_sha256: 0d64e29eba793f84180716142dc53151b4fd96c09671134d71103118d81e6db4
+    lines: 69
+  - step: gates
+    at: 2026-09-27T21:13:49.014Z
+    head_sha: 2fd7c2a8210e0f55844a0bea7066ec84a8090ea9
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-27T21:13:49.027Z
+    head_sha: 2fd7c2a8210e0f55844a0bea7066ec84a8090ea9
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-066/apply-2026-09-27T21-13-49-027Z.log
+    log_sha256: d111de6677cb9e690004878a4b8daf3ffc18bb03c51d1c1ac828ff1b7d62ac4f
+    lines: 79
+  - step: gates
+    at: 2026-09-27T21:17:26.070Z
+    head_sha: 2fd7c2a8210e0f55844a0bea7066ec84a8090ea9
+    exit: 0
+    gates:
+      G15: skip

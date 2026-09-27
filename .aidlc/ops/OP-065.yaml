@@ -1,0 +1,37 @@
+id: OP-065
+title: "Worker: publish the per-league documents (F-072)"
+kind: pitwall-worker-deploy
+status: applied
+params: {}
+created_at: 2026-09-27T21:08:44.250Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-27T21:08:45.092Z
+    head_sha: 2fd7c2a8210e0f55844a0bea7066ec84a8090ea9
+    command: bash scripts/ops/pitwall-worker-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-065/dry-run-2026-09-27T21-08-45-092Z.log
+    log_sha256: a8b4f3b09fad3930a1e0a59a53f6d01ddbf99e5f1ee2bbc34286347b301bacfa
+    lines: 45
+  - step: gates
+    at: 2026-09-27T21:13:33.754Z
+    head_sha: 2fd7c2a8210e0f55844a0bea7066ec84a8090ea9
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-27T21:13:33.770Z
+    head_sha: 2fd7c2a8210e0f55844a0bea7066ec84a8090ea9
+    command: bash scripts/ops/pitwall-worker-deploy.sh apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-065/apply-2026-09-27T21-13-33-770Z.log
+    log_sha256: d895d0df7b01e63e52b60a13b9e406d2750fa9f34dbb124330769bcc2f84b610
+    lines: 59
+  - step: gates
+    at: 2026-09-27T21:13:47.844Z
+    head_sha: 2fd7c2a8210e0f55844a0bea7066ec84a8090ea9
+    exit: 0
+    gates:
+      G15: skip
