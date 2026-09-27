@@ -37,9 +37,12 @@ export function examplePayload(): Payload {
     // the production price rule: 1.1% of the price to rise, 0.6% to avoid a fall
     const ptsRise = Math.ceil(price * 0.011), ptsHold = Math.ceil(price * 0.006);
     const pRise = Math.max(2, Math.min(95, Math.round(50 + (med - ptsRise) * 3)));
+    const total = form.reduce((a, b) => a + b, 0);
     return { id, num, name, team, price, med, floor: Math.max(0, Math.round(med - sd)), ceil: Math.round(med + sd * 1.15), form, dnf, own,
       pm: +(med - price / 11).toFixed(1), cons, dprice: Math.round((med - price / 11) * 1.4), fit, win, q, r, val: 0, pod: 0, t10: 0,
-      ptsRise, ptsHold, pRise, pFall: Math.max(2, 98 - pRise) };
+      ptsRise, ptsHold, pRise, pFall: Math.max(2, 98 - pRise),
+      splits: [['street', 'street circuits', 5], ['permanent', 'permanent circuits', 9], ['high-speed', 'high-speed circuits', 6], ['medium-speed', 'medium-speed circuits', 6], ['low-speed', 'low-speed circuits', 2]].map(([cls, label, n]) => ({ cls: cls as string, label: label as string, n: n as number, avg: +(med * (0.8 + rnd() * 0.4)).toFixed(1) })),
+      mix: { quali: Math.round(total * 0.14), race: Math.round(total * 0.78), sprint: Math.round(total * 0.05), fl: Math.round(total * 0.03) } };
   });
   for (const d of drivers) { d.val = +((d.med / d.price) * 100).toFixed(1); d.pod = Math.min(88, d.win * 2 + Math.round(rnd() * 8)); d.t10 = Math.min(97, Math.round(d.med * 1.7 + 10)); }
   const constructors: Constructor[] = CTORS.map(([id, price, med]) => ({ id, name: TEAMS[id].name, team: id, price, med, ctor: true, floor: Math.round(med * 0.7), ceil: Math.round(med * 1.3), val: +((med / price) * 100).toFixed(1) }));
@@ -99,7 +102,7 @@ export function bareExamplePayload(free = false): Payload {
   // The free document keeps every median and strips what the pass buys, exactly as the worker
   // does, so the preview shows what a reader without a pass sees.
   const strip = (d: Payload['drivers'][number]) => (free
-    ? { ...d, floor: 0, ceil: 0, dnf: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0 }
+    ? { ...d, floor: 0, ceil: 0, dnf: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0, splits: [], mix: { quali: 0, race: 0, sprint: 0, fl: 0 } }
     : d);
   return {
     ...p,

@@ -12,7 +12,7 @@
  *
  * Pure.
  */
-import { classesOf, traitsOf, type CircuitTraits } from './circuitTraits';
+import { CLASS_LABELS, classesOf, traitsOf, type CircuitTraits } from './circuitTraits';
 import type { HistRace, HistScore } from './types';
 
 export interface Split { n: number; avg: number }
@@ -126,4 +126,23 @@ export function buildSeasonTable(driverIds: string[], form: Map<string, number[]
     const pts = (form.get(id) ?? []).reduce((p, q) => p + q, 0);
     return { id, points: pts, projected: Math.round(pts + (median.get(id) ?? 0) * Math.max(0, remainingRounds)), starts: starts.get(id)?.starts ?? 0, dnfs: starts.get(id)?.dnfs ?? 0 };
   }).sort((a, b) => b.projected - a.projected);
+}
+
+/** The splits as the slide-over shows them: one row per circuit class the entity has raced. */
+export interface SplitRow { cls: string; label: string; n: number; avg: number }
+export function splitRows(s: EntitySplits | undefined): SplitRow[] {
+  if (!s) return [];
+  return Object.entries(s.byClass).filter(([, v]) => v.n > 0).map(([cls, v]) => ({ cls, label: CLASS_LABELS[cls] ?? cls, n: v.n, avg: v.avg }))
+    .sort((a, b) => (a.cls < b.cls ? -1 : 1));
+}
+
+/** Where a driver's season points came from, summed from scoring's own parts. */
+export interface Mix { quali: number; race: number; sprint: number; fl: number }
+export function driverMix(scores: HistScore[], id: string): Mix {
+  const m: Mix = { quali: 0, race: 0, sprint: 0, fl: 0 };
+  for (const x of scores) {
+    if (x.entityId !== id) continue;
+    m.quali += x.qualiPoints ?? 0; m.race += x.racePoints ?? 0; m.sprint += x.sprintPoints ?? 0; m.fl += x.fastestLapBonus ?? 0;
+  }
+  return m;
 }

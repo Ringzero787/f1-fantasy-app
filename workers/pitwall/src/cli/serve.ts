@@ -64,6 +64,18 @@ async function tick(): Promise<void> {
   }
   const run = await runOnce(store, handlers, { owner: OWNER, leaseMs: 10 * 60 * 1000, renewEveryMs: 60 * 1000, commit });
   if (run && !run.ok) await alert(`job ${run.jobId} failed`, `${run.error ?? 'unknown error'}\nrunner ${OWNER}, commit ${commit ?? '?'}, ${new Date(run.finishedAt).toISOString()}`);
+  // Self-check: if the newest published payload is more than 30 hours old, say so once a day, whatever the queue thinks.
+  try {
+    const newest = await db.collection('pw_public').orderBy('asOf', 'desc').limit(1).get();
+    const asOf = newest.docs[0]?.data()?.asOf as string | undefined;
+    const age = asOf ? now.getTime() - Date.parse(asOf) : Number.POSITIVE_INFINITY;
+    const day = now.toISOString().slice(0, 10);
+    const status = (await db.collection('pw_status').doc('worker').get()).data() ?? {};
+    if (age > 30 * 3600 * 1000 && status.lastStaleAlertDay !== day) {
+      await alert('published data is stale', `newest pw_public asOf ${asOf ?? 'none'} (${Math.round(age / 3600000)} h old); round ${round?.round ?? '?'}; runner ${OWNER}`);
+      await db.collection('pw_status').doc('worker').set({ lastStaleAlertDay: day }, { merge: true });
+    }
+  } catch (e) { log(`stale check failed: ${e instanceof Error ? e.message : e}`); }
   await db.collection('pw_status').doc('worker').set({ runner: OWNER, commit, lastTickAt: now.getTime(), round: round?.round ?? null, enqueued, lastRun: run ? { jobId: run.jobId, ok: run.ok, error: run.error, finishedAt: run.finishedAt, counts: run.counts } : null }, { merge: true }).catch((e: Error) => log(`heartbeat failed: ${e.message}`));
 }
 

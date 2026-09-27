@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { briefRecs, entity, money } from '../data/logic';
+import { briefRecs, entity, money, percentileOf } from '../data/logic';
 import { isCtor, type Driver, type Entity } from '../data/types';
 import { useStore } from '../state';
 import { Arrow, AsTable, Chip, Empty, FitCell, Lbl, Meter, Pill, Range, Row, Tabs, TeamBar } from './bits';
@@ -16,13 +16,21 @@ function Present({ d }: { d: Entity }) {
   const h = hist.slice(-n), mx = Math.max(...hist, ui.thr + 5), hits = h.filter((v) => v >= ui.thr).length;
   const rate = h.length ? hits / h.length : null;
   const mate = drv ? p.drivers.find((x) => x.team === drv.team && x.id !== drv.id) : undefined;
-  const split: Array<[string, number]> = [['Race position', 0.52], ['Positions gained', 0.2], ['Qualifying', 0.14], ['Fastest lap / bonus', 0.08], ['DNF risk', -0.06]];
+  // Where this season's points came from: scoring's own parts, summed by the worker (pass).
+  const mix = drv ? ([['Race', drv.mix.race], ['Qualifying', drv.mix.quali], ['Sprint', drv.mix.sprint], ['Fastest lap', drv.mix.fl]] as Array<[string, number]>) : [];
+  const mixTotal = mix.reduce((a, [, v]) => a + Math.abs(v), 0);
+  // Head to head with the teammate from the classifications: grid, finish, points so far.
+  const pace = (id: string) => p.pace.find((r) => r.id === id);
+  const pts = (id: string) => p.season.find((r) => r.id === id)?.points ?? 0;
+  const h2h: Array<[string, number, number, boolean]> | null = drv && mate && pace(drv.id) && pace(mate.id)
+    ? [['Avg grid', pace(drv.id)!.avgGrid, pace(mate.id)!.avgGrid, true], ['Avg finish', pace(drv.id)!.avgFinish, pace(mate.id)!.avgFinish, true], ['Points', pts(drv.id), pts(mate.id), false]]
+    : null;
   return (
     <>
       <div><Lbl>Projection · RD {p.round.number}</Lbl>
         <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', marginTop: 8 }}><div className="big num">{d.med}</div><div><Range e={d} /><br /><span className="mut">floor {d.floor} · ceiling {d.ceil}</span></div></div></div>
-      {drv && has.mock ? <div><Lbl>Where the points come from</Lbl>{split.map(([l, f]) => (
-        <Row key={l} cols="1fr 90px 40px"><span>{l}</span><Meter pct={Math.abs(f) * 150} red={f < 0} /><span className="num">{f < 0 ? '−' : ''}{Math.abs(d.med * f).toFixed(1)}</span></Row>
+      {drv && has.splits && mixTotal > 0 ? <div><Lbl>Where the points came from · this season</Lbl>{mix.filter(([, v]) => v !== 0).map(([l, v]) => (
+        <Row key={l} cols="1fr 90px 40px" dense><span>{l}</span><Meter pct={(Math.abs(v) / mixTotal) * 100} red={v < 0} /><span className="num">{v < 0 ? '−' : ''}{Math.abs(v)}</span></Row>
       ))}</div> : null}
       <div>
         <div className="th"><Lbl>Hit rate · scored {ui.thr}+</Lbl><span className={`h2 num ${rate !== null && rate >= 0.65 ? 'pos' : rate !== null && rate < 0.45 ? 'red' : ''}`}>{rate === null ? '—' : `${hits}/${h.length}`}</span></div>
@@ -34,32 +42,46 @@ function Present({ d }: { d: Entity }) {
         <div className="bars">{h.map((v, i) => <span key={i} className={v >= ui.thr ? 'hit' : ''} style={{ height: `${(v / mx) * 100}%` }} data-tip={`RD ${p.round.number - h.length + i}: ${v} pts${v >= ui.thr ? ' · hit' : ''}`} />)}<u style={{ bottom: `${(ui.thr / mx) * 100}%` }} /></div>
         <AsTable caption={`Points per round against the ${ui.thr} point line`} head={['Round', 'Points', `${ui.thr}+`]} rows={h.map((v, i) => [`RD ${p.round.number - h.length + i}`, v, v >= ui.thr ? 'hit' : 'miss'])} />
       </div>
-      {mate && has.mock ? <div><Lbl>Head to head · {mate.name}</Lbl>{([['Quali', 11, 5], ['Race', 9, 7], ['Fantasy pts', 10, 6]] as Array<[string, number, number]>).map(([l, a, b]) => (
-        <div className="row split" key={l}><span className="num">{a}</span><span><span className="mut">{l}</span><span className="sb"><i style={{ flex: a }} /><em style={{ flex: b }} /></span></span><span className="num mut" style={{ textAlign: 'right' }}>{b}</span></div>
-      ))}</div> : null}
+      {mate && h2h ? <div><Lbl>Head to head · {mate.name} · this season</Lbl>{h2h.map(([l, a, b, lower]) => {
+        // the bar shares are the two values, turned around for grid and finish where lower is better
+        const wa = lower ? Math.max(0.1, 25 - a) : Math.max(0.1, a), wb = lower ? Math.max(0.1, 25 - b) : Math.max(0.1, b);
+        return (
+        <div className="row split" key={l}><span className="num">{lower ? `P${a}` : a}</span><span><span className="mut">{l}</span><span className="sb"><i style={{ flex: wa }} /><em style={{ flex: wb }} /></span></span><span className="num mut" style={{ textAlign: 'right' }}>{lower ? `P${b}` : b}</span></div>
+      ); })}</div> : null}
     </>
   );
 }
 
 function Past({ d }: { d: Entity }) {
-  const { has } = useStore();
+  const { payload: p, has, pass } = useStore();
   const drv = isCtor(d) ? null : d;
   // A constructor has no published per-round series; the example set draws a curve for it.
   const hist = drv ? drv.form : has.mock ? Array.from({ length: 16 }, (_, i) => d.med + Math.round(Math.sin(i) * 12)) : [];
   const mx = Math.max(...hist, 1);
-  const splits: Array<[string, number]> = [['Street circuits', 1.12], ['High-speed', 0.96], ['High-downforce', 0.9], ['Wet sessions', 1.2], ['Sprint weekends', 1.05]];
+  const overall = hist.length ? hist.reduce((a, b) => a + b, 0) / hist.length : 0;
+  // Season profile: this driver's rank among the field on this season's classifications.
+  const me = drv ? p.pace.find((r) => r.id === drv.id) : undefined;
+  const field = (pick: (r: (typeof p.pace)[number]) => number) => p.pace.map(pick);
+  const profile: Array<[string, number]> = me ? [
+    ['Qualifying', percentileOf(me.avgGrid, field((r) => r.avgGrid), true)],
+    ['Race finish', percentileOf(me.avgFinish, field((r) => r.avgFinish), true)],
+    ['Places gained', percentileOf(me.gained, field((r) => r.gained))],
+    ['Reliability', percentileOf(me.finishRate, field((r) => r.finishRate))],
+    ['Scoring', percentileOf(p.season.find((r) => r.id === drv!.id)?.points ?? 0, p.season.map((r) => r.points))],
+  ] : [];
   return (
     <>
       <div><Lbl>Season so far · {hist.length} rounds</Lbl>
         <div className="bars" style={{ marginTop: 10 }}>{hist.map((v, i) => <span key={i} className="hit" style={{ height: `${(v / mx) * 100}%` }} data-tip={`RD ${i + 1}: ${v} pts`} />)}</div>
         <AsTable caption="Points per round this season" head={['Round', 'Points']} rows={hist.map((v, i) => [`RD ${i + 1}`, v])} /></div>
-      {/* Both of these are arithmetic on the projection dressed up as measurement: the split
-          multipliers are fixed, and the "percentiles" are a hash of the price. They may only be
-          drawn against the example set. */}
-      {has.mock ? <div><Lbl>Splits · avg points</Lbl>{splits.map(([l, f]) => <Row key={l} cols="1fr auto auto"><span>{l}</span><span className="num">{(d.med * f).toFixed(1)}</span><span className="num"><Arrow n={Math.round(d.med * f - d.med)} /></span></Row>)}</div> : null}
-      {has.mock ? <div><Lbl>Season profile · percentile vs field</Lbl>{['Qualifying', 'Starts', 'Lap one', 'Race pace', 'Tyre management', 'Pit stops', 'Overtaking'].map((l, i) => { const v = Math.min(98, Math.round(d.med * 1.4 + ((d.price * 7 + i * 13) % 25))); return (
-        <Row key={l} cols="1fr 110px 30px"><span>{l}</span><Meter pct={v} /><span className="num">{v}</span></Row>
-      ); })}</div> : <div><Lbl>Splits and season profile</Lbl><Empty>Not published yet. These need the per-circuit and per-session history behind a driver's season.</Empty></div>}
+      {/* Splits are this season's points by circuit class (the classes of our characteristics table);
+          the arrow is against the season average. Pass only: the free document carries none. */}
+      {drv && drv.splits.length ? <div><Lbl>Splits · avg points by circuit class</Lbl>{drv.splits.map((x) => <Row key={x.cls} cols="1fr auto auto auto" dense label={`${x.label}: ${x.avg} points on average over ${x.n} races`}><span>{x.label} <span className="mut">· {x.n}</span></span><span className="num">{x.avg}</span><span className="num"><Arrow n={Math.round(x.avg - overall)} /></span></Row>)}<span className="mut">Against a season average of {overall.toFixed(1)}.</span></div>
+        : drv && !has.splits ? <div><Lbl>Splits · avg points by circuit class</Lbl><Empty>{pass.access === 'pass' ? NOT_PUBLISHED.splits.replace('come with the Pit Wall Pass', 'are not published yet') : NOT_PUBLISHED.splits}</Empty></div> : null}
+      {profile.length ? <div><Lbl>Season profile · rank among the field</Lbl>{profile.map(([l, v]) => (
+        <Row key={l} cols="1fr 110px 30px" dense label={`${l}: better than ${v}% of the field`}><span>{l}</span><Meter pct={v} /><span className="num">{v}</span></Row>
+      ))}<span className="mut">Share of the field this driver beats on this season's classifications: grid, finish, places gained, finish rate, points.</span></div>
+        : drv ? <div><Lbl>Season profile</Lbl><Empty>{NOT_PUBLISHED.pace}</Empty></div> : null}
     </>
   );
 }

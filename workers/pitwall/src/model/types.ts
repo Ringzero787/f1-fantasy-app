@@ -17,7 +17,11 @@ export interface HistRace {
 }
 
 /** Neutral fantasy points per entity per race, as scoring wrote them (`raceScores`). */
-export interface HistScore { raceId: string; round: number; entityId: string; entityType: 'driver' | 'constructor'; totalPoints: number }
+export interface HistScore {
+  raceId: string; round: number; entityId: string; entityType: 'driver' | 'constructor'; totalPoints: number;
+  /** the parts, as scoring wrote them; absent on older documents */
+  qualiPoints?: number; racePoints?: number; sprintPoints?: number; fastestLapBonus?: number;
+}
 
 /** One price move as scoring applied it (`priceHistory`). */
 export interface HistPrice { raceId: string; entityId: string; entityType: 'driver' | 'constructor'; previousPrice: number; change: number }

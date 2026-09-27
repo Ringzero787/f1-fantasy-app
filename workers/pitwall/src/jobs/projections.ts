@@ -16,7 +16,7 @@ import { buildWeatherMap, fetchGrid, type WeatherMap } from '../model/weatherMap
 import { buildWire, teamVariants, type Article, type WireItem } from '../model/wire';
 import { scoreWeekend } from '../model/scoreRace';
 import { buildPayload, shortName, shortTeamName, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
-import { buildCircuitReport, buildPace, buildSeasonTable, computeSplits, driverStarts, fitFor, type CircuitReport, type PaceRow, type SeasonRow } from '../model/splits';
+import { buildCircuitReport, buildPace, buildSeasonTable, computeSplits, driverMix, driverStarts, fitFor, type CircuitReport, type PaceRow, type SeasonRow } from '../model/splits';
 import { traitsOf } from '../model/circuitTraits';
 import { buildLeagueDoc, type LeagueDoc, type LeagueTeam } from '../model/league';
 import type { RoundSchedule } from './schedule';
@@ -225,7 +225,7 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
   // to be a backlog for the next ten to come from.
   const news = buildWire(await loadWireArticles(db, new Date(now.getTime() - 7 * 86400000)).catch((err) => { console.warn('[pw] wire unavailable:', err instanceof Error ? err.message : err); return []; }), names, now, { limit: 30 });
 
-  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000, weather, weatherSource: weather.length || weatherMap ? MET_ATTRIBUTION : null, weatherMap, news, fit, circuit, pace, season: seasonTable });
+  const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000, weather, weatherSource: weather.length || weatherMap ? MET_ATTRIBUTION : null, weatherMap, news, fit, circuit, pace, season: seasonTable, splits, mix: new Map(activeIds.map((id) => [id, driverMix(history.scores, id)])) });
 
   // Per-league documents: ownership and rivals, for league members only (rules).
   const leagues: LeagueDoc[] = (await loadLeagueTeams(db).catch((err) => { console.warn('[pw] leagues unavailable:', err instanceof Error ? err.message : err); return []; }))

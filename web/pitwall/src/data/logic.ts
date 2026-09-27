@@ -264,3 +264,15 @@ export function topPickRec(p: Payload, l: Lineup, slot: string): Rec | null {
     : { kind: 'BEST ALTERNATIVE', a: cur.id, b: top.e.id, title: `Keep ${cur.name}`, tag: 'HOLD',
         why: `Nothing affordable projects above ${cur.name}. ${top.e.name} is the closest, ${Math.abs(top.gain).toFixed(0)} points lower.` };
 }
+
+/**
+ * Where a value sits among the field, 0..100, higher meaning better; `lowerIsBetter` for grid
+ * slots and finishes. The season profile in the slide-over is built from this and the pace rows,
+ * so it is a rank among this season's classifications rather than a hash of the price.
+ */
+export function percentileOf(value: number, field: number[], lowerIsBetter = false): number {
+  const others = field.filter((v) => Number.isFinite(v));
+  if (others.length < 2) return 50;
+  const beaten = others.filter((v) => (lowerIsBetter ? v > value : v < value)).length;
+  return Math.round((beaten / (others.length - 1)) * 100);
+}
