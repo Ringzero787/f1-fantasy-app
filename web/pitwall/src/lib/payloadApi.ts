@@ -27,6 +27,8 @@ function toDriver(v: Record<string, unknown>): Driver {
     fit: nums(v.fit), win: num(v.win), pod: num(v.pod), t10: num(v.t10),
     ptsRise: num(v.ptsRise), ptsHold: num(v.ptsHold), pRise: num(v.pRise), pFall: num(v.pFall),
     q: num(v.q), r: num(v.r), val: num(v.val),
+    splits: objects(v.splits).map((x) => ({ cls: str(x.cls), label: str(x.label, str(x.cls)), n: num(x.n), avg: num(x.avg) })).filter((x) => x.cls && x.n > 0),
+    mix: (() => { const m = (v.mix && typeof v.mix === 'object' ? v.mix : {}) as Record<string, unknown>; return { quali: num(m.quali), race: num(m.race), sprint: num(m.sprint), fl: num(m.fl) }; })(),
     ...(typeof v.lev === 'number' ? { lev: v.lev } : {}),
   };
 }

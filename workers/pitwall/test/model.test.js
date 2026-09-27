@@ -415,3 +415,18 @@ test('a league document ranks as the app does, counts who holds what, and reads 
   assert.equal(activityOf(3), 0.7);
   assert.equal(doc.size, 3);
 });
+
+// ---- slide-over Past: splits rows and the points mix
+const { splitRows, driverMix } = require(D + 'splits.js');
+test('splits rows name the classes an entity has raced, and the mix sums scoring\'s own parts', () => {
+  const races = [histRace('r1', 'baku', []), histRace('r2', 'monza', [])];
+  const scores = [
+    { raceId: 'r1', round: 1, entityId: 'a', entityType: 'driver', totalPoints: 40, qualiPoints: 5, racePoints: 33, sprintPoints: 0, fastestLapBonus: 2 },
+    { raceId: 'r2', round: 2, entityId: 'a', entityType: 'driver', totalPoints: 20, qualiPoints: 3, racePoints: 17 },
+  ];
+  const rows = splitRows(computeSplits(races, scores).get('a'));
+  assert.deepEqual(rows.map((r) => [r.cls, r.n]), [['high-speed', 2], ['permanent', 1], ['street', 1]]);
+  assert.equal(rows.find((r) => r.cls === 'street').label, 'street circuits');
+  assert.deepEqual(driverMix(scores, 'a'), { quali: 8, race: 50, sprint: 0, fl: 2 });
+  assert.deepEqual(splitRows(undefined), []);
+});

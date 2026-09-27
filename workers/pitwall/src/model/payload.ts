@@ -12,7 +12,8 @@ import { blendPriceChange, pointsToRise, pointsToSoftFall } from './priceRules';
 import type { SessionWeather } from './weather';
 import type { WeatherMap } from './weatherMap';
 import { headlineOnly, type WireItem } from './wire';
-import type { CircuitReport, PaceRow, SeasonRow } from './splits';
+import type { CircuitReport, EntitySplits, Mix, PaceRow, SeasonRow } from './splits';
+import { splitRows } from './splits';
 import type { Projection } from './types';
 
 export interface DriverMeta { id: string; number: number; name: string; constructorId: string; price: number; isActive: boolean }
@@ -52,6 +53,9 @@ export interface PayloadInputs {
   circuit?: CircuitReport | null;
   pace?: PaceRow[];
   season?: SeasonRow[];
+  /** per-entity points by circuit class, and where a driver's points came from (pass) */
+  splits?: Map<string, EntitySplits>;
+  mix?: Map<string, Mix>;
 }
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -85,6 +89,8 @@ export function buildPayload(i: PayloadInputs) {
       pRise: p ? Math.round(p.pRise * 100) : 0, pFall: p ? Math.round(p.pFall * 100) : 0,
       // timing-derived gaps are free-only frames (ADR-001) and come from another job; 0 = unknown here
       q: 0, r: 0,
+      splits: splitRows(i.splits?.get(d.id)),
+      mix: i.mix?.get(d.id) ?? { quali: 0, race: 0, sprint: 0, fl: 0 },
       val: d.price > 0 ? r1((med / d.price) * 100) : 0,
     };
   }).sort((a, b) => b.med - a.med);
@@ -118,6 +124,7 @@ export function buildPayload(i: PayloadInputs) {
   const freeDriver = (d: (typeof drivers)[number]) => ({
     id: d.id, num: d.num, name: d.name, team: d.team, price: d.price, med: d.med, fit: d.fit, q: d.q, r: d.r,
     floor: 0, ceil: 0, dnf: 0, own: 0, pm: 0, cons: 0, dprice: 0, win: 0, pod: 0, t10: 0, val: 0, form: [] as number[], ptsRise: 0, ptsHold: 0, pRise: 0, pFall: 0,
+    splits: [] as ReturnType<typeof splitRows>, mix: { quali: 0, race: 0, sprint: 0, fl: 0 },
   });
   // Built field by field rather than spread from `full`: a spread would hand the free document
   // every field added to the paid one later, so the next thing published (tagged news, rival

@@ -41,11 +41,13 @@ export interface Coverage {
   pace: boolean;
   /** the season table */
   season: boolean;
+  /** per-driver splits by circuit class and the points mix */
+  splits: boolean;
   /** frames that still have no published source at all and only exist in the example set */
   mock: boolean;
 }
 
-export const FULL_COVERAGE: Coverage = { timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, weatherMap: true, circuit: true, pace: true, season: true, mock: true };
+export const FULL_COVERAGE: Coverage = { timing: true, ownership: true, fit: true, news: true, rivals: true, league: true, form: true, priceModel: true, weather: true, weatherMap: true, circuit: true, pace: true, season: true, splits: true, mock: true };
 
 export function coverage(p: Payload): Coverage {
   const fitValues = new Set<number>();
@@ -64,6 +66,7 @@ export function coverage(p: Payload): Coverage {
     circuit: p.circuit !== null && p.circuit.profile.length > 0,
     pace: p.pace.some((r) => r.starts > 0),
     season: p.season.some((r) => r.points !== 0 || r.starts > 0),
+    splits: p.drivers.some((d) => d.splits.length > 0),
     // Circuit characteristics, the title simulation, power unit use and price history have no
     // published source yet (F-072 and the pipeline work behind it). They are drawn from the row
     // order in the example set, which is fine for a demo and a lie against real data.
@@ -86,5 +89,6 @@ export const NOT_PUBLISHED: Record<keyof Coverage, string> = {
   circuit: 'No circuit report for this venue yet.',
   pace: 'No classifications for this season yet.',
   season: 'The season table is not published yet.',
+  splits: 'Splits by circuit class come with the Pit Wall Pass.',
   mock: 'Not published yet.',
 };

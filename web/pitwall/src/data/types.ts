@@ -18,6 +18,10 @@ export interface Driver {
   /** qualifying and race pace gaps (timing-derived: free frames only, ADR-001) */
   q: number; r: number;
   val: number;
+  /** average points by circuit class this season (pass; empty in the free document) */
+  splits: Array<{ cls: string; label: string; n: number; avg: number }>;
+  /** where this season's points came from, summed from scoring's parts (pass; zeros in the free document) */
+  mix: { quali: number; race: number; sprint: number; fl: number };
   lev?: number;
 }
 
