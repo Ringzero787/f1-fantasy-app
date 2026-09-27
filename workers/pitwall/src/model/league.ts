@@ -5,7 +5,7 @@
  *
  * Ownership is the share of the league's teams holding an entity. Rank follows the app's own
  * order (points, then last race, then id). Activity is how recently the manager last traded,
- * on the app's `racesSinceTransfer`: 1 for a trade this round, falling to 0.1 after ten quiet ones.
+ * on the app's `racesSinceTransfer`: 1 for a trade this round, down a tenth per quiet round, never below 0.1.
  *
  * Pure.
  */
@@ -26,8 +26,9 @@ export const activityOf = (racesSinceTransfer: number): number => Math.max(0.1, 
 
 export function buildLeagueDoc(league: { id: string; name: string }, teams: LeagueTeam[], meta: { season: string; round: number; asOf: Date }): LeagueDoc {
   const ordered = [...teams].sort((a, b) => (b.totalPoints - a.totalPoints) || (b.lastRacePoints - a.lastRacePoints) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  // entity ids are the app's own catalogue ids (drivers/constructors), never text a user typed
   const held = new Map<string, number>();
-  for (const t of teams) for (const id of [...t.drivers, t.ctor].filter(Boolean)) held.set(id, (held.get(id) ?? 0) + 1);
+  for (const t of teams) for (const id of [...t.drivers, t.ctor].filter((x) => /^[a-z0-9_]+$/.test(x))) held.set(id, (held.get(id) ?? 0) + 1);
   const ownership: Record<string, number> = {};
   for (const [id, n] of held) ownership[id] = Math.round((n / Math.max(1, teams.length)) * 100);
   return {

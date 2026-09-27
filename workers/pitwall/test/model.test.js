@@ -406,7 +406,8 @@ test('the free season table is ordered by points so far, so the paid ranking doe
 // ---- per-league documents (F-072 rivals, F-070 ownership)
 const { buildLeagueDoc, activityOf } = require(D + 'league.js');
 test('a league document ranks as the app does, counts who holds what, and reads activity from the last trade', () => {
-  const T = (id, totalPoints, extra = {}) => ({ id, userId: 'u' + id, name: 'Team ' + id, totalPoints, lastRacePoints: 0, budget: 100, racesSinceTransfer: 0, drivers: ['a', 'b'], ctor: 'x', ace: 'a', ...extra });
+  const NAMES = { t1: 'Turn One', t2: 'Gravel Trap', t3: 'Backmarkers' };
+  const T = (id, totalPoints, extra = {}) => ({ id, userId: 'u' + id, name: NAMES[id], totalPoints, lastRacePoints: 0, budget: 100, racesSinceTransfer: 0, drivers: ['a', 'b'], ctor: 'x', ace: 'a', ...extra });
   const doc = buildLeagueDoc({ id: 'L', name: 'Sunday Drivers' }, [T('t1', 50), T('t2', 80, { drivers: ['a', 'c'], racesSinceTransfer: 10 }), T('t3', 50, { lastRacePoints: 9, drivers: ['d'], ctor: 'y' })], { season: '2026', round: 18, asOf: new Date('2026-09-27T00:00:00Z') });
   assert.deepEqual(doc.teams.map((t) => [t.id, t.rank]), [['t2', 1], ['t3', 2], ['t1', 3]]);   // t3 over t1 on last race points
   assert.deepEqual(doc.ownership, { a: 67, b: 33, x: 67, c: 33, d: 33, y: 33 });

@@ -4,7 +4,7 @@ import { examplePayload } from './example';
 
 const doc: LeagueDoc = { leagueId: 'L', round: 17, name: 'Sunday Drivers', size: 3, ownership: { norris: 67, verstappen: 33 },
   teams: [{ id: 't2', name: 'Turn One', rank: 1, points: 300, bank: 120, activity: 0.9, lineup: { drivers: ['verstappen'], ctor: 'x', ace: '' } },
-          { id: 'me', name: 'Mine', rank: 2, points: 267, bank: 50, activity: 1, lineup: { drivers: ['norris'], ctor: 'x', ace: 'norris' } },
+          { id: 'me', name: 'Late Brakers', rank: 2, points: 267, bank: 50, activity: 1, lineup: { drivers: ['norris'], ctor: 'x', ace: 'norris' } },
           { id: 't3', name: 'Backmarkers', rank: 3, points: 200, bank: 90, activity: 0.3, lineup: { drivers: ['norris'], ctor: 'y', ace: '' } }] };
 
 describe('withLeague', () => {
