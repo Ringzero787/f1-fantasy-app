@@ -1,0 +1,38 @@
+id: OP-061
+title: "Portal deploy: ACE pill on the tile"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-27T19:52:53.874Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-27T19:52:54.244Z
+    head_sha: 5de57e19f9b659bbe7ecf72a5e65efcda719b75f
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-061/dry-run-2026-09-27T19-52-54-244Z.log
+    log_sha256: e3e8dbc578d91cf4a26a9b5ea7ff20981851a155ac5873c602b5793b5d03bffd
+    lines: 68
+  - step: gates
+    at: 2026-09-27T19:56:23.838Z
+    head_sha: 5de57e19f9b659bbe7ecf72a5e65efcda719b75f
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-27T19:56:23.859Z
+    head_sha: 5de57e19f9b659bbe7ecf72a5e65efcda719b75f
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-061/apply-2026-09-27T19-56-23-859Z.log
+    log_sha256: 24a34f632cbbe53bd4bf1caa6581ef87a1b3e81587684e8412711e5dc8badcef
+    lines: 79
+  - step: gates
+    at: 2026-09-27T20:00:02.213Z
+    head_sha: 5de57e19f9b659bbe7ecf72a5e65efcda719b75f
+    exit: 0
+    gates:
+      G15: skip
