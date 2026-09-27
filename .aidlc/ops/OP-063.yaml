@@ -1,0 +1,38 @@
+id: OP-063
+title: "Portal deploy: stale marker on the data-as-of line"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-27T20:38:36.967Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-27T20:38:37.249Z
+    head_sha: 097ea14be269bd9907ab3dc17990114afee3285a
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-063/dry-run-2026-09-27T20-38-37-249Z.log
+    log_sha256: e34476166f0429885638289d9dd42aa71732f980fd66940c1851a33f49e7a818
+    lines: 68
+  - step: gates
+    at: 2026-09-27T20:42:09.014Z
+    head_sha: 097ea14be269bd9907ab3dc17990114afee3285a
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-27T20:42:09.053Z
+    head_sha: 097ea14be269bd9907ab3dc17990114afee3285a
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-063/apply-2026-09-27T20-42-09-053Z.log
+    log_sha256: bab2e1d2cca8721a5bdd94ae07b39868329dc16a562f50a7ec6e6e1f69070b10
+    lines: 78
+  - step: gates
+    at: 2026-09-27T20:45:46.833Z
+    head_sha: 097ea14be269bd9907ab3dc17990114afee3285a
+    exit: 0
+    gates:
+      G15: skip
