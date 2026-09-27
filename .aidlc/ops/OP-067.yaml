@@ -1,0 +1,37 @@
+id: OP-067
+title: "Worker: splits, points mix and the stale self-check (F-072)"
+kind: pitwall-worker-deploy
+status: applied
+params: {}
+created_at: 2026-09-27T21:50:06.707Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-27T21:50:07.257Z
+    head_sha: cd95a5ef0709fa931fa076f16283a875cd8e840d
+    command: bash scripts/ops/pitwall-worker-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-067/dry-run-2026-09-27T21-50-07-257Z.log
+    log_sha256: 8ac660f1cf789f45dfe2cc403e3b29525ce1f4208f4a72a80e7b67436805d3a5
+    lines: 45
+  - step: gates
+    at: 2026-09-27T21:53:39.412Z
+    head_sha: cd95a5ef0709fa931fa076f16283a875cd8e840d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-27T21:53:39.433Z
+    head_sha: cd95a5ef0709fa931fa076f16283a875cd8e840d
+    command: bash scripts/ops/pitwall-worker-deploy.sh apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-067/apply-2026-09-27T21-53-39-433Z.log
+    log_sha256: 2fbf8f9516bb489c26b78dead89ddead9c071983d2bcdc2ddf21d4070de75eb9
+    lines: 59
+  - step: gates
+    at: 2026-09-27T21:53:53.736Z
+    head_sha: cd95a5ef0709fa931fa076f16283a875cd8e840d
+    exit: 0
+    gates:
+      G15: skip

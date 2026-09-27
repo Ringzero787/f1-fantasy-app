@@ -1,0 +1,38 @@
+id: OP-068
+title: "Portal deploy: slide-over Past and Present from the records"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-27T21:50:06.963Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-27T21:50:09.237Z
+    head_sha: cd95a5ef0709fa931fa076f16283a875cd8e840d
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-068/dry-run-2026-09-27T21-50-09-237Z.log
+    log_sha256: ac5ffbcf6662ad06289a1f91ec1bab59951117669bb74de5baf5f2fecd33ce6e
+    lines: 69
+  - step: gates
+    at: 2026-09-27T21:53:54.819Z
+    head_sha: cd95a5ef0709fa931fa076f16283a875cd8e840d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-27T21:53:54.833Z
+    head_sha: cd95a5ef0709fa931fa076f16283a875cd8e840d
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-068/apply-2026-09-27T21-53-54-833Z.log
+    log_sha256: 42547e462732dd1a2475a83d37820d471cfb2a2cc0937ac65087e25a3320f429
+    lines: 79
+  - step: gates
+    at: 2026-09-27T21:57:31.593Z
+    head_sha: cd95a5ef0709fa931fa076f16283a875cd8e840d
+    exit: 0
+    gates:
+      G15: skip
