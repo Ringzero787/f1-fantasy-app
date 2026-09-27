@@ -1,0 +1,37 @@
+id: OP-062
+title: "Install the Pit Wall worker on forge: scheduled projections, heartbeat, alerts (F-069)"
+kind: pitwall-worker-deploy
+status: applied
+params: {}
+created_at: 2026-09-27T20:36:16.105Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-27T20:36:16.605Z
+    head_sha: 838f58bfc74b7987b3fa3c9d62e9d46716af6261
+    command: bash scripts/ops/pitwall-worker-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-062/dry-run-2026-09-27T20-36-16-605Z.log
+    log_sha256: 93cbb091b60a3a55179c80465921ade9af6ed1c6e71961581a692da7ae6de695
+    lines: 45
+  - step: gates
+    at: 2026-09-27T20:36:36.022Z
+    head_sha: 838f58bfc74b7987b3fa3c9d62e9d46716af6261
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-27T20:36:36.052Z
+    head_sha: 838f58bfc74b7987b3fa3c9d62e9d46716af6261
+    command: bash scripts/ops/pitwall-worker-deploy.sh apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-062/apply-2026-09-27T20-36-36-052Z.log
+    log_sha256: 3434a15770e975b0fdd6782efe062615ad7c32ed0aaf261254a3f3b66ba62ed5
+    lines: 64
+  - step: gates
+    at: 2026-09-27T20:36:50.444Z
+    head_sha: 838f58bfc74b7987b3fa3c9d62e9d46716af6261
+    exit: 0
+    gates:
+      G15: skip
