@@ -12,6 +12,15 @@ EnvironmentFile=/data/pitwall-worker/env
 ExecStart=/usr/bin/node /data/pitwall-worker/current/dist/workers/pitwall/src/cli/serve.js
 Restart=always
 RestartSec=15
+# Sandbox: the worker needs the release folder, the key and the network, nothing else.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/data/pitwall-worker
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
 
 [Install]
 WantedBy=multi-user.target

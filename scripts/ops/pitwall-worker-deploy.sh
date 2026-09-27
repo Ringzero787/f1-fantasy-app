@@ -34,11 +34,17 @@ echo "== apply"
 mkdir -p "$DEST/releases/$COMMIT"
 rsync -a --delete dist/ "$DEST/releases/$COMMIT/dist/"
 echo "$COMMIT" > "$DEST/releases/$COMMIT/COMMIT"
-# the env file: the key path and the runner name; alert settings are added by hand if wanted
+# The release carries its own firebase-admin, pinned to the version functions/ uses, so the unit
+# never resolves modules out of a development checkout.
+( cd "$DEST/releases/$COMMIT" && { [ -f package.json ] || echo '{"name":"pitwall-worker-release","private":true}' > package.json; } && npm install --no-audit --no-fund --omit=dev --silent "firebase-admin@^12.0.0" )
+# The key is copied next to the release with tight permissions, so the unit needs nothing from a home directory.
+install -m 600 "$SA_KEY" "$DEST/sa.json"
+# the env file: the key path and the runner name; alert settings (RESEND_API_KEY, ALERT_TO) are added by hand if wanted
 if [ ! -f "$DEST/env" ]; then
-  { echo "SA_KEY=$SA_KEY"; echo "PW_RUNNER=forge"; echo "PW_ADMIN_MODULES=$ROOT/functions/node_modules"; } > "$DEST/env"
+  { echo "SA_KEY=$DEST/sa.json"; echo "PW_RUNNER=forge"; } > "$DEST/env"
   chmod 600 "$DEST/env"
 fi
+grep -q '^PW_ADMIN_MODULES=' "$DEST/env" && sed -i "s#^PW_ADMIN_MODULES=.*#PW_ADMIN_MODULES=$DEST/current/node_modules#" "$DEST/env" || echo "PW_ADMIN_MODULES=$DEST/current/node_modules" >> "$DEST/env"
 grep -q '^PW_COMMIT=' "$DEST/env" && sed -i "s/^PW_COMMIT=.*/PW_COMMIT=$COMMIT/" "$DEST/env" || echo "PW_COMMIT=$COMMIT" >> "$DEST/env"
 ln -sfn "$DEST/releases/$COMMIT" "$DEST/current"
 sudo -n cp deploy/pitwall-worker.service "/etc/systemd/system/$UNIT.service"
