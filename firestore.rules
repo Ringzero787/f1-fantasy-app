@@ -243,6 +243,9 @@ service cloud.firestore {
     match /pw_pages/{id} { allow read: if hasPass(); allow write: if false; }
     match /pw_entities/{id} { allow read: if hasPass(); allow write: if false; }
     match /pw_projections/{id} { allow read: if hasPass(); allow write: if false; }
+    // F-072: ownership and lineups per league per round, for that league's members and owner only —
+    // the same people the app shows those lineups to. Written by the worker.
+    match /pw_leagues/{id} { allow read: if isAuthenticated() && (isLeagueMember(resource.data.leagueId) || isLeagueOwner(resource.data.leagueId)); allow write: if false; }
 
     match /fantasyTeams/{teamId} {
       // F-029: roster and points per race weekend, written by scoring only. Readable by
