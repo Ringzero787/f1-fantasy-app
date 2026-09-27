@@ -7,6 +7,7 @@ import { NOT_PUBLISHED } from '../data/coverage';
 import { Compare } from './Compare';
 import { loadOutlook, type Outlook as OutlookDoc } from '../lib/entityApi';
 import { asOfLabel } from '../lib/lock';
+import { SEASON } from '../lib/env';
 import { ACE_MAX_PRICE } from '../data/team';
 
 function Present({ d }: { d: Entity }) {
@@ -98,7 +99,7 @@ function Outlook({ d }: { d: Entity }) {
     let live = true;
     setWritten('loading');
     if (!drv || p.example || pass.access !== 'pass') { setWritten(null); return; }
-    void loadOutlook('2026', p.round.number, drv.id).then((o) => { if (live) setWritten(o); });
+    void loadOutlook(SEASON, p.round.number, drv.id).then((o) => { if (live) setWritten(o); });
     return () => { live = false; };
   }, [drv?.id, p.round.number, p.asOf, p.example, pass.access]);
   // Only drivers carry a fit. The constructor stand-in below is example data, so it may only be

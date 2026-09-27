@@ -51,7 +51,8 @@ async function alert(subject: string, body: string): Promise<void> {
 const handlers = {
   briefing: async (job: Job, report: (k: string, n: number) => void) => {
     if (job.round === null) throw new Error('outlooks need a round');
-    const run = await runOutlooks(db, { season: job.season, round: job.round, apply: true, apiKey: process.env.ANTHROPIC_API_KEY ?? null });
+    // PW_OUTLOOKS=off is the kill switch; PW_OUTLOOK_MAX_TOKENS the per-run ceiling. The key is never logged.
+    const run = await runOutlooks(db, { season: job.season, round: job.round, apply: true, apiKey: process.env.ANTHROPIC_API_KEY ?? null, enabled: process.env.PW_OUTLOOKS !== 'off', maxTokens: Number(process.env.PW_OUTLOOK_MAX_TOKENS) || undefined });
     report('written', run.written); report('refused', run.refused); report('skipped', run.skipped); report('inputTokens', run.inputTokens); report('outputTokens', run.outputTokens);
     log(`outlooks round ${job.round}: ${run.written} written, ${run.refused} refused, ${run.skipped} skipped${run.refusals.length ? ` — ${run.refusals.slice(0, 5).join('; ')}` : ''}`);
   },

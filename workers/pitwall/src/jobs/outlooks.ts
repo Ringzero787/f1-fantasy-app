@@ -9,7 +9,16 @@ import { buildPrompt, outlookInputs, validateOutlook } from '../model/outlook';
 
 interface DocRef { get(): Promise<{ exists: boolean; data(): Record<string, unknown> | undefined }>; set(data: Record<string, unknown>, opts?: { merge: boolean }): Promise<unknown> }
 export interface OutlookDb { collection(name: string): { doc(id: string): DocRef } }
-export interface OutlookOptions { season: string; round: number; apply: boolean; apiKey: string | null; now?: Date; fetchImpl?: typeof fetch; model?: string; limit?: number }
+export interface OutlookOptions {
+  season: string; round: number; apply: boolean; apiKey: string | null; now?: Date; fetchImpl?: typeof fetch; model?: string;
+  /** drivers per run, at most */
+  limit?: number;
+  /** tokens (in + out) a run may spend before it stops writing: the hard ceiling, whatever the schedule says */
+  maxTokens?: number;
+  /** the kill switch: nothing is generated when false */
+  enabled?: boolean;
+}
+export const DEFAULT_MAX_TOKENS_PER_RUN = 60000;
 export interface OutlookRun { written: number; refused: number; skipped: number; inputTokens: number; outputTokens: number; refusals: string[] }
 
 export async function runOutlooks(db: OutlookDb, opts: OutlookOptions): Promise<OutlookRun> {
@@ -18,10 +27,13 @@ export async function runOutlooks(db: OutlookDb, opts: OutlookOptions): Promise<
   const page = await db.collection('pw_pages').doc(id).get();
   const doc = page.exists ? (page.data() as Record<string, any>) : null;
   if (!doc) { run.skipped += 1; run.refusals.push(`no payload ${id}`); return run; }
+  if (opts.enabled === false) { run.skipped += (doc.drivers ?? []).length; run.refusals.push('outlooks switched off'); return run; }
   if (!opts.apiKey) { run.skipped += (doc.drivers ?? []).length; run.refusals.push('no model key'); return run; }
+  const ceiling = opts.maxTokens ?? DEFAULT_MAX_TOKENS_PER_RUN;
   const known: string[] = [...(doc.drivers ?? []).map((d: any) => String(d.name)), ...Object.values(doc.teams ?? {}).map((t: any) => String(t.name))];
   const drivers = (doc.drivers ?? []).slice(0, opts.limit ?? 30);
   for (const d of drivers) {
+    if (run.inputTokens + run.outputTokens >= ceiling) { run.skipped += 1; if (!run.refusals.includes('token ceiling reached')) run.refusals.push('token ceiling reached'); continue; }
     const inputs = outlookInputs(doc, d.id);
     if (!inputs) { run.skipped += 1; continue; }
     const prompt = buildPrompt(inputs);

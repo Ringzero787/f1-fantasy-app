@@ -13,7 +13,7 @@ import { loadWirePrefs, saveWirePrefs } from './lib/wirePrefs';
 import type { WirePrefs } from './data/wire';
 import { callable } from './lib/firebase';
 import { StoreProvider, type RealContext } from './state';
-import { PREVIEW, hasFirebaseConfig } from './lib/env';
+import { PREVIEW, SEASON, hasFirebaseConfig } from './lib/env';
 import { auth } from './lib/firebase';
 import { parseHandoffFragment, redeemHandoff } from './lib/handoff';
 import { isHandoffPath, usePage, type PageName } from './lib/router';
@@ -189,7 +189,7 @@ export function App() {
     let live = true;
     setLeague(null);
     if (!leagueId || !roundNo) return;
-    void loadLeagueDoc(leagueId, '2026', roundNo).then((d) => { if (live) setLeague(d); });
+    void loadLeagueDoc(leagueId, SEASON, roundNo).then((d) => { if (live) setLeague(d); });
     return () => { live = false; };
   }, [leagueId, roundNo, published?.payload.asOf]);
 
