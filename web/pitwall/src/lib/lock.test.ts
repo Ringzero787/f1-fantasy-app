@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdown, lockTime, nextSession, asOfLabel, isStale, isStale } from './lock';
+import { countdown, lockTime, nextSession, asOfLabel, isStale } from './lock';
 import { pageFor, pathFor, isHandoffPath, PAGES } from './router';
 
 describe('lock countdown', () => {
