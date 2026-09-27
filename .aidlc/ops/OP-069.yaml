@@ -1,0 +1,47 @@
+id: OP-069
+title: Republish round 18 with splits, mix and league documents
+kind: pitwall-job
+status: applied
+params:
+  job: projections
+  session: daily
+created_at: 2026-09-27T21:57:52.225Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-27T21:57:52.505Z
+    head_sha: 69aab8a561255587d91f1facc3a4ffc2b13d734a
+    command: bash scripts/ops/pitwall-job.sh dryrun 'projections' 'daily'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-069/dry-run-2026-09-27T21-57-52-505Z.log
+    log_sha256: 9ae4ff628e395c0bc9348d1bd767a093b729ee8832750d2c77668dcf49643f6b
+    lines: 120
+  - step: backup
+    at: 2026-09-27T21:58:00.624Z
+    head_sha: 69aab8a561255587d91f1facc3a4ffc2b13d734a
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-069'/backup.json pw_pages pw_public pw_projections
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-069/backup-2026-09-27T21-58-00-624Z.log
+    log_sha256: f3d97ee31b94b157f0ec10ac6ad99a89b2ef7c4a34f3970da1ee1e7f232ee698
+    lines: 3
+  - step: gates
+    at: 2026-09-27T21:58:01.682Z
+    head_sha: 69aab8a561255587d91f1facc3a4ffc2b13d734a
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-27T21:58:01.682Z
+    head_sha: 69aab8a561255587d91f1facc3a4ffc2b13d734a
+    command: bash scripts/ops/pitwall-job.sh apply 'projections' 'daily'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-069/apply-2026-09-27T21-58-01-682Z.log
+    log_sha256: 94fc3d28227c56026c45dab49a2cfb66eb09e1e0f996c8521fcc31d6e95e0a8f
+    lines: 120
+  - step: gates
+    at: 2026-09-27T21:58:09.083Z
+    head_sha: 69aab8a561255587d91f1facc3a4ffc2b13d734a
+    exit: 0
+    gates:
+      G15: skip
