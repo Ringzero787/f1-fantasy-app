@@ -375,3 +375,18 @@ test('a reader keeps their own wire history; nobody else, admin included, can re
   const adminDb = env.authenticatedContext('admin-1', { admin: true }).firestore();
   await assertFails(getDoc(doc(adminDb, 'users', ALICE, 'pitwall', 'wire')));
 });
+
+test('a league document is readable by that league\'s members and owner, by nobody else, and written by nobody', async () => {
+  const L = 'league-pw';
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'leagues', L), leagueData(OWNER));
+    await setDoc(doc(a, 'leagues', L, 'members', ALICE), joinMember(L, ALICE));
+    await setDoc(doc(a, 'pw_leagues', `${L}_2026_18`), { leagueId: L, round: 18, ownership: { a: 50 }, teams: [] });
+  });
+  await assertSucceeds(getDoc(doc(db(ALICE), 'pw_leagues', `${L}_2026_18`)));   // member
+  await assertSucceeds(getDoc(doc(db(OWNER), 'pw_leagues', `${L}_2026_18`)));   // owner
+  await assertFails(getDoc(doc(db(MALLORY), 'pw_leagues', `${L}_2026_18`)));    // signed in, another league
+  await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'pw_leagues', `${L}_2026_18`)));
+  await assertFails(setDoc(doc(db(OWNER), 'pw_leagues', `${L}_2026_18`), { leagueId: L, ownership: { a: 100 } }));
+});

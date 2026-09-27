@@ -55,6 +55,8 @@ admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECT
   } else console.log('\nCIRCUIT: no characteristics for this venue');
   console.log(`\nPACE (${run.pace.length})  driver · starts · avg grid · avg finish · gained · finished`);
   for (const r of run.pace.slice(0, 8)) console.log(`  ${r.id.padEnd(12)} ${String(r.starts).padStart(2)}   ${String(r.avgGrid).padStart(5)}   ${String(r.avgFinish).padStart(5)}   ${String(r.gained).padStart(5)}   ${r.finishRate}%`);
+  console.log(`\nLEAGUES (${run.leagues.length})  name · teams · most held`);
+  for (const l of run.leagues) console.log(`  ${l.name.slice(0, 24).padEnd(24)} ${String(l.size).padStart(3)}   ${Object.entries(l.ownership).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, pct]) => `${id} ${pct}%`).join(' · ')}`);
   console.log(`\nSEASON (${run.seasonTable.length})  driver · points · projected`);
   for (const r of run.seasonTable.slice(0, 8)) console.log(`  ${r.id.padEnd(12)} ${String(r.points).padStart(5)}   ${String(r.projected).padStart(5)}`);
   console.log(run.wrote.length ? `\nWrote: ${run.wrote.join(', ')}` : '\nNothing was written.');

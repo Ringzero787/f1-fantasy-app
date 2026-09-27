@@ -18,6 +18,7 @@ import { scoreWeekend } from '../model/scoreRace';
 import { buildPayload, shortName, shortTeamName, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
 import { buildCircuitReport, buildPace, buildSeasonTable, computeSplits, driverStarts, fitFor, type CircuitReport, type PaceRow, type SeasonRow } from '../model/splits';
 import { traitsOf } from '../model/circuitTraits';
+import { buildLeagueDoc, type LeagueDoc, type LeagueTeam } from '../model/league';
 import type { RoundSchedule } from './schedule';
 import { DEFAULT_SIM, simulate, type SimOptions } from '../model/simulate';
 import { estimateForm, type Entrant } from '../model/strength';
@@ -48,6 +49,7 @@ export interface ProjectionRun {
   circuit: CircuitReport | null;
   pace: PaceRow[];
   seasonTable: SeasonRow[];
+  leagues: LeagueDoc[];
 }
 
 /** The current round's session times, for the schedule: the round in progress, else the next one. */
@@ -110,6 +112,34 @@ export async function loadWireArticles(db: Db, since: Date): Promise<Article[]> 
     const at: Date = typeof x.publishedAt?.toDate === 'function' ? x.publishedAt.toDate() : new Date(String(x.publishedAt ?? ''));
     return { title: String(x.title ?? ''), summary: String(x.summary ?? ''), url: String(x.sourceUrl ?? ''), source: String(x.source ?? ''), category: String(x.category ?? 'general'), publishedAt: at };
   });
+}
+
+/**
+ * Every league's teams, for the per-league documents. Read outside the model's input allowlist:
+ * lineups are not a model input, and the allowlist has to stay truthful (ADR-001).
+ */
+export async function loadLeagueTeams(db: Db): Promise<Array<{ league: { id: string; name: string }; teams: LeagueTeam[] }>> {
+  const [leaguesSnap, teamsSnap] = await Promise.all([db.collection('leagues').get(), db.collection('fantasyTeams').get()]);
+  const byLeague = new Map<string, LeagueTeam[]>();
+  for (const d of teamsSnap.docs) {
+    const x = d.data() as Record<string, any>;
+    if (typeof x.leagueId !== 'string' || !x.leagueId) continue;
+    const ctor = Object.getOwnPropertyDescriptor(x, 'constructor')?.value as Record<string, unknown> | null | undefined;
+    const t: LeagueTeam = {
+      id: d.id, userId: String(x.userId ?? ''), name: String(x.name ?? 'Team'),
+      totalPoints: num(x.totalPoints), lastRacePoints: num(x.lastRacePoints), budget: num(x.budget), racesSinceTransfer: num(x.racesSinceTransfer),
+      drivers: (Array.isArray(x.drivers) ? x.drivers : []).map((r: Record<string, unknown>) => String(r?.driverId ?? '')).filter(Boolean),
+      ctor: ctor && typeof ctor === 'object' ? String(ctor.constructorId ?? '') : '', ace: typeof x.aceDriverId === 'string' ? x.aceDriverId : '',
+    };
+    (byLeague.get(x.leagueId) ?? byLeague.set(x.leagueId, []).get(x.leagueId)!).push(t);
+  }
+  const out: Array<{ league: { id: string; name: string }; teams: LeagueTeam[] }> = [];
+  for (const d of leaguesSnap.docs) {
+    const teams = byLeague.get(d.id);
+    if (!teams || teams.length < 2) continue;   // a league of one has no rivals and no ownership to speak of
+    out.push({ league: { id: d.id, name: String((d.data() as Record<string, unknown>).name ?? 'League') }, teams });
+  }
+  return out;
 }
 
 export interface ProjectOptions { season: string; sessionKey: string; sim?: Partial<SimOptions>; apply: boolean; now?: Date }
@@ -197,13 +227,19 @@ export async function runProjections(db: Db, opts: ProjectOptions): Promise<Proj
 
   const { full, free } = buildPayload({ round: roundMeta, nextRounds, drivers, constructors, projections, form: byEntity, ownership: new Map(), priceImplied, pricingHistory, asOf: opts.now ?? new Date(), budget: 1000, weather, weatherSource: weather.length || weatherMap ? MET_ATTRIBUTION : null, weatherMap, news, fit, circuit, pace, season: seasonTable });
 
+  // Per-league documents: ownership and rivals, for league members only (rules).
+  const leagues: LeagueDoc[] = (await loadLeagueTeams(db).catch((err) => { console.warn('[pw] leagues unavailable:', err instanceof Error ? err.message : err); return []; }))
+    .map(({ league, teams }) => buildLeagueDoc(league, teams, { season: opts.season, round, asOf: opts.now ?? new Date() }));
+
   const id = `${opts.season}_${round}`;
   const wrote: string[] = [];
   if (opts.apply) {
     await db.collection('pw_pages').doc(id).set(full);
     await db.collection('pw_public').doc(id).set(free);
+    for (const l of leagues) await db.collection('pw_leagues').doc(`${l.leagueId}_${id}`).set(l as unknown as Record<string, unknown>);
+    if (leagues.length) wrote.push(`pw_leagues (${leagues.length})`);
     await db.collection('pw_projections').doc(`${id}_${opts.sessionKey}`).set({ season: opts.season, round, sessionKey: opts.sessionKey, asOf: full.asOf, projections: projections.map((p) => ({ ...p })) });
     wrote.push(`pw_pages/${id}`, `pw_public/${id}`, `pw_projections/${id}_${opts.sessionKey}`);
   }
-  return { season: opts.season, round, raceId: roundMeta.raceId, sessionKey: opts.sessionKey, projections, wrote, counts: { drivers: full.drivers.length, constructors: full.constructors.length, pastRaces: history.races.length }, weather, weatherMap, news, circuit, pace, seasonTable };
+  return { season: opts.season, round, raceId: roundMeta.raceId, sessionKey: opts.sessionKey, projections, wrote, counts: { drivers: full.drivers.length, constructors: full.constructors.length, pastRaces: history.races.length }, weather, weatherMap, news, circuit, pace, seasonTable, leagues };
 }

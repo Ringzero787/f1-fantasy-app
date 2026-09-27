@@ -7,6 +7,8 @@ import { aceChange, planSave, teamLineup, CONTRACT_LENGTH } from './data/team';
 import { NO_PASS, passFromClaims, payloadForAccess, type PassState } from './data/access';
 import { executePlan, loadMarket, loadTeams, saveErrorText } from './lib/teamApi';
 import { loadPayload } from './lib/payloadApi';
+import { loadLeagueDoc } from './lib/leagueApi';
+import { withLeague, type LeagueDoc } from './data/league';
 import { loadWirePrefs, saveWirePrefs } from './lib/wirePrefs';
 import type { WirePrefs } from './data/wire';
 import { callable } from './lib/firebase';
@@ -31,11 +33,13 @@ import { Boundary } from './ui/Boundary';
 
 const PAGE: Record<PageName, () => ReactElement> = { BRIEFING: Briefing, BOARD: Board, CIRCUIT: Circuit, 'PACE LAB': PaceLab, MARKET: Market, 'LINEUP LAB': LineupLab, SEASON: Season, WIRE: Wire };
 
-function Portal({ account, real, pass, published, reloadReal, selectTeam, checkoutFn, wire, onWire, onSignOut }: { account: Account | null; real: RealContext | null; pass?: PassState; published?: Payload | null; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; checkoutFn?: () => Promise<string>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; onSignOut?: () => void }) {
+function Portal({ account, real, pass, published, league, reloadReal, selectTeam, checkoutFn, wire, onWire, onSignOut }: { account: Account | null; real: RealContext | null; pass?: PassState; published?: Payload | null; league?: LeagueDoc | null; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; checkoutFn?: () => Promise<string>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; onSignOut?: () => void }) {
   const [page, go] = usePage();
   // The published payload when the worker has put one out and the rules let this user read it;
   // the browser-generated example set otherwise, which labels itself on every page.
-  const payload = useMemo(() => published ?? examplePayload(), [published]);
+  // The viewer's league document fills ownership, the league line and the rivals; the rules show
+  // it only to that league's members, so a reader outside the league gets the payload as published.
+  const payload = useMemo(() => withLeague(published ?? examplePayload(), league ?? null, real?.team.id ?? null), [published, league, real?.team.id]);
   const Page = PAGE[page];
   // With a real team the lineup starts from it (ids the example payload may not know are kept as-is);
   // without one the example lineup stands in.
@@ -108,6 +112,7 @@ export function App() {
   const [published, setPublished] = useState<{ access: PassState['access']; payload: Payload } | null>(null);
   const [payloadStatus, setPayloadStatus] = useState<'loading' | 'ready' | 'empty'>('loading');
   const [wirePrefs, setWirePrefs] = useState<WirePrefs | undefined>(undefined);
+  const [league, setLeague] = useState<LeagueDoc | null>(null);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
@@ -178,6 +183,16 @@ export function App() {
     return () => { live = false; };
   }, [uid, pass.access]);
 
+  // The league document for the chosen team and the published round.
+  const leagueId = real?.team.leagueId ?? null, roundNo = published?.payload.round.number ?? null;
+  useEffect(() => {
+    let live = true;
+    setLeague(null);
+    if (!leagueId || !roundNo) return;
+    void loadLeagueDoc(leagueId, '2026', roundNo).then((d) => { if (live) setLeague(d); });
+    return () => { live = false; };
+  }, [leagueId, roundNo, published?.payload.asOf]);
+
   // The reader's wire history, loaded once per sign-in and saved on every change.
   useEffect(() => {
     if (!uid) { setWirePrefs(undefined); return; }
@@ -237,7 +252,7 @@ export function App() {
       </main>
     );
   }
-  return <Portal account={account} real={real} pass={pass} published={current} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} wire={wirePrefs} onWire={onWire} onSignOut={() => void signOut(auth())} />;
+  return <Portal account={account} real={real} pass={pass} published={current} league={league} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} wire={wirePrefs} onWire={onWire} onSignOut={() => void signOut(auth())} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';
