@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { bank, money, projectedLineup } from '../data/logic';
 import type { Account } from '../lib/account';
-import { asOfLabel } from '../lib/lock';
+import { asOfLabel, isStale } from '../lib/lock';
 import { PAGES, type PageName } from '../lib/router';
 import { toggleTheme } from '../lib/theme';
 import { useStore } from '../state';
@@ -18,7 +18,7 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
       <div className="ctxrow">
         <div className="brand"><h1>Pit Wall</h1><span className="lbl only-wide">Undercut · analytics</span>{p.example ? <Pill red>Example data</Pill> : null}</div>
         <div className="grp">
-          <span className="mut only-wide">Data as of {asOfLabel(p.asOf)}</span>
+          <span className={`only-wide ${isStale(p.asOf, new Date()) ? 'red' : 'mut'}`} title={isStale(p.asOf, new Date()) ? 'The worker has not published for more than a day' : undefined}>Data as of {asOfLabel(p.asOf)}{isStale(p.asOf, new Date()) ? ' · stale' : ''}</span>
           <button className="ghost" type="button" onClick={() => toggleTheme()}>Light / dark</button>
           {onSignOut ? <button className="ghost" type="button" onClick={onSignOut}>Sign out</button> : null}
         </div>

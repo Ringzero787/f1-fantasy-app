@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdown, lockTime, nextSession, asOfLabel } from './lock';
+import { countdown, lockTime, nextSession, asOfLabel, isStale } from './lock';
 import { pageFor, pathFor, isHandoffPath, PAGES } from './router';
 
 describe('lock countdown', () => {
@@ -57,5 +57,13 @@ describe('asOfLabel', () => {
   it('reads an ISO stamp as a short UTC time and leaves plain text alone', () => {
     expect(asOfLabel('2026-09-25T16:24:37.879Z')).toBe('25 Sep 16:24 UTC');
     expect(asOfLabel('19 Sep 06:00 UTC')).toBe('19 Sep 06:00 UTC');
+  });
+});
+
+describe('isStale', () => {
+  it('is true only for an ISO stamp older than the worker\'s daily cadence allows', () => {
+    expect(isStale('2026-09-25T06:00:00.000Z', new Date('2026-09-26T13:00:00Z'))).toBe(true);
+    expect(isStale('2026-09-26T06:00:00.000Z', new Date('2026-09-26T13:00:00Z'))).toBe(false);
+    expect(isStale('19 Sep 06:00 UTC', new Date('2026-09-26T13:00:00Z'))).toBe(false);   // the example set is never "stale"
   });
 });

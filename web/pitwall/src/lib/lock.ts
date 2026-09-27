@@ -43,3 +43,7 @@ export function asOfLabel(iso: string): string {
   if (!iso || Number.isNaN(d.getTime()) || !/^\d{4}-\d{2}-\d{2}T/.test(iso)) return iso;
   return `${dayMonth(d)} ${hhmm(d)} UTC`;
 }
+
+/** Older than this and the bar says so: the worker publishes at least daily. */
+export const STALE_AFTER_MS = 30 * 3600 * 1000;
+export const isStale = (iso: string, now: Date): boolean => { const d = new Date(iso); return /^\d{4}-\d{2}-\d{2}T/.test(iso) && !Number.isNaN(d.getTime()) && now.getTime() - d.getTime() > STALE_AFTER_MS; };

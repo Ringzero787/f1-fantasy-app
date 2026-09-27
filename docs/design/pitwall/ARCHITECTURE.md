@@ -135,6 +135,8 @@ The pipeline lands one piece at a time: projections and the price model first, t
 
 ## 6. Compute: forge first, GCP as backup
 
+**As built (F-069, 2026-09-27):** `workers/pitwall/src/cli/serve.ts` is the loop; `pitwall-worker.service` (in `workers/pitwall/deploy/`) runs it on forge as `nathan` from `/data/pitwall-worker/current` — a release folder the `pitwall-worker-deploy` op fills from `dist/`, never the development checkout. Every five minutes it: reads the current round (`loadRound`), enqueues what `jobs/schedule.ts` says is due (one `projections` job 90 minutes after each session in a −36 h/+8 d window, and one `daily-YYYYMMDD` job at 06:00 UTC; ids repeat, so enqueue is idempotent), runs one due job under a lease (`FirestoreJobStore`, `pw_jobs`/`pw_runs`), and writes the heartbeat `pw_status/worker`. A failed run writes `pw_alerts/*` and emails when `RESEND_API_KEY` + `ALERT_TO` are in `/data/pitwall-worker/env`. The portal's context bar shows "Data as of … · stale" in red when the newest payload is older than 30 h. Manual runs stay the `pitwall-job` op.
+
 Heavy work runs on **forge**, following the pattern the studio already uses for its other products: a systemd service that pulls jobs from Firestore, holds no inbound ports, and can be restarted at any time. Cloud Functions are kept for the few things that must answer a request.
 
 **What runs where**
