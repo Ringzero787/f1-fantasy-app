@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { briefRecs, entity, money, percentileOf } from '../data/logic';
 import { isCtor, type Driver, type Entity } from '../data/types';
 import { useStore } from '../state';
 import { Arrow, AsTable, Chip, Empty, FitCell, Lbl, Meter, Pill, Range, Row, Tabs, TeamBar } from './bits';
 import { NOT_PUBLISHED } from '../data/coverage';
 import { Compare } from './Compare';
+import { loadOutlook, type Outlook as OutlookDoc } from '../lib/entityApi';
+import { asOfLabel } from '../lib/lock';
 import { ACE_MAX_PRICE } from '../data/team';
 
 function Present({ d }: { d: Entity }) {
@@ -87,8 +89,18 @@ function Past({ d }: { d: Entity }) {
 }
 
 function Outlook({ d }: { d: Entity }) {
-  const { payload: p, has } = useStore();
+  const { payload: p, has, pass } = useStore();
   const drv: Driver | null = isCtor(d) ? null : d;
+  // The written outlook (F-071): published per driver and round for pass holders; the line built
+  // from the numbers below stands in until one exists.
+  const [written, setWritten] = useState<OutlookDoc | null | 'loading'>('loading');
+  useEffect(() => {
+    let live = true;
+    setWritten('loading');
+    if (!drv || p.example || pass.access !== 'pass') { setWritten(null); return; }
+    void loadOutlook('2026', p.round.number, drv.id).then((o) => { if (live) setWritten(o); });
+    return () => { live = false; };
+  }, [drv?.id, p.round.number, p.asOf, p.example, pass.access]);
   // Only drivers carry a fit. The constructor stand-in below is example data, so it may only be
   // shown where the rest of the page is example data too.
   const fit = drv ? drv.fit : [4, 3, 4, 2, 3, 5];
@@ -100,9 +112,15 @@ function Outlook({ d }: { d: Entity }) {
       {showFit ? <div><Lbl>Next rounds · circuit fit</Lbl><div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>{fit.map((v, i) => (
         <span key={i} style={{ display: 'grid', gap: 4, justifyItems: 'center' }}><FitCell v={v} label={p.rounds[i]} /><span className="mut" style={{ fontSize: 9 }}>{p.rounds[i]}</span></span>
       ))}</div></div> : null}
-      <div><div className="th"><Lbl>Outlook</Lbl><Pill>Estimate · written by AI</Pill></div>
+      {written && written !== 'loading' ? (
+        <div><div className="th"><Lbl>Outlook</Lbl><Pill>Estimate · written by AI</Pill></div>
+          <p className="est">{written.text}</p>
+          <span className="mut">Built only from: {written.builtFrom.join(', ')}. Written {asOfLabel(written.generatedAt)}; every number and name was checked against those inputs before it was kept.</span></div>
+      ) : (
+      <div><div className="th"><Lbl>Outlook</Lbl><Pill>{written === 'loading' ? 'Estimate' : 'Estimate · from the numbers'}</Pill></div>
         <p className="est">{d.name} goes to {p.round.name} as {d.val > 12 ? 'one of the best values on the board' : 'a premium pick priced near expectation'}{showFit ? `. Long straights ${fit[0] >= 4 ? 'suit the car' : 'expose a straight-line deficit'}` : ''}{drv ? `, and a ${drv.dnf}% retirement risk keeps the floor at ${d.floor}` : ''}. {drv && drv.ptsRise > 0 ? `The price rises above ${drv.ptsRise} points and falls hard below ${drv.ptsHold}; the model puts the rise at ${drv.pRise}%.` : ''}{showFit ? ` The next two rounds are ${fit[1] >= 3 ? 'friendly' : 'harder'}.` : ''}</p>
         <span className="mut">Built only from: the projection model{showFit ? ', circuit fit' : ''}{drv && drv.ptsRise > 0 ? ', the price model' : ''}, {news.length} tagged stories.</span></div>
+      )}
       <div><Lbl>Tagged news</Lbl>{news.length ? news.map((n) => <Row key={n.text} cols="90px 1fr"><Pill red={n.tone === '-'}>{n.kind}</Pill><span>{n.text}</span></Row>) : <Empty>{NOT_PUBLISHED.news}</Empty>}</div>
     </>
   );

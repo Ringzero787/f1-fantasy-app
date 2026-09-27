@@ -44,6 +44,8 @@ if [ ! -f "$DEST/env" ]; then
   { echo "SA_KEY=$DEST/sa.json"; echo "PW_RUNNER=forge"; } > "$DEST/env"
   chmod 600 "$DEST/env"
 fi
+# the model key for the outlooks, when the op environment carries one and the worker does not yet
+if [ -n "${ANTHROPIC_API_KEY:-}" ] && ! grep -q '^ANTHROPIC_API_KEY=' "$DEST/env"; then echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >> "$DEST/env"; fi
 grep -q '^PW_ADMIN_MODULES=' "$DEST/env" && sed -i "s#^PW_ADMIN_MODULES=.*#PW_ADMIN_MODULES=$DEST/current/node_modules#" "$DEST/env" || echo "PW_ADMIN_MODULES=$DEST/current/node_modules" >> "$DEST/env"
 grep -q '^PW_COMMIT=' "$DEST/env" && sed -i "s/^PW_COMMIT=.*/PW_COMMIT=$COMMIT/" "$DEST/env" || echo "PW_COMMIT=$COMMIT" >> "$DEST/env"
 ln -sfn "$DEST/releases/$COMMIT" "$DEST/current"

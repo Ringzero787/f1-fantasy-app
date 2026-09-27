@@ -13,6 +13,7 @@ import { runProjections, loadRound } from '../jobs/projections';
 import { runOnce } from '../jobs/runner';
 import { FirestoreJobStore } from '../jobs/firestoreStore';
 import { dueJobs } from '../jobs/schedule';
+import { runOutlooks } from '../jobs/outlooks';
 import type { Job } from '../jobs/types';
 
 const args = process.argv.slice(2);
@@ -48,6 +49,12 @@ async function alert(subject: string, body: string): Promise<void> {
 }
 
 const handlers = {
+  briefing: async (job: Job, report: (k: string, n: number) => void) => {
+    if (job.round === null) throw new Error('outlooks need a round');
+    const run = await runOutlooks(db, { season: job.season, round: job.round, apply: true, apiKey: process.env.ANTHROPIC_API_KEY ?? null });
+    report('written', run.written); report('refused', run.refused); report('skipped', run.skipped); report('inputTokens', run.inputTokens); report('outputTokens', run.outputTokens);
+    log(`outlooks round ${job.round}: ${run.written} written, ${run.refused} refused, ${run.skipped} skipped${run.refusals.length ? ` — ${run.refusals.slice(0, 5).join('; ')}` : ''}`);
+  },
   projections: async (job: Job, report: (k: string, n: number) => void) => {
     const run = await runProjections(db, { season: job.season, sessionKey: job.sessionKey ?? 'daily', apply: true });
     report('wrote', run.wrote.length); report('drivers', run.counts.drivers); report('news', run.news.length);

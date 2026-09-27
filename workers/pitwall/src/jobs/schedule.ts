@@ -15,6 +15,7 @@ export interface RoundSchedule { season: string; round: number; sessions: Array<
 
 export const SESSION_LAG_MS = 90 * 60 * 1000;
 export const DAILY_AT_UTC_HOUR = 6;
+export const OUTLOOK_LAG_MS = 5 * 60 * 1000;
 const LOOK_BACK_MS = 36 * 3600 * 1000;
 const LOOK_AHEAD_MS = 8 * 86400 * 1000;
 
@@ -36,5 +37,7 @@ export function dueJobs(now: Date, r: RoundSchedule): Job[] {
   }
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), DAILY_AT_UTC_HOUR));
   out.push(fresh('projections', r, dayKey(now), today.getTime()));
+  // the outlooks follow each projections job, from the payload it has just published
+  for (const j of [...out]) out.push(fresh('briefing', r, j.sessionKey ?? 'daily', j.notBefore + OUTLOOK_LAG_MS));
   return out;
 }
