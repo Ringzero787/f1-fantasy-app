@@ -132,6 +132,7 @@ test('the check refuses a number, a name or a claim that is not in the inputs, a
   assert.equal(validateOutlook('Stone is projected at 40 points with a floor of 22, and the grid penalty in the headline is the risk. The price rises above 4 points and the model puts that at 60%. Reed is the teammate.', i, known), null);
   assert.match(validateOutlook('Stone should score 41 points.', i, known), /number not in inputs: 41/);
   assert.match(validateOutlook('Stone will beat Marsh.', i, known), /names someone not in the inputs: Marsh/);
+  assert.match(validateOutlook('Stone will beat the Gravel cars.', i, known), /names someone not in the inputs: Gravel Trap/);   // part of a two-word name
   assert.match(validateOutlook('Stone is carrying an injury.', i, known), /claims something no tagged headline/);
   assert.match(validateOutlook('Stone is a lock at these odds.', i, known), /wagering/);
   assert.match(validateOutlook('One. Two. Three. Four. Five.', i, known), /too long/);

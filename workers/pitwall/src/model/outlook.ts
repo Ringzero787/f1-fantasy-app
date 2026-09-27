@@ -96,10 +96,15 @@ export function validateOutlook(text: string, i: OutlookInputs, knownNames: stri
   if (FORBIDDEN.test(t)) return 'wagering language';
   const nums = allowedNumbers(i);
   for (const n of t.match(/\d+(?:\.\d+)?/g) ?? []) if (!nums.has(n)) return `number not in inputs: ${n}`;
-  const allowedNames = new Set([i.driver.name, i.driver.team, i.driver.teammate ?? ''].filter(Boolean).map((x) => x.toLowerCase()));
+  // a multi-word name is also caught by any distinctive word of it ("Aston" for "Aston Martin")
+  const GENERIC = new Set(['team', 'racing', 'motorsport', 'formula', 'grand', 'prix']);
+  const forms = (name: string) => [name, ...name.split(/\s+/).filter((w) => w.length >= 4 && !GENERIC.has(w.toLowerCase()))];
+  const allowedNames = new Set([i.driver.name, i.driver.team, i.driver.teammate ?? ''].filter(Boolean).flatMap(forms).map((x) => x.toLowerCase()));
   for (const name of knownNames) {
-    if (allowedNames.has(name.toLowerCase())) continue;
-    if (hasWord(t, name)) return `names someone not in the inputs: ${name}`;
+    for (const form of forms(name)) {
+      if (allowedNames.has(form.toLowerCase())) continue;
+      if (hasWord(t, form)) return `names someone not in the inputs: ${name}`;
+    }
   }
   const kinds = new Set(i.news.map((n) => n.kind));
   for (const [topic, kind] of CLAIMS) if (topic.test(t) && (kind === null || !kinds.has(kind))) return `claims something no tagged headline carries: ${topic.source.slice(0, 20)}`;
