@@ -1,0 +1,20 @@
+[Unit]
+Description=Undercut Pit Wall worker (projections, wire, forecast; pull-based pw_jobs queue)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nathan
+Group=nathan
+WorkingDirectory=/data/pitwall-worker/current
+EnvironmentFile=/data/pitwall-worker/env
+ExecStart=/usr/bin/node /data/pitwall-worker/current/dist/workers/pitwall/src/cli/serve.js
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
+
+# Installed by the `pitwall-worker-deploy` op (scripts/ops/pitwall-worker-deploy.sh), never by hand.
+# Logs:  journalctl -u pitwall-worker -f

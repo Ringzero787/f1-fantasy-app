@@ -66,3 +66,30 @@ test('a runner that loses its lease mid-job does not mark the job done', async (
   assert.equal(store.jobs.get(J().id).status, 'leased'); // still claimable by the next runner once expired
   assert.equal((await store.claim('gcp-backup', t, 60000)).leaseOwner, 'gcp-backup');
 });
+
+// ---- the schedule (F-069)
+const { dueJobs, dayKey, SESSION_LAG_MS } = require('../dist/workers/pitwall/src/jobs/schedule.js');
+
+test('the schedule asks for a job ninety minutes after each session in the window, and one daily job at 06:00 UTC', () => {
+  const now = new Date('2026-10-02T12:00:00Z');
+  const r = { season: '2026', round: 18, sessions: [
+    { key: 'fp1', at: new Date('2026-10-02T09:30:00Z') },       // today: due at 11:00
+    { key: 'qualifying', at: new Date('2026-10-03T13:00:00Z') }, // tomorrow: queued now, due after it runs
+    { key: 'race', at: new Date('2026-10-04T12:00:00Z') },
+    { key: 'old', at: new Date('2026-09-20T12:00:00Z') },        // long gone: not queued again
+    { key: 'far', at: new Date('2026-10-20T12:00:00Z') },        // too far ahead
+  ] };
+  const jobs = dueJobs(now, r);
+  assert.deepEqual(jobs.map((j) => j.sessionKey), ['fp1', 'qualifying', 'race', 'daily-20261002']);
+  assert.equal(jobs[0].notBefore, Date.parse('2026-10-02T09:30:00Z') + SESSION_LAG_MS);
+  assert.equal(jobs[3].notBefore, Date.parse('2026-10-02T06:00:00Z'));
+  assert.equal(jobs[0].id, jobId('projections', '2026', 18, 'fp1'));   // the same id every tick: enqueue is a no-op the second time
+  assert.equal(dayKey(new Date('2026-12-31T23:59:59Z')), 'daily-20261231');
+});
+
+test('a repeat enqueue of a scheduled job is a no-op, so asking every tick is harmless', async () => {
+  const store = new MemoryJobStore();
+  const [job] = dueJobs(new Date('2026-10-02T12:00:00Z'), { season: '2026', round: 18, sessions: [{ key: 'fp1', at: new Date('2026-10-02T09:30:00Z') }] });
+  assert.equal(await store.enqueue(job), 'created');
+  assert.equal(await store.enqueue(job), 'exists');
+});

@@ -18,6 +18,7 @@ import { scoreWeekend } from '../model/scoreRace';
 import { buildPayload, shortName, shortTeamName, type ConstructorMeta, type DriverMeta, type RoundMeta } from '../model/payload';
 import { buildCircuitReport, buildPace, buildSeasonTable, computeSplits, driverStarts, fitFor, type CircuitReport, type PaceRow, type SeasonRow } from '../model/splits';
 import { traitsOf } from '../model/circuitTraits';
+import type { RoundSchedule } from './schedule';
 import { DEFAULT_SIM, simulate, type SimOptions } from '../model/simulate';
 import { estimateForm, type Entrant } from '../model/strength';
 import type { HistRace, History, Projection } from '../model/types';
@@ -47,6 +48,20 @@ export interface ProjectionRun {
   circuit: CircuitReport | null;
   pace: PaceRow[];
   seasonTable: SeasonRow[];
+}
+
+/** The current round's session times, for the schedule: the round in progress, else the next one. */
+export async function loadRound(db: Db, season: string): Promise<RoundSchedule | null> {
+  const snap = await db.collection('races').where('seasonId', '==', season).get();
+  const races = snap.docs.map((d: Snap) => ({ id: d.id, ...d.data() }) as Record<string, any>);
+  const byRound = (a: Record<string, any>, b: Record<string, any>) => num(a.round) - num(b.round);
+  const next = races.filter((r) => r.status === 'in_progress').sort(byRound)[0] ?? races.filter((r) => r.status === 'upcoming').sort(byRound)[0];
+  if (!next) return null;
+  const schedule = (next.schedule ?? {}) as Record<string, unknown>;
+  const sessions = ['fp1', 'fp2', 'fp3', 'sprintQualifying', 'sprint', 'qualifying', 'race']
+    .map((key) => ({ key, at: toDate(schedule[key]) }))
+    .filter((x): x is { key: string; at: Date } => x.at !== null);
+  return { season, round: num(next.round), sessions };
 }
 
 /** Everything the job reads, in one place, so the input list can be asserted. */
