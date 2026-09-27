@@ -130,10 +130,12 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
       if (!ui.lineup.drivers.includes(id) || saving) return;   // one write at a time
       const e = entity(payload, id);
       if (e && e.price > ACE_MAX_PRICE) { toast(`Only a pick at $${ACE_MAX_PRICE} or under can be the ace; ${e.name} is $${e.price}.`); return; }
-      const next = { ...ui.lineup, ace: id };
+      // tapping the ace again clears it, as in the app
+      const clearing = ui.lineup.ace === id;
+      const next = { ...ui.lineup, ace: clearing ? '' : id };
       patch(() => ({ lineup: next }));
       if (!saver || !sameLineup({ ...next, ace: ui.saved.ace }, ui.saved)) return;
-      void saver(next, setSaving).then((saved) => { patch(() => ({ lineup: saved, saved })); toast(`Ace moved to ${e?.name ?? id} and saved.`); }).catch((err: Error) => { patch((u) => ({ lineup: u.saved })); toast(err.message); }).finally(() => setSaving(null));
+      void saver(next, setSaving).then((saved) => { patch(() => ({ lineup: saved, saved })); toast(clearing ? 'Ace cleared and saved.' : `Ace moved to ${e?.name ?? id} and saved.`); }).catch((err: Error) => { patch((u) => ({ lineup: u.saved })); toast(err.message); }).finally(() => setSaving(null));
     },
     save: async () => {
       if (!saver) { patch((u) => ({ saved: u.lineup })); toast('Example data: nothing to save.'); return true; }
