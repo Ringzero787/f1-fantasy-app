@@ -20,21 +20,23 @@ export function RealRoster() {
         const own = byId.get(id); const m = market.drivers[id];
         const name = shortName(own?.name ?? m?.name ?? id); const price = m?.price ?? own?.currentPrice ?? 0; const ace = id === ui.lineup.ace;
         const left = own ? Math.max(0, (own.contractLength ?? 3) - (own.racesHeld ?? 0)) : null;
-        // The ace is set from the tile itself. The rule is the app's: only a pick at or under the cap.
+        // The ACE pill sits on the tile as in the app: filled on the ace (tap to clear), outlined on a
+        // pick that may be the ace (tap to set), absent over the cap. It is a sibling of the tile
+        // button, drawn over its corner, because a button may not contain a button.
         const canAce = price <= ACE_MAX_PRICE;
         return (
           <span key={id} className="dtw">
           <button type="button" className="dt" aria-pressed={ui.slot === id} aria-label={`${name}, ${money(price)}${ace ? ', ace' : ''}${own ? '' : ', new'}. Show swaps`} onClick={() => toggleSlot(id)}>
-            <span style={{ display: 'flex', justifyContent: 'space-between' }} className="mut">
-              <span>{own ? '' : <Pill red>NEW</Pill>}{ace ? <> <Pill red>ACE 2×</Pill></> : null}</span><span className="num">{money(price)}</span>
+            <span style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: ace || canAce ? 62 : 0 }} className="mut">
+              <span>{own ? '' : <Pill red>NEW</Pill>}</span><span className="num">{money(price)}</span>
             </span>
             <span><span className="nm">{name}</span>
               <span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(own?.constructorId ?? '')} /></span>
                 <span className="num mut">{left === null ? 'new contract' : `${left} race${left === 1 ? '' : 's'} left`}</span></span></span>
           </button>
-          {ace ? null : canAce
-            ? <button type="button" className="chip acebtn" aria-label={`Make ${name} the ace`} onClick={() => setAce(id)}>Make ace</button>
-            : <span className="mut acebtn" title={`Only a pick at $${ACE_MAX_PRICE} or under can be the ace`}>ace ≤ ${ACE_MAX_PRICE}</span>}
+          {ace || canAce ? (
+            <button type="button" className="chip acepill" aria-pressed={ace} aria-label={ace ? `${name} is the ace. Tap to clear` : `Make ${name} the ace`} title={ace ? 'Ace · 2× points · tap to clear' : `Make ${name} the ace`} onClick={() => setAce(id)}>{ace ? 'ACE 2×' : 'ACE'}</button>
+          ) : null}
           </span>
         );
       })}

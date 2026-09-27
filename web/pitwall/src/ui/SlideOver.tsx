@@ -134,7 +134,7 @@ export function SlideOver() {
           <button type="button" className="ghost" onClick={() => togglePin(d.id)} aria-pressed={ui.tray.includes(d.id)}>{ui.tray.includes(d.id) ? 'Pinned to compare ✓' : 'Pin to compare'}</button>
           {/* the ace can be moved from wherever a driver of the lineup is shown */}
           {!isCtor(d) && ui.lineup.drivers.includes(d.id) ? (ui.lineup.ace === d.id
-            ? <span className="chip" aria-pressed="true">Ace 2×</span>
+            ? <button type="button" className="chip acepill-inline" aria-pressed="true" onClick={() => setAce(d.id)} disabled={!!saving} title="Tap to clear the ace">ACE 2× · clear</button>
             : <button type="button" className="ghost" onClick={() => setAce(d.id)} disabled={!!saving}>{d.price > ACE_MAX_PRICE ? `Ace needs ≤ ${money(ACE_MAX_PRICE)}` : 'Make ace'}</button>) : null}
         </div>
         {ui.overTab === 'PAST' ? <Past d={d} /> : ui.overTab === 'OUTLOOK' ? <Outlook d={d} /> : <Present d={d} />}
