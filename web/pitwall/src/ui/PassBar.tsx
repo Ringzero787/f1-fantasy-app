@@ -1,5 +1,6 @@
 import { can, type Feature } from '../data/access';
 import { useStore } from '../state';
+import { PassCta } from './Locked';
 
 /**
  * A line across the top of a page telling a reader without a pass what they are not seeing, and
@@ -10,16 +11,13 @@ import { useStore } from '../state';
  * Nothing at all for a pass holder: they have already paid and do not need selling to.
  */
 export function PassBar({ feature, what }: { feature: Feature; what: string }) {
-  const { pass, startCheckout, checkout } = useStore();
+  const { pass } = useStore();
   if (can(pass, feature)) return null;
   return (
     <div className="passbar c12" role="note">
       <span className="pill r">Pit Wall Pass</span>
       <span className="passbar-what">{what}</span>
-      <button type="button" className="cta sm" disabled={checkout === 'starting'} onClick={() => void startCheckout()}>
-        {checkout === 'starting' ? 'Opening checkout…' : '$14.99 a season'}
-      </button>
-      {checkout && checkout !== 'starting' ? <span className="err" role="alert">{checkout}</span> : null}
+      <PassCta short />
     </div>
   );
 }

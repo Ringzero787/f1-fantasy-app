@@ -187,3 +187,22 @@ describe('the purse: a real bank, and drivers the game will not sell back', () =
     expect(purseOf(p, mine)).toEqual({ room: bank(p, mine), unavailable: new Set() });
   });
 });
+
+describe('what the pass buys in the swap list', () => {
+  // a is in the lineup at 100/30; c (120/28), d (300/60), e (90/10) are available with a 433 bank
+  const real = { room: 433, unavailable: new Set<string>() };
+  it('ranks by what the swap gains for a pass holder, and by projection for everyone else', () => {
+    expect(swapPool(p, mine, 'a', real).map((o) => o.e.id)).toEqual(['d', 'c', 'e']);              // best gain first
+    expect(swapPool(p, mine, 'a', real, 8, false).map((o) => o.e.id)).toEqual(['d', 'c', 'e']);    // same here: projection agrees
+    // a case where the two orders differ: swapping out the ace doubles the gain, which reorders
+    const aceOnA: Lineup = { drivers: ['a', 'b'], ctor: 'x', ace: 'a' };
+    const curated = swapPool(p, aceOnA, 'a', real).map((o) => o.e.id);
+    const plain = swapPool(p, aceOnA, 'a', real, 8, false).map((o) => o.e.id);
+    expect(curated[0]).toBe('d');
+    expect(plain).toEqual([...plain].sort((x, y) => (p.drivers.find((z) => z.id === y)!.med) - (p.drivers.find((z) => z.id === x)!.med)));
+  });
+  it('offers the same people either way: the list is free, only the order is not', () => {
+    const ids = (curated: boolean) => swapPool(p, mine, 'a', real, 8, curated).map((o) => o.e.id).sort();
+    expect(ids(true)).toEqual(ids(false));
+  });
+});

@@ -10,17 +10,21 @@ import { RealRoster, SavePreview } from '../ui/RealLineup';
 import { Empty, Arrow, AsTable, FitCell, Pill, TeamBar, Tile, Tr } from '../ui/bits';
 import { Compare } from '../ui/Compare';
 import { Locked } from '../ui/Locked';
+import { can } from '../data/access';
 import { PassBar } from '../ui/PassBar';
 
 export function LineupLab() {
-  const { payload: p, has, ui, purse, plan, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
+  const { payload: p, has, pass, ui, purse, plan, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
   const [confirming, setConfirming] = useState(false);
   // With a real team the roster, bank and lock come from the server's documents; projections stay example data.
   const ace = real ? aceChange(real.team, ui.lineup, real.market) : null;
   const blocked = plan?.blocked ?? ace?.blocked ?? null;
   const l = ui.lineup, room = purse.room, slot = ui.slot, isC = slot === 'CTOR';
   const cur = slot ? entity(p, isC ? l.ctor : slot) : undefined;
-  const pool = slot ? swapPool(p, l, slot, purse) : [];
+  // The pass buys the curation: the ranking by gain, the mark on the best, and the comparison.
+  // Everyone gets the list, the prices and the projections — that is how a lineup gets edited.
+  const curated = can(pass, 'lineup.topPick');
+  const pool = slot ? swapPool(p, l, slot, purse, 8, curated) : [];
   const proj = projectedLineup(p, l);
   const hindsight = [78, 64, 91, 55, 83];
   // Real hindsight from the team's snapshots, loaded when the lab opens; the example set keeps its bars.
@@ -42,7 +46,7 @@ export function LineupLab() {
   const stat = (x: Entity) => isCtor(x)
     ? <><td>{money(x.price)}</td><td><b>{x.med}</b></td><td>{x.val}</td></>
     : <><td>{money(x.price)}</td><td><b>{x.med}</b></td><td>{x.val}</td>{has.fit ? <td><FitCell v={x.fit[0]} label={p.rounds[0]} /></td> : null}<td>{x.dnf}%</td><td><Arrow n={x.dprice} /></td></>;
-  const top = slot ? topPickRec(p, l, slot, purse) : null;
+  const top = slot && curated ? topPickRec(p, l, slot, purse) : null;
 
   return (
     <div className="page">
@@ -101,7 +105,7 @@ export function LineupLab() {
           <>
             {cur ? (
               <Tile label={`Replace ${cur.name} · top pick`} right={<span className="mut only-wide">Which swap the data backs</span>}>
-                <Locked feature="briefing.recommendations">
+                <Locked feature="lineup.topPick">
                   {top ? <Compare rec={top} /> : <span className="mut">Nothing affordable. Free budget elsewhere first.</span>}
                 </Locked>
                 {!isC ? (cur.price > ACE_MAX_PRICE
@@ -113,15 +117,15 @@ export function LineupLab() {
                 <span className="mut">{pool.length ? `${pool.length} option${pool.length === 1 ? '' : 's'} fit in the ${money(room)} bank. The best projection leads.` : `Nothing fits in the ${money(room)} bank. Sell something first, or wait for prices to move.`}</span>
               </Tile>
             )}
-            <Tile label={`All options within ${money(room)} bank · tap to ${cur ? 'swap' : 'fill the seat'}`}>
+            <Tile label={`All options within ${money(room)} bank · tap to ${cur ? 'swap' : 'fill the seat'}`} right={<span className="mut only-wide">{curated ? 'Best gain first' : 'Highest projection first'}</span>}>
               <div className="scroll"><table>
-                <thead><tr><th scope="col">{isC ? 'Team' : 'Driver'}</th><th scope="col">Gain</th><th scope="col">Price</th><th scope="col">Proj</th><th scope="col">Pts/$100</th>{isC ? null : <>{has.fit ? <th scope="col">Fit</th> : null}<th scope="col">DNF</th><th scope="col">Next $</th></>}</tr></thead>
+                <thead><tr><th scope="col">{isC ? 'Team' : 'Driver'}</th>{curated ? <th scope="col">Gain</th> : null}<th scope="col">Price</th><th scope="col">Proj</th><th scope="col">Pts/$100</th>{isC ? null : <>{has.fit ? <th scope="col">Fit</th> : null}<th scope="col">DNF</th><th scope="col">Next $</th></>}</tr></thead>
                 <tbody>
-                  {cur ? <tr className="me"><td><TeamBar p={p} team={cur.team} /><b>{cur.name}</b> <span className="mut">now</span></td><td className="mut">—</td>{stat(cur)}</tr> : null}
+                  {cur ? <tr className="me"><td><TeamBar p={p} team={cur.team} /><b>{cur.name}</b> <span className="mut">now</span></td>{curated ? <td className="mut">—</td> : null}{stat(cur)}</tr> : null}
                   {pool.map(({ e, gain }, n) => (
                     <Tr key={e.id} onClick={() => swapInSlot(e.id)} label={`Swap in ${e.name}, ${gain > 0 ? 'plus' : 'minus'} ${Math.abs(gain).toFixed(0)} points`}>
-                      <td><TeamBar p={p} team={e.team} /><b>{e.name}</b>{n === 0 && gain > 0 ? <> <Pill red>TOP</Pill></> : null}</td>
-                      <td className={gain > 0 ? 'pos' : 'red'}><b>{gain > 0 ? '+' : ''}{gain.toFixed(0)}</b></td>{stat(e)}
+                      <td><TeamBar p={p} team={e.team} /><b>{e.name}</b>{curated && n === 0 && gain > 0 ? <> <Pill red>TOP</Pill></> : null}</td>
+                      {curated ? <td className={gain > 0 ? 'pos' : 'red'}><b>{gain > 0 ? '+' : ''}{gain.toFixed(0)}</b></td> : null}{stat(e)}
                     </Tr>
                   ))}
                 </tbody>
@@ -131,7 +135,7 @@ export function LineupLab() {
           </>
         ) : (
           <Tile label="Recommended moves">
-           <Locked feature="briefing.recommendations">
+           <Locked feature="lineup.topPick">
             {swapRecs(p, l, purse).length === 0 ? <span className="mut">Your lineup is the best available within budget.</span> : swapRecs(p, l, purse).map((x) => { const o = entity(p, x.out)!, n = entity(p, x.in)!; return (
               <div key={`${x.out}${x.in}`} className="row" style={{ gridTemplateColumns: '1fr auto auto' }}>
                 <span><span className="mut">{o.name} →</span> <b>{n.name}</b><br /><span className="mut">{x.cost >= 0 ? `Costs ${money(x.cost)}` : `Frees ${money(-x.cost)}`}{!isCtor(n) ? `${has.fit ? ` · circuit fit ${n.fit[0]}/5` : ''} · ${n.dprice > 0 ? 'price rising' : 'price flat'}` : ''}</span></span>

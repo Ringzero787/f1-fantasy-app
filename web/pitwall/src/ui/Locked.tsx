@@ -2,13 +2,26 @@ import type { ReactNode } from 'react';
 import { can, LOCKED_COPY, type Feature } from '../data/access';
 import { useStore } from '../state';
 
+/** The one button that opens checkout, so the veil and the bar cannot drift apart. */
+export function PassCta({ short = false }: { short?: boolean }) {
+  const { startCheckout, checkout } = useStore();
+  return (
+    <>
+      <button type="button" className={`cta ${short ? 'sm' : ''}`} disabled={checkout === 'starting'} onClick={() => void startCheckout()}>
+        {checkout === 'starting' ? 'Opening checkout…' : short ? '$14.99 a season' : 'Get the pass · $14.99 a season'}
+      </button>
+      {checkout && checkout !== 'starting' ? <p className="err" role="alert">{checkout}</p> : null}
+    </>
+  );
+}
+
 /**
  * A locked frame keeps its real layout and dims it, with the offer over the top: the user sees
  * exactly what they would get rather than an empty space. `inert` keeps the blurred content out
  * of the tab order and away from screen readers, so the only thing behind the veil is the offer.
  */
 export function Locked({ feature, children }: { feature: Feature; children: ReactNode }) {
-  const { pass, startCheckout, checkout } = useStore();
+  const { pass } = useStore();
   if (can(pass, feature)) return <>{children}</>;
   return (
     <div className="locked">
@@ -16,10 +29,7 @@ export function Locked({ feature, children }: { feature: Feature; children: Reac
       <div className="locked-veil">
         <span className="pill r">Pit Wall Pass</span>
         <p>{LOCKED_COPY[feature] ?? 'Included with the Pit Wall Pass.'}</p>
-        <button type="button" className="cta" disabled={checkout === 'starting'} onClick={() => void startCheckout()}>
-          {checkout === 'starting' ? 'Opening checkout…' : 'Get the pass · $14.99 a season'}
-        </button>
-        {checkout && checkout !== 'starting' ? <p className="err" role="alert">{checkout}</p> : null}
+        <PassCta />
       </div>
     </div>
   );
