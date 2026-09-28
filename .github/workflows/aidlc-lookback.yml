@@ -10,10 +10,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Check secrets
-        env: { T: "${{ secrets.AIDLC_DEPLOY_KEY }}", K: "${{ secrets.ANTHROPIC_API_KEY }}" }
+        env: { T: "${{ secrets.AIDLC_DEPLOY_KEY }}" }
         run: |
           if [ -z "$T" ]; then echo "::error::AIDLC_DEPLOY_KEY secret is missing — the read-only deploy key for Ringzero787/aidlc (see README: Adopt in a project)"; exit 1; fi
-          if [ -z "$K" ]; then echo "::warning::ANTHROPIC_API_KEY secret is missing — model gates will be skipped; deterministic gates still run"; fi
+          echo "::notice::Model gates (G02/G05/G06/G07) do not run here by design — see ADR-003. CI runs the deterministic gates; the model review runs on the maintainer's Claude Code subscription before merge."
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -28,7 +28,7 @@ jobs:
           elif [ -f package-lock.json ]; then npm ci
           elif [ -f package.json ]; then npm install; fi
       - name: Waste & load lookback
-        env: { ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}", GH_TOKEN: "${{ github.token }}" }
+        env: { GH_TOKEN: "${{ github.token }}" }
         run: node .aidlc-engine/cli/dist/index.js run --tier lookback --no-fail-fast || true
       - name: Open proposal PR
         env: { GH_TOKEN: "${{ github.token }}" }
