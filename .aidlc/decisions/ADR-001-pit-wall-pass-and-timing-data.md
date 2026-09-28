@@ -18,4 +18,27 @@ The timing source (OpenF1) states it is for non-commercial use, and formula1.com
 - The projection model uses results, prices and circuit characteristics only.
 - A kill switch (`config/app.pitwall.timingFrames`) hides timing frames without a deploy.
 - Residual risk: timing frames still appear inside a product that promotes a paid upgrade. The owner sends the provider a permission request describing exactly this use; the reply is appended here. If the answer is no, the switch goes off and the paid product is unaffected.
+
+## Answer from the provider (2026-09-28)
+
+**Granted, on a paid feed: $10 a month**, which the owner starts paying when the portal goes live.
+That removes the residual risk above and the reason for the constraint in decision 3 — the licence
+is now a commercial one.
+
+Decision 3 **stands anyway**, and not because it has to:
+
+- The projection model's input allowlist (`workers/pitwall/src/model/inputs.ts`) is what lets us say
+  the paid product is built on our own game data. A test pins that list. Widening it to timing data
+  would trade a claim we can prove for frames that are nicer to look at.
+- The free tier is the reason anyone opens the portal without a pass. Moving Pace Lab behind the
+  pass would take the one page that is genuinely useful to a non-buyer and make the free look
+  thinner, for a gain we did not need when the model already beats its baseline without it.
+
+So the change this unlocks is narrow and worth doing on its own terms: **Pace Lab and the
+timing-derived half of Circuit get real laps, stints and pit stops instead of the classification
+stand-ins built in F-072**, and they stay free. `config/app.pitwall.timingFrames` remains the
+switch. Nothing moves behind the pass.
+
+The $10 a month is a cost of goods for the free tier, which is the right way round: the free tier is
+what sells the pass.
 - League Pro is derived from the owner's pass (F-060), so there is one purchase flow, one product in each store and one entitlement to support.
