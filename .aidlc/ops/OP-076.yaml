@@ -1,0 +1,38 @@
+id: OP-076
+title: "Portal deploy: the pass shown clearly, and the lineup lab no longer gives it away"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-28T19:55:59.333Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-28T19:55:59.668Z
+    head_sha: 2b0e9fa04cca117b8ea38c226c6f291ea1401855
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-076/dry-run-2026-09-28T19-55-59-668Z.log
+    log_sha256: f1e6a38512c674214e8d18e6e24fcc48784ccf004ef5bfa3ae4723c2929e4ffe
+    lines: 69
+  - step: gates
+    at: 2026-09-28T19:59:31.081Z
+    head_sha: 2b0e9fa04cca117b8ea38c226c6f291ea1401855
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-28T19:59:31.219Z
+    head_sha: 2b0e9fa04cca117b8ea38c226c6f291ea1401855
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-076/apply-2026-09-28T19-59-31-219Z.log
+    log_sha256: 83403b2b79b08059952cd8f9d518c2cbddeb7665180c66981fd0c5797fdd2f5a
+    lines: 80
+  - step: gates
+    at: 2026-09-28T20:03:09.181Z
+    head_sha: 2b0e9fa04cca117b8ea38c226c6f291ea1401855
+    exit: 0
+    gates:
+      G15: skip
