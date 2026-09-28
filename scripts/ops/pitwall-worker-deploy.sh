@@ -44,9 +44,15 @@ if [ ! -f "$DEST/env" ]; then
   { echo "SA_KEY=$DEST/sa.json"; echo "PW_RUNNER=forge"; } > "$DEST/env"
   chmod 600 "$DEST/env"
 fi
-# the model key for the outlooks, when the op environment carries one and the worker does not yet
-if [ -n "${ANTHROPIC_API_KEY:-}" ] && ! grep -q '^ANTHROPIC_API_KEY=' "$DEST/env"; then echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >> "$DEST/env"; fi
-grep -q '^PW_ADMIN_MODULES=' "$DEST/env" && sed -i "s#^PW_ADMIN_MODULES=.*#PW_ADMIN_MODULES=$DEST/current/node_modules#" "$DEST/env" || echo "PW_ADMIN_MODULES=$DEST/current/node_modules" >> "$DEST/env"
+# The outlooks run through the Claude Code CLI on this machine (F-071), so there is no key to hold.
+# systemd's PATH does not include ~/.local/bin, so the binary is named outright.
+CLAUDE_BIN="$(command -v claude || true)"
+[ -n "$CLAUDE_BIN" ] || echo "== warning: claude is not on PATH; outlooks will not run until PW_CLAUDE_BIN is set in $DEST/env"
+set_env() { grep -q "^$1=" "$DEST/env" && sed -i "s#^$1=.*#$1=$2#" "$DEST/env" || echo "$1=$2" >> "$DEST/env"; }
+[ -n "$CLAUDE_BIN" ] && set_env PW_CLAUDE_BIN "$(readlink -f "$CLAUDE_BIN")"
+# The env file holds a session path and, for anyone who chooses PW_LLM=api, a key: keep it to the owner.
+chmod 600 "$DEST/env"
+set_env PW_ADMIN_MODULES "$DEST/current/node_modules"
 grep -q '^PW_COMMIT=' "$DEST/env" && sed -i "s/^PW_COMMIT=.*/PW_COMMIT=$COMMIT/" "$DEST/env" || echo "PW_COMMIT=$COMMIT" >> "$DEST/env"
 ln -sfn "$DEST/releases/$COMMIT" "$DEST/current"
 sudo -n cp deploy/pitwall-worker.service "/etc/systemd/system/$UNIT.service"

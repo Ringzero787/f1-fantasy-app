@@ -37,7 +37,10 @@ export function dueJobs(now: Date, r: RoundSchedule): Job[] {
   }
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), DAILY_AT_UTC_HOUR));
   out.push(fresh('projections', r, dayKey(now), today.getTime()));
-  // the outlooks follow each projections job, from the payload it has just published
-  for (const j of [...out]) out.push(fresh('briefing', r, j.sessionKey ?? 'daily', j.notBefore + OUTLOOK_LAG_MS));
+  // The outlooks follow the DAILY projections job only. They read as prose about the round rather
+  // than the session, and a model call through the CLI carries the agent runtime's whole prompt —
+  // rewriting the grid after every practice would spend a fortune of the subscription's limits to
+  // move a few numbers in a paragraph.
+  out.push(fresh('briefing', r, dayKey(now), today.getTime() + OUTLOOK_LAG_MS));
   return out;
 }

@@ -12,10 +12,15 @@ EnvironmentFile=/data/pitwall-worker/env
 ExecStart=/usr/bin/node /data/pitwall-worker/current/dist/workers/pitwall/src/cli/serve.js
 Restart=always
 RestartSec=15
-# Sandbox: the worker needs the release folder, the key and the network, nothing else.
+# Sandbox: the release folder, the network, and the Claude Code CLI with its session — the
+# outlooks run on the studio's subscription rather than a metered key (F-071). Home is a tmpfs
+# with only those two paths bound through it, so the rest of it stays out of the service's sight.
 NoNewPrivileges=true
 ProtectSystem=strict
-ProtectHome=true
+ProtectHome=tmpfs
+BindReadOnlyPaths=/home/nathan/.local/bin /home/nathan/.local/share/claude
+BindPaths=/home/nathan/.claude
+Environment=HOME=/home/nathan
 PrivateTmp=true
 ReadWritePaths=/data/pitwall-worker
 ProtectKernelTunables=true

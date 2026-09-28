@@ -118,7 +118,7 @@ function Outlook({ d }: { d: Entity }) {
           <p className="est">{written.text}</p>
           <span className="mut">Built only from: {written.builtFrom.join(', ')}. Written {asOfLabel(written.generatedAt)}; every number and name was checked against those inputs before it was kept.</span></div>
       ) : (
-      <div><div className="th"><Lbl>Outlook</Lbl><Pill>{written === 'loading' ? 'Estimate' : 'Estimate · from the numbers'}</Pill></div>
+      <div><div className="th"><Lbl>Outlook</Lbl><Pill>Estimate · from the numbers</Pill></div>
         <p className="est">{d.name} goes to {p.round.name} as {d.val > 12 ? 'one of the best values on the board' : 'a premium pick priced near expectation'}{showFit ? `. Long straights ${fit[0] >= 4 ? 'suit the car' : 'expose a straight-line deficit'}` : ''}{drv ? `, and a ${drv.dnf}% retirement risk keeps the floor at ${d.floor}` : ''}. {drv && drv.ptsRise > 0 ? `The price rises above ${drv.ptsRise} points and falls hard below ${drv.ptsHold}; the model puts the rise at ${drv.pRise}%.` : ''}{showFit ? ` The next two rounds are ${fit[1] >= 3 ? 'friendly' : 'harder'}.` : ''}</p>
         <span className="mut">Built only from: the projection model{showFit ? ', circuit fit' : ''}{drv && drv.ptsRise > 0 ? ', the price model' : ''}, {news.length} tagged stories.</span></div>
       )}

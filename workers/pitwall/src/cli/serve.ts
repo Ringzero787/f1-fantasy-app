@@ -6,7 +6,8 @@
  *   SA_KEY=… node dist/workers/pitwall/src/cli/serve.js [--once] [--plan]   (--plan prints the due jobs and writes nothing)
  *
  * Alerts: a failed run writes pw_alerts/{jobId}_{ts} and, when RESEND_API_KEY and ALERT_TO are
- * set, sends one email. The heartbeat is pw_status/worker; the portal's "data as of" is the
+ * set, sends one email. The outlooks read their settings from the environment through
+ * `outlookSettings`, which is pure and tested — the flags are the only brake on model spend. The heartbeat is pw_status/worker; the portal's "data as of" is the
  * reader-facing check.
  */
 import { runProjections, loadRound } from '../jobs/projections';
@@ -14,6 +15,7 @@ import { runOnce } from '../jobs/runner';
 import { FirestoreJobStore } from '../jobs/firestoreStore';
 import { dueJobs } from '../jobs/schedule';
 import { runOutlooks } from '../jobs/outlooks';
+import { outlookSettings } from '../jobs/outlookSettings';
 import type { Job } from '../jobs/types';
 
 const args = process.argv.slice(2);
@@ -51,10 +53,12 @@ async function alert(subject: string, body: string): Promise<void> {
 const handlers = {
   briefing: async (job: Job, report: (k: string, n: number) => void) => {
     if (job.round === null) throw new Error('outlooks need a round');
-    // PW_OUTLOOKS=off is the kill switch; PW_OUTLOOK_MAX_TOKENS the per-run ceiling. The key is never logged.
-    const run = await runOutlooks(db, { season: job.season, round: job.round, apply: true, apiKey: process.env.ANTHROPIC_API_KEY ?? null, enabled: process.env.PW_OUTLOOKS !== 'off', maxTokens: Number(process.env.PW_OUTLOOK_MAX_TOKENS) || undefined });
-    report('written', run.written); report('refused', run.refused); report('skipped', run.skipped); report('inputTokens', run.inputTokens); report('outputTokens', run.outputTokens);
-    log(`outlooks round ${job.round}: ${run.written} written, ${run.refused} refused, ${run.skipped} skipped${run.refusals.length ? ` — ${run.refusals.slice(0, 5).join('; ')}` : ''}`);
+    const run = await runOutlooks(db, { season: job.season, round: job.round, apply: true, ...outlookSettings(process.env) });
+    report('written', run.written); report('refused', run.refused); report('skipped', run.skipped); report('failed', run.failed);
+    report('inputTokens', run.inputTokens); report('outputTokens', run.outputTokens);
+    log(`outlooks round ${job.round}: ${run.written} written, ${run.refused} refused, ${run.failed} failed, ${run.skipped} skipped, ${run.inputTokens + run.outputTokens} tokens${run.refusals.length ? ` — ${run.refusals.slice(0, 5).join('; ')}` : ''}`);
+    // A run that wrote nothing at all and hit trouble is worth saying out loud.
+    if (run.failed > 0 && run.written === 0) throw new Error(`no outlook written: ${run.refusals.slice(0, 3).join('; ')}`);
   },
   projections: async (job: Job, report: (k: string, n: number) => void) => {
     const run = await runProjections(db, { season: job.season, sessionKey: job.sessionKey ?? 'daily', apply: true });
