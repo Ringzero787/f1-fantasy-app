@@ -90,7 +90,17 @@ svg text{font:500 10px var(--mono);fill:var(--muted)}
 .list .row:first-child,.list>div:first-child .row{border-top:0}
 /* a column of tiles beside a taller one */
 .stack{display:flex;flex-direction:column;gap:10px;min-width:0}
-@media(min-width:981px){.stack.first-narrow{grid-column:9/span 4;grid-row:1}.stack.c8{grid-column:1/span 8;grid-row:1}}
+/* The two columns are their own grid, so the page grid cannot place them in different rows and
+   leave a hole between them. The reader's own tile is first in the markup — it leads on a phone —
+   and `order` moves it to the right on a wide screen. */
+.cols{grid-column:1/-1;display:grid;grid-template-columns:8fr 4fr;gap:10px;align-items:start;min-width:0}
+@media(min-width:981px){.cols>.side{order:2}.cols>.main{order:1}}
+@media(max-width:980px){.cols{grid-template-columns:1fr}}
+/* One line across the top of a page for a reader without a pass, saying what they are not seeing.
+   Full width and above both columns, so it is read before the frames it explains. */
+.passbar{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--red);border-radius:14px;padding:10px 14px}
+.passbar-what{flex:1;min-width:220px;color:var(--fg2);font:400 13px/1.45 var(--disp)}
+.cta.sm{padding:9px 16px;font-size:11px;white-space:nowrap}
 .nmeta{white-space:nowrap;font-size:11px}
 /* the forecast map: full width of its tile on a desktop, smaller on a phone so the page stays within budget */
 .wmap{width:100%;max-width:360px;display:block;margin:0 auto;border-radius:12px;background:var(--bg)}
@@ -158,7 +168,8 @@ details.tbl>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spac
 @media(max-width:980px){.only-cmp-wide{display:none}}
 
 /* ---- locked frames (F-068) ---- */
-.locked{position:relative;isolation:isolate;min-height:120px}
+/* Enough of the frame to show what it is, not so much that the offer sits in a field of blur. */
+.locked{position:relative;isolation:isolate;min-height:120px;max-height:340px;overflow:hidden}
 /* the blurred content only has to suggest the shape of what the pass buys; on a phone it stacked
    into a tall column and pushed the page past the scroll budget for nothing */
 @media(max-width:560px){.locked{max-height:280px;overflow:hidden}}

@@ -246,7 +246,16 @@ export const OPEN_SEAT = 'OPEN';
  * constructor) the whole price has to fit and the gain is the pick's own projection. An empty
  * seat used to be dead: the roster said "add from the app", which is not what a lineup lab is for.
  */
-export function swapPool(p: Payload, l: Lineup, slot: string, purse: Purse = purseOf(p, l), limit = 8): PoolOption[] {
+/**
+ * Who could go in a slot, and in what order.
+ *
+ * The list itself is free: a reader has to see the grid and its prices to edit a lineup at all,
+ * and every median is free by the 2026-09-25 decision. What the pass buys is the **ordering** —
+ * ranked by what the swap gains, with the ace counted double, which is the recommendation itself
+ * wearing a table's clothes. Without one the list comes back in projection order, which is
+ * shopping, not advice.
+ */
+export function swapPool(p: Payload, l: Lineup, slot: string, purse: Purse = purseOf(p, l), limit = 8, curated = true): PoolOption[] {
   const isC = slot === 'CTOR';
   const cur = slot === OPEN_SEAT ? undefined : entity(p, isC ? l.ctor : slot);
   if (!cur && slot !== OPEN_SEAT && !isC) return [];
@@ -257,7 +266,7 @@ export function swapPool(p: Payload, l: Lineup, slot: string, purse: Purse = pur
     // for a filled slot the filter is what it always was; an empty seat also skips a pick with no projection
     .filter((x) => x.id !== cur?.id && !l.drivers.includes(x.id) && !unavailable.has(x.id) && (cur || (x.id !== l.ctor && x.med > 0)) && x.price - curPrice <= room)
     .map((x) => ({ e: x, gain: (x.med - curMed) * (cur && slot === l.ace ? 2 : 1) }))
-    .sort((a, b) => b.gain - a.gain)
+    .sort((a, b) => (curated ? b.gain - a.gain : b.e.med - a.e.med))
     .slice(0, limit);
 }
 
