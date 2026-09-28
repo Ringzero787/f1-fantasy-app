@@ -1,7 +1,8 @@
 /**
- * The outlooks job (F-071): one short text per active driver for the current round, written by a
- * model from the published payload and checked before it is stored. Runs after each projections
- * job. Writes pw_entities/{season}_{round}_{driverId}, which the rules show to pass holders only.
+ * The outlooks job (F-071): one short text for each of the twelve highest-projected drivers,
+ * written by a model from the published payload and checked before it is stored. Runs once a day,
+ * after the daily projections job. Writes pw_entities/{season}_{round}_{driverId}, which the rules
+ * show to pass holders only.
  *
  * Three things keep a bad run from being expensive. It resumes: a driver already written for this
  * payload is left alone, so the retries a failed job attracts do not pay for the same text five

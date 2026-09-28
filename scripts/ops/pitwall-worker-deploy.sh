@@ -46,10 +46,23 @@ if [ ! -f "$DEST/env" ]; then
 fi
 # The outlooks run through the Claude Code CLI on this machine (F-071), so there is no key to hold.
 # systemd's PATH does not include ~/.local/bin, so the binary is named outright.
+# The worker's own config directory for the CLI: a mount point for the one credentials file the
+# unit binds in, and a home that is not the operator's.
+mkdir -p "$DEST/claude" "$DEST/home"
+touch "$DEST/claude/.credentials.json"
+chmod 700 "$DEST/claude" "$DEST/home"
+# Rewritten rather than sed-patched: a path with a # or & in it would corrupt the file.
+set_env() {
+  grep -v "^$1=" "$DEST/env" > "$DEST/env.next" 2>/dev/null || true
+  echo "$1=$2" >> "$DEST/env.next"
+  mv "$DEST/env.next" "$DEST/env"
+}
 CLAUDE_BIN="$(command -v claude || true)"
-[ -n "$CLAUDE_BIN" ] || echo "== warning: claude is not on PATH; outlooks will not run until PW_CLAUDE_BIN is set in $DEST/env"
-set_env() { grep -q "^$1=" "$DEST/env" && sed -i "s#^$1=.*#$1=$2#" "$DEST/env" || echo "$1=$2" >> "$DEST/env"; }
-[ -n "$CLAUDE_BIN" ] && set_env PW_CLAUDE_BIN "$(readlink -f "$CLAUDE_BIN")"
+if [ -n "$CLAUDE_BIN" ]; then
+  set_env PW_CLAUDE_BIN "$(readlink -f "$CLAUDE_BIN")"
+else
+  echo "== warning: claude is not on PATH; outlooks will not run until PW_CLAUDE_BIN is set in $DEST/env"
+fi
 # The env file holds a session path and, for anyone who chooses PW_LLM=api, a key: keep it to the owner.
 chmod 600 "$DEST/env"
 set_env PW_ADMIN_MODULES "$DEST/current/node_modules"

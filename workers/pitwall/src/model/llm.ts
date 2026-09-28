@@ -22,6 +22,8 @@ export interface LlmResult { text: string; inputTokens: number; outputTokens: nu
 export type Llm = { kind: 'api'; apiKey: string } | { kind: 'cli'; bin?: string };
 
 export const DEFAULT_MODEL = 'claude-sonnet-5';
+/** Everything that could touch this machine, the network or the service account. */
+export const DENIED_TOOLS = ['Bash', 'Edit', 'Write', 'Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'TodoWrite'];
 export const CLI_TIMEOUT_MS = 180_000;
 export const API_TIMEOUT_MS = 45_000;
 
@@ -38,9 +40,12 @@ async function viaCli(req: LlmRequest, llm: { bin?: string }, deps: LlmDeps): Pr
   const model = req.model ?? DEFAULT_MODEL;
   const run = deps.run ?? runCli;
   const args = ['-p', '--output-format', 'json', '--model', model,
-    // One question, not a session: our own system prompt instead of the agent's, no tools, no MCP
-    // servers, and none of the operator's settings — a headline must not be able to reach a hook.
-    '--system-prompt', req.system, '--allowed-tools', '', '--strict-mcp-config', '--settings', '{}', '--exclude-dynamic-system-prompt-sections'];
+    // One question, not a session. `--allowed-tools` is an AUTO-APPROVE list, not a restriction, so
+    // the tools are named on the deny side; `--setting-sources ''` keeps the operator's settings,
+    // hooks and plugins out of a process that is being fed news headlines. Without them the agent
+    // runtime's prompt is a third of the size, so this is cheaper as well as tighter.
+    '--system-prompt', req.system, '--setting-sources', '', '--strict-mcp-config', '--permission-prompts', 'none',
+    '--disallowed-tools', ...DENIED_TOOLS];
   const { code, stdout, stderr } = await run(llm.bin ?? 'claude', args, req.user, CLI_TIMEOUT_MS);
   if (code !== 0) throw new Error(`model call failed: claude exited ${code}${stderr ? ` — ${stderr.trim().slice(0, 200)}` : ''}`);
   let body: Record<string, any>;
@@ -71,12 +76,17 @@ async function viaApi(req: LlmRequest, llm: { apiKey: string }, deps: LlmDeps): 
   return { text, inputTokens: body.usage?.input_tokens ?? 0, outputTokens: body.usage?.output_tokens ?? 0, model };
 }
 
+/** Enough for any answer; a runaway child must not take the worker's heap with it. */
+const MAX_OUTPUT = 2_000_000;
+
 const runCli: RunCli = (bin, args, stdin, timeoutMs) => new Promise((resolve, reject) => {
-  const child = spawn(bin, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+  // Its own process group, so the timeout kills the CLI's children too rather than orphaning them.
+  const child = spawn(bin, args, { stdio: ['pipe', 'pipe', 'pipe'], detached: true });
   let stdout = '', stderr = '', settled = false;
-  const timer = setTimeout(() => { settled = true; child.kill('SIGKILL'); reject(new Error(`model call failed: claude did not answer within ${Math.round(timeoutMs / 1000)}s`)); }, timeoutMs);
-  child.stdout.on('data', (d) => { stdout += String(d); });
-  child.stderr.on('data', (d) => { stderr += String(d); });
+  const stop = () => { try { process.kill(-(child.pid ?? 0), 'SIGKILL'); } catch { child.kill('SIGKILL'); } };
+  const timer = setTimeout(() => { settled = true; stop(); reject(new Error(`model call failed: claude did not answer within ${Math.round(timeoutMs / 1000)}s`)); }, timeoutMs);
+  child.stdout.on('data', (d) => { if (stdout.length < MAX_OUTPUT) stdout += String(d); else if (!settled) { settled = true; clearTimeout(timer); stop(); reject(new Error('model call failed: the CLI would not stop talking')); } });
+  child.stderr.on('data', (d) => { if (stderr.length < 8192) stderr += String(d); });
   child.on('error', (e) => { if (settled) return; settled = true; clearTimeout(timer); reject(new Error(`model call failed: ${e.message}`)); });
   child.on('close', (code) => { if (settled) return; settled = true; clearTimeout(timer); resolve({ code: code ?? 0, stdout, stderr }); });
   child.stdin.on('error', () => undefined);   // a child that dies early must not take the process with it
