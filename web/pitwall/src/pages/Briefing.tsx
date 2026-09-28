@@ -9,10 +9,10 @@ import { Compare } from '../ui/Compare';
 import { Locked } from '../ui/Locked';
 
 export function Briefing() {
-  const { payload: p, has, pass, wire, ui, set, open, go } = useStore();
+  const { payload: p, has, pass, wire, purse, ui, set, open, go } = useStore();
   // the next ten this reader has not marked read, in their order
   const briefing = forBriefing(p.news, wire, 10);
-  const recs = briefRecs(p, ui.lineup);
+  const recs = briefRecs(p, ui.lineup, purse);
   const sel = Math.min(ui.rec, recs.length - 1);
   const proj = projectedLineup(p, ui.lineup);
   // The free document publishes the top ten medians and zeroes the rest, so this is exactly what
