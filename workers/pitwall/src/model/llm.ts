@@ -38,8 +38,9 @@ async function viaCli(req: LlmRequest, llm: { bin?: string }, deps: LlmDeps): Pr
   const model = req.model ?? DEFAULT_MODEL;
   const run = deps.run ?? runCli;
   const args = ['-p', '--output-format', 'json', '--model', model,
-    // our own system prompt instead of the agent's, and no tools: this is one question, not a session
-    '--system-prompt', req.system, '--allowed-tools', '', '--exclude-dynamic-system-prompt-sections'];
+    // One question, not a session: our own system prompt instead of the agent's, no tools, no MCP
+    // servers, and none of the operator's settings — a headline must not be able to reach a hook.
+    '--system-prompt', req.system, '--allowed-tools', '', '--strict-mcp-config', '--settings', '{}', '--exclude-dynamic-system-prompt-sections'];
   const { code, stdout, stderr } = await run(llm.bin ?? 'claude', args, req.user, CLI_TIMEOUT_MS);
   if (code !== 0) throw new Error(`model call failed: claude exited ${code}${stderr ? ` — ${stderr.trim().slice(0, 200)}` : ''}`);
   let body: Record<string, any>;

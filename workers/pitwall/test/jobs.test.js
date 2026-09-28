@@ -260,7 +260,7 @@ test('the CLI door sends the prompt on stdin and reads the answer back, and says
   assert.equal(out.text, 'Stone is projected at 40 points.');
   assert.equal(out.inputTokens, 27005);                     // the runtime prompt counts: it is what the subscription pays
   assert.equal(seen[0].stdin, 'ask');                       // never on the command line, where ps would show it
-  assert.ok(seen[0].args.includes('--system-prompt') && seen[0].args.includes('--allowed-tools'));
+  assert.ok(['--system-prompt', '--allowed-tools', '--strict-mcp-config', '--settings'].every((f) => seen[0].args.includes(f)));
   await assert.rejects(generateText({ system: 's', user: 'u' }, { kind: 'cli' }, { run: async () => ({ code: 1, stdout: '', stderr: 'not logged in' }) }), /claude exited 1 — not logged in/);
   await assert.rejects(generateText({ system: 's', user: 'u' }, { kind: 'cli' }, { run: async () => ({ code: 0, stdout: '{"is_error":true,"result":"rate limit"}', stderr: '' }) }), /rate limit/);
 });
