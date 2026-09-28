@@ -1,0 +1,38 @@
+id: OP-072
+title: "Portal deploy: the written Outlook in the driver panel"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-09-28T14:58:27.530Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-28T14:58:27.808Z
+    head_sha: 737a5febdd40373971bb95482a3c959b987b15a4
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-072/dry-run-2026-09-28T14-58-27-808Z.log
+    log_sha256: a68a25f037f7a48125207668977b8741d8979456fb75e487615b97138a30876b
+    lines: 69
+  - step: gates
+    at: 2026-09-28T15:01:58.958Z
+    head_sha: 737a5febdd40373971bb95482a3c959b987b15a4
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-28T15:01:58.982Z
+    head_sha: 737a5febdd40373971bb95482a3c959b987b15a4
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-072/apply-2026-09-28T15-01-58-982Z.log
+    log_sha256: dfa41d6092d93a87cd21391aa63543a22fd5c9b5dbc8169fae0a80890397b0d2
+    lines: 79
+  - step: gates
+    at: 2026-09-28T15:05:39.373Z
+    head_sha: 737a5febdd40373971bb95482a3c959b987b15a4
+    exit: 0
+    gates:
+      G15: skip

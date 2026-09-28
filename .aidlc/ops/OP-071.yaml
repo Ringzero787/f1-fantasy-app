@@ -1,0 +1,37 @@
+id: OP-071
+title: "Worker: the written Outlook on the studio's subscription (F-071)"
+kind: pitwall-worker-deploy
+status: applied
+params: {}
+created_at: 2026-09-28T14:51:32.150Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-28T14:51:32.450Z
+    head_sha: 737a5febdd40373971bb95482a3c959b987b15a4
+    command: bash scripts/ops/pitwall-worker-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-071/dry-run-2026-09-28T14-51-32-450Z.log
+    log_sha256: 2501cbb82200b30e93ac1abd4f229653d16837cc4c822ad7b564efcb8a84da42
+    lines: 74
+  - step: gates
+    at: 2026-09-28T14:51:42.729Z
+    head_sha: 737a5febdd40373971bb95482a3c959b987b15a4
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-28T14:51:42.750Z
+    head_sha: 737a5febdd40373971bb95482a3c959b987b15a4
+    command: bash scripts/ops/pitwall-worker-deploy.sh apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-071/apply-2026-09-28T14-51-42-750Z.log
+    log_sha256: 328b0ef7308c69134bf8172b6cd143199cc3e8907306a3c5fd3a860d35f4defe
+    lines: 90
+  - step: gates
+    at: 2026-09-28T14:51:56.811Z
+    head_sha: 737a5febdd40373971bb95482a3c959b987b15a4
+    exit: 0
+    gates:
+      G15: skip
