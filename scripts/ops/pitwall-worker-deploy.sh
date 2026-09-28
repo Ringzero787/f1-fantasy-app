@@ -44,7 +44,32 @@ if [ ! -f "$DEST/env" ]; then
   { echo "SA_KEY=$DEST/sa.json"; echo "PW_RUNNER=forge"; } > "$DEST/env"
   chmod 600 "$DEST/env"
 fi
-grep -q '^PW_ADMIN_MODULES=' "$DEST/env" && sed -i "s#^PW_ADMIN_MODULES=.*#PW_ADMIN_MODULES=$DEST/current/node_modules#" "$DEST/env" || echo "PW_ADMIN_MODULES=$DEST/current/node_modules" >> "$DEST/env"
+# The outlooks run through the Claude Code CLI on this machine (F-071), so there is no key to hold.
+# systemd's PATH does not include ~/.local/bin, so the binary is named outright.
+# The worker's own config directory for the CLI: a mount point for the one credentials file the
+# unit binds in, and a home that is not the operator's.
+mkdir -p "$DEST/claude" "$DEST/home"
+touch "$DEST/claude/.credentials.json"
+chmod 700 "$DEST/claude" "$DEST/home"
+# Rewritten rather than sed-patched: a path with a # or & in it would corrupt the file.
+# umask inside the function: a plain redirect creates 0664 on this box, and this file carries the
+# key path and, for anyone on PW_LLM=api, a model key.
+set_env() {
+  ( umask 077
+    grep -v "^$1=" "$DEST/env" > "$DEST/env.next" 2>/dev/null || true
+    echo "$1=$2" >> "$DEST/env.next" )
+  mv "$DEST/env.next" "$DEST/env"
+  chmod 600 "$DEST/env"
+}
+CLAUDE_BIN="$(command -v claude || true)"
+if [ -n "$CLAUDE_BIN" ]; then
+  set_env PW_CLAUDE_BIN "$(readlink -f "$CLAUDE_BIN")"
+else
+  echo "== warning: claude is not on PATH; outlooks will not run until PW_CLAUDE_BIN is set in $DEST/env"
+fi
+# The env file holds a session path and, for anyone who chooses PW_LLM=api, a key: keep it to the owner.
+chmod 600 "$DEST/env"
+set_env PW_ADMIN_MODULES "$DEST/current/node_modules"
 grep -q '^PW_COMMIT=' "$DEST/env" && sed -i "s/^PW_COMMIT=.*/PW_COMMIT=$COMMIT/" "$DEST/env" || echo "PW_COMMIT=$COMMIT" >> "$DEST/env"
 ln -sfn "$DEST/releases/$COMMIT" "$DEST/current"
 sudo -n cp deploy/pitwall-worker.service "/etc/systemd/system/$UNIT.service"

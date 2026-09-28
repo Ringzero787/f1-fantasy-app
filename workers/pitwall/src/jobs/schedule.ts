@@ -15,6 +15,7 @@ export interface RoundSchedule { season: string; round: number; sessions: Array<
 
 export const SESSION_LAG_MS = 90 * 60 * 1000;
 export const DAILY_AT_UTC_HOUR = 6;
+export const OUTLOOK_LAG_MS = 5 * 60 * 1000;
 const LOOK_BACK_MS = 36 * 3600 * 1000;
 const LOOK_AHEAD_MS = 8 * 86400 * 1000;
 
@@ -36,5 +37,10 @@ export function dueJobs(now: Date, r: RoundSchedule): Job[] {
   }
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), DAILY_AT_UTC_HOUR));
   out.push(fresh('projections', r, dayKey(now), today.getTime()));
+  // The outlooks follow the DAILY projections job only. They read as prose about the round rather
+  // than the session, and a model call through the CLI carries the agent runtime's whole prompt —
+  // rewriting the grid after every practice would spend a fortune of the subscription's limits to
+  // move a few numbers in a paragraph.
+  out.push(fresh('briefing', r, dayKey(now), today.getTime() + OUTLOOK_LAG_MS));
   return out;
 }
