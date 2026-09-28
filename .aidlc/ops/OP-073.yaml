@@ -1,0 +1,38 @@
+id: OP-073
+title: Undercut functions with the cleared dependency advisories (nodemailer 10, no react-native tree)
+kind: functions-deploy
+status: applied
+params:
+  only: functions
+created_at: 2026-09-28T15:24:52.133Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-28T15:24:52.426Z
+    head_sha: 678898db92ad8bc5c9dc916896cb3af0c236c995
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-073/dry-run-2026-09-28T15-24-52-426Z.log
+    log_sha256: b605fc25ffe780b124cca66da706a493a333f5512ea659535531d2132207da9f
+    lines: 51
+  - step: gates
+    at: 2026-09-28T15:25:06.641Z
+    head_sha: 678898db92ad8bc5c9dc916896cb3af0c236c995
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-28T15:25:06.651Z
+    head_sha: 678898db92ad8bc5c9dc916896cb3af0c236c995
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-073/apply-2026-09-28T15-25-06-651Z.log
+    log_sha256: aae73e874f0cea44aa76e5de6b117d2eb7c88b868b5dff871665c76f96d36af5
+    lines: 151
+  - step: gates
+    at: 2026-09-28T15:28:38.761Z
+    head_sha: 678898db92ad8bc5c9dc916896cb3af0c236c995
+    exit: 0
+    gates:
+      G15: skip
