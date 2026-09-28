@@ -44,6 +44,9 @@ async function viaCli(req: LlmRequest, llm: { bin?: string }, deps: LlmDeps): Pr
     // the tools are named on the deny side; `--setting-sources ''` keeps the operator's settings,
     // hooks and plugins out of a process that is being fed news headlines. Without them the agent
     // runtime's prompt is a third of the size, so this is cheaper as well as tighter.
+    //
+    // Not `--bare`, which would be the default-closed way to do this: it also skips the credential
+    // read, so the call comes back "Not logged in". Keep DENIED_TOOLS current with the CLI instead.
     '--system-prompt', req.system, '--setting-sources', '', '--strict-mcp-config', '--permission-prompts', 'none',
     '--disallowed-tools', ...DENIED_TOOLS];
   const { code, stdout, stderr } = await run(llm.bin ?? 'claude', args, req.user, CLI_TIMEOUT_MS);
@@ -83,7 +86,8 @@ const runCli: RunCli = (bin, args, stdin, timeoutMs) => new Promise((resolve, re
   // Its own process group, so the timeout kills the CLI's children too rather than orphaning them.
   const child = spawn(bin, args, { stdio: ['pipe', 'pipe', 'pipe'], detached: true });
   let stdout = '', stderr = '', settled = false;
-  const stop = () => { try { process.kill(-(child.pid ?? 0), 'SIGKILL'); } catch { child.kill('SIGKILL'); } };
+  // -0 is 0, and killing group 0 would kill this worker: only signal a group we know exists.
+  const stop = () => { try { if (child.pid) process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); } catch { child.kill('SIGKILL'); } };
   const timer = setTimeout(() => { settled = true; stop(); reject(new Error(`model call failed: claude did not answer within ${Math.round(timeoutMs / 1000)}s`)); }, timeoutMs);
   child.stdout.on('data', (d) => { if (stdout.length < MAX_OUTPUT) stdout += String(d); else if (!settled) { settled = true; clearTimeout(timer); stop(); reject(new Error('model call failed: the CLI would not stop talking')); } });
   child.stderr.on('data', (d) => { if (stderr.length < 8192) stderr += String(d); });

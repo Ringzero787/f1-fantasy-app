@@ -13,8 +13,9 @@ ExecStart=/usr/bin/node /data/pitwall-worker/current/dist/workers/pitwall/src/cl
 Restart=always
 RestartSec=15
 # Sandbox. The outlooks call the Claude Code CLI on the studio's subscription (F-071), so the
-# service needs the binary and one credential — and nothing else of the operator's. Home is a
-# tmpfs; the binary is bound read-only; the single credentials file is bound into a config
+# service needs the binary and one credential — and nothing else of the operator's. /home is a
+# tmpfs and HOME points into the worker's own directory; the binary is bound read-only; the single
+# credentials file is bound into a config
 # directory of the worker's own. `~/.claude` itself is never mounted: it holds the maintainer's
 # transcripts, notes and hook scripts, and a worker able to write there could run code outside
 # this unit the next time the maintainer opened a session.

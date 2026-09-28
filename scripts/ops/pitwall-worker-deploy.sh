@@ -52,10 +52,14 @@ mkdir -p "$DEST/claude" "$DEST/home"
 touch "$DEST/claude/.credentials.json"
 chmod 700 "$DEST/claude" "$DEST/home"
 # Rewritten rather than sed-patched: a path with a # or & in it would corrupt the file.
+# umask inside the function: a plain redirect creates 0664 on this box, and this file carries the
+# key path and, for anyone on PW_LLM=api, a model key.
 set_env() {
-  grep -v "^$1=" "$DEST/env" > "$DEST/env.next" 2>/dev/null || true
-  echo "$1=$2" >> "$DEST/env.next"
+  ( umask 077
+    grep -v "^$1=" "$DEST/env" > "$DEST/env.next" 2>/dev/null || true
+    echo "$1=$2" >> "$DEST/env.next" )
   mv "$DEST/env.next" "$DEST/env"
+  chmod 600 "$DEST/env"
 }
 CLAUDE_BIN="$(command -v claude || true)"
 if [ -n "$CLAUDE_BIN" ]; then
