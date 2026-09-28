@@ -7,6 +7,7 @@ import { forBriefing, newsKey } from '../data/wire';
 import { NewsRow } from '../ui/NewsRow';
 import { Compare } from '../ui/Compare';
 import { Locked } from '../ui/Locked';
+import { PassBar } from '../ui/PassBar';
 
 export function Briefing() {
   const { payload: p, has, pass, wire, purse, ui, set, open, go } = useStore();
@@ -66,6 +67,7 @@ export function Briefing() {
 
   return (
     <div className="page">
+      <PassBar feature="briefing.recommendations" what="The swaps the data backs, every rival's likely move, and the ranges and price model behind them come with the pass." />
       {/* Two separate tiles, never one wearing the other's hat. The wire leads when it has
           something; the top ten always has something, so it takes the slot when the wire does not
           and the page never opens on an empty headline list. */}
@@ -73,7 +75,24 @@ export function Briefing() {
           (a grid row would stretch to the tallest tile in it): the wire, the top ten and the rivals
           on the left; the reader's own tile, the price movers and the weather on the right. On a
           phone the reader's own tile comes first, then the wire, then the top five. */}
-      <div className="c4 stack first-narrow">
+      <Tile span="c12" label="Recommendations · your lineup against the data" right={<span className="mut">Click a recommendation to compare</span>}>
+       <Locked feature="briefing.recommendations">
+        <div className="recgrid">
+          <div>
+            {recs.map((x, i) => (
+              <Row key={x.title} pad cols="54px 1fr auto" selected={i === sel} label={`${x.kind}: ${x.title}, ${x.tag}`}
+                onClick={() => { set('rec', i); if (window.matchMedia('(max-width: 980px)').matches) set('recOver', i); }}>
+                <Pill red={x.bad}>{x.kind}</Pill><span><b>{x.title}</b></span><span className={`num ${x.good ? 'pos' : x.bad ? 'red' : 'mut'}`}>{x.tag}</span>
+              </Row>
+            ))}
+          </div>
+          {/* on narrow screens the comparison opens as a slide-over instead of lengthening the page */}
+          <div className="only-cmp-wide">{recs[sel] ? <Compare rec={recs[sel]} /> : null}</div>
+        </div>
+       </Locked>
+      </Tile>
+      <div className="cols">
+      <div className="stack side">
       <Tile variant="you" label="Your lineup">
         {proj.complete ? <>
           <div className="big num">{proj.points}</div>
@@ -92,7 +111,7 @@ export function Briefing() {
       <Tile span="only-wide" label="Price movers · predicted"><div className="list">{moversBody}</div></Tile>
       <Tile span="only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
       </div>
-      <div className="c8 stack">
+      <div className="stack main">
       {has.news ? (
         <Tile label="What changed since yesterday" right={<span className="mut only-wide">{briefing.length ? `${briefing.length} unread · links out to sources` : 'links out to sources'}</span>}>
           {briefing.length === 0 ? <Empty>You are caught up. New headlines appear here as the feeds carry them.</Empty> : null}
@@ -106,6 +125,7 @@ export function Briefing() {
       {/* The reader's own tile sits at the top right. Its column runs down beside both the wire and
           the top ten (price movers, then the weather), so neither side leaves a hole. Rivals,
           mostly "not published" today, gets the full width at the bottom. */}
+      <Tile span="only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals"><div className="list">{rivalsBody}</div></Locked></Tile>
       <Tile label={<><span className="only-wide">Top ten</span><span className="only-narrow">Top five</span> for {p.round.name || 'this round'}</>} right={<span className="mut only-wide">Projected points for the coming round</span>}>
         <div className="list">
         {topTen.map((d, i) => (
@@ -119,24 +139,8 @@ export function Briefing() {
         ))}
         </div>
       </Tile>
-      <Tile span="only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals"><div className="list">{rivalsBody}</div></Locked></Tile>
       </div>
-      <Tile span="c12" label="Recommendations · your lineup against the data" right={<span className="mut">Click a recommendation to compare</span>}>
-       <Locked feature="briefing.recommendations">
-        <div className="recgrid">
-          <div>
-            {recs.map((x, i) => (
-              <Row key={x.title} pad cols="54px 1fr auto" selected={i === sel} label={`${x.kind}: ${x.title}, ${x.tag}`}
-                onClick={() => { set('rec', i); if (window.matchMedia('(max-width: 980px)').matches) set('recOver', i); }}>
-                <Pill red={x.bad}>{x.kind}</Pill><span><b>{x.title}</b></span><span className={`num ${x.good ? 'pos' : x.bad ? 'red' : 'mut'}`}>{x.tag}</span>
-              </Row>
-            ))}
-          </div>
-          {/* on narrow screens the comparison opens as a slide-over instead of lengthening the page */}
-          <div className="only-cmp-wide">{recs[sel] ? <Compare rec={recs[sel]} /> : null}</div>
-        </div>
-       </Locked>
-      </Tile>
+      </div>
       <Tile span="c12 only-narrow" label="This weekend" right={<Tabs value={ui.lowerTab} options={['RIVALS', 'MOVERS', 'WEATHER'] as const} onChange={(v) => set('lowerTab', v)} label="Weekend frames" />}>
         {ui.lowerTab === 'RIVALS' ? <Locked feature="briefing.rivals">{rivalsBody}</Locked> : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
       </Tile>

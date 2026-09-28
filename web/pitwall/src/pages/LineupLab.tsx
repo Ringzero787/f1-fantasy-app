@@ -9,6 +9,8 @@ import { ACE_MAX_PRICE, aceChange } from '../data/team';
 import { RealRoster, SavePreview } from '../ui/RealLineup';
 import { Empty, Arrow, AsTable, FitCell, Pill, TeamBar, Tile, Tr } from '../ui/bits';
 import { Compare } from '../ui/Compare';
+import { Locked } from '../ui/Locked';
+import { PassBar } from '../ui/PassBar';
 
 export function LineupLab() {
   const { payload: p, has, ui, purse, plan, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
@@ -44,6 +46,7 @@ export function LineupLab() {
 
   return (
     <div className="page">
+      <PassBar feature="briefing.recommendations" what="Swap recommendations, the comparison behind each one, and every rival's likely move come with the pass." />
       <div className="c6" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <section className="tile open">
           <div className="th">
@@ -97,8 +100,10 @@ export function LineupLab() {
         {slot && (cur || slot === OPEN_SEAT || isC) ? (
           <>
             {cur ? (
-              <Tile label={`Replace ${cur.name} · top pick`}>
-                {top ? <Compare rec={top} /> : <span className="mut">Nothing affordable. Free budget elsewhere first.</span>}
+              <Tile label={`Replace ${cur.name} · top pick`} right={<span className="mut only-wide">Which swap the data backs</span>}>
+                <Locked feature="briefing.recommendations">
+                  {top ? <Compare rec={top} /> : <span className="mut">Nothing affordable. Free budget elsewhere first.</span>}
+                </Locked>
                 {!isC ? (cur.price > ACE_MAX_PRICE
                   ? <span className="mut">Only a pick at {money(ACE_MAX_PRICE)} or under can be the ace; {cur.name} is {money(cur.price)}.</span>
                   : <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setAce(cur.id)} disabled={l.ace === cur.id}>{l.ace === cur.id ? 'Ace is on this driver' : `Make ${cur.name} the ace`}</button>) : null}
@@ -126,12 +131,14 @@ export function LineupLab() {
           </>
         ) : (
           <Tile label="Recommended moves">
+           <Locked feature="briefing.recommendations">
             {swapRecs(p, l, purse).length === 0 ? <span className="mut">Your lineup is the best available within budget.</span> : swapRecs(p, l, purse).map((x) => { const o = entity(p, x.out)!, n = entity(p, x.in)!; return (
               <div key={`${x.out}${x.in}`} className="row" style={{ gridTemplateColumns: '1fr auto auto' }}>
                 <span><span className="mut">{o.name} →</span> <b>{n.name}</b><br /><span className="mut">{x.cost >= 0 ? `Costs ${money(x.cost)}` : `Frees ${money(-x.cost)}`}{!isCtor(n) ? `${has.fit ? ` · circuit fit ${n.fit[0]}/5` : ''} · ${n.dprice > 0 ? 'price rising' : 'price flat'}` : ''}</span></span>
                 <span className="pos num">+{x.gain.toFixed(0)}</span><button type="button" className="ghost" onClick={() => applyAct(`${x.out}:${x.in}`)}>Try</button>
               </div>
             ); })}
+           </Locked>
           </Tile>
         )}
       </div>
