@@ -5,7 +5,8 @@ Status: accepted (owner decision)
 
 ## Decision
 CI runs the **deterministic** gates only — hygiene and typecheck, the test suites, the build matrix,
-performance, accessibility, docs and localization parity. They block a merge, as before.
+the security scanners (semgrep, gitleaks, osv-scanner, the permission diff), performance,
+accessibility, docs and localization parity. Those still block a merge.
 
 The four **model** gates — G02 spec, G05 security, G06 quality, G07 IP and trademark — no longer run
 in GitHub Actions. They run before each merge on the maintainer's machine through Claude Code, using
@@ -30,7 +31,21 @@ reads every finding anyway, the second is honest about what is actually happenin
 ## Consequences
 - **A merge is only as reviewed as the person merging.** The model gates are now a step someone must
   run, not one the machine enforces. `CLAUDE.md` carries the rule; a PR merged without it is a
-  process failure, not a build failure.
+  process failure, not a build failure. Branch protection on `master` has `enforce_admins: false`
+  and requires no reviews, so the sole maintainer could already merge past a red check: this rule is
+  now the only thing standing behind the model gates, and it is honest to say so.
+- **More goes dark than the four gates named above.** The engine gates its whole model layer on the
+  key, so the model halves of G08 performance, G12 docs, G16 localization and — the one that
+  matters — **G10 privacy** also stop running. G10 keeps its deterministic layer (new tracking SDKs,
+  privacy-manifest presence), but "does this diff start handling personal data it should not" is now
+  a question the maintainer must ask. For two consumer apps with accounts, that is the gap to watch.
+- **G02 stops blocking entirely, including its deterministic half.** The engine marks the gate
+  `skip` when there is no key, and a skipped gate's findings do not fail the run — so "no feature id
+  in the branch name" and "F-### has no spec file" become advisory. `aidlc pr merge` still surfaces
+  them.
+- **The workflows are generated files.** `aidlc sync` re-renders them from the engine repo, whose
+  copies still pass the key, so a routine engine bump would quietly undo this. `scripts/ops/workflows.test.js`
+  runs in CI and fails if the key reappears in a workflow, or if the scanner assertion is lost.
 - Deterministic gates still stop a broken merge on their own: this is the half that catches
   regressions a reader would not.
 - Gate findings and verdicts are no longer posted automatically to the PR. The reviewer summarises
