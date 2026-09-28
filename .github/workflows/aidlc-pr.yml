@@ -14,10 +14,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check secrets
-        env: { T: "${{ secrets.AIDLC_DEPLOY_KEY }}", K: "${{ secrets.ANTHROPIC_API_KEY }}" }
+        env: { T: "${{ secrets.AIDLC_DEPLOY_KEY }}" }
         run: |
           if [ -z "$T" ]; then echo "::error::AIDLC_DEPLOY_KEY secret is missing — the read-only deploy key for Ringzero787/aidlc (see README: Adopt in a project)"; exit 1; fi
-          if [ -z "$K" ]; then echo "::warning::ANTHROPIC_API_KEY secret is missing — model gates will be skipped; deterministic gates still run"; fi
+          echo "::notice::Model gates (G02/G05/G06/G07) do not run here by design — see ADR-003. CI runs the deterministic gates; the model review runs on the maintainer's Claude Code subscription before merge."
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -36,6 +36,13 @@ jobs:
           gh release download --repo gitleaks/gitleaks --pattern 'gitleaks_*_linux_x64.tar.gz' --output /tmp/gitleaks.tgz --clobber && sudo tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks && echo "gitleaks ok" || echo "::warning::gitleaks install failed"
           gh release download --repo google/osv-scanner --pattern 'osv-scanner_linux_amd64' --output /tmp/osv-scanner --clobber && sudo install -m 755 /tmp/osv-scanner /usr/local/bin/osv-scanner && echo "osv-scanner ok" || echo "::warning::osv-scanner install failed"
           exit 0
+      - name: Scanners must be present
+        # ADR-003: with the model half of G05 gone from CI, semgrep and gitleaks are the whole
+        # security gate. The install above is best-effort, so a flaky day would otherwise produce a
+        # green, empty security verdict. Fail loudly instead.
+        run: |
+          command -v semgrep >/dev/null || { echo "::error::semgrep is not installed — see ADR-003"; exit 1; }
+          command -v gitleaks >/dev/null || { echo "::error::gitleaks is not installed — see ADR-003"; exit 1; }
       - name: Project setup
         run: |
           (cd newgame && npm ci)
@@ -49,7 +56,6 @@ jobs:
           elif [ -f package.json ]; then npm install; fi
       - name: Run PR gates
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           USPTO_API_KEY: ${{ secrets.USPTO_API_KEY }}
           EUIPO_CLIENT_ID: ${{ secrets.EUIPO_CLIENT_ID }}
           EUIPO_CLIENT_SECRET: ${{ secrets.EUIPO_CLIENT_SECRET }}

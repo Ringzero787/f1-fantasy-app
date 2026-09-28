@@ -10,10 +10,10 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Check secrets
-        env: { T: "${{ secrets.AIDLC_DEPLOY_KEY }}", K: "${{ secrets.ANTHROPIC_API_KEY }}" }
+        env: { T: "${{ secrets.AIDLC_DEPLOY_KEY }}" }
         run: |
           if [ -z "$T" ]; then echo "::error::AIDLC_DEPLOY_KEY secret is missing — the read-only deploy key for Ringzero787/aidlc (see README: Adopt in a project)"; exit 1; fi
-          if [ -z "$K" ]; then echo "::warning::ANTHROPIC_API_KEY secret is missing — model gates will be skipped; deterministic gates still run"; fi
+          echo "::notice::Model gates do not run here by design — see ADR-003. The model review runs on the maintainer's subscription before a release is cut."
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -44,7 +44,6 @@ jobs:
           elif [ -f package.json ]; then npm install; fi
       - name: Run release gates
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ github.token }}
           COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
