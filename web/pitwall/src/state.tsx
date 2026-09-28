@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { applySwap, sameLineup, entity } from './data/logic';
+import { applySwap, sameLineup, entity, purseOf, type Purse } from './data/logic';
 import type { Lineup, Payload } from './data/types';
 import type { MarketPrices, RealTeam } from './data/team';
 import { NO_PASS, type PassState } from './data/access';
 import { coverage, type Coverage } from './data/coverage';
-import { ACE_MAX_PRICE } from './data/team';
+import { ACE_MAX_PRICE, CONTRACT_LENGTH, planSave } from './data/team';
 import { EMPTY_PREFS, markRead as markReadPrefs, rate as ratePrefs, type Rating, type WirePrefs } from './data/wire';
 import type { PageName } from './lib/router';
 
@@ -43,6 +43,8 @@ interface Store {
   has: Coverage;
   /** what this reader has read and rated on the wire */
   wire: WirePrefs;
+  /** what can actually be spent, and who the game will not sell right now */
+  purse: Purse;
   /** a headline marked read leaves the Briefing; the next one takes its place */
   markRead: (key: string) => void;
   /** thumbs up or down; the same thumb again clears it */
@@ -94,6 +96,18 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
   }, [patch]);
 
   const has = useMemo(() => coverage(payload), [payload]);
+  /**
+   * The bank and the lockouts, from the team the game actually holds. With unsaved changes on the
+   * board it is the bank the pending plan would leave, so what is offered next is what could
+   * really be bought next; without a real team it is the example budget.
+   */
+  const purse: Purse = useMemo(() => {
+    if (!real) return purseOf(payload, ui.lineup);
+    const unavailable = new Set<string>();
+    for (const [id, until] of Object.entries(real.team.driverLockouts ?? {})) if (typeof until === 'number' && until > real.completedRaces) unavailable.add(id);
+    return { room: planSave(real.team, ui.lineup, real.market, CONTRACT_LENGTH, real.completedRaces).bankAfter, unavailable };
+  }, [real, payload, ui.lineup]);
+
   // The reader's wire history: seeded from the server, changed here, and handed back to be saved.
   // Seeded from the server (and emptied on sign-out, so the next reader never inherits a history).
   const [wire, setWire] = useState<WirePrefs>(wireIn ?? EMPTY_PREFS);
@@ -104,7 +118,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
   const markRead = useCallback((key: string) => changeWire((w) => markReadPrefs(w, key, Date.now())), [changeWire]);
   const rateNews = useCallback((key: string, rating: Rating) => changeWire((w) => ratePrefs(w, key, rating)), [changeWire]);
   const store = useMemo<Store>(() => ({
-    payload, has, wire, markRead, rateNews, ui, go, real, saving, pass, checkout,
+    payload, has, wire, purse, markRead, rateNews, ui, go, real, saving, pass, checkout,
     startCheckout: async () => {
       if (!checkoutFn) { toast('Checkout is not available in this preview.'); return; }
       setCheckout('starting');
@@ -157,7 +171,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     }),
     toast,
     selectTeam: (id: string) => { selectTeam?.(id); patch(() => ({ slot: null })); },
-  }), [payload, has, wire, markRead, rateNews, ui, go, patch, toast, real, saver, saving, pass, checkout, checkoutFn, selectTeam]);
+  }), [payload, has, wire, purse, markRead, rateNews, ui, go, patch, toast, real, saver, saving, pass, checkout, checkoutFn, selectTeam]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

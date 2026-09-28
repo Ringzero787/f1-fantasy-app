@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { OPEN_SEAT, bank, entity, money, projectedLineup, swapPool, swapRecs, topPickRec } from '../data/logic';
+import { OPEN_SEAT, entity, money, projectedLineup, swapPool, swapRecs, topPickRec } from '../data/logic';
 import { loadHindsight } from '../lib/hindsightApi';
 import type { HindsightRow } from '../data/hindsight';
 import { isCtor, type Entity } from '../data/types';
@@ -11,15 +11,15 @@ import { Empty, Arrow, AsTable, FitCell, Pill, TeamBar, Tile, Tr } from '../ui/b
 import { Compare } from '../ui/Compare';
 
 export function LineupLab() {
-  const { payload: p, has, ui, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
+  const { payload: p, has, ui, purse, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
   const [confirming, setConfirming] = useState(false);
   // With a real team the roster, bank and lock come from the server's documents; projections stay example data.
   const plan = real ? planSave(real.team, ui.lineup, real.market, CONTRACT_LENGTH, real.completedRaces) : null;
   const ace = real ? aceChange(real.team, ui.lineup, real.market) : null;
   const blocked = plan?.blocked ?? ace?.blocked ?? null;
-  const l = ui.lineup, room = bank(p, l), slot = ui.slot, isC = slot === 'CTOR';
+  const l = ui.lineup, room = purse.room, slot = ui.slot, isC = slot === 'CTOR';
   const cur = slot ? entity(p, isC ? l.ctor : slot) : undefined;
-  const pool = slot ? swapPool(p, l, slot) : [];
+  const pool = slot ? swapPool(p, l, slot, purse) : [];
   const proj = projectedLineup(p, l);
   const hindsight = [78, 64, 91, 55, 83];
   // Real hindsight from the team's snapshots, loaded when the lab opens; the example set keeps its bars.
@@ -41,7 +41,7 @@ export function LineupLab() {
   const stat = (x: Entity) => isCtor(x)
     ? <><td>{money(x.price)}</td><td><b>{x.med}</b></td><td>{x.val}</td></>
     : <><td>{money(x.price)}</td><td><b>{x.med}</b></td><td>{x.val}</td>{has.fit ? <td><FitCell v={x.fit[0]} label={p.rounds[0]} /></td> : null}<td>{x.dnf}%</td><td><Arrow n={x.dprice} /></td></>;
-  const top = slot ? topPickRec(p, l, slot) : null;
+  const top = slot ? topPickRec(p, l, slot, purse) : null;
 
   return (
     <div className="page">
@@ -122,11 +122,12 @@ export function LineupLab() {
                   ))}
                 </tbody>
               </table></div>
+              {purse.unavailable.size ? <span className="mut">{purse.unavailable.size} driver{purse.unavailable.size === 1 ? '' : 's'} you sold recently {purse.unavailable.size === 1 ? 'is' : 'are'} not listed: the game holds a sold driver back until the next race has been scored.</span> : null}
             </Tile>
           </>
         ) : (
           <Tile label="Recommended moves">
-            {swapRecs(p, l).length === 0 ? <span className="mut">Your lineup is the best available within budget.</span> : swapRecs(p, l).map((x) => { const o = entity(p, x.out)!, n = entity(p, x.in)!; return (
+            {swapRecs(p, l, purse).length === 0 ? <span className="mut">Your lineup is the best available within budget.</span> : swapRecs(p, l, purse).map((x) => { const o = entity(p, x.out)!, n = entity(p, x.in)!; return (
               <div key={`${x.out}${x.in}`} className="row" style={{ gridTemplateColumns: '1fr auto auto' }}>
                 <span><span className="mut">{o.name} →</span> <b>{n.name}</b><br /><span className="mut">{x.cost >= 0 ? `Costs ${money(x.cost)}` : `Frees ${money(-x.cost)}`}{!isCtor(n) ? `${has.fit ? ` · circuit fit ${n.fit[0]}/5` : ''} · ${n.dprice > 0 ? 'price rising' : 'price flat'}` : ''}</span></span>
                 <span className="pos num">+{x.gain.toFixed(0)}</span><button type="button" className="ghost" onClick={() => applyAct(`${x.out}:${x.in}`)}>Try</button>

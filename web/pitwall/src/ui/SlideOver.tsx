@@ -123,7 +123,7 @@ function TrayCompare() {
 
 /** Right slide-over: depth comes from here, so pages never grow past the three-screen budget. */
 export function SlideOver() {
-  const { payload: p, ui, set, close, togglePin, setAce, saving } = useStore();
+  const { payload: p, ui, set, close, togglePin, setAce, saving, purse } = useStore();
   const ref = useRef<HTMLElement>(null);
   const showRec = ui.recOver !== null;
   const showTray = ui.over === 'TRAY';
@@ -140,7 +140,7 @@ export function SlideOver() {
 
   let title = 'Compare', sub = 'UP TO THREE, ACROSS PAGES', body;
   if (showRec) {
-    const rec = briefRecs(p, ui.lineup)[ui.recOver!];
+    const rec = briefRecs(p, ui.lineup, purse)[ui.recOver!];
     title = rec?.title ?? 'Recommendation'; sub = 'RECOMMENDATION';
     body = rec ? <Compare rec={rec} /> : null;
   } else if (showTray) {

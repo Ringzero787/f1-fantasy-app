@@ -93,20 +93,38 @@ export function shortTeamName(name: string, id?: string): string {
 }
 
 export const bank = (p: Payload, l: Lineup): number => p.budget - spent(p, l);
+
+/**
+ * What the reader can actually spend, and who they cannot buy right now.
+ *
+ * A real team's bank is the cash the game holds for it — not the budget minus today's prices.
+ * The two are never the same number: drivers were bought at their purchase price, prices have
+ * moved since, and a sale returns cash net of its fee. Deriving it from the payload gave the
+ * owner's team $2 of room against a real bank of $433, so every swap list offered only drivers
+ * within a few dollars of the one being replaced, while the save would have allowed a $441
+ * driver perfectly happily (2026-09-28).
+ *
+ * `unavailable` is the game's own rule: a driver sold recently cannot be bought back until the
+ * next race is scored, so offering them is offering something the server will refuse.
+ */
+export interface Purse { room: number; unavailable: ReadonlySet<string> }
+const NOBODY: ReadonlySet<string> = new Set<string>();
+/** The purse for the example set, where the budget really is the payload's and nobody is locked out. */
+export const purseOf = (p: Payload, l: Lineup): Purse => ({ room: bank(p, l), unavailable: NOBODY });
 export const rateMyTeam = (p: Payload, l: Lineup): number => Math.min(99, Math.round(projected(p, l) / 3.6));
 export const sameLineup = (a: Lineup, b: Lineup): boolean => a.ctor === b.ctor && a.ace === b.ace && a.drivers.join('|') === b.drivers.join('|');
 
 export interface SwapRec { out: string; in: string; gain: number; cost: number }
 
 /** The three best affordable driver swaps; an Ace slot counts double. */
-export function swapRecs(p: Payload, l: Lineup): SwapRec[] {
-  const room = bank(p, l);
+export function swapRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): SwapRec[] {
+  const { room, unavailable } = purse;
   const out: SwapRec[] = [];
   for (const o of l.drivers) {
     const od = entity(p, o);
     if (!od) continue;
     for (const n of p.drivers) {
-      if (l.drivers.includes(n.id) || n.price - od.price > room) continue;
+      if (l.drivers.includes(n.id) || unavailable.has(n.id) || n.price - od.price > room) continue;
       const gain = (n.med - od.med) * (o === l.ace ? 2 : 1);
       if (gain > 2) out.push({ out: o, in: n.id, gain, cost: n.price - od.price });
     }
@@ -129,13 +147,13 @@ function nearest(p: Payload, l: Lineup, d: Driver, keep: (x: Driver) => boolean 
 }
 
 /** The Briefing's recommendation list: swaps first, then Ace, best-value hold, biggest risk, constructor. */
-export function briefRecs(p: Payload, l: Lineup): Rec[] {
+export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): Rec[] {
   const out: Rec[] = [];
   // A real team can hold someone the payload leaves out, and there is nothing to say about them.
   // Recommending around the rest is still useful, so they are skipped rather than thrown on.
   const mine = l.drivers.map((id) => entity(p, id)).filter((e): e is Driver => !!e && !isCtor(e));
-  const room = bank(p, l);
-  for (const x of swapRecs(p, l)) {
+  const room = purse.room;
+  for (const x of swapRecs(p, l, purse)) {
     const n = must(p, x.in), o = must(p, x.out);
     out.push({ kind: 'SWAP', a: x.out, b: x.in, title: `${o.name} → ${n.name}`, tag: `+${x.gain.toFixed(0)} PTS`, good: true, act: `${x.out}:${x.in}`,
       why: `${n.name} projects ${n.med - o.med} points higher for ${x.cost >= 0 ? `${money(x.cost)} more` : `${money(-x.cost)} less`}, inside your ${money(room)} bank.` });
@@ -223,16 +241,16 @@ export const OPEN_SEAT = 'OPEN';
  * constructor) the whole price has to fit and the gain is the pick's own projection. An empty
  * seat used to be dead: the roster said "add from the app", which is not what a lineup lab is for.
  */
-export function swapPool(p: Payload, l: Lineup, slot: string, limit = 8): PoolOption[] {
+export function swapPool(p: Payload, l: Lineup, slot: string, purse: Purse = purseOf(p, l), limit = 8): PoolOption[] {
   const isC = slot === 'CTOR';
   const cur = slot === OPEN_SEAT ? undefined : entity(p, isC ? l.ctor : slot);
   if (!cur && slot !== OPEN_SEAT && !isC) return [];
-  const room = bank(p, l);
+  const { room, unavailable } = purse;
   const list: Entity[] = isC ? p.constructors : p.drivers;
   const curPrice = cur?.price ?? 0, curMed = cur?.med ?? 0;
   return list
     // for a filled slot the filter is what it always was; an empty seat also skips a pick with no projection
-    .filter((x) => x.id !== cur?.id && !l.drivers.includes(x.id) && (cur || (x.id !== l.ctor && x.med > 0)) && x.price - curPrice <= room)
+    .filter((x) => x.id !== cur?.id && !l.drivers.includes(x.id) && !unavailable.has(x.id) && (cur || (x.id !== l.ctor && x.med > 0)) && x.price - curPrice <= room)
     .map((x) => ({ e: x, gain: (x.med - curMed) * (cur && slot === l.ace ? 2 : 1) }))
     .sort((a, b) => b.gain - a.gain)
     .slice(0, limit);
@@ -251,12 +269,12 @@ export function applySwap(l: Lineup, act: string): Lineup {
 }
 
 /** The Lineup Lab's "top pick" card for a slot, as a recommendation. */
-export function topPickRec(p: Payload, l: Lineup, slot: string): Rec | null {
-  const top = swapPool(p, l, slot)[0];
+export function topPickRec(p: Payload, l: Lineup, slot: string, purse: Purse = purseOf(p, l)): Rec | null {
+  const top = swapPool(p, l, slot, purse)[0];
   if (!top) return null;
   const cur = entity(p, slot === 'CTOR' ? l.ctor : slot);
   if (!cur) return null;
-  const room = bank(p, l);
+  const room = purse.room;
   const dearer = top.e.price >= cur.price;
   return top.gain > 0
     ? { kind: 'TOP PICK', a: cur.id, b: top.e.id, title: `${cur.name} → ${top.e.name}`, tag: `+${top.gain.toFixed(0)} PTS`, good: true, act: `${slot}:${top.e.id}`,

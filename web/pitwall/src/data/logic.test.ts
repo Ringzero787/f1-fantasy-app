@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OPEN_SEAT, applySwap, bank, percentileOf, briefRecs, compareRows, projected, projectedLineup, rateMyTeam, rivalMove, sameLineup, shortName, shortTeamName, spent, swapPool, swapRecs, topPickRec } from './logic';
+import { OPEN_SEAT, applySwap, bank, percentileOf, purseOf, briefRecs, compareRows, projected, projectedLineup, rateMyTeam, rivalMove, sameLineup, shortName, shortTeamName, spent, swapPool, swapRecs, topPickRec } from './logic';
 import type { Constructor, Driver, Lineup, Payload } from './types';
 
 const D = (id: string, price: number, med: number, extra: Partial<Driver> = {}): Driver => ({ id, num: 1, name: id.toUpperCase(), team: 'T', price, med, floor: med - 5, ceil: med + 5, form: [], dnf: 5, own: 10, pm: 0, cons: 50, dprice: 0, fit: [3], win: 0, pod: 0, t10: 0, ptsRise: Math.ceil(price * 0.011), ptsHold: Math.ceil(price * 0.006), pRise: 50, pFall: 50, q: 0, r: 0, val: +((med / price) * 100).toFixed(1), splits: [], mix: { quali: 0, race: 0, sprint: 0, fl: 0 }, ...extra });
@@ -151,5 +151,30 @@ describe('percentileOf', () => {
     expect(percentileOf(1, [10, 5, 2, 1])).toBe(0);
     expect(percentileOf(2.5, [10, 5, 2.5, 1], true)).toBe(67);   // avg finish: two of three others are worse
     expect(percentileOf(3, [3])).toBe(50);
+  });
+});
+
+describe('the purse: a real bank, and drivers the game will not sell back', () => {
+  // The payload-derived bank is deliberately tiny here (budget 500, lineup a+b+x = 400 → 100),
+  // while the real team's bank is 433: the case that broke the owner's board on 2026-09-28.
+  const real = { room: 433, unavailable: new Set<string>() };
+
+  it('offers what the real bank can buy, not what the payload budget implies', () => {
+    expect(swapPool(p, mine, 'a').map((o) => o.e.id)).toEqual(['c', 'e']);              // ≤ 100 over a's price
+    expect(swapPool(p, mine, 'a', real).map((o) => o.e.id)).toEqual(['d', 'c', 'e']);   // d at 300 now fits
+    expect(swapRecs(p, mine, real).some((x) => x.in === 'd')).toBe(true);
+    expect(swapRecs(p, mine).some((x) => x.in === 'd')).toBe(false);
+  });
+
+  it('never offers a driver the game is holding back, however affordable', () => {
+    const locked = { room: 433, unavailable: new Set(['d']) };
+    expect(swapPool(p, mine, 'a', locked).map((o) => o.e.id)).toEqual(['c', 'e']);
+    expect(swapRecs(p, mine, locked).some((x) => x.in === 'd')).toBe(false);
+    expect(briefRecs(p, mine, locked).some((r) => r.b === 'd')).toBe(false);
+    expect(topPickRec(p, mine, 'a', locked)?.b).not.toBe('d');
+  });
+
+  it('falls back to the payload budget when there is no real team', () => {
+    expect(purseOf(p, mine)).toEqual({ room: bank(p, mine), unavailable: new Set() });
   });
 });
