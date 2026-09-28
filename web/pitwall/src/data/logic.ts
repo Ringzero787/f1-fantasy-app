@@ -142,8 +142,13 @@ export interface Rec {
   ace?: string;
 }
 
-function nearest(p: Payload, l: Lineup, d: Driver, keep: (x: Driver) => boolean = () => true): Driver | undefined {
-  return p.drivers.filter((x) => !l.drivers.includes(x.id) && keep(x)).sort((a, b) => Math.abs(a.price - d.price) - Math.abs(b.price - d.price))[0];
+/**
+ * The nearest-priced alternative to a driver. It feeds recommendations that carry a one-click
+ * "try this swap", so it owes the reader the same rules the swap lists follow: never someone
+ * already in the lineup, and never someone the game is holding back.
+ */
+function nearest(p: Payload, l: Lineup, d: Driver, purse: Purse, keep: (x: Driver) => boolean = () => true): Driver | undefined {
+  return p.drivers.filter((x) => !l.drivers.includes(x.id) && !purse.unavailable.has(x.id) && keep(x)).sort((a, b) => Math.abs(a.price - d.price) - Math.abs(b.price - d.price))[0];
 }
 
 /** The Briefing's recommendation list: swaps first, then Ace, best-value hold, biggest risk, constructor. */
@@ -168,11 +173,11 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
       why: `${ace.name} out-projects your next best driver by ${ace.med - best[1].med} points, doubled.` });
   }
   const v = [...mine].sort((a, b) => b.val - a.val)[0];
-  const va = v && nearest(p, l, v);
+  const va = v && nearest(p, l, v, purse);
   if (v && va) out.push({ kind: 'HOLD', a: v.id, b: va.id, title: `Hold ${v.name}`, tag: 'HOLD',
     why: `Best value in your lineup. The closest alternative at this price (${va.name}) returns ${va.val} points per $100 against ${v.val}.` });
   const r = [...mine].sort((a, b) => b.dnf - a.dnf)[0];
-  const ra = r && (nearest(p, l, r, (x) => x.dnf < r.dnf && x.price - r.price <= room) ?? nearest(p, l, r));
+  const ra = r && (nearest(p, l, r, purse, (x) => x.dnf < r.dnf && x.price - r.price <= room) ?? nearest(p, l, r, purse));
   if (r && ra) out.push({ kind: 'RISK', a: r.id, b: ra.id, title: `Watch ${r.name}`, tag: `${r.dnf}% DNF`, bad: true, act: `${r.id}:${ra.id}`,
     why: `Highest retirement risk in your lineup. ${ra.name} is the nearest-priced option with a safer floor.` });
   const c = entity(p, l.ctor) as Constructor | undefined;

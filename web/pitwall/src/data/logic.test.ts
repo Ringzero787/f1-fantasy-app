@@ -166,6 +166,15 @@ describe('the purse: a real bank, and drivers the game will not sell back', () =
     expect(swapRecs(p, mine).some((x) => x.in === 'd')).toBe(false);
   });
 
+  it('never suggests buying back a held driver, not even as the alternative on a risk warning', () => {
+    // b is the risky pick (dnf 18); the nearest alternative by price is c, which is held back
+    const locked = { room: 433, unavailable: new Set(['c', 'd']) };
+    const risk = briefRecs(p, mine, locked).find((r) => r.kind === 'RISK');
+    expect(risk).toBeDefined();
+    expect(locked.unavailable.has(risk!.b)).toBe(false);
+    expect(briefRecs(p, mine, locked).every((r) => !locked.unavailable.has(r.b))).toBe(true);
+  });
+
   it('never offers a driver the game is holding back, however affordable', () => {
     const locked = { room: 433, unavailable: new Set(['d']) };
     expect(swapPool(p, mine, 'a', locked).map((o) => o.e.id)).toEqual(['c', 'e']);

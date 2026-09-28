@@ -5,16 +5,15 @@ import type { HindsightRow } from '../data/hindsight';
 import { isCtor, type Entity } from '../data/types';
 import { useState } from 'react';
 import { useStore } from '../state';
-import { ACE_MAX_PRICE, aceChange, planSave, CONTRACT_LENGTH } from '../data/team';
+import { ACE_MAX_PRICE, aceChange } from '../data/team';
 import { RealRoster, SavePreview } from '../ui/RealLineup';
 import { Empty, Arrow, AsTable, FitCell, Pill, TeamBar, Tile, Tr } from '../ui/bits';
 import { Compare } from '../ui/Compare';
 
 export function LineupLab() {
-  const { payload: p, has, ui, purse, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
+  const { payload: p, has, ui, purse, plan, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
   const [confirming, setConfirming] = useState(false);
   // With a real team the roster, bank and lock come from the server's documents; projections stay example data.
-  const plan = real ? planSave(real.team, ui.lineup, real.market, CONTRACT_LENGTH, real.completedRaces) : null;
   const ace = real ? aceChange(real.team, ui.lineup, real.market) : null;
   const blocked = plan?.blocked ?? ace?.blocked ?? null;
   const l = ui.lineup, room = purse.room, slot = ui.slot, isC = slot === 'CTOR';
