@@ -26,6 +26,7 @@ const flatten = (o: any, p = '', out: string[] = []): string[] => {
   }
   return out;
 };
+const get = (o: any, k: string) => k.split('.').reduce((a, p) => a?.[p], o);
 /** i18next picks the form by count, so a bare plural key is not expected to resolve on its own. */
 const PLURAL = /_(zero|one|two|few|many|other)$/;
 
@@ -33,8 +34,9 @@ describe('translation', () => {
   const i18n = initI18n('en');
 
   it('resolves the sign-in screen rather than echoing the key', () => {
-    expect(i18n.t('auth.signIn.title')).toBe('Welcome');
+    expect(i18n.t('auth.signIn.title')).toBe(load('en').auth.signIn.title);
     expect(i18n.t('auth.signIn.subtitle')).toBe(load('en').auth.signIn.subtitle);
+    // the bug rendered the key itself, so assert that explicitly rather than only by equality
     expect(i18n.t('auth.signIn.title')).not.toBe('auth.signIn.title');
   });
 
@@ -57,8 +59,19 @@ describe('translation', () => {
   });
 
   it('falls back to English for a key a language is missing rather than showing the key', () => {
-    i18n.changeLanguage('de');
-    expect(i18n.t('auth.signIn.title')).not.toBe('auth.signIn.title');
+    // A real probe, not a present key: ja and zh have no `_one` plural form (they use `other` only),
+    // so this is one of the few keys that actually reaches fallbackLng. Probing a key the language
+    // already has passes even with fallbackLng deleted, which is the same kind of test that let the
+    // namespace bug ship green.
+    const missing = 'race.racesRemaining_one';
+    expect(get(load('ja'), missing)).toBeUndefined();
+    i18n.changeLanguage('en');
+    const english = i18n.t(missing, { count: 1 });
+    for (const code of ['ja', 'zh']) {
+      i18n.changeLanguage(code);
+      expect(i18n.t(missing, { count: 1 })).not.toBe(missing);
+      expect(i18n.t(missing, { count: 1 })).toBe(english);
+    }
     i18n.changeLanguage('en');
   });
 });
