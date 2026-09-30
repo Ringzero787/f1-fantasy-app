@@ -46,7 +46,7 @@
     "expo-image-picker": "~55.0.18",
     "expo-linear-gradient": "~55.0.13",
     "expo-linking": "~55.0.12",
-    "expo-localization": "^57.0.2",
+    "expo-localization": "~55.0.19",
     "expo-notifications": "~55.0.18",
     "expo-router": "~55.0.12",
     "expo-screen-orientation": "~55.0.13",

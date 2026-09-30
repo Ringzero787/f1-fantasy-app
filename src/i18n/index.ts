@@ -33,7 +33,18 @@ import { chooseLanguage, FALLBACK, isSupported, resolveDeviceLanguage, SUPPORTED
 export { SUPPORTED, FALLBACK, isSupported, resolveDeviceLanguage, chooseLanguage };
 export type { LanguageCode };
 
-const resources = { en, es, pt, fr, de, it, nl, pl, ja, zh } as const;
+const catalogs = { en, es, pt, fr, de, it, nl, pl, ja, zh } as const;
+
+/**
+ * i18next reads the top level of a catalog as its list of namespaces, not as the first segment of a
+ * key. Handing it the catalogs raw registered `common`, `auth`, `settings` and `race` as four
+ * namespaces, so a plain dotted key like "auth.signIn.title" resolved against the default
+ * `translation` namespace, found nothing, and rendered the key itself on screen. Every call site
+ * uses dotted keys, so each catalog goes under `translation` whole.
+ */
+const resources = Object.fromEntries(
+  Object.entries(catalogs).map(([code, catalog]) => [code, { translation: catalog }]),
+);
 
 export function deviceLanguage(): LanguageCode {
   try {
