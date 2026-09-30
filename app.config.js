@@ -11,7 +11,17 @@ module.exports = {
     updates: {
       url: "https://u.expo.dev/e79dd8e5-5f63-40f9-a153-87c5225a2516"
     },
-    runtimeVersion: "1.0.0",
+    // The runtime version says which native binary a JavaScript bundle may be loaded into. It was
+    // the fixed string "1.0.0", set when OTA updates were first configured and never touched since,
+    // so every build ever shipped — through four Expo SDKs — asked the update server for the same
+    // runtime. The server still holds an update published on 2026-03-15 against it, and a 2.4.0
+    // binary (SDK 55, RN 0.83) downloaded that March bundle and aborted half a second into its
+    // second launch. That is what Apple rejected build 43 for.
+    //
+    // Tied to the app version, a build only accepts bundles published for its own version, and the
+    // stale one can no longer match anything. Bump the version whenever the native layer changes —
+    // which is the rule anyway — and an old bundle can never be loaded into a new binary again.
+    runtimeVersion: { policy: "appVersion" },
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
@@ -23,7 +33,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "43",
+      buildNumber: "44",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
