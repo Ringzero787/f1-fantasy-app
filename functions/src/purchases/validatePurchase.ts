@@ -5,6 +5,8 @@ import { warnIfNoAppCheck } from '../utils/appCheck';
 import { verifyAppleTransaction } from './appleTransaction';
 import { PASS_PRODUCT, currentSeason } from '../pitwall/pass';
 import { grantPass } from '../pitwall/passStore';
+import { isKnownProduct, isPlayToken } from './productGuards';
+import { createHash } from 'crypto';
 
 const db = admin.firestore();
 
@@ -84,9 +86,18 @@ async function verifyGooglePlayPurchase(
       scopes: ['https://www.googleapis.com/auth/androidpublisher'],
     });
     const client = await auth.getClient();
-    const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE_NAME}/purchases/products/${productId}/tokens/${purchaseToken}`;
+    // Encoded, and both segments already checked by the caller: see isPlayToken and isKnownProduct.
+    // Belt and braces, because the cost of a path escaping here is a free season pass.
+    const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE_NAME}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`;
     const response = await client.request({ url });
     const data = response.data as Record<string, unknown>;
+
+    // Play echoes the product it actually matched. If that is not the one we asked about, the
+    // request did not mean what we thought it meant and nothing here is safe to trust.
+    const answered = typeof data.productId === 'string' ? data.productId : null;
+    if (answered !== null && answered !== productId) {
+      return { valid: false, error: `Play answered for ${answered}, not ${productId}` };
+    }
 
     // purchaseState: 0 = purchased, 1 = canceled, 2 = pending
     if (data.purchaseState !== 0) {
@@ -161,8 +172,8 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
    */
   let storeTransactionId = '';
 
-  if (!productId) {
-    throw new functions.https.HttpsError('invalid-argument', 'productId is required');
+  if (!isKnownProduct(productId)) {
+    throw new functions.https.HttpsError('invalid-argument', 'productId is not a product this app sells');
   }
 
   if (isIOS && !transactionReceipt) {
@@ -172,10 +183,10 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
     );
   }
 
-  if (!isIOS && !purchaseToken) {
+  if (!isIOS && !isPlayToken(purchaseToken)) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'purchaseToken is required for Android purchases'
+      'purchaseToken is required for Android purchases and must be a store token'
     );
   }
 
@@ -241,14 +252,31 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
   // store confirmed, never on one the caller supplied: a caller can send a valid receipt with any
   // transactionId it likes, and could otherwise pass someone else's receipt to have a second
   // account entitled from one purchase.
-  const existing = await db.collection('purchases').where('storeTransactionId', '==', storeTransactionId).limit(1).get();
-  if (!existing.empty) {
-    const first = existing.docs[0];
-    if (first.data().userId !== userId) {
-      console.warn(`purchase ${storeTransactionId} already belongs to another account; refusing to entitle ${userId}`);
+  // The document id IS the duplicate check. A read-then-write let two accounts send the same token
+  // at once, both see nothing, and both be entitled — the dedupe below was doing the right
+  // comparison on the wrong primitive. `create` fails if the id exists, and Firestore decides the
+  // winner, so one store transaction can only ever produce one purchase record.
+  const purchaseId = createHash('sha256').update(`${isIOS ? 'ios' : isAmazon ? 'amazon' : 'android'}:${storeTransactionId}`).digest('hex').slice(0, 40);
+  const purchaseDoc = db.collection('purchases').doc(purchaseId);
+
+  const claimedBy = async (): Promise<string | null> => {
+    const byId = await purchaseDoc.get();
+    if (byId.exists) return (byId.data()?.userId as string) ?? null;
+    // Records written before the id became deterministic carry a random one, so the field query has
+    // to stay: without it, every purchase that predates this deploy silently stops participating in
+    // duplicate detection and becomes replayable, including onto another account. The collection is
+    // empty today, but purchases are live on both stores while this ships, so the gap is real.
+    const byField = await db.collection('purchases').where('storeTransactionId', '==', storeTransactionId).limit(1).get();
+    return byField.empty ? null : ((byField.docs[0].data().userId as string) ?? null);
+  };
+
+  const owner = await claimedBy();
+  if (owner !== null) {
+    if (owner !== userId) {
+      console.warn(`purchase already belongs to another account; refusing to entitle ${userId}`);
       throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.');
     }
-    return { success: true, purchaseId: first.id, duplicate: true };
+    return { success: true, purchaseId, duplicate: true };
   }
 
   // Record the purchase with platform-specific fields
@@ -271,7 +299,23 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
     if (isAmazon) purchaseRecord.userIdAmazon = userIdAmazon;
   }
 
-  const purchaseRef = await db.collection('purchases').add(purchaseRecord);
+  try {
+    await purchaseDoc.create(purchaseRecord);
+  } catch (err: unknown) {
+    // Only an id collision means someone else won the race. Anything else is Firestore having a bad
+    // moment, and telling a buyer who has just paid that their purchase belongs to someone else is
+    // the worst possible way to report a transient write failure.
+    const code = (err as { code?: number | string } | null)?.code;
+    if (code !== 6 && code !== 'already-exists') {
+      console.error('purchase write failed:', err instanceof Error ? err.message : err);
+      throw new functions.https.HttpsError('internal', 'Could not record the purchase. Please try again.');
+    }
+    const owner = await claimedBy();
+    if (owner === userId) return { success: true, purchaseId, duplicate: true };
+    console.warn(`purchase lost a race to another account; refusing to entitle ${userId}`);
+    throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.');
+  }
+  const purchaseRef = purchaseDoc;
 
   // The Pit Wall Pass is the one product the device does not grant itself: the entitlement is a
   // custom auth claim the Firestore rules read, stamped from users/{uid}.pass by a trigger. The
