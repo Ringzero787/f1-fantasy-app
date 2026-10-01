@@ -32,3 +32,21 @@ export const isKnownProduct = (v: unknown): v is string => typeof v === 'string'
  */
 export const isPlayToken = (v: unknown): v is string =>
   typeof v === 'string' && v.length > 0 && v.length <= 1000 && /^[A-Za-z0-9._~-]+$/.test(v);
+
+/**
+ * An Amazon receipt id is base64, so it carries `+`, `/` and `=` that a Play token never does.
+ * Applying the Play shape to it would have refused every Amazon purchase outright the moment that
+ * store went live — the guard was written for Play's URL and quietly inherited by the other branch.
+ *
+ * It needs a looser check rather than the same one: the Amazon verifier already encodes all three
+ * of its URL segments and compares the product in the response, so this is a sanity bound on an
+ * opaque identifier, not the thing standing between a caller and someone else's entitlement.
+ */
+export const isAmazonReceiptId = (v: unknown): v is string =>
+  typeof v === 'string' &&
+  v.length > 0 &&
+  v.length <= 2000 &&
+  /^[A-Za-z0-9+/=._~:-]+$/.test(v) &&
+  // base64 needs `/`, so a dot-segment is refused by name instead. The verifier encodes this into
+  // the URL anyway, which is what actually stops it; this just means a path never gets that far.
+  !v.includes('..');

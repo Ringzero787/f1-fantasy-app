@@ -5,7 +5,7 @@ import { warnIfNoAppCheck } from '../utils/appCheck';
 import { verifyAppleTransaction } from './appleTransaction';
 import { PASS_PRODUCT, currentSeason } from '../pitwall/pass';
 import { grantPass } from '../pitwall/passStore';
-import { isKnownProduct, isPlayToken } from './productGuards';
+import { isAmazonReceiptId, isKnownProduct, isPlayToken } from './productGuards';
 import { createHash } from 'crypto';
 
 const db = admin.firestore();
@@ -183,10 +183,12 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
     );
   }
 
-  if (!isIOS && !isPlayToken(purchaseToken)) {
+  // Each store's identifier gets its own shape. Play's is checked tightly because it becomes a path
+  // segment of the URL we ask Play about; Amazon's is base64 and would fail that check outright.
+  if (!isIOS && !(isAmazon ? isAmazonReceiptId(purchaseToken) : isPlayToken(purchaseToken))) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'purchaseToken is required for Android purchases and must be a store token'
+      `purchaseToken is required for ${isAmazon ? 'Amazon' : 'Android'} purchases and must be a store identifier`
     );
   }
 
