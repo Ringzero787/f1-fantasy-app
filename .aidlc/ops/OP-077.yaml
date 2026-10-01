@@ -1,0 +1,103 @@
+id: OP-077
+title: Pit Wall pass sells through the App Store on iOS (2.4.0 in review)
+kind: uc-script
+status: applied
+params:
+  script: setPitWallConfig.js
+  backup: config/app
+created_at: 2026-10-01T01:20:23.049Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-01T01:21:22.146Z
+    head_sha: a30f41ee0b0deddcf82ffc5c8e9449b31e71b97a
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/dry-run-2026-10-01T01-21-22-146Z.log
+    log_sha256: 8f9f3202fcaf3bad8a24560dc99f63987d55f8e40946a39fae25f16f5783bb48
+    lines: 48
+  - step: dry-run
+    at: 2026-10-01T01:23:56.753Z
+    head_sha: a30f41ee0b0deddcf82ffc5c8e9449b31e71b97a
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/dry-run-2026-10-01T01-23-56-753Z.log
+    log_sha256: 651fa4e0587b210c014c4e4e0e0bad2a805e3f3c81b0b90f50122b8efb281c82
+    lines: 50
+  - step: dry-run
+    at: 2026-10-01T01:24:00.847Z
+    head_sha: a30f41ee0b0deddcf82ffc5c8e9449b31e71b97a
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/dry-run-2026-10-01T01-24-00-847Z.log
+    log_sha256: c5b721db5a5b761ce80d56247db186b0afe0f9f1b46f2c64b9d2c3aff9a1cff9
+    lines: 50
+  - step: dry-run
+    at: 2026-10-01T01:26:35.752Z
+    head_sha: 8e09ae63cfa7aeb3392d94515f5c3ff9afec2b5b
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/dry-run-2026-10-01T01-26-35-752Z.log
+    log_sha256: 869904f456307c53c02ab5763789ddb28e2a3318d3ca7cf6d512296f94a09d1e
+    lines: 50
+  - step: dry-run
+    at: 2026-10-01T01:27:12.743Z
+    head_sha: 8e09ae63cfa7aeb3392d94515f5c3ff9afec2b5b
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/dry-run-2026-10-01T01-27-12-743Z.log
+    log_sha256: d4f25739c7631273a2889e0d4542b53923c787653255cb70e3d82ea4ffc914f1
+    lines: 50
+  - step: dry-run
+    at: 2026-10-01T01:27:51.952Z
+    head_sha: 8e09ae63cfa7aeb3392d94515f5c3ff9afec2b5b
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/dry-run-2026-10-01T01-27-51-952Z.log
+    log_sha256: bb3100d4c79a7b548e268807794f6b567f9442b2bf85c416a5fa5ce5390ed571
+    lines: 50
+  - step: dry-run
+    at: 2026-10-01T01:34:29.864Z
+    head_sha: 98f4207da8de42605c91aef1a80759cc4725cd3c
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/dry-run-2026-10-01T01-34-29-864Z.log
+    log_sha256: 98ecbebdfd42cab633c68b007815ea5468a130e2ef709f4dde104b8838a000d0
+    lines: 51
+  - step: dry-run
+    at: 2026-10-01T01:43:25.991Z
+    head_sha: aa9f3c9ac23124662d5c45a0c141a53d053bd56b
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/dry-run-2026-10-01T01-43-25-991Z.log
+    log_sha256: fc202ccf5ea8236231e90fadec0c17a5eb627a340f7cb1afc0809da49afe00ae
+    lines: 51
+  - step: backup
+    at: 2026-10-01T02:06:36.327Z
+    head_sha: befd5ebffc167e909fc8a346ffd050b6bcc696b2
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-077'/backup.json 'config/app'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/backup-2026-10-01T02-06-36-327Z.log
+    log_sha256: afea5680c31b8b2525781c6141e7ebdce1272beb09eef3af9e3d66acc1419062
+    lines: 3
+  - step: gates
+    at: 2026-10-01T02:06:37.017Z
+    head_sha: befd5ebffc167e909fc8a346ffd050b6bcc696b2
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-01T02:06:37.018Z
+    head_sha: befd5ebffc167e909fc8a346ffd050b6bcc696b2
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-077/apply-2026-10-01T02-06-37-018Z.log
+    log_sha256: d0efa8699682c991db87348ff80410553d6197ff01c367b9dd19454ffcaeba17
+    lines: 51
+  - step: gates
+    at: 2026-10-01T02:06:37.738Z
+    head_sha: befd5ebffc167e909fc8a346ffd050b6bcc696b2
+    exit: 0
+    gates:
+      G15: skip

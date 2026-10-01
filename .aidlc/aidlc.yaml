@@ -146,6 +146,18 @@ overrides:
         paths: [ web/pitwall, scripts/ops/pitwall-pages-deploy.sh ]
         dryrun: "bash scripts/ops/pitwall-pages-deploy.sh dryrun"
         apply: "bash scripts/ops/pitwall-pages-deploy.sh apply {pages_project}"
+      uc-play-publish:
+        summary: "Put an Undercut Android bundle on a Play track (aab = path to the .aab, track = internal|alpha|beta|production, notes = release notes). A version code uploads once; use uc-play-promote to move one that is already up."
+        params: [ aab, track, notes ]
+        paths: [ scripts/ops/play-publish.js, scripts/ops/_play.js ]
+        dryrun: "node scripts/ops/play-publish.js upload {aab} --track={track} --notes={notes}"
+        apply: "node scripts/ops/play-publish.js upload {aab} --track={track} --notes={notes} --apply --confirm=com.undercut.app"
+      uc-play-promote:
+        summary: "Move an Undercut version code already on Play to another track (code = version code, track = internal|alpha|beta|production). Promoting to production puts it on every Android device."
+        params: [ code, track, notes ]
+        paths: [ scripts/ops/play-publish.js, scripts/ops/_play.js ]
+        dryrun: "node scripts/ops/play-publish.js promote {code} --track={track} --notes={notes}"
+        apply: "node scripts/ops/play-publish.js promote {code} --track={track} --notes={notes} --apply --confirm=com.undercut.app"
       uc-script:
         summary: "Undercut repair/backfill script that dry-runs by default and writes with --apply (script = file name in functions/scripts; backup = comma-separated doc/collection paths it touches)"
         params: [ script, backup ]
