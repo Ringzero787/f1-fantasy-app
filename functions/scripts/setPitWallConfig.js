@@ -42,20 +42,34 @@ const arg = (name, fallback) => {
   return hit ? hit.slice(name.length + 3) : fallback;
 };
 
-const { MODES, DESIRED, resolveMode, invalidPlatform, carryContainment } = require('./lib/pitwallMode');
+const { MODES, DESIRED, resolveMode, invalidPlatform, carryContainment, invalidEnabled, unknownFlag, modeChanges } = require('./lib/pitwallMode');
 const MIN_APP_VERSION = '2.4.0';
 const PORTAL_URL = 'https://pitwall.humannpc.com';
 
 // The modes themselves, and why each platform is where it is, live in ./lib/pitwallMode so they can
 // be tested without a credential. Flags still win: --mode=X sets all three, --ios=X beats it.
-const mode = resolveMode(process.argv.slice(2), DESIRED);
+const FLAGS_IN = process.argv.slice(2);
+
+const typo = unknownFlag(FLAGS_IN);
+if (typo) {
+  console.error(`"${typo}" is not a flag this script understands. Nothing was written.`);
+  console.error('Flags take an = sign: --mode=off, --ios=open, --beta=uid1,uid2, --enabled=false, --apply');
+  process.exit(2);
+}
+
+const notBool = invalidEnabled(FLAGS_IN);
+if (notBool !== null) {
+  console.error(`--enabled must be true or false (got "${notBool}")`);
+  process.exit(2);
+}
+
+const mode = resolveMode(FLAGS_IN, DESIRED);
 const bad = invalidPlatform(mode);
 if (bad) {
   console.error(`mode for ${bad} must be one of ${MODES.join(', ')} (got "${mode[bad]}")`);
   process.exit(2);
 }
 
-const list = (value) => (value ? value.split(',').map((s) => s.trim()).filter(Boolean) : []);
 const given = (name) => process.argv.some((a) => a.startsWith(`--${name}=`));
 
 /**
@@ -89,6 +103,11 @@ async function main() {
   console.log(`config/app ${snap.exists ? 'exists' : 'does not exist yet'}`);
   console.log('current pitwall block:', current ? JSON.stringify(current, null, 2) : '(none)');
   console.log('would write:', JSON.stringify(block, null, 2));
+  for (const c of modeChanges(current, block.mode)) {
+    // The modes are asserted from DESIRED, not carried, so an out-of-band kill like --ios=off is
+    // reverted by the next flagless run. That is intended, but it must never be silent.
+    console.log(`CHANGE: ${c.platform} ${c.from} -> ${c.to}`);
+  }
   if (!given('enabled') && current?.enabled === false) console.log('NOTE: carrying over enabled:false from the live document.');
   if (!given('beta') && !given('betaLeagues') && (current?.beta?.uids?.length || current?.beta?.leagueIds?.length)) {
     console.log('NOTE: carrying over the live beta allowlist. Pass --beta= to clear it.');

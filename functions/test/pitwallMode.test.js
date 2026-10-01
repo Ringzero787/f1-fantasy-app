@@ -8,7 +8,7 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { DESIRED, PLATFORMS, resolveMode, invalidPlatform, carryContainment } = require('../scripts/lib/pitwallMode');
+const { DESIRED, PLATFORMS, resolveMode, invalidPlatform, carryContainment, invalidEnabled, unknownFlag, modeChanges } = require('../scripts/lib/pitwallMode');
 
 test('with no flags, the committed production state is what gets written', () => {
   assert.deepEqual(resolveMode([]), { android: 'open', ios: 'iap', amazon: 'open' });
@@ -73,4 +73,41 @@ test('the carried allowlist is a copy, so the live document cannot be mutated th
   const live = { beta: { uids: ['u1'], leagueIds: [] } };
   carryContainment(live, []).beta.uids.push('u2');
   assert.deepEqual(live.beta.uids, ['u1']);
+});
+
+test('a flag it does not understand stops the run instead of falling through to the defaults', () => {
+  // The fall-through now means "iOS sells the pass", so a fumbled kill switch must not reach it.
+  assert.equal(unknownFlag(['--mode', 'off']), '--mode');
+  assert.equal(unknownFlag(['--ois=off']), '--ois=off');
+  assert.equal(unknownFlag(['off']), 'off');
+  assert.equal(unknownFlag(['--mode=off', '--apply']), null);
+  assert.equal(unknownFlag([]), null);
+});
+
+test('--enabled takes a boolean and nothing else', () => {
+  assert.equal(invalidEnabled(['--enabled=yes']), 'yes');
+  assert.equal(invalidEnabled(['--enabled=1']), '1');
+  assert.equal(invalidEnabled(['--enabled=true']), null);
+  assert.equal(invalidEnabled(['--enabled=false']), null);
+  assert.equal(invalidEnabled([]), null);
+});
+
+test('clearing one allowlist leaves the other alone', () => {
+  const live = { beta: { uids: ['u1'], leagueIds: ['l1'] } };
+  assert.deepEqual(carryContainment(live, ['--beta=']).beta, { uids: [], leagueIds: ['l1'] });
+  assert.deepEqual(carryContainment(live, ['--betaLeagues=']).beta, { uids: ['u1'], leagueIds: [] });
+});
+
+test('a null or malformed live document does not throw', () => {
+  assert.deepEqual(carryContainment(null, []), { enabled: true, beta: { uids: [], leagueIds: [] } });
+  assert.deepEqual(carryContainment('nonsense', []), { enabled: true, beta: { uids: [], leagueIds: [] } });
+  assert.deepEqual(carryContainment({ beta: 'nope' }, []), { enabled: true, beta: { uids: [], leagueIds: [] } });
+  assert.deepEqual(carryContainment({ beta: { uids: 'u1' } }, []).beta.uids, []);
+});
+
+test('a mode the run reverts is reported, because modes are asserted and not carried', () => {
+  const live = { mode: { android: 'open', ios: 'off', amazon: 'open' } };
+  assert.deepEqual(modeChanges(live, { android: 'open', ios: 'iap', amazon: 'open' }), [{ platform: 'ios', from: 'off', to: 'iap' }]);
+  assert.deepEqual(modeChanges(live, { android: 'open', ios: 'off', amazon: 'open' }), []);
+  assert.deepEqual(modeChanges(null, { android: 'open', ios: 'iap', amazon: 'open' }), []);
 });

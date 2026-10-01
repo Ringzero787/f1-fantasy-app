@@ -13,6 +13,7 @@ import { useLeagueStore } from '../../store/league.store';
 import { usePrefsStore, type ThemeMode } from '../../store/prefs.store';
 import { usePitWallStore } from '../../store/pitwall.store';
 import { usePurchaseStore } from '../../store/purchase.store';
+import { PRODUCT_IDS } from '../../config/products';
 import { portalUrl } from '../../pitwall/client';
 import { pitWallSurface } from '../../pitwall/config';
 import { isAmazonBuild } from '../../utils/storeDetection';
@@ -205,21 +206,26 @@ export function GridProfileScreen() {
     }
   }, [openingPortal, colors.primary, colors.surface, refreshPitWall, pwSurface?.url]);
 
-  // With mode 'iap' the pass is sold through the store, so the row starts a purchase instead of
-  // opening the site. Everywhere else it opens the portal and the pass is bought on the web.
+  // With mode 'iap' the pass is sold through the store; everywhere else it is bought on the web and
+  // the portal link is all there is. Selling adds a second row rather than replacing the first:
+  // there is a free tier behind that link, and a single row that flips to "Get the pass" takes the
+  // only route to it away from everyone who has not paid.
   const buyPass = usePurchaseStore((s) => s.purchasePitWallPass);
   const buying = usePurchaseStore((s) => s.isPurchasing);
+  const storePrices = usePurchaseStore((s) => s.storePrices);
   const sellsInApp = pwSurface?.mode === 'iap' && !pwPass.active;
 
-  const passValue = buying && sellsInApp
-    ? 'Opening store…'
-    : sellsInApp
-      ? 'Get the pass'
-      : openingPortal
+  // The storefront's own price, in the buyer's currency. The catalogue price is the US one, so
+  // until the store has answered the row says nothing about cost rather than the wrong thing.
+  const passPrice = storePrices[PRODUCT_IDS.PITWALL_PASS];
+
+  const passValue = openingPortal
     ? 'Opening…'
     : pwPass.active && pwPass.expiresAt
       ? `${pwSurface?.pass ?? 'Pass'} to ${new Date(pwPass.expiresAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
       : pwSurface?.free ?? 'Open';
+
+  const buyValue = buying ? 'Opening store…' : passPrice ?? 'Get the pass';
 
   const LinkRow = ({ label, valueText, onPress, danger, accent }: { label: string; valueText?: string; onPress: () => void; danger?: boolean; accent?: boolean }) => (
     <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [row, { opacity: pressed ? 0.7 : 1 }]}>
@@ -260,7 +266,8 @@ export function GridProfileScreen() {
           </View>
           <LinkRow label="AVATAR" valueText={user?.photoURL ? 'Change' : 'Add'} onPress={() => setAvatarOpen(true)} />
           <LinkRow label="LEAGUE" valueText={league ? league.name : 'Join or create'} accent={!league} onPress={() => router.push('/(simple)/league-manager' as never)} />
-          {pwSurface ? <LinkRow label={pwSurface.label} valueText={passValue} accent={pwPass.active || sellsInApp} onPress={sellsInApp ? () => void buyPass() : openPitWall} /> : null}
+          {pwSurface ? <LinkRow label={pwSurface.label} valueText={passValue} accent={pwPass.active} onPress={openPitWall} /> : null}
+          {pwSurface && sellsInApp ? <LinkRow label={`${pwSurface.label} ${(pwSurface.pass ?? 'Pass').toUpperCase()}`} valueText={buyValue} accent onPress={() => void buyPass()} /> : null}
           {/* At large display sizes the pills stack under their labels so every segment stays on screen */}
           <View style={[row, stackPills && { flexDirection: 'column', alignItems: 'stretch' }]}>
             <MonoLabel>APPEARANCE</MonoLabel>

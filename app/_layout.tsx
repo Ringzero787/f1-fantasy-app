@@ -24,6 +24,7 @@ import { useLayout } from '../src/hooks/useLayout';
 import { handleAmazonDeepLink } from '../src/utils/amazonSignIn';
 import { useRemoteConfigStore } from '../src/store/remoteConfig.store';
 import { usePrefsStore } from '../src/store/prefs.store';
+import { usePurchaseStore } from '../src/store/purchase.store';
 import '../src/i18n/bootstrap';
 
 const queryClient = new QueryClient({
@@ -71,6 +72,21 @@ export default function RootLayout() {
 
   // Load remote config from Firestore on startup
   useEffect(() => { useRemoteConfigStore.getState().initialize(); }, []);
+
+  /**
+   * Open the store connection and register the purchase listener.
+   *
+   * This had no caller at all, in any released version, so initConnection() and
+   * purchaseUpdatedListener() never ran: a purchase could not complete, because the completion
+   * handler that sends the receipt to the server is that listener. StoreKit redelivers an
+   * unfinished transaction on the next launch, which is exactly why this belongs at the root and
+   * runs before sign-in rather than behind it — a transaction redelivered with nobody listening is
+   * never finished and never granted, and the buyer has paid.
+   */
+  useEffect(() => {
+    usePurchaseStore.getState().initializeIAP().catch((err) => console.warn('[iap] init failed:', err?.message ?? err));
+    return () => usePurchaseStore.getState().cleanupIAP();
+  }, []);
 
   // Track session count for review prompt
   useEffect(() => { usePrefsStore.getState().incrementSession(); }, []);

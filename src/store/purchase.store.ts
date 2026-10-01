@@ -47,6 +47,8 @@ interface PurchaseState {
   // Transient
   isInitialized: boolean;
   isPurchasing: boolean;
+  /** product id -> the price string the store itself formatted, in the buyer's currency. */
+  storePrices: Record<string, string>;
 
   // Actions
   initializeIAP: () => Promise<void>;
@@ -83,6 +85,9 @@ export const usePurchaseStore = create<PurchaseState>()(
       // Transient state
       isInitialized: false,
       isPurchasing: false,
+      // Not persisted: a price belongs to the storefront and the currency of the moment, so it is
+      // asked for again every launch rather than remembered from the last one.
+      storePrices: {},
 
       initializeIAP: async () => {
         // Lazy import to avoid bundling issues when IAP isn't configured
@@ -98,8 +103,19 @@ export const usePurchaseStore = create<PurchaseState>()(
           await Iap.initConnection();
 
           // Ask the store about every product, so a missing one shows up in the log at start-up
-          // rather than as a failed purchase later.
-          await Iap.fetchProducts({ skus: [...ALL_PRODUCT_IDS], type: 'in-app' });
+          // rather than as a failed purchase later. The answer also carries the price as that
+          // storefront formats it, which is the only price we may show: the catalogue's "$14.99" is
+          // the US one and would be wrong, in the wrong currency, everywhere else.
+          const products = await Iap.fetchProducts({ skus: [...ALL_PRODUCT_IDS], type: 'in-app' });
+          const prices: Record<string, string> = {};
+          for (const product of Array.isArray(products) ? products : []) {
+            const id = product?.id ?? product?.productId ?? product?.sku;
+            const shown = product?.displayPrice ?? product?.localizedPrice ?? product?.price;
+            if (typeof id === 'string' && typeof shown === 'string' && shown) prices[id] = shown;
+          }
+          const missing = ALL_PRODUCT_IDS.filter((id) => !prices[id]);
+          if (missing.length) console.warn('[iap] store did not return these products:', missing.join(', '));
+          set({ storePrices: prices });
 
           Iap.purchaseUpdatedListener(async (purchase: StorePurchase) => {
             await get().handlePurchaseComplete(purchase);
