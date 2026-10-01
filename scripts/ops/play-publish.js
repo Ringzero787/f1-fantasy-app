@@ -16,6 +16,14 @@
  *
  * Dry run by default; --apply commits the edit. Production needs --confirm=<package> on top.
  *
+ * Reaching Play is a production change, so the way to run it is the op, not this script directly:
+ *
+ *   aidlc op new uc-play-publish -t "..." -p aab=<path> -p track=internal -p notes="..."
+ *   aidlc op new uc-play-promote -t "..." -p code=63 -p track=production -p notes="..."
+ *   aidlc op dryrun OP-xxx    # show it
+ *   aidlc op apply OP-xxx     # the apply passes --confirm for you; the dry-run you just read is
+ *                             # the second pair of eyes the flag asks for on the bare command
+ *
  *   node scripts/ops/play-publish.js status --track=production
  *   node scripts/ops/play-publish.js upload <file.aab> --track=internal --notes="..." --apply
  *   node scripts/ops/play-publish.js promote <versionCode> --track=production --confirm=com.undercut.app --apply
