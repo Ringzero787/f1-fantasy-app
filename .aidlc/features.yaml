@@ -1,4 +1,4 @@
-next_id: 82
+next_id: 83
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -910,3 +910,13 @@ features:
       - then
       - open
       - countries
+  - id: F-082
+    name: "UC: Play publishing from the build box"
+    status: planned
+    spec: .aidlc/specs/F-082.md
+    created_at: 2026-10-01
+    keywords:
+      - play
+      - publishing
+      - from
+      - build
