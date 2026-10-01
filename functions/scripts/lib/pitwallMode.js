@@ -54,14 +54,27 @@ function unknownFlag(argv = []) {
   return null;
 }
 
-/** `--mode=X` sets every platform; `--ios=X` and friends beat it; with neither, DESIRED applies. */
-function resolveMode(argv = [], desired = DESIRED) {
+/**
+ * `--mode=X` sets every platform; `--ios=X` and friends beat it; with neither, DESIRED applies —
+ * except that a platform the live document has turned `off` stays off.
+ *
+ * `off` is a containment control, like `enabled` and the allowlists: someone sets it when a
+ * platform is doing harm. Asserting DESIRED over it would mean the next routine run — changing an
+ * unrelated platform, say — silently re-opened a paid surface that had been shut down on purpose.
+ * Turning a platform back on is therefore deliberate: `--ios=open` or `--ios=iap`.
+ */
+function resolveMode(argv = [], desired = DESIRED, current = null) {
   const { value } = reader(argv);
+  const live = (current && typeof current === 'object' && current.mode) || {};
   const all = value('mode');
   const mode = {};
-  // `??` and not `||`: an empty `--mode=` must reach the validator rather than quietly becoming the
-  // production default, which is the one state an operator reaching for this flag does not want.
-  for (const platform of PLATFORMS) mode[platform] = value(platform) ?? all ?? desired[platform];
+  for (const platform of PLATFORMS) {
+    // `??` and not `||`: an empty `--mode=` must reach the validator rather than quietly becoming
+    // the production default, which is the one state an operator reaching for this flag does not want.
+    const asked = value(platform) ?? all;
+    if (asked !== null && asked !== undefined) { mode[platform] = asked; continue; }
+    mode[platform] = live[platform] === 'off' ? 'off' : desired[platform];
+  }
   return mode;
 }
 

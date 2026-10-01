@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { secureStorage } from '../utils/secureStorage';
 import { Alert, Platform } from 'react-native';
 import { PRODUCT_IDS, ALL_PRODUCT_IDS, AVATAR_PACK_CREDITS } from '../config/products';
+import { readStorePrices } from './storePrices';
 import { functions, httpsCallable } from '../config/firebase';
 import { usePitWallStore } from './pitwall.store';
 import { receiptOf, storeOf, type StorePurchase } from '../pitwall/receipt';
@@ -90,6 +91,9 @@ export const usePurchaseStore = create<PurchaseState>()(
       storePrices: {},
 
       initializeIAP: async () => {
+        // Once only. A second call would register a second purchaseUpdatedListener, and a purchase
+        // delivered to two handlers is granted twice and finished twice.
+        if (get().isInitialized) return;
         // Lazy import to avoid bundling issues when IAP isn't configured
         const { useAuthStore } = require('./auth.store');
         const isDemoMode = useAuthStore.getState().isDemoMode;
@@ -102,21 +106,11 @@ export const usePurchaseStore = create<PurchaseState>()(
           const Iap = require('expo-iap');
           await Iap.initConnection();
 
-          // Ask the store about every product, so a missing one shows up in the log at start-up
-          // rather than as a failed purchase later. The answer also carries the price as that
-          // storefront formats it, which is the only price we may show: the catalogue's "$14.99" is
-          // the US one and would be wrong, in the wrong currency, everywhere else.
-          const products = await Iap.fetchProducts({ skus: [...ALL_PRODUCT_IDS], type: 'in-app' });
-          const prices: Record<string, string> = {};
-          for (const product of Array.isArray(products) ? products : []) {
-            const id = product?.id ?? product?.productId ?? product?.sku;
-            const shown = product?.displayPrice ?? product?.localizedPrice ?? product?.price;
-            if (typeof id === 'string' && typeof shown === 'string' && shown) prices[id] = shown;
-          }
-          const missing = ALL_PRODUCT_IDS.filter((id) => !prices[id]);
-          if (missing.length) console.warn('[iap] store did not return these products:', missing.join(', '));
-          set({ storePrices: prices });
-
+          // The listeners go on before anything else that can fail. They are the only route from a
+          // completed purchase to the server grant, so a session that reaches `requestPurchase`
+          // without them is one where the buyer pays and is granted nothing — which is the whole
+          // defect this wiring exists to fix, and it would come straight back if a failed price
+          // fetch could skip past this.
           Iap.purchaseUpdatedListener(async (purchase: StorePurchase) => {
             await get().handlePurchaseComplete(purchase);
           });
@@ -126,6 +120,23 @@ export const usePurchaseStore = create<PurchaseState>()(
           });
 
           set({ isInitialized: true });
+
+          // Ask the store about every product, so a missing one shows up in the log at start-up
+          // rather than as a failed purchase later. The answer also carries the price as that
+          // storefront formats it, which is the only price we may show: the catalogue's "$14.99" is
+          // the US one and would be wrong, in the wrong currency, everywhere else.
+          //
+          // Its own try: an offline launch or a SKU not yet active in one storefront must cost us
+          // the price label, never the listeners.
+          try {
+            const products = await Iap.fetchProducts({ skus: [...ALL_PRODUCT_IDS], type: 'in-app' });
+            const prices = readStorePrices(products);
+            const missing = ALL_PRODUCT_IDS.filter((id) => !prices[id]);
+            if (missing.length) console.warn('[iap] store did not return these products:', missing.join(', '));
+            set({ storePrices: prices });
+          } catch (err) {
+            console.warn('[iap] price fetch failed; the row will not show a price:', err);
+          }
 
           // Sync purchases from server in background (reconcile after reinstall)
           get().syncPurchasesFromServer().catch((err) => {
@@ -314,15 +325,26 @@ export const usePurchaseStore = create<PurchaseState>()(
           Alert.alert('Demo mode', 'The Pit Wall Pass cannot be bought in demo mode.');
           return;
         }
-        // Refuse before the store takes any money. A second pass would buy nothing: the server
-        // never shortens an existing one, so the charge would be for an entitlement already held.
-        // Forced, because a stale token is exactly how someone ends up buying twice.
-        await usePitWallStore.getState().refresh(true);
-        if (usePitWallStore.getState().pass.active) {
-          Alert.alert('Pit Wall Pass', 'You already have a pass for this season.');
+        // Claimed before the refresh below, not after: that refresh is a network round trip, and
+        // until the flag is set the row still looks idle and takes a second press. Two presses are
+        // two charges, and the server never extends an existing pass, so the second buys nothing.
+        if (get().isPurchasing) return;
+        set({ isPurchasing: true });
+        try {
+          // Refuse before the store takes any money. Forced, because a stale token is exactly how
+          // someone ends up buying twice.
+          await usePitWallStore.getState().refresh(true);
+          if (usePitWallStore.getState().pass.active) {
+            set({ isPurchasing: false });
+            Alert.alert('Pit Wall Pass', 'You already have a pass for this season.');
+            return;
+          }
+        } catch {
+          // The pass could not be read, so whether one is already held is unknown. Do not sell.
+          set({ isPurchasing: false });
+          Alert.alert('Pit Wall Pass', 'Could not check your pass just now. Check your connection and try again.');
           return;
         }
-        set({ isPurchasing: true });
         try {
           await buy(PRODUCT_IDS.PITWALL_PASS);
         } catch (err: any) {

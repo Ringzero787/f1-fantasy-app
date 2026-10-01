@@ -111,3 +111,23 @@ test('a mode the run reverts is reported, because modes are asserted and not car
   assert.deepEqual(modeChanges(live, { android: 'open', ios: 'off', amazon: 'open' }), []);
   assert.deepEqual(modeChanges(null, { android: 'open', ios: 'iap', amazon: 'open' }), []);
 });
+
+test('a platform the live document turned off stays off through a flagless run', () => {
+  // `off` is a containment control like enabled and the allowlists. Asserting DESIRED over it would
+  // mean a routine run for another platform silently re-opened a paid surface someone shut down.
+  const live = { mode: { android: 'open', ios: 'off', amazon: 'open' } };
+  assert.equal(resolveMode([], DESIRED, live).ios, 'off');
+  assert.equal(resolveMode(['--android=iap'], DESIRED, live).ios, 'off');
+});
+
+test('turning a killed platform back on is deliberate', () => {
+  const live = { mode: { android: 'open', ios: 'off', amazon: 'open' } };
+  assert.equal(resolveMode(['--ios=iap'], DESIRED, live).ios, 'iap');
+  assert.equal(resolveMode(['--mode=open'], DESIRED, live).ios, 'open');
+});
+
+test('with no live document the desired state still applies', () => {
+  assert.deepEqual(resolveMode([], DESIRED, null), DESIRED);
+  assert.deepEqual(resolveMode([], DESIRED, {}), DESIRED);
+  assert.equal(resolveMode([], DESIRED, { mode: { ios: 'open' } }).ios, 'iap');
+});

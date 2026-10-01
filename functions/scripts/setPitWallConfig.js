@@ -63,14 +63,9 @@ if (notBool !== null) {
   process.exit(2);
 }
 
-const mode = resolveMode(FLAGS_IN, DESIRED);
-const bad = invalidPlatform(mode);
-if (bad) {
-  console.error(`mode for ${bad} must be one of ${MODES.join(', ')} (got "${mode[bad]}")`);
-  process.exit(2);
-}
 
-const given = (name) => process.argv.some((a) => a.startsWith(`--${name}=`));
+
+const given = (name) => FLAGS_IN.some((a) => a.startsWith(`--${name}=`));
 
 /**
  * The block to write, given what is live now.
@@ -82,7 +77,13 @@ const given = (name) => process.argv.some((a) => a.startsWith(`--${name}=`));
  * allowlist every time anyone changed a mode.
  */
 const blockFor = (current = {}) => {
-  const held = carryContainment(current, process.argv.slice(2));
+  const held = carryContainment(current, FLAGS_IN);
+  const mode = resolveMode(FLAGS_IN, DESIRED, current);
+  const bad = invalidPlatform(mode);
+  if (bad) {
+    console.error(`mode for ${bad} must be one of ${MODES.join(', ')} (got "${mode[bad]}")`);
+    process.exit(2);
+  }
   return {
     enabled: held.enabled,
     url: PORTAL_URL,
