@@ -48,9 +48,13 @@ export const ROUND_TO_RACE_ID: Record<number, string> = {
 //   7  · Canada (Montreal)
 //   11 · Britain (Silverstone)
 //   14 · Netherlands (Zandvoort)
-//   18 · Singapore
+//   19 · Singapore
 // NOTE: {2,6,12,19,21,23} was the 2025-style list — wrong for 2026.
-export const SPRINT_ROUNDS = new Set([2, 6, 7, 11, 14, 18]);
+// NOTE: Singapore moved 18 -> 19 on 2026-10-01. The cancelled Bahrain GP was
+// reinstated and run at Sepang, inserted chronologically as round 18, pushing
+// Singapore..Abu Dhabi up one (F-076). Bahrain@Sepang is NOT a sprint, so
+// leaving 18 here would have flagged the wrong race.
+export const SPRINT_ROUNDS = new Set([2, 6, 7, 11, 14, 19]);
 
 /**
  * Maps OpenF1 driver numbers to our app's driver IDs.

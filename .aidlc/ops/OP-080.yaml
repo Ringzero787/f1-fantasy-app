@@ -1,0 +1,47 @@
+id: OP-080
+title: Bahrain@Sepang reinstated as R18; renumber Singapore-Abu Dhabi (F-076)
+kind: tl-script
+status: applied
+params:
+  script: fixRaceSchedules.js
+  backup: races
+created_at: 2026-10-01T18:19:24.675Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-01T18:19:24.956Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    command: node scripts/ops/run-script.js tracklimits 'fixRaceSchedules.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-080/dry-run-2026-10-01T18-19-24-956Z.log
+    log_sha256: fbfbd42ba6c872bbc03d388645759b18c8ed151ea7985be900c48a7d5252a661
+    lines: 68
+  - step: backup
+    at: 2026-10-01T18:19:38.232Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-080'/backup.json 'races'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-080/backup-2026-10-01T18-19-38-232Z.log
+    log_sha256: ce647107c36368dfff5e06cb57e2a6a3708872a8c3a3f702ddd99262e2a86fdc
+    lines: 3
+  - step: gates
+    at: 2026-10-01T18:19:39.262Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-01T18:19:39.278Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    command: node scripts/ops/run-script.js tracklimits 'fixRaceSchedules.js' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-080/apply-2026-10-01T18-19-39-278Z.log
+    log_sha256: 0da29d19312c61465940d2a224f95e44872ee0752edc81db798e00015bdce787
+    lines: 68
+  - step: gates
+    at: 2026-10-01T18:19:40.010Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    exit: 0
+    gates:
+      G15: skip

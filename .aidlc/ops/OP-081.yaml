@@ -1,0 +1,56 @@
+id: OP-081
+title: R18 Bahrain@Sepang lines from MODELS_9
+kind: tl-lines-seed
+status: verified
+params:
+  race: bahrain_2026
+  doc: /mnt/smb/share/tracklimits/MODELS_9.md
+  source: ben_model_R18
+created_at: 2026-10-01T18:20:22.736Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-01T18:20:23.019Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    command: cd newgame/functions && node scripts/seedFromModelsDoc.js --doc='/mnt/smb/share/tracklimits/MODELS_9.md' --race='bahrain_2026' --source='ben_model_R18'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-081/dry-run-2026-10-01T18-20-23-019Z.log
+    log_sha256: 3d50baf700955cdc7fd07d1780ba6af3b624f5b3321910b8cb163d4186365f3b
+    lines: 6
+  - step: backup
+    at: 2026-10-01T18:20:30.650Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-081'/backup.json ben_lines/'bahrain_2026'_race ben_lines/'bahrain_2026'_qualifying ben_lines/'bahrain_2026'_sprint
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-081/backup-2026-10-01T18-20-30-650Z.log
+    log_sha256: 12c45dd7253db3c13f51ce58db470791f9520264a5895a0076a55b4dff12e351
+    lines: 3
+  - step: gates
+    at: 2026-10-01T18:20:31.476Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-01T18:20:31.477Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    command: cd newgame/functions && node scripts/seedFromModelsDoc.js --doc='/mnt/smb/share/tracklimits/MODELS_9.md' --race='bahrain_2026' --source='ben_model_R18' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-081/apply-2026-10-01T18-20-31-477Z.log
+    log_sha256: ef9a426635ac07255e6fec97cfbaf39f7e7ca0c9d6fd072e77334d52347068f6
+    lines: 9
+  - step: verify
+    at: 2026-10-01T18:20:32.399Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    command: node newgame/functions/scripts/checkBenLines.js --race='bahrain_2026' --fail-on=high
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-081/verify-2026-10-01T18-20-32-399Z.log
+    log_sha256: 7b8d7deb8ed36dd7c038629da59a9b83a3dd4ba6d01ea2aa1dc61a6e4f274c9e
+    lines: 4
+  - step: gates
+    at: 2026-10-01T18:20:34.360Z
+    head_sha: b2660328ca4231b9128bbd19234b44d5eda51bc7
+    exit: 0
+    gates:
+      G15: warn

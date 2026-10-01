@@ -35,3 +35,21 @@ waivers:
       converting between plural styles."
     by: nathan
     date: 2026-09-25
+  - gate: G07
+    finding: Watchlist mark "Grand Prix" appears in new name
+    reason: 'False positive on TEST FIXTURES, not product naming. The two
+      flagged strings are the only matches in the diff and both come from unit
+      test objects in newgame/functions/scripts/fixRaceSchedules.test.js
+      ("name: ''Bahrain Grand Prix''" at L75/76, "name: ''Singapore Grand Prix''"
+      at L101) — never shipped, never user-visible. The real race data (minified
+      seed JSON) does not even match the scanner regex, since "name":"..." has a
+      quote between name and the colon. Root cause: scanners.ts newNames has no
+      path scoping, unlike permissionDiff directly above it, which excludes
+      tests by design. Filed upstream as aidlc#9. Naming real F1 events in race
+      data is also permitted by this repo''s own trademark policy ("fine as
+      descriptive text; never in an app, feature, pack or league name"). The
+      accompanying low finding is the gate reporting it has no USPTO/EUIPO
+      credentials — "a gap, not a clearance" in its own words — and stays live
+      as a warn.'
+    by: nathan
+    date: 2026-10-01
