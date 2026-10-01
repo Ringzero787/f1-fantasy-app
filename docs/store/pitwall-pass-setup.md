@@ -82,13 +82,17 @@ No App Store Server API key is needed. The app sends a StoreKit 2 signed transac
 Amazon's verification service needs the shared secret for the developer account:
 
 1. Amazon Developer Console → **Settings** → **Shared Secret**.
-2. Put it in the function config and redeploy the functions through an operation:
+2. Put it in Secret Manager. The command prompts, so the value never reaches a shell history, a command line or a transcript:
 
 ```
-firebase functions:config:set amazon.shared_secret="<the secret>" --project f1-app-18077
+firebase functions:secrets:set AMAZON_SHARED_SECRET --project f1-app-18077
 ```
 
-It goes in the function config rather than Secret Manager on purpose. Firebase resolves every declared secret before it filters a deploy by target, so a declared secret with no value blocks **every** functions deploy on the project, which has already cost us once.
+3. Then redeploy `validatePurchase` through an operation, because a secret is bound at deploy.
+
+**Order matters.** Firebase resolves every declared secret before it filters a deploy by target, so a secret declared in code with no value in Secret Manager blocks **every** functions deploy on the project. That has cost us once already. Set the value first, deploy second.
+
+This used to live in `functions.config()` for that reason. Firebase retires that in March 2027 and has already gated its CLI commands behind an opt-in experiment, so it moved to the same `defineSecret` pattern `signInWithAmazon` uses for the other two Amazon credentials.
 
 **Test it**
 
