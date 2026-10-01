@@ -17,11 +17,20 @@ const MODES = ['open', 'iap', 'off'];
  * build, and leaving iOS on `open` while a product is in review gives the reviewer a web page
  * instead of a purchase, which fails as both an unlocatable purchase and a guideline 3.1.1 link-out.
  *
- * Android and Amazon stay `open` until their products are active and a build carrying them has
- * shipped. A platform set to `iap` before its product exists gives the buyer an error at the
- * payment sheet instead of a pass.
+ * Android sells from 2.4.0 versionCode 63. Its product is Active at USD 14.99 in 174 countries with
+ * a backwards-compatible purchase option, which is what keeps the plain product-id call the app
+ * makes working against Play's one-time product model, and the Cloud Functions runtime account holds
+ * the Play permissions that let the server verify an order.
+ *
+ * The caveat on Android is versionCode 62, which is also version 2.4.0 and has no purchase lifecycle
+ * wired up. The version gate compares versions, not version codes, so there is no way to show this to
+ * 63 and hide it from 62. Someone still on 62 gets Play's refusal at the billing call rather than a
+ * charge, because the connection `initializeIAP` opens was never opened there.
+ *
+ * Amazon stays `open` until its product is active and a build carrying it has shipped. A platform set
+ * to `iap` before its product exists gives the buyer an error at the payment sheet instead of a pass.
  */
-const DESIRED = { android: 'open', ios: 'iap', amazon: 'open' };
+const DESIRED = { android: 'iap', ios: 'iap', amazon: 'open' };
 
 const PLATFORMS = Object.keys(DESIRED);
 
