@@ -1,0 +1,47 @@
+id: OP-084
+title: Repair 2026 race schedules from seed data (R18-R24 off-by-one)
+kind: tl-script
+status: applied
+params:
+  script: fixRaceSchedules.js
+  backup: races
+created_at: 2026-09-24T15:35:45.491Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-09-24T15:35:45.684Z
+    head_sha: 9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910
+    command: node scripts/ops/run-script.js tracklimits 'fixRaceSchedules.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-026/dry-run-2026-09-24T15-35-45-684Z.log
+    log_sha256: cd8043a8e937ac2bb21dae402148eeaea7019906ca997ea69729862dba82919b
+    lines: 53
+  - step: backup
+    at: 2026-09-24T15:35:54.386Z
+    head_sha: 9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-026'/backup.json 'races'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-026/backup-2026-09-24T15-35-54-386Z.log
+    log_sha256: cda4039e7181e30a72bc46acd5e06992a426889bd65a2dec37d3270f4b543f05
+    lines: 3
+  - step: gates
+    at: 2026-09-24T15:35:55.186Z
+    head_sha: 9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-09-24T15:35:55.186Z
+    head_sha: 9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910
+    command: node scripts/ops/run-script.js tracklimits 'fixRaceSchedules.js' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-026/apply-2026-09-24T15-35-55-186Z.log
+    log_sha256: b61382e3bb2498980202dbce46c4377595a3052b1e16c9355d932f9169e9e3e9
+    lines: 53
+  - step: gates
+    at: 2026-09-24T15:35:55.872Z
+    head_sha: 9a3c27d4b8bee898ca4bce0d2bb870d5dfa24910
+    exit: 0
+    gates:
+      G15: skip
