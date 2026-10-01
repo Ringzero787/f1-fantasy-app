@@ -2,7 +2,9 @@
 // Pure plan objects only; no Firestore.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { toIso, planScheduleFix, hasChanges, isRepairable, seedRaces } = require('./fixRaceSchedules');
+const {
+  toIso, planScheduleFix, planFieldFix, hasChanges, isRepairable, seedRaces,
+} = require('./fixRaceSchedules');
 
 const ts = (iso) => ({ toDate: () => new Date(iso) });
 
@@ -67,6 +69,66 @@ test('completed races are not repairable; everything else is', () => {
   assert.equal(isRepairable({ status: 'upcoming' }), true);
   assert.equal(isRepairable({ status: 'in_progress' }), true);
   assert.equal(isRepairable({}), true);
+});
+
+test('planFieldFix syncs round and identity, nothing else', () => {
+  const db = { round: 4, name: 'Bahrain Grand Prix', circuitId: 'bahrain', country: 'Bahrain', status: 'cancelled' };
+  const seed = { round: 18, name: 'Bahrain Grand Prix', circuitId: 'sepang', country: 'Malaysia', status: 'upcoming' };
+  const out = planFieldFix(db, seed);
+  assert.equal(out.round, 18);
+  assert.equal(out.circuitId, 'sepang');
+  assert.equal(out.country, 'Malaysia');
+  // Unchanged values are not planned.
+  assert.ok(!('name' in out));
+  // Nothing outside the whitelist leaks through.
+  const sneaky = planFieldFix({ ...db, totalLaps: 57 }, { ...seed, totalLaps: 999 });
+  assert.ok(!('totalLaps' in sneaky));
+});
+
+test('planFieldFix reinstates a cancelled race but never reopens a completed one', () => {
+  // The Bahrain case: cancelled in the DB, revived in the seed.
+  assert.equal(planFieldFix({ status: 'cancelled' }, { status: 'upcoming' }).status, 'upcoming');
+  // A completed race is never downgraded, even though the static seed says "upcoming".
+  assert.equal('status' in planFieldFix({ status: 'completed' }, { status: 'upcoming' }), false);
+  // No spurious change when both agree, or when the seed still says cancelled.
+  assert.equal('status' in planFieldFix({ status: 'upcoming' }, { status: 'upcoming' }), false);
+  assert.equal('status' in planFieldFix({ status: 'cancelled' }, { status: 'cancelled' }), false);
+  // An in-progress race is not reinstated either — only `cancelled` qualifies.
+  assert.equal('status' in planFieldFix({ status: 'in_progress' }, { status: 'upcoming' }), false);
+});
+
+test('planFieldFix is empty for a matching race and safe on missing input', () => {
+  const r = { round: 19, name: 'Singapore Grand Prix', status: 'upcoming' };
+  assert.deepEqual(planFieldFix(r, r), {});
+  assert.deepEqual(planFieldFix(null, r), {});
+  assert.deepEqual(planFieldFix(r, null), {});
+});
+
+// Guards the 2026 calendar change: Bahrain reinstated at Sepang as R18, with
+// everything from Singapore onward shifted up one (Ben's numbering).
+test('the seed file carries the revised 2026 calendar', () => {
+  const races = seedRaces();
+  const by = Object.fromEntries(races.map((r) => [r.id, r]));
+  const b = by.bahrain_2026;
+  assert.equal(b.round, 18);
+  assert.equal(b.status, 'upcoming');
+  assert.equal(b.circuitId, 'sepang');
+  assert.equal(b.hasSprint, false);
+  assert.equal(toIso(b.schedule.race), '2026-10-04T07:00:00.000Z');
+  assert.equal(toIso(b.schedule.qualifying), '2026-10-03T08:00:00.000Z');
+  // Saudi was cancelled and never reinstated.
+  assert.equal(by.saudi_2026.status, 'cancelled');
+  // The shifted tail.
+  assert.equal(by.singapore_2026.round, 19);
+  assert.equal(by.usa_2026.round, 20);
+  assert.equal(by.abu_dhabi_2026.round, 25);
+  // Rounds must stay unique, or two races claim the same slot.
+  const rounds = races.map((r) => r.round);
+  assert.deepEqual(
+    rounds.filter((r, i) => rounds.indexOf(r) !== i),
+    [],
+    'duplicate round numbers in the seed file'
+  );
 });
 
 test('the bundled seed file is self-consistent and matches the real 2026 sprint calendar', () => {

@@ -56,6 +56,41 @@ function planScheduleFix(dbRace, seedRace) {
 const hasChanges = (plan) =>
   Object.keys(plan.sets).length > 0 || plan.deletes.length > 0 || plan.hasSprint !== undefined;
 
+// Static facts the seed file owns: where a race sits in the season, and its
+// identity. Deliberately a whitelist rather than a blanket sync — `status` is
+// lifecycle state the app owns, and copying it wholesale from the seed would
+// regress completed races back to "upcoming".
+const SEED_OWNED_FIELDS = [
+  'round',
+  'name',
+  'officialName',
+  'circuitId',
+  'circuitName',
+  'country',
+  'city',
+  'timezone',
+];
+
+// Field-level changes outside `schedule`. Pure.
+//
+// `status` gets exactly one allowed transition: a race the DB holds as
+// `cancelled` that the seed now lists otherwise — a reinstatement, like the
+// 2026 Bahrain GP revived and run at Sepang. A `completed` race is never
+// touched, so a settled weekend can't be reopened.
+function planFieldFix(dbRace, seedRace) {
+  const out = {};
+  if (!dbRace || !seedRace) return out;
+  for (const k of SEED_OWNED_FIELDS) {
+    const want = seedRace[k];
+    if (want === undefined) continue;
+    if (dbRace[k] !== want) out[k] = want;
+  }
+  if (dbRace.status !== 'completed' && dbRace.status === 'cancelled' && seedRace.status && seedRace.status !== 'cancelled') {
+    out.status = seedRace.status;
+  }
+  return out;
+}
+
 // Only races still to run. Completed weekends are settled history.
 const isRepairable = (dbRace) => (dbRace && dbRace.status) !== 'completed';
 
@@ -95,7 +130,8 @@ async function main() {
       continue;
     }
     const plan = planScheduleFix(data, seedRace);
-    if (!hasChanges(plan)) continue;
+    const fields = planFieldFix(data, seedRace);
+    if (!hasChanges(plan) && Object.keys(fields).length === 0) continue;
 
     changed++;
     console.log(`R${data.round} ${id} [${data.status}]`);
@@ -108,6 +144,9 @@ async function main() {
     if (plan.hasSprint !== undefined) {
       console.log(`    hasSprint: ${!!data.hasSprint} -> ${plan.hasSprint}`);
     }
+    for (const [k, v] of Object.entries(fields)) {
+      console.log(`    ${k}: ${JSON.stringify(data[k])} -> ${JSON.stringify(v)}`);
+    }
 
     const update = {};
     for (const [k, v] of Object.entries(plan.sets)) {
@@ -115,6 +154,7 @@ async function main() {
     }
     for (const k of plan.deletes) update[`schedule.${k}`] = admin.firestore.FieldValue.delete();
     if (plan.hasSprint !== undefined) update.hasSprint = plan.hasSprint;
+    Object.assign(update, fields);
     writes.push({ ref, update, id });
   }
 
@@ -141,4 +181,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { toIso, planScheduleFix, hasChanges, isRepairable, seedRaces };
+module.exports = { toIso, planScheduleFix, planFieldFix, hasChanges, isRepairable, seedRaces, SEED_OWNED_FIELDS };
