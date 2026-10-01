@@ -35,3 +35,16 @@ waivers:
       converting between plural styles."
     by: nathan
     date: 2026-09-25
+  - gate: G07
+    finding: Watchlist mark "Grand Prix" appears in new name
+    reason: 'Descriptive use, not product naming: these are race-data
+      name/officialName fields holding the real titles of actual F1 events
+      (Bahrain Grand Prix at Sepang, Singapore Grand Prix). aidlc.yaml trademark
+      policy permits exactly this — "fine as descriptive text; never in an app,
+      feature, pack or league name" — and the same form already appears in the
+      23 pre-existing race entries, which predate AIDLC adoption and so were
+      never diffed. The accompanying low finding is the gate noting it has no
+      USPTO/EUIPO credentials, which it describes itself as "a gap, not a
+      clearance", not evidence of a live mark conflict.'
+    by: nathan
+    date: 2026-10-01
