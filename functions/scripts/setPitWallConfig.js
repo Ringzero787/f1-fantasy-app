@@ -42,42 +42,57 @@ const arg = (name, fallback) => {
   return hit ? hit.slice(name.length + 3) : fallback;
 };
 
-const MODES = ['open', 'iap', 'off'];
+const { MODES, DESIRED, resolveMode, invalidPlatform, carryContainment } = require('./lib/pitwallMode');
 const MIN_APP_VERSION = '2.4.0';
 const PORTAL_URL = 'https://pitwall.humannpc.com';
 
-const defaultMode = arg('mode', 'open');
-const mode = {
-  android: arg('android', defaultMode),
-  ios: arg('ios', defaultMode),
-  amazon: arg('amazon', defaultMode),
-};
-for (const [platform, value] of Object.entries(mode)) {
-  if (!MODES.includes(value)) {
-    console.error(`mode for ${platform} must be one of ${MODES.join(', ')} (got "${value}")`);
-    process.exit(2);
-  }
+// The modes themselves, and why each platform is where it is, live in ./lib/pitwallMode so they can
+// be tested without a credential. Flags still win: --mode=X sets all three, --ios=X beats it.
+const mode = resolveMode(process.argv.slice(2), DESIRED);
+const bad = invalidPlatform(mode);
+if (bad) {
+  console.error(`mode for ${bad} must be one of ${MODES.join(', ')} (got "${mode[bad]}")`);
+  process.exit(2);
 }
 
 const list = (value) => (value ? value.split(',').map((s) => s.trim()).filter(Boolean) : []);
-const block = {
-  enabled: arg('enabled', 'true') === 'true',
-  url: PORTAL_URL,
-  minAppVersion: arg('minAppVersion', MIN_APP_VERSION),
-  mode,
-  beta: { uids: list(arg('beta', '')), leagueIds: list(arg('betaLeagues', '')) },
-  profileRow: { label: 'PIT WALL', free: 'Open', pass: 'Pass' },
-  surfaces: { profile: true },
+const given = (name) => process.argv.some((a) => a.startsWith(`--${name}=`));
+
+/**
+ * The block to write, given what is live now.
+ *
+ * `enabled` and `beta` are containment controls: one hides Pit Wall everywhere, the other limits it
+ * to named accounts. Someone reaches for them when something is wrong, and the usual run of this
+ * script passes no flags at all, so they are carried over from the live document unless a flag says
+ * otherwise. Rebuilding them from defaults would have quietly re-opened the surface and cleared the
+ * allowlist every time anyone changed a mode.
+ */
+const blockFor = (current = {}) => {
+  const held = carryContainment(current, process.argv.slice(2));
+  return {
+    enabled: held.enabled,
+    url: PORTAL_URL,
+    minAppVersion: arg('minAppVersion', MIN_APP_VERSION),
+    mode,
+    beta: held.beta,
+    profileRow: { label: 'PIT WALL', free: 'Open', pass: 'Pass' },
+    surfaces: { profile: true },
+  };
 };
 
 async function main() {
   const ref = db.doc('config/app');
   const snap = await ref.get();
   const current = snap.exists ? snap.data().pitwall : undefined;
+  const block = blockFor(current ?? {});
 
   console.log(`config/app ${snap.exists ? 'exists' : 'does not exist yet'}`);
   console.log('current pitwall block:', current ? JSON.stringify(current, null, 2) : '(none)');
   console.log('would write:', JSON.stringify(block, null, 2));
+  if (!given('enabled') && current?.enabled === false) console.log('NOTE: carrying over enabled:false from the live document.');
+  if (!given('beta') && !given('betaLeagues') && (current?.beta?.uids?.length || current?.beta?.leagueIds?.length)) {
+    console.log('NOTE: carrying over the live beta allowlist. Pass --beta= to clear it.');
+  }
 
   if (block.mode.ios === 'iap' || block.mode.android === 'iap' || block.mode.amazon === 'iap') {
     console.log('\nNOTE: a platform is set to iap. The pitwall.pass.season product must already be');
