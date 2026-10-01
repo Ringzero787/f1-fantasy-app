@@ -14,7 +14,7 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { KNOWN_PRODUCTS, isPlayToken, isKnownProduct } = require('../lib/purchases/productGuards');
+const { KNOWN_PRODUCTS, isPlayToken, isKnownProduct, isAmazonReceiptId } = require('../lib/purchases/productGuards');
 
 test('a token carrying a path is refused', () => {
   assert.equal(isPlayToken('../../avatar.pack/tokens/abc123'), false);
@@ -57,4 +57,24 @@ test('encoding a token that somehow got through still cannot escape its segment'
   // Belt and braces: the allowlist is the real guard, this is what the URL builder does on top.
   assert.equal(encodeURIComponent('../../avatar.pack/tokens/x'), '..%2F..%2Favatar.pack%2Ftokens%2Fx');
   assert.ok(!encodeURIComponent('../../avatar.pack/tokens/x').includes('/'));
+});
+
+test('an Amazon receipt id is base64 and must not be held to the Play shape', () => {
+  // The Play guard was quietly inherited by the Amazon branch, which would have refused every
+  // Amazon purchase the moment that store went live: base64 carries +, / and = that a Play token
+  // never does.
+  const real = 'q1YqVrJSslJKtbQ0NTQyMTC0NDA3MDM1MjBSTUxJMTNMSTMzMDMzN0u2NEo0NjJKNrVIMjQwMEu1NDIzNUlLSjQxTEo1NDRJNTYwMDMxNEpONA==';
+  assert.equal(isPlayToken(real), false, 'the Play shape rejects it, which is the bug');
+  assert.equal(isAmazonReceiptId(real), true);
+  assert.equal(isAmazonReceiptId('abc+def/ghi=='), true);
+  assert.equal(isAmazonReceiptId('a:b-c_d.e~f'), true);
+});
+
+test('an Amazon receipt id is still bounded and cannot be a path or empty', () => {
+  assert.equal(isAmazonReceiptId(''), false);
+  assert.equal(isAmazonReceiptId('a'.repeat(2001)), false);
+  assert.equal(isAmazonReceiptId('../../x'), false);
+  assert.equal(isAmazonReceiptId('a b'), false);
+  assert.equal(isAmazonReceiptId(null), false);
+  assert.equal(isAmazonReceiptId(42), false);
 });
