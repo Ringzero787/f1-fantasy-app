@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { GoogleAuth } from 'google-auth-library';
+import { defineSecret } from 'firebase-functions/params';
 import { warnIfNoAppCheck } from '../utils/appCheck';
 import { verifyAppleTransaction } from './appleTransaction';
 import { PASS_PRODUCT, currentSeason } from '../pitwall/pass';
@@ -9,6 +10,32 @@ import { isAmazonReceiptId, isKnownProduct, isPlayToken } from './productGuards'
 import { createHash } from 'crypto';
 
 const db = admin.firestore();
+
+/**
+ * Amazon's receipt verification service needs the developer account's shared secret.
+ *
+ * It lived in `functions.config()`, which Firebase retires in March 2027 and whose CLI commands are
+ * already gated behind an opt-in experiment. This is the pattern the rest of this codebase already
+ * uses — see signInWithAmazon, which holds the other two Amazon credentials the same way.
+ *
+ * The landmine the old choice was avoiding is real but narrower than it looked: Firebase resolves
+ * every declared secret before it filters a deploy by target, so a secret declared here with no
+ * value in Secret Manager blocks EVERY functions deploy on the project, not just this one. Set the
+ * value first, then deploy:
+ *
+ *   firebase functions:secrets:set AMAZON_SHARED_SECRET --project f1-app-18077
+ */
+const amazonSharedSecret = defineSecret('AMAZON_SHARED_SECRET');
+
+/**
+ * Apple's legacy verifyReceipt endpoint needs the app's shared secret. StoreKit 2, which every
+ * build from 2.4.0 uses, sends a signed transaction that is verified against Apple's root instead
+ * and needs no secret at all — but an older build still reaches verifyAppleReceipt, and that path
+ * was reading the same retired config as Amazon's. With config empty it answered "not configured"
+ * every time, so the fallback could never have worked. APPLE_SHARED_SECRET was already in Secret
+ * Manager; only the code was still looking in the old place.
+ */
+const appleSharedSecret = defineSecret('APPLE_SHARED_SECRET');
 
 // The Play package the purchase token belongs to. This was 'com.f1fantasy.app'
 // (a pre-launch id), which made every Google Play verification fail.
@@ -24,8 +51,8 @@ const PACKAGE_NAME = PLAY_PACKAGE_NAME;
 async function verifyAppleReceipt(
   receiptData: string,
   productId: string
-): Promise<{ valid: boolean; transactionId?: string; error?: string }> {
-  const sharedSecret = functions.config().apple?.shared_secret;
+): Promise<{ valid: boolean; transactionId?: string; environment?: string | null; error?: string }> {
+  const sharedSecret = appleSharedSecret.value();
   if (!sharedSecret) {
     return { valid: false, error: 'Apple shared secret not configured' };
   }
@@ -56,8 +83,14 @@ async function verifyAppleReceipt(
       return { valid: false, error: `Apple verification failed (status: ${result.status})` };
     }
 
-    // Find matching in-app purchase in the receipt
+    // The receipt says which app it belongs to, and this endpoint will happily verify a receipt
+    // from any app sharing the secret. verifyAppleTransaction checks this on the StoreKit 2 path;
+    // this one never did, because it could never run at all.
     const receipt = result.receipt as Record<string, unknown> | undefined;
+    if (receipt?.bundle_id !== IOS_BUNDLE_ID) {
+      return { valid: false, error: `Receipt is for ${String(receipt?.bundle_id)}, not ${IOS_BUNDLE_ID}` };
+    }
+
     const inApp = (receipt?.in_app as Array<Record<string, unknown>>) || [];
     const match = inApp.find((item) => item.product_id === productId);
 
@@ -65,7 +98,10 @@ async function verifyAppleReceipt(
       return { valid: false, error: `Product ${productId} not found in receipt` };
     }
 
-    return { valid: true, transactionId: match.transaction_id as string };
+    // Carried so a pass granted from a sandbox purchase can be found and revoked later, which is
+    // the whole point of recording it on the StoreKit 2 path.
+    const env = typeof result.environment === 'string' ? result.environment : null;
+    return { valid: true, transactionId: match.transaction_id as string, environment: env };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('Apple receipt verification failed:', message);
@@ -122,16 +158,20 @@ async function verifyGooglePlayPurchase(
  *
  * Amazon needs three things: the shared secret from the developer console, the receipt id (which
  * the client sends as the purchase token) and the Amazon user id, which is per app and per user
- * and is only available from the purchase itself. The secret lives in the function config beside
- * Apple's, deliberately not as a declared secret: firebase resolves every declared secret before
- * it filters a deploy by target, so one missing value would block every functions deploy.
+ * and is only available from the purchase itself.
+ *
+ * The secret is a declared secret, set with `firebase functions:secrets:set AMAZON_SHARED_SECRET`.
+ * Rotate it there and redeploy; putting a new value in the old function config would leave this
+ * reading the stale one and deny every Amazon purchase. Set the value before deploying a change
+ * that declares it, because firebase resolves every declared secret before it filters a deploy by
+ * target, so one missing value blocks every functions deploy on the project.
  */
 async function verifyAmazonReceipt(
   receiptId: string,
   amazonUserId: string,
   productId: string
 ): Promise<{ valid: boolean; error?: string }> {
-  const sharedSecret = functions.config().amazon?.shared_secret;
+  const sharedSecret = amazonSharedSecret.value();
   if (!sharedSecret) return { valid: false, error: 'Amazon shared secret not configured' };
   try {
     const url = `https://appstore-sdk.amazon.com/version/1.0/verifyReceiptId/developer/${encodeURIComponent(sharedSecret)}/user/${encodeURIComponent(amazonUserId)}/receiptId/${encodeURIComponent(receiptId)}`;
@@ -154,7 +194,7 @@ async function verifyAmazonReceipt(
  * Idempotent: duplicate purchaseTokens are rejected gracefully.
  * Validates purchase tokens against Google Play (skipped for demo tokens).
  */
-export const validatePurchase = functions.https.onCall(async (data, context) => {
+export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret, appleSharedSecret] }).https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
@@ -228,7 +268,10 @@ export const validatePurchase = functions.https.onCall(async (data, context) => 
       if (verification.transaction.environment) environment = verification.transaction.environment;
       storeTransactionId = String(verification.transaction.transactionId ?? '');
     } else {
-      // Legacy receipt path: verifyAppleReceipt returns the transaction id it found in the receipt.
+      // Legacy receipt path: verifyAppleReceipt returns the transaction id it found in the receipt,
+      // and now the environment with it, so a sandbox purchase through this path is marked the same
+      // way as one through StoreKit 2 rather than being indistinguishable from a sale.
+      if (verification.environment) environment = verification.environment;
       storeTransactionId = String(verification.transactionId ?? '');
     }
     if (!storeTransactionId) {
