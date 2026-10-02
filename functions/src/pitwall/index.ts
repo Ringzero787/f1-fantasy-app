@@ -141,3 +141,6 @@ export const onUserPassWritten = onDocumentWritten({ document: 'users/{uid}', re
   if (JSON.stringify(before ?? null) === JSON.stringify(after ?? null)) return;
   await stampClaim(event.params.uid, after ?? null);
 });
+
+// Deployed as pw-sweepRefundedPasses, inside the group, so `--only functions:pw` reaches it.
+export { sweepRefundedPasses } from './refundSweep';

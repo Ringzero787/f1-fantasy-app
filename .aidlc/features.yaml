@@ -930,3 +930,13 @@ features:
       - league
       - standings
       - text
+  - id: F-085
+    name: "UC: Revoke a pass when the store refunds it"
+    status: planned
+    spec: .aidlc/specs/F-085.md
+    created_at: 2026-10-02
+    keywords:
+      - refund
+      - revoke
+      - pass
+      - store
