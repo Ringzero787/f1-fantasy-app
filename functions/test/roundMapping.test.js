@@ -30,6 +30,16 @@ const { ROUND_TO_RACE_ID, SPRINT_ROUNDS } = require('../lib/ingestion/config.js'
 // the app that only reads it.
 const FIXTURE = path.join(__dirname, 'fixtures', 'races2026.json');
 
+// `status: 'cancelled'` makes the calendar checks below skip a race, so the
+// field is an off switch for half this guard: marking a live race cancelled and
+// dropping its mapping would otherwise pass green, with that round's OpenF1
+// data silently discarded — the 2026-10-01 failure exactly. Pin the cancelled
+// set here so retiring a round takes a deliberate edit to this line.
+// Round 4 (Bahrain at Sakhir) is absent from the calendar rather than listed as
+// cancelled, which is why only round 5 appears.
+const CANCELLED_ROUNDS = [5];
+const asc = (a, b) => a - b;
+
 function seedRaces() {
   assert.ok(
     fs.existsSync(FIXTURE),
@@ -44,7 +54,24 @@ function seedRaces() {
   for (const r of races) {
     assert.equal(typeof r.id, 'string', `a fixture race has no id: ${JSON.stringify(r)}`);
     assert.equal(typeof r.round, 'number', `${r.id} has no round number`);
+    assert.ok(
+      r.status === 'upcoming' || r.status === 'cancelled',
+      `${r.id} has an unexpected status: ${JSON.stringify(r.status)}`
+    );
   }
+  // Rounds are the key every check below looks races up by, and a Map keeps the
+  // last writer — a duplicated round would hide a race rather than fail.
+  const rounds = races.map((r) => r.round);
+  assert.equal(
+    new Set(rounds).size,
+    rounds.length,
+    'the fixture lists a round twice; one of those races would be silently ignored'
+  );
+  assert.deepEqual(
+    races.filter((r) => r.status === 'cancelled').map((r) => r.round).sort(asc),
+    [...CANCELLED_ROUNDS].sort(asc),
+    'the set of cancelled rounds changed — if that is real, update CANCELLED_ROUNDS and ROUND_TO_RACE_ID together'
+  );
   return races;
 }
 
@@ -78,6 +105,15 @@ test('ROUND_TO_RACE_ID agrees with the seeded race calendar', () => {
   const races = seedRaces();
   const byRound = new Map();
   for (const r of races) byRound.set(r.round, r);
+
+  // Set equality first, both directions at once. The per-race loops below each
+  // iterate a collection that the other side could have shrunk; comparing the
+  // two round sets outright means neither can go quiet by losing entries.
+  assert.deepEqual(
+    Object.keys(ROUND_TO_RACE_ID).map(Number).sort(asc),
+    races.filter((r) => r.status !== 'cancelled').map((r) => r.round).sort(asc),
+    'the mapped rounds and the live calendar rounds are not the same set'
+  );
 
   for (const [roundStr, raceId] of Object.entries(ROUND_TO_RACE_ID)) {
     const round = Number(roundStr);
