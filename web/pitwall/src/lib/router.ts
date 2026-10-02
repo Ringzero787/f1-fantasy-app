@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 
-export const PAGES = ['BRIEFING', 'BOARD', 'CIRCUIT', 'PACE LAB', 'MARKET', 'LINEUP LAB', 'SEASON', 'WIRE'] as const;
+/**
+ * Tab order, and it is a product decision rather than a list.
+ *
+ * The tab strip scrolls horizontally on a phone, so anything past about the fourth tab is off the
+ * edge and effectively does not exist. LINEUP LAB was sixth. It is the page that answers "what do I
+ * change to score more", which is the thing somebody just paid for, so it sits second — first is
+ * the briefing they land on, and the lab is one tap from it on any screen.
+ */
+export const PAGES = ['BRIEFING', 'LINEUP LAB', 'BOARD', 'CIRCUIT', 'PACE LAB', 'MARKET', 'SEASON', 'WIRE'] as const;
 export type PageName = (typeof PAGES)[number];
 
 const slug = (p: PageName) => p.toLowerCase().replace(/ /g, '-');
