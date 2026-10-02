@@ -1,0 +1,38 @@
+id: OP-093
+title: "F-086: per-race reminder dedupe (stop notification spam)"
+kind: tl-functions-deploy
+status: applied
+params:
+  only: functions:tracklimits:tlNotifyMissingPicks
+created_at: 2026-10-02T13:53:19.826Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T13:53:20.118Z
+    head_sha: 1206105f6cc95153d0605ab1c2361e61b6b2c200
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- newgame/functions/src newgame/functions/package.json newgame/firebase.json && npm --prefix newgame/functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-093/dry-run-2026-10-02T13-53-20-118Z.log
+    log_sha256: 72827ba2bfb8715e43c9c434d1c84386d619ee63eed5051ba7aa21b5bb06e906
+    lines: 31
+  - step: gates
+    at: 2026-10-02T13:53:33.066Z
+    head_sha: 1206105f6cc95153d0605ab1c2361e61b6b2c200
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-02T13:53:33.085Z
+    head_sha: 1206105f6cc95153d0605ab1c2361e61b6b2c200
+    command: npm --prefix newgame/functions run build && cd newgame && bash ../scripts/ops/firebase-deploy.sh --only 'functions:tracklimits:tlNotifyMissingPicks' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-093/apply-2026-10-02T13-53-33-085Z.log
+    log_sha256: 3afcd7a5f620778145193a602e5e05d07ad6ea0c1579d0dd9d10b13555665a19
+    lines: 31
+  - step: gates
+    at: 2026-10-02T13:55:27.355Z
+    head_sha: 1206105f6cc95153d0605ab1c2361e61b6b2c200
+    exit: 0
+    gates:
+      G15: skip

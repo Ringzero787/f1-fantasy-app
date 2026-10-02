@@ -1,0 +1,52 @@
+id: OP-092
+title: "F-086: round mapping fix to ingestion (before Bahrain quali)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:syncRaceSchedules,functions:checkQualifyingResults,functions:checkSprintResults,functions:monitorScheduleChanges
+created_at: 2026-10-02T13:50:10.822Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T13:50:11.175Z
+    head_sha: 1206105f6cc95153d0605ab1c2361e61b6b2c200
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-092/dry-run-2026-10-02T13-50-11-175Z.log
+    log_sha256: 73c22e0d3bd4c21a06846025e1e15759154a1dbca0bbaf4a6ec3d9e22839c8cd
+    lines: 52
+  - step: gates
+    at: 2026-10-02T13:50:25.018Z
+    head_sha: f6cab1d8b01169f34c64636e1e5eacaa196bcd61
+    exit: 1
+    gates:
+      G14: fail
+  - step: dry-run
+    at: 2026-10-02T13:51:18.073Z
+    head_sha: 1206105f6cc95153d0605ab1c2361e61b6b2c200
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-092/dry-run-2026-10-02T13-51-18-073Z.log
+    log_sha256: 73c22e0d3bd4c21a06846025e1e15759154a1dbca0bbaf4a6ec3d9e22839c8cd
+    lines: 52
+  - step: gates
+    at: 2026-10-02T13:51:30.254Z
+    head_sha: 1206105f6cc95153d0605ab1c2361e61b6b2c200
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-02T13:51:30.267Z
+    head_sha: 1206105f6cc95153d0605ab1c2361e61b6b2c200
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:syncRaceSchedules,functions:checkQualifyingResults,functions:checkSprintResults,functions:monitorScheduleChanges' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-092/apply-2026-10-02T13-51-30-267Z.log
+    log_sha256: 6aa7c1672508014a9680e6f06c730a3cd2528a4717161f86731fca53d040c842
+    lines: 41
+  - step: gates
+    at: 2026-10-02T13:53:05.796Z
+    head_sha: 1206105f6cc95153d0605ab1c2361e61b6b2c200
+    exit: 0
+    gates:
+      G15: skip
