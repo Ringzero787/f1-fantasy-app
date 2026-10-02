@@ -99,7 +99,7 @@ const team = (): FantasyTeam =>
       { driverId: 'norris', name: 'norris', constructorId: 'mclaren', purchasePrice: 200, currentPrice: 200, pointsScored: 0, racesHeld: 1, contractLength: 3, addedAtRace: 1 },
       { driverId: 'hadjar', name: 'hadjar', constructorId: 'rb', purchasePrice: 100, currentPrice: 100, pointsScored: 0, racesHeld: 1, contractLength: 3, addedAtRace: 1 },
     ],
-    constructor: null,
+    constructor: { constructorId: 'audi', name: 'Audi', purchasePrice: 150, currentPrice: 150, pointsScored: 0, racesHeld: 1, contractLength: 3 },
     budget: 700,
     totalSpent: 300,
     totalPoints: 0,
@@ -139,6 +139,29 @@ test('the Ace is still changeable before that race starts', async () => {
 
   expect(useTeamStore.getState().error).not.toBe('Ace selection is locked during race weekends');
   expect(useTeamStore.getState().currentTeam?.aceDriverId).toBe('hadjar');
+});
+
+// setAceConstructor carries its own copy of the same guard, on the same live
+// weekend. Without these two it was possible to revert just that one call site
+// to demoRaces and have the whole suite stay green.
+test('the constructor Ace is locked once the server calendar says the race has started', async () => {
+  races = [bahrainAtSepang('upcoming'), singapore];
+  jest.setSystemTime(new Date('2026-10-04T10:30:00Z'));
+
+  await useTeamStore.getState().setAceConstructor('audi');
+
+  expect(useTeamStore.getState().error).toBe('Ace selection is locked during race weekends');
+  expect(useTeamStore.getState().currentTeam?.aceConstructorId).toBeUndefined();
+});
+
+test('the constructor Ace is still changeable before that race starts', async () => {
+  races = [bahrainAtSepang('upcoming'), singapore];
+  jest.setSystemTime(new Date('2026-10-01T09:00:00Z'));
+
+  await useTeamStore.getState().setAceConstructor('audi');
+
+  expect(useTeamStore.getState().error).not.toBe('Ace selection is locked during race weekends');
+  expect(useTeamStore.getState().currentTeam?.aceConstructorId).toBe('audi');
 });
 
 test('a race the server marks cancelled is skipped, and the next one governs', async () => {

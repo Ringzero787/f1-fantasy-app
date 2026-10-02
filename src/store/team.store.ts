@@ -65,14 +65,18 @@ const buildRaceRoundLookup = (): Record<string, number> => {
   return lookup;
 };
 
-const calculateTeamPointsFromRaces = (team: FantasyTeam): {
+// `lookup` is optional so a caller scoring several teams can build it once and
+// pass it in. That is not just to save work: the calendar lives in a mutable
+// store, so a fetch landing mid-loop would otherwise score some teams against
+// the old calendar and the rest against the new one.
+const calculateTeamPointsFromRaces = (team: FantasyTeam, lookup?: Record<string, number>): {
   totalPoints: number;
   driverPoints: Record<string, number>;
   constructorPoints: number;
   perRacePoints: { round: number; points: number }[];
 } => {
   const { raceResults } = useAdminStore.getState();
-  const raceRoundLookup = buildRaceRoundLookup();
+  const raceRoundLookup = lookup ?? buildRaceRoundLookup();
   let totalPoints = 0;
   const driverPoints: Record<string, number> = {};
   let constructorPoints = 0;
@@ -1811,8 +1815,12 @@ export const useTeamStore = create<TeamState>()(
 
     const perRaceCache = new Map<string, { round: number; points: number }[]>();
 
+    // One calendar for the whole batch, so every team is scored against the
+    // same rounds even if a remote-config fetch lands while this runs.
+    const batchRaceRounds = buildRaceRoundLookup();
+
     const updatedUserTeams = userTeams.map(team => {
-      const { totalPoints, driverPoints, constructorPoints, perRacePoints } = calculateTeamPointsFromRaces(team);
+      const { totalPoints, driverPoints, constructorPoints, perRacePoints } = calculateTeamPointsFromRaces(team, batchRaceRounds);
 
       // Cache per-race points so we don't recompute for league race-wins
       perRaceCache.set(team.id, perRacePoints);
