@@ -6,7 +6,6 @@ import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
 import { AuthShell, AuthError, GridSocialButtons } from '../../src/simple/grid/GridAuthBits';
-import { isAmazonBuild } from '../../src/utils/storeDetection';
 import { amazonSignIn } from '../../src/utils/amazonSignIn';
 import { functions } from '../../src/config/firebase';
 
@@ -58,7 +57,9 @@ export default function LoginScreen() {
         <GridSocialButtons
           onGoogleSignIn={handleGoogleSignIn}
           onAppleSignIn={handleAppleSignIn}
-          onAmazonSignIn={isAmazonBuild ? handleAmazonSignIn : undefined}
+          /* Login with Amazon is a browser flow, so every build can offer it — which is how an
+             account created on a Fire tablet opens on a phone (F-091). */
+          onAmazonSignIn={handleAmazonSignIn}
           disabled={isLoading}
         />
         <Text style={[mono(10, 'medium'), { color: colors.text.muted, textAlign: 'center', marginTop: 8 }]}>{t('auth.signIn.noPasswords')}</Text>

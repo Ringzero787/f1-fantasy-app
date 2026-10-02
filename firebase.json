@@ -32,8 +32,14 @@
     "cleanUrls": true,
     "ignore": [
       "firebase.json",
-      "**/.*",
       "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "comment": "Apple's return URL for Sign in with Apple on the Play and Amazon builds (F-091). Apple POSTs the identity token to a registered https URL, and requires that URL's domain to be verified by a file under /.well-known — which cloudfunctions.net cannot serve and Hosting can. Note the `ignore` list above no longer excludes dotted paths, so public/.well-known/ is published.",
+        "source": "/undercut/auth/apple",
+        "function": { "functionId": "appleAuthRedirect", "region": "us-central1" }
+      }
     ],
     "headers": [
       {

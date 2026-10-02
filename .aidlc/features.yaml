@@ -1,4 +1,4 @@
-next_id: 88
+next_id: 92
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -934,12 +934,10 @@ features:
     name: "UC: Amazon receipt ids get their own shape"
     status: building
     created_at: 2026-10-01
-    summary: >-
-      Registered retroactively on 2026-10-02 only to reserve the id, which was
-      taken from branch names without `aidlc feature add` — next_id would
-      otherwise have handed F-084 out again. The name here is from the one
-      merged PR (#112); unmerged branches also claim F-084 for Pit Wall driver
-      detail, so its owner should confirm the scope and add a spec.
+    summary: Registered retroactively on 2026-10-02 only to reserve the id, which was taken from branch names without `aidlc
+      feature add` — next_id would otherwise have handed F-084 out again. The name here is from the one merged PR
+      (#112); unmerged branches also claim F-084 for Pit Wall driver detail, so its owner should confirm the scope and
+      add a spec.
     prs:
       - 112
     keywords:
@@ -962,13 +960,10 @@ features:
     spec: .aidlc/specs/F-086.md
     created_at: 2026-10-02
     shipped_at: 2026-10-02
-    summary: >-
-      F-076 renumbered the season tail but left the static ROUND_TO_RACE_ID
-      table behind, so Bahrain's session times were written onto Singapore's
-      race document. Two races then sat inside Track Limits' 24h reminder
-      window, where a single-slot reminder stamp could not dedupe either —
-      1,273 notifications, about 28 per player. Registered retroactively: the
-      id was taken from a branch name during the incident.
+    summary: "F-076 renumbered the season tail but left the static ROUND_TO_RACE_ID table behind, so Bahrain's session times
+      were written onto Singapore's race document. Two races then sat inside Track Limits' 24h reminder window, where a
+      single-slot reminder stamp could not dedupe either — 1,273 notifications, about 28 per player. Registered
+      retroactively: the id was taken from a branch name during the incident."
     prs:
       - 119
       - 122
@@ -1001,3 +996,30 @@ features:
       - wall
       - driver
       - detail
+  - id: F-090
+    name: "UC: the Amazon build survives R8"
+    status: shipped
+    spec: .aidlc/specs/F-090.md
+    created_at: 2026-10-02
+    summary: >-
+      Registered retroactively on 2026-10-02. The id was taken from the branch name
+      (fix/F-090-amazon-r8-keep-rules) without `aidlc feature add`, which the spec gate caught on PR
+      132 — the same drift the F-084 note above records. F-089 was never claimed and is left unused
+      rather than handed out again.
+    prs:
+      - 132
+    keywords:
+      - amazon
+      - r8
+      - proguard
+      - launch
+      - crash
+  - id: F-091
+    name: "UC: cross-store sign-in"
+    status: building
+    spec: .aidlc/specs/F-091.md
+    created_at: 2026-10-02
+    keywords:
+      - cross
+      - store
+      - sign
