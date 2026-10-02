@@ -27,10 +27,15 @@ const MODES = ['open', 'iap', 'off'];
  * 63 and hide it from 62. Someone still on 62 gets Play's refusal at the billing call rather than a
  * charge, because the connection `initializeIAP` opens was never opened there.
  *
- * Amazon stays `open` until its product is active and a build carrying it has shipped. A platform set
- * to `iap` before its product exists gives the buyer an error at the payment sheet instead of a pass.
+ * Amazon sells from 2.4.0 versionCode 63, the first Amazon build to carry the purchase lifecycle.
+ * Its consumable and that build went to review together, which is how Amazon wants it, and
+ * AMAZON_SHARED_SECRET is in Secret Manager with validatePurchase deployed since.
+ *
+ * Amazon avoids the version-code trap Android has. Every earlier Amazon build is below the 2.4.0
+ * version gate, so none of them can see the surface at all, let alone offer a purchase they cannot
+ * complete. There is no equivalent of Play's versionCode 62 here.
  */
-const DESIRED = { android: 'iap', ios: 'iap', amazon: 'open' };
+const DESIRED = { android: 'iap', ios: 'iap', amazon: 'iap' };
 
 const PLATFORMS = Object.keys(DESIRED);
 

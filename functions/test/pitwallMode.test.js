@@ -11,14 +11,11 @@ const assert = require('node:assert/strict');
 const { DESIRED, PLATFORMS, resolveMode, invalidPlatform, carryContainment, invalidEnabled, unknownFlag, modeChanges } = require('../scripts/lib/pitwallMode');
 
 test('with no flags, the committed production state is what gets written', () => {
-  assert.deepEqual(resolveMode([]), { android: 'iap', ios: 'iap', amazon: 'open' });
+  assert.deepEqual(resolveMode([]), { android: 'iap', ios: 'iap', amazon: 'iap' });
 });
 
-test('iOS and Android sell in-app, Amazon does not: the decision this file records', () => {
-  assert.equal(DESIRED.ios, 'iap');
-  assert.equal(DESIRED.android, 'iap');
-  // Amazon has no store product yet, and `iap` without one is an error at the payment sheet.
-  assert.equal(DESIRED.amazon, 'open');
+test('all three stores sell in-app: the decision this file records', () => {
+  for (const p of PLATFORMS) assert.equal(DESIRED[p], 'iap', `${p} should sell in-app`);
 });
 
 test('--mode=off still turns every platform off: this is the kill switch', () => {
@@ -28,11 +25,12 @@ test('--mode=off still turns every platform off: this is the kill switch', () =>
 test('--mode sets all three, and a per-platform flag beats it', () => {
   assert.deepEqual(resolveMode(['--mode=iap']), { android: 'iap', ios: 'iap', amazon: 'iap' });
   assert.deepEqual(resolveMode(['--mode=iap', '--amazon=off']), { android: 'iap', ios: 'iap', amazon: 'off' });
+  assert.deepEqual(resolveMode(['--mode=off']), { android: 'off', ios: 'off', amazon: 'off' });
 });
 
 test('a per-platform flag beats the desired state without disturbing the others', () => {
-  assert.deepEqual(resolveMode(['--ios=open']), { android: 'iap', ios: 'open', amazon: 'open' });
-  assert.deepEqual(resolveMode(['--android=off']), { android: 'off', ios: 'iap', amazon: 'open' });
+  assert.deepEqual(resolveMode(['--ios=open']), { android: 'iap', ios: 'open', amazon: 'iap' });
+  assert.deepEqual(resolveMode(['--android=off']), { android: 'off', ios: 'iap', amazon: 'iap' });
 });
 
 test('an empty --mode= is rejected rather than falling through to the desired state', () => {
@@ -107,6 +105,7 @@ test('a null or malformed live document does not throw', () => {
 });
 
 test('a mode the run reverts is reported, because modes are asserted and not carried', () => {
+  // This fixture is its own, not the production state: it exists to show a revert being reported.
   const live = { mode: { android: 'open', ios: 'off', amazon: 'open' } };
   assert.deepEqual(modeChanges(live, { android: 'open', ios: 'iap', amazon: 'open' }), [{ platform: 'ios', from: 'off', to: 'iap' }]);
   assert.deepEqual(modeChanges(live, { android: 'open', ios: 'off', amazon: 'open' }), []);
@@ -116,7 +115,7 @@ test('a mode the run reverts is reported, because modes are asserted and not car
 test('a platform the live document turned off stays off through a flagless run', () => {
   // `off` is a containment control like enabled and the allowlists. Asserting DESIRED over it would
   // mean a routine run for another platform silently re-opened a paid surface someone shut down.
-  const live = { mode: { android: 'open', ios: 'off', amazon: 'open' } };
+  const live = { mode: { android: 'open', ios: 'off', amazon: 'iap' } };
   assert.equal(resolveMode([], DESIRED, live).ios, 'off');
   assert.equal(resolveMode(['--android=iap'], DESIRED, live).ios, 'off');
   // and for Android too, which is the platform now carrying a purchase and so the one most likely
@@ -127,7 +126,7 @@ test('a platform the live document turned off stays off through a flagless run',
 });
 
 test('turning a killed platform back on is deliberate', () => {
-  const live = { mode: { android: 'open', ios: 'off', amazon: 'open' } };
+  const live = { mode: { android: 'open', ios: 'off', amazon: 'iap' } };
   assert.equal(resolveMode(['--ios=iap'], DESIRED, live).ios, 'iap');
   assert.equal(resolveMode(['--mode=open'], DESIRED, live).ios, 'open');
 });
