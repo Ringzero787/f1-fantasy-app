@@ -52,6 +52,21 @@ jest.mock('../../src/store/admin.store', () => ({
     }),
   },
 }));
+// team.store reads the race calendar from here rather than from bundled
+// demoData, so this mock stands in for it. Mocked rather than left real because
+// the store reaches firebase config through its service, which will not load
+// under jest — the same reason auth.store and admin.store are mocked above.
+jest.mock('../../src/store/remoteConfig.store', () => ({
+  useRemoteConfigStore: {
+    getState: () => ({
+      races: [
+        { id: 'australia_2026', round: 1, status: 'upcoming' },
+        { id: 'bahrain_2026', round: 18, status: 'upcoming' },
+        { id: 'singapore_2026', round: 19, status: 'upcoming' },
+      ],
+    }),
+  },
+}));
 
 import { useTeamStore } from '../../src/store/team.store';
 
