@@ -28,7 +28,26 @@ describe('planLineup', () => {
     expect(plan.budgetAfter).toBe(100);
     expect(plan.complete).toBe(false);
     expect(plan.missingDrivers).toBe(3);
-    expect(saveLabel(plan, false)).toEqual({ label: 'PICK 3 MORE', ready: false });
+    expect(saveLabel(plan, false)).toEqual({ label: 'PICK 3 DRIVERS', ready: false });
+  });
+  it('names the kind that is missing, and does not count a constructor as a driver', () => {
+    // The regression: five drivers, no constructor used to read `PICK 1 MORE`, which a player reads
+    // as one more driver — and the driver list is full, so there is nothing there to pick.
+    const full = {
+      budget: 1000,
+      drivers: ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, name: id, currentPrice: 1 })),
+      constructor: null,
+    };
+    const noCtor = planLineup(full, pendingFromCurrent(full), market, opts);
+    expect(noCtor.missingDrivers).toBe(0);
+    expect(noCtor.missingConstructor).toBe(true);
+    expect(saveLabel(noCtor, false)).toEqual({ label: 'PICK A CONSTRUCTOR', ready: false });
+
+    // One driver short reads as a driver, singular, whether or not the constructor is also missing.
+    const four = { ...full, drivers: full.drivers.slice(0, 4), constructor: { id: 'apex', name: 'Apex Motorsport', currentPrice: 200 } };
+    expect(saveLabel(planLineup(four, pendingFromCurrent(four), market, opts), false)).toEqual({ label: 'PICK 1 DRIVER', ready: false });
+    const fourNoCtor = { ...full, drivers: full.drivers.slice(0, 4) };
+    expect(saveLabel(planLineup(fourNoCtor, pendingFromCurrent(fourNoCtor), market, opts), false)).toEqual({ label: 'PICK 1 DRIVER', ready: false });
   });
   it('sells with the early-termination fee and buys with the chosen contract', () => {
     const pending = { driverIds: ['lindqvist', 'marchetti'], constructorId: 'apex', contracts: { marchetti: 5 } };

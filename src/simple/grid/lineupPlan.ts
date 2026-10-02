@@ -124,13 +124,23 @@ export function constructorSwapBudget(plan: LineupPlan, current: CurrentLineup, 
   return plan.budgetAfter + (market[pending.constructorId]?.price ?? 0);
 }
 
-/** Save-button label per TRANSITION.md §4. */
+/**
+ * Save-button label per TRANSITION.md §4.
+ *
+ * It names what is missing rather than counting it. The first version added the missing drivers and
+ * the missing constructor together and said `PICK 1 MORE`, so a player holding five drivers and no
+ * constructor was told to pick one more driver — the one thing they could not do, since the driver
+ * list was already full. The label now asks for one kind at a time: drivers first, because the
+ * constructor is cheap to fit afterwards and the counts beside it (`3/5 · 0/1`) show the rest.
+ */
 export function saveLabel(plan: LineupPlan, locked: boolean): { label: string; ready: boolean } {
   if (locked) return { label: 'LOCKED · AUTO-FILL ON', ready: false };
-  if (!plan.complete) {
-    const n = plan.missingDrivers + (plan.missingConstructor ? 1 : 0);
-    return { label: `PICK ${n} MORE`, ready: false };
+  if (plan.missingDrivers > 0) {
+    const n = plan.missingDrivers;
+    return { label: `PICK ${n} DRIVER${n > 1 ? 'S' : ''}`, ready: false };
   }
+  if (plan.missingConstructor) return { label: 'PICK A CONSTRUCTOR', ready: false };
+  if (!plan.complete) return { label: 'LINEUP INCOMPLETE', ready: false };
   if (!plan.changed) return { label: 'LINEUP SAVED', ready: false };
   return { label: 'SAVE LINEUP', ready: true };
 }
