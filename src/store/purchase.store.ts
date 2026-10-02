@@ -458,6 +458,17 @@ export const usePurchaseStore = create<PurchaseState>()(
             // validation failure throws, leaving the purchase with the store to be tried again,
             // which is what the pass has always done.
             const key = transactionKeyOf(purchase, Platform.OS);
+
+            // Avatar credits are the one grant that needs a person: they are held per account, so
+            // there is nowhere to put them with nobody signed in. Stop here rather than anywhere
+            // later in this function, because every later exit finishes the transaction — and a
+            // finished transaction is gone. Signed out at the till, or signed out at the launch
+            // that replays it, the pack stays with the store until there is an account to credit.
+            const avatarUid = pendingUserId ?? firebaseAuth.currentUser?.uid ?? null;
+            if (productId === PRODUCT_IDS.AVATAR_PACK && !avatarUid) {
+              throw new Error('no signed-in account to credit the avatar pack to');
+            }
+
             // No need to ask the server about a transaction this device has already granted for —
             // and not asking is what lets the offline replay loop finish the transaction at all.
             let duplicate: boolean;
@@ -500,22 +511,18 @@ export const usePurchaseStore = create<PurchaseState>()(
                 if (!isReplay) Alert.alert('Purchase Complete', 'Extra league slot unlocked!');
               } else {
                 // On a replay there is no pending context — the buy call that set it was a launch
-                // ago — so fall back to whoever is signed in. Without this the credits went
-                // nowhere and the transaction was finished anyway: paid for, never granted.
-                const userId = pendingUserId ?? firebaseAuth.currentUser?.uid ?? null;
-                if (userId) {
-                  set((state) => ({
-                    bonusAvatarCredits: {
-                      ...state.bonusAvatarCredits,
-                      [userId]: (state.bonusAvatarCredits[userId] || 0) + AVATAR_PACK_CREDITS,
-                    },
-                    purchaseHistory: [...state.purchaseHistory, { sku: productId, date: new Date().toISOString() }],
-                  }));
-                  if (!isReplay) Alert.alert('Purchase Complete', `${AVATAR_PACK_CREDITS} avatar credits added!`);
-                } else {
-                  // Nobody to credit. Leave it unfinished rather than consume it for nothing.
-                  throw new Error('no signed-in account to credit the avatar pack to');
-                }
+                // ago — so this falls back to whoever is signed in. Without that the credits went
+                // nowhere and the transaction was finished anyway: paid for, never granted. The
+                // guard at the top of this branch has already established there is somebody.
+                const userId = avatarUid as string;
+                set((state) => ({
+                  bonusAvatarCredits: {
+                    ...state.bonusAvatarCredits,
+                    [userId]: (state.bonusAvatarCredits[userId] || 0) + AVATAR_PACK_CREDITS,
+                  },
+                  purchaseHistory: [...state.purchaseHistory, { sku: productId, date: new Date().toISOString() }],
+                }));
+                if (!isReplay) Alert.alert('Purchase Complete', `${AVATAR_PACK_CREDITS} avatar credits added!`);
               }
             } else if (decision === 'cannot-verify') {
               console.warn('[iap] a replayed purchase carries no transaction id; leaving the grant to the server sync');

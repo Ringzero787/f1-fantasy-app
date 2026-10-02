@@ -94,7 +94,17 @@ describe('in-app purchase lifecycle', () => {
     const consumables = handler.slice(0, handler.indexOf('PRODUCT_IDS.PITWALL_PASS'));
     const askedServer = consumables.indexOf('recordPurchaseOnServer');
     const decided = consumables.indexOf('grantDecision');
-    const granted = consumables.search(/pendingExpansionCredits:\s*state\.pendingExpansionCredits \+ 1/);
+    // All three grants, not just the first: a regression confined to the slot or avatar branch
+    // would otherwise slip through. `granted` is the earliest of them, so the ordering below holds
+    // for every one.
+    const grants = [
+      consumables.search(/pendingExpansionCredits:\s*state\.pendingExpansionCredits \+ 1/),
+      consumables.search(/leagueSlotCredits:\s*state\.leagueSlotCredits \+ 1/),
+      consumables.search(/bonusAvatarCredits/),
+    ];
+    expect(grants.every((at) => at > -1)).toBe(true);
+    const granted = Math.min(...grants);
+    const lastGrant = Math.max(...grants);
     // The LAST of each: the terminal-refusal path above also remembers and finishes, deliberately
     // and without granting, so the first occurrence of either is not the one being ordered here.
     const remembered = consumables.lastIndexOf('rememberHonoured');
@@ -113,7 +123,21 @@ describe('in-app purchase lifecycle', () => {
     // The grant comes before the record of it: remembering first and then throwing would mark a
     // transaction honoured that granted nothing, and nothing would ever grant it.
     expect(granted).toBeLessThan(remembered);
+    expect(lastGrant).toBeLessThan(remembered);
     expect(remembered).toBeLessThan(finished);
+  });
+
+  it('will not consume an avatar pack with nobody to credit', () => {
+    // Avatar credits are held per account, so with nobody signed in there is nowhere to put them.
+    // Every exit from the consumable branch finishes the transaction, and a finished transaction is
+    // gone — so the check has to come before the first of them, not next to the grant.
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    const body = store.slice(store.indexOf('handlePurchaseComplete: async'));
+    const handler = body.slice(0, body.indexOf('handlePurchaseError:'));
+    const guard = handler.search(/PRODUCT_IDS\.AVATAR_PACK\s*&&\s*!avatarUid/);
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(handler.indexOf('finishTransaction'));
+    expect(guard).toBeLessThan(handler.indexOf('recordPurchaseOnServer'));
   });
 
   it('finishes the replay before reconciling with the server, or they grant twice between them', () => {
