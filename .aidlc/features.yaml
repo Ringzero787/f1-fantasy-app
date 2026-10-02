@@ -1,4 +1,4 @@
-next_id: 83
+next_id: 84
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -920,3 +920,13 @@ features:
       - publishing
       - from
       - build
+  - id: F-083
+    name: "UC: Share league standings as text"
+    status: planned
+    spec: .aidlc/specs/F-083.md
+    created_at: 2026-10-02
+    keywords:
+      - share
+      - league
+      - standings
+      - text
