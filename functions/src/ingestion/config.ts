@@ -31,13 +31,20 @@ export const ROUND_TO_RACE_ID: Record<number, string> = {
   15: 'italy_2026',
   16: 'madrid_2026',
   17: 'azerbaijan_2026',
-  18: 'singapore_2026',
-  19: 'usa_2026',
-  20: 'mexico_2026',
-  21: 'brazil_2026',
-  22: 'las_vegas_2026',
-  23: 'qatar_2026',
-  24: 'abu_dhabi_2026',
+  // The cancelled Bahrain GP was reinstated and run at Sepang on 2026-10-02,
+  // inserted chronologically, so everything from Singapore onward shifts up
+  // one. deriveRoundNumbers() orders OpenF1 meetings by date, and OpenF1 still
+  // lists the two cancelled April meetings (Sakhir r4, Jeddah r5), so its
+  // derived rounds line up with ours: r18 = Kuala Lumpur/Bahrain, r19 =
+  // Singapore … r25 = Yas Marina. Verified against the live API 2026-10-02.
+  18: 'bahrain_2026', // run at Sepang, not Sakhir — r4 above stays cancelled
+  19: 'singapore_2026',
+  20: 'usa_2026',
+  21: 'mexico_2026',
+  22: 'brazil_2026',
+  23: 'las_vegas_2026',
+  24: 'qatar_2026',
+  25: 'abu_dhabi_2026',
 };
 
 // Real 2026 F1 sprint weekends, verified against OpenF1 sessions
