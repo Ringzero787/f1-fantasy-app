@@ -22,18 +22,41 @@ Nothing in the app offers a purchase until the `pitwall` block in `config/app` s
 4. Price: set the default to **$14.99** and review the converted local prices.
 5. **Activate** the product. A product left inactive returns "item unavailable" at purchase.
 
-**Let the server verify purchases** — the step most often missed
+**Let the server verify purchases** — the step that has already cost one live sale
 
-The verification function authenticates as the functions runtime account, not a key we ship. That account must be able to read orders:
+The verification function authenticates as the Cloud Functions runtime account, not a key we ship.
+**A first-generation function runs as the App Engine default account**, which is this one:
 
 ```
-95743527146-compute@developer.gserviceaccount.com
+f1-app-18077@appspot.gserviceaccount.com
 ```
 
-1. Play Console → **Setup** → **API access**.
-2. Link the Google Cloud project if it is not already linked.
-3. Find that service account and grant it, for the Undercut app: **View financial data, orders, and cancellation survey responses** and **Manage orders and subscriptions**.
-4. Permission changes take a few minutes to apply.
+Check it rather than trusting this file, because it is the thing that was wrong:
+
+```
+gcloud functions describe validatePurchase --project f1-app-18077 \
+  --region us-central1 --format="value(serviceAccountEmail)"
+```
+
+This document previously named `95743527146-compute@developer.gserviceaccount.com`, the Compute
+Engine default. It was granted, the checkboxes were verified, and the first real Android purchase
+still failed with `The current user has insufficient permissions to perform the requested operation`
+— because that account never calls Play. Two near-identical addresses, one of which does nothing.
+
+1. Play Console → **Users and permissions** (account level, not inside the app).
+2. Invite the address above, or edit it if it is already listed.
+3. Grant it, for the Undercut app: **View financial data** and **Manage orders and subscriptions**.
+   Play renamed the first from "View financial data, orders, and cancellation survey responses"; its
+   description mentions the Purchases API, which is the one that matters. Play also adds two
+   read-only app permissions it will not let you untick, which is fine.
+4. A new grant can take a while to reach the Purchases API — sometimes hours. A 403 immediately
+   after granting is not proof it is wrong.
+
+If a purchase fails, the function log names the cause directly:
+
+```
+gcloud functions logs read validatePurchase --project f1-app-18077 --region us-central1 --limit 40
+```
 
 **Test it**
 
