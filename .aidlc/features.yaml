@@ -1,4 +1,4 @@
-next_id: 84
+next_id: 87
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -930,6 +930,22 @@ features:
       - league
       - standings
       - text
+  - id: F-084
+    name: "UC: Amazon receipt ids get their own shape"
+    status: building
+    created_at: 2026-10-01
+    summary: >-
+      Registered retroactively on 2026-10-02 only to reserve the id, which was
+      taken from branch names without `aidlc feature add` — next_id would
+      otherwise have handed F-084 out again. The name here is from the one
+      merged PR (#112); unmerged branches also claim F-084 for Pit Wall driver
+      detail, so its owner should confirm the scope and add a spec.
+    prs:
+      - 112
+    keywords:
+      - amazon
+      - receipt
+      - purchases
   - id: F-085
     name: "UC: Revoke a pass when the store refunds it"
     status: planned
@@ -940,3 +956,29 @@ features:
       - revoke
       - pass
       - store
+  - id: F-086
+    name: "UC: Round mapping misfiled race data and the reminder dedupe spammed players"
+    status: shipped
+    spec: .aidlc/specs/F-086.md
+    created_at: 2026-10-02
+    shipped_at: 2026-10-02
+    summary: >-
+      F-076 renumbered the season tail but left the static ROUND_TO_RACE_ID
+      table behind, so Bahrain's session times were written onto Singapore's
+      race document. Two races then sat inside Track Limits' 24h reminder
+      window, where a single-slot reminder stamp could not dedupe either —
+      1,273 notifications, about 28 per player. Registered retroactively: the
+      id was taken from a branch name during the incident.
+    prs:
+      - 119
+      - 122
+    symbols:
+      - functions/src/ingestion/config.ts:ROUND_TO_RACE_ID
+      - functions/src/ingestion/config.ts:SPRINT_ROUNDS
+      - newgame/functions/src/notifications/notifyMissingPicks.ts:reminderStateFor
+    keywords:
+      - round
+      - mapping
+      - ingestion
+      - notifications
+      - dedupe
