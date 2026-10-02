@@ -23,10 +23,43 @@ const EARLY_MAX_HOURS = 24;
 const LAST_HOURS = 2.5;
 const SITE_URL = 'https://humannpc.com/tracklimits/';
 
-interface ReminderStamp {
+/** What has already been sent to a user for one race. */
+interface ReminderEntry {
+  early?: boolean;
+  last?: boolean;
+}
+
+/** The pre-2026-10 shape: a single stamp, usable only while exactly one race
+ *  is inside the window. */
+interface LegacyReminderStamp {
   raceId: string;
   early?: boolean;
   last?: boolean;
+}
+
+// Which nudges this user has already had for this race.
+//
+// The stamp used to be one { raceId, early, last } per user, which silently
+// assumed a single race in the 24h window. On 2026-10-02 two were in it at once
+// (a stale OpenF1 round mapping had written Bahrain's session times onto
+// Singapore), so each race's write clobbered the other's stamp, every run saw
+// both as unsent, and players got a pair of reminders every 30 minutes until
+// qualifying — about 28 each.
+//
+// Entries are now keyed by raceId, so races can't overwrite each other. The
+// legacy shape is still honoured so nobody is re-nagged on the upgrade, and the
+// keyed entry wins when a doc carries both.
+export function reminderStateFor(pickReminder: unknown, raceId: string): ReminderEntry {
+  if (!pickReminder || typeof pickReminder !== 'object') return {};
+  const map = pickReminder as Record<string, unknown>;
+  const keyed = map[raceId];
+  if (keyed && typeof keyed === 'object') {
+    const e = keyed as ReminderEntry;
+    return { early: e.early === true, last: e.last === true };
+  }
+  const legacy = pickReminder as LegacyReminderStamp;
+  if (legacy.raceId === raceId) return { early: legacy.early === true, last: legacy.last === true };
+  return {};
 }
 
 // A picks doc counts as "participated" only if it holds at least one actual
@@ -105,11 +138,11 @@ export const tlNotifyMissingPicks = onSchedule(
           continue;
         }
 
-        // Per-user / per-race / per-stage dedupe.
-        const stamp = user.pickReminder as ReminderStamp | undefined;
-        const fresh = !stamp || stamp.raceId !== raceId;
-        const earlySent = !fresh && stamp?.early === true;
-        const lastSent = !fresh && stamp?.last === true;
+        // Per-user / per-race / per-stage dedupe, keyed by race so two races
+        // inside the window cannot overwrite each other's stamp.
+        const sentFor = reminderStateFor(user.pickReminder, raceId);
+        const earlySent = sentFor.early === true;
+        const lastSent = sentFor.last === true;
         if (stage === 'last' && lastSent) continue;
         if (stage === 'early' && earlySent) continue;
 
@@ -151,11 +184,14 @@ export const tlNotifyMissingPicks = onSchedule(
         if (delivered) {
           stamps.push({
             ref: userSnap.ref,
+            // Written with merge, and nested maps merge key-by-key, so another
+            // race's entry under pickReminder survives this write.
             data: {
               pickReminder: {
-                raceId,
-                early: earlySent || stage === 'early',
-                last: lastSent || stage === 'last',
+                [raceId]: {
+                  early: earlySent || stage === 'early',
+                  last: lastSent || stage === 'last',
+                },
               },
             },
           });
