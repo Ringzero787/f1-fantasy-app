@@ -1,0 +1,47 @@
+id: OP-088
+title: "URGENT: restore race schedules (notification spam from duplicate 24h-window races)"
+kind: tl-script
+status: applied
+params:
+  script: fixRaceSchedules.js
+  backup: races
+created_at: 2026-10-02T13:25:35.451Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T13:25:35.773Z
+    head_sha: ba34e6ac26d80c1e60cd8bfd13d892f241b6a152
+    command: node scripts/ops/run-script.js tracklimits 'fixRaceSchedules.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-088/dry-run-2026-10-02T13-25-35-773Z.log
+    log_sha256: d6399295c91fd3e6b910e75c1483448bd847f7d3e447c04b50f1a14bbea6c31b
+    lines: 47
+  - step: backup
+    at: 2026-10-02T13:25:54.665Z
+    head_sha: ba34e6ac26d80c1e60cd8bfd13d892f241b6a152
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-088'/backup.json 'races'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-088/backup-2026-10-02T13-25-54-665Z.log
+    log_sha256: 1452d710b13a99bbb7a0cc8f43429ff72dcac13a70ebfed48cb2a4a30cbb58ba
+    lines: 3
+  - step: gates
+    at: 2026-10-02T13:25:55.449Z
+    head_sha: ba34e6ac26d80c1e60cd8bfd13d892f241b6a152
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-02T13:25:55.449Z
+    head_sha: ba34e6ac26d80c1e60cd8bfd13d892f241b6a152
+    command: node scripts/ops/run-script.js tracklimits 'fixRaceSchedules.js' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-088/apply-2026-10-02T13-25-55-449Z.log
+    log_sha256: d9ce107a84709360b31ee06ec1994f8a144e048e9b54392dfb6d6b7d18c55e14
+    lines: 47
+  - step: gates
+    at: 2026-10-02T13:25:56.166Z
+    head_sha: ba34e6ac26d80c1e60cd8bfd13d892f241b6a152
+    exit: 0
+    gates:
+      G15: skip
