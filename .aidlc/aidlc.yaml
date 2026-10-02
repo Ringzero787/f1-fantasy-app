@@ -62,6 +62,12 @@ overrides:
       rules-deploy: { apply: "bash scripts/ops/firebase-deploy.sh --only firestore:rules --project {project}" }
       indexes-deploy: { apply: "bash scripts/ops/firebase-deploy.sh --only firestore:indexes --project {project}" }
       storage-rules-deploy: { apply: "bash scripts/ops/firebase-deploy.sh --only storage --project {project}" }
+      hosting-deploy:
+        summary: "Undercut hosting: the static pages in public/ and the firebase.json rewrites. Needed for the Sign in with Apple return URL and Apple's domain-verification file (F-091); a rewrite that is not deployed is a 404 to Apple and to Amazon."
+        deploy: true
+        paths: [ public, firebase.json ]
+        dryrun: "git --no-pager diff --stat {last_sha} HEAD -- public firebase.json && node -e \"const h=require('./firebase.json').hosting; console.log('public:', h.public); for (const r of h.rewrites||[]) console.log('rewrite', r.source, '->', r.destination || (r.function && (r.function.functionId+'@'+r.function.region)));\" && ls -A public"
+        apply: "bash scripts/ops/firebase-deploy.sh --only hosting --project {project}"
       functions-deploy:
         summary: "Undercut functions (only = functions, or functions:<name>,functions:<name>)"
         deploy: true
