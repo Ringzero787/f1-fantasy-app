@@ -89,6 +89,17 @@ module.exports = {
             "-keep class com.google.android.gms.auth.** { *; }",
             "-keep class expo.modules.** { *; }",
             "-keep class com.undercut.app.** { *; }",
+            // Amazon's in-app purchasing SDK resolves its own components by reflection — its "Kiwi"
+            // framework registers classes by name and injects them into an activity lifecycle
+            // callback. R8 renamed them, the lookup returned null, and the Amazon build of 2.4.0
+            // force-closed on launch before a line of JavaScript ran. Amazon rejected it for that.
+            // The purchase library bundles the SDK but its own keep rules cover only its own
+            // package, so these have to live here.
+            "-keep class com.amazon.** { *; }",
+            "-keep interface com.amazon.** { *; }",
+            "-keep class dev.hyo.openiap.** { *; }",
+            "-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod",
+            "-dontwarn com.amazon.**",
             "-dontwarn com.google.android.gms.**",
             "-dontwarn okhttp3.**",
             "-dontwarn okio.**",
