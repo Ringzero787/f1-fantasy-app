@@ -52,6 +52,11 @@ export const trackSpritePositions: TrackSpritePosition[] = [
 // We'll use Barcelona's icon as fallback for Madrid since it's also Spain
 export const fallbackPositions: Record<string, TrackSpritePosition> = {
   'madrid': { circuitName: 'Madrid', country: 'Spain', city: 'Madrid', row: 1, col: 3 }, // Use Barcelona
+  // Round 18's Bahrain Grand Prix moved to Sepang, so it arrives as city
+  // Sepang / country Malaysia and matches no sprite cell. Borrows Sakhir's
+  // cell (row 0, col 0) — same event, wrong circuit — rather than rendering
+  // nothing. Keyed by lowercased city, which is how this map is looked up.
+  'sepang': { circuitName: 'Sepang', country: 'Malaysia', city: 'Sepang', row: 0, col: 0 }, // Use Sakhir
 };
 
 // Sprite sheet dimensions

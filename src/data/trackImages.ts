@@ -8,6 +8,14 @@ export const trackImages: Record<string, any> = {
   'austin': require('../../pics/tracks/austin.png'),
   'bahrain': require('../../pics/tracks/bahrain.png'),
   'sakhir': require('../../pics/tracks/bahrain.png'),
+  // The 2026 Bahrain Grand Prix was cancelled at Sakhir and reinstated at
+  // Sepang, so round 18 arrives as city Sepang / country Malaysia. There is no
+  // Sepang outline in pics/tracks, and without these two keys the race renders
+  // a blank tile. Stands in with the Bahrain layout — same event name, wrong
+  // circuit — the way Madrid borrows Barcelona's below. Replace if a Sepang
+  // image is ever added.
+  'sepang': require('../../pics/tracks/bahrain.png'),
+  'malaysia': require('../../pics/tracks/bahrain.png'),
   'baku': require('../../pics/tracks/baku.png'),
   'azerbaijan': require('../../pics/tracks/baku.png'),
   'barcelona': require('../../pics/tracks/barcelona.png'),
