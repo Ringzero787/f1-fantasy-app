@@ -14,7 +14,7 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { KNOWN_PRODUCTS, isPlayToken, isKnownProduct, isAmazonReceiptId } = require('../lib/purchases/productGuards');
+const { KNOWN_PRODUCTS, isPlayToken, isKnownProduct, isAmazonReceiptId, isAmazonUserId } = require('../lib/purchases/productGuards');
 
 test('a token carrying a path is refused', () => {
   assert.equal(isPlayToken('../../avatar.pack/tokens/abc123'), false);
@@ -77,4 +77,14 @@ test('an Amazon receipt id is still bounded and cannot be a path or empty', () =
   assert.equal(isAmazonReceiptId('a b'), false);
   assert.equal(isAmazonReceiptId(null), false);
   assert.equal(isAmazonReceiptId(42), false);
+});
+
+test('an Amazon user id is bounded, and was the one identifier with no shape at all', () => {
+  assert.ok(isAmazonUserId('amzn1.account.AEZH3RFGK7XQ2JPLWM4N'));
+  assert.ok(!isAmazonUserId(''));
+  assert.ok(!isAmazonUserId('../../x'));
+  assert.ok(!isAmazonUserId('a b'));
+  assert.ok(!isAmazonUserId('a'.repeat(257)));
+  assert.ok(!isAmazonUserId(null));
+  assert.ok(!isAmazonUserId(12345));
 });

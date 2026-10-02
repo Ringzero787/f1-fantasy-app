@@ -6,7 +6,7 @@ import { warnIfNoAppCheck } from '../utils/appCheck';
 import { verifyAppleTransaction } from './appleTransaction';
 import { PASS_PRODUCT, currentSeason } from '../pitwall/pass';
 import { grantPass } from '../pitwall/passStore';
-import { isAmazonReceiptId, isKnownProduct, isPlayToken } from './productGuards';
+import { isAmazonReceiptId, isAmazonUserId, isKnownProduct, isPlayToken } from './productGuards';
 import { createHash } from 'crypto';
 
 const db = admin.firestore();
@@ -170,18 +170,29 @@ async function verifyAmazonReceipt(
   receiptId: string,
   amazonUserId: string,
   productId: string
-): Promise<{ valid: boolean; error?: string }> {
+): Promise<{ valid: boolean; environment?: string | null; error?: string }> {
   const sharedSecret = amazonSharedSecret.value();
   if (!sharedSecret) return { valid: false, error: 'Amazon shared secret not configured' };
   try {
     const url = `https://appstore-sdk.amazon.com/version/1.0/verifyReceiptId/developer/${encodeURIComponent(sharedSecret)}/user/${encodeURIComponent(amazonUserId)}/receiptId/${encodeURIComponent(receiptId)}`;
-    const response = await fetch(url);
+    // Bounded: a store that never answers must not hold a paying customer on a spinner.
+    const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
     if (!response.ok) return { valid: false, error: `Amazon RVS returned ${response.status}` };
     const data = (await response.json()) as Record<string, unknown>;
     if (data.productId !== productId) return { valid: false, error: `Receipt is for ${String(data.productId)}, not ${productId}` };
+    // The receipt we get back must be the one we asked about.
+    if (typeof data.receiptId === 'string' && data.receiptId !== receiptId) {
+      return { valid: false, error: 'Amazon answered about a different receipt' };
+    }
     // cancelDate is set when a purchase was refunded or revoked.
     if (data.cancelDate) return { valid: false, error: 'Purchase was cancelled' };
-    return { valid: true };
+    // A Live App Testing purchase goes through the production endpoint and verifies like any other,
+    // and it costs nothing. Accepted, because that is how Amazon expects the store to be tested, but
+    // recorded: without this an invited tester's pass is byte-identical to a $14.99 sale and cannot
+    // be found and revoked. Apple's path has done this bookkeeping all along; Amazon was the odd
+    // one out.
+    const isTest = data.testTransaction === true || data.betaProduct === true;
+    return { valid: true, environment: isTest ? 'Sandbox' : 'Production' };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('Amazon receipt verification failed:', message);
@@ -232,7 +243,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
     );
   }
 
-  if (isAmazon && !userIdAmazon) {
+  if (isAmazon && !isAmazonUserId(userIdAmazon)) {
     throw new functions.https.HttpsError(
       'invalid-argument',
       'userIdAmazon is required for Amazon purchases'
@@ -283,6 +294,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
       console.warn(`Invalid Amazon receipt from user ${userId}: ${verification.error}`);
       throw new functions.https.HttpsError('permission-denied', 'Invalid Amazon receipt');
     }
+    if (verification.environment) environment = verification.environment;
     storeTransactionId = String(purchaseToken);
   } else {
     const verification = await verifyGooglePlayPurchase(productId, purchaseToken);

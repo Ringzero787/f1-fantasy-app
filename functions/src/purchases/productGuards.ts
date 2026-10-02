@@ -50,3 +50,12 @@ export const isAmazonReceiptId = (v: unknown): v is string =>
   // base64 needs `/`, so a dot-segment is refused by name instead. The verifier encodes this into
   // the URL anyway, which is what actually stops it; this just means a path never gets that far.
   !v.includes('..');
+
+/**
+ * An Amazon user id is an opaque account identifier. It goes into the verification URL beside the
+ * receipt, and it was the one of the three identifiers with no shape at all — the receipt id and the
+ * product both got guards and this did not. What actually binds the pair is Amazon refusing a
+ * receipt that does not belong to the user, so this is a bound rather than a gate.
+ */
+export const isAmazonUserId = (v: unknown): v is string =>
+  typeof v === 'string' && v.length > 0 && v.length <= 256 && /^[A-Za-z0-9._~-]+$/.test(v);
