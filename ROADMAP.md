@@ -76,6 +76,55 @@ Now that scoring is trustworthy, lean into retention.
 
 ---
 
+## Parked — help picking a team, free and paid (2026-10-02)
+
+Not scheduled. Written down now because the shape matters more than the timing, and the
+timing is "once the stores and the pass have settled".
+
+**The problem, in evidence.** The R16 audit found **37 of 40 teams on cheapest-first
+auto-fill**. That is not 37 people choosing a strategy; it is people running out of budget
+or out of patience and letting the lock fill the slots. Two moments cause it: a new player
+facing twenty drivers and one budget with nothing to anchor on, and a returning player with
+two empty slots and whatever money a sale left behind. Both are arithmetic problems the app
+makes the person do in their head.
+
+**What came out before, and why it is not the answer.** There was a *suggested build* that
+filled the whole roster. It went because it answers the question for you: the first thing a
+player does is undo it, which teaches them nothing, and a team the game built is not a team
+you argue about in the league. Anything here has to leave every decision with the player.
+
+**Free tier — arithmetic, not predictions.** Points per dollar from the season that has
+already happened, which needs no model and no pass:
+
+- **Value on every row.** `points ÷ price` over the rounds played, shown the way price and
+  points already are, and available as a sort. It is a fact about the past, so it is honest
+  for everyone and cheap to compute from data the client already holds.
+- **Budget, forward.** With a pick pending: "leaves $420 for 3 slots", and the cheapest
+  legal completion. The trap is never one expensive driver; it is an expensive driver plus
+  three slots that cannot be filled. Saying the number out loud is most of the fix.
+- **Pairings, after the first pick.** The player commits to a driver, and then two or three
+  remaining entries carry a *reason*, not a ranking: `LEAVES $420 FOR 3`, `TEAMMATE — SAME
+  CAR`, `CHEAP + SCORES`. A hint on a row they were going to tap anyway. No accept button,
+  nothing moves without a tap, and the list must not reorder under a finger mid-scroll.
+- **Returning players get the same thing, scoped.** Filling two slots after a sale is the
+  same arithmetic with a smaller budget and a shorter list; it should not be a separate
+  feature, and the hints should fade once a team is built — a veteran does not need coaching.
+
+**Paid tier — the pass keeps the model.** Projections for the coming round, the swap the
+model would take, best value against a forecast rather than against history, and the
+reasoning behind each. That line is already where ADR-001 drew it: timing-derived and
+historical frames are free, modelled ones are the pass. Keeping the free tier to honest
+division is what makes the paid tier worth $15 — and a free player who can at least not
+bankrupt themselves is a player who stays long enough to consider paying.
+
+**Rules this has to keep.**
+- Never writes a roster. Every suggestion is a hint on a row the picker already allows, so
+  it can never propose a move the budget or a lockout forbids (the same rule F-077's marks
+  follow).
+- The free math is computed from data already on the device. No new payload, no new call.
+- Scope the onboarding version to a first team ever, and leave the current flow untouched
+  for everyone else.
+
 ## Guiding principles (learned this cycle)
 - **Server is the source of truth.** Roster/economy/scoring are server-authoritative;
   keep new value-bearing logic out of the client.
