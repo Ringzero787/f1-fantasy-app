@@ -35,6 +35,23 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "rewrites": [
+      {
+        "comment": "Apple verifies a Sign in with Apple domain by fetching this exact path (F-091). The file itself is published under a plain name, because the `ignore` list above drops every dotted path and a negation is not expressible there — serving it by rewrite keeps one dotfile from being the reason hosting starts publishing all of them.",
+        "source": "/.well-known/apple-developer-domain-association.txt",
+        "destination": "/apple-developer-domain-association.txt"
+      },
+      {
+        "comment": "Apple's return URL for Sign in with Apple on the Play and Amazon builds (F-091). Apple POSTs the identity token to a registered https URL, and requires that URL's domain to be verified by the rewrite above — which cloudfunctions.net cannot serve and Hosting can.",
+        "source": "/undercut/auth/apple",
+        "function": { "functionId": "appleAuthRedirect", "region": "us-central1" }
+      },
+      {
+        "comment": "Login with Amazon's return URL (F-091). The old flow bounced Amazon's authorization code to the app on a custom scheme, which any installed Android app may claim; here the code is filed server-side and never reaches the device. Register this URL as an allowed return URL in the Login with Amazon security profile before shipping a build that sets EXPO_PUBLIC_AMAZON_REDIRECT_URI.",
+        "source": "/undercut/auth/amazon",
+        "function": { "functionId": "amazonAuthRedirect", "region": "us-central1" }
+      }
+    ],
     "headers": [
       {
         "source": "**/*.apk",

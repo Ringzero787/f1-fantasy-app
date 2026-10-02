@@ -228,6 +228,11 @@ service cloud.firestore {
     match /pw_jobs/{id} { allow read, write: if false; }
     match /pw_runs/{id} { allow read, write: if false; }
     match /pw_grants/{id} { allow read, write: if false; }
+    // Cross-store sign-in (F-091): each document holds an Apple identity token for ten minutes
+    // while the browser hands it back to the device. Written by appleAuthRedirect and read once by
+    // claimAppleSignIn, both Admin SDK. A client that could read this collection could sign in as
+    // whoever is mid-sign-in, so the denial is written out rather than left to the default.
+    match /auth_handoff/{id} { allow read, write: if false; }
 
     // Pit Wall Pass (F-068). The paywall is enforced here, not only in the UI: paid payloads need
     // the `pw` claim, which functions stamp from users/{uid}.pass and no client can forge. The free

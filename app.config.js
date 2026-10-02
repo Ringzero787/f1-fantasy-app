@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Undercut",
     slug: "f1-fantasy-app",
-    version: "2.4.0",
+    version: "2.4.1",
     orientation: "default",
     icon: "./assets/icon.png",
     scheme: "theundercut",
@@ -33,7 +33,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "47",
+      buildNumber: "48",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -46,7 +46,9 @@ module.exports = {
         backgroundColor: "#0E0E0E"
       },
       package: "com.undercut.app",
-      versionCode: 64,
+      // 65 went to Play internal testing as 2.4.0 (OP-098), which is why 2.4.1 starts at 66: Play
+      // refuses a version code it has already seen, released or not.
+      versionCode: 66,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",
@@ -92,6 +94,25 @@ module.exports = {
             "-dontwarn com.google.android.gms.**",
             "-dontwarn okhttp3.**",
             "-dontwarn okio.**",
+            // Amazon's in-app purchasing SDK resolves its own components by reflection — its "Kiwi"
+            // framework registers classes by name and injects them into an activity lifecycle
+            // callback. R8 renamed them, the lookup returned null, and the Amazon build of 2.4.0
+            // force-closed on launch before a line of JavaScript ran. Amazon rejected it for that.
+            // The purchase library bundles the SDK but its own keep rules cover only its own
+            // package, so these have to live here.
+            //
+            // Only on the Amazon build. `expo-iap` links the Amazon flavour only when fireOS is on
+            // (below), so the Play AAB has no com.amazon classes to keep — and keeping the
+            // attributes app-wide would hand every Play build the generic signatures and
+            // inner-class names that the shipped 2.4.0 did without. `build-uc-apk-amazon.sh`
+            // asserts these lines reach android/app/proguard-rules.pro, because the failure mode
+            // of getting this switch wrong is the force-close Amazon already rejected once.
+            ...(process.env.EXPO_PUBLIC_STORE === 'amazon' ? [
+              "-keep class com.amazon.** { *; }",
+              "-keep class dev.hyo.openiap.** { *; }",
+              "-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod",
+              "-dontwarn com.amazon.**",
+            ] : []),
           ].join("\n"),
         },
       }],

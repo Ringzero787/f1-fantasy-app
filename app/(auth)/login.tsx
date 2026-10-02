@@ -6,8 +6,7 @@ import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
 import { AuthShell, AuthError, GridSocialButtons } from '../../src/simple/grid/GridAuthBits';
-import { isAmazonBuild } from '../../src/utils/storeDetection';
-import { amazonSignIn } from '../../src/utils/amazonSignIn';
+import { amazonSignIn, amazonWebSignIn, amazonWebSignInAvailable } from '../../src/utils/amazonSignIn';
 import { functions } from '../../src/config/firebase';
 
 export default function LoginScreen() {
@@ -28,16 +27,23 @@ export default function LoginScreen() {
     clearError();
     try { await signInWithGoogle(idToken); router.replace('/'); } catch { /* store holds the error */ }
   };
-  const handleAppleSignIn = async (identityToken: string, nonce: string) => {
+  const handleAppleSignIn = async (identityToken: string, nonce: string, displayName?: string | null) => {
     clearError();
-    try { await signInWithApple(identityToken, nonce); router.replace('/'); } catch { /* store holds the error */ }
+    try { await signInWithApple(identityToken, nonce, displayName ?? undefined); router.replace('/'); } catch { /* store holds the error */ }
   };
   const handleAmazonSignIn = async () => {
     clearError();
     try {
-      const { code, redirectUri } = await amazonSignIn();
-      const signInFn = httpsCallable<{ code: string; redirectUri: string }, { customToken: string; displayName: string; email: string }>(functions, 'signInWithAmazon');
-      const { customToken, displayName, email } = (await signInFn({ code, redirectUri })).data;
+      // The hardened flow keeps Amazon's authorization code on the server, which is what makes the
+      // button safe to show outside the Amazon build (F-091). Builds without the endpoint
+      // configured fall back to the original exchange.
+      const { customToken, displayName, email } = amazonWebSignInAvailable()
+        ? await amazonWebSignIn()
+        : await (async () => {
+            const { code, redirectUri } = await amazonSignIn();
+            const signInFn = httpsCallable<{ code: string; redirectUri: string }, { customToken: string; displayName: string; email: string }>(functions, 'signInWithAmazon');
+            return (await signInFn({ code, redirectUri })).data;
+          })();
       await signInWithAmazon(customToken, { displayName, email });
       router.replace('/');
     } catch (err) {
@@ -58,7 +64,9 @@ export default function LoginScreen() {
         <GridSocialButtons
           onGoogleSignIn={handleGoogleSignIn}
           onAppleSignIn={handleAppleSignIn}
-          onAmazonSignIn={isAmazonBuild ? handleAmazonSignIn : undefined}
+          /* Login with Amazon is a browser flow, so every build can offer it — which is how an
+             account created on a Fire tablet opens on a phone (F-091). */
+          onAmazonSignIn={handleAmazonSignIn}
           disabled={isLoading}
         />
         <Text style={[mono(10, 'medium'), { color: colors.text.muted, textAlign: 'center', marginTop: 8 }]}>{t('auth.signIn.noPasswords')}</Text>

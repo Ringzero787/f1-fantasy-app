@@ -6,6 +6,9 @@ import Constants from 'expo-constants';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { getGoogleIdToken, getAppleCredential } from '../../components/SocialAuthButtons';
 import { isAmazonBuild } from '../../utils/storeDetection';
+import { appleWebSignIn, appleWebSignInAvailable } from '../../utils/appleWebSignIn';
+import { amazonWebSignInAvailable } from '../../utils/amazonSignIn';
+import { providerOrder, type Provider } from './signInProviders';
 import { MonoLabel } from './GridBits';
 
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -66,7 +69,7 @@ export function AuthError({ messages }: { messages: string[] }) {
 // ── Social sign-in: provider-required marks on Grid pills ───────────────────
 interface SocialProps {
   onGoogleSignIn: (idToken: string) => Promise<void>;
-  onAppleSignIn: (identityToken: string, nonce: string) => Promise<void>;
+  onAppleSignIn: (identityToken: string, nonce: string, displayName?: string | null) => Promise<void>;
   onAmazonSignIn?: () => Promise<void>;
   disabled?: boolean;
 }
@@ -87,15 +90,27 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
   };
   const apple = async () => {
     setBusy('apple');
-    try { const { identityToken, nonce } = await getAppleCredential(); await onAppleSignIn(identityToken, nonce); }
+    try {
+      // iOS has the native sheet. Everywhere else the same credential comes back through Apple's
+      // web flow, so an account made on an iPhone opens on a Pixel or a Fire tablet (F-091).
+      const credential = Platform.OS === 'ios'
+        ? { ...(await getAppleCredential()), displayName: null as string | null }
+        : await appleWebSignIn();
+      // Apple sends the name on first consent only, and over the web flow it arrives beside the
+      // token rather than in the Firebase user, so it has to be carried through.
+      await onAppleSignIn(credential.identityToken, credential.nonce, credential.displayName);
+    }
     catch (e: unknown) {
       const err = e as { code?: string; message?: string };
-      if (err.code === 'ERR_REQUEST_CANCELED') return;
+      if (err.code === 'ERR_REQUEST_CANCELED' || err.message === 'Sign in cancelled') return;
       Alert.alert('Sign in error', err.message || 'Apple sign in failed');
     } finally { setBusy(null); }
   };
   const amazon = async () => {
     if (!onAmazonSignIn) return;
+    // Same reason as Google: the browser session needs a custom scheme the Expo Go shell does not
+    // own, so the flow would open and never come back.
+    if (isExpoGo) { Alert.alert('Login with Amazon', 'Not available in Expo Go. Use Demo Mode or a development build.'); return; }
     setBusy('amazon');
     try { await onAmazonSignIn(); }
     catch (e: unknown) {
@@ -120,19 +135,26 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
     </Pressable>
   );
 
+  const amazonPill = () => pill('#FF9900', '#FF9900', '#111111', <Ionicons name="cart" size={18} color="#111111" />, 'LOGIN WITH AMAZON', amazon, 'amazon');
+  // Google: light button with the G mark, per Google's sign-in branding.
+  const googlePill = () => pill('#FFFFFF', '#D6D6D2', '#1F1F1F', <Ionicons name="logo-google" size={18} color="#1F1F1F" />, 'CONTINUE WITH GOOGLE', google, 'google');
+  // Apple: black on light, white on dark, per the HIG.
+  const applePill = () => pill(colors.text.primary, colors.text.primary, colors.text.inverse, <Ionicons name="logo-apple" size={18} color={colors.text.inverse} />, 'CONTINUE WITH APPLE', apple, 'apple');
+
+  // Which pills, in which order, is decided in `signInProviders.ts` so it can be tested — getting
+  // it wrong is the difference between reaching your account and quietly making a second one.
+  const pills: Record<Provider, () => React.ReactNode> = { amazon: amazonPill, google: googlePill, apple: applePill };
+  const order = providerOrder({
+    isAmazonBuild,
+    isIOS: Platform.OS === 'ios',
+    // Apple is native on iOS; elsewhere its web flow needs a Services ID in the build.
+    canApple: Platform.OS === 'ios' || appleWebSignInAvailable(),
+    canAmazon: !!onAmazonSignIn && (isAmazonBuild || amazonWebSignInAvailable()),
+  });
+
   return (
     <View style={{ gap: 10 }}>
-      {isAmazonBuild && onAmazonSignIn
-        ? pill('#FF9900', '#FF9900', '#111111', <Ionicons name="cart" size={18} color="#111111" />, 'LOGIN WITH AMAZON', amazon, 'amazon')
-        : null}
-      {/* Google: light button with the G mark, per Google's sign-in branding; not on Amazon builds */}
-      {!isAmazonBuild
-        ? pill('#FFFFFF', '#D6D6D2', '#1F1F1F', <Ionicons name="logo-google" size={18} color="#1F1F1F" />, 'CONTINUE WITH GOOGLE', google, 'google')
-        : null}
-      {/* Apple: black on light, white on dark, per the HIG; iOS only */}
-      {Platform.OS === 'ios' && !isAmazonBuild
-        ? pill(colors.text.primary, colors.text.primary, colors.text.inverse, <Ionicons name="logo-apple" size={18} color={colors.text.inverse} />, 'CONTINUE WITH APPLE', apple, 'apple')
-        : null}
+      {order.map((provider) => pills[provider]())}
       {isExpoGo ? <Text style={[mono(10, 'medium'), { color: colors.text.muted, textAlign: 'center', marginTop: 6 }]}>USE DEMO MODE IN EXPO GO</Text> : null}
     </View>
   );
