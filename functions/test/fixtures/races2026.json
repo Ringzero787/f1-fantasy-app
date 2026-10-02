@@ -1,0 +1,149 @@
+{
+  "_provenance": "The 2026 round-to-race calendar, as Undercut ingestion understands it. Only the fields roundMapping.test.js asserts on: id, round, status, hasSprint. Undercut is the sole writer of the shared races collection, so this truth belongs in this repo. It was extracted on 2026-10-02 from Track Limits seed data, which then lived at newgame/functions/src/triggers/_seedRacesData.json and now lives in the tracklimits repo. If the calendar changes, update this and ROUND_TO_RACE_ID together: the test exists to make that mandatory.",
+  "races": [
+    {
+      "id": "australia_2026",
+      "round": 1,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "china_2026",
+      "round": 2,
+      "status": "upcoming",
+      "hasSprint": true
+    },
+    {
+      "id": "japan_2026",
+      "round": 3,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "saudi_2026",
+      "round": 5,
+      "status": "cancelled",
+      "hasSprint": false
+    },
+    {
+      "id": "miami_2026",
+      "round": 6,
+      "status": "upcoming",
+      "hasSprint": true
+    },
+    {
+      "id": "canada_2026",
+      "round": 7,
+      "status": "upcoming",
+      "hasSprint": true
+    },
+    {
+      "id": "monaco_2026",
+      "round": 8,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "spain_2026",
+      "round": 9,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "austria_2026",
+      "round": 10,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "britain_2026",
+      "round": 11,
+      "status": "upcoming",
+      "hasSprint": true
+    },
+    {
+      "id": "belgium_2026",
+      "round": 12,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "hungary_2026",
+      "round": 13,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "netherlands_2026",
+      "round": 14,
+      "status": "upcoming",
+      "hasSprint": true
+    },
+    {
+      "id": "italy_2026",
+      "round": 15,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "madrid_2026",
+      "round": 16,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "azerbaijan_2026",
+      "round": 17,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "bahrain_2026",
+      "round": 18,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "singapore_2026",
+      "round": 19,
+      "status": "upcoming",
+      "hasSprint": true
+    },
+    {
+      "id": "usa_2026",
+      "round": 20,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "mexico_2026",
+      "round": 21,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "brazil_2026",
+      "round": 22,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "las_vegas_2026",
+      "round": 23,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "qatar_2026",
+      "round": 24,
+      "status": "upcoming",
+      "hasSprint": false
+    },
+    {
+      "id": "abu_dhabi_2026",
+      "round": 25,
+      "status": "upcoming",
+      "hasSprint": false
+    }
+  ]
+}
