@@ -32,7 +32,13 @@ export async function grantPass(db: Db, uid: string, season: string, source: Pas
     const [userSnap, grantSnap] = await Promise.all([tx.get(userRef), grantRef ? tx.get(grantRef) : Promise.resolve(null)]);
     const existing = userSnap.data()?.pass as Partial<Pass> | undefined;
     // A retried webhook (same event id) must not extend or re-date the pass it already created.
-    if (grantSnap?.exists) return (existing ?? newPass(season, source, now, ref)) as Pass;
+    //
+    // But only while that pass still exists. The record outlived the pass it stood for: a revoke
+    // deleted the pass and left this behind, so every later grant for the same reference hit this
+    // line, wrote nothing, and reported success to whoever asked. Support grants after a revoke,
+    // and anyone who refunds and buys again, silently got nothing. The record means "this reference
+    // has already been honoured", which stops being true the moment the pass is taken away.
+    if (grantSnap?.exists && existing) return existing as Pass;
     const next = mergePass(existing, newPass(season, source, now, ref));
     if (grantRef) tx.set(grantRef, { uid, season, source, at: now });
     tx.set(userRef, { pass: next }, { merge: true });
@@ -63,6 +69,16 @@ export async function revokePass(db: Db, uid: string, reason: string, now = Date
   const batch = db.batch();
   leagues.docs.forEach((l) => batch.set(l.ref, { pro: false }, { merge: true }));
   if (!leagues.empty) await batch.commit();
+
+  // Take the idempotency records with it. They say "this reference has already been honoured",
+  // which is no longer true once the pass is gone, and leaving them means the next grant for the
+  // same reference writes nothing while reporting success.
+  const grants = await db.collection('pw_grants').where('uid', '==', uid).get();
+  if (!grants.empty) {
+    const cleanup = db.batch();
+    grants.docs.forEach((g) => cleanup.delete(g.ref));
+    await cleanup.commit();
+  }
 }
 
 /**
