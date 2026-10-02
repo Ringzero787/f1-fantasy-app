@@ -3,6 +3,8 @@ import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { teamAccent } from '../theme/simpleTheme';
+import { usePitWallStore } from '../../store/pitwall.store';
+import { GridPitWallBlock } from './GridPitWallBlock';
 import { useRaceScoresStore } from '../../store/raceScores.store';
 import { useAdminStore } from '../../store/admin.store';
 import { PRICING_CONFIG } from '../../config/pricing.config';
@@ -35,6 +37,9 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
   const { colors, family, spacing, scaled, mono } = useSimpleTheme();
   const insets = useSafeAreaInsets();
   const lastRaceScores = useRaceScoresStore((s) => s.lastRaceScores);
+  // Only a pass holder has projections at all: the store leaves them null without the claim, and
+  // the rules refuse the read, so this needs no gate of its own beyond that.
+  const pw = usePitWallStore((st) => st.projections);
   const prevRaceScores = useRaceScoresStore((s) => s.prevRaceScores);
   const entityHistory = useRaceScoresStore((s) => s.entityHistory);
   const fetchEntityHistory = useRaceScoresStore((s) => s.fetchEntityHistory);
@@ -105,6 +110,9 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
               {target.isAce ? <MonoLabel size={10} color={colors.primary}>· ACE 2×</MonoLabel> : null}
               {target.entry.isReservePick ? <MonoLabel size={10} color={colors.primary}>· AUTO-FILLED</MonoLabel> : null}
             </View>
+
+            {/* what the pass bought, above the roster figures: it is the reason to open this sheet */}
+            {pw ? <GridPitWallBlock projection={pw.byId[target.entry.id] ?? null} rounds={pw.rounds} round={pw.round} /> : null}
 
             {/* stats */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>

@@ -108,3 +108,32 @@ export function showcaseRaceResult(leagueId: string, userId: string, round: numb
   const entries = sorted.map((e, i) => ({ ...e, rank: i > 0 && sorted[i - 1].points === e.points ? i : i + 1 }));
   return { raceId: `showcase_r${round}`, season: '2026', round, entries, winners: entries.filter((e) => e.points === entries[0].points).map((e) => e.userId), topPoints: entries[0].points, estimated: false };
 }
+
+/**
+ * Pit Wall projections for the showcase (F-084).
+ *
+ * A pass-holder screen cannot be seen, screenshotted or reviewed without a pass, and a real pass
+ * means real money and a real account. This is the fixture that makes the paid experience visible
+ * in demo mode. It is shaped exactly like what the worker publishes, so what is on screen here is
+ * what a buyer sees.
+ *
+ * Gated behind SHOWCASE_ENABLED, which needs two environment variables the store build scripts
+ * refuse, so it cannot reach anybody who paid.
+ */
+export const SHOWCASE_PROJECTION_ROUNDS = ['SINGAPORE', 'AUSTIN', 'MEXICO', 'BRAZIL', 'VEGAS', 'QATAR'];
+
+export const showcaseProjections = () => ({
+  round: SHOWCASE_RESULT_ROUND,
+  asOf: new Date().toISOString(),
+  rounds: SHOWCASE_PROJECTION_ROUNDS,
+  byId: Object.fromEntries(
+    [
+      { id: 'antonelli', med: 58, floor: 41, ceil: 77, dnf: 9, win: 22, pod: 54, t10: 91, val: 19.4, price: 29.8, dprice: 0.4, ptsRise: 46, ptsHold: 31, pRise: 61, pFall: 12, own: 73, fit: [4, 5, 3, 2, 4, 1], mix: { race: 180, quali: 44, sprint: 12, fl: 4 }, splits: [{ cls: 'street-high', label: 'Street · high speed', n: 4, avg: 46.5 }, { cls: 'perm-med', label: 'Permanent · medium', n: 7, avg: 38.1 }] },
+      { id: 'hadjar', med: 44, floor: 26, ceil: 63, dnf: 13, win: 6, pod: 28, t10: 79, val: 21.2, price: 20.8, dprice: 0.6, ptsRise: 39, ptsHold: 22, pRise: 58, pFall: 14, own: 41, fit: [5, 3, 4, 3, 2, 4], mix: { race: 148, quali: 51, sprint: 11, fl: 2 }, splits: [{ cls: 'street-high', label: 'Street · high speed', n: 4, avg: 41.0 }, { cls: 'perm-low', label: 'Permanent · low speed', n: 5, avg: 33.4 }] },
+      { id: 'colapinto', med: 31, floor: 14, ceil: 49, dnf: 15, win: 0, pod: 9, t10: 58, val: 18.3, price: 16.9, dprice: -0.3, ptsRise: 34, ptsHold: 17, pRise: 27, pFall: 38, own: 24, fit: [3, 4, 2, 3, 3, 2], mix: { race: 102, quali: 33, sprint: 8, fl: 1 }, splits: [{ cls: 'perm-med', label: 'Permanent · medium', n: 6, avg: 28.2 }] },
+      { id: 'gasly', med: 24, floor: 8, ceil: 42, dnf: 18, win: 0, pod: 4, t10: 46, val: 15.1, price: 15.9, dprice: -0.5, ptsRise: 31, ptsHold: 12, pRise: 16, pFall: 47, own: 11, fit: [2, 2, 1, 3, 2, 2], mix: { race: 71, quali: 19, sprint: 5, fl: 1 }, splits: [{ cls: 'street-low', label: 'Street · low speed', n: 3, avg: 19.7 }] },
+      { id: 'hamilton', med: 39, floor: 19, ceil: 58, dnf: 12, win: 3, pod: 19, t10: 71, val: 16.4, price: 23.8, dprice: 0.2, ptsRise: 42, ptsHold: 25, pRise: 44, pFall: 21, own: 56, fit: [4, 3, 3, 4, 3, 3], mix: { race: 131, quali: 42, sprint: 9, fl: 5 }, splits: [{ cls: 'perm-high', label: 'Permanent · high speed', n: 6, avg: 37.8 }] },
+      { id: 'red_bull', med: 71, floor: 44, ceil: 98, dnf: 10, win: 0, pod: 0, t10: 0, val: 14.9, price: 47.6, dprice: 1.1, ptsRise: 68, ptsHold: 44, pRise: 52, pFall: 11, own: 81, fit: [4, 4, 5, 3, 4, 4], mix: { race: 232, quali: 68, sprint: 21, fl: 7 }, splits: [{ cls: 'perm-high', label: 'Permanent · high speed', n: 6, avg: 66.0 }] },
+    ].map((d) => [d.id, { ...d, form: [] }]),
+  ),
+});
