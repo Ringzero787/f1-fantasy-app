@@ -41,13 +41,29 @@ export function getLockedOutDriverIds(
 import { calculateEarlyTerminationFee, estimateSaleQuote } from '../utils/saleQuote';
 export { calculateEarlyTerminationFee, estimateSaleQuote };
 
-import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
+import { demoDrivers, demoConstructors } from '../data/demoData';
+import { useRemoteConfigStore } from './remoteConfig.store';
+
+// The race calendar comes from the remote-config store, which prefers the
+// `races` collection Firestore ingestion writes and falls back to the bundled
+// demoData only when that fetch is empty or fails. Reading the bundled list
+// directly here was a real bug: the 2026 season renumber (Bahrain reinstated at
+// Sepang as round 18, the tail shifted up one) never reached demoData, so this
+// file disagreed with the server about which race was next and about every
+// round number from 18 on. Worse, it disagreed with useLockoutStatus, which has
+// always read the store — so the screens and the guard below answered the same
+// question from two different calendars.
+const racesFromConfig = () => useRemoteConfigStore.getState().races;
 
 // Calculate fantasy points for a team based on race results
 // V3: Uses ace system (2x points) and stale roster penalty
-// Build raceId -> round lookup from demoRaces
-const raceRoundLookup: Record<string, number> = {};
-demoRaces.forEach(r => { raceRoundLookup[r.id] = r.round; });
+// Built per call, not at module load: the remote calendar arrives asynchronously
+// and a module-scope snapshot would freeze whatever was bundled at build time.
+const buildRaceRoundLookup = (): Record<string, number> => {
+  const lookup: Record<string, number> = {};
+  racesFromConfig().forEach(r => { lookup[r.id] = r.round; });
+  return lookup;
+};
 
 const calculateTeamPointsFromRaces = (team: FantasyTeam): {
   totalPoints: number;
@@ -56,6 +72,7 @@ const calculateTeamPointsFromRaces = (team: FantasyTeam): {
   perRacePoints: { round: number; points: number }[];
 } => {
   const { raceResults } = useAdminStore.getState();
+  const raceRoundLookup = buildRaceRoundLookup();
   let totalPoints = 0;
   const driverPoints: Record<string, number> = {};
   let constructorPoints = 0;
@@ -1400,7 +1417,7 @@ export const useTeamStore = create<TeamState>()(
     Object.entries(aceRaceResults).forEach(([raceId, result]) => {
       if (result.isComplete) aceCompletedRaceIds.add(raceId);
     });
-    const lockoutStatus = computeLockoutStatus(demoRaces, aceCompletedRaceIds, new Date(), adminLockOverride);
+    const lockoutStatus = computeLockoutStatus(racesFromConfig(), aceCompletedRaceIds, new Date(), adminLockOverride);
     if (lockoutStatus.aceLocked) {
       set({ error: 'Ace selection is locked during race weekends' });
       return;
@@ -1456,7 +1473,7 @@ export const useTeamStore = create<TeamState>()(
     Object.entries(aceCRaceResults).forEach(([raceId, result]) => {
       if (result.isComplete) aceCCompletedRaceIds.add(raceId);
     });
-    const aceCLockoutStatus = computeLockoutStatus(demoRaces, aceCCompletedRaceIds, new Date(), aceCLockOverride);
+    const aceCLockoutStatus = computeLockoutStatus(racesFromConfig(), aceCCompletedRaceIds, new Date(), aceCLockOverride);
     if (aceCLockoutStatus.aceLocked) {
       set({ error: 'Ace selection is locked during race weekends' });
       return;
