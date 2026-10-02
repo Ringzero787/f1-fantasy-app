@@ -8,7 +8,7 @@
  * `replayHeldPurchases` fed it through the same handler, and another credit appeared. Nothing
  * remembered the transaction had been honoured.
  */
-import { alreadyHonoured, grantDecision, rememberHonoured, HONOURED_CAP } from '../../src/store/purchaseGrant';
+import { alreadyHonoured, grantDecision, isTerminalValidationError, rememberHonoured, HONOURED_CAP } from '../../src/store/purchaseGrant';
 import { transactionKeyOf } from '../../src/pitwall/receipt';
 
 const PLAY = { productId: 'league_expansion', purchaseToken: 'tok_play_1' };
@@ -91,5 +91,41 @@ describe('grantDecision', () => {
   it('puts the local record ahead of the server flag, both ways round', () => {
     expect(grantDecision({ ...base, honoured: [base.key], duplicate: true })).toBe('already-honoured');
     expect(grantDecision({ ...base, honoured: ['android:other'], duplicate: false })).toBe('grant');
+  });
+});
+
+describe('isTerminalValidationError', () => {
+  const err = (code: string, details?: unknown) => ({ code, details });
+
+  it('ends the loop for a purchase that can never validate', () => {
+    // A purchase is only finished once it validates, so one that can never validate comes back on
+    // every launch forever — and on Play an unconsumed consumable also stops the buyer purchasing
+    // that product again. These are the refusals that retrying cannot fix.
+    expect(isTerminalValidationError(err('invalid-argument'))).toBe(true);
+    expect(isTerminalValidationError(err('functions/invalid-argument'))).toBe(true);
+    expect(isTerminalValidationError(err('permission-denied', { reason: 'claimed-by-another-account' }))).toBe(true);
+  });
+
+  it('keeps retrying a bare permission-denied, because an unset shared secret looks like one', () => {
+    // `validatePurchase` answers permission-denied both for a receipt it could not verify and for
+    // one it could not even try to verify, because APPLE_SHARED_SECRET or AMAZON_SHARED_SECRET was
+    // never set. Consuming a paid receipt over a missing secret turns a config slip into a refund.
+    expect(isTerminalValidationError(err('permission-denied'))).toBe(false);
+    expect(isTerminalValidationError(err('permission-denied', { reason: 'something-else' }))).toBe(false);
+    expect(isTerminalValidationError(err('permission-denied', 'claimed-by-another-account'))).toBe(false);
+  });
+
+  it('keeps retrying anything that might work later', () => {
+    for (const code of ['internal', 'unavailable', 'deadline-exceeded', 'unauthenticated', 'unknown', 'resource-exhausted']) {
+      expect(isTerminalValidationError(err(code))).toBe(false);
+    }
+  });
+
+  it('does not throw on whatever it is handed', () => {
+    expect(isTerminalValidationError(null)).toBe(false);
+    expect(isTerminalValidationError(undefined)).toBe(false);
+    expect(isTerminalValidationError(new Error('boom'))).toBe(false);
+    expect(isTerminalValidationError({ code: 42 })).toBe(false);
+    expect(isTerminalValidationError('invalid-argument')).toBe(false);
   });
 });

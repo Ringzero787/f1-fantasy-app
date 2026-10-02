@@ -7,7 +7,7 @@ import { readStorePrices } from './storePrices';
 import { functions, httpsCallable, firebaseAuth } from '../config/firebase';
 import { usePitWallStore } from './pitwall.store';
 import { receiptOf, storeOf, transactionKeyOf, type StorePurchase } from '../pitwall/receipt';
-import { alreadyHonoured, grantDecision, rememberHonoured } from './purchaseGrant';
+import { alreadyHonoured, grantDecision, isTerminalValidationError, rememberHonoured } from './purchaseGrant';
 
 // Module-level pending context for bridging requestPurchase → listener callback
 let pendingLeagueId: string | null = null;
@@ -158,13 +158,18 @@ export const usePurchaseStore = create<PurchaseState>()(
           // the next launch, and nothing was asking for it. The buyer had paid, the store would not
           // sell it again because they already owned it, and the app told them it would sort itself
           // out next time. It never would have.
-          get().replayHeldPurchases().catch((err) => {
+          await get().replayHeldPurchases().catch((err) => {
             console.warn('[iap] replay of held purchases failed:', err);
           });
 
           // Reconcile against what the server already knows, which is what restores device-local
           // credits after a reinstall. It cannot recover a purchase the server never recorded.
-          get().syncPurchasesFromServer().catch((err) => {
+          //
+          // After the replay, not alongside it. The replay now records a purchase with the server
+          // before granting it locally, so a sync running in parallel could read the server's copy
+          // while the local history was still empty, see itself one credit short, and top up —
+          // granting twice for one payment through the other door (F-092).
+          await get().syncPurchasesFromServer().catch((err) => {
             console.warn('Purchase sync failed (non-critical):', err);
           });
         } catch (err) {
@@ -253,22 +258,47 @@ export const usePurchaseStore = create<PurchaseState>()(
           const serverAvatars = serverCounts[PRODUCT_IDS.AVATAR_PACK] || 0;
           const localAvatars = localCounts[PRODUCT_IDS.AVATAR_PACK] || 0;
 
-          const updates: Partial<PurchaseState> = {
-            lastSyncedAt: new Date().toISOString(),
-          };
+          const now = new Date().toISOString();
+          const updates: Partial<PurchaseState> = { lastSyncedAt: now };
+          // Every top-up also writes the history rows it was derived from. The comparison above is
+          // against `purchaseHistory`, so a top-up that did not record itself was recomputed on the
+          // next launch and applied again — the same once-per-launch grant this feature is about,
+          // reached by a different road (F-092).
+          const history: PurchaseHistoryEntry[] = [];
+          const rows = (sku: string, n: number) => { for (let i = 0; i < n; i++) history.push({ sku, date: now }); };
 
           if (serverExpansions > localExpansions) {
-            updates.pendingExpansionCredits = state.pendingExpansionCredits + (serverExpansions - localExpansions);
+            const delta = serverExpansions - localExpansions;
+            updates.pendingExpansionCredits = state.pendingExpansionCredits + delta;
+            rows(PRODUCT_IDS.LEAGUE_EXPANSION, delta);
           }
           if (serverSlots > localSlots) {
-            updates.leagueSlotCredits = state.leagueSlotCredits + (serverSlots - localSlots);
+            const delta = serverSlots - localSlots;
+            updates.leagueSlotCredits = state.leagueSlotCredits + delta;
+            rows(PRODUCT_IDS.LEAGUE_SLOT, delta);
           }
           if (serverAvatars > localAvatars) {
-            // Can't easily re-attribute avatar credits to specific user here,
-            // so just log the discrepancy
-            console.warn(`Server has ${serverAvatars - localAvatars} more avatar packs than local`);
+            // This is the way back for an avatar pack the server has and this device does not —
+            // after a reinstall, or after a purchase was recorded and then replayed. It used to
+            // only log, on the reasoning that the credits could not be attributed to a user; but
+            // `getUserPurchases` answers for the signed-in account and nobody else, so that
+            // account is exactly who they belong to. Without this the pack was consumed and lost.
+            const uid = firebaseAuth.currentUser?.uid ?? null;
+            const delta = serverAvatars - localAvatars;
+            if (uid) {
+              updates.bonusAvatarCredits = {
+                ...state.bonusAvatarCredits,
+                [uid]: (state.bonusAvatarCredits[uid] || 0) + delta * AVATAR_PACK_CREDITS,
+              };
+              rows(PRODUCT_IDS.AVATAR_PACK, delta);
+            } else {
+              // Signed out mid-sync. Leave the gap for the next launch rather than crediting
+              // nobody and recording that it was handled.
+              console.warn(`[iap] ${delta} avatar pack(s) on the server with nobody signed in to credit`);
+            }
           }
 
+          if (history.length) updates.purchaseHistory = [...state.purchaseHistory, ...history];
           set(updates);
         } catch (err) {
           console.warn('syncPurchasesFromServer failed:', err);
@@ -430,9 +460,23 @@ export const usePurchaseStore = create<PurchaseState>()(
             const key = transactionKeyOf(purchase, Platform.OS);
             // No need to ask the server about a transaction this device has already granted for —
             // and not asking is what lets the offline replay loop finish the transaction at all.
-            const { duplicate } = alreadyHonoured(get().honouredTransactions, key)
-              ? { duplicate: true }
-              : await get().recordPurchaseOnServer(productId, receipt(), store());
+            let duplicate: boolean;
+            if (alreadyHonoured(get().honouredTransactions, key)) {
+              duplicate = true;
+            } else {
+              try {
+                ({ duplicate } = await get().recordPurchaseOnServer(productId, receipt(), store()));
+              } catch (err) {
+                // A refusal that retrying cannot fix has to end the loop, or the store hands this
+                // purchase back on every launch forever — and on Play an unconsumed consumable
+                // also stops the buyer from purchasing that product again.
+                if (!isTerminalValidationError(err)) throw err;
+                console.warn('[iap] the store cannot validate this purchase and never will; finishing it ungranted:', err instanceof Error ? err.message : err);
+                set((state) => ({ honouredTransactions: rememberHonoured(state.honouredTransactions, key) }));
+                await require('expo-iap').finishTransaction({ purchase, isConsumable: true });
+                return;
+              }
+            }
             const decision = grantDecision({ key, honoured: get().honouredTransactions, duplicate, isReplay });
 
             if (decision === 'grant') {
@@ -502,9 +546,13 @@ export const usePurchaseStore = create<PurchaseState>()(
             return;
           }
 
-          // A product this build does not know about. Record it so the receipt is not lost, then
-          // finish it, so the store stops offering it back forever.
-          await get().recordPurchaseOnServer(productId, receipt(), store());
+          // A product this build does not know about, so there is nothing to grant and nothing to
+          // de-duplicate. Try to record it — the receipt is worth keeping — but finish it either
+          // way: `validatePurchase` refuses an unknown product id outright, and leaving it
+          // unfinished would hand it back on every launch for the life of the install.
+          await get().recordPurchaseOnServer(productId, receipt(), store()).catch((err) => {
+            console.warn('[iap] could not record an unrecognised product; finishing it anyway:', err instanceof Error ? err.message : err);
+          });
           await require('expo-iap').finishTransaction({ purchase, isConsumable: true });
         } catch (err) {
           console.error('Error completing purchase:', err);
@@ -514,7 +562,7 @@ export const usePurchaseStore = create<PurchaseState>()(
           if (purchase.productId === PRODUCT_IDS.PITWALL_PASS) {
             Alert.alert('Pit Wall Pass', 'The purchase went through but activating it failed. It will finish by itself next time you open the app.');
           } else if (!isReplay) {
-            Alert.alert('Purchase Complete', 'Your purchase went through but could not be applied just yet. It will finish by itself next time you open the app.');
+            Alert.alert('Purchase received', 'Your purchase went through but could not be applied just yet. It will finish by itself next time you open the app.');
           }
         } finally {
           set({ isPurchasing: false });

@@ -60,3 +60,30 @@ export function grantDecision(input: {
   if (duplicate) return 'server-already-has-it';
   return 'grant';
 }
+
+/**
+ * Whether a `validatePurchase` failure will still be a failure next launch.
+ *
+ * It matters because a purchase is only finished after it validates, and a purchase that is never
+ * finished is handed back forever — which on Play also stops the buyer purchasing that product
+ * again, since they still own the unconsumed one. So a refusal that retrying cannot fix has to end
+ * with the transaction finished and nothing granted, rather than a loop.
+ *
+ * Only two cases qualify, and both are decided by the server rather than guessed from a message:
+ *
+ *   - `invalid-argument`: the purchase is structurally unusable — a product this build does not
+ *     sell, a malformed store token, an Amazon receipt with no Amazon user id, a demo token. The
+ *     same object produces the same answer every time.
+ *   - a `permission-denied` whose details say the purchase already belongs to another account.
+ *
+ * Deliberately NOT terminal: a bare `permission-denied`. It is also what a missing Apple or Amazon
+ * shared secret produces, and consuming a paid receipt because a secret was unset would turn a
+ * configuration mistake into a refund request.
+ */
+export function isTerminalValidationError(err: unknown): boolean {
+  const e = err as { code?: unknown; details?: unknown } | null;
+  const code = typeof e?.code === 'string' ? e.code.replace(/^functions\//, '') : '';
+  if (code === 'invalid-argument') return true;
+  const reason = (e?.details as { reason?: unknown } | null | undefined)?.reason;
+  return code === 'permission-denied' && reason === 'claimed-by-another-account';
+}

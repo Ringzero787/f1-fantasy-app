@@ -315,11 +315,17 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
     return byField.empty ? null : ((byField.docs[0].data().userId as string) ?? null);
   };
 
+  // `details.reason` on the two refusals below is what lets the device stop retrying. A purchase is
+  // only finished once it validates, so one that can never validate is handed back on every launch
+  // forever — and on Play an unconsumed consumable also stops the buyer purchasing it again. A bare
+  // permission-denied is not enough to act on: it is also what an unset Apple or Amazon shared
+  // secret produces, and consuming a paid receipt over a missing secret turns a configuration slip
+  // into a refund request.
   const owner = await claimedBy();
   if (owner !== null) {
     if (owner !== userId) {
       console.warn(`purchase already belongs to another account; refusing to entitle ${userId}`);
-      throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.');
+      throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.', { reason: 'claimed-by-another-account' });
     }
     return { success: true, purchaseId, duplicate: true };
   }
@@ -358,7 +364,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
     const owner = await claimedBy();
     if (owner === userId) return { success: true, purchaseId, duplicate: true };
     console.warn(`purchase lost a race to another account; refusing to entitle ${userId}`);
-    throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.');
+    throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.', { reason: 'claimed-by-another-account' });
   }
   const purchaseRef = purchaseDoc;
 
