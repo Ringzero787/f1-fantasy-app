@@ -29,3 +29,5 @@ export * as pw from './pitwall';
 export { onLeagueMemberWritten, onLeagueMemberCountChanged, reconcileAllLeagueMemberCounts } from './leagues/memberCount';
 export * from './auth/signInWithAmazon';
 export { appleAuthRedirect, claimAppleSignIn } from './auth/appleWebSignIn';
+export { amazonAuthRedirect, claimAmazonSignIn } from './auth/amazonWebSignIn';
+export { cleanupAuthHandoffs } from './auth/cleanup';

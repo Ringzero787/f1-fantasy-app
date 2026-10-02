@@ -32,7 +32,7 @@ interface AuthState {
   setError: (error: string | null) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (idToken: string) => Promise<void>;
-  signInWithApple: (identityToken: string, nonce: string) => Promise<void>;
+  signInWithApple: (identityToken: string, nonce: string, displayName?: string) => Promise<void>;
   signInWithAmazon: (customToken: string, profile: { email: string; displayName: string }) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -101,10 +101,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signInWithApple: async (identityToken, nonce) => {
+      signInWithApple: async (identityToken, nonce, displayName) => {
         set({ isLoading: true, error: null });
         try {
-          const user = await authService.signInWithApple(identityToken, nonce);
+          const user = await authService.signInWithApple(identityToken, nonce, displayName);
           const isAdmin = await checkIsAdmin();
           set({ user, isAuthenticated: true, isAdmin, isLoading: false, linkedProviders: authService.getLinkedProviders() });
         } catch (error) {

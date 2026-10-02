@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
+import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
 
 /**
  * Landing route for `theundercut://auth/apple` (F-091).
@@ -12,20 +13,17 @@ import { router } from 'expo-router';
  * fact going fine. It shows a spinner and steps aside.
  */
 export default function AppleAuthCallback() {
+  const { colors, mono } = useSimpleTheme();
+
   useEffect(() => {
     const t = setTimeout(() => router.replace('/'), 1200);
     return () => clearTimeout(t);
   }, []);
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#14B8A6" />
-      <Text style={styles.text}>Signing in...</Text>
+    <View style={{ flex: 1, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>SIGNING IN…</Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0D1117', alignItems: 'center', justifyContent: 'center' },
-  text: { color: '#fff', marginTop: 16, fontSize: 16 },
-});

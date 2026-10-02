@@ -48,3 +48,10 @@ export function appleDeepLink(state: string, error?: unknown): string {
   if (typeof error !== 'string' || !error) return base;
   return `${base}&error=${error === 'user_cancelled_authorize' ? 'cancelled' : 'failed'}`;
 }
+
+/**
+ * Amazon's authorization code. Opaque to us, so this only bounds it and keeps out anything that
+ * could steer a URL or a document path — it is carried in a redirect and spent in a token request.
+ */
+export const looksLikeAuthCode = (v: unknown): v is string =>
+  typeof v === 'string' && v.length > 0 && v.length <= 512 && /^[A-Za-z0-9._~-]+$/.test(v);

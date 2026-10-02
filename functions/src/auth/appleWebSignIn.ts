@@ -6,16 +6,8 @@
  * back into it: `expo-apple-authentication` is an iOS-only module, so the Apple button simply is not
  * there. Apple's web flow fills the gap, but it cannot be done from the device alone — Apple returns
  * the identity token by HTTP POST (`response_mode=form_post`) to a registered https URL, which a
- * phone is not. These two functions are that URL and the way the app collects the result.
- *
- *   1. The app makes a random `verifier`, keeps it, and sends `state = sha256(verifier)` to Apple.
- *   2. Apple POSTs the identity token here. `appleAuthRedirect` files it under `state` and bounces
- *      the browser to `theundercut://auth/apple?state=…` — the token itself never rides the
- *      redirect, because a custom scheme on Android is claimable by any installed app and an Apple
- *      identity token is enough to sign in as its owner.
- *   3. The app calls `claimAppleSignIn` with the `verifier`. Only the app that started the flow has
- *      it; an app that intercepted the redirect has `state`, from which the verifier cannot be
- *      recovered. The record is one-shot and short-lived.
+ * phone is not. This function is that URL; `handoffStore.ts` explains how the token gets from here
+ * to the app without riding a hijackable redirect.
  *
  * The token is handed back to the app rather than exchanged for a custom token here, deliberately:
  * the app passes it to Firebase as an `apple.com` credential, so it resolves to the *same* Firebase
@@ -23,13 +15,9 @@
  * and defeat the point of the feature.
  */
 import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
-import * as admin from 'firebase-admin';
-import { createHash } from 'crypto';
 import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink } from './handoffGuards';
-
-const HANDOFF = 'auth_handoff';
-/** Long enough for Apple's consent screen, short enough that a stolen `state` is worthless. */
-const TTL_MS = 10 * 60 * 1000;
+import { CLAIM_LIMIT, FILE_LIMIT, claimHandoff, fileHandoff, takeAuthRateSlot } from './handoffStore';
+import { ipKey } from '../pitwall/handoffCore';
 
 function bounce(res: { set: (k: string, v: string) => void; status: (n: number) => { send: (b: string) => void } }, location: string) {
   // 303 and not 302: Apple arrives by POST, and a 302 invites the browser to repeat the POST
@@ -40,13 +28,24 @@ function bounce(res: { set: (k: string, v: string) => void; status: (n: number) 
 }
 
 /**
- * Apple's return URL. Reached through the Firebase Hosting rewrite at
- * `/undercut/auth/apple`, because Apple requires the return URL to sit on a domain registered and
- * verified under the Services ID, and `cloudfunctions.net` cannot serve the verification file.
+ * Apple's return URL. Reached through the Firebase Hosting rewrite at `/undercut/auth/apple`,
+ * because Apple requires the return URL to sit on a domain registered and verified under the
+ * Services ID, and `cloudfunctions.net` cannot serve the verification file.
+ *
+ * `maxInstances` is here because this is an unauthenticated endpoint that writes: a loop against it
+ * should cost a queue, not a bill.
  */
-export const appleAuthRedirect = onRequest({ cors: false }, async (req, res) => {
-  const src = req.method === 'POST' ? (req.body ?? {}) : (req.query ?? {});
-  const state = (src as Record<string, unknown>).state;
+export const appleAuthRedirect = onRequest({ cors: false, maxInstances: 10 }, async (req, res) => {
+  // Apple only ever uses form_post. Accepting a GET would put identity tokens in request logs and
+  // browser history and make the write reachable from an <img> tag.
+  if (req.method !== 'POST') {
+    res.set('Allow', 'POST');
+    res.status(405).send('Start again from the app.');
+    return;
+  }
+
+  const src = (req.body ?? {}) as Record<string, unknown>;
+  const state = src.state;
 
   // Without a usable `state` there is no app session to return to, so there is nowhere to send an
   // error either. This is the only branch that renders anything.
@@ -56,29 +55,34 @@ export const appleAuthRedirect = onRequest({ cors: false }, async (req, res) => 
     return;
   }
 
-  const err = (src as Record<string, unknown>).error;
-  if (typeof err === 'string' && err) {
-    // Apple's own words are not for the player, and a cancellation is not a failure.
-    bounce(res, appleDeepLink(state, err));
+  const now = Date.now();
+  if (!(await takeAuthRateSlot(ipKey(req.ip), now, FILE_LIMIT))) {
+    bounce(res, appleDeepLink(state, 'rate_limited'));
     return;
   }
 
-  const idToken = (src as Record<string, unknown>).id_token;
-  if (!looksLikeJwt(idToken)) {
+  if (typeof src.error === 'string' && src.error) {
+    // Apple's own words are not for the player, and a cancellation is not a failure.
+    bounce(res, appleDeepLink(state, src.error));
+    return;
+  }
+
+  if (!looksLikeJwt(src.id_token)) {
     bounce(res, appleDeepLink(state, 'invalid_token'));
     return;
   }
 
-  const displayName = appleDisplayName((src as Record<string, unknown>).user);
-
   try {
-    await admin.firestore().collection(HANDOFF).doc(state).set({
+    const filed = await fileHandoff(state, {
       provider: 'apple',
-      idToken,
-      displayName,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + TTL_MS),
-    });
+      credential: src.id_token,
+      // Apple sends the chosen name once, on the very first consent, and never again.
+      displayName: appleDisplayName(src.user),
+    }, now);
+    if (!filed) {
+      bounce(res, appleDeepLink(state, 'replayed'));
+      return;
+    }
   } catch (error) {
     console.error('appleAuthRedirect: could not file the handoff', error instanceof Error ? error.message : String(error));
     bounce(res, appleDeepLink(state, 'store_failed'));
@@ -90,29 +94,29 @@ export const appleAuthRedirect = onRequest({ cors: false }, async (req, res) => 
 
 /**
  * Collects the filed token. Unauthenticated by necessity — the caller is signing in — so the
- * verifier is the whole of the authorisation: it is 32 random bytes that never left the device.
+ * verifier is the whole of the authorisation: 32 random bytes that never left the device.
  */
-export const claimAppleSignIn = onCall(async (request) => {
+export const claimAppleSignIn = onCall({ maxInstances: 10 }, async (request) => {
   const verifier = (request.data ?? {}).verifier;
   if (!isSha256Hex(verifier)) throw new HttpsError('invalid-argument', 'Bad sign-in request.');
 
-  const state = createHash('sha256').update(verifier).digest('hex');
-  const ref = admin.firestore().collection(HANDOFF).doc(state);
-
-  // One shot: read and delete together, so a replay of the same verifier finds nothing. The delete
-  // happens even when the record has expired, which is also how expired records get collected.
-  const snap = await admin.firestore().runTransaction(async (tx) => {
-    const found = await tx.get(ref);
-    if (found.exists) tx.delete(ref);
-    return found;
-  });
-
-  if (!snap.exists) throw new HttpsError('not-found', 'That sign-in has already been used or has expired.');
-  const data = snap.data() as { idToken?: string; displayName?: string | null; expiresAt?: admin.firestore.Timestamp };
-  if (!data.expiresAt || data.expiresAt.toMillis() < Date.now()) {
-    throw new HttpsError('deadline-exceeded', 'That sign-in took too long. Try again.');
+  const now = Date.now();
+  if (!(await takeAuthRateSlot(ipKey(request.rawRequest?.ip), now, CLAIM_LIMIT))) {
+    throw new HttpsError('resource-exhausted', 'Too many attempts. Wait a minute and try again.');
   }
-  if (!looksLikeJwt(data.idToken)) throw new HttpsError('internal', 'Sign-in could not be completed.');
 
-  return { idToken: data.idToken, displayName: data.displayName ?? null };
+  const { createHash } = await import('crypto');
+  const state = createHash('sha256').update(verifier).digest('hex');
+  const claimed = await claimHandoff(state, now);
+  if (!claimed.ok) {
+    throw new HttpsError(
+      claimed.reason === 'expired' ? 'deadline-exceeded' : 'not-found',
+      claimed.reason === 'expired' ? 'That sign-in took too long. Try again.' : 'That sign-in has already been used or has expired.',
+    );
+  }
+  if (claimed.record.provider !== 'apple' || !looksLikeJwt(claimed.record.credential)) {
+    throw new HttpsError('internal', 'Sign-in could not be completed.');
+  }
+
+  return { idToken: claimed.record.credential, displayName: claimed.record.displayName ?? null };
 });

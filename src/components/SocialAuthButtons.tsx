@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import * as Crypto from 'expo-crypto';
 import Constants from 'expo-constants';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
 import { isAmazonBuild } from '../utils/storeDetection';
+import { randomHex, sha256Hex } from '../utils/nonce';
 
 // Check if running in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -42,12 +42,8 @@ export async function getGoogleIdToken(): Promise<string> {
  * Throws if user cancels or sign-in fails.
  */
 export async function getAppleCredential(): Promise<{ identityToken: string; nonce: string }> {
-  const randomBytes = await Crypto.getRandomBytesAsync(32);
-  const nonce = Array.from(randomBytes, (b) => b.toString(16).padStart(2, '0')).join('');
-  const hashedNonce = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    nonce
-  );
+  const nonce = await randomHex(32);
+  const hashedNonce = await sha256Hex(nonce);
 
   const credential = await AppleAuthentication.signInAsync({
     requestedScopes: [

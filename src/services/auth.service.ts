@@ -81,7 +81,7 @@ export const authService = {
   /**
    * Sign in with Apple
    */
-  async signInWithApple(identityToken: string, nonce: string): Promise<User> {
+  async signInWithApple(identityToken: string, nonce: string, displayName?: string): Promise<User> {
     const provider = new OAuthProvider('apple.com');
     const credential = provider.credential({
       idToken: identityToken,
@@ -100,7 +100,9 @@ export const authService = {
       // Apple may or may not provide name/email based on user preferences
       return this.createUserProfile(result.user.uid, {
         email: result.user.email || '',
-        displayName: result.user.displayName || 'Apple User',
+        // Over Apple's web flow (F-091) the name arrives beside the token rather than in the
+        // Firebase user, so the caller passes it in; Apple sends it on first consent only.
+        displayName: result.user.displayName || displayName || 'Apple User',
       });
     }
 

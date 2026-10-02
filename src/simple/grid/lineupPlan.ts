@@ -140,7 +140,6 @@ export function saveLabel(plan: LineupPlan, locked: boolean): { label: string; r
     return { label: `PICK ${n} DRIVER${n > 1 ? 'S' : ''}`, ready: false };
   }
   if (plan.missingConstructor) return { label: 'PICK A CONSTRUCTOR', ready: false };
-  if (!plan.complete) return { label: 'LINEUP INCOMPLETE', ready: false };
   if (!plan.changed) return { label: 'LINEUP SAVED', ready: false };
   return { label: 'SAVE LINEUP', ready: true };
 }

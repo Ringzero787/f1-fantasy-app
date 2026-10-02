@@ -5,7 +5,7 @@
  * the other. The `state` becomes a Firestore document id and the deep link is built by hand, so
  * these are the checks that keep a hostile POST from choosing either.
  */
-import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink } from '../../functions/src/auth/handoffGuards';
+import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink, looksLikeAuthCode } from '../../functions/src/auth/handoffGuards';
 
 describe('isSha256Hex', () => {
   const good = 'a'.repeat(64);
@@ -86,5 +86,21 @@ describe('appleDeepLink', () => {
     expect(appleDeepLink(state, '&foo=bar')).toBe(`theundercut://auth/apple?state=${state}&error=failed`);
     expect(appleDeepLink(state, 123)).toBe(`theundercut://auth/apple?state=${state}`);
     expect(appleDeepLink(state, '')).toBe(`theundercut://auth/apple?state=${state}`);
+  });
+});
+
+describe('looksLikeAuthCode', () => {
+  it('accepts an Amazon authorization code', () => {
+    expect(looksLikeAuthCode('ANgMjpLnmNQIHRGEzjkG')).toBe(true);
+    expect(looksLikeAuthCode('a-b_c.d~e')).toBe(true);
+  });
+  it('rejects anything that could steer a redirect or a path', () => {
+    expect(looksLikeAuthCode('')).toBe(false);
+    expect(looksLikeAuthCode('code&state=x')).toBe(false);
+    expect(looksLikeAuthCode('../../etc/passwd')).toBe(false);
+    expect(looksLikeAuthCode('has space')).toBe(false);
+    expect(looksLikeAuthCode('a'.repeat(513))).toBe(false);
+    expect(looksLikeAuthCode(null)).toBe(false);
+    expect(looksLikeAuthCode(42)).toBe(false);
   });
 });

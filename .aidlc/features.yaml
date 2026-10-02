@@ -998,7 +998,7 @@ features:
       - detail
   - id: F-090
     name: "UC: the Amazon build survives R8"
-    status: shipped
+    status: building
     spec: .aidlc/specs/F-090.md
     created_at: 2026-10-02
     summary: >-

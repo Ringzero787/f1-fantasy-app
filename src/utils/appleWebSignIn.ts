@@ -15,10 +15,10 @@
  */
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import * as Crypto from 'expo-crypto';
 import Constants from 'expo-constants';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../config/firebase';
+import { randomHex, sha256Hex } from './nonce';
 
 /** The Apple *Services ID* — a separate client identifier from the iOS bundle id. */
 const SERVICES_ID = process.env.EXPO_PUBLIC_APPLE_SERVICES_ID ?? '';
@@ -30,12 +30,6 @@ const REDIRECT_URI = process.env.EXPO_PUBLIC_APPLE_REDIRECT_URI ?? 'https://f1-a
 const APP_REDIRECT = 'theundercut://auth/apple';
 
 const isExpoGo = Constants.appOwnership === 'expo';
-
-const randomHex = async (bytes: number): Promise<string> =>
-  Array.from(await Crypto.getRandomBytesAsync(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
-
-const sha256 = (value: string): Promise<string> =>
-  Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, value);
 
 /**
  * Whether the web flow can be offered on this build. iOS is excluded on purpose: the native sheet
@@ -51,10 +45,10 @@ export async function appleWebSignIn(): Promise<{ identityToken: string; nonce: 
   // Same shape as the native flow: Apple is given the hash and echoes it into the token, and
   // Firebase checks it against the raw value we keep here.
   const rawNonce = await randomHex(32);
-  const hashedNonce = await sha256(rawNonce);
+  const hashedNonce = await sha256Hex(rawNonce);
   // The verifier never leaves the device; `state` is its hash and is the only part Apple sees.
   const verifier = await randomHex(32);
-  const state = await sha256(verifier);
+  const state = await sha256Hex(verifier);
 
   const authUrl =
     'https://appleid.apple.com/auth/authorize' +
