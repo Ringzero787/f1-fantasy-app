@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, RefreshControl, Share } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
@@ -10,6 +10,7 @@ import { rankStandings, playersCaption, type StandingsRow, type StandingsSort } 
 import { raceOptions, raceResultRows, teamLineWithWins, type LeagueRaceResultDoc } from './raceLeaderboard';
 import { GridRaceSelectSheet } from './GridRaceSelectSheet';
 import { standingsText } from './shareStandings';
+import { shareText } from './shareText';
 import { SHOWCASE_RESULT_ROUND, showcaseRaceResult } from './showcaseData';
 import { getLeagueRaceResult } from '../../services/leagueRaceResults.service';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
@@ -119,19 +120,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
       caption: selectorLabel,
       rows,
     });
-    if (!message) return;
-    try {
-      // `title` is not the chooser title: Android passes it to the receiving app as the subject,
-      // which is what fills in an email's subject line, and iOS drops it entirely. The league name
-      // is the first line of the message either way, so this only ever adds.
-      await Share.share({ message, title: `${league?.name ?? 'League'} standings` });
-    } catch (err) {
-      // Dismissing the sheet is not a failure and must stay silent. Anything else is worth a line
-      // in the log, because a share that quietly does nothing is indistinguishable from a dead
-      // button and there would be no other trace of it.
-      const message_ = err instanceof Error ? err.message : String(err);
-      if (!/cancel/i.test(message_)) console.warn('[share] standings share failed:', message_);
-    }
+    await shareText(message, `${league?.name ?? 'League'} standings`, 'standings');
   }, [league?.name, selectorLabel, rows]);
 
   const header = (

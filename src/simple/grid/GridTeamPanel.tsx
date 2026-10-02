@@ -19,6 +19,8 @@ import { GridTile } from './GridTile';
 import { GridTileSheet, sheetTargetFor, type SheetTarget } from './GridTileSheet';
 import { useTeamStore } from '../../store/team.store';
 import { runStoreAction } from './storeAction';
+import { teamText } from './shareTeam';
+import { shareText } from './shareText';
 import { computeTiles, lineupStatus, openSlotCount, rosterRacePoints, rosterConstructor, type GridTile as Tile } from './tileState';
 import { formatLockStatus, formatRoundStatus, seasonProgress } from './lockStatus';
 
@@ -94,6 +96,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
     });
   }, [team, remoteDrivers, lastRaceScores, prevRaceScores, driverPrices, constructorPrices]);
 
+
   const open = openSlotCount(tiles);
   const filledCount = tiles.length - open;
   const aceTile = tiles.find((t) => t.kind !== 'empty' && t.ace);
@@ -131,6 +134,26 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
 
   const myMember = team ? leagueMembers.find((m) => m.userId === team.userId && m.leagueId === team.leagueId) : undefined;
   const leagueSize = team ? leagueMembers.filter((m) => m.leagueId === team.leagueId).length : 0;
+
+  /**
+   * Hand the lineup to whatever the player shares with. Text, like the league share and for the
+   * same reasons, and it shares what the screen is showing: the same round, the same ace.
+   */
+  const onShareTeam = useCallback(async () => {
+    if (!team) return;
+    const message = teamText({
+      teamName: team.name || 'My team',
+      caption: roundStatus,
+      seasonPoints: (team.totalPoints ?? 0) + (team.lockedPoints ?? 0),
+      lastRace: lastPoints ?? null,
+      rank: myMember?.rank ?? null,
+      leagueSize,
+      drivers: tiles
+        .filter((t) => t.kind === 'driver' || t.kind === 'constructor')
+        .map((t) => ({ name: t.name, pts: t.pts, ace: t.ace })),
+    });
+    await shareText(message, `${team.name || 'My team'} lineup`, 'team');
+  }, [team, roundStatus, lastPoints, myMember?.rank, leagueSize, tiles]);
 
   const goPicker = useCallback((slot?: 'driver' | 'constructor') => {
     router.push({ pathname: '/(simple)/picker', params: slot ? { tab: slot } : {} } as never);
@@ -294,9 +317,21 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
             </View>
           </View>
 
-          {/* Lineup label + EDIT → */}
-          <View style={{ marginHorizontal: gutter, marginTop: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* Lineup label + SHARE + EDIT → */}
+          <View style={{ marginHorizontal: gutter, marginTop: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <MonoLabel color={status.accent ? colors.primary : colors.text.muted}>LINEUP · {status.text}</MonoLabel>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, flexShrink: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {tiles.some((t) => t.kind !== 'empty') ? (
+              <Pressable
+                onPress={onShareTeam}
+                hitSlop={{ top: 18, bottom: 18, left: 14, right: 14 }}
+                accessibilityRole="button"
+                accessibilityLabel="Share your team"
+                accessibilityHint="Shares your lineup and points as text"
+              >
+                <MonoLabel color={colors.primary}>SHARE</MonoLabel>
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={locked ? undefined : () => goPicker()}
               disabled={locked}
@@ -307,6 +342,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
             >
               <MonoLabel color={editColor}>{locked ? 'LOCKED' : 'EDIT →'}</MonoLabel>
             </Pressable>
+            </View>
           </View>
 
           {/* 2-column tile grid */}
