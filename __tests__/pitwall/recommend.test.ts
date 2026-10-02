@@ -3,7 +3,12 @@ import { passFromClaims, NO_PASS } from '../../src/pitwall/pass';
 import { toProjectionSet } from '../../src/pitwall/projections';
 import type { Projection } from '../../src/pitwall/projections';
 
-const P = (id: string, med: number): Projection => ({ id, med, floor: med - 8, ceil: med + 12, dnf: 12, ptsRise: 4 });
+const P = (id: string, med: number, over: Partial<Projection> = {}): Projection => ({
+  id, med, floor: med - 8, ceil: med + 12, dnf: 12,
+  win: 0, pod: 0, t10: 0, val: 0, price: 0, dprice: 0,
+  ptsRise: 4, ptsHold: 0, pRise: 0, pFall: 0, own: 0,
+  form: [], fit: [], mix: null, splits: [], ...over,
+});
 const byId = (...ps: Projection[]): Record<string, Projection> => Object.fromEntries(ps.map((p) => [p.id, p]));
 
 describe('bestPick', () => {
@@ -145,5 +150,66 @@ describe('marksFor', () => {
     const projections = byId(P('a', 60));
     expect(marksFor([{ id: 'a', price: 100, selected: true, blocked: false }], projections)).toEqual({});
     expect(marksFor([{ id: 'a', price: 100, selected: false, blocked: true }], projections)).toEqual({});
+  });
+});
+
+describe('what the payload carries through', () => {
+  // The app was already downloading the whole published document and keeping six fields of it, so
+  // someone who had paid got one number on a picker row here and a full driver panel on the web.
+  // These assert the fields survive the parse, because the gap was never a fetch.
+  const raw = {
+    round: { number: 17 },
+    asOf: '2026-10-02T06:00:00.000Z',
+    rounds: [{ name: 'SINGAPORE' }, { name: 'AUSTIN' }, { name: 'MEXICO' }],
+    drivers: [{
+      id: 'nor', med: 58, floor: 41, ceil: 77, dnf: 9,
+      win: 22, pod: 54, t10: 91, val: 19.4, price: 29.8, dprice: 0.4,
+      ptsRise: 46, ptsHold: 31, pRise: 61, pFall: 12, own: 73,
+      form: [41, 52, 18, 63], fit: [4, 5, 3, 2, 4, 1],
+      mix: { race: 180, quali: 44, sprint: 12, fl: 3 },
+      splits: [{ cls: 'street-high', label: 'Street · high speed', n: 4, avg: 46.5 }],
+    }],
+    constructors: [],
+  };
+
+  it('keeps the numbers a driver panel is made of', () => {
+    const set = toProjectionSet(raw)!;
+    const d = set.byId.nor;
+    expect(d.floor).toBe(41);
+    expect(d.ceil).toBe(77);
+    expect([d.win, d.pod, d.t10]).toEqual([22, 54, 91]);
+    expect([d.val, d.price, d.dprice]).toEqual([19.4, 29.8, 0.4]);
+    expect([d.ptsRise, d.ptsHold, d.pRise, d.pFall]).toEqual([46, 31, 61, 12]);
+    expect(d.own).toBe(73);
+    expect(d.form).toEqual([41, 52, 18, 63]);
+    expect(d.fit).toEqual([4, 5, 3, 2, 4, 1]);
+    expect(d.mix).toEqual({ race: 180, quali: 44, sprint: 12, fl: 3 });
+    expect(d.splits).toEqual([{ cls: 'street-high', label: 'Street · high speed', n: 4, avg: 46.5 }]);
+  });
+
+  it('keeps the round names, so a fit score can say which round it is for', () => {
+    expect(toProjectionSet(raw)!.rounds).toEqual(['SINGAPORE', 'AUSTIN', 'MEXICO']);
+  });
+
+  it('treats an all-zero mix as nothing published rather than a driver who scored nothing', () => {
+    const set = toProjectionSet({ ...raw, drivers: [{ ...raw.drivers[0], mix: { race: 0, quali: 0, sprint: 0, fl: 0 } }] })!;
+    expect(set.byId.nor.mix).toBeNull();
+  });
+
+  it('drops a split with no label or no races behind it', () => {
+    const splits = [{ cls: 'a', label: '', n: 4, avg: 1 }, { cls: 'b', label: 'Permanent', n: 0, avg: 2 }, { cls: 'c', label: 'Street', n: 3, avg: 9 }];
+    const set = toProjectionSet({ ...raw, drivers: [{ ...raw.drivers[0], splits }] })!;
+    expect(set.byId.nor.splits.map((s) => s.label)).toEqual(['Street']);
+  });
+
+  it('survives a document missing every optional field', () => {
+    const set = toProjectionSet({ round: { number: 1 }, drivers: [{ id: 'x', med: 10 }], constructors: [] })!;
+    const d = set.byId.x;
+    expect(d.form).toEqual([]);
+    expect(d.fit).toEqual([]);
+    expect(d.mix).toBeNull();
+    expect(d.splits).toEqual([]);
+    expect(d.win).toBe(0);
+    expect(set.rounds).toEqual([]);
   });
 });
