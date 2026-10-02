@@ -4,9 +4,10 @@ import { secureStorage } from '../utils/secureStorage';
 import { Alert, Platform } from 'react-native';
 import { PRODUCT_IDS, ALL_PRODUCT_IDS, AVATAR_PACK_CREDITS } from '../config/products';
 import { readStorePrices } from './storePrices';
-import { functions, httpsCallable } from '../config/firebase';
+import { functions, httpsCallable, firebaseAuth } from '../config/firebase';
 import { usePitWallStore } from './pitwall.store';
-import { receiptOf, storeOf, type StorePurchase } from '../pitwall/receipt';
+import { receiptOf, storeOf, transactionKeyOf, type StorePurchase } from '../pitwall/receipt';
+import { alreadyHonoured, grantDecision, rememberHonoured } from './purchaseGrant';
 
 // Module-level pending context for bridging requestPurchase → listener callback
 let pendingLeagueId: string | null = null;
@@ -44,6 +45,12 @@ interface PurchaseState {
   leagueSlotCredits: number; // extra league slots purchased
   purchaseHistory: PurchaseHistoryEntry[];
   lastSyncedAt: string | null;
+  /**
+   * Store transactions this device has already granted something for (F-092). Persisted, because
+   * the double-grant it prevents happens across launches: a purchase whose `finishTransaction`
+   * never completed is handed back by the store on every start.
+   */
+  honouredTransactions: string[];
 
   // Transient
   isInitialized: boolean;
@@ -66,9 +73,11 @@ interface PurchaseState {
   consumeExpansionCredit: () => boolean;
   hasLeagueSlotCredit: () => boolean;
   consumeLeagueSlotCredit: () => boolean;
-  handlePurchaseComplete: (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }) => Promise<void>;
+  /** `isReplay` marks a purchase the store handed back at launch rather than one just bought. */
+  handlePurchaseComplete: (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, opts?: { isReplay?: boolean }) => Promise<void>;
   handlePurchaseError: (error: { code: string; message: string }) => void;
-  recordPurchaseOnServer: (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string) => Promise<void>;
+  /** @returns whether the server had already recorded this store transaction. */
+  recordPurchaseOnServer: (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string) => Promise<{ duplicate: boolean }>;
   syncPurchasesFromServer: () => Promise<void>;
   /** Finish anything the store is still holding from a previous run. */
   replayHeldPurchases: () => Promise<void>;
@@ -84,6 +93,7 @@ export const usePurchaseStore = create<PurchaseState>()(
       leagueSlotCredits: 0,
       purchaseHistory: [],
       lastSyncedAt: null,
+      honouredTransactions: [],
 
       // Transient state
       isInitialized: false,
@@ -170,17 +180,22 @@ export const usePurchaseStore = create<PurchaseState>()(
         set({ isInitialized: false });
       },
 
+      /**
+       * Validates the receipt with the server and reports whether the server had already recorded
+       * it. That flag is half of the double-grant guard (F-092): it is the only thing that knows
+       * about a purchase made on a device this one has never been, and it survives a reinstall,
+       * which the local honoured list cannot.
+       *
+       * It throws on failure now, for every product. It used to swallow the error for the three
+       * consumables, on the reasoning that the entitlement was already on the device and this call
+       * only persisted it — but that reasoning is what let a purchase be granted again on each
+       * launch. A purchase that cannot be validated is left unfinished with the store instead, and
+       * tried again next start, exactly as the pass has always been.
+       */
       recordPurchaseOnServer: async (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string; userIdAmazon?: string }, platform: string) => {
-        try {
-          const validatePurchaseFn = httpsCallable(functions, 'validatePurchase');
-          await validatePurchaseFn({ productId, ...verificationData, platform });
-        } catch (err) {
-          // For everything else the entitlement is already on the device and this call only
-          // persists it. The Pit Wall Pass is the opposite: the server grant IS the entitlement,
-          // so a failure here has to be visible and the receipt has to survive for a retry.
-          if (productId === PRODUCT_IDS.PITWALL_PASS) throw err;
-          console.warn('Failed to record purchase on server:', err);
-        }
+        const validatePurchaseFn = httpsCallable<Record<string, unknown>, { success?: boolean; purchaseId?: string; duplicate?: boolean }>(functions, 'validatePurchase');
+        const result = await validatePurchaseFn({ productId, ...verificationData, platform });
+        return { duplicate: result.data?.duplicate === true };
       },
 
       replayHeldPurchases: async () => {
@@ -195,7 +210,7 @@ export const usePurchaseStore = create<PurchaseState>()(
           // own de-duplication makes a replay of something already recorded a no-op.
           for (const purchase of list) {
             try {
-              await get().handlePurchaseComplete(purchase as StorePurchase);
+              await get().handlePurchaseComplete(purchase as StorePurchase, { isReplay: true });
             } catch (err) {
               // Left unfinished on purpose, so the store hands it back again next launch. This is
               // the state a buyer is stuck in, and it has to stay recoverable rather than be
@@ -395,48 +410,82 @@ export const usePurchaseStore = create<PurchaseState>()(
         }
       },
 
-      handlePurchaseComplete: async (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }) => {
+      handlePurchaseComplete: async (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, opts?: { isReplay?: boolean }) => {
+        const isReplay = opts?.isReplay === true;
         try {
           const { productId } = purchase;
+          const receipt = () => receiptOf(purchase, Platform.OS);
+          const store = () => storeOf(purchase, Platform.OS);
 
-          if (productId === PRODUCT_IDS.LEAGUE_EXPANSION) {
-            set((state) => ({
-              pendingExpansionCredits: state.pendingExpansionCredits + 1,
-              expandedLeagueIds: pendingLeagueId
-                ? [...state.expandedLeagueIds, pendingLeagueId]
-                : state.expandedLeagueIds,
-              purchaseHistory: [
-                ...state.purchaseHistory,
-                { sku: productId, date: new Date().toISOString(), leagueId: pendingLeagueId || undefined },
-              ],
-            }));
-            Alert.alert('Purchase Complete', 'League expansion unlocked!');
-            pendingLeagueId = null;
-          } else if (productId === PRODUCT_IDS.LEAGUE_SLOT) {
-            set((state) => ({
-              leagueSlotCredits: state.leagueSlotCredits + 1,
-              purchaseHistory: [
-                ...state.purchaseHistory,
-                { sku: productId, date: new Date().toISOString() },
-              ],
-            }));
-            Alert.alert('Purchase Complete', 'Extra league slot unlocked!');
-          } else if (productId === PRODUCT_IDS.AVATAR_PACK) {
-            const userId = pendingUserId;
-            if (userId) {
-              set((state) => ({
-                bonusAvatarCredits: {
-                  ...state.bonusAvatarCredits,
-                  [userId]: (state.bonusAvatarCredits[userId] || 0) + AVATAR_PACK_CREDITS,
-                },
-                purchaseHistory: [
-                  ...state.purchaseHistory,
-                  { sku: productId, date: new Date().toISOString() },
-                ],
-              }));
-              Alert.alert('Purchase Complete', `${AVATAR_PACK_CREDITS} avatar credits added!`);
+          if (productId === PRODUCT_IDS.LEAGUE_EXPANSION || productId === PRODUCT_IDS.LEAGUE_SLOT || productId === PRODUCT_IDS.AVATAR_PACK) {
+            // The three consumables used to be granted here and then recorded, which is how one
+            // payment became one credit per launch: a purchase the store could not finish is handed
+            // back on every start, and nothing remembered it had already been honoured (F-092).
+            //
+            // So the server answers first — it is the only party that knows about a purchase made
+            // on another device, and about one made before a reinstall — and this device keeps its
+            // own list of honoured transactions for when the server cannot be reached at all. A
+            // validation failure throws, leaving the purchase with the store to be tried again,
+            // which is what the pass has always done.
+            const key = transactionKeyOf(purchase, Platform.OS);
+            // No need to ask the server about a transaction this device has already granted for —
+            // and not asking is what lets the offline replay loop finish the transaction at all.
+            const { duplicate } = alreadyHonoured(get().honouredTransactions, key)
+              ? { duplicate: true }
+              : await get().recordPurchaseOnServer(productId, receipt(), store());
+            const decision = grantDecision({ key, honoured: get().honouredTransactions, duplicate, isReplay });
+
+            if (decision === 'grant') {
+              if (productId === PRODUCT_IDS.LEAGUE_EXPANSION) {
+                set((state) => ({
+                  pendingExpansionCredits: state.pendingExpansionCredits + 1,
+                  expandedLeagueIds: pendingLeagueId
+                    ? [...state.expandedLeagueIds, pendingLeagueId]
+                    : state.expandedLeagueIds,
+                  purchaseHistory: [
+                    ...state.purchaseHistory,
+                    { sku: productId, date: new Date().toISOString(), leagueId: pendingLeagueId || undefined },
+                  ],
+                }));
+                if (!isReplay) Alert.alert('Purchase Complete', 'League expansion unlocked!');
+              } else if (productId === PRODUCT_IDS.LEAGUE_SLOT) {
+                set((state) => ({
+                  leagueSlotCredits: state.leagueSlotCredits + 1,
+                  purchaseHistory: [...state.purchaseHistory, { sku: productId, date: new Date().toISOString() }],
+                }));
+                if (!isReplay) Alert.alert('Purchase Complete', 'Extra league slot unlocked!');
+              } else {
+                // On a replay there is no pending context — the buy call that set it was a launch
+                // ago — so fall back to whoever is signed in. Without this the credits went
+                // nowhere and the transaction was finished anyway: paid for, never granted.
+                const userId = pendingUserId ?? firebaseAuth.currentUser?.uid ?? null;
+                if (userId) {
+                  set((state) => ({
+                    bonusAvatarCredits: {
+                      ...state.bonusAvatarCredits,
+                      [userId]: (state.bonusAvatarCredits[userId] || 0) + AVATAR_PACK_CREDITS,
+                    },
+                    purchaseHistory: [...state.purchaseHistory, { sku: productId, date: new Date().toISOString() }],
+                  }));
+                  if (!isReplay) Alert.alert('Purchase Complete', `${AVATAR_PACK_CREDITS} avatar credits added!`);
+                } else {
+                  // Nobody to credit. Leave it unfinished rather than consume it for nothing.
+                  throw new Error('no signed-in account to credit the avatar pack to');
+                }
+              }
+            } else if (decision === 'cannot-verify') {
+              console.warn('[iap] a replayed purchase carries no transaction id; leaving the grant to the server sync');
+            } else {
+              console.log(`[iap] ${productId} already honoured (${decision}); finishing without granting again`);
             }
+
+            pendingLeagueId = null;
             pendingUserId = null;
+            set((state) => ({ honouredTransactions: rememberHonoured(state.honouredTransactions, key) }));
+            // Only now: a finished transaction is one the store will not hand back, so finishing
+            // before the grant is recorded is how a purchase gets lost.
+            await require('expo-iap').finishTransaction({ purchase, isConsumable: true });
+            return;
           }
 
           if (productId === PRODUCT_IDS.PITWALL_PASS) {
@@ -453,16 +502,19 @@ export const usePurchaseStore = create<PurchaseState>()(
             return;
           }
 
-          // Finish the transaction (consumable so it can be re-purchased next season)
+          // A product this build does not know about. Record it so the receipt is not lost, then
+          // finish it, so the store stops offering it back forever.
+          await get().recordPurchaseOnServer(productId, receipt(), store());
           await require('expo-iap').finishTransaction({ purchase, isConsumable: true });
-
-          // Record on server for persistence across reinstalls
-          await get().recordPurchaseOnServer(productId, receiptOf(purchase, Platform.OS), storeOf(purchase, Platform.OS)).catch(() => {});
         } catch (err) {
           console.error('Error completing purchase:', err);
+          // Unfinished, so the store hands it back on the next start and this runs again. Say so
+          // when someone is standing there having just paid; a replay failing at launch is not
+          // something to interrupt anyone about.
           if (purchase.productId === PRODUCT_IDS.PITWALL_PASS) {
-            // Unfinished, so the store hands it back on the next start and this runs again.
             Alert.alert('Pit Wall Pass', 'The purchase went through but activating it failed. It will finish by itself next time you open the app.');
+          } else if (!isReplay) {
+            Alert.alert('Purchase Complete', 'Your purchase went through but could not be applied just yet. It will finish by itself next time you open the app.');
           }
         } finally {
           set({ isPurchasing: false });
@@ -531,6 +583,7 @@ export const usePurchaseStore = create<PurchaseState>()(
         leagueSlotCredits: state.leagueSlotCredits,
         purchaseHistory: state.purchaseHistory,
         lastSyncedAt: state.lastSyncedAt,
+        honouredTransactions: state.honouredTransactions,
       }),
     }
   )

@@ -72,6 +72,42 @@ describe('in-app purchase lifecycle', () => {
     expect(replay).not.toMatch(/finishTransaction/);
   });
 
+  it('marks a replay as a replay, or the double-grant guard cannot tell one apart', () => {
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    const body = store.slice(store.indexOf('replayHeldPurchases: async'));
+    const replay = body.slice(0, body.indexOf('syncPurchasesFromServer: async'));
+    expect(replay).toMatch(/handlePurchaseComplete\([^)]*,\s*\{\s*isReplay:\s*true\s*\}\s*\)/);
+  });
+
+  it('asks the server before granting a consumable, and finishes only after recording the grant', () => {
+    // This ordering IS the fix for the per-launch double grant (F-092). Granting first and
+    // recording afterwards — with the failure swallowed, as it was — turned one payment into one
+    // credit on every launch for any purchase the store could not finish. A refactor that moves
+    // the grant back above the server call, or the finish above the honoured-list write, restores
+    // the bug exactly, and no behavioural test would notice: it needs a real store, a real
+    // payment and a failed consume.
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    const body = store.slice(store.indexOf('handlePurchaseComplete: async'));
+    const handler = body.slice(0, body.indexOf('handlePurchaseError:'));
+    expect(handler.length).toBeGreaterThan(500);
+
+    const consumables = handler.slice(0, handler.indexOf('PRODUCT_IDS.PITWALL_PASS'));
+    const askedServer = consumables.indexOf('recordPurchaseOnServer');
+    const decided = consumables.indexOf('grantDecision');
+    const granted = consumables.search(/pendingExpansionCredits:\s*state\.pendingExpansionCredits \+ 1/);
+    const remembered = consumables.indexOf('rememberHonoured');
+    const finished = consumables.indexOf('finishTransaction');
+
+    for (const [name, at] of Object.entries({ askedServer, decided, granted, remembered, finished })) {
+      expect(at).toBeGreaterThan(-1); // the step is still there at all
+      expect(name).toBeTruthy();
+    }
+    expect(askedServer).toBeLessThan(granted);
+    expect(decided).toBeLessThan(granted);
+    expect(remembered).toBeLessThan(finished);
+    expect(granted).toBeLessThan(finished);
+  });
+
   it('registers the listener that carries a purchase to the server', () => {
     const store = fs.readFileSync(path.join(root, STORE), 'utf8');
     // These three are what make a purchase land: open the connection, hear about the result, and
