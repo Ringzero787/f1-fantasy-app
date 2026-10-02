@@ -70,6 +70,8 @@ interface PurchaseState {
   handlePurchaseError: (error: { code: string; message: string }) => void;
   recordPurchaseOnServer: (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string) => Promise<void>;
   syncPurchasesFromServer: () => Promise<void>;
+  /** Finish anything the store is still holding from a previous run. */
+  replayHeldPurchases: () => Promise<void>;
 }
 
 export const usePurchaseStore = create<PurchaseState>()(
@@ -138,7 +140,20 @@ export const usePurchaseStore = create<PurchaseState>()(
             console.warn('[iap] price fetch failed; the row will not show a price:', err);
           }
 
-          // Sync purchases from server in background (reconcile after reinstall)
+          // Two different recoveries, and the app only ever did the second one.
+          //
+          // The store holds a purchase until the app finishes it, and it only finishes one after
+          // the server has granted the entitlement. So a purchase whose grant failed — the server
+          // down, a receipt it could not verify, no network — is still sitting with the store on
+          // the next launch, and nothing was asking for it. The buyer had paid, the store would not
+          // sell it again because they already owned it, and the app told them it would sort itself
+          // out next time. It never would have.
+          get().replayHeldPurchases().catch((err) => {
+            console.warn('[iap] replay of held purchases failed:', err);
+          });
+
+          // Reconcile against what the server already knows, which is what restores device-local
+          // credits after a reinstall. It cannot recover a purchase the server never recorded.
           get().syncPurchasesFromServer().catch((err) => {
             console.warn('Purchase sync failed (non-critical):', err);
           });
@@ -165,6 +180,31 @@ export const usePurchaseStore = create<PurchaseState>()(
           // so a failure here has to be visible and the receipt has to survive for a retry.
           if (productId === PRODUCT_IDS.PITWALL_PASS) throw err;
           console.warn('Failed to record purchase on server:', err);
+        }
+      },
+
+      replayHeldPurchases: async () => {
+        try {
+          const Iap = require('expo-iap');
+          const held = await Iap.getAvailablePurchases();
+          const list = Array.isArray(held) ? held : [];
+          if (!list.length) return;
+          console.log(`[iap] the store is holding ${list.length} unfinished purchase(s); finishing them`);
+          // One at a time. These go through the same handler a live purchase does, so each one
+          // validates, grants and finishes exactly as it would have at the till, and the server's
+          // own de-duplication makes a replay of something already recorded a no-op.
+          for (const purchase of list) {
+            try {
+              await get().handlePurchaseComplete(purchase as StorePurchase);
+            } catch (err) {
+              // Left unfinished on purpose, so the store hands it back again next launch. This is
+              // the state a buyer is stuck in, and it has to stay recoverable rather than be
+              // swallowed here.
+              console.warn('[iap] could not finish a held purchase; it stays with the store:', err instanceof Error ? err.message : err);
+            }
+          }
+        } catch (err) {
+          console.warn('[iap] could not ask the store what it is holding:', err instanceof Error ? err.message : err);
         }
       },
 

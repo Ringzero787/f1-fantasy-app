@@ -47,6 +47,31 @@ describe('in-app purchase lifecycle', () => {
     expect(callersOf('initializeIAP')).toContain(path.join('app', '_layout.tsx'));
   });
 
+  it('asks the store what it is still holding, or a failed grant strands the money', () => {
+    // The store keeps a purchase until the app finishes it, and the app only finishes one after the
+    // server grants. A grant that fails therefore leaves a paid purchase with the store, the buyer
+    // unable to buy again because they already own it, and — until this existed — nothing ever
+    // asking for it back. This happened on the first real purchase.
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    expect(store).toMatch(/getAvailablePurchases\s*\(/);
+    // Called from inside initializeIAP, which is itself called from the app root — so a launch is
+    // enough to recover one, with no screen to visit and nothing for the buyer to do.
+    // Anchor on the implementations, not the interface above them, or the slice runs backwards.
+    const init = store.slice(store.indexOf('initializeIAP: async'), store.indexOf('cleanupIAP: () => {'));
+    expect(init.length).toBeGreaterThan(100);
+    expect(init).toMatch(/replayHeldPurchases\s*\(/);
+  });
+
+  it('replays through the same handler a live purchase uses, so grant and finish are not duplicated', () => {
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    const body = store.slice(store.indexOf('replayHeldPurchases: async'));
+    const replay = body.slice(0, body.indexOf('syncPurchasesFromServer: async'));
+    expect(replay.length).toBeGreaterThan(100);
+    expect(replay).toMatch(/handlePurchaseComplete/);
+    // It must not finish a transaction itself; only the handler does that, and only after a grant.
+    expect(replay).not.toMatch(/finishTransaction/);
+  });
+
   it('registers the listener that carries a purchase to the server', () => {
     const store = fs.readFileSync(path.join(root, STORE), 'utf8');
     // These three are what make a purchase land: open the connection, hear about the result, and
