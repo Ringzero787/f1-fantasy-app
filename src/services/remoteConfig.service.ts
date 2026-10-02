@@ -99,8 +99,16 @@ const DEFAULT_CONFIG: GameConfig = {
   minPrice: PRICING_CONFIG.MIN_PRICE,
   maxPrice: PRICING_CONFIG.MAX_PRICE,
   diminishFloor: PRICING_CONFIG.DIMINISH_FLOOR,
-  totalRounds: 24,
-  sprintRounds: [2, 6, 7, 11, 14, 18],
+  // Round numbers, not race counts — the two used to coincide and no longer do.
+  // The 2026 season runs to round 25 but holds 24 races, because round 4 (the
+  // cancelled Bahrain at Sakhir) is vacant and the race was reinstated at
+  // Sepang as round 18. `totalRounds` is the highest round, which is what the
+  // old value of 24 meant when Abu Dhabi was round 24.
+  // sprintRounds previously ended in 18, which is now Bahrain — not a sprint.
+  // The sprint moved up with the rest of the tail, to Singapore at 19. Keep
+  // this in step with SPRINT_ROUNDS in functions/src/ingestion/config.ts.
+  totalRounds: 25,
+  sprintRounds: [2, 6, 7, 11, 14, 19],
 };
 
 // ─── Service ───

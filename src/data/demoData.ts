@@ -609,27 +609,31 @@ export const demoRaces: Race[] = [
       race: new Date('2026-03-29T05:00:00Z'),
     },
   },
-  // Round 4: Bahrain Grand Prix - April 10-12, 2026
+  // Round 18: Bahrain Grand Prix - October 2-4, 2026, run at Sepang.
+  // The April race at Sakhir was cancelled; the event was reinstated in
+  // Malaysia and inserted as round 18, which pushed Singapore..Abu Dhabi up
+  // one each. Keep this in step with functions/src/ingestion/config.ts
+  // (ROUND_TO_RACE_ID) — functions/test/roundMapping.test.js and
+  // __tests__/data/demoCalendar.test.ts both fail if they drift apart.
   {
     id: 'bahrain_2026',
     seasonId: '2026',
-    round: 4,
+    round: 18,
     name: 'Bahrain Grand Prix',
-    officialName: 'Formula 1 Gulf Air Bahrain Grand Prix 2026',
-    circuitId: 'bahrain',
-    circuitName: 'Bahrain International Circuit',
-    country: 'Bahrain',
-    city: 'Sakhir',
-    timezone: 'Asia/Bahrain',
-    // Cancelled due to Middle East conflict
+    officialName: 'Formula 1 Gulf Air Bahrain Grand Prix in Malaysia 2026',
+    circuitId: 'sepang',
+    circuitName: 'Sepang International Circuit',
+    country: 'Malaysia',
+    city: 'Sepang',
+    timezone: 'Asia/Kuala_Lumpur',
     hasSprint: false,
-    status: 'cancelled',
+    status: 'upcoming',
     schedule: {
-      fp1: new Date('2026-04-10T11:30:00Z'),
-      fp2: new Date('2026-04-10T15:00:00Z'),
-      fp3: new Date('2026-04-11T12:30:00Z'),
-      qualifying: new Date('2026-04-11T16:00:00Z'),
-      race: new Date('2026-04-12T15:00:00Z'),
+      fp1: new Date('2026-10-02T04:30:00Z'),
+      fp2: new Date('2026-10-02T08:00:00Z'),
+      fp3: new Date('2026-10-03T04:30:00Z'),
+      qualifying: new Date('2026-10-03T08:00:00Z'),
+      race: new Date('2026-10-04T07:00:00Z'),
     },
   },
   // Round 5: Saudi Arabian Grand Prix - April 17-19, 2026
@@ -919,11 +923,11 @@ export const demoRaces: Race[] = [
       race: new Date('2026-09-26T11:00:00Z'),
     },
   },
-  // Round 18: Singapore Grand Prix (Sprint) - October 9-11, 2026
+  // Round 19: Singapore Grand Prix (Sprint) - October 9-11, 2026
   {
     id: 'singapore_2026',
     seasonId: '2026',
-    round: 18,
+    round: 19,
     name: 'Singapore Grand Prix',
     officialName: 'Formula 1 Singapore Airlines Singapore Grand Prix 2026',
     circuitId: 'marina_bay',
@@ -941,11 +945,11 @@ export const demoRaces: Race[] = [
       race: new Date('2026-10-11T12:00:00Z'),
     },
   },
-  // Round 19: United States Grand Prix - October 23-25, 2026
+  // Round 20: United States Grand Prix - October 23-25, 2026
   {
     id: 'usa_2026',
     seasonId: '2026',
-    round: 19,
+    round: 20,
     name: 'United States Grand Prix',
     officialName: 'Formula 1 Pirelli United States Grand Prix 2026',
     circuitId: 'cota',
@@ -963,11 +967,11 @@ export const demoRaces: Race[] = [
       race: new Date('2026-10-25T19:00:00Z'),
     },
   },
-  // Round 20: Mexican Grand Prix - October 30 - November 1, 2026
+  // Round 21: Mexican Grand Prix - October 30 - November 1, 2026
   {
     id: 'mexico_2026',
     seasonId: '2026',
-    round: 20,
+    round: 21,
     name: 'Mexico City Grand Prix',
     officialName: 'Formula 1 Gran Premio de la Ciudad de Mexico 2026',
     circuitId: 'hermanos_rodriguez',
@@ -985,11 +989,11 @@ export const demoRaces: Race[] = [
       race: new Date('2026-11-01T20:00:00Z'),
     },
   },
-  // Round 21: Brazilian Grand Prix - November 6-8, 2026
+  // Round 22: Brazilian Grand Prix - November 6-8, 2026
   {
     id: 'brazil_2026',
     seasonId: '2026',
-    round: 21,
+    round: 22,
     name: 'Sao Paulo Grand Prix',
     officialName: 'Formula 1 Lenovo Grande Premio de Sao Paulo 2026',
     circuitId: 'interlagos',
@@ -1007,11 +1011,11 @@ export const demoRaces: Race[] = [
       race: new Date('2026-11-08T17:00:00Z'),
     },
   },
-  // Round 22: Las Vegas Grand Prix - November 19-21, 2026
+  // Round 23: Las Vegas Grand Prix - November 19-21, 2026
   {
     id: 'las_vegas_2026',
     seasonId: '2026',
-    round: 22,
+    round: 23,
     name: 'Las Vegas Grand Prix',
     officialName: 'Formula 1 Heineken Silver Las Vegas Grand Prix 2026',
     circuitId: 'las_vegas',
@@ -1029,11 +1033,11 @@ export const demoRaces: Race[] = [
       race: new Date('2026-11-22T06:00:00Z'),
     },
   },
-  // Round 23: Qatar Grand Prix - November 27-29, 2026
+  // Round 24: Qatar Grand Prix - November 27-29, 2026
   {
     id: 'qatar_2026',
     seasonId: '2026',
-    round: 23,
+    round: 24,
     name: 'Qatar Grand Prix',
     officialName: 'Formula 1 Qatar Airways Qatar Grand Prix 2026',
     circuitId: 'lusail',
@@ -1051,11 +1055,11 @@ export const demoRaces: Race[] = [
       race: new Date('2026-11-29T17:00:00Z'),
     },
   },
-  // Round 24: Abu Dhabi Grand Prix - December 4-6, 2026
+  // Round 25: Abu Dhabi Grand Prix - December 4-6, 2026
   {
     id: 'abu_dhabi_2026',
     seasonId: '2026',
-    round: 24,
+    round: 25,
     name: 'Abu Dhabi Grand Prix',
     officialName: 'Formula 1 Etihad Airways Abu Dhabi Grand Prix 2026',
     circuitId: 'yas_marina',

@@ -14,12 +14,15 @@
  * that actually permits the write disagreed.
  *
  * So these tests pin the wiring rather than the arithmetic: the mocked calendar
- * below exists only in the remote-config store. Verified by reverting
- * racesFromConfig to demoRaces, which fails the first test below with
- * `Expected: "Ace selection is locked during race weekends", Received: null` —
- * the mid-race Ace change going through, which is the bug itself. The other two
- * still pass on a revert, because the bundled calendar happens to agree that
- * nothing is locked in early October; the locked case is the one that bites.
+ * below exists only in the remote-config store, so pointing team.store back at
+ * the bundled list fails one of them whichever way the bundled data happens to
+ * read. Which one moves as demoData is corrected, and that is worth knowing
+ * when one of these fails: while demoData still had Bahrain cancelled in April,
+ * a revert failed the locked case with `Received: null` — the mid-race Ace
+ * change going through. Now that demoData agrees with the server, a revert
+ * instead fails the cancelled-race case, because the real calendar does not
+ * call that weekend cancelled. The guard holds either way; only the symptom
+ * moves.
  */
 import type { FantasyTeam } from '../../src/types';
 
