@@ -72,6 +72,102 @@ describe('in-app purchase lifecycle', () => {
     expect(replay).not.toMatch(/finishTransaction/);
   });
 
+  it('marks a replay as a replay, or the double-grant guard cannot tell one apart', () => {
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    const body = store.slice(store.indexOf('replayHeldPurchases: async'));
+    const replay = body.slice(0, body.indexOf('syncPurchasesFromServer: async'));
+    expect(replay).toMatch(/handlePurchaseComplete\([^)]*,\s*\{\s*isReplay:\s*true\s*\}\s*\)/);
+  });
+
+  it('asks the server before granting a consumable, and finishes only after recording the grant', () => {
+    // This ordering IS the fix for the per-launch double grant (F-092). Granting first and
+    // recording afterwards — with the failure swallowed, as it was — turned one payment into one
+    // credit on every launch for any purchase the store could not finish. A refactor that moves
+    // the grant back above the server call, or the finish above the honoured-list write, restores
+    // the bug exactly, and no behavioural test would notice: it needs a real store, a real
+    // payment and a failed consume.
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    const body = store.slice(store.indexOf('handlePurchaseComplete: async'));
+    const handler = body.slice(0, body.indexOf('handlePurchaseError:'));
+    expect(handler.length).toBeGreaterThan(500);
+
+    const consumables = handler.slice(0, handler.indexOf('PRODUCT_IDS.PITWALL_PASS'));
+    const askedServer = consumables.indexOf('recordPurchaseOnServer');
+    const decided = consumables.indexOf('grantDecision');
+    // All three grants, not just the first: a regression confined to the slot or avatar branch
+    // would otherwise slip through. `granted` is the earliest of them, so the ordering below holds
+    // for every one.
+    const grants = [
+      consumables.search(/pendingExpansionCredits:\s*state\.pendingExpansionCredits \+ 1/),
+      consumables.search(/leagueSlotCredits:\s*state\.leagueSlotCredits \+ 1/),
+      consumables.search(/bonusAvatarCredits/),
+    ];
+    expect(grants.every((at) => at > -1)).toBe(true);
+    const granted = Math.min(...grants);
+    const lastGrant = Math.max(...grants);
+    // The LAST of each: the terminal-refusal path above also remembers and finishes, deliberately
+    // and without granting, so the first occurrence of either is not the one being ordered here.
+    const remembered = consumables.lastIndexOf('rememberHonoured');
+    const finished = consumables.lastIndexOf('finishTransaction');
+
+    // Every step is still there at all — a reorder that deleted one would otherwise pass by
+    // comparing -1 against -1.
+    expect({ askedServer, decided, granted, remembered, finished }).toEqual({
+      askedServer: expect.any(Number), decided: expect.any(Number),
+      granted: expect.any(Number), remembered: expect.any(Number), finished: expect.any(Number),
+    });
+    for (const at of [askedServer, decided, granted, remembered, finished]) expect(at).toBeGreaterThan(-1);
+
+    expect(askedServer).toBeLessThan(granted);
+    expect(decided).toBeLessThan(granted);
+    // The grant comes before the record of it: remembering first and then throwing would mark a
+    // transaction honoured that granted nothing, and nothing would ever grant it.
+    expect(granted).toBeLessThan(remembered);
+    expect(lastGrant).toBeLessThan(remembered);
+    expect(remembered).toBeLessThan(finished);
+  });
+
+  it('will not consume an avatar pack with nobody to credit', () => {
+    // Avatar credits are held per account, so with nobody signed in there is nowhere to put them.
+    // Every exit from the consumable branch finishes the transaction, and a finished transaction is
+    // gone — so the check has to come before the first of them, not next to the grant.
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    const body = store.slice(store.indexOf('handlePurchaseComplete: async'));
+    const handler = body.slice(0, body.indexOf('handlePurchaseError:'));
+    const guard = handler.search(/PRODUCT_IDS\.AVATAR_PACK\s*&&\s*!avatarUid/);
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(handler.indexOf('finishTransaction'));
+    expect(guard).toBeLessThan(handler.indexOf('recordPurchaseOnServer'));
+  });
+
+  it('finishes the replay before reconciling with the server, or they grant twice between them', () => {
+    // The replay records a purchase with the server before granting it locally. A sync running
+    // alongside could read the server's copy while the local history was still empty, decide it
+    // was a credit short, and top up — one payment, two credits, through the other door.
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    const init = store.slice(store.indexOf('initializeIAP: async'), store.indexOf('cleanupIAP: () => {'));
+    const replay = init.indexOf('replayHeldPurchases');
+    const sync = init.indexOf('syncPurchasesFromServer');
+    expect(replay).toBeGreaterThan(-1);
+    expect(sync).toBeGreaterThan(replay);
+    // Awaited, or the ordering in the source means nothing at runtime.
+    expect(init).toMatch(/await\s+get\(\)\.replayHeldPurchases\(\)/);
+    expect(init).toMatch(/await\s+get\(\)\.syncPurchasesFromServer\(\)/);
+  });
+
+  it('records what the server sync topped up, or it tops up again every launch', () => {
+    // The sync compares server counts against purchaseHistory. A top-up that did not write the
+    // history rows it came from recomputed the same gap on the next launch and applied it again.
+    const store = fs.readFileSync(path.join(root, STORE), 'utf8');
+    const body = store.slice(store.indexOf('syncPurchasesFromServer: async'));
+    const sync = body.slice(0, body.indexOf('purchaseLeagueExpansion: async'));
+    expect(sync.length).toBeGreaterThan(200);
+    expect(sync).toMatch(/updates\.purchaseHistory/);
+    // And the avatar pack is restored rather than logged at: it is the one product the count
+    // comparison cannot recover from without attributing credits to an account.
+    expect(sync).toMatch(/updates\.bonusAvatarCredits/);
+  });
+
   it('registers the listener that carries a purchase to the server', () => {
     const store = fs.readFileSync(path.join(root, STORE), 'utf8');
     // These three are what make a purchase land: open the connection, hear about the result, and
