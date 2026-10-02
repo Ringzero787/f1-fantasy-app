@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl, Share } from 'react-native';
 import { router } from 'expo-router';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
@@ -9,6 +9,7 @@ import { GridAvatar, MonoLabel, ScreenHeader } from './GridBits';
 import { rankStandings, playersCaption, type StandingsRow, type StandingsSort } from './standings';
 import { raceOptions, raceResultRows, teamLineWithWins, type LeagueRaceResultDoc } from './raceLeaderboard';
 import { GridRaceSelectSheet } from './GridRaceSelectSheet';
+import { standingsText } from './shareStandings';
 import { SHOWCASE_RESULT_ROUND, showcaseRaceResult } from './showcaseData';
 import { getLeagueRaceResult } from '../../services/leagueRaceResults.service';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
@@ -107,6 +108,32 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
     router.push({ pathname: '/(simple)/league-manager', params: step ? { step } : {} } as never);
   }, []);
 
+  /**
+   * Hand the whole table to whatever the player shares with. Text rather than an image on purpose:
+   * it pastes into Slack, a text message and an email alike, and needs nothing native behind it.
+   * Shares what is on screen, so a league looking at one round shares that round.
+   */
+  const onShare = useCallback(async () => {
+    const message = standingsText({
+      leagueName: league?.name ?? 'League',
+      caption: selectorLabel,
+      rows,
+    });
+    if (!message) return;
+    try {
+      // `title` is not the chooser title: Android passes it to the receiving app as the subject,
+      // which is what fills in an email's subject line, and iOS drops it entirely. The league name
+      // is the first line of the message either way, so this only ever adds.
+      await Share.share({ message, title: `${league?.name ?? 'League'} standings` });
+    } catch (err) {
+      // Dismissing the sheet is not a failure and must stay silent. Anything else is worth a line
+      // in the log, because a share that quietly does nothing is indistinguishable from a dead
+      // button and there would be no other trace of it.
+      const message_ = err instanceof Error ? err.message : String(err);
+      if (!/cancel/i.test(message_)) console.warn('[share] standings share failed:', message_);
+    }
+  }, [league?.name, selectorLabel, rows]);
+
   const header = (
     <ScreenHeader
       statusLeft={league ? league.name.toUpperCase() : 'LEAGUE'}
@@ -151,11 +178,25 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   return (
     <View style={{ flex: 1 }}>
       {header}
-      <View style={{ marginHorizontal: spacing.xl, marginTop: 22, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
+      <View style={{ marginHorizontal: spacing.xl, marginTop: 22, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <MonoLabel>POS · PLAYER</MonoLabel>
-        <Pressable onPress={() => setPicking(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Showing ${selectorLabel}. Choose season, last race or a race`}>
-          <MonoLabel color={colors.text.primary}>{`${selectorLabel} ▾`}</MonoLabel>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, flexShrink: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <Pressable onPress={() => setPicking(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Showing ${selectorLabel}. Choose season, last race or a race`}>
+            <MonoLabel color={colors.text.primary}>{`${selectorLabel} ▾`}</MonoLabel>
+          </Pressable>
+          {rows.length ? (
+            <Pressable
+              onPress={onShare}
+              // The label is 11px, so the row is nowhere near a 44pt target on its own.
+              hitSlop={{ top: 18, bottom: 18, left: 14, right: 14 }}
+              accessibilityRole="button"
+              accessibilityLabel="Share the standings"
+              accessibilityHint={`Shares the ${selectorLabel.toLowerCase()} table as text`}
+            >
+              <MonoLabel color={colors.primary}>SHARE</MonoLabel>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
       {raceId && raceResult?.estimated ? (
         <Text style={[mono(10, 'medium'), { color: colors.text.muted, marginHorizontal: spacing.xl, marginTop: 8 }]}>RACE-DAY POINTS ONLY · NOT COUNTED AS A WIN</Text>
