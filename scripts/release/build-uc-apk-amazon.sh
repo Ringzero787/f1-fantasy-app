@@ -51,6 +51,14 @@ if ! grep -q 'missingDimensionStrategy "platform", "amazon"' android/app/build.g
   echo "Amazon prebuild left the gradle platform flavour on play" >&2
   exit 5
 fi
+# R8 renamed Amazon's reflection-driven "Kiwi" classes and 2.4.0 force-closed on launch; Amazon
+# rejected it. The keep rules live in app.config.js behind the same EXPO_PUBLIC_STORE switch as the
+# billing flavour, so an unset env would drop them and bring the crash straight back. Assert they
+# reached the file gradle actually reads.
+if ! grep -q 'com.amazon' android/app/proguard-rules.pro; then
+  echo "Amazon prebuild did not write the com.amazon keep rules into android/app/proguard-rules.pro — R8 will rename Amazon's SDK and the app will force-close on launch" >&2
+  exit 5
+fi
 
 printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m\n' >> android/gradle.properties
 FONTS=$(ls android/app/src/main/assets/fonts/*.ttf 2>/dev/null | wc -l)
