@@ -10,6 +10,7 @@ import { create } from 'zustand';
 import { loadPass, loadProjections } from '../pitwall/client';
 import { NO_PASS, type PassState } from '../pitwall/pass';
 import type { Projection, ProjectionSet } from '../pitwall/projections';
+import { SHOWCASE_ENABLED, showcaseProjections } from '../simple/grid/showcaseData';
 
 interface PitWallState {
   pass: PassState;
@@ -39,6 +40,12 @@ export const usePitWallStore = create<PitWallState>()((set, get) => ({
     set({ loading: true });
     try {
       const pass = await loadPass(force);
+      // The showcase stands in for a pass so the paid screens can be seen and screenshotted without
+      // one. Two environment variables the store build scripts refuse, so it reaches nobody who paid.
+      if (SHOWCASE_ENABLED) {
+        if (ticket === seq) set({ pass: { ...pass, active: true }, projections: showcaseProjections() as ProjectionSet, loading: false });
+        return;
+      }
       // No pass, no read: the rules would refuse it anyway, and asking wastes a round trip.
       const projections = pass.active ? await loadProjections() : null;
       // A slower earlier run must not overwrite a newer answer.
