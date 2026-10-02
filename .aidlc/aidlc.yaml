@@ -147,12 +147,14 @@ overrides:
         dryrun: "bash scripts/ops/pitwall-pages-deploy.sh dryrun"
         apply: "bash scripts/ops/pitwall-pages-deploy.sh apply {pages_project}"
       uc-play-publish:
+        no_backup_reason: "A Play release mutates no data of ours. The artifact being published is already on disk and in the release notes, and the previous release is recoverable by promoting its version code back onto the track with uc-play-promote — Play keeps every uploaded bundle. There is nothing a snapshot could capture that is not already recoverable."
         summary: "Put an Undercut Android bundle on a Play track (aab = path to the .aab, track = internal|alpha|beta|production, notes = release notes). A version code uploads once; use uc-play-promote to move one that is already up."
         params: [ aab, track, notes ]
         paths: [ scripts/ops/play-publish.js, scripts/ops/_play.js ]
         dryrun: "node scripts/ops/play-publish.js upload {aab} --track={track} --notes={notes}"
         apply: "node scripts/ops/play-publish.js upload {aab} --track={track} --notes={notes} --apply --confirm=com.undercut.app"
       uc-play-promote:
+        no_backup_reason: "Promoting mutates no data of ours. The artifact being published is already on disk and in the release notes, and the previous release is recoverable by promoting its version code back onto the track with uc-play-promote — Play keeps every uploaded bundle. There is nothing a snapshot could capture that is not already recoverable."
         summary: "Move an Undercut version code already on Play to another track (code = version code, track = internal|alpha|beta|production). Promoting to production puts it on every Android device."
         params: [ code, track, notes ]
         paths: [ scripts/ops/play-publish.js, scripts/ops/_play.js ]
