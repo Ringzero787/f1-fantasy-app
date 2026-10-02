@@ -163,9 +163,16 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
-    // Coming back from a successful checkout: the webhook has just written the pass, so force a refresh.
+    // Always force, not only on the way back from Stripe.
+    //
+    // A pass bought in the app is written server-side and stamped onto the claim by a trigger. The
+    // browser knows nothing about any of that: it keeps using the ID token it already had, which
+    // predates the claim, so the portal showed "no pass" for up to an hour after a real purchase —
+    // and the rules refused the paid document for exactly as long, so the two agreed and were both
+    // wrong. Forcing costs one token refresh per sign-in, which is nothing against a page that is
+    // already reading several documents.
     const paid = new URLSearchParams(window.location.search).has('paid');
-    void refreshPass(paid);
+    void refreshPass(true);
     if (paid) window.history.replaceState({}, '', '/');
   }, [refreshPass]);
 
