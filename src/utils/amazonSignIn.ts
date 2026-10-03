@@ -45,6 +45,12 @@ const authUrl = (state: string): string =>
  * device.
  */
 export async function amazonWebSignIn(): Promise<{ customToken: string; displayName: string; email: string }> {
+  // Guard here as well as at the pill. Without it an unconfigured build opens Amazon's authorize
+  // URL with an empty redirect_uri, which is a broken sign-in at best — and the only return URL
+  // Amazon has on file is the old static page, the one that bounces the code onto a scheme any app
+  // may claim.
+  if (!amazonWebSignInAvailable()) throw new Error('Amazon sign in is not configured in this build.');
+
   const verifier = await randomHex(32);
   const state = await sha256Hex(verifier);
 

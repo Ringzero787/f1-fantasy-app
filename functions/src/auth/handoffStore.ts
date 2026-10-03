@@ -44,17 +44,38 @@ export const CLAIM_LIMIT = { windowMs: 60_000, max: 20 };
 /**
  * A ceiling across all callers, on top of the per-caller one.
  *
- * The per-caller key comes from `x-forwarded-for`, and part of that header is written by the caller
- * (see `callerIp.ts`). Rotating it would otherwise buy an unbounded number of fresh buckets — so
- * moving off the old shared key would have removed the only cap on unauthenticated writes while
- * fixing the lockout it caused. This keeps both: a flood is bounded whether or not the key holds.
+ * The per-caller key comes from `x-forwarded-for`, and how much of that header the caller wrote
+ * depends on how many trusted hops appended to it — which the header cannot tell us. So that key is
+ * best effort, and this is the brake that actually holds.
  *
- * Set well above any real load. Undercut's whole user base signing in at once does not approach it,
- * and a caller who does is not signing in.
+ * Spread over `GLOBAL_SHARDS` documents. One document taking 300 writes a minute is five a second,
+ * well past what Firestore sustains on a single document, so the cap meant to protect the endpoint
+ * would have become the thing that broke it. Each shard carries its own slice of the budget.
+ *
+ * Set well above real load: Undercut's whole user base signing in at once does not approach it, and
+ * a caller who does is not signing in.
  */
-export const GLOBAL_FILE_LIMIT = { windowMs: 60_000, max: 300 };
-/** The key for that ceiling. Not an address, so it cannot collide with a hashed one. */
-export const GLOBAL_KEY = 'all';
+export const GLOBAL_SHARDS = 10;
+export const GLOBAL_FILE_LIMIT = { windowMs: 60_000, max: 30 };   // × GLOBAL_SHARDS = 300/min
+/** Not an address, so it cannot collide with a hashed per-caller key (`ipKey` prefixes `ip_`). */
+export const globalKey = (now: number): string => `all_${Math.floor(now / 97) % GLOBAL_SHARDS}`;
+
+/**
+ * The global ceiling, which must never be the reason a real sign-in fails.
+ *
+ * `takeAuthRateSlot` can throw on transaction contention, and this one document is the most
+ * contended thing in the flow — so a failure to *read* the ceiling is treated as under it. The
+ * per-caller limit has already been taken by every caller who gets here, and an endpoint that 500s
+ * under load is a worse outcome than one that briefly stops counting.
+ */
+export async function underGlobalCeiling(now: number): Promise<boolean> {
+  try {
+    return await takeAuthRateSlot(globalKey(now), now, GLOBAL_FILE_LIMIT);
+  } catch (err) {
+    console.warn('[auth] global rate ceiling unavailable; allowing', err instanceof Error ? err.message : String(err));
+    return true;
+  }
+}
 
 export type HandoffProvider = 'apple' | 'amazon' | 'google';
 

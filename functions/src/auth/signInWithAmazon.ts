@@ -7,20 +7,33 @@
  * That is why `amazonWebSignIn.ts` exists and why new builds use it: there, the code never reaches
  * the device at all.
  *
- * This stays because 2.4.0 and earlier call it and cannot be changed. Remove it once those builds
- * are out of circulation (Play's version-code statistics will say when).
+ * This stays because 2.4.0 and earlier call it and cannot be changed — but it is the takeover
+ * primitive itself, so while it lives it gets the same brakes the hardened flows have: a per-caller
+ * limit, the global ceiling, and a capped instance count. No new build reaches it.
+ *
+ * **Remove it when 2.4.x is out of circulation.** Play Console → Statistics, grouped by app version
+ * code, is where to see that; the API does not carry adoption (see the release notes). Until then
+ * this comment is the only thing holding the decision, which is why it names the check.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import { exchangeAmazonCode, upsertAmazonUser } from './amazonAccount';
+import { CLAIM_LIMIT, takeAuthRateSlot, underGlobalCeiling } from './handoffStore';
+import { callerIp } from './callerIp';
+import { ipKey } from '../pitwall/handoffCore';
 
 const amazonClientId = defineSecret('AMAZON_CLIENT_ID');
 const amazonClientSecret = defineSecret('AMAZON_CLIENT_SECRET');
 
 export const signInWithAmazon = onCall(
-  { secrets: [amazonClientId, amazonClientSecret] },
+  { secrets: [amazonClientId, amazonClientSecret], maxInstances: 10 },
   async (request) => {
+    const now = Date.now();
+    if (!(await takeAuthRateSlot(ipKey(callerIp(request.rawRequest)), now, CLAIM_LIMIT)) || !(await underGlobalCeiling(now))) {
+      throw new HttpsError('resource-exhausted', 'Too many attempts. Wait a minute and try again.');
+    }
+
     const { code, redirectUri } = request.data ?? {};
     if (!code || !redirectUri || typeof code !== 'string' || typeof redirectUri !== 'string') {
       throw new HttpsError('invalid-argument', 'Missing code or redirectUri');

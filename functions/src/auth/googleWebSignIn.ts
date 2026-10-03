@@ -23,7 +23,7 @@ import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { createHash } from 'crypto';
 import { handoffDeepLink, isSha256Hex, looksLikeGoogleAuthCode, looksLikeJwt } from './handoffGuards';
-import { CLAIM_LIMIT, FILE_LIMIT, GLOBAL_FILE_LIMIT, GLOBAL_KEY, claimHandoff, fileHandoff, takeAuthRateSlot } from './handoffStore';
+import { CLAIM_LIMIT, FILE_LIMIT, claimHandoff, fileHandoff, takeAuthRateSlot, underGlobalCeiling } from './handoffStore';
 import { ipKey } from '../pitwall/handoffCore';
 import { callerIp } from './callerIp';
 
@@ -58,7 +58,7 @@ export const googleAuthRedirect = onRequest({ cors: false, maxInstances: 10 }, a
   // Per caller and overall: the per-caller key is partly caller-written, so on its own it would
   // be a cap anyone could rotate out of.
   if (!(await takeAuthRateSlot(ipKey(callerIp(req)), now, FILE_LIMIT))
-    || !(await takeAuthRateSlot(GLOBAL_KEY, now, GLOBAL_FILE_LIMIT))) {
+    || !(await underGlobalCeiling(now))) {
     bounce(res, state, { error: 'rate_limited' });
     return;
   }
@@ -106,7 +106,7 @@ export const claimGoogleSignIn = onCall(
     if (!isSha256Hex(verifier) || !isSha256Hex(ticket)) throw new HttpsError('invalid-argument', 'Bad sign-in request.');
 
     const now = Date.now();
-    if (!(await takeAuthRateSlot(ipKey(callerIp(request.rawRequest)), now, CLAIM_LIMIT))) {
+    if (!(await takeAuthRateSlot(ipKey(callerIp(request.rawRequest)), now, CLAIM_LIMIT)) || !(await underGlobalCeiling(now))) {
       throw new HttpsError('resource-exhausted', 'Too many attempts. Wait a minute and try again.');
     }
 

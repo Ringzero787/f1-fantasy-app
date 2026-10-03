@@ -154,7 +154,7 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
     isIOS: Platform.OS === 'ios',
     // Apple is native on iOS; elsewhere its web flow needs a Services ID in the build.
     canApple: Platform.OS === 'ios' || appleWebSignInAvailable(),
-    canAmazon: !!onAmazonSignIn && (isAmazonBuild || amazonWebSignInAvailable()),
+    canAmazon: !!onAmazonSignIn && amazonWebSignInAvailable(),
     canGoogleWeb: googleWebSignInAvailable(),
   });
 
