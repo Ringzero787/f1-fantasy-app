@@ -2,8 +2,10 @@
 # Undercut Amazon Appstore build — the uc-amazon release target (F-049).
 #
 # Same shape as build-uc-aab.sh, with EXPO_PUBLIC_STORE=amazon for both the
-# prebuild (app.config.js drops the Google sign-in native module) and the
-# gradle run (Metro inlines the flag, so the JS takes the Amazon sign-in path).
+# prebuild (app.config.js selects the Fire OS billing flavour and the Amazon R8
+# keep rules) and the gradle run (Metro inlines the flag, so the JS takes the
+# Amazon sign-in path). It does NOT remove Google Sign-In: see the note by the
+# assertions below.
 # Produces an APK (Amazon does not take AABs). UC_SKIP_PUBLISH=1 builds and
 # verifies without copying.
 set -euo pipefail
@@ -31,22 +33,22 @@ VC=$(node "$ROOT/scripts/release/bump-app-version.js" "$ROOT/app.config.js" "$VE
 cd "$ROOT"
 npx expo prebuild --platform android --clean --no-install
 
-# What EXPO_PUBLIC_STORE=amazon actually changes about Google Sign-In, stated plainly because the
-# first version of this check got it wrong: it drops the google-signin *config plugin*, whose only
-# Android effect is to apply the com.google.gms.google-services gradle plugin. The native module
-# itself is autolinked from package.json and is in both APKs either way, and the Google pill is
-# hidden at runtime by isAmazonBuild, not by the build.
+# There is deliberately NO Google Sign-In assertion here, and this note is why — three attempts at
+# one have now been wrong, each in a way that looked like proof.
 #
-# The check that was here grepped android/settings.gradle for "google-signin". Under SDK 55 that
-# file never names individual packages — autolinking is a command run at configure time — so the
-# grep could not match on any build, Amazon or Play, and had been passing vacuously since it was
-# written. It read like proof and was not, which is worse than no check at all.
+#   1. `grep google-signin android/settings.gradle`. Under SDK 55 that file never names individual
+#      packages; autolinking is a command run at configure time. The grep could not match on any
+#      build, Amazon or Play, and passed vacuously from the day it was written.
+#   2. `grep com.google.gms.google-services android/*/build.gradle`. Both lines come from Expo's own
+#      default prebuild chain, which applies them whenever `android.googleServicesFile` is set —
+#      which app.config.js does unconditionally. They are in an Amazon prebuild too, so this one
+#      failed every Amazon build instead of none.
 #
-# These two lines are the real difference, and they are present in a Play prebuild.
-if grep -q "com.google.gms.google-services" android/app/build.gradle || grep -q "com.google.gms:google-services" android/build.gradle; then
-  echo "Amazon prebuild still applies the google-services gradle plugin — EXPO_PUBLIC_STORE=amazon did not reach app.config.js" >&2
-  exit 5
-fi
+# The truth: on Android the store switch changes nothing about Google Sign-In in the artifact. The
+# native module is autolinked from package.json and ships in both APKs, and the google-signin config
+# plugin's Android half is redundant with Expo's default. The Google pill is hidden at runtime by
+# `isAmazonBuild`, which Metro inlines — so the only thing worth asserting is that the flag reaches
+# Metro, and that is asserted at the gradle call below rather than guessed at from gradle output.
 # The Amazon Appstore needs the Amazon flavour of the billing library and the matching gradle
 # flavour. Getting this wrong produces a build that installs, runs, and cannot sell anything, so it
 # is asserted rather than trusted: the plugin option is nested (modules.amazon.fireOS) and a typo in
@@ -79,7 +81,12 @@ if [ "$FONTS" -lt 5 ]; then
   exit 5
 fi
 
-(cd android && ./gradlew assembleRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease --console=plain)
+# Metro reads EXPO_PUBLIC_STORE in the gradle run, a different process from the prebuild above, and
+# an Amazon build whose bundle thinks it is a Play build sells nothing and shows the wrong sign-in
+# button. This has happened. So the flag is checked here and passed explicitly rather than inherited
+# and hoped for — the one assertion in this file about the store switch that can actually fail.
+[ "${EXPO_PUBLIC_STORE:-}" = amazon ] || { echo "EXPO_PUBLIC_STORE is '${EXPO_PUBLIC_STORE:-unset}', not amazon, at the gradle step — the JS bundle would be built as a Play build" >&2; exit 5; }
+(cd android && EXPO_PUBLIC_STORE=amazon ./gradlew assembleRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease --console=plain)
 
 APK="$ROOT/android/app/build/outputs/apk/release/app-release.apk"
 APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
@@ -94,10 +101,10 @@ if ! grep -q '(simple)/index\.tsx' <<<"$ROUTES" || grep -q '(tabs)/garage\.tsx' 
   echo "APK's JS bundle is not Undercut's (expected (simple)/index.tsx, no Track Limits routes) — check metro.config.js" >&2
   exit 4
 fi
-if ! grep -q 'signInWithAmazon' <<<"$BUNDLE"; then
-  echo "APK's JS bundle has no Amazon sign-in path — EXPO_PUBLIC_STORE=amazon did not reach the Metro bundle" >&2
-  exit 4
-fi
+# What used to be here: `grep signInWithAmazon` on the bundle, as proof the Amazon sign-in path was
+# compiled in. It is in the Play bundle too — app/(auth)/login.tsx names that callable
+# unconditionally — so it was a third check that could not fail. The flag reaching Metro is asserted
+# before gradle runs instead; see the note above.
 
 NAME="undercut-$VERSION-vc$VC-amazon.apk"
 if [ "${UC_SKIP_PUBLISH:-}" = 1 ]; then
