@@ -16,8 +16,9 @@
  */
 import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink } from './handoffGuards';
-import { CLAIM_LIMIT, FILE_LIMIT, claimHandoff, fileHandoff, takeAuthRateSlot } from './handoffStore';
+import { CLAIM_LIMIT, FILE_LIMIT, claimHandoff, fileHandoff, takeAuthRateSlot, underGlobalCeiling } from './handoffStore';
 import { ipKey } from '../pitwall/handoffCore';
+import { callerIp } from './callerIp';
 
 function bounce(res: { set: (k: string, v: string) => void; status: (n: number) => { send: (b: string) => void } }, location: string) {
   // 303 and not 302: Apple arrives by POST, and a 302 invites the browser to repeat the POST
@@ -56,7 +57,10 @@ export const appleAuthRedirect = onRequest({ cors: false, maxInstances: 10 }, as
   }
 
   const now = Date.now();
-  if (!(await takeAuthRateSlot(ipKey(req.ip), now, FILE_LIMIT))) {
+  // Per caller and overall: the per-caller key is partly caller-written, so on its own it would
+  // be a cap anyone could rotate out of.
+  if (!(await takeAuthRateSlot(ipKey(callerIp(req)), now, FILE_LIMIT))
+    || !(await underGlobalCeiling(now))) {
     bounce(res, appleDeepLink(state, 'rate_limited'));
     return;
   }
@@ -72,14 +76,15 @@ export const appleAuthRedirect = onRequest({ cors: false, maxInstances: 10 }, as
     return;
   }
 
+  let ticket: string | null;
   try {
-    const filed = await fileHandoff(state, {
+    ticket = await fileHandoff(state, {
       provider: 'apple',
       credential: src.id_token,
       // Apple sends the chosen name once, on the very first consent, and never again.
       displayName: appleDisplayName(src.user),
     }, now);
-    if (!filed) {
+    if (!ticket) {
       bounce(res, appleDeepLink(state, 'replayed'));
       return;
     }
@@ -89,7 +94,7 @@ export const appleAuthRedirect = onRequest({ cors: false, maxInstances: 10 }, as
     return;
   }
 
-  bounce(res, appleDeepLink(state));
+  bounce(res, appleDeepLink(state, undefined, ticket));
 });
 
 /**
@@ -97,17 +102,19 @@ export const appleAuthRedirect = onRequest({ cors: false, maxInstances: 10 }, as
  * verifier is the whole of the authorisation: 32 random bytes that never left the device.
  */
 export const claimAppleSignIn = onCall({ maxInstances: 10 }, async (request) => {
-  const verifier = (request.data ?? {}).verifier;
-  if (!isSha256Hex(verifier)) throw new HttpsError('invalid-argument', 'Bad sign-in request.');
+  const { verifier, ticket } = request.data ?? {};
+  // Both halves, or nothing: the verifier proves this device started the flow, the ticket proves it
+  // is the device the redirect came back to. See handoffStore.ts.
+  if (!isSha256Hex(verifier) || !isSha256Hex(ticket)) throw new HttpsError('invalid-argument', 'Bad sign-in request.');
 
   const now = Date.now();
-  if (!(await takeAuthRateSlot(ipKey(request.rawRequest?.ip), now, CLAIM_LIMIT))) {
+  if (!(await takeAuthRateSlot(ipKey(callerIp(request.rawRequest)), now, CLAIM_LIMIT)) || !(await underGlobalCeiling(now))) {
     throw new HttpsError('resource-exhausted', 'Too many attempts. Wait a minute and try again.');
   }
 
   const { createHash } = await import('crypto');
   const state = createHash('sha256').update(verifier).digest('hex');
-  const claimed = await claimHandoff(state, now);
+  const claimed = await claimHandoff(state, ticket, now);
   if (!claimed.ok) {
     throw new HttpsError(
       claimed.reason === 'expired' ? 'deadline-exceeded' : 'not-found',

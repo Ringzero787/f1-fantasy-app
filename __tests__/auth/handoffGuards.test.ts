@@ -5,7 +5,7 @@
  * the other. The `state` becomes a Firestore document id and the deep link is built by hand, so
  * these are the checks that keep a hostile POST from choosing either.
  */
-import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink, looksLikeAuthCode, looksLikeGoogleAuthCode } from '../../functions/src/auth/handoffGuards';
+import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink, handoffDeepLink, looksLikeAuthCode, looksLikeGoogleAuthCode, hashTicket, ticketMatches } from '../../functions/src/auth/handoffGuards';
 
 describe('isSha256Hex', () => {
   const good = 'a'.repeat(64);
@@ -75,9 +75,13 @@ describe('appleDisplayName', () => {
 
 describe('appleDeepLink', () => {
   const state = 'b'.repeat(64);
-  it('carries the state and never the token', () => {
+  const ticket = 'c'.repeat(64);
+  it('carries the state and the ticket, and never the token', () => {
+    expect(appleDeepLink(state, undefined, ticket)).toBe(`theundercut://auth/apple?state=${state}&ticket=${ticket}`);
+    expect(appleDeepLink(state, undefined, ticket)).not.toContain('id_token');
+  });
+  it('omits the ticket when there is none, rather than sending an empty one', () => {
     expect(appleDeepLink(state)).toBe(`theundercut://auth/apple?state=${state}`);
-    expect(appleDeepLink(state)).not.toContain('id_token');
   });
   it('tells a cancellation apart from a failure', () => {
     expect(appleDeepLink(state, 'user_cancelled_authorize')).toBe(`theundercut://auth/apple?state=${state}&error=cancelled`);
@@ -126,5 +130,84 @@ describe('looksLikeGoogleAuthCode', () => {
     // The state is the document id and stays strict hex; the code is only ever a field and a POST
     // body parameter. A slash in a Firestore id would split the path.
     expect(isSha256Hex('4/0AbCD')).toBe(false);
+  });
+});
+
+describe('handoffDeepLink', () => {
+  const state = 'e'.repeat(64);
+  const ticket = 'f'.repeat(64);
+
+  it('builds the same link for every provider, differing only in the path', () => {
+    for (const p of ['apple', 'amazon', 'google'] as const) {
+      expect(handoffDeepLink(p, state, { ticket })).toBe(`theundercut://auth/${p}?state=${state}&ticket=${ticket}`);
+    }
+  });
+
+  it('never carries a ticket alongside an error', () => {
+    // There is nothing to claim when the flow failed, and a ticket on a failure would be a value
+    // handed out for no reason.
+    const link = handoffDeepLink('google', state, { ticket, error: 'boom' });
+    expect(link).not.toContain('ticket');
+    expect(link).toBe(`theundercut://auth/google?state=${state}&error=failed`);
+  });
+
+  it('reports a cancellation only for that provider\u2019s own word for it', () => {
+    expect(handoffDeepLink('apple', state, { error: 'user_cancelled_authorize', cancelCode: 'user_cancelled_authorize' }))
+      .toBe(`theundercut://auth/apple?state=${state}&error=cancelled`);
+    expect(handoffDeepLink('google', state, { error: 'access_denied', cancelCode: 'access_denied' }))
+      .toBe(`theundercut://auth/google?state=${state}&error=cancelled`);
+    // Apple's word on Google's flow is not a cancellation, and vice versa.
+    expect(handoffDeepLink('google', state, { error: 'user_cancelled_authorize', cancelCode: 'access_denied' }))
+      .toBe(`theundercut://auth/google?state=${state}&error=failed`);
+  });
+
+  it('never lets a provider choose what goes in the link', () => {
+    // The error arrives on an unauthenticated request, so it is collapsed to one of two words
+    // rather than echoed — otherwise `&ticket=…` would be theirs to write.
+    expect(handoffDeepLink('amazon', state, { error: '&ticket=stolen' }))
+      .toBe(`theundercut://auth/amazon?state=${state}&error=failed`);
+    expect(handoffDeepLink('amazon', state, { error: 42 })).toBe(`theundercut://auth/amazon?state=${state}`);
+  });
+});
+
+describe('ticketMatches', () => {
+  const ticket = 'a1b2c3d4'.repeat(8);                       // 64 hex
+  const record = { ticketHash: hashTicket(ticket) };
+
+  it('accepts the ticket the record was filed with', () => {
+    expect(ticketMatches(record, ticket)).toBe(true);
+  });
+
+  it('refuses any other ticket — this is the whole binding', () => {
+    // The attack this exists for: someone who chose the verifier, and so knows the state, still
+    // cannot produce the ticket, because it only ever went out on the redirect to the other device.
+    expect(ticketMatches(record, 'b'.repeat(64))).toBe(false);
+    expect(ticketMatches(record, ticket.slice(0, 63) + '0')).toBe(false);
+  });
+
+  it('refuses a ticket of the wrong shape rather than comparing it', () => {
+    expect(ticketMatches(record, '')).toBe(false);
+    expect(ticketMatches(record, ticket.toUpperCase())).toBe(false);
+    expect(ticketMatches(record, null)).toBe(false);
+    expect(ticketMatches(record, undefined)).toBe(false);
+    expect(ticketMatches(record, 42)).toBe(false);
+    expect(ticketMatches(record, { toString: () => ticket })).toBe(false);
+  });
+
+  it('refuses a record with no ticket at all, which is the upgrade case', () => {
+    // Anything filed by the previous version is unclaimable rather than claimable-without-a-ticket.
+    // Those records are ten minutes from expiry; the alternative is a window where the binding does
+    // not apply, which is the wrong way round.
+    expect(ticketMatches({}, ticket)).toBe(false);
+    expect(ticketMatches({ ticketHash: undefined }, ticket)).toBe(false);
+    expect(ticketMatches({ ticketHash: 123 as unknown as string }, ticket)).toBe(false);
+    expect(ticketMatches(undefined, ticket)).toBe(false);
+    expect(ticketMatches(null, ticket)).toBe(false);
+  });
+
+  it('never stores what it compares', () => {
+    // The hash is what lands in Firestore; the ticket itself exists only in one redirect.
+    expect(record.ticketHash).not.toBe(ticket);
+    expect(record.ticketHash).toMatch(/^[0-9a-f]{64}$/);
   });
 });

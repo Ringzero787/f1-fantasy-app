@@ -1,27 +1,28 @@
 /**
  * Login with Amazon.
  *
- * Two flows live here. The hardened one (F-091) sends the browser to our own endpoint, which files
- * Amazon's authorization code server-side and returns only a state; the app trades a verifier it
- * never let go of for a Firebase custom token, and the code is exchanged with Amazon on the server.
- * That is what lets the button be offered on the Play and iOS builds: in the old flow the code
- * comes back on `theundercut://auth/amazon`, and on Android any installed app may claim that
- * scheme — a code read off it is an account takeover, Pit Wall Pass included.
+ * One flow, and it is the hardened one: the browser goes to our own endpoint, Amazon's
+ * authorization code is filed server-side, and the app trades a verifier and the ticket that rode
+ * the redirect for a Firebase custom token. The code never reaches the device.
  *
- * The old flow is still here, and is still what runs when EXPO_PUBLIC_AMAZON_REDIRECT_URI is not
- * set in the build, because the new endpoint has to be registered as an allowed return URL in the
- * Login with Amazon security profile first. Until it is, the button stays where it has always been
- * — the Amazon build only — rather than widening the old exposure. `amazonWebSignInAvailable()` is
- * that switch.
+ * The original flow is gone from here (F-094). It brought the code back on
+ * `theundercut://auth/amazon` with no state and no ticket, and `signInWithAmazon` would exchange
+ * whatever code it was handed — so any app claiming that scheme could read a code and take the
+ * account, and could also race the redirect to sign someone into *its* account instead. It was
+ * being kept as a fallback for builds made before the endpoint existed, which meant a new build
+ * with the endpoint unconfigured silently downgraded to it. A sign-in button that is absent is
+ * better than one that is unsafe, so `amazonWebSignInAvailable()` now hides the pill instead.
+ *
+ * The `signInWithAmazon` callable stays deployed for versions already installed; this is only about
+ * what a new build does.
  */
 import * as WebBrowser from 'expo-web-browser';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../config/firebase';
 import { randomHex, sha256Hex } from './nonce';
+import { readAuthRedirect } from './authRedirect';
 
 const AMAZON_CLIENT_ID = process.env.EXPO_PUBLIC_AMAZON_CLIENT_ID!;
-/** The old static page, which bounces the code straight to the app. */
-const LEGACY_REDIRECT_URI = 'https://www.humannpc.com/undercut/auth/amazon';
 /** Our own endpoint (Hosting rewrite → `amazonAuthRedirect`). Must match RETURN_URL there. */
 const REDIRECT_URI = process.env.EXPO_PUBLIC_AMAZON_REDIRECT_URI ?? '';
 const APP_REDIRECT = 'theundercut://auth/amazon';
@@ -31,68 +32,35 @@ export function amazonWebSignInAvailable(): boolean {
   return !!AMAZON_CLIENT_ID && !!REDIRECT_URI;
 }
 
-const authUrl = (redirectUri: string, state?: string): string =>
+const authUrl = (state: string): string =>
   'https://www.amazon.com/ap/oa' +
   '?client_id=' + encodeURIComponent(AMAZON_CLIENT_ID) +
   '&scope=profile' +
   '&response_type=code' +
-  (state ? '&state=' + encodeURIComponent(state) : '') +
-  '&redirect_uri=' + encodeURIComponent(redirectUri);
+  '&state=' + encodeURIComponent(state) +
+  '&redirect_uri=' + encodeURIComponent(REDIRECT_URI);
 
 /**
  * The hardened flow. Returns a Firebase custom token; the authorization code never comes near the
  * device.
  */
 export async function amazonWebSignIn(): Promise<{ customToken: string; displayName: string; email: string }> {
+  // Guard here as well as at the pill. Without it an unconfigured build opens Amazon's authorize
+  // URL with an empty redirect_uri, which is a broken sign-in at best — and the only return URL
+  // Amazon has on file is the old static page, the one that bounces the code onto a scheme any app
+  // may claim.
+  if (!amazonWebSignInAvailable()) throw new Error('Amazon sign in is not configured in this build.');
+
   const verifier = await randomHex(32);
   const state = await sha256Hex(verifier);
 
-  const result = await WebBrowser.openAuthSessionAsync(authUrl(REDIRECT_URI, state), APP_REDIRECT);
+  const result = await WebBrowser.openAuthSessionAsync(authUrl(state), APP_REDIRECT);
   if (result.type !== 'success' || !result.url) throw new Error('Sign in cancelled');
 
-  const params = new URLSearchParams(result.url.split('?')[1] ?? '');
-  if (params.get('error') === 'cancelled') throw new Error('Sign in cancelled');
-  if (params.get('error')) throw new Error('Amazon could not complete the sign in. Try again.');
-  // A redirect we did not start, or one replayed from another session, stops here.
-  if (params.get('state') !== state) throw new Error('Sign in could not be verified. Try again.');
+  const { ticket } = readAuthRedirect(result.url, state, 'Amazon');
 
-  const claim = httpsCallable<{ verifier: string }, { customToken: string; displayName: string; email: string }>(functions, 'claimAmazonSignIn');
-  const { customToken, displayName, email } = (await claim({ verifier })).data;
+  const claim = httpsCallable<{ verifier: string; ticket: string }, { customToken: string; displayName: string; email: string }>(functions, 'claimAmazonSignIn');
+  const { customToken, displayName, email } = (await claim({ verifier, ticket })).data;
   if (!customToken) throw new Error('Amazon could not complete the sign in. Try again.');
   return { customToken, displayName, email };
-}
-
-// ── The old flow, for builds made before the endpoint existed ───────────────
-let _resolve: ((value: { code: string; redirectUri: string }) => void) | null = null;
-let _reject: ((reason: Error) => void) | null = null;
-
-/** Called from _layout.tsx when a theundercut://auth/amazon deep link arrives. */
-export function handleAmazonDeepLink(url: string) {
-  const codeMatch = url.match(/[?&]code=([^&]+)/);
-  if (codeMatch && _resolve) {
-    _resolve({ code: codeMatch[1], redirectUri: LEGACY_REDIRECT_URI });
-    _resolve = null;
-    _reject = null;
-    WebBrowser.dismissBrowser();
-  } else if (_reject) {
-    _reject(new Error('No auth code received'));
-    _resolve = null;
-    _reject = null;
-  }
-}
-
-export async function amazonSignIn(): Promise<{ code: string; redirectUri: string }> {
-  return new Promise((resolve, reject) => {
-    _resolve = resolve;
-    _reject = reject;
-
-    WebBrowser.openBrowserAsync(authUrl(LEGACY_REDIRECT_URI)).then((result) => {
-      // If browser was dismissed without a deep link
-      if (result.type === 'cancel' && _reject) {
-        _reject(new Error('Sign in cancelled'));
-        _resolve = null;
-        _reject = null;
-      }
-    });
-  });
 }

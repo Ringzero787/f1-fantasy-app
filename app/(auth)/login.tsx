@@ -2,12 +2,10 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
-import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useSimpleTheme } from '../../src/simple/hooks/useSimpleTheme';
 import { AuthShell, AuthError, GridSocialButtons } from '../../src/simple/grid/GridAuthBits';
-import { amazonSignIn, amazonWebSignIn, amazonWebSignInAvailable } from '../../src/utils/amazonSignIn';
-import { functions } from '../../src/config/firebase';
+import { amazonWebSignIn } from '../../src/utils/amazonSignIn';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -34,16 +32,10 @@ export default function LoginScreen() {
   const handleAmazonSignIn = async () => {
     clearError();
     try {
-      // The hardened flow keeps Amazon's authorization code on the server, which is what makes the
-      // button safe to show outside the Amazon build (F-091). Builds without the endpoint
-      // configured fall back to the original exchange.
-      const { customToken, displayName, email } = amazonWebSignInAvailable()
-        ? await amazonWebSignIn()
-        : await (async () => {
-            const { code, redirectUri } = await amazonSignIn();
-            const signInFn = httpsCallable<{ code: string; redirectUri: string }, { customToken: string; displayName: string; email: string }>(functions, 'signInWithAmazon');
-            return (await signInFn({ code, redirectUri })).data;
-          })();
+      // One flow: the code stays on the server (F-091), and the pill is hidden on a build that
+      // cannot run it rather than falling back to the original exchange, which handed the code to
+      // whatever app claimed the scheme (F-094).
+      const { customToken, displayName, email } = await amazonWebSignIn();
       await signInWithAmazon(customToken, { displayName, email });
       router.replace('/');
     } catch (err) {
