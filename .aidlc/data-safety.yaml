@@ -4,7 +4,7 @@ shares_data: false
 sells_data: false
 processors: [Google Firebase (Auth, Firestore, Cloud Functions, FCM), Expo (EAS Update, push), Google Play Billing, Apple App Store, Amazon Appstore, Stripe (web checkout), Cloudflare Pages (Pit Wall portal)]
 data_types:
-  - { type: email, category: personal_info, purpose: account, shared: false, optional: false, notes: "Google, Apple or Login with Amazon sign-in; all three are offered on every Undercut build (F-091)" }
+  - { type: email, category: personal_info, purpose: account, shared: false, optional: false, notes: "Google, Apple or Login with Amazon sign-in; Amazon is on the Android and Amazon builds only, not iOS (F-091)" }
   - { type: name, category: personal_info, purpose: account, shared: false, optional: true, notes: "display name / call sign" }
   - { type: user_ids, category: personal_info, purpose: account, shared: false, optional: false }
   - { type: user_generated_content, category: app_activity, purpose: app_functionality, shared: false, optional: true, notes: "teams, picks, league chat (Undercut)" }

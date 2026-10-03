@@ -56,8 +56,8 @@ export default function LoginScreen() {
         <GridSocialButtons
           onGoogleSignIn={handleGoogleSignIn}
           onAppleSignIn={handleAppleSignIn}
-          /* Login with Amazon is a browser flow, so every build can offer it — which is how an
-             account created on a Fire tablet opens on a phone (F-091). */
+          /* Wired on every platform; whether the pill is actually shown is providerOrder's call —
+             Android and Amazon yes, iOS no, by decision rather than capability (F-091). */
           onAmazonSignIn={handleAmazonSignIn}
           disabled={isLoading}
         />

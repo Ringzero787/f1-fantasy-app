@@ -9,7 +9,11 @@
  *   Amazon build   Amazon, Apple, Google — Google through the browser, since Fire OS has no
  *                                          Play Services and the native module cannot run
  *   Play build     Google, Apple, Amazon
- *   iOS build      Apple, Google, Amazon
+ *   iOS build      Apple, Google          — no Amazon, by decision rather than capability
+ *
+ * The iOS omission is deliberate and is the one place a provider that *would* work is left out:
+ * Login with Amazon is a browser flow and runs there fine. The cost is that an account made with
+ * Amazon on a Fire tablet cannot be reached from an iPhone — the one gap left in the matrix.
  */
 export type Provider = 'google' | 'apple' | 'amazon';
 
@@ -38,8 +42,6 @@ export function providerOrder({ isAmazonBuild, isIOS, canApple, canAmazon, canGo
     return [canAmazon ? 'amazon' : null, canApple ? 'apple' : null, canGoogleWeb ? 'google' : null]
       .filter(Boolean) as Provider[];
   }
-  const first: Provider[] = isIOS
-    ? [...(canApple ? ['apple' as Provider] : []), 'google']
-    : ['google', ...(canApple ? ['apple' as Provider] : [])];
-  return [...first, ...(canAmazon ? ['amazon' as Provider] : [])];
+  if (isIOS) return [...(canApple ? ['apple' as Provider] : []), 'google'];
+  return ['google', ...(canApple ? ['apple' as Provider] : []), ...(canAmazon ? ['amazon' as Provider] : [])];
 }
