@@ -1,0 +1,63 @@
+id: OP-107
+title: Re-run the live races calendar check with session-time invariants (read-only)
+kind: uc-script
+status: applied
+params:
+  script: checkRaceCalendar.js
+  backup: races
+created_at: 2026-10-03T01:14:13.067Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-03T01:14:19.867Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: node scripts/ops/run-script.js undercut 'checkRaceCalendar.js'
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-107/dry-run-2026-10-03T01-14-19-867Z.log
+    log_sha256: e61221fbf610e99504ceb67c667c698cd6c595f1c1048e51064e061874483325
+    lines: 12
+  - step: dry-run
+    at: 2026-10-03T01:15:11.939Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: node scripts/ops/run-script.js undercut 'checkRaceCalendar.js'
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-107/dry-run-2026-10-03T01-15-11-939Z.log
+    log_sha256: 74b954b00ee7c85c0ede2a7a4259d37777401ccde0e3acb10280d9986a9df9ef
+    lines: 12
+  - step: dry-run
+    at: 2026-10-03T01:15:46.591Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: node scripts/ops/run-script.js undercut 'checkRaceCalendar.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-107/dry-run-2026-10-03T01-15-46-591Z.log
+    log_sha256: 6fba8f1415c3577e5cba2efa1b47e0a47a515dc1b7d4cae5c5e1cb53621e72f9
+    lines: 13
+  - step: backup
+    at: 2026-10-03T01:16:01.079Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-107'/backup.json 'races'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-107/backup-2026-10-03T01-16-01-079Z.log
+    log_sha256: 928512aaa7acba53a3f1e5e5a6378afc7eae5a8a71922f2f25534dd6232af8ce
+    lines: 3
+  - step: gates
+    at: 2026-10-03T01:16:01.957Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-03T01:16:01.958Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: node scripts/ops/run-script.js undercut 'checkRaceCalendar.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-107/apply-2026-10-03T01-16-01-958Z.log
+    log_sha256: c3f05f9145f1a3386cf90f5a99f80534dd0bed8f6c78efa08c3dc7b2f0bb949e
+    lines: 13
+  - step: gates
+    at: 2026-10-03T01:16:02.868Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G15: skip
