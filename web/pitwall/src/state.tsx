@@ -147,6 +147,10 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     // it rides along with the save. The cap is the app's rule, said here rather than at save time.
     setAce: (id) => {
       if (!ui.lineup.drivers.includes(id) || saving) return;   // one write at a time
+      // Locked is the server's answer too (planSave refuses), so saying it here turns a failed save
+      // into a sentence. The Briefing was offering "Set ace on …" through a locked weekend and only
+      // reporting the refusal after the click.
+      if (real?.team.isLocked) { toast('Your team is locked for this weekend.'); return; }
       const e = entity(payload, id);
       if (e && e.price > ACE_MAX_PRICE) { toast(`Only a pick at $${ACE_MAX_PRICE} or under can be the ace; ${e.name} is $${e.price}.`); return; }
       // tapping the ace again clears it, as in the app

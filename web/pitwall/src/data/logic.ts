@@ -4,6 +4,7 @@
  * rivalMove and the Lineup Lab swap pool. Pure, so every rule is unit-tested.
  */
 import { isCtor, type Constructor, type Driver, type Entity, type Lineup, type Payload, type Rival } from './types';
+import { ACE_MAX_PRICE } from './team';
 import { coverage } from './coverage';
 
 export const money = (n: number): string => `$${Math.round(n).toLocaleString('en-US')}`;
@@ -163,14 +164,28 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
     out.push({ kind: 'SWAP', a: x.out, b: x.in, title: `${o.name} → ${n.name}`, tag: `+${x.gain.toFixed(0)} PTS`, good: true, act: `${x.out}:${x.in}`,
       why: `${n.name} projects ${n.med - o.med} points higher for ${x.cost >= 0 ? `${money(x.cost)} more` : `${money(-x.cost)} less`}, inside your ${money(room)} bank.` });
   }
-  const best = [...mine].sort((a, b) => b.med - a.med);
+  // Only a pick inside the ace cap can carry it. The save path and the scoring both enforce this
+  // (team.ts ACE_MAX_PRICE, and calculatePoints strips the multiplier above it), and the Lineup Lab
+  // already greys out the rest — but this list did not, so it kept recommending the most expensive
+  // driver in the lineup, which is the one most likely to be over the cap. "Move ace to Hamilton,
+  // +4 PTS" for a $535 driver is advice the rules forbid and a gain that could never be paid.
+  const best = [...mine].filter((d) => d.price <= ACE_MAX_PRICE).sort((a, b) => b.med - a.med);
   const ace = entity(p, l.ace) ?? null;
   if (ace && best.length > 0 && best[0].id !== ace.id) {
     out.push({ kind: 'ACE', a: ace.id, b: best[0].id, title: `Move ace to ${best[0].name}`, tag: `+${best[0].med - ace.med} PTS`, good: true, ace: best[0].id,
-      why: `The ace doubles points. ${best[0].name} has the highest projection in your lineup.` });
+      // "highest in your lineup" stopped being true the moment the cap filtered anyone out, and a
+      // reader looking at a dearer driver projecting higher would rightly call it wrong.
+      why: `The ace doubles points. ${best[0].name} has the highest projection of your picks at $${ACE_MAX_PRICE} or under, which is the ace cap.` });
   } else if (ace && best.length > 1) {
     out.push({ kind: 'ACE', a: ace.id, b: best[1].id, title: `Keep ace on ${ace.name}`, tag: 'HOLD',
       why: `${ace.name} out-projects your next best driver by ${ace.med - best[1].med} points, doubled.` });
+  } else if (ace && best.length === 1 && best[0].id === ace.id) {
+    // One eligible pick, already carrying it. The branch above cannot phrase this — it compares
+    // against a next-best that does not exist — and before the cap filter the case could not arise,
+    // because `best` was the whole lineup. Saying nothing would be the odd one out: every other row
+    // in this list speaks when it has something to reason about.
+    out.push({ kind: 'ACE', a: ace.id, b: ace.id, title: `Keep ace on ${ace.name}`, tag: 'HOLD',
+      why: `${ace.name} is your only pick at $${ACE_MAX_PRICE} or under, so the ace has nowhere else to go.` });
   }
   const v = [...mine].sort((a, b) => b.val - a.val)[0];
   const va = v && nearest(p, l, v, purse);

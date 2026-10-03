@@ -206,3 +206,62 @@ describe('what the pass buys in the swap list', () => {
     expect(ids(true)).toEqual(ids(false));
   });
 });
+
+describe('briefRecs ace cap', () => {
+  // Reported from a real Briefing: "Move ace to Hamilton +4 PTS" on a $535 driver, which the save
+  // path refuses and scoring would strip anyway (ACE_MAX_PRICE is 200 in team.ts and again in
+  // functions/src/scoring/scoringCore.ts). The list was sorting on projection alone, so it reached
+  // for the most expensive driver in the lineup — the one most likely to be over the cap.
+  const cheapAce = D('cheap', 100, 40);
+  const dear = D('dear', 535, 50);
+  const midAce = D('mid', 180, 45);
+
+  it('does not recommend an ace nobody is allowed to set', () => {
+    // The reported bug exactly: $535 projects highest, so the old list said "move the ace there".
+    // What must never appear is a MOVE to an over-cap pick; a HOLD on the eligible one is right.
+    const p = payload([cheapAce, dear], [C('x', 100, 20)], 1000);
+    const ace = briefRecs(p, { drivers: ['cheap', 'dear'], ctor: 'x', ace: 'cheap' }).find((r) => r.kind === 'ACE');
+    expect(ace?.ace).toBeUndefined();
+    expect(JSON.stringify(ace)).not.toContain('dear');
+  });
+
+  it('still recommends the best ace inside the cap', () => {
+    const p = payload([cheapAce, midAce, dear], [C('x', 100, 20)], 1000);
+    const recs = briefRecs(p, { drivers: ['cheap', 'mid', 'dear'], ctor: 'x', ace: 'cheap' });
+    const ace = recs.find((r) => r.kind === 'ACE');
+    expect(ace?.ace).toBe('mid');          // 45 beats 40 and is under 200; 50 is not available
+    expect(ace?.tag).toBe('+5 PTS');
+  });
+
+  it('says hold, not move, when the ace is already the best one allowed', () => {
+    // Not silence: the list still has something to say about the ace, and what it says is that the
+    // current one is right. What it must never do is reach past the cap for the bigger projection.
+    const p = payload([cheapAce, midAce, dear], [C('x', 100, 20)], 1000);
+    const ace = briefRecs(p, { drivers: ['cheap', 'mid', 'dear'], ctor: 'x', ace: 'mid' }).find((r) => r.kind === 'ACE');
+    expect(ace?.tag).toBe('HOLD');
+    expect(ace?.ace).toBeUndefined();        // no move offered
+    expect(JSON.stringify(ace)).not.toContain('dear');
+  });
+
+  it('says hold when the only eligible pick already has it, rather than going quiet', () => {
+    // The filter created this case: before it, `best` was the whole lineup and there was always a
+    // next-best to compare against. One eligible driver who is already the ace must still get a
+    // row — silence reads as "no opinion" when the opinion is "there is nowhere else to put it".
+    const p = payload([cheapAce, dear], [C('x', 100, 20)], 1000);
+    const ace = briefRecs(p, { drivers: ['cheap', 'dear'], ctor: 'x', ace: 'cheap' }).find((r) => r.kind === 'ACE');
+    expect(ace?.tag).toBe('HOLD');
+    expect(ace?.why).toContain('only pick at $200 or under');
+    expect(ace?.ace).toBeUndefined();
+  });
+
+  it('is silent when no pick in the lineup is eligible at all', () => {
+    const p = payload([dear, D('dearer', 600, 55)], [C('x', 100, 20)], 2000);
+    expect(briefRecs(p, { drivers: ['dear', 'dearer'], ctor: 'x', ace: 'dear' }).filter((r) => r.kind === 'ACE')).toEqual([]);
+  });
+
+  it('exactly at the cap is allowed — the rule is <=, as the server has it', () => {
+    const atCap = D('atcap', 200, 60);
+    const p = payload([cheapAce, atCap], [C('x', 100, 20)], 1000);
+    expect(briefRecs(p, { drivers: ['cheap', 'atcap'], ctor: 'x', ace: 'cheap' }).find((r) => r.kind === 'ACE')?.ace).toBe('atcap');
+  });
+});
