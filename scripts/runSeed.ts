@@ -9,20 +9,49 @@
  * 3. Save it as `scripts/serviceAccountKey.json`
  *
  * Run:
- *   npx ts-node scripts/runSeed.ts
+ *   npx ts-node scripts/runSeed.ts            # dry run, writes nothing
+ *   npx ts-node scripts/runSeed.ts --apply    # writes to production
+ *
+ * Prefer an `aidlc op` over either. This writes collections that ingestion
+ * maintains and that Track Limits settles real currency against.
  */
 
 import * as admin from 'firebase-admin';
 import { drivers2026, constructors2026, races2025, season2025 } from './seedData';
 
-// Initialize Firebase Admin
-const serviceAccount = require('./serviceAccountKey.json');
+// Nothing happens on import, and nothing is written without --apply. This file
+// used to read a service-account key, initialise firebase-admin and call
+// main() all at module scope, so running it — or merely importing it — wrote
+// production immediately. Its sibling functions/src/seedData.ts had the same
+// shape and was guarded the same way.
+//
+// Note what it writes: races2025 and season2025, the 2025 season. The `races`
+// collection it writes into is maintained by Undercut's ingestion, and Track
+// Limits settles against it, so a stray run is not a local inconvenience.
+let db: admin.firestore.Firestore;
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
-const db = admin.firestore();
+function initAdmin(): void {
+  let serviceAccount;
+  try {
+    serviceAccount = require('./serviceAccountKey.json');
+  } catch {
+    // Match the sibling's behaviour: say what is missing and how to get it,
+    // rather than letting a raw MODULE_NOT_FOUND stack out.
+    console.error('Error: could not read scripts/serviceAccountKey.json');
+    console.log('\nTo get a service account key:');
+    console.log('1. Firebase Console > Project Settings > Service Accounts');
+    console.log('2. "Generate new private key"');
+    console.log('3. Save it as scripts/serviceAccountKey.json (it is gitignored)');
+    process.exit(1);
+  }
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+  db = admin.firestore();
+  // Echoed here rather than in main(), so the project being written to is
+  // named by the same code that picked it.
+  console.log('Target Project:', serviceAccount.project_id);
+}
 
 async function seedDrivers() {
   console.log('Seeding drivers...');
@@ -84,8 +113,8 @@ async function seedSeason() {
 }
 
 async function main() {
+  initAdmin();
   console.log('\n🏎️  F1 Fantasy - Firestore Seed Script\n');
-  console.log('Target Project:', serviceAccount.project_id);
   console.log('-----------------------------------\n');
 
   try {
@@ -103,4 +132,20 @@ async function main() {
   process.exit(0);
 }
 
-main();
+// Run only when executed directly, and only when told to. A bare
+// `npx ts-node scripts/runSeed.ts` now reports what it would overwrite and
+// writes nothing.
+if (require.main === module) {
+  if (process.argv.includes('--apply')) {
+    main();
+  } else {
+    console.log('runSeed: dry run. This script WRITES to production Firestore (f1-app-18077).');
+    console.log('  drivers      <- drivers2026');
+    console.log('  constructors <- constructors2026');
+    console.log('  races        <- races2025   ← the 2025 season, not the current one');
+    console.log('  seasons      <- season2025');
+    console.log('The races collection is maintained by ingestion and Track Limits settles');
+    console.log('garage cash against it. Seeding or repairing it belongs in an `aidlc op`.');
+    console.log('Re-run with --apply if you really mean to write.');
+  }
+}
