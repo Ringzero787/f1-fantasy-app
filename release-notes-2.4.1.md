@@ -5,34 +5,107 @@ Android versionCode 66 · Amazon versionCode 66 · iOS build 48
 versionCode 65 went to Play internal testing as 2.4.0 while the config still read 64, so 2.4.1
 starts at 66: Play refuses a code it has already seen, released or not.
 
-## Google Play (500 characters)
+## Store copy
+
+Each store gets a different list, because each build offers a different set. Getting this wrong in
+the listing is a promise the app does not keep.
+
+| store | offers |
+|---|---|
+| Google Play | Google, Apple, Amazon |
+| Apple App Store | Apple, Google |
+| Amazon Appstore | Amazon, Apple, Google |
+
+German and Dutch use the informal register the app already uses (`Melde dich an`, `Log in om je
+line-up`). `src/simple/**` is not localized yet (F-079), so there is no in-app term to match for
+"constructor"; these use the ordinary motorsport words.
+
+---
+
+### Google Play — English (323 / 500)
 
 Your account is yours, not the store's. Sign in with Google, Apple or Amazon from any version of
-Undercut — so the team you built on a tablet is the team you find on your phone.
+Undercut, so the team you built on a tablet is the team you find on your phone.
 
-Picking your first team is clearer too: the button now says which pick is still missing instead of
-counting drivers and constructors together.
+Picking your first team is clearer too: the button now names the pick you are still missing instead
+of counting drivers and constructors together.
 
-## Apple App Store
+### Google Play — Deutsch
 
-**What's New in This Version**
+Dein Account gehört dir, nicht dem Store. Melde dich in jeder Version von Undercut mit Google,
+Apple oder Amazon an – das Team, das du auf dem Tablet aufgestellt hast, findest du auch auf dem
+Handy wieder.
 
-An Undercut account belongs to you, not to the store you installed from.
+Auch das erste Team aufzustellen ist jetzt klarer: Der Button nennt, was dir noch fehlt, statt
+Fahrer und Konstrukteure zusammenzuzählen.
 
-Sign in with Apple, Google or Amazon from any version of the app. Build a team on one device, find
-the same team — and the same leagues, and the same Pit Wall Pass — on the next one.
+### Google Play — Nederlands
 
-Picking a first team is clearer: the save button names the pick you are still missing rather than
-counting drivers and constructors together, so a missing constructor no longer reads as one more
-driver.
+Je account is van jou, niet van de store. Log in met Google, Apple of Amazon vanuit elke versie van
+Undercut, zodat het team dat je op je tablet samenstelde ook op je telefoon klaarstaat.
 
-## Amazon Appstore
+Je eerste team samenstellen is ook duidelijker: de knop noemt nu wat je nog mist, in plaats van
+coureurs en constructeurs bij elkaar op te tellen.
 
-Your account is yours, not the store's. Sign in with Amazon, Apple or Google from any version of
-Undercut, and the team you built on your tablet is the team you find on your phone.
+---
+
+### Apple App Store — English
+
+An Undercut account belongs to you, not to the device you started on.
+
+Sign in with Apple or Google and pick up where you left off: the same team, the same leagues, the
+same Pit Wall Pass, on whichever device is in your hand.
+
+Picking a first team is clearer too. The save button names the pick you are still missing rather
+than counting drivers and constructors together, so a missing constructor no longer reads as one
+more driver.
+
+### Apple App Store — Deutsch
+
+Dein Undercut-Account gehört dir, nicht dem Gerät, auf dem du angefangen hast.
+
+Melde dich mit Apple oder Google an und mach da weiter, wo du aufgehört hast: dasselbe Team,
+dieselben Ligen, derselbe Pit Wall Pass – auf welchem Gerät du gerade auch bist.
+
+Auch das erste Team aufzustellen ist klarer. Der Speichern-Button nennt jetzt, was dir noch fehlt,
+statt Fahrer und Konstrukteure zusammenzuzählen – ein fehlender Konstrukteur liest sich damit nicht
+mehr wie ein weiterer Fahrer.
+
+### Apple App Store — Nederlands
+
+Je Undercut-account is van jou, niet van het apparaat waarop je begon.
+
+Log in met Apple of Google en ga verder waar je was gebleven: hetzelfde team, dezelfde competities,
+dezelfde Pit Wall Pass, op welk apparaat je ook zit.
+
+Je eerste team samenstellen is ook duidelijker. De opslaanknop noemt nu wat je nog mist, in plaats
+van coureurs en constructeurs bij elkaar op te tellen – een ontbrekende constructeur leest niet
+langer als nog een coureur.
+
+---
+
+### Amazon Appstore — English
+
+Your account is yours, not the store's. Sign in with Amazon, Apple or Google and the team you built
+on your tablet is the team you find on your phone.
 
 This version also launches properly on Fire tablets, and the team picker now names the pick you are
 still missing.
+
+### Amazon Appstore — Deutsch
+
+Dein Account gehört dir, nicht dem Store. Melde dich mit Amazon, Apple oder Google an – das Team,
+das du auf dem Tablet aufgestellt hast, findest du auch auf dem Handy wieder.
+
+Diese Version startet außerdem wieder zuverlässig auf Fire-Tablets, und die Teamauswahl nennt
+jetzt, was dir noch fehlt.
+
+### Amazon Appstore — Nederlands
+
+Je account is van jou, niet van de store. Log in met Amazon, Apple of Google en het team dat je op
+je tablet samenstelde staat ook op je telefoon klaar.
+
+Deze versie start bovendien weer goed op Fire-tablets, en de teamkeuze noemt nu wat je nog mist.
 
 ## What actually changed
 
