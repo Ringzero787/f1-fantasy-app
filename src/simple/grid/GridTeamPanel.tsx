@@ -321,6 +321,11 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
           <View style={{ marginHorizontal: gutter, marginTop: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <MonoLabel color={status.accent ? colors.primary : colors.text.muted}>LINEUP · {status.text}</MonoLabel>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, flexShrink: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {/* Underlined, like EDIT beside it. On the League tab SHARE is the last thing on its
+                row with nothing competing, so it reads as a control on its own; here it sits next
+                to the primary action and was being read as a caption — reported as "I don't see
+                the share option like on league" when it was right there. EDIT keeps the right
+                edge, because going to the picker is what this screen is for. */}
             {tiles.some((t) => t.kind !== 'empty') ? (
               <Pressable
                 onPress={onShareTeam}
@@ -328,6 +333,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
                 accessibilityRole="button"
                 accessibilityLabel="Share your team"
                 accessibilityHint="Shares your lineup and points as text"
+                style={({ pressed }) => ({ borderBottomWidth: 1, borderBottomColor: colors.primary, paddingBottom: 2, opacity: pressed ? 0.6 : 1 })}
               >
                 <MonoLabel color={colors.primary}>SHARE</MonoLabel>
               </Pressable>
