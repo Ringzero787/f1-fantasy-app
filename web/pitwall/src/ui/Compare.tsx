@@ -16,6 +16,10 @@ export function Compare({ rec }: { rec: Rec }) {
       <div className="cmph"><span><Lbl>In your lineup</Lbl></span><Pill red={rec.bad}>{rec.kind}</Pill><span><Lbl>{rec.good ? 'Recommended' : 'Alternative'}</Lbl></span></div>
       <div className="cmph">{head(a)}<span className="mut">vs</span>{head(b)}</div>
       <div className="cmpr"><span><Range e={a} /></span><span className="mut">Range</span><span><Range e={b} /></span></div>
+      {/* Two columns. Ten stacked rows made this panel taller than the recommendation list it sits
+          beside, which never holds more than six — so the page scrolled for a comparison that fits
+          in half the room. Nothing is shrunk or dropped; the same rows are laid out 2-up. */}
+      <div className="cmpstats">
       {compareRows(p, rec.a, rec.b).map((r) => (
         <div className="cmpr num" key={r.label}>
           <span>{r.winner === 'a' ? <b className="win">{r.a} ◂</b> : <span className={r.winner ? 'lose' : ''}>{r.a}</span>}</span>
@@ -23,6 +27,7 @@ export function Compare({ rec }: { rec: Rec }) {
           <span>{r.winner === 'b' ? <b className="win">▸ {r.b}</b> : <span className={r.winner ? 'lose' : ''}>{r.b}</span>}</span>
         </div>
       ))}
+      </div>
       <p style={{ margin: '6px 0 0', color: 'var(--fg2)' }}>{rec.why}</p>
       <div className="th" style={{ justifyContent: 'flex-start' }}>
         {rec.act && (rec.good || rec.bad) ? <button type="button" className={rec.good ? 'cta' : 'ghost'} onClick={() => tryAct(rec.act!)}>Try this swap in lineup lab →</button> : null}
