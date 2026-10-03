@@ -19,6 +19,7 @@ import Constants from 'expo-constants';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../config/firebase';
 import { randomHex, sha256Hex } from './nonce';
+import { readAuthRedirect } from './authRedirect';
 
 /** The Apple *Services ID* — a separate client identifier from the iOS bundle id. */
 const SERVICES_ID = process.env.EXPO_PUBLIC_APPLE_SERVICES_ID ?? '';
@@ -63,14 +64,10 @@ export async function appleWebSignIn(): Promise<{ identityToken: string; nonce: 
   const result = await WebBrowser.openAuthSessionAsync(authUrl, APP_REDIRECT);
   if (result.type !== 'success' || !result.url) throw new Error('Sign in cancelled');
 
-  const params = new URLSearchParams(result.url.split('?')[1] ?? '');
-  if (params.get('error') === 'cancelled') throw new Error('Sign in cancelled');
-  if (params.get('error')) throw new Error('Apple could not complete the sign in. Try again.');
-  // A redirect we did not start, or one replayed from another session, stops here.
-  if (params.get('state') !== state) throw new Error('Sign in could not be verified. Try again.');
+  const { ticket } = readAuthRedirect(result.url, state);
 
-  const claim = httpsCallable<{ verifier: string }, { idToken: string; displayName: string | null }>(functions, 'claimAppleSignIn');
-  const { idToken, displayName } = (await claim({ verifier })).data;
+  const claim = httpsCallable<{ verifier: string; ticket: string }, { idToken: string; displayName: string | null }>(functions, 'claimAppleSignIn');
+  const { idToken, displayName } = (await claim({ verifier, ticket })).data;
   if (!idToken) throw new Error('Apple could not complete the sign in. Try again.');
 
   return { identityToken: idToken, nonce: rawNonce, displayName };

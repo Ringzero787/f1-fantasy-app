@@ -18,6 +18,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../config/firebase';
 import { randomHex, sha256Hex } from './nonce';
+import { readAuthRedirect } from './authRedirect';
 
 const AMAZON_CLIENT_ID = process.env.EXPO_PUBLIC_AMAZON_CLIENT_ID!;
 /** The old static page, which bounces the code straight to the app. */
@@ -50,14 +51,10 @@ export async function amazonWebSignIn(): Promise<{ customToken: string; displayN
   const result = await WebBrowser.openAuthSessionAsync(authUrl(REDIRECT_URI, state), APP_REDIRECT);
   if (result.type !== 'success' || !result.url) throw new Error('Sign in cancelled');
 
-  const params = new URLSearchParams(result.url.split('?')[1] ?? '');
-  if (params.get('error') === 'cancelled') throw new Error('Sign in cancelled');
-  if (params.get('error')) throw new Error('Amazon could not complete the sign in. Try again.');
-  // A redirect we did not start, or one replayed from another session, stops here.
-  if (params.get('state') !== state) throw new Error('Sign in could not be verified. Try again.');
+  const { ticket } = readAuthRedirect(result.url, state);
 
-  const claim = httpsCallable<{ verifier: string }, { customToken: string; displayName: string; email: string }>(functions, 'claimAmazonSignIn');
-  const { customToken, displayName, email } = (await claim({ verifier })).data;
+  const claim = httpsCallable<{ verifier: string; ticket: string }, { customToken: string; displayName: string; email: string }>(functions, 'claimAmazonSignIn');
+  const { customToken, displayName, email } = (await claim({ verifier, ticket })).data;
   if (!customToken) throw new Error('Amazon could not complete the sign in. Try again.');
   return { customToken, displayName, email };
 }

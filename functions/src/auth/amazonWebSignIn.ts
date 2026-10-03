@@ -19,20 +19,24 @@ import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import { createHash } from 'crypto';
-import { isSha256Hex, looksLikeAuthCode } from './handoffGuards';
+import { handoffDeepLink, isSha256Hex, looksLikeAuthCode } from './handoffGuards';
 import { CLAIM_LIMIT, FILE_LIMIT, claimHandoff, fileHandoff, takeAuthRateSlot } from './handoffStore';
 import { exchangeAmazonCode, upsertAmazonUser } from './amazonAccount';
 import { ipKey } from '../pitwall/handoffCore';
+import { callerIp } from './callerIp';
 
 const amazonClientId = defineSecret('AMAZON_CLIENT_ID');
 const amazonClientSecret = defineSecret('AMAZON_CLIENT_SECRET');
 
-/** Must match EXPO_PUBLIC_AMAZON_REDIRECT_URI in the app, and the LWA allowed return URL. */
+/** Must match the app's redirect URI and the provider's registered return URL. */
 const RETURN_URL = 'https://f1-app-18077.web.app/undercut/auth/amazon';
-const APP_REDIRECT = 'theundercut://auth/amazon';
 
-function bounce(res: { set: (k: string, v: string) => void; status: (n: number) => { send: (b: string) => void } }, state: string, error?: string) {
-  res.set('Location', `${APP_REDIRECT}?state=${state}${error ? `&error=${error}` : ''}`);
+function bounce(
+  res: { set: (k: string, v: string) => void; status: (n: number) => { send: (b: string) => void } },
+  state: string,
+  opts: { ticket?: string; error?: unknown } = {},
+) {
+  res.set('Location', handoffDeepLink('amazon', state, { ...opts, cancelCode: 'access_denied' }));
   res.set('Cache-Control', 'no-store');
   res.status(303).send('');
 }
@@ -51,36 +55,40 @@ export const amazonAuthRedirect = onRequest({ cors: false, maxInstances: 10 }, a
   }
 
   const now = Date.now();
-  if (!(await takeAuthRateSlot(ipKey(req.ip), now, FILE_LIMIT))) {
-    bounce(res, state, 'rate_limited');
+  if (!(await takeAuthRateSlot(ipKey(callerIp(req)), now, FILE_LIMIT))) {
+    bounce(res, state, { error: 'rate_limited' });
     return;
   }
 
   const err = (req.query ?? {}).error;
   if (typeof err === 'string' && err) {
-    bounce(res, state, err === 'access_denied' ? 'cancelled' : 'failed');
+    // The provider's own word goes through untouched; collapsing it to cancelled or failed is
+    // handoffDeepLink's job, so all three flows do it the same way and in one place.
+    bounce(res, state, { error: err });
     return;
   }
 
   const code = (req.query ?? {}).code;
   if (!looksLikeAuthCode(code)) {
-    bounce(res, state, 'failed');
+    bounce(res, state, { error: 'failed' });
     return;
   }
 
+  let ticket: string | null;
   try {
     // `create`, so a second arrival for the same state cannot replace the filed code.
-    if (!(await fileHandoff(state, { provider: 'amazon', credential: code, redirectUri: RETURN_URL }, now))) {
-      bounce(res, state, 'replayed');
+    ticket = await fileHandoff(state, { provider: 'amazon', credential: code, redirectUri: RETURN_URL }, now);
+    if (!ticket) {
+      bounce(res, state, { error: 'replayed' });
       return;
     }
   } catch (error) {
     console.error('amazonAuthRedirect: could not file the handoff', error instanceof Error ? error.message : String(error));
-    bounce(res, state, 'failed');
+    bounce(res, state, { error: 'failed' });
     return;
   }
 
-  bounce(res, state);
+  bounce(res, state, { ticket });
 });
 
 /**
@@ -90,16 +98,17 @@ export const amazonAuthRedirect = onRequest({ cors: false, maxInstances: 10 }, a
 export const claimAmazonSignIn = onCall(
   { secrets: [amazonClientId, amazonClientSecret], maxInstances: 10 },
   async (request) => {
-    const verifier = (request.data ?? {}).verifier;
-    if (!isSha256Hex(verifier)) throw new HttpsError('invalid-argument', 'Bad sign-in request.');
+    const { verifier, ticket } = request.data ?? {};
+    // Both halves, or nothing. See handoffStore.ts for why one of them is never enough.
+    if (!isSha256Hex(verifier) || !isSha256Hex(ticket)) throw new HttpsError('invalid-argument', 'Bad sign-in request.');
 
     const now = Date.now();
-    if (!(await takeAuthRateSlot(ipKey(request.rawRequest?.ip), now, CLAIM_LIMIT))) {
+    if (!(await takeAuthRateSlot(ipKey(callerIp(request.rawRequest)), now, CLAIM_LIMIT))) {
       throw new HttpsError('resource-exhausted', 'Too many attempts. Wait a minute and try again.');
     }
 
     const state = createHash('sha256').update(verifier).digest('hex');
-    const claimed = await claimHandoff(state, now);
+    const claimed = await claimHandoff(state, ticket, now);
     if (!claimed.ok) {
       throw new HttpsError(
         claimed.reason === 'expired' ? 'deadline-exceeded' : 'not-found',

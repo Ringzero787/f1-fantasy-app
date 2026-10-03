@@ -38,16 +38,34 @@ export function appleDisplayName(rawUser: unknown): string | null {
 }
 
 /**
- * Where the browser is sent once the token is filed. The token never rides this redirect: on
- * Android any installed app may claim a custom scheme, and an Apple identity token is enough to
- * sign in as its owner. Only the state goes, and the app trades its verifier for the token over
- * HTTPS. `user_cancelled_authorize` is a person changing their mind, not a failure.
+ * Where the browser is sent once a credential is filed. The credential never rides this redirect:
+ * on Android any installed app may claim a custom scheme, and every one of them is enough to sign
+ * in as its owner. What goes instead is the state and the one-time ticket — see `handoffStore.ts`
+ * for why it takes both halves, held by different parties, to collect anything.
+ *
+ * `cancelled` is a person changing their mind and is reported separately; every other provider
+ * error is collapsed to `failed`, so nothing a provider (or anyone posting to the endpoint) writes
+ * can choose what lands in the link.
+ *
+ * @param provider the `theundercut://auth/<provider>` path
+ * @param cancelCode the provider's own word for "the person backed out"
  */
-export function appleDeepLink(state: string, error?: unknown): string {
-  const base = `theundercut://auth/apple?state=${state}`;
-  if (typeof error !== 'string' || !error) return base;
-  return `${base}&error=${error === 'user_cancelled_authorize' ? 'cancelled' : 'failed'}`;
+export function handoffDeepLink(
+  provider: 'apple' | 'amazon' | 'google',
+  state: string,
+  opts: { ticket?: string; error?: unknown; cancelCode?: string } = {},
+): string {
+  const base = `theundercut://auth/${provider}?state=${state}`;
+  const { ticket, error, cancelCode } = opts;
+  if (typeof error === 'string' && error) {
+    return `${base}&error=${error === cancelCode ? 'cancelled' : 'failed'}`;
+  }
+  return ticket ? `${base}&ticket=${ticket}` : base;
 }
+
+/** Apple's flavour, kept as its own name because `user_cancelled_authorize` is Apple's wording. */
+export const appleDeepLink = (state: string, error?: unknown, ticket?: string): string =>
+  handoffDeepLink('apple', state, { ticket, error, cancelCode: 'user_cancelled_authorize' });
 
 /**
  * Amazon's authorization code. Opaque to us, so this only bounds it and keeps out anything that

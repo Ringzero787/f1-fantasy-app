@@ -19,6 +19,8 @@ import Constants from 'expo-constants';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../config/firebase';
 import { randomHex, sha256Hex } from './nonce';
+import { readAuthRedirect } from './authRedirect';
+import { base64UrlFromBase64 } from './base64url';
 
 /** The web OAuth client — the same id the native flow passes as webClientId. */
 const CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
@@ -35,10 +37,11 @@ export function googleWebSignInAvailable(): boolean {
 
 /** base64url of the SHA-256 of the verifier, which is what PKCE's S256 method wants. */
 async function codeChallenge(verifier: string): Promise<string> {
-  const b64 = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, {
-    encoding: Crypto.CryptoEncoding.BASE64,
-  });
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return base64UrlFromBase64(
+    await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, {
+      encoding: Crypto.CryptoEncoding.BASE64,
+    }),
+  );
 }
 
 export async function googleWebSignIn(): Promise<string> {
@@ -58,19 +61,19 @@ export async function googleWebSignIn(): Promise<string> {
     '&scope=' + encodeURIComponent('openid email profile') +
     '&state=' + encodeURIComponent(state) +
     '&code_challenge=' + encodeURIComponent(await codeChallenge(verifier)) +
-    '&code_challenge_method=S256';
+    '&code_challenge_method=S256' +
+    // Always ask which account. Without it a device with a live Google session signs in with that
+    // one and never shows a chooser — wrong on a shared Fire tablet, and the silent path is exactly
+    // what a crafted sign-in link would want.
+    '&prompt=select_account';
 
   const result = await WebBrowser.openAuthSessionAsync(authUrl, APP_REDIRECT);
   if (result.type !== 'success' || !result.url) throw new Error('Sign in cancelled');
 
-  const params = new URLSearchParams(result.url.split('?')[1] ?? '');
-  if (params.get('error') === 'cancelled') throw new Error('Sign in cancelled');
-  if (params.get('error')) throw new Error('Google could not complete the sign in. Try again.');
-  // A redirect we did not start, or one replayed from another session, stops here.
-  if (params.get('state') !== state) throw new Error('Sign in could not be verified. Try again.');
+  const { ticket } = readAuthRedirect(result.url, state);
 
-  const claim = httpsCallable<{ verifier: string }, { idToken: string }>(functions, 'claimGoogleSignIn');
-  const { idToken } = (await claim({ verifier })).data;
+  const claim = httpsCallable<{ verifier: string; ticket: string }, { idToken: string }>(functions, 'claimGoogleSignIn');
+  const { idToken } = (await claim({ verifier, ticket })).data;
   if (!idToken) throw new Error('Google could not complete the sign in. Try again.');
   return idToken;
 }

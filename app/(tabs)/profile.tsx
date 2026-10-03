@@ -25,6 +25,8 @@ import { LanguagePicker } from '../../src/components/LanguagePicker';
 import { authService } from '../../src/services/auth.service';
 import { Card, RulesGuide } from '../../src/components';
 import { getGoogleIdToken, getAppleCredential } from '../../src/components/SocialAuthButtons';
+import { isAmazonBuild } from '../../src/utils/storeDetection';
+import { googleWebSignIn } from '../../src/utils/googleWebSignIn';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../../src/store/auth.store';
@@ -67,11 +69,13 @@ export default function ProfileScreen() {
   const handleLinkGoogle = async () => {
     setIsLinking(true);
     try {
-      const idToken = await getGoogleIdToken();
+      // Fire OS has no Play Services, so the native module cannot run there. Sign-in learned
+      // this in F-093; linking is the one Google path that had not (F-094).
+      const idToken = isAmazonBuild ? await googleWebSignIn() : await getGoogleIdToken();
       await linkWithGoogle(idToken);
       Alert.alert('Success', 'Google account linked.');
     } catch (error: any) {
-      if (error.code === 'SIGN_IN_CANCELLED') { setIsLinking(false); return; }
+      if (error.code === 'SIGN_IN_CANCELLED' || error.message === 'Sign in cancelled') { setIsLinking(false); return; }
       if (error.code === 'auth/credential-already-in-use') {
         Alert.alert('Cannot Link', 'This Google account is already linked to a different user.');
       } else {
