@@ -13,7 +13,7 @@ const ctx = (over: Partial<Parameters<typeof providerOrder>[0]> = {}) =>
 describe('providerOrder', () => {
   it('leads with the store the build came from', () => {
     expect(ctx({ isAmazonBuild: true })).toEqual(['amazon', 'apple', 'google']);
-    expect(ctx({ isIOS: true })).toEqual(['apple', 'google', 'amazon']);
+    expect(ctx({ isIOS: true })).toEqual(['apple', 'google']);
     expect(ctx()).toEqual(['google', 'apple', 'amazon']);
   });
 
@@ -31,15 +31,23 @@ describe('providerOrder', () => {
 
   it('hides Apple where its web flow is not configured, rather than offering a broken button', () => {
     expect(ctx({ canApple: false })).toEqual(['google', 'amazon']);
-    // iOS has the native sheet, so canApple is always true there; the ordering still holds if not.
-    expect(ctx({ isIOS: true, canApple: false })).toEqual(['google', 'amazon']);
+    // iOS has the native sheet, so canApple is always true there; the ordering still holds if not,
+    // and Amazon is absent on iOS by decision (covered below), not because of this flag.
+    expect(ctx({ isIOS: true, canApple: false })).toEqual(['google']);
   });
 
   it('hides Amazon outside its own store until the hardened flow is in the build', () => {
     // The original Amazon flow returns the authorization code on a claimable custom scheme, so the
-    // pill waits rather than widening that exposure to every Play and iOS install.
+    // pill waits rather than widening that exposure to every Play install.
     expect(ctx({ canAmazon: false })).toEqual(['google', 'apple']);
+  });
+
+  it('never offers Amazon on iOS, configured or not', () => {
+    // The one provider left out by decision rather than capability: the browser flow runs on iOS
+    // perfectly well. So the flag must make no difference there, which a flag usually does.
+    expect(ctx({ isIOS: true, canAmazon: true })).toEqual(['apple', 'google']);
     expect(ctx({ isIOS: true, canAmazon: false })).toEqual(['apple', 'google']);
+    expect(ctx({ isIOS: true, canApple: false })).toEqual(['google']);
   });
 
   it('keeps the Amazon build usable even if nothing else is configured', () => {
@@ -59,6 +67,8 @@ describe('providerOrder', () => {
               // The non-Amazon builds use the native sheet, so the browser flag must not add a
               // second Google pill there.
               if (!isAmazonBuild) expect(order.filter((p) => p === 'google')).toHaveLength(1);
+              // `isAmazonBuild && isIOS` is not a real build; the Amazon branch owns that case.
+              if (isIOS && !isAmazonBuild) expect(order).not.toContain('amazon');
             }
           }
         }
