@@ -22,16 +22,26 @@
  */
 
 const admin = require('firebase-admin');
-const KEY = process.env.SA_KEY || '/mnt/smb/f1-app/files/f1-app-18077-firebase-adminsdk-fbsvc-2b824e0c37.json';
-admin.initializeApp({ credential: admin.credential.cert(require(KEY)) });
-const db = admin.firestore();
+// Nothing happens on import. The key read, initializeApp and firestore()
+// used to sit at module scope with a self-invoking IIFE below them, so
+// requiring this file — from a test, a tool walking the tree, an editor's
+// language server — connected to production and ran the script. It is
+// invoked by `aidlc op` through scripts/ops/run-script.js, which spawns the
+// file directly, so require.main still holds there.
+let db;
+
+function initAdmin() {
+  const KEY = process.env.SA_KEY || '/mnt/smb/f1-app/files/f1-app-18077-firebase-adminsdk-fbsvc-2b824e0c37.json';
+  admin.initializeApp({ credential: admin.credential.cert(require(KEY)) });
+  db = admin.firestore();
+}
 const { FieldPath, FieldValue, Timestamp } = admin.firestore;
 
 const APPLY = process.argv.includes('--apply');
 const LITERAL_UNLOCK = 'lockStatus.nextUnlockTime';
 const LITERAL_REASON = 'lockStatus.lockReason';
 
-(async () => {
+async function main() {
   const now = Timestamp.now();
   const snap = await db.collection('fantasyTeams').get();
 
@@ -105,4 +115,9 @@ const LITERAL_REASON = 'lockStatus.lockReason';
 
   console.log(`\nRepaired ${done} team doc(s): ${toUnlock.length} unlocked, ${toCleanOnly.length} cleaned.`);
   process.exit(0);
-})().catch(e => { console.error('FAILED:', e); process.exit(1); });
+}
+
+if (require.main === module) {
+  initAdmin();
+  main().catch(e => { console.error('FAILED:', e); process.exit(1); });
+}

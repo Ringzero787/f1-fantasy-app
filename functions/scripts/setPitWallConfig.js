@@ -23,18 +23,27 @@
 const admin = require('firebase-admin');
 
 const EXPECTED_PROJECT = 'f1-app-18077';
-const KEY = process.env.SA_KEY;
-if (!KEY) {
-  console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
-  process.exit(2);
+// Nothing happens on import. The key read, initializeApp and firestore()
+// used to sit at module scope with a self-invoking entry below them, so
+// requiring this file connected to production and ran the script. It is
+// invoked by `aidlc op` through scripts/ops/run-script.js, which spawns the
+// file directly, so require.main still holds there.
+let db;
+
+function initAdmin() {
+  const KEY = process.env.SA_KEY;
+  if (!KEY) {
+    console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
+    process.exit(2);
+  }
+  const cred = require(KEY);
+  if (cred.project_id !== EXPECTED_PROJECT) {
+    console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`);
+    process.exit(2);
+  }
+  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
+  db = admin.firestore();
 }
-const cred = require(KEY);
-if (cred.project_id !== EXPECTED_PROJECT) {
-  console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`);
-  process.exit(2);
-}
-admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
-const db = admin.firestore();
 
 const APPLY = process.argv.includes('--apply');
 const arg = (name, fallback) => {
@@ -50,17 +59,25 @@ const PORTAL_URL = 'https://pitwall.humannpc.com';
 // be tested without a credential. Flags still win: --mode=X sets all three, --ios=X beats it.
 const FLAGS_IN = process.argv.slice(2);
 
-const typo = unknownFlag(FLAGS_IN);
-if (typo) {
-  console.error(`"${typo}" is not a flag this script understands. Nothing was written.`);
-  console.error('Flags take an = sign: --mode=off, --ios=open, --beta=uid1,uid2, --enabled=false, --apply');
-  process.exit(2);
-}
+// Argument validation lives in a function, called from the guard. At module
+// scope it rejected any argv the script did not recognise — including a
+// positional belonging to some other program — and exited 2 on import,
+// killing a process that never asked to run this. The same defect as the
+// credential read, just louder: a tree walker passing a directory was taken
+// down mid-walk.
+function checkArgs() {
+  const typo = unknownFlag(FLAGS_IN);
+  if (typo) {
+    console.error(`"${typo}" is not a flag this script understands. Nothing was written.`);
+    console.error('Flags take an = sign: --mode=off, --ios=open, --beta=uid1,uid2, --enabled=false, --apply');
+    process.exit(2);
+  }
 
-const notBool = invalidEnabled(FLAGS_IN);
-if (notBool !== null) {
-  console.error(`--enabled must be true or false (got "${notBool}")`);
-  process.exit(2);
+  const notBool = invalidEnabled(FLAGS_IN);
+  if (notBool !== null) {
+    console.error(`--enabled must be true or false (got "${notBool}")`);
+    process.exit(2);
+  }
 }
 
 
@@ -127,7 +144,11 @@ async function main() {
   console.log('\nwritten');
 }
 
-main().catch((err) => {
+if (require.main === module) {
+  checkArgs();
+  initAdmin();
+  main().catch((err) => {
   console.error(err);
   process.exit(1);
-});
+  });
+}

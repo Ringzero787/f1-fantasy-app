@@ -14,17 +14,29 @@ const admin = require('firebase-admin');
 const EXPECTED_PROJECT = 'f1-app-18077';
 const COLLECTIONS = ['races', 'raceScores', 'priceHistory', 'drivers', 'constructors'];
 const out = process.argv[2];
-if (!out) { console.error('usage: exportPitwallHistory.js <output.json outside the repo>'); process.exit(2); }
-const repo = path.resolve(__dirname, '..', '..');
-if (path.resolve(out).startsWith(repo + path.sep)) { console.error('Refusing to write inside the repository.'); process.exit(2); }
-const KEY = process.env.SA_KEY;
-if (!KEY) { console.error('SA_KEY must point at the service-account key.'); process.exit(2); }
-const cred = require(KEY);
-if (cred.project_id !== EXPECTED_PROJECT) { console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`); process.exit(2); }
-admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
+// The usage and write-location checks live in the guard below. At module
+// scope they ran on import and exited the process — the same import side
+// effect as the credential read, just louder.
+function checkArgs() {
+  if (!out) { console.error('usage: exportPitwallHistory.js <output.json outside the repo>'); process.exit(2); }
+  const repo = path.resolve(__dirname, '..', '..');
+  if (path.resolve(out).startsWith(repo + path.sep)) { console.error('Refusing to write inside the repository.'); process.exit(2); }
+}
+// Nothing happens on import. The key read, initializeApp and firestore()
+// used to sit at module scope with a self-invoking entry below them, so
+// requiring this file connected to production and ran the script. It is
+// invoked by `aidlc op` through scripts/ops/run-script.js, which spawns the
+// file directly, so require.main still holds there.
+function initAdmin() {
+  const KEY = process.env.SA_KEY;
+  if (!KEY) { console.error('SA_KEY must point at the service-account key.'); process.exit(2); }
+  const cred = require(KEY);
+  if (cred.project_id !== EXPECTED_PROJECT) { console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`); process.exit(2); }
+  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
+}
 
 const plain = (o) => JSON.parse(JSON.stringify(o, (_k, v) => (v && typeof v === 'object' && typeof v.toDate === 'function' ? v.toDate().toISOString() : v)));
-(async () => {
+async function main() {
   const db = admin.firestore();
   const data = {};
   for (const c of COLLECTIONS) {
@@ -36,4 +48,10 @@ const plain = (o) => JSON.parse(JSON.stringify(o, (_k, v) => (v && typeof v === 
   fs.writeFileSync(out, JSON.stringify(data));
   console.log(`wrote ${out}`);
   process.exit(0);
-})().catch((e) => { console.error(e); process.exit(1); });
+}
+
+if (require.main === module) {
+  checkArgs();
+  initAdmin();
+  main().catch((e) => { console.error(e); process.exit(1); });
+}

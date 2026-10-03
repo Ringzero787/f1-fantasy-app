@@ -16,20 +16,33 @@
 
 const path = require('path');
 const admin = require('firebase-admin');
-const KEY = process.env.SA_KEY || '/mnt/smb/f1-app/files/f1-app-18077-firebase-adminsdk-fbsvc-2b824e0c37.json';
-admin.initializeApp({ credential: admin.credential.cert(require(KEY)) });
-const db = admin.firestore();
+// Nothing happens on import. The key read, initializeApp and firestore()
+// used to sit at module scope with a self-invoking IIFE below them, so
+// requiring this file — from a test, a tool walking the tree, an editor's
+// language server — connected to production and ran the script. It is
+// invoked by `aidlc op` through scripts/ops/run-script.js, which spawns the
+// file directly, so require.main still holds there.
+let db;
+
+function initAdmin() {
+  const KEY = process.env.SA_KEY || '/mnt/smb/f1-app/files/f1-app-18077-firebase-adminsdk-fbsvc-2b824e0c37.json';
+  admin.initializeApp({ credential: admin.credential.cert(require(KEY)) });
+  db = admin.firestore();
+}
 
 const raceId = process.argv[2];
 const phaseArg = (process.argv.find(a => a.startsWith('--phase=')) || '').split('=')[1] || 'race';
-if (!raceId) { console.error('usage: node scripts/verifyRaceScoring.js <raceId> [--phase=quali|race]'); process.exit(2); }
+// The usage check lives in the guard below, not here. At module scope it ran
+// on import and took the whole process down with exit 2 — which is its own
+// kind of import side effect, and a confusing one, since the caller never
+// asked to run this script.
 
 const fails = [];
 const warns = [];
 const ok = [];
 const isNum = (v) => typeof v === 'number' && !isNaN(v);
 
-(async () => {
+async function main() {
   const raceSnap = await db.collection('races').doc(raceId).get();
   if (!raceSnap.exists) { console.error(`race ${raceId} not found`); process.exit(2); }
   const race = raceSnap.data();
@@ -100,4 +113,10 @@ const isNum = (v) => typeof v === 'number' && !isNaN(v);
   if (fails.length) { console.log('FAIL:'); fails.forEach(s => console.log('  x', s)); }
   console.log(`\n${fails.length ? 'RESULT: FAIL ('+fails.length+' issue(s))' : 'RESULT: PASS'}`);
   process.exit(fails.length ? 1 : 0);
-})().catch(e => { console.error(e); process.exit(2); });
+}
+
+if (require.main === module) {
+  if (!raceId) { console.error('usage: node scripts/verifyRaceScoring.js <raceId> [--phase=quali|race]'); process.exit(2); }
+  initAdmin();
+  main().catch(e => { console.error(e); process.exit(2); });
+}

@@ -12,14 +12,25 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const EXPECTED_PROJECT = 'f1-app-18077';
-const KEY = process.env.SA_KEY;
-if (!KEY) { console.error('SA_KEY must point at the service-account key (aidlc op loads it from ~/.config/aidlc/env).'); process.exit(2); }
-const cred = require(KEY);
-if (cred.project_id !== EXPECTED_PROJECT) { console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`); process.exit(2); }
-admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
-const db = admin.firestore();
-const store = require(path.join(__dirname, '..', 'lib', 'pitwall', 'passStore.js'));
-const { currentSeason, passActive } = require(path.join(__dirname, '..', 'lib', 'pitwall', 'pass.js'));
+// Nothing happens on import. All of this used to run at module scope with a
+// self-invoking entry below it, so requiring the file read the key and ran
+// the script. `aidlc op` spawns it directly via scripts/ops/run-script.js, so
+// require.main still holds there.
+let db;
+let store;
+let currentSeason;
+let passActive;
+
+function initAdmin() {
+  const KEY = process.env.SA_KEY;
+  if (!KEY) { console.error('SA_KEY must point at the service-account key (aidlc op loads it from ~/.config/aidlc/env).'); process.exit(2); }
+  const cred = require(KEY);
+  if (cred.project_id !== EXPECTED_PROJECT) { console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`); process.exit(2); }
+  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
+  db = admin.firestore();
+  store = require(path.join(__dirname, '..', 'lib', 'pitwall', 'passStore.js'));
+  ({ currentSeason, passActive } = require(path.join(__dirname, '..', 'lib', 'pitwall', 'pass.js')));
+}
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
@@ -30,7 +41,7 @@ const action = args.find((x) => !x.startsWith('--')) ?? process.env.PW_ACTION;
 const opt = (name) => { const a = args.find((x) => x.startsWith(`--${name}=`)); return a ? a.split('=').slice(1).join('=') : process.env[`PW_${name.toUpperCase()}`]; };
 const mask = (e) => (typeof e === 'string' ? e.replace(/^(.).*(@.*)$/, '$1***$2') : '(no email)');
 
-(async () => {
+async function main() {
   const season = opt('season') || currentSeason(Date.now());
   if (action === 'list') {
     const snap = await db.collection('users').orderBy('pass.grantedAt', 'desc').limit(100).get().catch(() => null);
@@ -70,4 +81,9 @@ const mask = (e) => (typeof e === 'string' ? e.replace(/^(.).*(@.*)$/, '$1***$2'
   }
   console.log(APPLY ? '\nThe auth claim follows within a second, via the onUserPassWritten trigger.' : '\nNothing was written.');
   process.exit(0);
-})().catch((e) => { console.error(e); process.exit(1); });
+}
+
+if (require.main === module) {
+  initAdmin();
+  main().catch((e) => { console.error(e); process.exit(1); });
+}

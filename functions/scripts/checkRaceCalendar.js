@@ -45,27 +45,33 @@ const SEASON = '2026';
 // the setup has to be inside a handler rather than relying on the existsSync
 // guards alone — a present-but-corrupt key, fixture or build all land here.
 let cred, fixtureRaces, ROUND_TO_RACE_ID, SPRINT_ROUNDS, db;
-try {
-  const KEY = process.env.SA_KEY;
-  if (!KEY) throw new Error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
-  cred = require(KEY);
-  if (cred.project_id !== EXPECTED_PROJECT) throw new Error(`key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}`);
+// Nothing happens on import, including the key read. This file is run by
+// `aidlc op` through scripts/ops/run-script.js, which spawns it directly,
+// so require.main holds there. Requiring it — which is how its own guard
+// test reads it — must not touch credentials.
+function setup() {
+  try {
+    const KEY = process.env.SA_KEY;
+    if (!KEY) throw new Error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
+    cred = require(KEY);
+    if (cred.project_id !== EXPECTED_PROJECT) throw new Error(`key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}`);
 
-  const FIXTURE = path.join(__dirname, '..', 'test', 'fixtures', 'races2026.json');
-  if (!fs.existsSync(FIXTURE)) throw new Error(`missing ${FIXTURE} — without it this check proves nothing`);
-  const parsedFixture = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
-  fixtureRaces = Array.isArray(parsedFixture) ? parsedFixture : parsedFixture.races;
-  if (!Array.isArray(fixtureRaces) || fixtureRaces.length === 0) throw new Error('fixture parsed but holds no races');
+    const FIXTURE = path.join(__dirname, '..', 'test', 'fixtures', 'races2026.json');
+    if (!fs.existsSync(FIXTURE)) throw new Error(`missing ${FIXTURE} — without it this check proves nothing`);
+    const parsedFixture = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
+    fixtureRaces = Array.isArray(parsedFixture) ? parsedFixture : parsedFixture.races;
+    if (!Array.isArray(fixtureRaces) || fixtureRaces.length === 0) throw new Error('fixture parsed but holds no races');
 
-  const configPath = path.join(__dirname, '..', 'lib', 'ingestion', 'config.js');
-  if (!fs.existsSync(configPath)) throw new Error('functions/lib is not built. Run: npm --prefix functions run build');
-  ({ ROUND_TO_RACE_ID, SPRINT_ROUNDS } = require(configPath));
+    const configPath = path.join(__dirname, '..', 'lib', 'ingestion', 'config.js');
+    if (!fs.existsSync(configPath)) throw new Error('functions/lib is not built. Run: npm --prefix functions run build');
+    ({ ROUND_TO_RACE_ID, SPRINT_ROUNDS } = require(configPath));
 
-  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
-  db = admin.firestore();
-} catch (e) {
-  console.error(`Cannot run the check: ${e && e.message ? e.message : e}`);
-  process.exit(2);
+    admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
+    db = admin.firestore();
+  } catch (e) {
+    console.error(`Cannot run the check: ${e && e.message ? e.message : e}`);
+    process.exit(2);
+  }
 }
 
 const asDate = (v) => {
@@ -76,7 +82,7 @@ const asDate = (v) => {
 };
 const iso = (v) => { const d = asDate(v); return d ? d.toISOString() : null; };
 
-(async () => {
+async function main() {
   console.log(`READ-ONLY CHECK · project ${EXPECTED_PROJECT} · season ${SEASON} · ${new Date().toISOString()}`);
 
   const snap = await db.collection('races').where('seasonId', '==', SEASON).get();
@@ -243,4 +249,9 @@ const iso = (v) => { const d = asDate(v); return d ? d.toISOString() : null; };
   console.log(`${problems.length} PROBLEM(S):`);
   for (const p of problems) console.log(`  - ${p}`);
   process.exit(1);
-})().catch((e) => { console.error(e); process.exit(2); });
+}
+
+if (require.main === module) {
+  setup();
+  main().catch((e) => { console.error(e); process.exit(2); });
+}
