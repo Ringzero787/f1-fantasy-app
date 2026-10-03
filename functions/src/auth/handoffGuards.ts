@@ -55,3 +55,12 @@ export function appleDeepLink(state: string, error?: unknown): string {
  */
 export const looksLikeAuthCode = (v: unknown): v is string =>
   typeof v === 'string' && v.length > 0 && v.length <= 512 && /^[A-Za-z0-9._~-]+$/.test(v);
+
+/**
+ * Google's authorization code. Unlike Amazon's it contains slashes (`4/0Ab...`), so it gets its own
+ * shape rather than widening the Amazon one — a slash is illegal in a Firestore document id, and
+ * these two values are checked for different jobs. This one is only ever a field and a POST body
+ * parameter, never a path segment.
+ */
+export const looksLikeGoogleAuthCode = (v: unknown): v is string =>
+  typeof v === 'string' && v.length > 0 && v.length <= 512 && /^[A-Za-z0-9._~/-]+$/.test(v);

@@ -5,7 +5,7 @@
  * the other. The `state` becomes a Firestore document id and the deep link is built by hand, so
  * these are the checks that keep a hostile POST from choosing either.
  */
-import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink, looksLikeAuthCode } from '../../functions/src/auth/handoffGuards';
+import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink, looksLikeAuthCode, looksLikeGoogleAuthCode } from '../../functions/src/auth/handoffGuards';
 
 describe('isSha256Hex', () => {
   const good = 'a'.repeat(64);
@@ -105,5 +105,26 @@ describe('looksLikeAuthCode', () => {
     expect(looksLikeAuthCode('a'.repeat(513))).toBe(false);
     expect(looksLikeAuthCode(null)).toBe(false);
     expect(looksLikeAuthCode(42)).toBe(false);
+  });
+});
+
+describe('looksLikeGoogleAuthCode', () => {
+  it('accepts a Google authorization code, which contains slashes', () => {
+    // The Amazon shape rejects these, which is why Google has its own: 4/0Ab... is the usual form.
+    expect(looksLikeGoogleAuthCode('4/0AbCD-efGH_ijKL.mnOP~qrST')).toBe(true);
+    expect(looksLikeAuthCode('4/0AbCD-efGH')).toBe(false);
+  });
+  it('still rejects anything that could steer a redirect or a request', () => {
+    expect(looksLikeGoogleAuthCode('')).toBe(false);
+    expect(looksLikeGoogleAuthCode('code&client_secret=x')).toBe(false);
+    expect(looksLikeGoogleAuthCode('has space')).toBe(false);
+    expect(looksLikeGoogleAuthCode('a'.repeat(513))).toBe(false);
+    expect(looksLikeGoogleAuthCode(null)).toBe(false);
+    expect(looksLikeGoogleAuthCode(42)).toBe(false);
+  });
+  it('is never used as a document id, which is why a slash is allowed at all', () => {
+    // The state is the document id and stays strict hex; the code is only ever a field and a POST
+    // body parameter. A slash in a Firestore id would split the path.
+    expect(isSha256Hex('4/0AbCD')).toBe(false);
   });
 });

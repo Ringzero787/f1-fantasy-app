@@ -24,11 +24,11 @@ export const TTL_MS = 10 * 60 * 1000;
 export const FILE_LIMIT = { windowMs: 60_000, max: 10 };
 export const CLAIM_LIMIT = { windowMs: 60_000, max: 20 };
 
-export type HandoffProvider = 'apple' | 'amazon';
+export type HandoffProvider = 'apple' | 'amazon' | 'google';
 
 export interface HandoffRecord {
   provider: HandoffProvider;
-  /** Apple's identity token, or Amazon's authorization code. */
+  /** Apple's identity token, or Amazon's or Google's authorization code. */
   credential: string;
   /** Amazon needs the same redirect_uri back for the token exchange. */
   redirectUri?: string | null;

@@ -8,18 +8,25 @@
 import { providerOrder } from '../../src/simple/grid/signInProviders';
 
 const ctx = (over: Partial<Parameters<typeof providerOrder>[0]> = {}) =>
-  providerOrder({ isAmazonBuild: false, isIOS: false, canApple: true, canAmazon: true, ...over });
+  providerOrder({ isAmazonBuild: false, isIOS: false, canApple: true, canAmazon: true, canGoogleWeb: true, ...over });
 
 describe('providerOrder', () => {
   it('leads with the store the build came from', () => {
-    expect(ctx({ isAmazonBuild: true })).toEqual(['amazon', 'apple']);
+    expect(ctx({ isAmazonBuild: true })).toEqual(['amazon', 'apple', 'google']);
     expect(ctx({ isIOS: true })).toEqual(['apple', 'google', 'amazon']);
     expect(ctx()).toEqual(['google', 'apple', 'amazon']);
   });
 
-  it('never offers native Google on the Amazon build — Fire OS has no Play Services', () => {
-    expect(ctx({ isAmazonBuild: true })).not.toContain('google');
-    expect(ctx({ isAmazonBuild: true, canApple: false })).toEqual(['amazon']);
+  it('offers Google on the Amazon build only through the browser flow', () => {
+    // Fire OS has no Play Services, so the native module cannot run; without the browser flow an
+    // account made with Google on a phone is unreachable from a Fire tablet (F-093).
+    expect(ctx({ isAmazonBuild: true })).toEqual(['amazon', 'apple', 'google']);
+    expect(ctx({ isAmazonBuild: true, canGoogleWeb: false })).toEqual(['amazon', 'apple']);
+    expect(ctx({ isAmazonBuild: true, canApple: false, canGoogleWeb: false })).toEqual(['amazon']);
+  });
+
+  it('puts the store\u2019s own provider first on the Amazon build', () => {
+    expect(ctx({ isAmazonBuild: true })[0]).toBe('amazon');
   });
 
   it('hides Apple where its web flow is not configured, rather than offering a broken button', () => {
@@ -36,7 +43,7 @@ describe('providerOrder', () => {
   });
 
   it('keeps the Amazon build usable even if nothing else is configured', () => {
-    expect(ctx({ isAmazonBuild: true, canApple: false, canAmazon: true })).toEqual(['amazon']);
+    expect(ctx({ isAmazonBuild: true, canApple: false, canAmazon: true, canGoogleWeb: false })).toEqual(['amazon']);
     // And never returns an empty set on a build that can run Google.
     expect(ctx({ canApple: false, canAmazon: false })).toEqual(['google']);
   });
@@ -46,8 +53,13 @@ describe('providerOrder', () => {
       for (const isIOS of [true, false]) {
         for (const canApple of [true, false]) {
           for (const canAmazon of [true, false]) {
-            const order = providerOrder({ isAmazonBuild, isIOS, canApple, canAmazon });
-            expect(new Set(order).size).toBe(order.length);
+            for (const canGoogleWeb of [true, false]) {
+              const order = providerOrder({ isAmazonBuild, isIOS, canApple, canAmazon, canGoogleWeb });
+              expect(new Set(order).size).toBe(order.length);
+              // The non-Amazon builds use the native sheet, so the browser flag must not add a
+              // second Google pill there.
+              if (!isAmazonBuild) expect(order.filter((p) => p === 'google')).toHaveLength(1);
+            }
           }
         }
       }
