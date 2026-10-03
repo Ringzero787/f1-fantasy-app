@@ -25,9 +25,19 @@
  */
 
 const admin = require('firebase-admin');
-const KEY = process.env.SA_KEY || '/mnt/smb/f1-app/files/f1-app-18077-firebase-adminsdk-fbsvc-2b824e0c37.json';
-admin.initializeApp({ credential: admin.credential.cert(require(KEY)) });
-const db = admin.firestore();
+// Nothing happens on import. The key read, initializeApp and firestore()
+// used to sit at module scope with a self-invoking IIFE below them, so
+// requiring this file — from a test, a tool walking the tree, an editor's
+// language server — connected to production and ran the script. It is
+// invoked by `aidlc op` through scripts/ops/run-script.js, which spawns the
+// file directly, so require.main still holds there.
+let db;
+
+function initAdmin() {
+  const KEY = process.env.SA_KEY || '/mnt/smb/f1-app/files/f1-app-18077-firebase-adminsdk-fbsvc-2b824e0c37.json';
+  admin.initializeApp({ credential: admin.credential.cert(require(KEY)) });
+  db = admin.firestore();
+}
 
 const client = require('../lib/ingestion/openf1Client.js');
 const core = require('../lib/scoring/scoringCore.js');
@@ -44,7 +54,7 @@ const AFFECTED_CTOR = 'racing_bulls';
 
 const die = (m) => { console.error(`\nABORT: ${m}`); process.exit(1); };
 
-(async () => {
+async function main() {
   // ── Precondition: nobody owns the affected entities ──
   const teams = await db.collection('fantasyTeams').get();
   const owners = [];
@@ -192,4 +202,9 @@ const die = (m) => { console.error(`\nABORT: ${m}`); process.exit(1); };
   console.log(`\nApplied: race doc results arrays now carry 22 cars; ${ops.length} raceScores docs rewritten (${changed} changed).`);
   console.log('No team, member, league or price document was touched.');
   process.exit(0);
-})().catch(e => { console.error('FAILED:', e); process.exit(1); });
+}
+
+if (require.main === module) {
+  initAdmin();
+  main().catch(e => { console.error('FAILED:', e); process.exit(1); });
+}

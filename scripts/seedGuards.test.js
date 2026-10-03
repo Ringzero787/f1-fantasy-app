@@ -36,20 +36,37 @@
 // `--project=` in the help text, and a source check passed on it.
 //
 // KNOWN GAPS, so nobody mistakes green for safe:
-//   - A script can still reach credentials through a path this does not model
-//     (fs.readFileSync of a concatenated path, ADC with no key string at all,
-//     a deferred callback body).
-//   - The ratchet scans scripts/** and functions/src/**. It does NOT scan
-//     functions/scripts/, where nine files self-invoke at module scope and
-//     eight of them read a key there — three pointing at a real admin-SDK key
-//     on the share, two of which write. That cluster is larger than
-//     everything guarded here and is tracked separately.
+//   - A script can still reach credentials through a path this does not
+//     model: fs.readFileSync of a concatenated path, or a deferred callback
+//     body. Plain ADC via a module-scope `admin.initializeApp()` IS caught —
+//     only the modular-SDK spelling of it escapes, as below.
+//   - The ratchet scans scripts/**, functions/src/** and functions/scripts/**.
+//     All nine operational scripts in functions/scripts are now guarded and
+//     checked above; they are import-safe but their write discipline comes
+//     from the `aidlc op` kind, not from this test.
 //   - Three tracked scripts at the repo root — cleanup-dup-teams.js,
 //     repair-dedouble.js, diagnose-scoring.js — call initializeApp with a
 //     bare projectId and self-invoke. They are the ADC shape above, and they
 //     are outside the scan roots entirely.
-//   - It keys on the string `serviceAccount`, which the production key path
-//     in functions/scripts/ does not contain.
+//   - It keys on a module-scope `admin.initializeApp(` call, plus any
+//     mention of a serviceAccount path. The first arm covers an SA_KEY env
+//     read and plain ADC. The second arm catches nothing under
+//     functions/scripts at all — the real key path there contains no such
+//     substring — so do not read it as a second line of defence.
+//     Three shapes are known to escape, each verified writing production on
+//     import while this suite stayed green:
+//       * the modular SDK — `require('firebase-admin/app').initializeApp()`,
+//         which is the current Admin API, not an exotic spelling;
+//       * an alias — `const fb = require('firebase-admin'); fb.initializeApp()`;
+//       * a module-scope `fs.readFileSync` of the key path.
+//     The first two are the same credential obtained the same way, reached
+//     through a differently-spelled call. Closing them needs symbol
+//     resolution, not a shape match.
+//   - `flagInGuard: false` waives more than the flag assertion: the check
+//     that the guard actually calls the entry point lives in the same test,
+//     so for the nine operational scripts nothing verifies their guard
+//     invokes main(). An empty guard body fails safe — the script becomes a
+//     no-op — but it would not be caught here.
 //
 // Treat a failure here as real. Do not treat a pass as clearance.
 
@@ -216,18 +233,44 @@ function runUnderStub(file, argv) {
   }
 }
 
+// The nine operational scripts under functions/scripts. They are run by
+// `aidlc op` via scripts/ops/run-script.js, which spawns them directly, so
+// require.main holds.
+//
+// Checked for IMPORT-SAFETY ONLY, and that limit is worth stating precisely:
+//   - Six of the nine write (backfillLeagueRaceResults, backfillZandvoortTsunoda,
+//     pitwallPass, repairStuckLocks, setConstructorColors, setPitWallConfig);
+//     three are read-only (checkRaceCalendar, exportPitwallHistory,
+//     verifyRaceScoring).
+//   - All six writers gate on --apply today, and the `uc-script` op kind
+//     passes it only on apply. But NOTHING HERE ENFORCES THAT. Deleting the
+//     `if (!APPLY)` line from any of them leaves this suite green, and
+//     `aidlc op dryrun` would then write production. Asserting it properly
+//     needs a behavioural check per writer, which this file does not have.
+//   - Three (backfillZandvoortTsunoda, repairStuckLocks, verifyRaceScoring)
+//     fall back to a hardcoded admin-SDK key on the share when SA_KEY is
+//     unset. So "no SA_KEY" does not mean "no credentials" for those: running
+//     them without the env var still reaches production. Found by running
+//     them, not by reading them.
+const OP_SCRIPTS = [
+  'backfillLeagueRaceResults', 'backfillZandvoortTsunoda', 'checkRaceCalendar',
+  'exportPitwallHistory', 'pitwallPass', 'repairStuckLocks',
+  'setConstructorColors', 'setPitWallConfig', 'verifyRaceScoring',
+].map((n) => ({ file: `functions/scripts/${n}.js`, entry: 'main', flagInGuard: false }));
+
 const GUARDED = [
-  { file: 'scripts/runSeed.ts', entry: 'main' },
+  { file: 'scripts/runSeed.ts', entry: 'main', flagInGuard: true },
   // cleanAll destroys data that cannot be regenerated, so it needs a second
   // flag. That requirement is asserted behaviourally below, not by looking
   // for the string: deleting the --project check outright still left
   // `--project=` in the help text, so a substring assertion passed on a
   // script that no longer required it.
-  { file: 'scripts/cleanAll.ts', entry: 'main', refusesWithout: ['--apply'] },
-  { file: 'functions/src/seedData.ts', entry: 'seedDatabase' },
+  { file: 'scripts/cleanAll.ts', entry: 'main', flagInGuard: true, refusesWithout: ['--apply'] },
+  { file: 'functions/src/seedData.ts', entry: 'seedDatabase', flagInGuard: true },
+  ...OP_SCRIPTS,
 ];
 
-for (const { file, entry } of GUARDED) {
+for (const { file, entry, flagInGuard } of GUARDED) {
   test(`${file}: the entry point is never reached on import`, () => {
     const sf = parse(file);
     findMainGuard(sf, file);
@@ -251,7 +294,7 @@ for (const { file, entry } of GUARDED) {
     }
   });
 
-  test(`${file}: the guard reads an explicit flag from argv`, () => {
+  if (flagInGuard) test(`${file}: the guard reads an explicit flag from argv`, () => {
     const sf = parse(file);
     const guard = findMainGuard(sf, file);
     const text = guard.getText();
@@ -301,6 +344,16 @@ for (const { file, entry } of GUARDED) {
 // Each of these also calls its entry point at module scope, not merely reads
 // the key — scripts/deleteTsunoda.ts deletes a production document on import.
 // functions/src/updateData.ts was missed entirely by the earlier flat scan.
+// Modules where initialising on load IS the contract, as distinct from a gap:
+//   - functions/src/index.ts is the Cloud Functions entry point. The runtime
+//     loads it and supplies credentials; there is no "run" to guard.
+//   - scripts/ops/_firestore.js exists to hand an initialised db to the op
+//     helpers. It connects via ADC, reads no key file and performs no
+//     operation, so requiring it creates a client and nothing else.
+// Neither self-invokes any work. They are listed so the ratchet does not
+// report them as defects, and so adding to this list is a deliberate act.
+const INIT_ON_LOAD_BY_DESIGN = ['functions/src/index.ts', 'scripts/ops/_firestore.js'];
+
 const KNOWN_UNGUARDED = [
   'scripts/deleteTsunoda.ts',
   'scripts/getIndexLink.ts',
@@ -314,21 +367,34 @@ test('no new script reaches the production key on import', () => {
   // is how functions/src/updateData.ts — module-scope key, initializeApp,
   // firestore() and an unguarded main().catch() — went unlisted. Walk the
   // trees, and count any mention of the key path however it is reached.
-  const roots = ['scripts', 'functions/src'];
+  const roots = ['scripts', 'functions/src', 'functions/scripts'];
   const files = [];
   const walkDir = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
       const rel = `${dir}/${e.name}`;
-      if (e.isDirectory()) { if (e.name !== 'node_modules' && e.name !== 'lib') walkDir(rel); continue; }
+      // Skip only the compiled output, not every directory called lib:
+      // functions/scripts/lib holds hand-written source, and excluding it by
+      // name left a probe there writing production on import while this
+      // suite stayed green. The functions/lib arm is defensive rather than
+      // load-bearing — no scan root reaches it today — but it keeps the rule
+      // correct if one is ever added.
+      if (e.isDirectory()) { if (e.name !== 'node_modules' && rel !== 'functions/lib') walkDir(rel); continue; }
       if (/\.(ts|js)$/.test(e.name) && !/\.test\.[tj]s$/.test(e.name)) files.push(rel);
     }
   };
   roots.forEach(walkDir);
 
+  // Keyed on `admin.initializeApp(` at module scope, not on a key path.
+  // Matching the string `serviceAccount` missed every script that takes its
+  // key from SA_KEY — which is all nine under functions/scripts — and misses
+  // ADC, which needs no key at all. Connecting to a project on import is the
+  // thing worth forbidding, however the credential is obtained.
   const unguarded = files
-    .filter((rel) => moduleScopeNodes(parse(rel)).some(
-      (n) => (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && /serviceAccount/.test(n.text)
-    ))
+    .filter((rel) => !INIT_ON_LOAD_BY_DESIGN.includes(rel))
+    .filter((rel) => moduleScopeNodes(parse(rel)).some((n) => {
+      if (ts.isCallExpression(n) && isMemberCall(n, 'admin', 'initializeApp')) return true;
+      return (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && /serviceAccount/.test(n.text);
+    }))
     .sort();
 
   assert.deepEqual(

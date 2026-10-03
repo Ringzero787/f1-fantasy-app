@@ -28,20 +28,31 @@ const admin = require('firebase-admin');
 
 const EXPECTED_PROJECT = 'f1-app-18077';
 const SEASON = '2026';
-const KEY = process.env.SA_KEY;
-if (!KEY) { console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).'); process.exit(2); }
-const cred = require(KEY);
-if (cred.project_id !== EXPECTED_PROJECT) { console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`); process.exit(2); }
-const lib = path.join(__dirname, '..', 'lib', 'scoring', 'leagueRaceResults.js');
-if (!fs.existsSync(lib)) { console.error('functions/lib is not built. Run: npm --prefix functions run build'); process.exit(2); }
-const { rankRaceEntries } = require(lib);
-const { cleanName } = require(path.join(__dirname, '..', 'lib', 'scoring', 'leagueRaceResultsWriter.js'));
+// Nothing happens on import. All of this used to run at module scope with a
+// self-invoking entry below it, so requiring the file read the key and ran
+// the script. `aidlc op` spawns it directly via scripts/ops/run-script.js, so
+// require.main still holds there.
+let db;
+let rankRaceEntries;
+let cleanName;
 
-admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
-const db = admin.firestore();
+function initAdmin() {
+  const KEY = process.env.SA_KEY;
+  if (!KEY) { console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).'); process.exit(2); }
+  const cred = require(KEY);
+  if (cred.project_id !== EXPECTED_PROJECT) { console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`); process.exit(2); }
+  const lib = path.join(__dirname, '..', 'lib', 'scoring', 'leagueRaceResults.js');
+  if (!fs.existsSync(lib)) { console.error('functions/lib is not built. Run: npm --prefix functions run build'); process.exit(2); }
+  ({ rankRaceEntries } = require(lib));
+  ({ cleanName } = require(path.join(__dirname, '..', 'lib', 'scoring', 'leagueRaceResultsWriter.js')));
+
+  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
+  db = admin.firestore();
+}
+
 const APPLY = process.argv.includes('--apply');
 
-(async () => {
+async function main() {
   const racesSnap = await db.collection('races').where('seasonId', '==', SEASON).get();
   const completed = racesSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((r) => r.status === 'completed').sort((a, b) => (a.round || 0) - (b.round || 0));
   const latest = completed[completed.length - 1];
@@ -89,4 +100,9 @@ const APPLY = process.argv.includes('--apply');
   console.log(`\n${APPLY ? 'Wrote' : 'Would write'} ${toWrite} partial result(s) for ${latest.id}; ${skipped} league(s) skipped.`);
   console.log(`Not reconstructable: the other ${completed.length - 1} completed race(s) of ${SEASON} (${completed.slice(0, -1).map((r) => 'R' + r.round).join(', ')}) in every league — no per-race roster, Ace or points were recorded before F-029.`);
   process.exit(0);
-})().catch((e) => { console.error(e); process.exit(1); });
+}
+
+if (require.main === module) {
+  initAdmin();
+  main().catch((e) => { console.error(e); process.exit(1); });
+}

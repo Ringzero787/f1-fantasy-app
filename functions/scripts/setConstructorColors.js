@@ -16,18 +16,26 @@
 
 const admin = require('firebase-admin');
 const EXPECTED_PROJECT = 'f1-app-18077';
-const KEY = process.env.SA_KEY;
-if (!KEY) {
-  console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
-  process.exit(2);
+// Nothing happens on import. All of this used to run at module scope with a
+// self-invoking entry below it, so requiring the file read the key and ran
+// the script. `aidlc op` spawns it directly via scripts/ops/run-script.js, so
+// require.main still holds there.
+let db;
+
+function initAdmin() {
+  const KEY = process.env.SA_KEY;
+  if (!KEY) {
+    console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
+    process.exit(2);
+  }
+  const cred = require(KEY);
+  if (cred.project_id !== EXPECTED_PROJECT) {
+    console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`);
+    process.exit(2);
+  }
+  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
+  db = admin.firestore();
 }
-const cred = require(KEY);
-if (cred.project_id !== EXPECTED_PROJECT) {
-  console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`);
-  process.exit(2);
-}
-admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
-const db = admin.firestore();
 
 const APPLY = process.argv.includes('--apply');
 
@@ -47,7 +55,7 @@ const COLORS = {
   cadillac: { primary: '#C7B063', secondary: '#1C1C1C' },
 };
 
-(async () => {
+async function main() {
   const snap = await db.collection('constructors').get();
   const rows = [];
   for (const doc of snap.docs) {
@@ -75,4 +83,9 @@ const COLORS = {
   }
   await batch.commit();
   console.log(`\nWrote colors on ${n} constructor docs.`);
-})().catch((e) => { console.error('FAILED:', e.message); process.exit(1); });
+}
+
+if (require.main === module) {
+  initAdmin();
+  main().catch((e) => { console.error('FAILED:', e.message); process.exit(1); });
+}
