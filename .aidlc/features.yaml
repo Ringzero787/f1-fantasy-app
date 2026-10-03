@@ -967,10 +967,18 @@ features:
     prs:
       - 119
       - 122
+      - 131
+      - 133
+      - 135
+      - 139
     symbols:
       - functions/src/ingestion/config.ts:ROUND_TO_RACE_ID
       - functions/src/ingestion/config.ts:SPRINT_ROUNDS
       - newgame/functions/src/notifications/notifyMissingPicks.ts:reminderStateFor
+      - functions/test/fixtures/races2026.json
+      - functions/test/roundMapping.test.js
+      - __tests__/data/demoCalendar.test.ts
+      - functions/scripts/checkRaceCalendar.js
     keywords:
       - round
       - mapping
