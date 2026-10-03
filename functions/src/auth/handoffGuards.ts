@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from 'crypto';
+
 /**
  * Input shapes for the Apple web sign-in handoff (F-091). Pure and dependency-free so the rules can
  * be tested without a Firebase runtime, in the same spirit as `purchases/productGuards.ts`.
@@ -82,3 +84,26 @@ export const looksLikeAuthCode = (v: unknown): v is string =>
  */
 export const looksLikeGoogleAuthCode = (v: unknown): v is string =>
   typeof v === 'string' && v.length > 0 && v.length <= 512 && /^[A-Za-z0-9._~/-]+$/.test(v);
+
+/**
+ * The ticket is stored as a hash and compared as a hash (F-094). The collection is already closed
+ * to every client, so this is the second line rather than the first — a record that cannot be
+ * replayed by whoever reads it costs one hash and stops being a credential in its own right.
+ */
+export const hashTicket = (ticket: string): string => createHash('sha256').update(ticket).digest('hex');
+
+/**
+ * Whether a claim presented the ticket this record was filed with.
+ *
+ * A record with no `ticketHash` never matches. That is the upgrade case: anything filed by the
+ * previous version of this code is unclaimable rather than claimable-without-a-ticket, which is the
+ * right way round — those records are ten minutes from expiry and the alternative is a window where
+ * the binding does not apply.
+ */
+export function ticketMatches(record: { ticketHash?: unknown } | undefined | null, ticket: unknown): boolean {
+  const stored = record?.ticketHash;
+  if (typeof stored !== 'string' || !isSha256Hex(stored) || !isSha256Hex(ticket)) return false;
+  // Constant time. Both sides are fixed-length hex of the same digest, so the comparison leaks
+  // nothing but its own duration — and that is the one thing worth not leaking here.
+  return timingSafeEqual(Buffer.from(stored, 'hex'), Buffer.from(hashTicket(ticket), 'hex'));
+}

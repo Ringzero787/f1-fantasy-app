@@ -64,7 +64,7 @@ export async function appleWebSignIn(): Promise<{ identityToken: string; nonce: 
   const result = await WebBrowser.openAuthSessionAsync(authUrl, APP_REDIRECT);
   if (result.type !== 'success' || !result.url) throw new Error('Sign in cancelled');
 
-  const { ticket } = readAuthRedirect(result.url, state);
+  const { ticket } = readAuthRedirect(result.url, state, 'Apple');
 
   const claim = httpsCallable<{ verifier: string; ticket: string }, { idToken: string; displayName: string | null }>(functions, 'claimAppleSignIn');
   const { idToken, displayName } = (await claim({ verifier, ticket })).data;

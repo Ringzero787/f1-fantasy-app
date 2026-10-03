@@ -5,7 +5,7 @@
  * the other. The `state` becomes a Firestore document id and the deep link is built by hand, so
  * these are the checks that keep a hostile POST from choosing either.
  */
-import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink, handoffDeepLink, looksLikeAuthCode, looksLikeGoogleAuthCode } from '../../functions/src/auth/handoffGuards';
+import { isSha256Hex, looksLikeJwt, appleDisplayName, appleDeepLink, handoffDeepLink, looksLikeAuthCode, looksLikeGoogleAuthCode, hashTicket, ticketMatches } from '../../functions/src/auth/handoffGuards';
 
 describe('isSha256Hex', () => {
   const good = 'a'.repeat(64);
@@ -167,5 +167,47 @@ describe('handoffDeepLink', () => {
     expect(handoffDeepLink('amazon', state, { error: '&ticket=stolen' }))
       .toBe(`theundercut://auth/amazon?state=${state}&error=failed`);
     expect(handoffDeepLink('amazon', state, { error: 42 })).toBe(`theundercut://auth/amazon?state=${state}`);
+  });
+});
+
+describe('ticketMatches', () => {
+  const ticket = 'a1b2c3d4'.repeat(8);                       // 64 hex
+  const record = { ticketHash: hashTicket(ticket) };
+
+  it('accepts the ticket the record was filed with', () => {
+    expect(ticketMatches(record, ticket)).toBe(true);
+  });
+
+  it('refuses any other ticket — this is the whole binding', () => {
+    // The attack this exists for: someone who chose the verifier, and so knows the state, still
+    // cannot produce the ticket, because it only ever went out on the redirect to the other device.
+    expect(ticketMatches(record, 'b'.repeat(64))).toBe(false);
+    expect(ticketMatches(record, ticket.slice(0, 63) + '0')).toBe(false);
+  });
+
+  it('refuses a ticket of the wrong shape rather than comparing it', () => {
+    expect(ticketMatches(record, '')).toBe(false);
+    expect(ticketMatches(record, ticket.toUpperCase())).toBe(false);
+    expect(ticketMatches(record, null)).toBe(false);
+    expect(ticketMatches(record, undefined)).toBe(false);
+    expect(ticketMatches(record, 42)).toBe(false);
+    expect(ticketMatches(record, { toString: () => ticket })).toBe(false);
+  });
+
+  it('refuses a record with no ticket at all, which is the upgrade case', () => {
+    // Anything filed by the previous version is unclaimable rather than claimable-without-a-ticket.
+    // Those records are ten minutes from expiry; the alternative is a window where the binding does
+    // not apply, which is the wrong way round.
+    expect(ticketMatches({}, ticket)).toBe(false);
+    expect(ticketMatches({ ticketHash: undefined }, ticket)).toBe(false);
+    expect(ticketMatches({ ticketHash: 123 as unknown as string }, ticket)).toBe(false);
+    expect(ticketMatches(undefined, ticket)).toBe(false);
+    expect(ticketMatches(null, ticket)).toBe(false);
+  });
+
+  it('never stores what it compares', () => {
+    // The hash is what lands in Firestore; the ticket itself exists only in one redirect.
+    expect(record.ticketHash).not.toBe(ticket);
+    expect(record.ticketHash).toMatch(/^[0-9a-f]{64}$/);
   });
 });

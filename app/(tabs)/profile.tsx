@@ -26,7 +26,7 @@ import { authService } from '../../src/services/auth.service';
 import { Card, RulesGuide } from '../../src/components';
 import { getGoogleIdToken, getAppleCredential } from '../../src/components/SocialAuthButtons';
 import { isAmazonBuild } from '../../src/utils/storeDetection';
-import { googleWebSignIn } from '../../src/utils/googleWebSignIn';
+import { googleWebSignIn, googleWebSignInAvailable } from '../../src/utils/googleWebSignIn';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../src/config/constants';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../../src/store/auth.store';
@@ -63,6 +63,10 @@ export default function ProfileScreen() {
   useEffect(() => { refreshLinkedProviders(); }, []);
 
   const isGoogleLinked = linkedProviders.includes('google.com');
+  // On the Amazon build the only Google path is the browser flow, and it needs a redirect URI
+  // in the build. Without one, offering the row would mean alerting a build-config message at
+  // someone who tapped it (F-094).
+  const canLinkGoogle = !isAmazonBuild || googleWebSignInAvailable();
   const isAppleLinked = linkedProviders.includes('apple.com');
   const canUnlink = linkedProviders.length >= 2;
 
@@ -527,35 +531,38 @@ export default function ProfileScreen() {
         <>
           <Text style={[styles.sectionTitle, { fontSize: scaledFonts.sm }]}>Linked Accounts</Text>
           <Card style={styles.menuCard}>
-            {/* Google */}
-            <View style={styles.menuItem}>
-              <View style={styles.menuItemLeft}>
-                <IconBox icon="logo-google" color="#4285F4" bg="#4285F415" />
-                <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Google</Text>
+            {/* Google — hidden where it cannot work: on the Amazon build the only path
+                is the browser flow, which needs a redirect URI in the build (F-094). */}
+            {canLinkGoogle ? (
+              <View style={styles.menuItem}>
+                <View style={styles.menuItemLeft}>
+                  <IconBox icon="logo-google" color="#4285F4" bg="#4285F415" />
+                  <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Google</Text>
+                </View>
+                {isGoogleLinked ? (
+                  <TouchableOpacity
+                    onPress={() => handleUnlink('google.com', 'Google')}
+                    disabled={!canUnlink || isLinking}
+                    style={{ opacity: canUnlink ? 1 : 0.4 }}
+                  >
+                    <View style={styles.linkedBadge}>
+                      <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                      <Text style={[styles.linkedText, { fontSize: scaledFonts.sm }]}>Linked</Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleLinkGoogle}
+                    disabled={isLinking}
+                    style={[styles.linkButton, { backgroundColor: theme.primary + '15' }]}
+                  >
+                    <Text style={[styles.linkButtonText, { color: theme.primary, fontSize: scaledFonts.sm }]}>
+                      {isLinking ? 'Linking...' : 'Link'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              {isGoogleLinked ? (
-                <TouchableOpacity
-                  onPress={() => handleUnlink('google.com', 'Google')}
-                  disabled={!canUnlink || isLinking}
-                  style={{ opacity: canUnlink ? 1 : 0.4 }}
-                >
-                  <View style={styles.linkedBadge}>
-                    <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
-                    <Text style={[styles.linkedText, { fontSize: scaledFonts.sm }]}>Linked</Text>
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={handleLinkGoogle}
-                  disabled={isLinking}
-                  style={[styles.linkButton, { backgroundColor: theme.primary + '15' }]}
-                >
-                  <Text style={[styles.linkButtonText, { color: theme.primary, fontSize: scaledFonts.sm }]}>
-                    {isLinking ? 'Linking...' : 'Link'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            ) : null}
 
             {/* Apple — iOS only */}
             {Platform.OS === 'ios' && (

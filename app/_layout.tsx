@@ -21,7 +21,6 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { AppUpdateGate } from '../src/components/AppUpdateGate';
 import { LaunchReveal } from '../src/simple/grid/LaunchReveal';
 import { useLayout } from '../src/hooks/useLayout';
-import { handleAmazonDeepLink } from '../src/utils/amazonSignIn';
 import { useRemoteConfigStore } from '../src/store/remoteConfig.store';
 import { usePrefsStore } from '../src/store/prefs.store';
 import { usePurchaseStore } from '../src/store/purchase.store';
@@ -102,11 +101,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     function handleUrl(url: string) {
-      // Handle Amazon auth callback deep link
-      if (url.includes('auth/amazon')) {
-        handleAmazonDeepLink(url);
-        return;
-      }
+      // The sign-in redirects (auth/apple, auth/amazon, auth/google) are collected by the
+      // browser session that opened them, not here — see src/utils/authRedirect.ts. Nothing
+      // to do but let the routes under app/auth/ show a spinner and step aside (F-094).
+      if (url.includes('/auth/')) return;
 
       const code = extractInviteCode(url);
       if (code) {

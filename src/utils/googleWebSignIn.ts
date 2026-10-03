@@ -70,7 +70,7 @@ export async function googleWebSignIn(): Promise<string> {
   const result = await WebBrowser.openAuthSessionAsync(authUrl, APP_REDIRECT);
   if (result.type !== 'success' || !result.url) throw new Error('Sign in cancelled');
 
-  const { ticket } = readAuthRedirect(result.url, state);
+  const { ticket } = readAuthRedirect(result.url, state, 'Google');
 
   const claim = httpsCallable<{ verifier: string; ticket: string }, { idToken: string }>(functions, 'claimGoogleSignIn');
   const { idToken } = (await claim({ verifier, ticket })).data;

@@ -30,8 +30,9 @@
  * a rate limit per caller, and no client access at all (`firestore.rules`).
  */
 import * as admin from 'firebase-admin';
-import { createHash, randomBytes } from 'crypto';
+import { randomBytes } from 'crypto';
 import { nextRateWindow } from '../pitwall/handoffCore';
+import { hashTicket, ticketMatches } from './handoffGuards';
 
 export const HANDOFF = 'auth_handoff';
 const LIMITS = 'auth_handoff_limits';
@@ -40,6 +41,20 @@ export const TTL_MS = 10 * 60 * 1000;
 /** A person signing in does this once. Ten a minute is generous; a loop is not. */
 export const FILE_LIMIT = { windowMs: 60_000, max: 10 };
 export const CLAIM_LIMIT = { windowMs: 60_000, max: 20 };
+/**
+ * A ceiling across all callers, on top of the per-caller one.
+ *
+ * The per-caller key comes from `x-forwarded-for`, and part of that header is written by the caller
+ * (see `callerIp.ts`). Rotating it would otherwise buy an unbounded number of fresh buckets — so
+ * moving off the old shared key would have removed the only cap on unauthenticated writes while
+ * fixing the lockout it caused. This keeps both: a flood is bounded whether or not the key holds.
+ *
+ * Set well above any real load. Undercut's whole user base signing in at once does not approach it,
+ * and a caller who does is not signing in.
+ */
+export const GLOBAL_FILE_LIMIT = { windowMs: 60_000, max: 300 };
+/** The key for that ceiling. Not an address, so it cannot collide with a hashed one. */
+export const GLOBAL_KEY = 'all';
 
 export type HandoffProvider = 'apple' | 'amazon' | 'google';
 
@@ -55,7 +70,6 @@ export interface HandoffRecord {
 
 /** 32 random bytes as hex — the same shape as the verifier, and compared the same way. */
 export const newTicket = (): string => randomBytes(32).toString('hex');
-const hashTicket = (ticket: string): string => createHash('sha256').update(ticket).digest('hex');
 
 const db = (): FirebaseFirestore.Firestore => admin.firestore();
 
@@ -106,20 +120,24 @@ export async function fileHandoff(state: string, record: HandoffRecord, now: num
  */
 export async function claimHandoff(state: string, ticket: string, now: number): Promise<{ ok: true; record: HandoffRecord } | { ok: false; reason: 'missing' | 'expired' | 'wrong-ticket' }> {
   const ref = db().collection(HANDOFF).doc(state);
-  const snap = await db().runTransaction(async (tx) => {
+  return db().runTransaction(async (tx) => {
     const found = await tx.get(ref);
-    if (found.exists) tx.delete(ref);
-    return found;
+    if (!found.exists) return { ok: false as const, reason: 'missing' as const };
+    const data = found.data() as HandoffRecord & { expiresAt?: admin.firestore.Timestamp; ticketHash?: string };
+
+    // A wrong ticket leaves the record alone. Deleting it looked like the strict choice and is the
+    // wrong one: whoever crafted the authorization link knows the state, so deleting on a bad
+    // ticket would let them destroy the credential the person they lured is about to claim. There
+    // is no brute-force to protect against — the ticket is 256 bits — and the rate limit bounds the
+    // attempts.
+    if (!ticketMatches(data, ticket)) return { ok: false as const, reason: 'wrong-ticket' as const };
+
+    // Everything past this point consumes the record: the right claimer gets it once, and an
+    // expired one is collected on the attempt rather than waiting for the sweep.
+    tx.delete(ref);
+    if (!data.expiresAt || data.expiresAt.toMillis() < now) return { ok: false as const, reason: 'expired' as const };
+    return { ok: true as const, record: data };
   });
-  if (!snap.exists) return { ok: false, reason: 'missing' };
-  const data = snap.data() as HandoffRecord & { expiresAt?: admin.firestore.Timestamp; ticketHash?: string };
-  // Deleted either way, above: a wrong ticket is someone claiming a credential that is not theirs,
-  // and leaving the record for them to try again would be the wrong favour to do them.
-  if (typeof data.ticketHash !== 'string' || data.ticketHash !== hashTicket(ticket)) {
-    return { ok: false, reason: 'wrong-ticket' };
-  }
-  if (!data.expiresAt || data.expiresAt.toMillis() < now) return { ok: false, reason: 'expired' };
-  return { ok: true, record: data };
 }
 
 /**
