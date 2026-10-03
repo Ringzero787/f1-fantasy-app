@@ -5,7 +5,7 @@ import { Lbl, Pill, Range, TeamBar } from './bits';
 
 /** Side-by-side comparison of the user's pick and the recommended or nearest alternative. */
 export function Compare({ rec }: { rec: Rec }) {
-  const { payload: p, open, tryAct, setAce, ui } = useStore();
+  const { payload: p, open, tryAct, setAce, ui, real } = useStore();
   const a = entity(p, rec.a), b = entity(p, rec.b);
   if (!a || !b) return null;
   const head = (e: NonNullable<typeof a>) => (
@@ -26,7 +26,14 @@ export function Compare({ rec }: { rec: Rec }) {
       <p style={{ margin: '6px 0 0', color: 'var(--fg2)' }}>{rec.why}</p>
       <div className="th" style={{ justifyContent: 'flex-start' }}>
         {rec.act && (rec.good || rec.bad) ? <button type="button" className={rec.good ? 'cta' : 'ghost'} onClick={() => tryAct(rec.act!)}>Try this swap in lineup lab →</button> : null}
-        {rec.ace ? <button type="button" className="cta" onClick={() => setAce(rec.ace!)} disabled={ui.lineup.ace === rec.ace}>{ui.lineup.ace === rec.ace ? `Ace is on ${entity(p, rec.ace)?.name}` : `Set ace on ${entity(p, rec.ace)?.name}`}</button> : null}
+        {rec.ace ? (() => {
+          // A locked weekend cannot take an ace change, so the button says so rather than failing
+          // on the click. The recommendation itself still stands — it is what to do when it opens.
+          const locked = real?.team.isLocked === true;
+          const isAce = ui.lineup.ace === rec.ace;
+          const label = locked ? 'Locked for this weekend' : isAce ? `Ace is on ${entity(p, rec.ace)?.name}` : `Set ace on ${entity(p, rec.ace)?.name}`;
+          return <button type="button" className="cta" onClick={() => setAce(rec.ace!)} disabled={isAce || locked}>{label}</button>;
+        })() : null}
         {!rec.good && !rec.bad ? <Pill>No change needed</Pill> : null}
         <button type="button" className="ghost" onClick={() => open(a.id)}>{a.name} detail</button>
         <button type="button" className="ghost" onClick={() => open(b.id)}>{b.name} detail</button>
