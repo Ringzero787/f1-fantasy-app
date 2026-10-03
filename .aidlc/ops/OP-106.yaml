@@ -1,0 +1,47 @@
+id: OP-106
+title: Verify the live races calendar before Bahrain qualifying (read-only)
+kind: uc-script
+status: applied
+params:
+  script: checkRaceCalendar.js
+  backup: races
+created_at: 2026-10-03T01:05:52.488Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-03T01:05:57.904Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: node scripts/ops/run-script.js undercut 'checkRaceCalendar.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-106/dry-run-2026-10-03T01-05-57-904Z.log
+    log_sha256: 83f13257ecf5bc65facbf843168010bceb645c80d4fdddcf1725e443e982900e
+    lines: 11
+  - step: backup
+    at: 2026-10-03T01:06:06.163Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-106'/backup.json 'races'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-106/backup-2026-10-03T01-06-06-163Z.log
+    log_sha256: 33f736969ce900004b11638fa6b311e5033b060bab8176c0d73063eb8dcf472c
+    lines: 3
+  - step: gates
+    at: 2026-10-03T01:06:07.027Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-03T01:06:07.027Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: node scripts/ops/run-script.js undercut 'checkRaceCalendar.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-106/apply-2026-10-03T01-06-07-027Z.log
+    log_sha256: 3379b3367bbf8ba5990c1e3e46dd2020388c10a2d87edf532d1173ffd82e322c
+    lines: 11
+  - step: gates
+    at: 2026-10-03T01:06:07.706Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G15: skip
