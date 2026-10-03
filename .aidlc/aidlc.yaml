@@ -152,13 +152,38 @@ overrides:
         paths: [ web/pitwall, scripts/ops/pitwall-pages-deploy.sh ]
         dryrun: "bash scripts/ops/pitwall-pages-deploy.sh dryrun"
         apply: "bash scripts/ops/pitwall-pages-deploy.sh apply {pages_project}"
+      # Both publish kinds carry `deploy: true` for the reason functions-delete gives above: they
+      # act on shipped artefacts rather than on data, and it brings the checks that do apply — a
+      # clean tree, HEAD on the remote default branch, and a dry run at the same commit. A store
+      # push held to a lower bar than a static-site deploy would be the wrong way round.
+      #
+      # The backup is real rather than a stated reason. `status` prints which version code is
+      # serving on every track, which is exactly the input to any recovery, and recovery is the
+      # whole question here: this script publishes with `status: completed` — a 100% rollout, not a
+      # staged one — so there is nothing to halt, Play will not serve a lower code again, and
+      # devices that already updated cannot be reverted at all. Rolling back means shipping a
+      # higher code. Knowing what was serving before is the difference between doing that in
+      # minutes and guessing.
+      #
+      # The second pair of eyes is the dry run, not `--confirm`: the apply line below passes the
+      # confirm flag for you, so it guards a human typing the command by hand and nothing in this
+      # path.
       uc-play-publish:
+        deploy: true
+        # uploads a version code and assigns it; spending a code is the part that cannot be undone, and Play refusing a reused code is what stops it happening twice
+        backup: "node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/{op}/play-tracks-before.txt"
+        verify: "node scripts/ops/play-publish.js status"
         summary: "Put an Undercut Android bundle on a Play track (aab = path to the .aab, track = internal|alpha|beta|production, notes = release notes). A version code uploads once; use uc-play-promote to move one that is already up."
         params: [ aab, track, notes ]
         paths: [ scripts/ops/play-publish.js, scripts/ops/_play.js ]
         dryrun: "node scripts/ops/play-publish.js upload {aab} --track={track} --notes={notes}"
         apply: "node scripts/ops/play-publish.js upload {aab} --track={track} --notes={notes} --apply --confirm=com.undercut.app"
       uc-play-promote:
+        deploy: true
+        # spends no version code: it puts a build that already exists in front of a track's
+        # audience, which for production is every user, immediately
+        backup: "node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/{op}/play-tracks-before.txt"
+        verify: "node scripts/ops/play-publish.js status"
         summary: "Move an Undercut version code already on Play to another track (code = version code, track = internal|alpha|beta|production). Promoting to production puts it on every Android device."
         params: [ code, track, notes ]
         paths: [ scripts/ops/play-publish.js, scripts/ops/_play.js ]
