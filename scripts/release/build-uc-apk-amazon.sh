@@ -31,8 +31,20 @@ VC=$(node "$ROOT/scripts/release/bump-app-version.js" "$ROOT/app.config.js" "$VE
 cd "$ROOT"
 npx expo prebuild --platform android --clean --no-install
 
-if grep -q "google-signin" android/settings.gradle; then
-  echo "Amazon prebuild still links @react-native-google-signin — EXPO_PUBLIC_STORE=amazon did not reach app.config.js" >&2
+# What EXPO_PUBLIC_STORE=amazon actually changes about Google Sign-In, stated plainly because the
+# first version of this check got it wrong: it drops the google-signin *config plugin*, whose only
+# Android effect is to apply the com.google.gms.google-services gradle plugin. The native module
+# itself is autolinked from package.json and is in both APKs either way, and the Google pill is
+# hidden at runtime by isAmazonBuild, not by the build.
+#
+# The check that was here grepped android/settings.gradle for "google-signin". Under SDK 55 that
+# file never names individual packages — autolinking is a command run at configure time — so the
+# grep could not match on any build, Amazon or Play, and had been passing vacuously since it was
+# written. It read like proof and was not, which is worse than no check at all.
+#
+# These two lines are the real difference, and they are present in a Play prebuild.
+if grep -q "com.google.gms.google-services" android/app/build.gradle || grep -q "com.google.gms:google-services" android/build.gradle; then
+  echo "Amazon prebuild still applies the google-services gradle plugin — EXPO_PUBLIC_STORE=amazon did not reach app.config.js" >&2
   exit 5
 fi
 # The Amazon Appstore needs the Amazon flavour of the billing library and the matching gradle
