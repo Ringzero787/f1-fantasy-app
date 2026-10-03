@@ -12,30 +12,37 @@
 import * as admin from 'firebase-admin';
 import * as path from 'path';
 
-// Initialize Firebase Admin with service account
-const serviceAccountPath = path.join(__dirname, '../serviceAccountKey.json');
+// Nothing happens on import. This used to initialise firebase-admin and call
+// seedDatabase() at module scope, so merely requiring the file — from a test,
+// a stray import, a tool walking src/ — attempted a full production seed, and
+// exited the process outright when the key was absent. That is also why this
+// calendar could never be pinned by a test the way the others are: importing
+// it to read the data would have written it instead.
+let db: admin.firestore.Firestore;
 
-try {
-  const serviceAccount = require(serviceAccountPath);
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-  console.log('Firebase Admin initialized successfully');
-} catch (error) {
-  console.error('Error: Could not find serviceAccountKey.json');
-  console.log('\nTo get your service account key:');
-  console.log('1. Go to Firebase Console > Project Settings > Service Accounts');
-  console.log('2. Click "Generate new private key"');
-  console.log('3. Save the file as "serviceAccountKey.json" in the functions/ folder');
-  process.exit(1);
+function initAdmin(): void {
+  const serviceAccountPath = path.join(__dirname, '../serviceAccountKey.json');
+  try {
+    const serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log('Firebase Admin initialized successfully');
+  } catch (error) {
+    console.error('Error: Could not find serviceAccountKey.json');
+    console.log('\nTo get your service account key:');
+    console.log('1. Go to Firebase Console > Project Settings > Service Accounts');
+    console.log('2. Click "Generate new private key"');
+    console.log('3. Save the file as "serviceAccountKey.json" in the functions/ folder');
+    process.exit(1);
+  }
+  db = admin.firestore();
 }
-
-const db = admin.firestore();
 
 // ============================================
 // 2026 Driver Data
 // ============================================
-const drivers = [
+export const drivers = [
   // A-Tier Drivers (price > 240) - prices from (2025 fantasy pts / 24 races) * $10/pt
   {
     id: 'norris',
@@ -374,7 +381,7 @@ const drivers = [
 // ============================================
 // 2026 Constructor Data
 // ============================================
-const constructors = [
+export const constructors = [
   {
     id: 'mclaren',
     name: 'McLaren F1 Team',
@@ -545,7 +552,7 @@ const constructors = [
 // ============================================
 // 2026 Race Calendar
 // ============================================
-const races = [
+export const races = [
   {
     id: 'australia_2026',
     seasonId: '2026',
@@ -610,24 +617,28 @@ const races = [
     },
   },
   {
+    // Round 18, run at Sepang. The April race at Sakhir was cancelled and the
+    // event reinstated in Malaysia, which pushed Singapore..Abu Dhabi up one
+    // each. Pinned against functions/test/fixtures/races2026.json by
+    // functions/test/seedDataCalendar.test.js.
     id: 'bahrain_2026',
     seasonId: '2026',
-    round: 4,
+    round: 18,
     name: 'Bahrain Grand Prix',
-    officialName: 'Formula 1 Gulf Air Bahrain Grand Prix 2026',
-    circuitId: 'bahrain',
-    circuitName: 'Bahrain International Circuit',
-    country: 'Bahrain',
-    city: 'Sakhir',
-    timezone: 'Asia/Bahrain',
+    officialName: 'Formula 1 Gulf Air Bahrain Grand Prix in Malaysia 2026',
+    circuitId: 'sepang',
+    circuitName: 'Sepang International Circuit',
+    country: 'Malaysia',
+    city: 'Sepang',
+    timezone: 'Asia/Kuala_Lumpur',
     hasSprint: false,
     status: 'upcoming',
     schedule: {
-      fp1: admin.firestore.Timestamp.fromDate(new Date('2026-04-10T11:30:00Z')),
-      fp2: admin.firestore.Timestamp.fromDate(new Date('2026-04-10T15:00:00Z')),
-      fp3: admin.firestore.Timestamp.fromDate(new Date('2026-04-11T12:30:00Z')),
-      qualifying: admin.firestore.Timestamp.fromDate(new Date('2026-04-11T16:00:00Z')),
-      race: admin.firestore.Timestamp.fromDate(new Date('2026-04-12T15:00:00Z')),
+      fp1: admin.firestore.Timestamp.fromDate(new Date('2026-10-02T04:30:00Z')),
+      fp2: admin.firestore.Timestamp.fromDate(new Date('2026-10-02T08:00:00Z')),
+      fp3: admin.firestore.Timestamp.fromDate(new Date('2026-10-03T04:30:00Z')),
+      qualifying: admin.firestore.Timestamp.fromDate(new Date('2026-10-03T08:00:00Z')),
+      race: admin.firestore.Timestamp.fromDate(new Date('2026-10-04T07:00:00Z')),
     },
   },
   {
@@ -642,7 +653,8 @@ const races = [
     city: 'Jeddah',
     timezone: 'Asia/Riyadh',
     hasSprint: false,
-    status: 'upcoming',
+    // Cancelled; round 5 stays unmapped in ROUND_TO_RACE_ID.
+    status: 'cancelled',
     schedule: {
       fp1: admin.firestore.Timestamp.fromDate(new Date('2026-04-17T13:30:00Z')),
       fp2: admin.firestore.Timestamp.fromDate(new Date('2026-04-17T17:00:00Z')),
@@ -906,7 +918,7 @@ const races = [
   {
     id: 'singapore_2026',
     seasonId: '2026',
-    round: 18,
+    round: 19,
     name: 'Singapore Grand Prix',
     officialName: 'Formula 1 Singapore Airlines Singapore Grand Prix 2026',
     circuitId: 'marina_bay',
@@ -927,7 +939,7 @@ const races = [
   {
     id: 'usa_2026',
     seasonId: '2026',
-    round: 19,
+    round: 20,
     name: 'United States Grand Prix',
     officialName: 'Formula 1 Pirelli United States Grand Prix 2026',
     circuitId: 'cota',
@@ -948,7 +960,7 @@ const races = [
   {
     id: 'mexico_2026',
     seasonId: '2026',
-    round: 20,
+    round: 21,
     name: 'Mexico City Grand Prix',
     officialName: 'Formula 1 Gran Premio de la Ciudad de Mexico 2026',
     circuitId: 'hermanos_rodriguez',
@@ -969,7 +981,7 @@ const races = [
   {
     id: 'brazil_2026',
     seasonId: '2026',
-    round: 21,
+    round: 22,
     name: 'Sao Paulo Grand Prix',
     officialName: 'Formula 1 Lenovo Grande Premio de Sao Paulo 2026',
     circuitId: 'interlagos',
@@ -990,7 +1002,7 @@ const races = [
   {
     id: 'las_vegas_2026',
     seasonId: '2026',
-    round: 22,
+    round: 23,
     name: 'Las Vegas Grand Prix',
     officialName: 'Formula 1 Heineken Silver Las Vegas Grand Prix 2026',
     circuitId: 'las_vegas',
@@ -1011,7 +1023,7 @@ const races = [
   {
     id: 'qatar_2026',
     seasonId: '2026',
-    round: 23,
+    round: 24,
     name: 'Qatar Grand Prix',
     officialName: 'Formula 1 Qatar Airways Qatar Grand Prix 2026',
     circuitId: 'lusail',
@@ -1032,7 +1044,7 @@ const races = [
   {
     id: 'abu_dhabi_2026',
     seasonId: '2026',
-    round: 24,
+    round: 25,
     name: 'Abu Dhabi Grand Prix',
     officialName: 'Formula 1 Etihad Airways Abu Dhabi Grand Prix 2026',
     circuitId: 'yas_marina',
@@ -1055,13 +1067,15 @@ const races = [
 // ============================================
 // Season Configuration
 // ============================================
-const season = {
+export const season = {
   id: '2026',
   year: 2026,
   name: 'F1 2026 Season',
   isActive: true,
   startDate: admin.firestore.Timestamp.fromDate(new Date('2026-03-06')),
   endDate: admin.firestore.Timestamp.fromDate(new Date('2026-12-06')),
+  // 24 races, though the season runs to round 25: round 4 is vacant after
+  // the Sakhir cancellation, and the reinstated race is round 18 at Sepang.
   totalRaces: 24,
   currentRound: 1,
   budget: 1000,
@@ -1073,6 +1087,7 @@ const season = {
 // ============================================
 async function seedDatabase() {
   console.log('\n🏎️  F1 Fantasy Database Seeder\n');
+  initAdmin();
   console.log('=' .repeat(50));
 
   try {
@@ -1126,5 +1141,16 @@ async function seedDatabase() {
   process.exit(0);
 }
 
-// Run the seeder
-seedDatabase();
+// Run the seeder only when this file is executed directly, and only when the
+// caller says so. `npx ts-node src/seedData.ts` on its own now explains itself
+// and writes nothing: this script overwrites the whole races collection, so an
+// accidental run would revert any calendar change the season has since made.
+if (require.main === module) {
+  if (process.argv.includes('--apply')) {
+    seedDatabase();
+  } else {
+    console.log('seedData: dry run. This script OVERWRITES drivers, constructors, races and seasons.');
+    console.log('It seeds the 2026 season from the calendar in this file. Re-run with --apply to write.');
+    console.log('Production seeding and repair belong in an `aidlc op`, not a bare script run.');
+  }
+}
