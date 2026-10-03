@@ -180,7 +180,8 @@ overrides:
         apply: "node scripts/ops/play-publish.js upload {aab} --track={track} --notes={notes} --apply --confirm=com.undercut.app"
       uc-play-promote:
         deploy: true
-        # spends no version code — it puts a build that already exists in front of a track\x27s audience, which for production is every user, immediately
+        # spends no version code: it puts a build that already exists in front of a track's
+        # audience, which for production is every user, immediately
         backup: "node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/{op}/play-tracks-before.txt"
         verify: "node scripts/ops/play-publish.js status"
         summary: "Move an Undercut version code already on Play to another track (code = version code, track = internal|alpha|beta|production). Promoting to production puts it on every Android device."
