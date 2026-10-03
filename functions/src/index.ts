@@ -30,4 +30,5 @@ export { onLeagueMemberWritten, onLeagueMemberCountChanged, reconcileAllLeagueMe
 export * from './auth/signInWithAmazon';
 export { appleAuthRedirect, claimAppleSignIn } from './auth/appleWebSignIn';
 export { amazonAuthRedirect, claimAmazonSignIn } from './auth/amazonWebSignIn';
+export { googleAuthRedirect, claimGoogleSignIn } from './auth/googleWebSignIn';
 export { cleanupAuthHandoffs } from './auth/cleanup';

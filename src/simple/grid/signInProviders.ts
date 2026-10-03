@@ -6,7 +6,8 @@
  * An account belongs to the person, not to the store they installed from, so each build offers
  * every provider it can actually run, with the store's own first:
  *
- *   Amazon build   Amazon, Apple        — no Play Services on Fire OS, so no native Google
+ *   Amazon build   Amazon, Apple, Google — Google through the browser, since Fire OS has no
+ *                                          Play Services and the native module cannot run
  *   Play build     Google, Apple, Amazon
  *   iOS build      Apple, Google, Amazon
  */
@@ -23,11 +24,19 @@ export interface ProviderContext {
    * authorization code back on a custom scheme, which any installed Android app may claim.
    */
   canAmazon: boolean;
+  /**
+   * Google on the Amazon build, through the browser flow (F-093). The native module needs Play
+   * Services, which Fire OS does not have, so on that build this is the only way Google works —
+   * and without it an account made with Google on a phone is unreachable from a Fire tablet.
+   * Everywhere else the native sheet is used and this is irrelevant.
+   */
+  canGoogleWeb: boolean;
 }
 
-export function providerOrder({ isAmazonBuild, isIOS, canApple, canAmazon }: ProviderContext): Provider[] {
+export function providerOrder({ isAmazonBuild, isIOS, canApple, canAmazon, canGoogleWeb }: ProviderContext): Provider[] {
   if (isAmazonBuild) {
-    return [canAmazon ? 'amazon' : null, canApple ? 'apple' : null].filter(Boolean) as Provider[];
+    return [canAmazon ? 'amazon' : null, canApple ? 'apple' : null, canGoogleWeb ? 'google' : null]
+      .filter(Boolean) as Provider[];
   }
   const first: Provider[] = isIOS
     ? [...(canApple ? ['apple' as Provider] : []), 'google']

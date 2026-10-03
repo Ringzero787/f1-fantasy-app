@@ -51,6 +51,11 @@
         "comment": "Login with Amazon's return URL (F-091). The old flow bounced Amazon's authorization code to the app on a custom scheme, which any installed Android app may claim; here the code is filed server-side and never reaches the device. Register this URL as an allowed return URL in the Login with Amazon security profile before shipping a build that sets EXPO_PUBLIC_AMAZON_REDIRECT_URI.",
         "source": "/undercut/auth/amazon",
         "function": { "functionId": "amazonAuthRedirect", "region": "us-central1" }
+      },
+      {
+        "comment": "Google's return URL (F-093), for the Amazon build only — Fire OS has no Play Services, so the native module cannot run there and this browser flow is the only way an account made with Google on a phone opens on a Fire tablet. Register this URL as an authorised redirect URI on the web OAuth client before shipping a build that sets EXPO_PUBLIC_GOOGLE_REDIRECT_URI.",
+        "source": "/undercut/auth/google",
+        "function": { "functionId": "googleAuthRedirect", "region": "us-central1" }
       }
     ],
     "headers": [

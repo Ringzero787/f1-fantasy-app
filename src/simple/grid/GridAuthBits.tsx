@@ -8,6 +8,7 @@ import { getGoogleIdToken, getAppleCredential } from '../../components/SocialAut
 import { isAmazonBuild } from '../../utils/storeDetection';
 import { appleWebSignIn, appleWebSignInAvailable } from '../../utils/appleWebSignIn';
 import { amazonWebSignInAvailable } from '../../utils/amazonSignIn';
+import { googleWebSignIn, googleWebSignInAvailable } from '../../utils/googleWebSignIn';
 import { providerOrder, type Provider } from './signInProviders';
 import { MonoLabel } from './GridBits';
 
@@ -81,10 +82,14 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
   const google = async () => {
     if (isExpoGo) { Alert.alert('Google Sign In', 'Not available in Expo Go. Use Demo Mode or a development build.'); return; }
     setBusy('google');
-    try { await onGoogleSignIn(await getGoogleIdToken()); }
+    try {
+      // Fire OS has no Play Services, so the native module cannot run there; the browser flow is
+      // the only way an account made with Google on a phone opens on a Fire tablet (F-093).
+      await onGoogleSignIn(isAmazonBuild ? await googleWebSignIn() : await getGoogleIdToken());
+    }
     catch (e: unknown) {
       const err = e as { code?: string; message?: string };
-      if (err.code === 'SIGN_IN_CANCELLED') return;
+      if (err.code === 'SIGN_IN_CANCELLED' || err.message === 'Sign in cancelled') return;
       Alert.alert('Sign in error', err.message || 'Google sign in failed');
     } finally { setBusy(null); }
   };
@@ -150,6 +155,7 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
     // Apple is native on iOS; elsewhere its web flow needs a Services ID in the build.
     canApple: Platform.OS === 'ios' || appleWebSignInAvailable(),
     canAmazon: !!onAmazonSignIn && (isAmazonBuild || amazonWebSignInAvailable()),
+    canGoogleWeb: googleWebSignInAvailable(),
   });
 
   return (
