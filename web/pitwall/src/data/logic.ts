@@ -179,6 +179,13 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
   } else if (ace && best.length > 1) {
     out.push({ kind: 'ACE', a: ace.id, b: best[1].id, title: `Keep ace on ${ace.name}`, tag: 'HOLD',
       why: `${ace.name} out-projects your next best driver by ${ace.med - best[1].med} points, doubled.` });
+  } else if (ace && best.length === 1 && best[0].id === ace.id) {
+    // One eligible pick, already carrying it. The branch above cannot phrase this — it compares
+    // against a next-best that does not exist — and before the cap filter the case could not arise,
+    // because `best` was the whole lineup. Saying nothing would be the odd one out: every other row
+    // in this list speaks when it has something to reason about.
+    out.push({ kind: 'ACE', a: ace.id, b: ace.id, title: `Keep ace on ${ace.name}`, tag: 'HOLD',
+      why: `${ace.name} is your only pick at $${ACE_MAX_PRICE} or under, so the ace has nowhere else to go.` });
   }
   const v = [...mine].sort((a, b) => b.val - a.val)[0];
   const va = v && nearest(p, l, v, purse);

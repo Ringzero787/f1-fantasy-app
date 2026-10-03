@@ -217,9 +217,12 @@ describe('briefRecs ace cap', () => {
   const midAce = D('mid', 180, 45);
 
   it('does not recommend an ace nobody is allowed to set', () => {
+    // The reported bug exactly: $535 projects highest, so the old list said "move the ace there".
+    // What must never appear is a MOVE to an over-cap pick; a HOLD on the eligible one is right.
     const p = payload([cheapAce, dear], [C('x', 100, 20)], 1000);
-    const recs = briefRecs(p, { drivers: ['cheap', 'dear'], ctor: 'x', ace: 'cheap' });
-    expect(recs.filter((r) => r.kind === 'ACE')).toEqual([]);
+    const ace = briefRecs(p, { drivers: ['cheap', 'dear'], ctor: 'x', ace: 'cheap' }).find((r) => r.kind === 'ACE');
+    expect(ace?.ace).toBeUndefined();
+    expect(JSON.stringify(ace)).not.toContain('dear');
   });
 
   it('still recommends the best ace inside the cap', () => {
@@ -238,6 +241,22 @@ describe('briefRecs ace cap', () => {
     expect(ace?.tag).toBe('HOLD');
     expect(ace?.ace).toBeUndefined();        // no move offered
     expect(JSON.stringify(ace)).not.toContain('dear');
+  });
+
+  it('says hold when the only eligible pick already has it, rather than going quiet', () => {
+    // The filter created this case: before it, `best` was the whole lineup and there was always a
+    // next-best to compare against. One eligible driver who is already the ace must still get a
+    // row — silence reads as "no opinion" when the opinion is "there is nowhere else to put it".
+    const p = payload([cheapAce, dear], [C('x', 100, 20)], 1000);
+    const ace = briefRecs(p, { drivers: ['cheap', 'dear'], ctor: 'x', ace: 'cheap' }).find((r) => r.kind === 'ACE');
+    expect(ace?.tag).toBe('HOLD');
+    expect(ace?.why).toContain('only pick at $200 or under');
+    expect(ace?.ace).toBeUndefined();
+  });
+
+  it('is silent when no pick in the lineup is eligible at all', () => {
+    const p = payload([dear, D('dearer', 600, 55)], [C('x', 100, 20)], 2000);
+    expect(briefRecs(p, { drivers: ['dear', 'dearer'], ctor: 'x', ace: 'dear' }).filter((r) => r.kind === 'ACE')).toEqual([]);
   });
 
   it('exactly at the cap is allowed — the rule is <=, as the server has it', () => {
