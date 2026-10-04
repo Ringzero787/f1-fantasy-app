@@ -84,7 +84,7 @@ Rule: light mode is a straight inversion — anything white-on-black becomes bla
 McLaren `#FF8000` · Ferrari `#E80020` · Red Bull `#3671C6` · Mercedes `#27F4D2` · Williams `#64C4FF` · Aston Martin `#229971` · Racing Bulls `#6692FF`. Used only as the 28×3 bar on tiles and the 20×3 bar in Picker rows.
 
 ### Typography
-- **Display / all UI text**: Unbounded (Google Fonts). Weights 900 (names, titles, numerals), 700 (body-ish values), 400 (the one paragraph in League Manager).
+- **Display / all UI text**: Archivo at width 125 (static instances of the OFL variable font in `assets/fonts/`, F-099; previously Unbounded). Weights 900 (names, titles, numerals), 700 (body-ish values), 400 (the one paragraph in League Manager). The Pit Wall portal loads the same face from Google Fonts.
 - **Data**: JetBrains Mono 700 / 500 for every label, number, code, status and caption.
 - Section labels: 11px mono 700, `letter-spacing 0.18em`, uppercase, muted.
 - Screen titles: 26px Unbounded 900, `letter-spacing -0.03em`, uppercase.

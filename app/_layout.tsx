@@ -6,12 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as Updates from 'expo-updates';
-import {
-  useFonts,
-  Unbounded_400Regular,
-  Unbounded_700Bold,
-  Unbounded_900Black,
-} from '@expo-google-fonts/unbounded';
+import { useFonts } from 'expo-font';
 import {
   JetBrainsMono_500Medium,
   JetBrainsMono_700Bold,
@@ -55,12 +50,14 @@ function extractInviteCode(url: string): string | null {
 export default function RootLayout() {
   const { isTablet } = useLayout();
 
-  // Grid type system (Unbounded UI + JetBrains Mono data). Don't block
+  // Grid type system (Archivo wide UI + JetBrains Mono data). Don't block
   // rendering on the load — RN falls back to the system font until ready.
+  // Archivo at width 125, instanced from the OFL variable font (scripts/design/make-archivo-expanded.sh):
+  // the same face the Pit Wall portal uses, so the app and the portal read as one product (F-099).
   const [fontsLoaded, fontError] = useFonts({
-    Unbounded_400Regular,
-    Unbounded_700Bold,
-    Unbounded_900Black,
+    ArchivoExpanded_400Regular: require('../assets/fonts/ArchivoExpanded_400Regular.ttf'),
+    ArchivoExpanded_700Bold: require('../assets/fonts/ArchivoExpanded_700Bold.ttf'),
+    ArchivoExpanded_900Black: require('../assets/fonts/ArchivoExpanded_900Black.ttf'),
     JetBrainsMono_500Medium,
     JetBrainsMono_700Bold,
   });
