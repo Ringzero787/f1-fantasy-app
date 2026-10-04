@@ -5,6 +5,7 @@
  */
 import { isCtor, type Constructor, type Driver, type Entity, type Lineup, type Payload, type Rival } from './types';
 import { ACE_MAX_PRICE } from './team';
+import { confidenceOf, edgeOf } from './confidence';
 import { coverage } from './coverage';
 
 export const money = (n: number): string => `$${Math.round(n).toLocaleString('en-US')}`;
@@ -115,7 +116,11 @@ export const purseOf = (p: Payload, l: Lineup): Purse => ({ room: bank(p, l), un
 export const rateMyTeam = (p: Payload, l: Lineup): number => Math.min(99, Math.round(projected(p, l) / 3.6));
 export const sameLineup = (a: Lineup, b: Lineup): boolean => a.ctor === b.ctor && a.ace === b.ace && a.drivers.join('|') === b.drivers.join('|');
 
-export interface SwapRec { out: string; in: string; gain: number; cost: number }
+export interface SwapRec {
+  out: string; in: string; gain: number; cost: number;
+  /** the gain discounted by how reliably the incoming pick delivers it — what the order is by */
+  edge: number;
+}
 
 /** The three best affordable driver swaps; an Ace slot counts double. */
 export function swapRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): SwapRec[] {
@@ -127,10 +132,13 @@ export function swapRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): S
     for (const n of p.drivers) {
       if (l.drivers.includes(n.id) || unavailable.has(n.id) || n.price - od.price > room) continue;
       const gain = (n.med - od.med) * (o === l.ace ? 2 : 1);
-      if (gain > 2) out.push({ out: o, in: n.id, gain, cost: n.price - od.price });
+      if (gain > 2) out.push({ out: o, in: n.id, gain, cost: n.price - od.price, edge: edgeOf(gain, n) });
     }
   }
-  return out.sort((a, b) => b.gain - a.gain).slice(0, 3);
+  // Ordered by edge rather than raw gain: three points bought from a driver whose band is as wide
+  // as their median are not three points, and offering them above a steadier two was how this list
+  // came to recommend its way down the grid.
+  return out.sort((a, b) => b.edge - a.edge).slice(0, 3);
 }
 
 export type RecKind = 'SWAP' | 'ACE' | 'HOLD' | 'RISK' | 'TEAM' | 'TOP PICK' | 'BEST ALTERNATIVE';
@@ -162,7 +170,7 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
   for (const x of swapRecs(p, l, purse)) {
     const n = must(p, x.in), o = must(p, x.out);
     out.push({ kind: 'SWAP', a: x.out, b: x.in, title: `${o.name} → ${n.name}`, tag: `+${x.gain.toFixed(0)} PTS`, good: true, act: `${x.out}:${x.in}`,
-      why: `${n.name} projects ${n.med - o.med} points higher for ${x.cost >= 0 ? `${money(x.cost)} more` : `${money(-x.cost)} less`}, inside your ${money(room)} bank.` });
+      why: `${n.name} projects ${n.med - o.med} points higher for ${x.cost >= 0 ? `${money(x.cost)} more` : `${money(-x.cost)} less`}, inside your ${money(room)} bank. Their range is ${confidenceOf(n).label} (${confidenceOf(n).spread} points between floor and ceiling), so the gain is worth about ${x.edge.toFixed(0)} once that is priced in.` });
   }
   // Only a pick inside the ace cap can carry it. The save path and the scoring both enforce this
   // (team.ts ACE_MAX_PRICE, and calculatePoints strips the multiplier above it), and the Lineup Lab
@@ -193,8 +201,22 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
     why: `Best value in your lineup. The closest alternative at this price (${va.name}) returns ${va.val} points per $100 against ${v.val}.` });
   const r = [...mine].sort((a, b) => b.dnf - a.dnf)[0];
   const ra = r && (nearest(p, l, r, purse, (x) => x.dnf < r.dnf && x.price - r.price <= room) ?? nearest(p, l, r, purse));
-  if (r && ra) out.push({ kind: 'RISK', a: r.id, b: ra.id, title: `Watch ${r.name}`, tag: `${r.dnf}% DNF`, bad: true, act: `${r.id}:${ra.id}`,
-    why: `Highest retirement risk in your lineup. ${ra.name} is the nearest-priced option with a safer floor.` });
+  if (r && ra) {
+    // `nearest` picks on price and retirement risk and knows nothing about points, so the swap it
+    // finds can cost a great deal of projection. It used to be offered as a one-click anyway, with
+    // copy claiming "a safer floor" that the code never checked — it filters on dnf. A reader took
+    // two of these and lost 34 points of weekend potential.
+    //
+    // The card still earns its place: knowing your riskiest driver is useful on its own. What it
+    // may not do is hand over a downgrade in one click. The numbers are always stated, and the
+    // button appears only when the alternative costs nothing in points.
+    const cost = r.med - ra.med;
+    const safer = r.dnf - ra.dnf;
+    const free = cost <= 0;
+    out.push({ kind: 'RISK', a: r.id, b: ra.id, title: `Watch ${r.name}`, tag: `${r.dnf}% DNF`, bad: true,
+      ...(free ? { act: `${r.id}:${ra.id}` } : {}),
+      why: `Highest retirement risk in your lineup. The nearest-priced alternative, ${ra.name}, retires ${safer > 0 ? `${safer} points of a percent less often` : 'no less often'} and projects ${cost > 0 ? `${cost} points lower — a trade this card will not make for you` : `${-cost} points higher`}.` });
+  }
   const c = entity(p, l.ctor) as Constructor | undefined;
   if (!c) return out;
   const cb = p.constructors.filter((x) => x.id !== c.id && x.price - c.price <= room).sort((a, b) => b.med - a.med)[0];
@@ -209,7 +231,12 @@ export interface CmpRow { label: string; a: string; b: string; winner: 'a' | 'b'
 export function compareRows(p: Payload, aId: string, bId: string): CmpRow[] {
   const a = must(p, aId), b = must(p, bId);
   const metric: Array<[string, (e: Entity) => number | null, 1 | -1 | 0, boolean?]> = [
-    ['Projection', (e) => e.med, 1], ['Floor', (e) => e.floor, 1], ['Ceiling', (e) => e.ceil, 1], ['Pts per $100', (e) => e.val, 1],
+    ['Projection', (e) => e.med, 1], ['Floor', (e) => e.floor, 1], ['Ceiling', (e) => e.ceil, 1],
+    // Floor and ceiling were already here and were decoration: two numbers nobody subtracts. The
+    // spread between them is the one that decides whether a projection is worth trusting, and a
+    // narrower one wins — which is why this row's direction is -1 (F-096).
+    ['Range width', (e) => Math.max(0, e.ceil - e.floor), -1],
+    ['Pts per $100', (e) => e.val, 1],
     ['Next price', (e) => (isCtor(e) ? null : e.dprice), 1],
     ['DNF risk %', (e) => (isCtor(e) ? null : e.dnf), -1], ['Price', (e) => e.price, -1, true],
   ];
