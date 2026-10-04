@@ -10,7 +10,7 @@
  *   race-status <raceId> <status>         - Update race status (upcoming/in_progress/completed)
  *   list-drivers                          - List all drivers with prices
  *   list-constructors                     - List all constructors with prices
- *   reset-points                          - Reset all points to 0 (start of season)
+ *   reset-points --apply                  - Reset all points to 0 (start of season)
  */
 
 import * as admin from 'firebase-admin';
@@ -249,7 +249,7 @@ Commands:
   race-status <raceId> <status>         Update race status
   list-drivers                          List all drivers
   list-constructors                     List all constructors
-  reset-points                          Reset all points to 0
+  reset-points --apply                  Reset all points to 0 on EVERY driver
 
 Examples:
   npx ts-node src/updateData.ts driver-price verstappen 330

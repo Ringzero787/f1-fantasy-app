@@ -235,21 +235,24 @@ function runUnderStub(file, argv) {
   }
 }
 
-// The nine operational scripts under functions/scripts. They are run by
+// The ten operational scripts under functions/scripts. They are run by
 // `aidlc op` via scripts/ops/run-script.js, which spawns them directly, so
 // require.main holds.
 //
 // Checked for IMPORT-SAFETY ONLY, and that limit is worth stating precisely:
-//   - Six of the nine write (backfillLeagueRaceResults, backfillZandvoortTsunoda,
-//     pitwallPass, repairStuckLocks, setConstructorColors, setPitWallConfig);
+//   - Seven of the ten write (backfillLeagueRaceResults,
+//     backfillZandvoortTsunoda, pitwallPass, repairStuckLocks,
+//     setConstructorColors, setPitWallConfig, stampAceWindowForLiveRace);
 //     three are read-only (checkRaceCalendar, exportPitwallHistory,
-//     verifyRaceScoring).
-//   - All six writers gate on --apply today, and the `uc-script` op kind
+//     verifyRaceScoring). pitwallPass writes through store.grantPass()
+//     rather than a db call of its own, so grepping for `.set(`/`.update(`
+//     reports it read-only — it is not.
+//   - All seven writers gate on --apply today, and the `uc-script` op kind
 //     passes it only on apply. But NOTHING HERE ENFORCES THAT. Deleting the
 //     `if (!APPLY)` line from any of them leaves this suite green, and
 //     `aidlc op dryrun` would then write production. Asserting it properly
 //     needs a behavioural check per writer, which this file does not have.
-//   - All nine now require SA_KEY explicitly and refuse a key for the wrong
+//   - All ten now require SA_KEY explicitly and refuse a key for the wrong
 //     project. Three of them used to fall back to a hardcoded admin-SDK key
 //     on the share when SA_KEY was unset, so running them without the env
 //     var still reached production, with nothing checking which project the
@@ -265,8 +268,6 @@ const OP_SCRIPTS = [
 ].map((n) => ({
   file: `functions/scripts/${n}.js`,
   entry: 'main',
-  // checkRaceCalendar names its initialiser setup(); the rest use initAdmin().
-  init: n === 'checkRaceCalendar' ? 'setup' : 'initAdmin',
   flagInGuard: false,
 }));
 
@@ -287,26 +288,117 @@ const GUARDED = [
   { file: 'scripts/setAdminClaim.ts', entry: 'main', flagInGuard: true },
   { file: 'scripts/getIndexLink.ts', entry: 'testQueries', flagInGuard: false },
   { file: 'functions/src/updateData.ts', entry: 'main', flagInGuard: false },
+  // Found by review, not by this list: both self-invoked at module scope.
+  // firestore-backup took a backup on import; play-publish read the Play
+  // publishing key and, with argv present, could reach the store. Their `db`
+  // still arrives from ./_firestore, which connects on require by design —
+  // the guard is what stops an import from acting.
+  { file: 'scripts/ops/firestore-backup.js', entry: 'main', flagInGuard: false },
+  { file: 'scripts/ops/play-publish.js', entry: 'main', flagInGuard: false },
   ...OP_SCRIPTS,
 ];
 
-for (const { file, entry, flagInGuard, init = 'initAdmin' } of GUARDED) {
-  // The refactor that guards these files introduces its own escape: every one
-  // of them moves credential work into initAdmin(), and a module-scope call to
-  // THAT is a plain identifier, not `admin.initializeApp(`, so the ratchet does
-  // not see it. Hoisting `initAdmin();` one line above the guard restored
-  // full connect-on-import with the suite green. Treat the initialiser exactly
-  // like the entry point.
-  test(`${file}: the initialiser is never reached on import`, () => {
+for (const { file, entry, flagInGuard } of GUARDED) {
+  // Naming the initialiser was the wrong shape of fix. The first version keyed
+  // on the identifiers `initAdmin` and `setup`; a wrapper function, an
+  // object-literal method, a second initialiser under another name, and
+  // `(exports as any).initAdmin()` all walked past it. Matching call names
+  // one level deep was only slightly better: `o.go()` is not a function
+  // declaration, so nothing connected the call to the body that initialises.
+  //
+  // So this walks the call graph instead. Seeds are the calls that actually
+  // run on import; from each, every function body this file can reach is
+  // followed transitively. The assertion is about what that closure *does* —
+  // admin initialisation or credential reads — not what anything is named, so
+  // a wrapper, a method, a rename, or a chain of three is the same finding.
+  test(`${file}: nothing reachable on import initialises admin`, () => {
     const sf = parse(file);
     findMainGuard(sf, file);
+
+    // name -> function-ish body, covering every form these scripts use.
+    const bodies = new Map();
+    const note = (name, node) => { if (name && !bodies.has(name)) bodies.set(name, node); };
+    const collectDefs = (n) => {
+      if (ts.isFunctionDeclaration(n) && n.name) note(n.name.text, n);
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer &&
+          (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) {
+        note(n.name.text, n.initializer);
+      }
+      // { go() {} } and { go: () => {} } — the escape that name matching missed.
+      if (ts.isMethodDeclaration(n) && ts.isIdentifier(n.name)) note(n.name.text, n);
+      if (ts.isPropertyAssignment(n) && ts.isIdentifier(n.name) && n.initializer &&
+          (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) {
+        note(n.name.text, n.initializer);
+      }
+      n.forEachChild(collectDefs);
+    };
+    sf.forEachChild(collectDefs);
+
+    const calleeName = (e) => {
+      if (ts.isIdentifier(e)) return e.text;
+      if (ts.isPropertyAccessExpression(e)) return e.name.text;
+      if (ts.isElementAccessExpression(e) && e.argumentExpression &&
+          ts.isStringLiteral(e.argumentExpression)) return e.argumentExpression.text;
+      return null;
+    };
+
+    // Seeds: calls that execute on import (the guard's then-branch excluded).
+    const seeds = [];
     for (const n of moduleScopeNodes(sf)) {
-      if (!ts.isIdentifier(n) || n.text !== init) continue;
-      const p = n.parent;
-      if ((ts.isFunctionDeclaration(p) || ts.isVariableDeclaration(p)) && p.name === n) continue;
-      if (ts.isPropertyAccessExpression(p) && p.name === n) continue;
-      if (ts.isExportSpecifier(p) || ts.isExportAssignment(p)) continue;
-      assert.fail(`${file} mentions ${init} at module scope — it would connect on import`);
+      if (ts.isCallExpression(n)) {
+        const name = calleeName(n.expression);
+        if (name) seeds.push({ name, node: n });
+      }
+    }
+
+    // Does this body initialise admin or read credentials directly?
+    const initialisesAdmin = (body) => {
+      let hit = null;
+      const scan = (n) => {
+        if (hit) return;
+        if (ts.isCallExpression(n)) {
+          const e = n.expression;
+          if (ts.isPropertyAccessExpression(e) &&
+              ['initializeApp', 'cert', 'applicationDefault', 'getFirestore'].includes(e.name.text)) {
+            hit = e.name.text + '()';
+          }
+          if (ts.isPropertyAccessExpression(e) && e.name.text === 'readFileSync') {
+            hit = 'readFileSync()';
+          }
+          if (ts.isIdentifier(e) && e.text === 'require' && n.arguments.length &&
+              ts.isStringLiteral(n.arguments[0]) &&
+              /credential|service-?account|\.json$/i.test(n.arguments[0].text)) {
+            hit = `require('${n.arguments[0].text}')`;
+          }
+        }
+        n.forEachChild(scan);
+      };
+      scan(body);
+      return hit;
+    };
+
+    const seen = new Set();
+    const queue = seeds.map((s) => ({ ...s, path: [s.name] }));
+    while (queue.length) {
+      const { name, path: chain } = queue.shift();
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const body = bodies.get(name);
+      if (!body) continue; // a library call, not something this file defines
+      const what = initialisesAdmin(body);
+      assert.ok(
+        !what,
+        `${file}: importing it reaches ${what} via ${chain.join(' -> ')} — ` +
+          `admin initialisation must happen inside the require.main guard`
+      );
+      const follow = (n) => {
+        if (ts.isCallExpression(n)) {
+          const next = calleeName(n.expression);
+          if (next && !seen.has(next)) queue.push({ name: next, path: [...chain, next] });
+        }
+        n.forEachChild(follow);
+      };
+      follow(body);
     }
   });
 
@@ -423,7 +515,7 @@ test('no new script reaches the production key on import', () => {
 
   // Keyed on `admin.initializeApp(` at module scope, not on a key path.
   // Matching the string `serviceAccount` missed every script that takes its
-  // key from SA_KEY — which is all nine under functions/scripts — and misses
+  // key from SA_KEY — which is all ten under functions/scripts — and misses
   // ADC, which needs no key at all. Connecting to a project on import is the
   // thing worth forbidding, however the credential is obtained.
   const unguarded = files

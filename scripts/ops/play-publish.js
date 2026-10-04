@@ -48,18 +48,29 @@ const APPLY = argv.includes('--apply');
 
 const die = (msg) => { console.error(msg); process.exit(2); };
 
-const typo = unknownFlag(argv);
-if (typo) die(`"${typo}" is not a flag this script understands. Flags take an = sign: --track=internal, --notes="...", --confirm=${PKG}, --apply`);
+// Reading the publishing key, and rejecting bad flags by exiting, used to
+// happen here at module scope — so importing this file read the key, and
+// `main()` below ran a publish. Both now wait for the run guard at the foot
+// of the file.
+let saCache;
+function serviceAccount() {
+  if (saCache) return saCache;
+  const keyPath = process.env.PLAY_SA_KEY || process.env.SA_KEY;
+  if (!keyPath) die('PLAY_SA_KEY must point at the service-account key that publishes to Play.');
+  if (!process.env.PLAY_SA_KEY) console.warn('[play] using SA_KEY, which is the backend deploy key. A separate PLAY_SA_KEY keeps store publishing and backend deploys on different credentials.');
+  saCache = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
+  return saCache;
+}
 
-const keyPath = process.env.PLAY_SA_KEY || process.env.SA_KEY;
-if (!keyPath) die('PLAY_SA_KEY must point at the service-account key that publishes to Play.');
-if (!process.env.PLAY_SA_KEY) console.warn('[play] using SA_KEY, which is the backend deploy key. A separate PLAY_SA_KEY keeps store publishing and backend deploys on different credentials.');
-const sa = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
+function checkFlags() {
+  const typo = unknownFlag(argv);
+  if (typo) die(`"${typo}" is not a flag this script understands. Flags take an = sign: --track=internal, --notes="...", --confirm=${PKG}, --apply`);
+}
 
 /** The Google client the functions codebase already depends on, rather than a hand-rolled JWT. */
 function googleAuth() {
   const { GoogleAuth } = require(require.resolve('google-auth-library', { paths: [path.join(ROOT, 'functions')] }));
-  return new GoogleAuth({ credentials: sa, scopes: [SCOPE] });
+  return new GoogleAuth({ credentials: serviceAccount(), scopes: [SCOPE] });
 }
 
 function request({ pathname, method = 'GET', headers = {}, body }) {
@@ -72,7 +83,7 @@ function request({ pathname, method = 'GET', headers = {}, body }) {
         if (res.statusCode >= 400) {
           // The one failure worth explaining, because it is not a bug and not a bad key.
           if (res.statusCode === 403 && /permission/i.test(text)) {
-            return reject(new Error(`Play refused the call (403). The key authenticates, but ${sa.client_email} has not been granted access in Play Console. Play Console -> Users and permissions -> Invite user -> that address -> grant it on ${PKG}, then wait a few minutes.\n${text.slice(0, 300)}`));
+            return reject(new Error(`Play refused the call (403). The key authenticates, but ${serviceAccount().client_email} has not been granted access in Play Console. Play Console -> Users and permissions -> Invite user -> that address -> grant it on ${PKG}, then wait a few minutes.\n${text.slice(0, 300)}`));
           }
           return reject(new Error(`${method} ${pathname} -> ${res.statusCode}\n${text.slice(0, 500)}`));
         }
@@ -91,7 +102,7 @@ async function main() {
   const token = await auth.getAccessToken();
   const A = { Authorization: `Bearer ${token}` };
   const J = { ...A, 'Content-Type': 'application/json' };
-  console.log(`authenticated as ${sa.client_email}`);
+  console.log(`authenticated as ${serviceAccount().client_email}`);
 
   const openEdit = () => request({ pathname: `/androidpublisher/v3/applications/${PKG}/edits`, method: 'POST', headers: J, body: '{}' });
   const discard = (id) => request({ pathname: `/androidpublisher/v3/applications/${PKG}/edits/${id}`, method: 'DELETE', headers: A });
@@ -167,4 +178,7 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error(e.message); process.exit(1); });
+if (require.main === module) {
+  checkFlags();
+  main().catch((e) => { console.error(e.message); process.exit(1); });
+}
