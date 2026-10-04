@@ -81,3 +81,7 @@ https://developer.amazon.com/docs/policy-center/listing-promo.html#metadata
   guidelines by using repetitive words or phrases."* Primary Validation passed, so the APK was
   never the problem. Title set to the above and resubmitted with the 2.4.3 build (vc68) rather
   than 2.4.1, which had never been published.
+- **2026-10-04, same day** — metadata updated to the copy in this file and **versionCode 68
+  submitted**, awaiting review. The rejected title was not recorded before it was overwritten,
+  so we still do not know which word repeated — if Play or Apple ever bounce for the same
+  reason, that is the first thing to capture.
