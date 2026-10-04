@@ -4,7 +4,7 @@ import type { Lineup, Payload } from './data/types';
 import type { MarketPrices, RealTeam } from './data/team';
 import { NO_PASS, type PassState } from './data/access';
 import { coverage, type Coverage } from './data/coverage';
-import { ACE_MAX_PRICE, CONTRACT_LENGTH, planSave, type Plan } from './data/team';
+import { ACE_MAX_PRICE, CONTRACT_LENGTH, aceFrozen, planSave, type Plan } from './data/team';
 import { EMPTY_PREFS, markRead as markReadPrefs, rate as ratePrefs, type Rating, type WirePrefs } from './data/wire';
 import type { PageName } from './lib/router';
 
@@ -147,10 +147,14 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     // it rides along with the save. The cap is the app's rule, said here rather than at save time.
     setAce: (id) => {
       if (!ui.lineup.drivers.includes(id) || saving) return;   // one write at a time
-      // Locked is the server's answer too (planSave refuses), so saying it here turns a failed save
-      // into a sentence. The Briefing was offering "Set ace on …" through a locked weekend and only
-      // reporting the refusal after the click.
-      if (real?.team.isLocked) { toast('Your team is locked for this weekend.'); return; }
+      // Say no here rather than after the click: the Briefing was offering "Set ace on …"
+      // and only reporting the refusal afterwards.
+      //
+      // The ace is NOT gated on isLocked (F-095). That is the qualifying lock, and the
+      // window between it and lights out is the whole point of the ace — refusing it from
+      // Saturday on was the portal being stricter than the game. The deadline the rules
+      // actually enforce is the one stamped on the team.
+      if (real && aceFrozen(real.team)) { toast('The race has started; your ace is set for this round.'); return; }
       const e = entity(payload, id);
       if (e && e.price > ACE_MAX_PRICE) { toast(`Only a pick at $${ACE_MAX_PRICE} or under can be the ace; ${e.name} is $${e.price}.`); return; }
       // tapping the ace again clears it, as in the app

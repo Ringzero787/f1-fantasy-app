@@ -6,6 +6,7 @@ import {
   getNextIncompleteRace,
   getLockoutTime,
   computeLockoutStatus,
+  serverAceLocked,
 } from '../../src/utils/lockout';
 import type { Race } from '../../src/types';
 
@@ -215,5 +216,46 @@ describe('computeLockoutStatus', () => {
     const result = computeLockoutStatus(races, new Set(), now, null);
     expect(result.lockTime).toEqual(fp3Time);
     expect(result.raceStartTime).toEqual(raceTime);
+  });
+});
+
+describe('serverAceLocked (F-095)', () => {
+  const raceStart = new Date('2026-03-08T14:00:00Z');
+  const before = new Date('2026-03-08T13:59:00Z');
+  const after = new Date('2026-03-08T14:01:00Z');
+
+  it('is open before the race and shut from lights out', () => {
+    expect(serverAceLocked({ aceLockTime: raceStart }, true, before)).toBe(false);
+    expect(serverAceLocked({ aceLockTime: raceStart }, true, raceStart)).toBe(true);
+    expect(serverAceLocked({ aceLockTime: raceStart }, true, after)).toBe(true);
+  });
+
+  it('is ignored on an unlocked team, so a deadline left over from last race cannot freeze the ace', () => {
+    expect(serverAceLocked({ aceLockTime: raceStart }, false, after)).toBe(false);
+  });
+
+  it('says nothing when there is no deadline — teams written before the field existed', () => {
+    expect(serverAceLocked({ aceLockTime: null }, true, after)).toBe(false);
+    expect(serverAceLocked({}, true, after)).toBe(false);
+    expect(serverAceLocked(undefined, true, after)).toBe(false);
+    expect(serverAceLocked(null, true, after)).toBe(false);
+  });
+
+  it('reads the shapes the value actually arrives in', () => {
+    // Firestore Timestamp (the web SDK hands this straight through), its admin twin,
+    // and what a Timestamp becomes after a round trip through the persisted store.
+    expect(serverAceLocked({ aceLockTime: { toMillis: () => raceStart.getTime() } }, true, after)).toBe(true);
+    expect(serverAceLocked({ aceLockTime: { toDate: () => raceStart } }, true, after)).toBe(true);
+    expect(serverAceLocked({ aceLockTime: { seconds: raceStart.getTime() / 1000, nanoseconds: 0 } }, true, after)).toBe(true);
+    expect(serverAceLocked({ aceLockTime: { _seconds: raceStart.getTime() / 1000 } }, true, after)).toBe(true);
+    expect(serverAceLocked({ aceLockTime: raceStart.toISOString() }, true, after)).toBe(true);
+    expect(serverAceLocked({ aceLockTime: raceStart.getTime() }, true, after)).toBe(true);
+    expect(serverAceLocked({ aceLockTime: raceStart.toISOString() }, true, before)).toBe(false);
+  });
+
+  it('treats an unreadable deadline as no deadline rather than locking everyone out', () => {
+    expect(serverAceLocked({ aceLockTime: 'not a date' }, true, after)).toBe(false);
+    expect(serverAceLocked({ aceLockTime: {} }, true, after)).toBe(false);
+    expect(serverAceLocked({ aceLockTime: new Date('nope') }, true, after)).toBe(false);
   });
 });

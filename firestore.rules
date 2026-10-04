@@ -252,6 +252,27 @@ service cloud.firestore {
     // the same people the app shows those lineups to. Written by the worker.
     match /pw_leagues/{id} { allow read: if isAuthenticated() && (isLeagueMember(resource.data.leagueId) || isLeagueOwner(resource.data.leagueId)); allow write: if false; }
 
+    // F-095: the ace locks at lights out, hours after the roster locks at qualifying, and
+    // until now that second deadline lived only in the app — so between the start of the
+    // race and the moment scoring ran, an owner could point the ace at whoever was
+    // winning and have those points doubled. autoLockTeams stamps the race start time on
+    // the team at the qualifying lock; `lockStatus` is a denied key below, so the deadline
+    // is not the client's to move. Comparing it to request.time is exact, where a
+    // scheduled sweep would have left the first fifteen minutes of the race open.
+    //
+    // Consulted only while the team is locked. Between races aceLockTime can still hold
+    // the last race's start, which is in the past for ever, and that must not freeze the
+    // ace; a team written before this field existed has no deadline and is unaffected.
+    // `.get(…, default)` throughout: reading a field that is not there is an error, and
+    // an error denies.
+    function aceDeadlinePassed(team) {
+      let lockStatus = team.get('lockStatus', {});
+      let aceLockTime = lockStatus is map ? lockStatus.get('aceLockTime', null) : null;
+      return team.get('isLocked', false) == true
+             && aceLockTime is timestamp
+             && request.time >= aceLockTime;
+    }
+
     match /fantasyTeams/{teamId} {
       // F-029: roster and points per race weekend, written by scoring only. Readable by
       // the team's owner and by the team's league (the same people who can see the team).
@@ -290,7 +311,11 @@ service cloud.firestore {
                       'drivers', 'constructor', 'budget', 'totalSpent',
                       'racesSinceTransfer', 'driverLockouts',
                       'bestRacePoints', 'bestRaceId'
-                    ]));
+                    ]))
+                    && (!aceDeadlinePassed(resource.data)
+                        || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                          'aceDriverId', 'aceConstructorId'
+                        ]));
       allow delete: if isOwner(resource.data.userId);
     }
 

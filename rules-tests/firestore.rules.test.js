@@ -221,6 +221,68 @@ test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped
   await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
 });
 
+// ── F-095: the ace locks at lights out, not at qualifying ──
+// The window between the two locks is a designed feature — you may move the ace after
+// seeing qualifying, right up to the start of the race — so these cases have to prove
+// both halves: the window stays open, and it shuts on time.
+const aceTeam = (over = {}) => ({
+  userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null,
+  budget: 1000, totalSpent: 0, totalPoints: 0, aceDriverId: 'norris', aceConstructorId: null,
+  isLocked: true,
+  lockStatus: { isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null, aceLockTime: null },
+  ...over,
+});
+const seedTeam = async (data) => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'fantasyTeams', 'T1'), data);
+  });
+};
+const inAnHour = () => new Date(Date.now() + 60 * 60 * 1000);
+const anHourAgo = () => new Date(Date.now() - 60 * 60 * 1000);
+const lockStatusAt = (aceLockTime) => ({ isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null, aceLockTime });
+
+test('F-095 ace: locked for qualifying but before lights out, the ace still moves', async () => {
+  await seedTeam(aceTeam({ lockStatus: lockStatusAt(inAnHour()) }));
+  const d = db(ALICE);
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: null, aceConstructorId: 'mclaren' }));
+});
+
+test('F-095 ace: once the race has started the ace is frozen', async () => {
+  await seedTeam(aceTeam({ lockStatus: lockStatusAt(anHourAgo()) }));
+  const d = db(ALICE);
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: null }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceConstructorId: 'mclaren' }));
+  // the ace rode along with an otherwise innocent write — still refused
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { name: 'Apex Two', aceDriverId: 'piastri' }));
+  // and the rest of the document is untouched by this clause
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { name: 'Apex Two' }));
+  // re-writing the SAME ace is not a change, so it is not blocked — shipped clients
+  // send the whole metadata object on every sync and must not start failing.
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'norris', name: 'Apex Three' }));
+});
+
+test('F-095 ace: a deadline left over from last race does not freeze an unlocked team', async () => {
+  await seedTeam(aceTeam({ isLocked: false, lockStatus: { ...lockStatusAt(anHourAgo()), canModify: true } }));
+  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+});
+
+test('F-095 ace: documents written before the field existed are unaffected', async () => {
+  await seedTeam({ userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null, budget: 1000, totalSpent: 0, totalPoints: 0, aceDriverId: 'norris', isLocked: true });
+  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await seedTeam(aceTeam({ lockStatus: { isSeasonLocked: false, canModify: false } }));
+  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+});
+
+test('F-095 ace: the deadline itself is not the owner\'s to move', async () => {
+  await seedTeam(aceTeam({ lockStatus: lockStatusAt(anHourAgo()) }));
+  const d = db(ALICE);
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockTime': inAnHour() }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { isLocked: false }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockTime': inAnHour(), aceDriverId: 'piastri' }));
+});
+
 // ── F-062 race results and F-029 race snapshots: server-written, league-readable ──
 test('race results: league members read them, outsiders do not, nobody on a client writes them or raceWins', async () => {
   await seedLeague(); await seedMember('L1', ALICE);

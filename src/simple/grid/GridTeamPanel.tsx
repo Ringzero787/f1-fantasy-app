@@ -23,6 +23,7 @@ import { teamText } from './shareTeam';
 import { shareText } from './shareText';
 import { computeTiles, lineupStatus, openSlotCount, rosterRacePoints, rosterConstructor, type GridTile as Tile } from './tileState';
 import { formatLockStatus, formatRoundStatus, seasonProgress } from './lockStatus';
+import { serverAceLocked } from '../../utils/lockout';
 
 interface Props {
   refreshing: boolean;
@@ -65,7 +66,11 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   }, [team?.leagueId, loadLeagueMembers]);
 
   const locked = lockoutInfo.isLocked || !(team?.lockStatus?.canModify ?? true);
-  const aceLocked = lockoutInfo.aceLocked;
+  // F-095: the server's stamped deadline as well as the one worked out from the calendar.
+  // They are the same moment during the weekend; afterwards the local one reopens (it has
+  // already moved on to the next round) while the team is still locked and the rules still
+  // refuse the write. Offering an ace that cannot be saved is the bug, so take either.
+  const aceLocked = lockoutInfo.aceLocked || serverAceLocked(team?.lockStatus, team?.isLocked === true, now);
 
   // Review prompt once the lineup is complete (kept from Race Day).
   const tiles = useMemo<Tile[]>(() => {

@@ -8,6 +8,16 @@ import type { MarketPrices, Plan, RealTeam, RosterConstructor, RosterDriver, Ste
 
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
+/**
+ * F-095: `lockStatus.aceLockTime` as epoch ms. A Firestore Timestamp when the weekend is
+ * locked, null the rest of the time, and absent on teams written before the field existed
+ * — all three mean "no deadline the portal should enforce".
+ */
+const stampMs = (lockStatus: unknown): number | null => {
+  const t = (lockStatus as { aceLockTime?: { toMillis?: () => number } } | null | undefined)?.aceLockTime;
+  return t && typeof t.toMillis === 'function' ? t.toMillis() : null;
+};
+
 export async function loadTeams(uid: string): Promise<RealTeam[]> {
   const { m, db } = await firestore();
   const snap = await m.getDocs(m.query(m.collection(db, 'fantasyTeams'), m.where('userId', '==', uid), m.limit(3)));
@@ -18,7 +28,7 @@ export async function loadTeams(uid: string): Promise<RealTeam[]> {
       id: d.id, name: typeof t.name === 'string' ? t.name : 'Team', leagueId: typeof t.leagueId === 'string' ? t.leagueId : null,
       drivers: Array.isArray(t.drivers) ? (t.drivers as RosterDriver[]).filter((x) => x && typeof x.driverId === 'string') : [],
       constructor: ctor && typeof ctor.constructorId === 'string' ? ctor : null,
-      budget: num(t.budget, 0), isLocked: t.isLocked === true, aceDriverId: typeof t.aceDriverId === 'string' ? t.aceDriverId : null,
+      budget: num(t.budget, 0), isLocked: t.isLocked === true, aceLockTime: stampMs(t.lockStatus), aceDriverId: typeof t.aceDriverId === 'string' ? t.aceDriverId : null,
       totalPoints: num(t.totalPoints), lockedPoints: num(t.lockedPoints), driverLockouts: (t.driverLockouts && typeof t.driverLockouts === 'object' ? t.driverLockouts : {}) as Record<string, number>,
     };
   });
@@ -69,6 +79,10 @@ export async function executePlan(teamId: string, plan: Plan, ace: string | null
 export function saveErrorText(e: unknown): string {
   const code = (e as { code?: string }).code ?? '';
   const msg = (e as { message?: string }).message ?? '';
+  // F-095: the ace write is a direct document update, so a refusal arrives as a bare
+  // permission-denied with no sentence in it — every other step is a callable that says
+  // why. Without this the player got "The server refused this step:" and nothing else.
+  if (code.endsWith('permission-denied') || /insufficient permissions|PERMISSION_DENIED/i.test(msg)) return 'The race has started, so your ace is set for this round. Nothing more was changed.';
   if (/locked/i.test(msg) || code.endsWith('failed-precondition') && /lock/i.test(msg)) return 'Your team is locked for this weekend. Nothing more was changed.';
   if (/Insufficient budget|budget/i.test(msg)) return 'The server found the bank short after fees. Nothing more was changed.';
   if (/lockout|cannot be re-added|re-bought/i.test(msg)) return 'That driver just left your team and cannot come back yet. Nothing more was changed.';

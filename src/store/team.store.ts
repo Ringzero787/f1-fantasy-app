@@ -8,7 +8,7 @@ import { BUDGET, TEAM_SIZE, SALE_COMMISSION_RATE } from '../config/constants';
 import { PRICING_CONFIG } from '../config/pricing.config';
 import { useAdminStore } from './admin.store';
 import { errorLogService } from '../services/errorLog.service';
-import { computeLockoutStatus } from '../utils/lockout';
+import { computeLockoutStatus, serverAceLocked } from '../utils/lockout';
 
 // Calculate sale value after commission
 const calculateSaleValue = (currentPrice: number): number => {
@@ -1422,8 +1422,12 @@ export const useTeamStore = create<TeamState>()(
       if (result.isComplete) aceCompletedRaceIds.add(raceId);
     });
     const lockoutStatus = computeLockoutStatus(racesFromConfig(), aceCompletedRaceIds, new Date(), adminLockOverride);
-    if (lockoutStatus.aceLocked) {
-      set({ error: 'Ace selection is locked during race weekends' });
+    // F-095: and the deadline the server stamped on the team, which is the one the rules
+    // enforce. Without it a write made after the race starts is refused by Firestore and
+    // then swallowed — syncTeamToFirebase only logs — leaving an ace on screen that the
+    // scorer will never see.
+    if (lockoutStatus.aceLocked || serverAceLocked(currentTeam.lockStatus, currentTeam.isLocked === true, new Date())) {
+      set({ error: 'Ace selection is locked once the race starts' });
       return;
     }
 
@@ -1478,8 +1482,8 @@ export const useTeamStore = create<TeamState>()(
       if (result.isComplete) aceCCompletedRaceIds.add(raceId);
     });
     const aceCLockoutStatus = computeLockoutStatus(racesFromConfig(), aceCCompletedRaceIds, new Date(), aceCLockOverride);
-    if (aceCLockoutStatus.aceLocked) {
-      set({ error: 'Ace selection is locked during race weekends' });
+    if (aceCLockoutStatus.aceLocked || serverAceLocked(currentTeam.lockStatus, currentTeam.isLocked === true, new Date())) {
+      set({ error: 'Ace selection is locked once the race starts' });
       return;
     }
 
@@ -1517,6 +1521,13 @@ export const useTeamStore = create<TeamState>()(
 
     if (!currentTeam) {
       set({ error: 'No team loaded' });
+      return;
+    }
+
+    // F-095: clearing is a change like any other and the rules refuse it after lights out.
+    // Demo mode never reaches Firestore, so it keeps working.
+    if (!isDemoMode && serverAceLocked(currentTeam.lockStatus, currentTeam.isLocked === true, new Date())) {
+      set({ error: 'Ace selection is locked once the race starts' });
       return;
     }
 

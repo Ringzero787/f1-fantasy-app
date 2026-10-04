@@ -64,6 +64,8 @@ jest.mock('../../src/store/remoteConfig.store', () => ({
 
 import { useTeamStore } from '../../src/store/team.store';
 
+const ACE_LOCKED = 'Ace selection is locked once the race starts';
+
 // Bahrain reinstated at Sepang as round 18, exactly as the server publishes it.
 const bahrainAtSepang = (status: string) => ({
   id: 'bahrain_2026',
@@ -130,7 +132,7 @@ test('the Ace is locked once the server calendar says the race has started', asy
 
   await useTeamStore.getState().setAce('hadjar');
 
-  expect(useTeamStore.getState().error).toBe('Ace selection is locked during race weekends');
+  expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
   expect(useTeamStore.getState().currentTeam?.aceDriverId).toBeNull();
 });
 
@@ -140,7 +142,7 @@ test('the Ace is still changeable before that race starts', async () => {
 
   await useTeamStore.getState().setAce('hadjar');
 
-  expect(useTeamStore.getState().error).not.toBe('Ace selection is locked during race weekends');
+  expect(useTeamStore.getState().error).not.toBe(ACE_LOCKED);
   expect(useTeamStore.getState().currentTeam?.aceDriverId).toBe('hadjar');
 });
 
@@ -153,7 +155,7 @@ test('the constructor Ace is locked once the server calendar says the race has s
 
   await useTeamStore.getState().setAceConstructor('audi');
 
-  expect(useTeamStore.getState().error).toBe('Ace selection is locked during race weekends');
+  expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
   expect(useTeamStore.getState().currentTeam?.aceConstructorId).toBeUndefined();
 });
 
@@ -163,7 +165,7 @@ test('the constructor Ace is still changeable before that race starts', async ()
 
   await useTeamStore.getState().setAceConstructor('audi');
 
-  expect(useTeamStore.getState().error).not.toBe('Ace selection is locked during race weekends');
+  expect(useTeamStore.getState().error).not.toBe(ACE_LOCKED);
   expect(useTeamStore.getState().currentTeam?.aceConstructorId).toBe('audi');
 });
 
@@ -177,5 +179,55 @@ test('a race the server marks cancelled is skipped, and the next one governs', a
 
   await useTeamStore.getState().setAce('hadjar');
 
+  expect(useTeamStore.getState().currentTeam?.aceDriverId).toBe('hadjar');
+});
+
+// ── F-095: the deadline the SERVER stamped, which is the one firestore.rules enforces ──
+// The calendar and the stamp agree during the weekend. They part company four hours after
+// the race, when getNextIncompleteRace gives up on that round and moves to the next one a
+// week away: the calendar reopens the ace while the team is still locked and the rules
+// still refuse the write. syncTeamToFirebase only logs its failures, so without this guard
+// the refusal is invisible and the player is left looking at an ace the scorer will never
+// see.
+const stamped = (aceLockTime: Date | null, isLocked = true) =>
+  ({ ...team(), isLocked, lockStatus: { isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: !isLocked, aceLockTime } }) as unknown as FantasyTeam;
+
+test('the stamped deadline locks the Ace even after the calendar has moved on', async () => {
+  races = [bahrainAtSepang('completed'), singapore];
+  // Five hours after lights out at Sepang: the calendar now points at Singapore and says
+  // the ace is free, but the team is still locked and still carries Sepang's deadline.
+  jest.setSystemTime(new Date('2026-10-04T14:00:00Z'));
+  useTeamStore.setState({ currentTeam: stamped(new Date('2026-10-04T09:00:00Z')), error: null } as never);
+
+  await useTeamStore.getState().setAce('hadjar');
+  expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
+  expect(useTeamStore.getState().currentTeam?.aceDriverId).toBeNull();
+
+  useTeamStore.setState({ error: null } as never);
+  await useTeamStore.getState().setAceConstructor('audi');
+  expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
+
+  useTeamStore.setState({ error: null } as never);
+  await useTeamStore.getState().clearAce();
+  expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
+});
+
+test('a stamp still in the future does not lock the Ace — that window is the point of it', async () => {
+  races = [bahrainAtSepang('upcoming'), singapore];
+  // Locked for qualifying, three hours before lights out.
+  jest.setSystemTime(new Date('2026-10-04T06:00:00Z'));
+  useTeamStore.setState({ currentTeam: stamped(new Date('2026-10-04T09:00:00Z')), error: null } as never);
+
+  await useTeamStore.getState().setAce('hadjar');
+  expect(useTeamStore.getState().error).toBeNull();
+  expect(useTeamStore.getState().currentTeam?.aceDriverId).toBe('hadjar');
+});
+
+test('a deadline left behind on an unlocked team does not freeze the Ace', async () => {
+  races = [bahrainAtSepang('completed'), singapore];
+  jest.setSystemTime(new Date('2026-10-06T00:00:00Z'));
+  useTeamStore.setState({ currentTeam: stamped(new Date('2026-10-04T09:00:00Z'), false), error: null } as never);
+
+  await useTeamStore.getState().setAce('hadjar');
   expect(useTeamStore.getState().currentTeam?.aceDriverId).toBe('hadjar');
 });

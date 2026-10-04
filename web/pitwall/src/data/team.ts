@@ -20,6 +20,12 @@ export interface RealTeam {
   constructor: RosterConstructor | null;
   budget: number;
   isLocked: boolean;
+  /**
+   * F-095: epoch ms of the race start the server stamped on the team when the weekend
+   * locked, or null. The roster locks at qualifying and the ace hours later at lights
+   * out; this is the later deadline, and firestore.rules refuses an ace write past it.
+   */
+  aceLockTime: number | null;
   aceDriverId: string | null;
   totalPoints: number;
   lockedPoints: number;
@@ -103,6 +109,19 @@ export function planSave(team: RealTeam, target: Lineup, market: MarketPrices, c
   const changed = steps.length > 0;
   if (bank < 0) return { steps, bankAfter: bank, blocked: `This lineup is $${Math.abs(Math.round(bank)).toLocaleString('en-US')} over your bank.`, changed };
   return { steps, bankAfter: bank, blocked: null, changed };
+}
+
+/**
+ * F-095: whether the ace is frozen for this team right now.
+ *
+ * Mirrors `aceDeadlinePassed` in firestore.rules, deadline and all — including only
+ * consulting it on a locked team, because between races the stamp still holds the last
+ * race's start. The portal used to gate the ace on `isLocked`, which is the QUALIFYING
+ * lock: that refused every ace move from Saturday on and threw away the window the game
+ * deliberately gives you to move your ace after seeing qualifying.
+ */
+export function aceFrozen(team: RealTeam, now: number = Date.now()): boolean {
+  return team.isLocked && team.aceLockTime !== null && now >= team.aceLockTime;
 }
 
 /** Whether the Ace change is allowed: the driver must be on the target lineup and priced at or under the cap. */

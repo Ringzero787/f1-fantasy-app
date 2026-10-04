@@ -134,6 +134,13 @@ export const autoLockTeams = functions.pubsub
             'lockStatus.nextUnlockTime': admin.firestore.Timestamp.fromMillis(
               race.schedule.race.toMillis() + UNLOCK_FAILSAFE_MS
             ),
+            // F-095: the ace locks LATER than the roster — at lights out, not at
+            // qualifying — and until now that second deadline lived only in the app.
+            // Stamping it on the team gives firestore.rules something tamper-proof to
+            // compare request.time against (lockStatus is a denied key, so a client
+            // cannot move its own deadline), and it is exact rather than rounded up to
+            // the next sweep. autoUnlockTeams clears it.
+            'lockStatus.aceLockTime': race.schedule.race,
           });
           lockedCount++;
           opsInBatch++;
@@ -195,6 +202,10 @@ export const autoUnlockTeams = functions.pubsub
         'lockStatus.canModify': true,
         'lockStatus.lockReason': null,
         'lockStatus.nextUnlockTime': null,
+        // F-095: a deadline left behind from the last race is in the past for ever.
+        // The rule only consults it on a locked team so a missed clear cannot freeze
+        // the ace, but clear it anyway — stale state is how the next bug starts.
+        'lockStatus.aceLockTime': null,
       });
       count++;
       opsInBatch++;
@@ -344,6 +355,7 @@ export const earlyUnlockTeam = functions.https.onCall(async (data, context) => {
     'lockStatus.seasonLockRacesRemaining': 0,
     'lockStatus.canModify': true,
     'lockStatus.lockReason': null,
+    'lockStatus.aceLockTime': null,
     budget: admin.firestore.FieldValue.increment(-EARLY_UNLOCK_FEE),
   });
 

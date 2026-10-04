@@ -133,6 +133,9 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
       isSeasonLocked: false,
       seasonLockRacesRemaining: 0,
       nextUnlockTime: null,
+      // F-095: stamped with the race start time when the weekend locks, consulted by
+      // firestore.rules to refuse an ace moved after lights out.
+      aceLockTime: null,
       canModify: true,
       lockReason: null,
     },

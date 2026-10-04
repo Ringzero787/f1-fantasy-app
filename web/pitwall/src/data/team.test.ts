@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { aceChange, planSave, saleQuote, teamLineup, type MarketPrices, type RealTeam } from './team';
+import { aceChange, aceFrozen, planSave, saleQuote, teamLineup, type MarketPrices, type RealTeam } from './team';
 
 const D = (driverId: string, currentPrice: number, extra = {}) => ({ driverId, name: driverId.toUpperCase(), shortName: driverId.slice(0, 3).toUpperCase(), constructorId: 'car', purchasePrice: currentPrice, currentPrice, contractLength: 3, racesHeld: 1, ...extra });
-const team: RealTeam = { id: 't1', name: 'Late Brakers', leagueId: 'L', budget: 50, isLocked: false, aceDriverId: 'a', totalPoints: 0, lockedPoints: 0, driverLockouts: { gone: 9 },
+const team: RealTeam = { id: 't1', name: 'Late Brakers', leagueId: 'L', budget: 50, isLocked: false, aceLockTime: null, aceDriverId: 'a', totalPoints: 0, lockedPoints: 0, driverLockouts: { gone: 9 },
   drivers: [D('a', 100), D('b', 200, { racesHeld: 0 }), D('c', 150, { isReservePick: true })], constructor: { constructorId: 'x', name: 'X', purchasePrice: 300, currentPrice: 300, contractLength: 3, racesHeld: 1 } };
 const market: MarketPrices = { drivers: { a: { price: 110, name: 'A' }, b: { price: 200, name: 'B' }, c: { price: 150, name: 'C' }, d: { price: 120, name: 'D' }, e: { price: 500, name: 'E' }, gone: { price: 50, name: 'GONE' }, dead: { price: 10, name: 'DEAD', isActive: false } }, constructors: { x: { price: 300, name: 'X' }, y: { price: 310, name: 'Y' } } };
 
@@ -46,5 +46,20 @@ describe('real team plan', () => {
     expect(aceChange(team, { drivers: ['a', 'b'], ctor: 'x', ace: 'e' }, market).blocked).toMatch(/must be on your lineup/);
     expect(aceChange(team, { drivers: ['a', 'e'], ctor: 'x', ace: 'e' }, market).blocked).toMatch(/\$200 or less/);
     expect(aceChange(team, { drivers: ['a'], ctor: 'x', ace: '' }, market)).toEqual({ to: '', blocked: null });
+  });
+});
+
+describe('aceFrozen (F-095)', () => {
+  const start = Date.parse('2026-03-08T14:00:00Z');
+  const locked = { ...team, isLocked: true, aceLockTime: start };
+
+  it('leaves the ace alone until the race starts, then freezes it', () => {
+    expect(aceFrozen(locked, start - 1)).toBe(false);
+    expect(aceFrozen(locked, start)).toBe(true);
+  });
+
+  it('does not freeze a team with no deadline, or one that is already unlocked', () => {
+    expect(aceFrozen({ ...team, isLocked: true, aceLockTime: null }, start + 1)).toBe(false);
+    expect(aceFrozen({ ...team, isLocked: false, aceLockTime: start }, start + 1)).toBe(false);
   });
 });
