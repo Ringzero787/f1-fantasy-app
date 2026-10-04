@@ -224,12 +224,14 @@ test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped
 // ── F-095: the ace locks at lights out, not at qualifying ──
 // The window between the two locks is a designed feature — you may move the ace after
 // seeing qualifying, right up to the start of the race — so these cases have to prove
-// both halves: the window stays open, and it shuts on time.
+// both halves: the window stays open, and it shuts on time. The freeze itself is also a
+// window, with an end, so that nothing a player can call opens it early and nothing left
+// behind closes it for ever.
 const aceTeam = (over = {}) => ({
   userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null,
   budget: 1000, totalSpent: 0, totalPoints: 0, aceDriverId: 'norris', aceConstructorId: null,
   isLocked: true,
-  lockStatus: { isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null, aceLockTime: null },
+  lockStatus: { isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null, aceLockTime: null, aceLockUntil: null },
   ...over,
 });
 const seedTeam = async (data) => {
@@ -237,19 +239,23 @@ const seedTeam = async (data) => {
     await setDoc(doc(ctx.firestore(), 'fantasyTeams', 'T1'), data);
   });
 };
-const inAnHour = () => new Date(Date.now() + 60 * 60 * 1000);
-const anHourAgo = () => new Date(Date.now() - 60 * 60 * 1000);
-const lockStatusAt = (aceLockTime) => ({ isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null, aceLockTime });
+const HOUR = 60 * 60 * 1000;
+const at = (offsetMs) => new Date(Date.now() + offsetMs);
+/** The weekend's ace window: frozen from `fromMs` until 24h after it, as autoLockTeams stamps it. */
+const lockStatusAt = (fromMs) => ({
+  isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null,
+  aceLockTime: at(fromMs), aceLockUntil: at(fromMs + 24 * HOUR),
+});
 
 test('F-095 ace: locked for qualifying but before lights out, the ace still moves', async () => {
-  await seedTeam(aceTeam({ lockStatus: lockStatusAt(inAnHour()) }));
+  await seedTeam(aceTeam({ lockStatus: lockStatusAt(HOUR) }));
   const d = db(ALICE);
   await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
   await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: null, aceConstructorId: 'mclaren' }));
 });
 
 test('F-095 ace: once the race has started the ace is frozen', async () => {
-  await seedTeam(aceTeam({ lockStatus: lockStatusAt(anHourAgo()) }));
+  await seedTeam(aceTeam({ lockStatus: lockStatusAt(-HOUR) }));
   const d = db(ALICE);
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: null }));
@@ -263,24 +269,43 @@ test('F-095 ace: once the race has started the ace is frozen', async () => {
   await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'norris', name: 'Apex Three' }));
 });
 
-test('F-095 ace: a deadline left over from last race does not freeze an unlocked team', async () => {
-  await seedTeam(aceTeam({ isLocked: false, lockStatus: { ...lockStatusAt(anHourAgo()), canModify: true } }));
+test('F-095 ace: the freeze is a window, so a stamp nobody cleared expires', async () => {
+  // Last race's window, long past its end. Nothing unlocked this team — a season-locked
+  // team is never touched by the unlock sweep — and its ace must still be free.
+  await seedTeam(aceTeam({ lockStatus: { ...lockStatusAt(-72 * HOUR), isSeasonLocked: true } }));
   await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
 });
 
-test('F-095 ace: documents written before the field existed are unaffected', async () => {
+test('F-095 ace: clearing the lock does not open the window — only time does', async () => {
+  // The freeze does not consult isLocked, so the callables that clear it (seasonLockTeam
+  // then earlyUnlockTeam) buy nothing mid-race.
+  await seedTeam(aceTeam({ isLocked: false, lockStatus: { ...lockStatusAt(-HOUR), canModify: true } }));
+  await assertFails(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+});
+
+test('F-095 ace: a half-written window freezes nothing', async () => {
+  // Fail open rather than shut: a start with no end, or an end with no start, is not a
+  // window, and must not strand a player.
+  await seedTeam(aceTeam({ lockStatus: { ...lockStatusAt(-HOUR), aceLockUntil: null } }));
+  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await seedTeam(aceTeam({ lockStatus: { ...lockStatusAt(-HOUR), aceLockTime: null } }));
+  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+});
+
+test('F-095 ace: documents written before the fields existed are unaffected', async () => {
   await seedTeam({ userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null, budget: 1000, totalSpent: 0, totalPoints: 0, aceDriverId: 'norris', isLocked: true });
   await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
   await seedTeam(aceTeam({ lockStatus: { isSeasonLocked: false, canModify: false } }));
   await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
 });
 
-test('F-095 ace: the deadline itself is not the owner\'s to move', async () => {
-  await seedTeam(aceTeam({ lockStatus: lockStatusAt(anHourAgo()) }));
+test('F-095 ace: the window itself is not the owner\'s to move', async () => {
+  await seedTeam(aceTeam({ lockStatus: lockStatusAt(-HOUR) }));
   const d = db(ALICE);
-  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockTime': inAnHour() }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockTime': at(HOUR) }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockUntil': at(-HOUR) }));
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { isLocked: false }));
-  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockTime': inAnHour(), aceDriverId: 'piastri' }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockTime': at(HOUR), aceDriverId: 'piastri' }));
 });
 
 // ── F-062 race results and F-029 race snapshots: server-written, league-readable ──

@@ -182,22 +182,32 @@ test('a race the server marks cancelled is skipped, and the next one governs', a
   expect(useTeamStore.getState().currentTeam?.aceDriverId).toBe('hadjar');
 });
 
-// ── F-095: the deadline the SERVER stamped, which is the one firestore.rules enforces ──
-// The calendar and the stamp agree during the weekend. They part company four hours after
-// the race, when getNextIncompleteRace gives up on that round and moves to the next one a
-// week away: the calendar reopens the ace while the team is still locked and the rules
-// still refuse the write. syncTeamToFirebase only logs its failures, so without this guard
-// the refusal is invisible and the player is left looking at an ace the scorer will never
-// see.
-const stamped = (aceLockTime: Date | null, isLocked = true) =>
-  ({ ...team(), isLocked, lockStatus: { isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: !isLocked, aceLockTime } }) as unknown as FantasyTeam;
+// ── F-095: the ace window the SERVER stamped, which is what firestore.rules enforces ──
+// The calendar and the window agree during the weekend. They part company four hours
+// after the race, when getNextIncompleteRace gives up on that round and moves to the next
+// one a week away: the calendar reopens the ace while the rules still refuse the write.
+// syncTeamToFirebase only logs its failures, so without this guard the refusal is
+// invisible and the player is left looking at an ace the scorer will never see.
+const HOUR = 60 * 60 * 1000;
+const windowed = (fromIso: string | null, isLocked = true) =>
+  ({
+    ...team(),
+    isLocked,
+    lockStatus: {
+      isSeasonLocked: false,
+      seasonLockRacesRemaining: 0,
+      canModify: !isLocked,
+      aceLockTime: fromIso ? new Date(fromIso) : null,
+      aceLockUntil: fromIso ? new Date(Date.parse(fromIso) + 24 * HOUR) : null,
+    },
+  }) as unknown as FantasyTeam;
 
-test('the stamped deadline locks the Ace even after the calendar has moved on', async () => {
+test('the stamped window locks the Ace even after the calendar has moved on', async () => {
   races = [bahrainAtSepang('completed'), singapore];
   // Five hours after lights out at Sepang: the calendar now points at Singapore and says
-  // the ace is free, but the team is still locked and still carries Sepang's deadline.
+  // the ace is free, but the team still carries Sepang's window.
   jest.setSystemTime(new Date('2026-10-04T14:00:00Z'));
-  useTeamStore.setState({ currentTeam: stamped(new Date('2026-10-04T09:00:00Z')), error: null } as never);
+  useTeamStore.setState({ currentTeam: windowed('2026-10-04T09:00:00Z'), error: null } as never);
 
   await useTeamStore.getState().setAce('hadjar');
   expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
@@ -212,22 +222,34 @@ test('the stamped deadline locks the Ace even after the calendar has moved on', 
   expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
 });
 
-test('a stamp still in the future does not lock the Ace — that window is the point of it', async () => {
+test('a window not yet open does not lock the Ace — that gap is the point of it', async () => {
   races = [bahrainAtSepang('upcoming'), singapore];
   // Locked for qualifying, three hours before lights out.
   jest.setSystemTime(new Date('2026-10-04T06:00:00Z'));
-  useTeamStore.setState({ currentTeam: stamped(new Date('2026-10-04T09:00:00Z')), error: null } as never);
+  useTeamStore.setState({ currentTeam: windowed('2026-10-04T09:00:00Z'), error: null } as never);
 
   await useTeamStore.getState().setAce('hadjar');
   expect(useTeamStore.getState().error).toBeNull();
   expect(useTeamStore.getState().currentTeam?.aceDriverId).toBe('hadjar');
 });
 
-test('a deadline left behind on an unlocked team does not freeze the Ace', async () => {
+test('the window expires, so one nobody cleared cannot freeze the Ace for ever', async () => {
   races = [bahrainAtSepang('completed'), singapore];
-  jest.setSystemTime(new Date('2026-10-06T00:00:00Z'));
-  useTeamStore.setState({ currentTeam: stamped(new Date('2026-10-04T09:00:00Z'), false), error: null } as never);
+  // Two days after the race, with the window never cleared — a season-locked team is
+  // never touched by the unlock sweep.
+  jest.setSystemTime(new Date('2026-10-06T09:00:00Z'));
+  useTeamStore.setState({ currentTeam: windowed('2026-10-04T09:00:00Z'), error: null } as never);
 
   await useTeamStore.getState().setAce('hadjar');
   expect(useTeamStore.getState().currentTeam?.aceDriverId).toBe('hadjar');
+});
+
+test('the window does not consult isLocked, so clearing the lock mid-race buys nothing', async () => {
+  races = [bahrainAtSepang('completed'), singapore];
+  jest.setSystemTime(new Date('2026-10-04T14:00:00Z'));
+  useTeamStore.setState({ currentTeam: windowed('2026-10-04T09:00:00Z', false), error: null } as never);
+
+  await useTeamStore.getState().setAce('hadjar');
+  expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
+  expect(useTeamStore.getState().currentTeam?.aceDriverId).toBeNull();
 });

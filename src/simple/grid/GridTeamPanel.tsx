@@ -70,7 +70,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   // They are the same moment during the weekend; afterwards the local one reopens (it has
   // already moved on to the next round) while the team is still locked and the rules still
   // refuse the write. Offering an ace that cannot be saved is the bug, so take either.
-  const aceLocked = lockoutInfo.aceLocked || serverAceLocked(team?.lockStatus, team?.isLocked === true, now);
+  const aceLocked = lockoutInfo.aceLocked || serverAceLocked(team?.lockStatus, now);
 
   // Review prompt once the lineup is complete (kept from Race Day).
   const tiles = useMemo<Tile[]>(() => {

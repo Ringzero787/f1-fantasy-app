@@ -21,11 +21,14 @@ export interface RealTeam {
   budget: number;
   isLocked: boolean;
   /**
-   * F-095: epoch ms of the race start the server stamped on the team when the weekend
-   * locked, or null. The roster locks at qualifying and the ace hours later at lights
-   * out; this is the later deadline, and firestore.rules refuses an ace write past it.
+   * F-095: the window in which the server refuses an ace change, epoch ms, or null.
+   * The roster locks at qualifying and the ace hours later at lights out; this is that
+   * later deadline and its end. It carries an end so nothing has to ask whether the team
+   * is locked — a window cannot be opened early by clearing the lock, and one nobody
+   * clears expires rather than freezing the ace for ever.
    */
   aceLockTime: number | null;
+  aceLockUntil: number | null;
   aceDriverId: string | null;
   totalPoints: number;
   lockedPoints: number;
@@ -123,14 +126,14 @@ export function planSave(team: RealTeam, target: Lineup, market: MarketPrices, c
 /**
  * F-095: whether the ace is frozen for this team right now.
  *
- * Mirrors `aceDeadlinePassed` in firestore.rules, deadline and all — including only
- * consulting it on a locked team, because between races the stamp still holds the last
- * race's start. The portal used to gate the ace on `isLocked`, which is the QUALIFYING
- * lock: that refused every ace move from Saturday on and threw away the window the game
- * deliberately gives you to move your ace after seeing qualifying.
+ * Mirrors `aceIsFrozen` in firestore.rules, end date and all. The portal used to gate
+ * the ace on `isLocked`, which is the QUALIFYING lock: that refused every ace move from
+ * Saturday on and threw away the window the game deliberately gives you to move your ace
+ * after seeing qualifying. A half-written window freezes nothing — fail open, not shut.
  */
 export function aceFrozen(team: RealTeam, now: number = Date.now()): boolean {
-  return team.isLocked && team.aceLockTime !== null && now >= team.aceLockTime;
+  if (team.aceLockTime === null || team.aceLockUntil === null) return false;
+  return now >= team.aceLockTime && now < team.aceLockUntil;
 }
 
 /** Whether the Ace change is allowed: the driver must be on the target lineup and priced at or under the cap. */

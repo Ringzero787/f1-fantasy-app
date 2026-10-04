@@ -136,31 +136,31 @@ export function computeLockoutStatus(
 }
 
 /**
- * F-095: the ace deadline the SERVER will enforce, read off the team rather than worked
- * out from the calendar.
+ * F-095: the ace window the SERVER enforces, read off the team rather than worked out
+ * from the calendar.
  *
- * `computeLockoutStatus` derives the same moment from the schedule, and the two agree
+ * `computeLockoutStatus` derives the same start from the schedule, and the two agree
  * while the weekend is running. They stop agreeing once the race is more than four hours
  * old: `getNextIncompleteRace` treats that race as implicitly complete and moves on to
  * the next one, whose start is a week away, so the app decides the ace is free again —
- * while the team is still locked and firestore.rules still refuses the write. That is the
- * shape of bug that offers a player a button and then tells them no, so the stamped
- * deadline wins wherever it is present.
+ * while firestore.rules still refuses the write. That is the shape of bug that offers a
+ * player a button and then tells them no, so the stamped window wins where it is present.
  *
- * Mirrors `aceDeadlinePassed` in firestore.rules exactly, including only consulting the
- * deadline on a locked team: between races it can still hold the last race's start.
+ * Mirrors `aceIsFrozen` in firestore.rules exactly, end date included. The end is what
+ * lets neither side consult `isLocked`: a window cannot be opened early by clearing a
+ * lock, and a stamp nobody clears expires instead of freezing the ace for ever. A
+ * half-written or unreadable window freezes nothing — fail open, not shut.
  *
- * The value arrives as a Firestore Timestamp, and survives a round trip through the
+ * The values arrive as Firestore Timestamps, and survive a round trip through the
  * persisted store as `{seconds, nanoseconds}` — hence the coercion rather than a cast.
  */
-export function serverAceLocked(
-  lockStatus: unknown,
-  isLocked: boolean,
-  now: Date,
-): boolean {
-  if (!isLocked) return false;
-  const ms = toMillis((lockStatus as { aceLockTime?: unknown } | null | undefined)?.aceLockTime);
-  return ms !== null && now.getTime() >= ms;
+export function serverAceLocked(lockStatus: unknown, now: Date): boolean {
+  const ls = lockStatus as { aceLockTime?: unknown; aceLockUntil?: unknown } | null | undefined;
+  const from = toMillis(ls?.aceLockTime);
+  const until = toMillis(ls?.aceLockUntil);
+  if (from === null || until === null) return false;
+  const t = now.getTime();
+  return t >= from && t < until;
 }
 
 /** Date, Firestore Timestamp, a rehydrated `{seconds}` plain object, ISO string or epoch ms. */
