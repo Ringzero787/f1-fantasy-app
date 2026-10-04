@@ -20,8 +20,14 @@ export type Zone = 'front' | 'midfield' | 'back';
 
 export interface Confidence {
   zone: Zone;
-  /** How the zone reads to a person. */
+  /** How the *grid zone* reads to a person. Cosmetic: it never enters the weight. */
   label: string;
+  /**
+   * How the *range* reads — derived from the band relative to the median, which is the number that
+   * actually drives the weight. Kept apart from `label` because they answer different questions and
+   * conflating them produced "their range is tight (27 points between floor and ceiling)".
+   */
+  rangeLabel: string;
   /** The published band in points, `ceil - floor`. */
   spread: number;
   /**
@@ -48,6 +54,18 @@ const LABEL: Record<Zone, string> = {
   back: 'compressed',
 };
 
+/**
+ * The band in words, on the same scale the weight uses. A band under a third of the median barely
+ * moves the weight; one as wide as the median halves it.
+ */
+export function rangeLabelOf(spread: number, med: number): string {
+  if (med <= 0) return 'unpublished';
+  const ratio = spread / med;
+  if (ratio <= 0.35) return 'narrow';
+  if (ratio <= 0.8) return 'moderate';
+  return 'wide';
+}
+
 export function confidenceOf(e: Entity): Confidence {
   const d = e as Driver;
   const spread = Math.max(0, (d.ceil ?? 0) - (d.floor ?? 0));
@@ -57,7 +75,7 @@ export function confidenceOf(e: Entity): Confidence {
   // is the sum of two drivers and moves less than either.
   const weight = med > 0 ? 1 / (1 + spread / med) : 0;
   const zone = isCtor(e) ? 'front' : zoneOf(d.t10 ?? 0);
-  return { zone, label: LABEL[zone], spread, weight: +weight.toFixed(3) };
+  return { zone, label: LABEL[zone], rangeLabel: rangeLabelOf(spread, med), spread, weight: +weight.toFixed(3) };
 }
 
 /**

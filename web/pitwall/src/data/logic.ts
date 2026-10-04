@@ -170,7 +170,7 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
   for (const x of swapRecs(p, l, purse)) {
     const n = must(p, x.in), o = must(p, x.out);
     out.push({ kind: 'SWAP', a: x.out, b: x.in, title: `${o.name} → ${n.name}`, tag: `+${x.gain.toFixed(0)} PTS`, good: true, act: `${x.out}:${x.in}`,
-      why: `${n.name} projects ${n.med - o.med} points higher for ${x.cost >= 0 ? `${money(x.cost)} more` : `${money(-x.cost)} less`}, inside your ${money(room)} bank. Their range is ${confidenceOf(n).label} (${confidenceOf(n).spread} points between floor and ceiling), so the gain is worth about ${x.edge.toFixed(0)} once that is priced in.` });
+      why: `${n.name} projects ${n.med - o.med} points higher for ${x.cost >= 0 ? `${money(x.cost)} more` : `${money(-x.cost)} less`}, inside your ${money(room)} bank. Their range is ${confidenceOf(n).rangeLabel} — ${confidenceOf(n).spread} points between floor and ceiling — so the gain is worth about ${x.edge.toFixed(0)} once that is priced in.` });
   }
   // Only a pick inside the ace cap can carry it. The save path and the scoring both enforce this
   // (team.ts ACE_MAX_PRICE, and calculatePoints strips the multiplier above it), and the Lineup Lab
@@ -212,10 +212,17 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
     // button appears only when the alternative costs nothing in points.
     const cost = r.med - ra.med;
     const safer = r.dnf - ra.dnf;
-    const free = cost <= 0;
+    // The fallback `nearest` has no filter at all, so the alternative can be riskier than the driver
+    // it replaces and outside the bank. The one-click has to clear every bar the card implies:
+    // cheaper in risk, no worse in points, and affordable.
+    const offer = cost <= 0 && safer > 0 && ra.price - r.price <= room;
+    const risk = safer > 0 ? `retires ${safer} points of a percent less often`
+      : safer === 0 ? 'retires just as often'
+      : `retires ${-safer} points of a percent MORE often`;
+    const pts = cost > 0 ? `projects ${cost} points lower` : cost === 0 ? 'projects the same' : `projects ${-cost} points higher`;
     out.push({ kind: 'RISK', a: r.id, b: ra.id, title: `Watch ${r.name}`, tag: `${r.dnf}% DNF`, bad: true,
-      ...(free ? { act: `${r.id}:${ra.id}` } : {}),
-      why: `Highest retirement risk in your lineup. The nearest-priced alternative, ${ra.name}, retires ${safer > 0 ? `${safer} points of a percent less often` : 'no less often'} and projects ${cost > 0 ? `${cost} points lower — a trade this card will not make for you` : `${-cost} points higher`}.` });
+      ...(offer ? { act: `${r.id}:${ra.id}` } : {}),
+      why: `Highest retirement risk in your lineup. The nearest-priced alternative, ${ra.name}, ${risk} and ${pts}${offer ? '.' : ' — not a trade this card will make for you.'}` });
   }
   const c = entity(p, l.ctor) as Constructor | undefined;
   if (!c) return out;

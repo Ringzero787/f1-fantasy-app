@@ -95,8 +95,9 @@ export function Briefing() {
             calibrated variance model. Worth saying plainly rather than letting the ordering imply
             more precision than it has (F-096). */}
         <p className="mut" style={{ margin: '10px 0 0', fontSize: 12 }}>
-          Ordered by projected gain discounted for range: a wide projection is counted for less than
-          a narrow one of the same size. The discount comes from the floor-to-ceiling band published
+          Swaps are ordered by projected gain discounted for range: a wide projection counts for less
+          than a narrow one of the same size. The cards below them — ace, value, risk, constructor —
+          are one of each, in that order. The discount comes from the floor-to-ceiling band published
           here, not from a calibrated variance model, so read it as a lean rather than a price.
         </p>
        </Locked>

@@ -77,3 +77,27 @@ describe('edgeOf', () => {
     expect(edgeOf(-10, D({}))).toBeLessThan(0);
   });
 });
+
+describe('rangeLabel, which is not the grid zone', () => {
+  // The first draft used one word for both and produced "their range is tight (27 points between
+  // floor and ceiling)" for a sharp-end driver with a wide band — the adjective and the number
+  // disagreeing in the same sentence, with the number being the one that drove the discount.
+  it('describes the band, not where the driver runs', () => {
+    const sharpButWide = D({ t10: 88, med: 50, floor: 40, ceil: 67 });
+    const c = confidenceOf(sharpButWide);
+    expect(c.zone).toBe('front');          // where they run
+    expect(c.label).toBe('tight');         // …which is about the grid
+    expect(c.rangeLabel).toBe('moderate'); // …and says nothing about the band
+  });
+
+  it('tracks the ratio the weight uses', () => {
+    expect(confidenceOf(D({ med: 50, floor: 45, ceil: 55 })).rangeLabel).toBe('narrow');
+    expect(confidenceOf(D({ med: 50, floor: 30, ceil: 70 })).rangeLabel).toBe('moderate');
+    expect(confidenceOf(D({ med: 50, floor: 10, ceil: 90 })).rangeLabel).toBe('wide');
+  });
+
+  it('says unpublished rather than inventing a word for a band that is not there', () => {
+    // The free payload publishes floor, ceil and t10 as zero.
+    expect(confidenceOf(D({ med: 0, floor: 0, ceil: 0 })).rangeLabel).toBe('unpublished');
+  });
+});

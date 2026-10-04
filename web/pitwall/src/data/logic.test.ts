@@ -311,7 +311,7 @@ describe('the RISK card does not hand over a downgrade', () => {
     const risk = briefRecs(p, { drivers: ['risky'], ctor: 'x', ace: '' }).find((r) => r.kind === 'RISK');
     expect(risk?.act).toBeUndefined();                       // no one-click downgrade
     expect(risk?.why).toContain('20 points lower');
-    expect(risk?.why).toContain('will not make for you');
+    expect(risk?.why).toContain('not a trade this card will make for you');
   });
 
   it('offers it when the safer pick costs nothing', () => {
@@ -319,6 +319,16 @@ describe('the RISK card does not hand over a downgrade', () => {
     const risk = briefRecs(p, { drivers: ['risky'], ctor: 'x', ace: '' }).find((r) => r.kind === 'RISK');
     expect(risk?.act).toBe('risky:better');
     expect(risk?.why).toContain('5 points higher');
+  });
+
+  it('refuses the one-click when the alternative is riskier, not only when it costs points', () => {
+    // `nearest` falls back to an unfiltered search, so the "safer" pick can retire more often than
+    // the driver it replaces. The card used to offer that in one click.
+    const riskier = D('riskier', 200, 60, { dnf: 40, floor: 55, ceil: 65, t10: 80 });
+    const p = payload([risky, riskier], [C('x', 100, 20)], 1000);
+    const risk = briefRecs(p, { drivers: ['risky'], ctor: 'x', ace: '' }).find((r) => r.kind === 'RISK');
+    expect(risk?.act).toBeUndefined();
+    expect(risk?.why).toContain('MORE often');
   });
 
   it('no longer claims a safer floor it never checked', () => {
