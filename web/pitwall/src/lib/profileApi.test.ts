@@ -10,6 +10,6 @@ describe('portal name edits (F-100)', () => {
   it('turns the server refusals into a sentence', () => {
     expect(renameErrorText({ code: 'functions/already-exists' })).toBe('That team name is taken.');
     expect(renameErrorText({ code: 'functions/invalid-argument' })).toMatch(/2 to 30/);
-    expect(renameErrorText(new Error('boom'))).toBe('boom');
+    expect(renameErrorText(new Error('boom'))).toBe('The server refused this step: boom');   // the shared mapper's fallback
   });
 });
