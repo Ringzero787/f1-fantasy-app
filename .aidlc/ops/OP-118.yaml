@@ -1,0 +1,60 @@
+id: OP-118
+title: "Portal deploy: Briefing redesign — hero, calls strip, Archivo type and tokens portal-wide (F-097)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-04T14:17:08.468Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T14:17:16.918Z
+    head_sha: 9fc297e271a40ee43c6047826c82700e0fdae95d
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-118/dry-run-2026-10-04T14-17-16-918Z.log
+    log_sha256: 768d97210baf9639f6fa5b52e744ac0b4fef19e2877ba6502cdb08790e7b4c82
+    lines: 73
+  - step: gates
+    at: 2026-10-04T15:42:31.919Z
+    head_sha: b10709964ccddffc53e21fbc2a0d17455af1c2bb
+    exit: 1
+    gates:
+      G14: fail
+  - step: dry-run
+    at: 2026-10-04T15:43:12.818Z
+    head_sha: b10709964ccddffc53e21fbc2a0d17455af1c2bb
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-118/dry-run-2026-10-04T15-43-12-818Z.log
+    log_sha256: 339c68d809863e1a1bd3bc1934b2eff20cc4e8330564631b2b8efed850248dee
+    lines: 36
+  - step: dry-run
+    at: 2026-10-04T15:49:26.646Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-118/dry-run-2026-10-04T15-49-26-646Z.log
+    log_sha256: d17dc03ecf32d509684a5f6fed3a5b7ea433c1d941a98f5930eb6cac7bb6f6ac
+    lines: 73
+  - step: gates
+    at: 2026-10-04T15:53:06.784Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T15:53:06.798Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-118/apply-2026-10-04T15-53-06-798Z.log
+    log_sha256: 57aeca2bab826137042fef1b51d75415fee32703567c6f3781ccd2101cea407a
+    lines: 84
+  - step: gates
+    at: 2026-10-04T15:56:53.187Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    exit: 0
+    gates:
+      G15: skip
