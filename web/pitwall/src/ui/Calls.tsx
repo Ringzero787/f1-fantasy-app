@@ -133,7 +133,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
                   <p className="peek-why">{r.why}</p>
                   {locked ? (
                     <div className="peek-actions">
-                      <RecAction rec={r} size="lg" />
+                      <RecAction rec={r} size="lg" instant />
                       <button type="button" className="ghost" onClick={() => set('recExpanded', true)}>All stats</button>
                     </div>
                   ) : null}
@@ -154,7 +154,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
               <button type="button" className="ghost" aria-label="Unlock and close" onClick={unlock}>✕</button>
             </span>
           </div>
-          <Compare rec={recs[pinned]} />
+          <Compare rec={recs[pinned]} instant />
         </div>
       ) : null}
     </section>

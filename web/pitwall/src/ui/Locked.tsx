@@ -25,7 +25,7 @@ export function Locked({ feature, children }: { feature: Feature; children: Reac
   if (can(pass, feature)) return <>{children}</>;
   return (
     <div className="locked">
-      <div className="locked-body" aria-hidden="true">{children}</div>
+      <div className="locked-body" aria-hidden="true" inert>{children}</div>
       <div className="locked-veil">
         <span className="pill r">Pit Wall Pass</span>
         <p>{LOCKED_COPY[feature] ?? 'Included with the Pit Wall Pass.'}</p>

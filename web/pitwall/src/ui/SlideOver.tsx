@@ -161,7 +161,7 @@ export function SlideOver() {
   if (showRec) {
     const rec = briefRecs(p, ui.lineup, purse)[ui.recOver!];
     title = rec?.title ?? 'Recommendation'; sub = 'RECOMMENDATION';
-    body = rec ? <Compare rec={rec} /> : null;
+    body = rec ? <Compare rec={rec} instant /> : null;
   } else if (showTray) {
     body = <TrayCompare />;
   } else if (d) {

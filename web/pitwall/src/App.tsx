@@ -44,12 +44,15 @@ function Portal({ account, real, pass, published, league, reloadReal, selectTeam
   // With a real team the lineup starts from it (ids the example payload may not know are kept as-is);
   // without one the example lineup stands in.
   const lineup = useMemo(() => (real ? teamLineup(real.team) : EXAMPLE_LINEUP), [real]);
-  const saver = real && reloadReal ? async (target: Lineup, onStatus: (s: string | null) => void) => {
+  const saver = real && reloadReal ? async (target: Lineup, onStatus: (s: string | null) => void, expect?: { bankAfter: number }) => {
     const fresh = (await reloadReal()) ?? real;
     const plan = planSave(fresh.team, target, fresh.market, CONTRACT_LENGTH, fresh.completedRaces);
     const ace = aceChange(fresh.team, target, fresh.market);
     if (plan.blocked) throw new Error(plan.blocked);
     if (ace.blocked) throw new Error(ace.blocked);
+    // A one-click write shows its cost first; if prices moved in between, the person has not
+    // agreed to the new number, so nothing is written.
+    if (expect && Math.round(plan.bankAfter) !== Math.round(expect.bankAfter)) throw new Error('Prices moved since this was shown. Look again before swapping.');
     if (!plan.changed && ace.to === null) return target;
     try {
       await executePlan(fresh.team.id, plan, ace.to, (p) => onStatus(p.step ? `Saving ${p.done + 1} of ${p.total}…` : null));

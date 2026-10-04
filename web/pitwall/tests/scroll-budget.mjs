@@ -100,7 +100,7 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
     // the locked callout leads with the recommendation's action, and All stats expands the comparison
     if (!(await page.locator('.peek .peek-actions .cta, .peek .peek-actions .pill').count())) failures.push(`${size.name} ${scheme}: the locked callout has no action`);
     // the action commits: in the preview build it applies locally and the call is struck through
-    const act = page.locator('.peek .peek-actions .cta');
+    const act = page.locator('.peek .peek-actions').getByRole('button', { name: /swap/i });
     if (await act.count()) { await act.first().click(); await page.waitForTimeout(80); if (!(await page.locator('.call.done').count())) failures.push(`${size.name} ${scheme}: the swap did not show as done`); await open(page, BASE + '/'); await page.locator('.call').first().click(); await page.waitForTimeout(60); }
     const all = page.getByRole('button', { name: 'All stats' });
     if (await all.count()) { await all.click(); await page.waitForTimeout(60); if (!(await page.locator('.callx').count())) failures.push(`${size.name} ${scheme}: All stats did not expand the comparison`); }

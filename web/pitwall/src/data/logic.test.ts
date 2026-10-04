@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OPEN_SEAT, applySwap, bank, percentileOf, purseOf, briefRecs, compareRows, projected, projectedLineup, rateMyTeam, rivalMove, sameLineup, shortName, shortTeamName, spent, swapPool, swapRecs, topPickRec } from './logic';
+import { OPEN_SEAT, applySwap, undoOf, undoApplies, bank, percentileOf, purseOf, briefRecs, compareRows, projected, projectedLineup, rateMyTeam, rivalMove, sameLineup, shortName, shortTeamName, spent, swapPool, swapRecs, topPickRec } from './logic';
 import type { Constructor, Driver, Lineup, Payload } from './types';
 
 const D = (id: string, price: number, med: number, extra: Partial<Driver> = {}): Driver => ({ id, num: 1, name: id.toUpperCase(), team: 'T', price, med, floor: med - 5, ceil: med + 5, form: [], dnf: 5, own: 10, pm: 0, cons: 50, dprice: 0, fit: [3], win: 0, pod: 0, t10: 0, ptsRise: Math.ceil(price * 0.011), ptsHold: Math.ceil(price * 0.006), pRise: 50, pFall: 50, q: 0, r: 0, val: +((med / price) * 100).toFixed(1), splits: [], mix: { quali: 0, race: 0, sprint: 0, fl: 0 }, ...extra });
@@ -224,6 +224,28 @@ describe('what the pass buys in the swap list', () => {
   it('offers the same people either way: the list is free, only the order is not', () => {
     const ids = (curated: boolean) => swapPool(p, mine, 'a', real, 8, curated).map((o) => o.e.id).sort();
     expect(ids(true)).toEqual(ids(false));
+  });
+});
+
+describe('undoOf: the act that puts a committed call back', () => {
+  it('reverses a driver swap and moves the ace back with it', () => {
+    const before: Lineup = { drivers: ['ham', 'b', 'c', 'd', 'e'], ctor: 'x', ace: 'ham' };
+    const after = applySwap(before, 'ham:ver');
+    expect(after.drivers[0]).toBe('ver'); expect(after.ace).toBe('ver');
+    const back = applySwap(after, undoOf({ a: 'ham', act: 'ham:ver' }));
+    expect(back).toEqual(before);
+  });
+  it('puts the constructor back', () => {
+    const before: Lineup = { drivers: ['a', 'b', 'c', 'd', 'e'], ctor: 'merc', ace: 'a' };
+    expect(applySwap(applySwap(before, 'CTOR:rb'), undoOf({ a: 'merc', act: 'CTOR:rb' }))).toEqual(before);
+  });
+  it('is empty for a call with no act', () => { expect(undoOf({ a: 'x', act: undefined })).toBe(''); });
+  it('no longer applies once the incoming pick has left or the outgoing one is back', () => {
+    const l: Lineup = { drivers: ['ver', 'b', 'c', 'd', 'e'], ctor: 'x', ace: 'ver' };
+    expect(undoApplies({ in: 'ver', out: 'ham' }, l)).toBe(true);
+    expect(undoApplies({ in: 'ver', out: 'ham' }, { ...l, drivers: ['lec', 'b', 'c', 'd', 'e'] })).toBe(false);
+    expect(undoApplies({ in: 'ver', out: 'ham' }, { ...l, drivers: ['ver', 'ham', 'c', 'd', 'e'] })).toBe(false);
+    expect(undoApplies({ in: 'rb', out: 'merc' }, { ...l, ctor: 'rb' })).toBe(true);
   });
 });
 
