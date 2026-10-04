@@ -41,7 +41,7 @@
 //     body. Plain ADC via a module-scope `admin.initializeApp()` IS caught —
 //     only the modular-SDK spelling of it escapes, as below.
 //   - The ratchet scans scripts/**, functions/src/** and functions/scripts/**.
-//     All ten operational scripts in functions/scripts are now guarded and
+//     Every operational script in functions/scripts is now guarded and
 //     checked above; they are import-safe but their write discipline comes
 //     from the `aidlc op` kind, not from this test.
 //   - Three tracked scripts at the repo root — cleanup-dup-teams.js,
@@ -64,8 +64,8 @@
 //     resolution, not a shape match.
 //   - `flagInGuard: false` waives more than the flag assertion: the check
 //     that the guard actually calls the entry point lives in the same test.
-//     That now covers the ten operational scripts plus getIndexLink and
-//     updateData, so for fourteen of the files below nothing verifies the
+//     That now covers every operational script plus getIndexLink and
+//     updateData, so for most of the files below nothing verifies the
 //     guard invokes its entry point. An empty guard body fails safe — the
 //     script becomes a no-op — but it would not be caught here. The
 //     initialiser check added alongside it runs for every file either way.
@@ -148,6 +148,38 @@ function isMainGuard(n) {
     /require\s*\.\s*main/.test(c.left.getText()) &&
     c.right.getText() === 'module'
   );
+}
+
+/**
+ * The functions the guard actually runs, so the entry point does not have to
+ * be guessed. Returns every locally-declared function called inside the
+ * guard's then-branch; each of those is a thing that must not be reachable
+ * at module scope, whatever it is called.
+ */
+function guardEntries(guard, sf) {
+  const declared = new Set();
+  const collect = (n) => {
+    if (ts.isFunctionDeclaration(n) && n.name) declared.add(n.name.text);
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer &&
+        (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) {
+      declared.add(n.name.text);
+    }
+    n.forEachChild(collect);
+  };
+  sf.forEachChild(collect);
+
+  const names = new Set();
+  const scan = (n) => {
+    if (ts.isCallExpression(n)) {
+      const e = n.expression;
+      const nm = ts.isIdentifier(e) ? e.text
+        : ts.isPropertyAccessExpression(e) ? e.name.text : null;
+      if (nm && declared.has(nm)) names.add(nm);
+    }
+    n.forEachChild(scan);
+  };
+  scan(guard.thenStatement);
+  return [...names];
 }
 
 function findMainGuard(sf, file) {
@@ -235,24 +267,26 @@ function runUnderStub(file, argv) {
   }
 }
 
-// The ten operational scripts under functions/scripts. They are run by
+// The operational scripts under functions/scripts, read off disk. They are run by
 // `aidlc op` via scripts/ops/run-script.js, which spawns them directly, so
 // require.main holds.
 //
 // Checked for IMPORT-SAFETY ONLY, and that limit is worth stating precisely:
-//   - Seven of the ten write (backfillLeagueRaceResults,
-//     backfillZandvoortTsunoda, pitwallPass, repairStuckLocks,
-//     setConstructorColors, setPitWallConfig, stampAceWindowForLiveRace);
-//     three are read-only (checkRaceCalendar, exportPitwallHistory,
-//     verifyRaceScoring). pitwallPass writes through store.grantPass()
-//     rather than a db call of its own, so grepping for `.set(`/`.update(`
-//     reports it read-only — it is not.
-//   - All seven writers gate on --apply today, and the `uc-script` op kind
+//   - Most of them write (backfillLeagueRaceResults,
+//     backfillZandvoortTsunoda, clearStaleAceWindow, pitwallPass,
+//     repairStuckLocks, setConstructorColors, setPitWallConfig,
+//     stampAceWindowForLiveRace); the read-only ones are checkRaceCalendar,
+//     exportPitwallHistory and verifyRaceScoring. pitwallPass writes through
+//     store.grantPass() rather than a db call of its own, so grepping for
+//     `.set(`/`.update(` reports it read-only — it is not. This list is
+//     hand-kept and has gone stale every time a script was added; trust the
+//     scan, and re-derive this by reading the scripts, not by grep.
+//   - Every writer gates on --apply today, and the `uc-script` op kind
 //     passes it only on apply. But NOTHING HERE ENFORCES THAT. Deleting the
 //     `if (!APPLY)` line from any of them leaves this suite green, and
 //     `aidlc op dryrun` would then write production. Asserting it properly
 //     needs a behavioural check per writer, which this file does not have.
-//   - All ten now require SA_KEY explicitly and refuse a key for the wrong
+//   - They all now require SA_KEY explicitly and refuse a key for the wrong
 //     project. Three of them used to fall back to a hardcoded admin-SDK key
 //     on the share when SA_KEY was unset, so running them without the env
 //     var still reached production, with nothing checking which project the
@@ -260,16 +294,56 @@ function runUnderStub(file, argv) {
 //     removed. NOTHING HERE ENFORCES THAT EITHER: delete a project check and
 //     this suite stays green while the comment above it lies. Same gap as
 //     the --apply note, and worth the same scepticism.
-const OP_SCRIPTS = [
-  'backfillLeagueRaceResults', 'backfillZandvoortTsunoda', 'checkRaceCalendar',
-  'exportPitwallHistory', 'pitwallPass', 'repairStuckLocks',
-  'setConstructorColors', 'setPitWallConfig', 'stampAceWindowForLiveRace',
-  'verifyRaceScoring',
-].map((n) => ({
-  file: `functions/scripts/${n}.js`,
-  entry: 'main',
-  flagInGuard: false,
-}));
+// Read off disk, not typed out. The hand-written list went stale within
+// minutes of being corrected to ten: clearStaleAceWindow.js landed on master
+// and the suite stayed green at 64/64, because a script nobody adds to the
+// list is a script this file never looks at. That is the wrong failure
+// direction for a check whose whole job is to notice an unguarded script.
+// Scanning means a new one is covered the moment it exists, and an author who
+// needs an exemption has to say so here.
+// What counts as a script is the op engine's own rule, not one invented
+// here. `aidlc op` will run anything validScriptName() accepts, so a
+// narrower predicate in this file is a set of scripts the engine runs and
+// this suite never looks at. Review proved it: an unguarded script that
+// deletes from `races` was invisible as `_probe.js`, `probe.cjs`,
+// `probe.mjs` and `probe.test.js`, all of which the engine accepts.
+const { validScriptName } = require('./ops/_paths.js');
+
+// Waivers must name a file. A pattern-shaped exemption is how `_`-prefixed
+// scripts became invisible without anyone deciding they should be.
+const OP_SCRIPT_EXEMPT = new Set([]);
+
+const OP_SCRIPT_DIR = path.join(ROOT, 'functions', 'scripts');
+const listOpScripts = () => fs.readdirSync(OP_SCRIPT_DIR, { withFileTypes: true })
+  .filter((e) => e.isFile() && validScriptName(e.name))
+  .map((e) => e.name)
+  .sort();
+
+const OP_SCRIPTS = listOpScripts()
+  .filter((f) => !OP_SCRIPT_EXEMPT.has(f))
+  .map((f) => ({ file: `functions/scripts/${f}`, flagInGuard: false }));
+
+test('the op-script scan actually covers something', () => {
+  // The floor is on what is CHECKED, not on what is on disk. Filling
+  // OP_SCRIPT_EXEMPT from the directory listing used to drop the suite to 35
+  // tests, zero failures, with an unguarded script sitting in the directory —
+  // because the old assertion measured the directory instead.
+  assert.ok(
+    OP_SCRIPTS.length >= 10,
+    `only ${OP_SCRIPTS.length} op script(s) are being checked; the scan or the ` +
+      `exempt list has gone wrong (${listOpScripts().length} on disk)`
+  );
+});
+
+test('every exemption names a file that exists', () => {
+  // Otherwise a waiver for a deleted script lingers and quietly widens.
+  for (const f of OP_SCRIPT_EXEMPT) {
+    assert.ok(
+      fs.existsSync(path.join(OP_SCRIPT_DIR, f)),
+      `OP_SCRIPT_EXEMPT names ${f}, which is not in functions/scripts — drop the waiver`
+    );
+  }
+});
 
 const GUARDED = [
   { file: 'scripts/runSeed.ts', entry: 'main', flagInGuard: true },
@@ -300,7 +374,7 @@ const GUARDED = [
   ...OP_SCRIPTS,
 ];
 
-for (const { file, entry, flagInGuard } of GUARDED) {
+for (const { file, entry: entryName, flagInGuard } of GUARDED) {
   // Naming the initialiser was the wrong shape of fix. The first version keyed
   // on the identifiers `initAdmin` and `setup`; a wrapper function, an
   // object-literal method, a second initialiser under another name, and
@@ -448,7 +522,13 @@ for (const { file, entry, flagInGuard } of GUARDED) {
 
   test(`${file}: the entry point is never reached on import`, () => {
     const sf = parse(file);
-    findMainGuard(sf, file);
+    const guard = findMainGuard(sf, file);
+    // Derived from what the guard actually runs, not hardcoded to `main`. A
+    // script whose entry is run() passed while the byte-identical script
+    // naming it main() failed, because the assumed name simply matched
+    // nothing and the check passed vacuously.
+    const entries = entryName ? [entryName] : guardEntries(guard, sf);
+    assert.ok(entries.length > 0, `${file}: could not work out what the guard runs`);
     // Any mention of the entry point at module scope, not just a call. The
     // previous version checked for calls, so `setTimeout(main, 0)`,
     // `Promise.resolve().then(main)` and `const go = main; go()` all walked
@@ -456,13 +536,13 @@ for (const { file, entry, flagInGuard } of GUARDED) {
     // bare require(). A bare reference is enough to run it, so a bare
     // reference is the thing to forbid.
     for (const n of moduleScopeNodes(sf)) {
-      if (!ts.isIdentifier(n) || n.text !== entry) continue;
+      if (!ts.isIdentifier(n) || !entries.includes(n.text)) continue;
       // The declaration's own name is not a use of it.
       const p = n.parent;
       if ((ts.isFunctionDeclaration(p) || ts.isVariableDeclaration(p)) && p.name === n) continue;
       if (ts.isPropertyAccessExpression(p) && p.name === n) continue;
       assert.fail(
-        `${file} mentions ${entry} at module scope (line ${
+        `${file} mentions ${n.text} at module scope (line ${
           sf.getLineAndCharacterOfPosition(n.getStart()).line + 1
         }) — calling, deferring or aliasing it there all run it on import`
       );
@@ -476,8 +556,12 @@ for (const { file, entry, flagInGuard } of GUARDED) {
     assert.match(text, /--apply/, `${file} must name --apply inside the guard`);
     assert.match(text, /process\s*\.\s*argv/, `${file} must read the flag from process.argv, not merely print it`);
     // The entry point must be called somewhere inside the guard, or the guard
-    // is decoration.
-    assert.ok(callsNamed(guard, entry).length > 0, `${file} never calls ${entry}() inside its guard`);
+    // is decoration. Derived when not named, same as the test above.
+    const entries = entryName ? [entryName] : guardEntries(guard, sf);
+    assert.ok(
+      entries.some((e) => callsNamed(guard, e).length > 0),
+      `${file} never calls its entry point inside its guard`
+    );
   });
 
   test(`${file}: credentials are not touched on import`, () => {
@@ -552,14 +636,16 @@ test('no new script reaches the production key on import', () => {
       // load-bearing — no scan root reaches it today — but it keeps the rule
       // correct if one is ever added.
       if (e.isDirectory()) { if (e.name !== 'node_modules' && rel !== 'functions/lib') walkDir(rel); continue; }
-      if (/\.(ts|js)$/.test(e.name) && !/\.test\.[tj]s$/.test(e.name)) files.push(rel);
+      // .cjs/.mjs included: the op engine runs them, so they need the same
+      // backstop as .js. They had none.
+      if (/\.(ts|[cm]?js)$/.test(e.name) && !/\.test\.[tj]s$/.test(e.name)) files.push(rel);
     }
   };
   roots.forEach(walkDir);
 
   // Keyed on `admin.initializeApp(` at module scope, not on a key path.
   // Matching the string `serviceAccount` missed every script that takes its
-  // key from SA_KEY — which is all ten under functions/scripts — and misses
+  // key from SA_KEY — which is all of functions/scripts — and misses
   // ADC, which needs no key at all. Connecting to a project on import is the
   // thing worth forbidding, however the credential is obtained.
   const unguarded = files

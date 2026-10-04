@@ -22,9 +22,14 @@ import * as path from 'path';
 // updateDriverPrice() also ran the CLI — and one of its commands is
 // reset-points, which zeroes every score.
 //
-// initAdmin() is called from the CLI guard at the bottom. A programmatic
-// caller must call it too; exported functions throw a clear error otherwise
-// rather than failing obscurely on an undefined db.
+// initAdmin() is called from the CLI guard at the bottom, and database()
+// calls it on first use. So an exported function does NOT require the caller
+// to initialise first — it will read the service-account key and connect to
+// production by itself, the moment it touches a collection. That is
+// deliberate (it is what lets --help and the dry runs print without a
+// credential), but it means importing this module and calling, say,
+// updateDriverPrice() is a live production write with no further ceremony.
+// resetAllPoints is the one exception: it refuses without apply=true.
 let dbOrUndefined: admin.firestore.Firestore | undefined;
 
 export function initAdmin(): void {
