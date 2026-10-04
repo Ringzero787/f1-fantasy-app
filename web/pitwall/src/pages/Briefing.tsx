@@ -5,7 +5,7 @@ import { NOT_PUBLISHED } from '../data/coverage';
 import { WeatherMap } from '../ui/WeatherMap';
 import { forBriefing, newsKey } from '../data/wire';
 import { NewsRow } from '../ui/NewsRow';
-import { Compare } from '../ui/Compare';
+import { Calls } from '../ui/Calls';
 import { Locked } from '../ui/Locked';
 import { PassBar } from '../ui/PassBar';
 import { Hero } from '../ui/Hero';
@@ -15,7 +15,6 @@ export function Briefing() {
   // the next ten this reader has not marked read, in their order
   const briefing = forBriefing(p.news, wire, 10);
   const recs = briefRecs(p, ui.lineup, purse);
-  const sel = Math.min(ui.rec, recs.length - 1);
   // The free document publishes the top ten medians and zeroes the rest, so this is exactly what
   // the reader is entitled to see, whether or not they hold a pass.
   const topTen = [...p.drivers].filter((d) => d.med > 0).sort((a, b) => b.med - a.med).slice(0, 10);
@@ -82,33 +81,7 @@ export function Briefing() {
           (a grid row would stretch to the tallest tile in it): the wire, the top ten and the rivals
           on the left; the reader's own tile, the price movers and the weather on the right. On a
           phone the reader's own tile comes first, then the wire, then the top five. */}
-      <Tile span="c12" label="Recommendations · your lineup against the data" right={<span className="mut">Click a recommendation to compare</span>}>
-       <Locked feature="briefing.recommendations">
-        <div className="recgrid">
-          <div>
-            {recs.map((x, i) => (
-              <Row key={x.title} pad cols="54px 1fr auto" selected={i === sel} label={`${x.kind}: ${x.title}, ${x.tag}`}
-                onClick={() => { set('rec', i); if (window.matchMedia('(max-width: 980px)').matches) set('recOver', i); }}>
-                <Pill red={x.bad}>{x.kind}</Pill><span><b>{x.title}</b></span><span className={`num ${x.good ? 'pos' : x.bad ? 'red' : 'mut'}`}>{x.tag}</span>
-              </Row>
-            ))}
-          </div>
-          {/* on narrow screens the comparison opens as a slide-over instead of lengthening the page */}
-          <div className="only-cmp-wide">{recs[sel] ? <Compare rec={recs[sel]} /> : null}</div>
-        </div>
-        {/* Said where the recommendations are, not in a footer nobody reads. A ranked list invites
-            the reader to take the top one, and these are ordered by a gain discounted for how wide
-            the projection's range is — which is a judgement from our own published band, not a
-            calibrated variance model. Worth saying plainly rather than letting the ordering imply
-            more precision than it has (F-096). */}
-        <p className="mut" style={{ margin: '10px 0 0', fontSize: 12 }}>
-          Swaps are ordered by projected gain discounted for range: a wide projection counts for less
-          than a narrow one of the same size. The cards below them — ace, value, risk, constructor —
-          are one of each, in that order. The discount comes from the floor-to-ceiling band published
-          here, not from a calibrated variance model, so read it as a lean rather than a price.
-        </p>
-       </Locked>
-      </Tile>
+      <Locked feature="briefing.recommendations"><Calls recs={recs} /></Locked>
       <div className="cols">
       <div className="stack side">
       <Tile span="only-wide" label="Price movers · predicted"><div className="list">{moversBody}</div></Tile>

@@ -26,7 +26,10 @@ export interface UIState {
   thr: number;
   win: 'L5' | 'L10' | 'SEASON';
   wire: string;
+  /** locked call on the Briefing strip; -1 for none */
   rec: number;
+  /** the locked call's full comparison shown in flow */
+  recExpanded: boolean;
   /** recommendation opened in the slide-over on narrow screens */
   recOver: number | null;
   /** pinned compare tray, at most three */
@@ -89,7 +92,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
   const [checkout, setCheckout] = useState<string | null>(null);
   const [ui, setUi] = useState<UIState>(() => ({
     boardTab: 'PROJECTIONS', preset: 'VALUE', sort: 'med', paceTab: 'QUALI VS RACE', mktTab: 'PRICE MODEL', lowerTab: 'RIVALS',
-    lineup, saved: lineup, slot: null, over: null, overTab: 'PRESENT', focus: null, thr: 25, win: 'L10', wire: 'ALL', rec: 0, recOver: null, tray: [], toast: null,
+    lineup, saved: lineup, slot: null, over: null, overTab: 'PRESENT', focus: null, thr: 25, win: 'L10', wire: 'ALL', rec: -1, recExpanded: false, recOver: null, tray: [], toast: null,
   }));
   const patch = useCallback((fn: (u: UIState) => Partial<UIState>) => setUi((u) => ({ ...u, ...fn(u) })), []);
   const toast = useCallback((text: string) => {
@@ -141,7 +144,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     toggleSlot: (slot) => patch((u) => ({ slot: u.slot === slot ? null : slot })),
     swapInSlot: (id) => patch((u) => (u.slot ? { lineup: applySwap(u.lineup, `${u.slot}:${id}`), slot: null } : {})),
     applyAct: (act) => patch((u) => ({ lineup: applySwap(u.lineup, act) })),
-    tryAct: (act) => { patch((u) => ({ lineup: applySwap(u.lineup, act), rec: 0, slot: null, over: null, recOver: null })); go('LINEUP LAB'); toast('Swap applied as a what-if. Save it in the lineup lab.'); },
+    tryAct: (act) => { patch((u) => ({ lineup: applySwap(u.lineup, act), rec: -1, recExpanded: false, slot: null, over: null, recOver: null })); go('LINEUP LAB'); toast('Swap applied as a what-if. Save it in the lineup lab.'); },
     // The ace can be moved from anywhere it is shown. With a real team and nothing else
     // pending it is written at once (the app's own direct ace write); with other edits pending
     // it rides along with the save. The cap is the app's rule, said here rather than at save time.
