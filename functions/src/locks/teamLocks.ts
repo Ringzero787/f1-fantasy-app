@@ -195,7 +195,23 @@ export const autoUnlockTeams = functions.pubsub
 
     for (const teamDoc of lockedTeamsSnap.docs) {
       const team = teamDoc.data();
-      if (team.lockStatus?.isSeasonLocked) continue;
+      if (team.lockStatus?.isSeasonLocked) {
+        // A season-locked team stays locked, but its ace must still come free between
+        // races: nothing else ever clears the stamp for it (this sweep is the only
+        // writer and it used to skip straight past), so a past aceLockTime on a
+        // permanently locked team would freeze the ace for the rest of the season.
+        // F-095's rule reads isLocked && deadline-passed, and both stay true for ever.
+        if (team.lockStatus?.aceLockTime) {
+          batch.update(teamDoc.ref, { 'lockStatus.aceLockTime': null });
+          opsInBatch++;
+          if (opsInBatch >= BATCH_OP_LIMIT) {
+            await batch.commit();
+            batch = db.batch();
+            opsInBatch = 0;
+          }
+        }
+        continue;
+      }
 
       batch.update(teamDoc.ref, {
         isLocked: false,
@@ -297,6 +313,17 @@ export const seasonLockTeam = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // F-095: not during a live weekend. Paired with earlyUnlockTeam below this was a way
+  // out of the weekend lock entirely — season-lock, then pay the fee to unlock, and both
+  // the roster and the ace are editable in the middle of the race. Season locking is a
+  // between-races decision; there is no reason to allow it while the weekend is running.
+  if (team.isLocked) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Teams are locked for this race weekend. Season lock once the weekend is over.'
+    );
+  }
+
   await teamDoc.ref.update({
     isLocked: true,
     'lockStatus.isSeasonLocked': true,
@@ -349,19 +376,34 @@ export const earlyUnlockTeam = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // F-095: the fee buys a way out of the SEASON lock, never out of the race weekend.
+  // Unlocking wholesale here was an escape hatch from both — the ace deadline and the
+  // roster callables alike key off isLocked, so season-lock plus early-unlock mid-race
+  // reopened the team while the cars were running. A weekend lock is in force while
+  // nextUnlockTime is still ahead of us; autoUnlockTeams clears it at the proper time.
+  const unlockAtMs = team.lockStatus?.nextUnlockTime?.toMillis?.() ?? null;
+  const weekendLockHolds = team.isLocked === true && unlockAtMs !== null && unlockAtMs > Date.now();
+
   await teamDoc.ref.update({
-    isLocked: false,
     'lockStatus.isSeasonLocked': false,
     'lockStatus.seasonLockRacesRemaining': 0,
-    'lockStatus.canModify': true,
-    'lockStatus.lockReason': null,
-    'lockStatus.aceLockTime': null,
     budget: admin.firestore.FieldValue.increment(-EARLY_UNLOCK_FEE),
+    ...(weekendLockHolds
+      ? {}
+      : {
+          isLocked: false,
+          'lockStatus.canModify': true,
+          'lockStatus.lockReason': null,
+          'lockStatus.aceLockTime': null,
+        }),
   });
 
   return {
     success: true,
-    message: `Team unlocked. ${EARLY_UNLOCK_FEE} points deducted from budget`,
+    weekendLockHolds,
+    message: weekendLockHolds
+      ? `Season lock removed. ${EARLY_UNLOCK_FEE} points deducted from budget. Your team stays locked until this race weekend is over.`
+      : `Team unlocked. ${EARLY_UNLOCK_FEE} points deducted from budget`,
   };
 });
 

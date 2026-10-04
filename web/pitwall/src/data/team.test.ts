@@ -32,7 +32,7 @@ describe('real team plan', () => {
   });
 
   it('blocks a locked team, an over-budget lineup, a lockout, an inactive driver, and too many drivers', () => {
-    expect(planSave({ ...team, isLocked: true }, teamLineup(team), market, 3, 10).blocked).toMatch(/locked/);
+    expect(planSave({ ...team, isLocked: true }, { drivers: ['a', 'd'], ctor: 'x', ace: 'a' }, market, 3, 10).blocked).toMatch(/locked/);
     expect(planSave(team, { drivers: ['a', 'b', 'c', 'e'], ctor: 'x', ace: 'a' }, market, 3, 10).blocked).toMatch(/over your bank/);
     expect(planSave(team, { drivers: ['a', 'b', 'c', 'gone'], ctor: 'x', ace: 'a' }, market, 3, 8).blocked).toMatch(/cannot come back/);
     expect(planSave(team, { drivers: ['a', 'b', 'c', 'gone'], ctor: 'x', ace: 'a' }, market, 3, 9).blocked).toBeNull();
@@ -46,6 +46,24 @@ describe('real team plan', () => {
     expect(aceChange(team, { drivers: ['a', 'b'], ctor: 'x', ace: 'e' }, market).blocked).toMatch(/must be on your lineup/);
     expect(aceChange(team, { drivers: ['a', 'e'], ctor: 'x', ace: 'e' }, market).blocked).toMatch(/\$200 or less/);
     expect(aceChange(team, { drivers: ['a'], ctor: 'x', ace: '' }, market)).toEqual({ to: '', blocked: null });
+  });
+});
+
+describe('the lock refuses a roster change, not an ace change (F-095)', () => {
+  // The window between the qualifying lock and lights out is the whole point of the ace.
+  // planSave used to return blocked on isLocked before it looked at anything, so every
+  // portal ace move from Saturday on died there — and the relaxation in state.tsx and
+  // Compare.tsx would have shipped as a change that did nothing at all.
+  it('lets an ace-only save through on a locked team, and still refuses the roster', () => {
+    const locked = { ...team, isLocked: true };
+    const sameRoster = teamLineup(team);
+    expect(planSave(locked, sameRoster, market, 3, 10).blocked).toBeNull();
+    expect(planSave(locked, { ...sameRoster, ace: 'b' }, market, 3, 10).blocked).toBeNull();
+    expect(planSave(locked, { ...sameRoster, ace: 'b' }, market, 3, 10).steps).toEqual([]);
+    // a driver swap on the same locked team is still refused
+    expect(planSave(locked, { ...sameRoster, drivers: ['a', 'd'] }, market, 3, 10).blocked).toMatch(/locked/);
+    // so is a constructor swap on its own
+    expect(planSave(locked, { ...sameRoster, ctor: 'y' }, market, 3, 10).blocked).toMatch(/locked/);
   });
 });
 

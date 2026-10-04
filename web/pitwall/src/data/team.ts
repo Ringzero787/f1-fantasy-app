@@ -77,7 +77,16 @@ export function planSave(team: RealTeam, target: Lineup, market: MarketPrices, c
   const want = new Set(target.drivers.filter(Boolean));
   const ctorChanged = (team.constructor?.constructorId ?? '') !== target.ctor;
 
-  if (team.isLocked) return { steps, bankAfter: bank, blocked: 'Your team is locked for this weekend.', changed: false };
+  // F-095: the weekend lock refuses ROSTER changes, and only those. An ace-only save in
+  // the window between the qualifying lock and lights out has no steps at all, and it has
+  // to get through — that window is the point of the ace, and the rules allow it until the
+  // race starts. Blocking unconditionally on isLocked meant every portal ace move from
+  // Saturday on died here with "locked for this weekend", which is how the relaxation in
+  // state.tsx and Compare.tsx would have shipped as a change that did nothing.
+  const rosterChanged = ctorChanged
+    || team.drivers.some((d) => !want.has(d.driverId))
+    || [...want].some((id) => !have.has(id));
+  if (team.isLocked && rosterChanged) return { steps, bankAfter: bank, blocked: 'Your team is locked for this weekend.', changed: true };
   if (want.size > TEAM_SIZE) return { steps, bankAfter: bank, blocked: `A lineup holds at most ${TEAM_SIZE} drivers.`, changed: true };
 
   for (const d of team.drivers) if (!want.has(d.driverId)) {

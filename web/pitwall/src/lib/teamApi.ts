@@ -69,7 +69,18 @@ export async function executePlan(teamId: string, plan: Plan, ace: string | null
     // setAceSecure callable to route through.
     
     const { m, db } = await firestore();
-    await m.updateDoc(m.doc(db, 'fantasyTeams', teamId), { aceDriverId: ace || null, updatedAt: m.serverTimestamp() });
+    try {
+      await m.updateDoc(m.doc(db, 'fantasyTeams', teamId), { aceDriverId: ace || null, updatedAt: m.serverTimestamp() });
+    } catch (e) {
+      // F-095: the ace is the one step that is not a callable, so a refusal arrives as a
+      // bare permission-denied with no sentence in it. Say what it means HERE, where we
+      // know which write was refused — reading every permission-denied as a race-start
+      // lock would mislabel a revoked session or a rules regression on any other step.
+      if ((e as { code?: string }).code?.endsWith('permission-denied')) {
+        throw new Error('The race has started, so your ace is set for this round. Nothing more was changed.');
+      }
+      throw e;
+    }
     done++;
   }
   tick(null);
@@ -79,10 +90,10 @@ export async function executePlan(teamId: string, plan: Plan, ace: string | null
 export function saveErrorText(e: unknown): string {
   const code = (e as { code?: string }).code ?? '';
   const msg = (e as { message?: string }).message ?? '';
-  // F-095: the ace write is a direct document update, so a refusal arrives as a bare
-  // permission-denied with no sentence in it — every other step is a callable that says
-  // why. Without this the player got "The server refused this step:" and nothing else.
-  if (code.endsWith('permission-denied') || /insufficient permissions|PERMISSION_DENIED/i.test(msg)) return 'The race has started, so your ace is set for this round. Nothing more was changed.';
+  // F-095 translates the ace refusal at the write itself (executePlan), where it is clear
+  // WHICH step was refused; a blanket permission-denied branch here would report a revoked
+  // session or a rules regression on any other step as a race-start lock.
+  if (/your ace is set for this round/.test(msg)) return msg;
   if (/locked/i.test(msg) || code.endsWith('failed-precondition') && /lock/i.test(msg)) return 'Your team is locked for this weekend. Nothing more was changed.';
   if (/Insufficient budget|budget/i.test(msg)) return 'The server found the bank short after fees. Nothing more was changed.';
   if (/lockout|cannot be re-added|re-bought/i.test(msg)) return 'That driver just left your team and cannot come back yet. Nothing more was changed.';

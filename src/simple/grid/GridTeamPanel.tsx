@@ -108,7 +108,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const aceName = aceTile && aceTile.kind !== 'empty' ? aceTile.name : null;
   // No Ace chosen yet, it can still be chosen this round, and at least one pick is allowed to be Ace.
   const anyAceEligible = tiles.some((t) => t.kind !== 'empty' && t.aceEligible);
-  const aceNeeded = hasTeam && anyAceEligible && !aceTile && !lockoutInfo.aceLocked;
+  const aceNeeded = hasTeam && anyAceEligible && !aceTile && !aceLocked;
   const isFull = hasTeam && open === 0;
   const reviewed = React.useRef(false);
   useEffect(() => {
