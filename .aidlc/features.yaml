@@ -1109,7 +1109,7 @@ features:
       - wide
   - id: F-098
     name: "UC: the ace freezes for every session it scores in, not just the race"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-098.md
     created_at: 2026-10-04
     keywords:
