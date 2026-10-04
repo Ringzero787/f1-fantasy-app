@@ -87,6 +87,20 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
   rows.push(`${size.name.padEnd(7)} ${scheme.padEnd(5)} ${'MARKET'.padEnd(10)} ${'locked view'.padEnd(22)} ${locked.ratio.toFixed(2)}`);
   if (locked.ratio > LIMIT) failures.push(`${size.name} ${scheme} MARKET [locked]: ${locked.ratio.toFixed(2)} screens`);
 
+  // the calls strip: on a desktop Escape unlocks a locked call; on a phone a tap opens the
+  // slide-over and leaves no tile locked behind it
+  await open(page, BASE + '/');
+  await page.locator('.call').first().click(); await page.waitForTimeout(60);
+  if (size.name === 'phone') {
+    if (!(await page.locator('[role="dialog"]').isVisible())) failures.push(`${size.name} ${scheme}: a tapped call did not open the slide-over`);
+    if (await page.locator('.call[aria-pressed="true"]').count()) failures.push(`${size.name} ${scheme}: a tapped call stayed locked`);
+    await page.keyboard.press('Escape');
+  } else {
+    if (!(await page.locator('.call[aria-pressed="true"]').count())) failures.push(`${size.name} ${scheme}: clicking a call did not lock it`);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(60);
+    if (await page.locator('.call[aria-pressed="true"]').count()) failures.push(`${size.name} ${scheme}: Escape did not unlock the call`);
+  }
+
   // the slide-over opens, traps nothing behind it, and closes on Escape
   await open(page, BASE + '/board');
   await page.locator('main tbody tr').first().click();

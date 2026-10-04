@@ -1,4 +1,4 @@
-import { entity, shortName, shortTeamName } from '../data/logic';
+import { LINEUP_DRIVER_SLOTS, entity, shortName, shortTeamName } from '../data/logic';
 import { isCtor } from '../data/types';
 import { useStore } from '../state';
 import { Arrow, Pill, TeamBar } from './bits';
@@ -13,7 +13,9 @@ import { Arrow, Pill, TeamBar } from './bits';
  */
 export function LineupTiles() {
   const { payload: p, ui, has, real, open, go } = useStore();
-  const ids = [...ui.lineup.drivers, ...(ui.lineup.ctor ? [ui.lineup.ctor] : [])];
+  const seats = [...ui.lineup.drivers];
+  while (seats.length < LINEUP_DRIVER_SLOTS) seats.push('');
+  const ids = [...seats, ...(ui.lineup.ctor ? [ui.lineup.ctor] : [])];
   const ace = ui.lineup.ace ? entity(p, ui.lineup.ace) : undefined;
   return (
     <section className="tile only-wide" aria-label="Your lineup">
@@ -25,7 +27,8 @@ export function LineupTiles() {
         </span>
       </div>
       <div className="ltiles">
-        {ids.map((id) => {
+        {ids.map((id, i) => {
+          if (!id) return <button key={`open-${i}`} type="button" className="ltile open" onClick={() => go('LINEUP LAB')} aria-label="Open seat. Fill it in the Lineup Lab"><span className="mut">OPEN SEAT</span><span className="mut">Fill it in the Lab →</span></button>;
           const e = entity(p, id);
           if (!e) return <div key={id} className="ltile mut">{id}</div>;
           const ctor = isCtor(e);

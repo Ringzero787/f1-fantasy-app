@@ -1009,9 +1009,11 @@ features:
     status: building
     spec: .aidlc/specs/F-090.md
     created_at: 2026-10-02
-    summary: Registered retroactively on 2026-10-02. The id was taken from the branch name (fix/F-090-amazon-r8-keep-rules)
-      without `aidlc feature add`, which the spec gate caught on PR 132 — the same drift the F-084 note above records.
-      F-089 was never claimed and is left unused rather than handed out again.
+    summary: >-
+      Registered retroactively on 2026-10-02. The id was taken from the branch name
+      (fix/F-090-amazon-r8-keep-rules) without `aidlc feature add`, which the spec gate caught on PR
+      132 — the same drift the F-084 note above records. F-089 was never claimed and is left unused
+      rather than handed out again.
     prs:
       - 132
     keywords:
@@ -1092,6 +1094,8 @@ features:
       budget"
     status: building
     spec: .aidlc/specs/F-097.md
+    prs:
+      - 158
     created_at: 2026-10-04
     keywords:
       - wall

@@ -1,4 +1,5 @@
-import { bank, money, projectedLineup, rateMyTeam } from '../data/logic';
+import { bank, entity, money, projectedLineup, rateMyTeam } from '../data/logic';
+import { PREVIEW } from '../lib/env';
 import { useStore } from '../state';
 import { Lbl } from './bits';
 
@@ -13,7 +14,10 @@ import { Lbl } from './bits';
 export function Hero() {
   const { payload: p, has, ui, real, pass, go, selectTeam } = useStore();
   const proj = projectedLineup(p, ui.lineup);
-  const example = !real && p.example;
+  // Example figures belong to the preview build only. A signed-in account with no team sees
+  // dashes, as the context bar does, even while the worker has not published and the payload is
+  // the example set.
+  const example = PREVIEW && !real;
   const name = real?.team.name ?? (example ? 'Late Brakers' : null);
   // The season total is the active roster's points plus what departed picks banked (the app's
   // totalPoints + lockedPoints model); the portal has no last-race figure for a real team yet.
@@ -24,8 +28,14 @@ export function Hero() {
   const flags = ui.lineup.drivers.filter((id) => p.news.some((n) => n.entity === id && n.kind === 'PENALTY')).length;
   const dash = <span className="mut">—</span>;
   const fmt = (n: number) => n.toLocaleString('en-US');
-  const low = Math.round(proj.points * 0.72), high = Math.round(proj.points * 1.3);
-  const marker = high > low ? ((proj.points - low) / (high - low)) * 100 : 50;
+  // The range is the lineup's own: every pick's floor and ceiling summed, the ace doubled. Drawn
+  // only when every pick has a published band, so the marker means something.
+  const picks = [...ui.lineup.drivers, ...(ui.lineup.ctor ? [ui.lineup.ctor] : [])].map((id) => entity(p, id));
+  const banded = proj.complete && picks.every((e) => e && (e.floor > 0 || e.ceil > 0));
+  const mult = (id: string) => (id === ui.lineup.ace ? 2 : 1);
+  const low = banded ? picks.reduce((s, e) => s + (e ? e.floor * mult(e.id) : 0), 0) : 0;
+  const high = banded ? picks.reduce((s, e) => s + (e ? e.ceil * mult(e.id) : 0), 0) : 0;
+  const marker = banded && high > low ? Math.max(0, Math.min(100, ((proj.points - low) / (high - low)) * 100)) : null;
   return (
     <section className="hero c12" aria-label="Your team this season">
       <div className="hero-main">
@@ -48,8 +58,8 @@ export function Hero() {
         <div className="th"><span className="lbl red">This weekend</span><Lbl>Projected</Lbl></div>
         {proj.complete ? (
           <>
-            <div className="weekend-proj"><span className="hero-num num">{proj.points}</span><span className="mut">PTS · RANGE {low}–{high}</span></div>
-            <div className="weekend-range" aria-hidden="true"><i style={{ left: `${marker}%` }} /></div>
+            <div className="weekend-proj"><span className="hero-num num">{proj.points}</span><span className="mut">PTS{marker !== null ? ` · RANGE ${low}–${high}` : ''}</span></div>
+            {marker !== null ? <div className="weekend-range" role="img" aria-label={`Floor ${low}, projected ${proj.points}, ceiling ${high}`}><i style={{ left: `${marker}%` }} /></div> : null}
           </>
         ) : (
           <p className="mut" style={{ margin: 0, fontFamily: 'var(--disp)', fontSize: 13, lineHeight: 1.5 }}>

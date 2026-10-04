@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FocusEvent, type MouseEvent } from 'react';
 import { confidenceOf } from '../data/confidence';
 import { entity, type Rec } from '../data/logic';
 import { useStore } from '../state';
@@ -22,6 +22,9 @@ import { Pill, Range, TeamBar } from './bits';
 export function Calls({ recs }: { recs: Rec[] }) {
   const { payload: p, ui, set } = useStore();
   const [hover, setHover] = useState<number | null>(null);
+  // which edge the callout hangs from: the tile's own position decides, not its index, because
+  // the grid's column count changes with the viewport
+  const [side, setSide] = useState<'left' | 'right'>('left');
   const [hoverable, setHoverable] = useState(true);
   const pinned = ui.rec;
   const expanded = ui.recExpanded && pinned >= 0 && pinned < recs.length;
@@ -32,9 +35,17 @@ export function Calls({ recs }: { recs: Rec[] }) {
     return () => mq.removeEventListener('change', sync);
   }, []);
   const comparable = (r: Rec) => r.a !== r.b;
+  const enter = (i: number) => (e: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
+    const tile = e.currentTarget.closest('.callw') as HTMLElement | null;
+    const grid = tile?.parentElement;
+    if (tile && grid) setSide(tile.getBoundingClientRect().left + 440 > grid.getBoundingClientRect().right ? 'right' : 'left');
+    setHover(i);
+  };
   const unlock = () => { set('rec', -1); set('recExpanded', false); };
   const pin = (i: number) => {
-    if (!hoverable) { set('rec', i); set('recOver', i); return; }
+    // a phone has no hover and no Escape: the slide-over is the whole interaction, so nothing is
+    // left locked behind it when it closes
+    if (!hoverable) { set('recOver', i); return; }
     if (pinned === i) unlock(); else { set('rec', i); set('recExpanded', false); }
   };
   // Escape unlocks from anywhere on the page: the button that had focus unmounts with the callout,
@@ -69,19 +80,19 @@ export function Calls({ recs }: { recs: Rec[] }) {
           const showCard = hoverable && comparable(r) && ((locked && !expanded) || peek);
           const a = entity(p, r.a), b = entity(p, r.b);
           return (
-            <div key={`${r.kind}-${r.a}-${r.b}`} className="callw" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
+            <div key={`${r.kind}-${r.a}-${r.b}`} className="callw" onMouseEnter={enter(i)} onMouseLeave={() => setHover(null)}>
               <button type="button" className={`call ${r.kind === 'ACE' ? 'ace' : ''} ${r.bad ? 'risk' : ''}`} aria-pressed={locked} aria-expanded={locked && expanded}
-                onClick={() => pin(i)} onFocus={() => setHover(i)} onBlur={() => setHover(null)} aria-label={`${r.kind}: ${r.title}, ${r.tag}`}>
+                onClick={() => pin(i)} onFocus={enter(i)} onBlur={() => setHover(null)} aria-label={`${r.kind}: ${r.title}, ${r.tag}`}>
                 <span className="call-top">
                   <Pill red={r.bad || r.kind === 'ACE'}>{r.kind}</Pill>
                   <span className="call-title">{r.title}</span>
-                  <span className={`call-meta num ${r.good ? 'pos' : r.bad ? 'red' : 'fg2'}`}>{r.tag}</span>
+                  <span className={`call-meta num ${r.tag.startsWith('−') ? 'fg2' : r.good ? 'pos' : r.bad ? 'red' : 'fg2'}`}>{r.tag}</span>
                   {locked ? <span className="call-lock red" aria-hidden="true">🔒</span> : null}
                 </span>
                 <span className="call-note">{note(r)}</span>
               </button>
               {showCard && a && b ? (
-                <div className={`peek ${i >= Math.ceil(recs.length / 2) ? 'right' : 'left'}`} role="dialog" aria-label={`${a.name} against ${b.name}`}>
+                <div className={`peek ${side}`} role="dialog" aria-label={`${a.name} against ${b.name}`}>
                   <div className="th">
                     {locked ? (
                       <>
