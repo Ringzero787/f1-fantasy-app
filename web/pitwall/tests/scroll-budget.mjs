@@ -54,7 +54,7 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
     const controls = await page.locator('main .tabs.sm button:visible, main .chip:visible').allTextContents();
     for (const text of controls) states.push([`control ${text}`, async () => { await open(page, BASE + route); await page.waitForSelector('.page'); await page.locator('main .tabs.sm button:visible, main .chip:visible').filter({ hasText: new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).first().click(); }]);
     // the calls strip: a locked call and its expanded comparison are both in-flow states on a desktop
-    if (name === 'BRIEFING') { states.push(['call locked', async () => { await open(page, BASE + route); await page.locator('.call').first().click(); }]); states.push(['call expanded', async () => { await open(page, BASE + route); await page.locator('.call').first().click(); const ex = page.getByRole('button', { name: 'Expand' }); if (await ex.count()) await ex.click(); }]); }
+    if (name === 'BRIEFING') { states.push(['call locked', async () => { await open(page, BASE + route); await page.locator('.call').first().click(); }]); states.push(['call expanded', async () => { await open(page, BASE + route); await page.locator('.call').first().click(); const ex = page.getByRole('button', { name: 'All stats' }); if (await ex.count()) await ex.click(); }]); }
     if (name === 'LINEUP LAB') { states.push(['driver slot open', async () => { await open(page, BASE + route); await page.locator('.dt').first().click(); }]); states.push(['constructor slot open', async () => { await open(page, BASE + route); await page.locator('.dt.ctor').click(); }]); }
     for (const [label, act] of states) {
       await act(); await page.waitForTimeout(60);
@@ -97,6 +97,10 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
     await page.keyboard.press('Escape');
   } else {
     if (!(await page.locator('.call[aria-pressed="true"]').count())) failures.push(`${size.name} ${scheme}: clicking a call did not lock it`);
+    // the locked callout leads with the recommendation's action, and All stats expands the comparison
+    if (!(await page.locator('.peek .peek-actions .cta, .peek .peek-actions .pill').count())) failures.push(`${size.name} ${scheme}: the locked callout has no action`);
+    const all = page.getByRole('button', { name: 'All stats' });
+    if (await all.count()) { await all.click(); await page.waitForTimeout(60); if (!(await page.locator('.callx').count())) failures.push(`${size.name} ${scheme}: All stats did not expand the comparison`); }
     await page.keyboard.press('Escape'); await page.waitForTimeout(60);
     if (await page.locator('.call[aria-pressed="true"]').count()) failures.push(`${size.name} ${scheme}: Escape did not unlock the call`);
   }

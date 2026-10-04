@@ -2,7 +2,7 @@ import { useEffect, useState, type FocusEvent, type MouseEvent } from 'react';
 import { confidenceOf } from '../data/confidence';
 import { entity, type Rec } from '../data/logic';
 import { useStore } from '../state';
-import { Compare } from './Compare';
+import { Compare, RecAction } from './Compare';
 import { Pill, Range, TeamBar } from './bits';
 
 /**
@@ -10,9 +10,10 @@ import { Pill, Range, TeamBar } from './bits';
  * swaps show while the lineup is open and the ace, hold, risk and team calls when it is locked.
  *
  * Desktop: hover or focus a tile that has a comparison to peek at it in a callout under the tile;
- * click to lock it (accent border, lock mark) with Expand and close; Expand puts the full
- * comparison in flow under the strip; Collapse goes back to the locked callout; the locked tile
- * again, close, or Escape unlocks. A tile whose two sides are the same pick only locks.
+ * click to lock it (accent border, lock mark). The locked callout leads with the recommendation's
+ * own action (RecAction), with All stats and close beside it; All stats puts the full comparison
+ * in flow under the strip; Collapse goes back to the locked callout; the locked tile again, close,
+ * or Escape unlocks. A tile whose two sides are the same pick only locks.
  *
  * Phone (no hover): a tap opens the comparison in the slide-over, as before, so the page never
  * grows under a floating panel it cannot fit.
@@ -69,7 +70,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
     <section className="calls c12" aria-label="The calls">
       <div className="th">
         <h2 className="h2 calls-h">The calls</h2>
-        <span className="lbl only-wide">{hoverable ? 'Hover to peek · click to lock · expand for all stats' : 'Tap a call to compare'}</span>
+        <span className="lbl only-wide">{hoverable ? 'Hover to peek · click to lock and act · all stats one step further' : 'Tap a call to compare'}</span>
       </div>
       <div className="calls-grid">
         {recs.map((r, i) => {
@@ -97,10 +98,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
                     {locked ? (
                       <>
                         <span className="lbl red">🔒 Locked</span>
-                        <span className="srow">
-                          <button type="button" className="cta sm" onClick={() => set('recExpanded', true)}>Expand</button>
-                          <button type="button" className="ghost" aria-label="Unlock and close" onClick={unlock}>✕</button>
-                        </span>
+                        <button type="button" className="ghost" aria-label="Unlock and close" onClick={unlock}>✕</button>
                       </>
                     ) : <span className="lbl">Peek · click the tile to lock</span>}
                   </div>
@@ -116,6 +114,12 @@ export function Calls({ recs }: { recs: Rec[] }) {
                     <div className="cell3"><span className="lbl">DNF risk</span><span className="num"><b className="peek-big">{(a as { dnf?: number }).dnf ?? '—'}{typeof (a as { dnf?: number }).dnf === 'number' ? '%' : ''}</b> <span className="mut">/ {(b as { dnf?: number }).dnf ?? '—'}{typeof (b as { dnf?: number }).dnf === 'number' ? '%' : ''}</span></span></div>
                   </div>
                   <p className="peek-why">{r.why}</p>
+                  {locked ? (
+                    <div className="peek-actions">
+                      <RecAction rec={r} size="lg" />
+                      <button type="button" className="ghost" onClick={() => set('recExpanded', true)}>All stats</button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>

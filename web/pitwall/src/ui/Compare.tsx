@@ -4,9 +4,37 @@ import { isCtor } from '../data/types';
 import { useStore } from '../state';
 import { Lbl, Pill, Range, TeamBar } from './bits';
 
+/**
+ * The one thing a recommendation asks the reader to do, as a button: make the swap (a what-if
+ * carried into the Lineup Lab, where it is saved), set the ace (written at once), or nothing,
+ * said plainly. Shared by the locked callout on the calls strip and the full comparison, so the
+ * action is never further away than the stats.
+ */
+export function RecAction({ rec, size = 'md' }: { rec: Rec; size?: 'md' | 'lg' }) {
+  const { payload: p, tryAct, setAce, ui, real } = useStore();
+  const cls = size === 'lg' ? 'cta lg' : 'cta';
+  if (rec.act && (rec.good || rec.bad)) {
+    // A locked weekend still takes the what-if, but the Lab will refuse to save it until the team
+    // unlocks, so the button says preview rather than promising a change.
+    const label = real?.team.isLocked ? 'Preview this swap in the Lab →' : rec.good ? 'Make this swap →' : 'Swap them out →';
+    return <button type="button" className={rec.good ? cls : `${cls} line`} onClick={() => tryAct(rec.act!)}>{label}</button>;
+  }
+  if (rec.ace) {
+    // The button says so rather than failing on the click. The recommendation itself
+    // still stands — it is what to do when it opens. The gate is the race start, not
+    // the qualifying lock: moving the ace after qualifying is the point of the ace
+    // (F-095), and reading isLocked here shut the window a day early.
+    const locked = real ? aceFrozen(real.team) : false;
+    const isAce = ui.lineup.ace === rec.ace;
+    const label = locked ? 'The race has started' : isAce ? `Ace is on ${entity(p, rec.ace)?.name}` : `Set ace on ${entity(p, rec.ace)?.name}`;
+    return <button type="button" className={cls} onClick={() => setAce(rec.ace!)} disabled={isAce || locked}>{label}</button>;
+  }
+  return <Pill>No change needed</Pill>;
+}
+
 /** Side-by-side comparison of the user's pick and the recommended or nearest alternative. */
 export function Compare({ rec }: { rec: Rec }) {
-  const { payload: p, open, tryAct, setAce, ui, real } = useStore();
+  const { payload: p, open } = useStore();
   const a = entity(p, rec.a), b = entity(p, rec.b);
   if (!a || !b) return null;
   const head = (e: NonNullable<typeof a>) => (
@@ -31,18 +59,7 @@ export function Compare({ rec }: { rec: Rec }) {
       </div>
       <p style={{ margin: '6px 0 0', color: 'var(--fg2)' }}>{rec.why}</p>
       <div className="th" style={{ justifyContent: 'flex-start' }}>
-        {rec.act && (rec.good || rec.bad) ? <button type="button" className={rec.good ? 'cta' : 'ghost'} onClick={() => tryAct(rec.act!)}>Try this swap in lineup lab →</button> : null}
-        {rec.ace ? (() => {
-          // The button says so rather than failing on the click. The recommendation itself
-          // still stands — it is what to do when it opens. The gate is the race start, not
-          // the qualifying lock: moving the ace after qualifying is the point of the ace
-          // (F-095), and reading isLocked here shut the window a day early.
-          const locked = real ? aceFrozen(real.team) : false;
-          const isAce = ui.lineup.ace === rec.ace;
-          const label = locked ? 'The race has started' : isAce ? `Ace is on ${entity(p, rec.ace)?.name}` : `Set ace on ${entity(p, rec.ace)?.name}`;
-          return <button type="button" className="cta" onClick={() => setAce(rec.ace!)} disabled={isAce || locked}>{label}</button>;
-        })() : null}
-        {!rec.good && !rec.bad ? <Pill>No change needed</Pill> : null}
+        <RecAction rec={rec} />
         <button type="button" className="ghost" onClick={() => open(a.id)}>{a.name} detail</button>
         <button type="button" className="ghost" onClick={() => open(b.id)}>{b.name} detail</button>
       </div>
