@@ -27,12 +27,23 @@ function initAdmin(): void {
   });
 }
 
+/**
+ * The single non-flag argument, so --apply may appear on either side of it.
+ * Reading argv[2] broke the moment the guard added a flag. Two emails used to
+ * mean the second was dropped in silence, and the dry run echoed only the
+ * first, so the preview did not reveal the discard.
+ */
+function targetEmail(): string | undefined {
+  const nonFlags = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+  if (nonFlags.length > 1) {
+    console.error(`setAdminClaim takes one email; got ${nonFlags.length}: ${nonFlags.join(' ')}`);
+    process.exit(2);
+  }
+  return nonFlags[0];
+}
+
 async function main() {
-  // The first non-flag argument, so --apply may appear on either side of it.
-  // Reading argv[2] broke the moment the guard added a flag: the documented
-  // `setAdminClaim.ts <email>` printed the dry-run notice and never granted,
-  // and `--apply <email>` looked up a user called "--apply".
-  const email = process.argv.slice(2).find((a) => !a.startsWith('--'));
+  const email = targetEmail();
   if (!email) {
     console.error('Usage: npx ts-node scripts/setAdminClaim.ts <email> --apply');
     process.exit(1);
@@ -53,10 +64,17 @@ async function main() {
 
 if (require.main === module) {
   if (process.argv.includes('--apply')) {
+    // Validated before anything connects: a missing or doubled email used to
+    // initialise firebase-admin against production and only then exit.
+    const target = targetEmail();
+    if (!target) {
+      console.error('Usage: npx ts-node scripts/setAdminClaim.ts <email> --apply');
+      process.exit(1);
+    }
     initAdmin();
     main();
   } else {
-    const target = process.argv.slice(2).find((a) => !a.startsWith('--'));
+    const target = targetEmail();
     console.log('setAdminClaim: dry run. This GRANTS the admin custom claim on a real');
     console.log('account in production. Nothing was changed.');
     console.log(target

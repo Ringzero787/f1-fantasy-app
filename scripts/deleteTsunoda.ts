@@ -12,6 +12,7 @@ import * as admin from 'firebase-admin';
 // deleted a production document. It also needs --apply now: it is a delete,
 // and deletes are not recoverable by re-running the script.
 let db: admin.firestore.Firestore;
+const EXPECTED_PROJECT = 'f1-app-18077';
 let projectId = '';
 
 function initAdmin(): void {
@@ -29,6 +30,13 @@ function initAdmin(): void {
   });
   db = admin.firestore();
   projectId = serviceAccount.project_id;
+  // It printed the target project but ran against any of them. An
+  // unrecoverable production delete had a weaker bar than cleanAll, which
+  // refuses on a project mismatch.
+  if (projectId !== EXPECTED_PROJECT) {
+    console.error(`Refusing to run: key is for project ${projectId}, expected ${EXPECTED_PROJECT}.`);
+    process.exit(2);
+  }
 }
 
 async function deleteTsunoda() {

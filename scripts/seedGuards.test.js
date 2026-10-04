@@ -65,7 +65,7 @@
 //   - `flagInGuard: false` waives more than the flag assertion: the check
 //     that the guard actually calls the entry point lives in the same test.
 //     That now covers the ten operational scripts plus getIndexLink and
-//     updateData, so for twelve of the files below nothing verifies the
+//     updateData, so for fourteen of the files below nothing verifies the
 //     guard invokes its entry point. An empty guard body fails safe — the
 //     script becomes a no-op — but it would not be caught here. The
 //     initialiser check added alongside it runs for every file either way.
@@ -290,9 +290,11 @@ const GUARDED = [
   { file: 'functions/src/updateData.ts', entry: 'main', flagInGuard: false },
   // Found by review, not by this list: both self-invoked at module scope.
   // firestore-backup took a backup on import; play-publish read the Play
-  // publishing key and, with argv present, could reach the store. Their `db`
-  // still arrives from ./_firestore, which connects on require by design —
-  // the guard is what stops an import from acting.
+  // publishing key and, with argv present, could reach the store.
+  // firestore-backup's `db` still arrives from ./_firestore, which connects on
+  // require by design — the guard is what stops an import from acting.
+  // play-publish touches no Firestore at all; its credential is the Play
+  // publishing key, now read through a lazy accessor.
   { file: 'scripts/ops/firestore-backup.js', entry: 'main', flagInGuard: false },
   { file: 'scripts/ops/play-publish.js', entry: 'main', flagInGuard: false },
   ...OP_SCRIPTS,
@@ -306,23 +308,49 @@ for (const { file, entry, flagInGuard } of GUARDED) {
   // one level deep was only slightly better: `o.go()` is not a function
   // declaration, so nothing connected the call to the body that initialises.
   //
-  // So this walks the call graph instead. Seeds are the calls that actually
-  // run on import; from each, every function body this file can reach is
-  // followed transitively. The assertion is about what that closure *does* —
-  // admin initialisation or credential reads — not what anything is named, so
-  // a wrapper, a method, a rename, or a chain of three is the same finding.
+  // So this walks the call graph instead. Seeds are the calls and `new`
+  // expressions that run on import; from each, every function body this file
+  // defines is followed transitively, and the closure is checked for admin
+  // initialisation or a credential read. That makes a wrapper, a method, a
+  // rename, or a chain of three one finding rather than four.
+  //
+  // It is still a NAME LIST matched on a node shape, not a proof about
+  // behaviour, and review got past it three ways after the rewrite. What
+  // escapes, all demonstrated against a green suite:
+  //   - a sibling module: `require('./_warm').init()` relocates the read out
+  //     of this file, and the walk never crosses a module boundary;
+  //   - a getter: `const x = lazy.ready` runs a body with no call node;
+  //   - shadowing: the name->body map is first-wins, so an earlier benign
+  //     `function boot(){}` masks a later real initialiser of that name.
+  // Closing those needs real symbol resolution across modules, which this
+  // file does not do. Treat it as the tripwire the header says it is.
   test(`${file}: nothing reachable on import initialises admin`, () => {
     const sf = parse(file);
     findMainGuard(sf, file);
 
     // name -> function-ish body, covering every form these scripts use.
     const bodies = new Map();
+    const aliases = new Map();
     const note = (name, node) => { if (name && !bodies.has(name)) bodies.set(name, node); };
     const collectDefs = (n) => {
       if (ts.isFunctionDeclaration(n) && n.name) note(n.name.text, n);
       if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer &&
           (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) {
         note(n.name.text, n.initializer);
+      }
+      // `const f = initAdmin;` then `f()`. Only function *expressions* were
+      // recorded, so an alias had no body and the walk treated it as a
+      // library call. Review proved it: suite green, credential read on
+      // import.
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer &&
+          ts.isIdentifier(n.initializer)) {
+        aliases.set(n.name.text, n.initializer.text);
+      }
+      // `new Boot()` seeds the class name, so it needs a body: the
+      // constructor is what runs. Without this the seed resolved to nothing.
+      if (ts.isClassDeclaration(n) && n.name) {
+        const ctor = n.members.find((m) => ts.isConstructorDeclaration(m));
+        if (ctor) note(n.name.text, ctor);
       }
       // { go() {} } and { go: () => {} } — the escape that name matching missed.
       if (ts.isMethodDeclaration(n) && ts.isIdentifier(n.name)) note(n.name.text, n);
@@ -345,7 +373,8 @@ for (const { file, entry, flagInGuard } of GUARDED) {
     // Seeds: calls that execute on import (the guard's then-branch excluded).
     const seeds = [];
     for (const n of moduleScopeNodes(sf)) {
-      if (ts.isCallExpression(n)) {
+      // `new Boot()` runs a constructor body, so it is a seed like any call.
+      if (ts.isCallExpression(n) || ts.isNewExpression(n)) {
         const name = calleeName(n.expression);
         if (name) seeds.push({ name, node: n });
       }
@@ -358,13 +387,23 @@ for (const { file, entry, flagInGuard } of GUARDED) {
         if (hit) return;
         if (ts.isCallExpression(n)) {
           const e = n.expression;
-          if (ts.isPropertyAccessExpression(e) &&
-              ['initializeApp', 'cert', 'applicationDefault', 'getFirestore'].includes(e.name.text)) {
-            hit = e.name.text + '()';
+          // Element access as well as property access: `fs['readFileSync']`
+          // reached a key on import while this matched only `fs.readFileSync`,
+          // which calleeName() above had always resolved. The two disagreeing
+          // was the hole.
+          const member =
+            ts.isPropertyAccessExpression(e) ? e.name.text
+            : (ts.isElementAccessExpression(e) && e.argumentExpression &&
+               ts.isStringLiteral(e.argumentExpression)) ? e.argumentExpression.text
+            : null;
+          // `firestore` belongs here: without it `function attach(){ db =
+          // admin.firestore(); } attach();` passed the transitive check while
+          // the module-scope check below would have caught the same call.
+          if (member && ['initializeApp', 'cert', 'applicationDefault',
+                         'getFirestore', 'firestore'].includes(member)) {
+            hit = member + '()';
           }
-          if (ts.isPropertyAccessExpression(e) && e.name.text === 'readFileSync') {
-            hit = 'readFileSync()';
-          }
+          if (member === 'readFileSync') hit = 'readFileSync()';
           if (ts.isIdentifier(e) && e.text === 'require' && n.arguments.length &&
               ts.isStringLiteral(n.arguments[0]) &&
               /credential|service-?account|\.json$/i.test(n.arguments[0].text)) {
@@ -383,7 +422,12 @@ for (const { file, entry, flagInGuard } of GUARDED) {
       const { name, path: chain } = queue.shift();
       if (seen.has(name)) continue;
       seen.add(name);
-      const body = bodies.get(name);
+      // Follow `const f = initAdmin` to initAdmin's body before giving up.
+      let resolved = name;
+      for (let i = 0; i < 10 && !bodies.has(resolved) && aliases.has(resolved); i++) {
+        resolved = aliases.get(resolved);
+      }
+      const body = bodies.get(resolved);
       if (!body) continue; // a library call, not something this file defines
       const what = initialisesAdmin(body);
       assert.ok(

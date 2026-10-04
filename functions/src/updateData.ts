@@ -43,9 +43,13 @@ export function initAdmin(): void {
 }
 
 function database(): admin.firestore.Firestore {
-  if (!dbOrUndefined) {
-    throw new Error('updateData: call initAdmin() before using these functions.');
-  }
+  // Self-initialising, so the credential is read at the moment a collection
+  // is actually touched. The guard below used to pre-init on `argv.length >
+  // 2`, which meant --help, an unknown command and the reset-points dry run
+  // all demanded a service-account key and exited 1 before printing — the
+  // opposite of what the comment claimed.
+  if (!dbOrUndefined) initAdmin();
+  if (!dbOrUndefined) throw new Error('updateData: initAdmin() did not produce a Firestore handle.');
   return dbOrUndefined;
 }
 
@@ -187,7 +191,12 @@ async function listConstructors() {
   });
 }
 
-async function resetAllPoints() {
+async function resetAllPoints(apply = false) {
+  // The --apply gate used to live only in main()'s switch, so an importer
+  // calling this directly zeroed every score with no flag.
+  if (!apply) {
+    throw new Error('resetAllPoints zeroes every score; pass apply=true (the CLI requires --apply)');
+  }
   console.log('Resetting all points to 0...\n');
 
   // Reset drivers
@@ -293,7 +302,7 @@ Examples:
         console.log('To do it: reset-points --apply');
         break;
       }
-      await resetAllPoints();
+      await resetAllPoints(true);
       break;
     default:
       console.error(`Unknown command: ${command}`);
@@ -304,10 +313,9 @@ Examples:
 }
 
 if (require.main === module) {
-  // Usage before credentials: running with no command should explain itself,
-  // not demand a service-account key first. main() prints usage on that path
-  // and touches no collection, so initAdmin is only needed for a real command.
-  if (process.argv.length > 2) initAdmin();
+  // Usage before credentials, for real this time: database() reads the key on
+  // first use, so every path that only prints — no command, --help, an
+  // unknown command, the reset-points dry-run notice — runs without one.
   main().catch(console.error);
 }
 
