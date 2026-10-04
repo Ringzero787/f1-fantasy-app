@@ -23,7 +23,7 @@ See TRANSITION.md §2 (screen map), §4 (component spec), §5 (states & behavior
 Budget + prices, contract-length picker, Ace pick, and friend team view were recommended for migration but are not in the prototype. Implement from the written spec in §1 or wait for updated design files.
 
 ## Design Tokens
-TRANSITION.md §3. Fonts: Unbounded (400/700/900) and JetBrains Mono (500/700) from Google Fonts — load via `expo-font`.
+TRANSITION.md §3. Fonts: Archivo at width 125 (400/700/900; static instances in `assets/fonts/`, F-099 — the prototype used Unbounded) and JetBrains Mono (500/700) — load via `expo-font`.
 
 ## Assets
 None. No icons or bitmaps; arrows/checks/triangles are text glyphs (`→ ← › + ✓ ▲ ▼ •`). Team colours from existing `TEAM_COLORS`.

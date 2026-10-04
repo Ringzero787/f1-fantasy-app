@@ -8,7 +8,7 @@ import os, sys
 from PIL import Image, ImageDraw, ImageFont, ImageChops
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-FONT = os.path.join(ROOT, 'node_modules/@expo-google-fonts/unbounded/900Black/Unbounded_900Black.ttf')
+FONT = os.path.join(ROOT, 'assets/fonts/wordmark/Unbounded_900Black.ttf')
 BG, WHITE, RED = (14, 14, 14), (242, 242, 242), (255, 46, 46)
 # The cut: a diagonal across the U's lower right. Expressed relative to the U's
 # ink box so the icon and the wordmark U carry the identical mark.
