@@ -249,6 +249,9 @@ details.tbl>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spac
 .peek-big{font:900 expanded 24px/0.9 var(--disp);letter-spacing:-.04em}
 .peek-sub{font-size:10px;font-weight:700}
 .peek-why{margin:0;font:800 expanded 13px/1.4 var(--disp);color:var(--fg)}
+.peek-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:4px}
+.peek-actions .cta.lg{flex:1 1 auto;text-align:center}
+.cta.line{background:transparent;color:var(--fg);border:1.5px solid var(--red)}
 .calls-note{margin:0;font-size:11px;line-height:1.5}
 .callx{background:var(--card);border:1.5px solid var(--red);border-radius:28px;padding:clamp(16px,2vw,24px);display:flex;flex-direction:column;gap:14px}
 .callx .cmp{border:0;padding:0}

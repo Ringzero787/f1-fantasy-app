@@ -2,7 +2,7 @@ import { useEffect, useState, type FocusEvent, type MouseEvent } from 'react';
 import { confidenceOf } from '../data/confidence';
 import { entity, type Rec } from '../data/logic';
 import { useStore } from '../state';
-import { Compare } from './Compare';
+import { Compare, RecAction } from './Compare';
 import { Pill, Range, TeamBar } from './bits';
 
 /**
@@ -97,10 +97,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
                     {locked ? (
                       <>
                         <span className="lbl red">🔒 Locked</span>
-                        <span className="srow">
-                          <button type="button" className="cta sm" onClick={() => set('recExpanded', true)}>Expand</button>
-                          <button type="button" className="ghost" aria-label="Unlock and close" onClick={unlock}>✕</button>
-                        </span>
+                        <button type="button" className="ghost" aria-label="Unlock and close" onClick={unlock}>✕</button>
                       </>
                     ) : <span className="lbl">Peek · click the tile to lock</span>}
                   </div>
@@ -116,6 +113,12 @@ export function Calls({ recs }: { recs: Rec[] }) {
                     <div className="cell3"><span className="lbl">DNF risk</span><span className="num"><b className="peek-big">{(a as { dnf?: number }).dnf ?? '—'}{typeof (a as { dnf?: number }).dnf === 'number' ? '%' : ''}</b> <span className="mut">/ {(b as { dnf?: number }).dnf ?? '—'}{typeof (b as { dnf?: number }).dnf === 'number' ? '%' : ''}</span></span></div>
                   </div>
                   <p className="peek-why">{r.why}</p>
+                  {locked ? (
+                    <div className="peek-actions">
+                      <RecAction rec={r} size="lg" />
+                      <button type="button" className="ghost" onClick={() => set('recExpanded', true)}>All stats</button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
