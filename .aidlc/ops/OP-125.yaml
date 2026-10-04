@@ -1,0 +1,52 @@
+id: OP-125
+title: "Portal deploy: one-click swaps with undo (F-097) and name edits (F-100)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-04T20:27:23.718Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T20:27:24.005Z
+    head_sha: 73eba1ea9399adced5d369db7288091f2290c2f5
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-125/dry-run-2026-10-04T20-27-24-005Z.log
+    log_sha256: 671f0ab92d71bf9c68b7301b5a1f2f0a68b8a8e916972d1e39ba3c4cd117b916
+    lines: 74
+  - step: gates
+    at: 2026-10-04T20:42:38.646Z
+    head_sha: cd04c0302b8ead070707b72505db8c3edac3f488
+    exit: 1
+    gates:
+      G14: fail
+  - step: dry-run
+    at: 2026-10-04T20:43:03.508Z
+    head_sha: cd04c0302b8ead070707b72505db8c3edac3f488
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-125/dry-run-2026-10-04T20-43-03-508Z.log
+    log_sha256: 0022f4f854ee93e52a643e4390bb034076249bfc2f5151ca114410f0d9f5dc42
+    lines: 74
+  - step: gates
+    at: 2026-10-04T20:46:45.192Z
+    head_sha: cd04c0302b8ead070707b72505db8c3edac3f488
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T20:46:45.203Z
+    head_sha: cd04c0302b8ead070707b72505db8c3edac3f488
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-125/apply-2026-10-04T20-46-45-203Z.log
+    log_sha256: bccba0aac09b9d669af2d969d4c4811f41ffd1f9c389fe80e15bf97887d42955
+    lines: 85
+  - step: gates
+    at: 2026-10-04T20:50:37.079Z
+    head_sha: cd04c0302b8ead070707b72505db8c3edac3f488
+    exit: 0
+    gates:
+      G15: skip
