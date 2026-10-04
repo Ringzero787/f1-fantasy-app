@@ -123,9 +123,9 @@ module.exports = {
         // release builds don't depend on expo-font's runtime asset loading,
         // which fails in release ("Unable to download asset from url:").
         fonts: [
-          "./node_modules/@expo-google-fonts/unbounded/400Regular/Unbounded_400Regular.ttf",
-          "./node_modules/@expo-google-fonts/unbounded/700Bold/Unbounded_700Bold.ttf",
-          "./node_modules/@expo-google-fonts/unbounded/900Black/Unbounded_900Black.ttf",
+          "./assets/fonts/ArchivoExpanded_400Regular.ttf",
+          "./assets/fonts/ArchivoExpanded_700Bold.ttf",
+          "./assets/fonts/ArchivoExpanded_900Black.ttf",
           "./node_modules/@expo-google-fonts/jetbrains-mono/500Medium/JetBrainsMono_500Medium.ttf",
           "./node_modules/@expo-google-fonts/jetbrains-mono/700Bold/JetBrainsMono_700Bold.ttf",
         ],

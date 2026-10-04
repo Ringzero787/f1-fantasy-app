@@ -1129,7 +1129,9 @@ features:
     summary: From the portal a signed-in user can rename their team (through a new server callable that reuses the app's
       team-name rules and uniqueness check) and change their display name (the same users document the app reads), and
       both show in the app on its next load
-    status: planned
+    status: building
+    prs:
+      - 168
     spec: .aidlc/specs/F-100.md
     created_at: 2026-10-04
     keywords:
@@ -1139,3 +1141,18 @@ features:
       - name
       - manager
       - name
+  - id: F-099
+    name: "UC: Archivo wide display type in the app"
+    summary: The Undercut app's Grid UI moves from Unbounded to Archivo at 125 width (static instances of the OFL variable
+      font, bundled in assets/fonts) so the app and the Pit Wall portal share one typeface; same weights 400/700/900, no
+      layout change
+    status: building
+    prs:
+      - 167
+    spec: .aidlc/specs/F-099.md
+    created_at: 2026-10-04
+    keywords:
+      - archivo
+      - wide
+      - display
+      - type
