@@ -8,6 +8,8 @@ import { ACE_MAX_PRICE } from './team';
 import { confidenceOf, edgeOf } from './confidence';
 import { coverage } from './coverage';
 
+/** a points delta with its sign, so a negative never reads as "+-21" */
+export const signed = (n: number): string => `${n < 0 ? '−' : '+'}${Math.abs(n)} PTS`;
 export const money = (n: number): string => `$${Math.round(n).toLocaleString('en-US')}`;
 
 export function entity(p: Payload, id: string): Entity | undefined {
@@ -182,7 +184,7 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
   const best = [...mine].filter((d) => d.price <= ACE_MAX_PRICE).sort((a, b) => b.med - a.med);
   const ace = entity(p, l.ace) ?? null;
   if (ace && best.length > 0 && best[0].id !== ace.id) {
-    out.push({ kind: 'ACE', a: ace.id, b: best[0].id, title: `Move ace to ${best[0].name}`, tag: `+${best[0].med - ace.med} PTS`, good: true, ace: best[0].id,
+    out.push({ kind: 'ACE', a: ace.id, b: best[0].id, title: `Move ace to ${best[0].name}`, tag: signed(best[0].med - ace.med), good: true, ace: best[0].id,
       // "highest in your lineup" stopped being true the moment the cap filtered anyone out, and a
       // reader looking at a dearer driver projecting higher would rightly call it wrong.
       why: `The ace doubles points. ${best[0].name} has the highest projection of your picks at $${ACE_MAX_PRICE} or under, which is the ace cap.` });
@@ -229,7 +231,7 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
   const c = entity(p, l.ctor) as Constructor | undefined;
   if (!c) return out;
   const cb = p.constructors.filter((x) => x.id !== c.id && x.price - c.price <= room).sort((a, b) => b.med - a.med)[0];
-  if (cb && cb.med > c.med) out.push({ kind: 'TEAM', a: c.id, b: cb.id, title: `${c.name} → ${cb.name}`, tag: `+${cb.med - c.med} PTS`, good: true, act: `CTOR:${cb.id}`, why: `${cb.name} projects higher and fits your bank.` });
+  if (cb && cb.med > c.med) out.push({ kind: 'TEAM', a: c.id, b: cb.id, title: `${c.name} → ${cb.name}`, tag: signed(cb.med - c.med), good: true, act: `CTOR:${cb.id}`, why: `${cb.name} projects higher and fits your bank.` });
   else if (cb) out.push({ kind: 'TEAM', a: c.id, b: cb.id, title: `Keep ${c.name}`, tag: 'HOLD', why: `No affordable constructor projects above ${c.name} (${c.med}). Best alternative: ${cb.name} at ${cb.med}.` });
   return out;
 }

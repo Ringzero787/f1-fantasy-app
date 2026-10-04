@@ -1,4 +1,4 @@
-next_id: 97
+next_id: 98
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1086,3 +1086,26 @@ features:
       - cross
       - store
       - sign
+  - id: F-097
+    name: "UC: Pit Wall Briefing redesign (hero, calls strip, Archivo type and tokens portal-wide)"
+    summary: "Applies the 2026-10-04 design handoff: Archivo wide display type and the revised dark/light tokens across the
+      whole portal, a Briefing-only hero with team name, season stats and the weekend card, a calls strip with hover
+      peek, click to lock and expand, lineup tiles and price movers; adapted to phones inside the three-screen scroll
+      budget"
+    status: building
+    spec: .aidlc/specs/F-097.md
+    prs:
+      - 158
+    created_at: 2026-10-04
+    keywords:
+      - wall
+      - briefing
+      - redesign
+      - hero
+      - calls
+      - strip
+      - archivo
+      - type
+      - tokens
+      - portal
+      - wide
