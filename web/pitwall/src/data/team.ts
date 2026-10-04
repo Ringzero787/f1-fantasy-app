@@ -21,14 +21,21 @@ export interface RealTeam {
   budget: number;
   isLocked: boolean;
   /**
-   * F-095: the window in which the server refuses an ace change, epoch ms, or null.
-   * The roster locks at qualifying and the ace hours later at lights out; this is that
-   * later deadline and its end. It carries an end so nothing has to ask whether the team
-   * is locked — a window cannot be opened early by clearing the lock, and one nobody
-   * clears expires rather than freezing the ace for ever.
+   * F-095/F-098: the window in which the server refuses an ace change, epoch ms, or null.
+   * It runs from `aceFreezeFrom` — the weekend's first session whose points the ace
+   * doubles, qualifying or the sprint — to `aceLockUntil`, with one gap: once
+   * `aceQualiKey` is in `scoredRaces` and before `aceLockTime` (lights out), the ace
+   * moves freely. It carries an end so nothing has to ask whether the team is locked —
+   * a window cannot be opened early by clearing the lock, and one nobody clears expires
+   * rather than freezing the ace for ever.
    */
+  aceFreezeFrom: number | null;
   aceLockTime: number | null;
   aceLockUntil: number | null;
+  aceQualiKey: string | null;
+  aceSprintKey: string | null;
+  /** Server-written; carries `quali_<raceId>` once qualifying has been scored. */
+  scoredRaces: string[];
   aceDriverId: string | null;
   totalPoints: number;
   lockedPoints: number;
@@ -126,14 +133,23 @@ export function planSave(team: RealTeam, target: Lineup, market: MarketPrices, c
 /**
  * F-095: whether the ace is frozen for this team right now.
  *
- * Mirrors `aceIsFrozen` in firestore.rules, end date and all. The portal used to gate
- * the ace on `isLocked`, which is the QUALIFYING lock: that refused every ace move from
- * Saturday on and threw away the window the game deliberately gives you to move your ace
- * after seeing qualifying. A half-written window freezes nothing — fail open, not shut.
+ * Mirrors `aceIsFrozen` in firestore.rules, fallbacks and all: three sessions score with
+ * the ace applied and the freeze covers them all, with one gap once qualifying has been
+ * scored. The portal used to gate the ace on `isLocked`, which is the QUALIFYING lock:
+ * that refused every ace move from Saturday on and threw away the window the game
+ * deliberately gives you. A weekend stamped before `aceFreezeFrom` existed still freezes
+ * from the race start it does carry, and a half-written window freezes nothing — fail
+ * open, not shut.
  */
 export function aceFrozen(team: RealTeam, now: number = Date.now()): boolean {
-  if (team.aceLockTime === null || team.aceLockUntil === null) return false;
-  return now >= team.aceLockTime && now < team.aceLockUntil;
+  const from = team.aceFreezeFrom ?? team.aceLockTime;
+  if (from === null || team.aceLockUntil === null) return false;
+  if (now < from || now >= team.aceLockUntil) return false;
+  const qualifyingScored = team.aceQualiKey !== null && team.scoredRaces.includes(team.aceQualiKey);
+  // The sprint can miss its own scoring run too, and is then folded into race scoring
+  // from a live ace read. Only stamped on sprint weekends; elsewhere it asks nothing.
+  const sprintSettled = team.aceSprintKey === null || team.scoredRaces.includes(team.aceSprintKey);
+  return !(qualifyingScored && sprintSettled && team.aceLockTime !== null && now < team.aceLockTime);
 }
 
 /** Whether the Ace change is allowed: the driver must be on the target lineup and priced at or under the cap. */

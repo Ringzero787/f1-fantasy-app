@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
-import { effectiveLockTime, lockSessionLabel } from '../utils/lockTime';
+import { aceFreezeStart, effectiveLockTime, lockSessionLabel } from '../utils/lockTime';
 import { FillContext, autoFillTeamTx, isIncomplete, loadFillContext } from '../teams/autoFill';
 
 const db = admin.firestore();
@@ -112,17 +112,32 @@ export const autoLockTeams = functions.pubsub
         }
       }
 
-      // F-095: the window in which the ace is frozen — from lights out to the same
-      // failsafe ceiling the roster unlock uses. Stamping an END as well as a start is
-      // what makes the rule safe to apply without also asking whether the team is locked:
-      // a stamp nobody ever clears expires on its own, so no path through the callables
-      // can leave a player unable to change their ace ever again, and none can clear it
-      // to open the ace mid-race either.
+      // F-095: the window in which the ace is frozen, ending at the same failsafe ceiling
+      // the roster unlock uses. Stamping an END as well as a start is what makes the rule
+      // safe to apply without also asking whether the team is locked: a stamp nobody ever
+      // clears expires on its own, so no path through the callables can leave a player
+      // unable to change their ace ever again, and none can clear it to open the ace
+      // mid-race either.
+      //
+      // F-098: the freeze starts at the first session the ace scores in — qualifying, or
+      // the sprint on a sprint weekend — not at lights out, because each of those is
+      // scored with the ace as it stands minutes after the session ends. `aceQualiKey` is
+      // the key the qualifying scorer adds to the team's `scoredRaces`, and it is what
+      // reopens the ace for the gap between qualifying and the race: that gap is the
+      // designed feature, and it should open when qualifying has actually been scored
+      // rather than at a time we guessed. `scoredRaces` is a denied key, so the client
+      // cannot claim it early.
       const aceWindow = {
+        'lockStatus.aceFreezeFrom': aceFreezeStart(race) ?? race.schedule.race,
         'lockStatus.aceLockTime': race.schedule.race,
         'lockStatus.aceLockUntil': admin.firestore.Timestamp.fromMillis(
           race.schedule.race.toMillis() + UNLOCK_FAILSAFE_MS
         ),
+        'lockStatus.aceQualiKey': `quali_${raceDoc.id}`,
+        // Only on a sprint weekend. The sprint can miss its own scoring run exactly as
+        // qualifying can — `onRaceCompleted` then folds it in at race time from a live
+        // ace read — so the gap must not open on qualifying alone where there is one.
+        'lockStatus.aceSprintKey': race.schedule?.sprint ? `sprint_${raceDoc.id}` : null,
       };
 
       // Lock teams in batches
@@ -250,8 +265,11 @@ export const autoUnlockTeams = functions.pubsub
         // F-095: tidiness, not correctness. The window expires by itself, which is the
         // point of stamping an end — but leaving last race's dates lying around is how
         // the next bug starts.
+        'lockStatus.aceFreezeFrom': null,
         'lockStatus.aceLockTime': null,
         'lockStatus.aceLockUntil': null,
+        'lockStatus.aceQualiKey': null,
+        'lockStatus.aceSprintKey': null,
       });
       count++;
       opsInBatch++;

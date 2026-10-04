@@ -390,6 +390,19 @@ export async function handleQualifyingScoring(
         console.error(`[Qualifying] Failed to update team ${teamDoc.id}:`, err);
         continue;
       }
+    } else {
+      // F-098: a team that scored nothing still has to be marked as scored. The key is
+      // what the idempotency guard above reads, and it is also what reopens the ace for
+      // the gap between qualifying and the race (firestore.rules `aceIsFrozen`) — so
+      // without this, a zero-point weekend silently costs that player the window.
+      try {
+        await teamDoc.ref.set(
+          { scoredRaces: admin.firestore.FieldValue.arrayUnion(qualiScoredKey) },
+          { merge: true },
+        );
+      } catch (err) {
+        console.error(`[Qualifying] Failed to mark team ${teamDoc.id} as scored:`, err);
+      }
 
       pointsUpdates.push({
         leagueId: team.leagueId,
@@ -526,6 +539,17 @@ export async function handleSprintScoring(
       } catch (err) {
         console.error(`[Sprint] Failed to update team ${teamDoc.id}:`, err);
         continue;
+      }
+    } else {
+      // F-098: as in the qualifying handler — the marker is read by the idempotency
+      // guard and by the ace freeze, so it cannot depend on having scored points.
+      try {
+        await teamDoc.ref.set(
+          { scoredRaces: admin.firestore.FieldValue.arrayUnion(sprintScoredKey) },
+          { merge: true },
+        );
+      } catch (err) {
+        console.error(`[Sprint] Failed to mark team ${teamDoc.id} as scored:`, err);
       }
 
       pointsUpdates.push({

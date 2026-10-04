@@ -485,9 +485,10 @@ export default function MyTeamScreen() {
   // accident — a locked team cannot modify — but earlyUnlockTeam can now leave a team
   // with canModify true inside a window that is still frozen, and offering an ace there
   // is the offer-then-refuse this feature exists to remove.
-  const canChangeAce = !lockoutInfo.aceLocked
-    && !serverAceLocked(currentTeam?.lockStatus, new Date())
-    && (currentTeam?.lockStatus.canModify ?? true);
+  // F-098: the server freeze alone, NOT canModify. canModify is false from the roster
+  // lock onwards, so ANDing it meant this screen never offered the gap between
+  // qualifying and lights out that the Grid screen and the portal both give you.
+  const canChangeAce = !lockoutInfo.aceLocked && !serverAceLocked(currentTeam, new Date());
 
   // Find the first league that doesn't already have one of the user's teams
   const availableLeague = useMemo(() => {
@@ -861,7 +862,10 @@ export default function MyTeamScreen() {
               <Text style={[styles.lockoutBannerText, { fontSize: scaledFonts.md }]}>
                 {lockoutInfo.lockReason || 'Teams locked'}
               </Text>
-              {!lockoutInfo.aceLocked && (
+              {/* F-098: canChangeAce, not lockoutInfo alone — the ace is frozen through
+                  qualifying and the sprint as well, and promising it is "still open"
+                  there is the offer-then-refuse this feature exists to remove. */}
+              {canChangeAce && (
                 <Text style={styles.lockoutBannerHint}>Ace selection still open until race start</Text>
               )}
             </View>

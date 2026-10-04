@@ -252,29 +252,56 @@ service cloud.firestore {
     // the same people the app shows those lineups to. Written by the worker.
     match /pw_leagues/{id} { allow read: if isAuthenticated() && (isLeagueMember(resource.data.leagueId) || isLeagueOwner(resource.data.leagueId)); allow write: if false; }
 
-    // F-095: the ace locks at lights out, hours after the roster locks at qualifying, and
-    // that second deadline used to live only in the app — so between the start of the
-    // race and the moment scoring ran, an owner could point the ace at whoever was
-    // winning and have those points doubled. autoLockTeams stamps the weekend's ace
-    // window on every team it covers; `lockStatus` is a denied key below, so the window
-    // is not the client's to move. Comparing it to request.time is exact, where a
-    // scheduled sweep would have left the opening minutes of the race open.
+    // F-095/F-098: the ace doubles a pick's points, and three sessions score with it
+    // applied — qualifying, the sprint, and the race. Each is scored by its own job
+    // minutes after the session ends, reading the ace live, so for each of them there was
+    // a window in which you could watch the session and then point your ace at whoever
+    // had won it. autoLockTeams stamps the weekend's freeze on every team it covers;
+    // `lockStatus` is a denied key below, so none of it is the client's to move.
     //
-    // It is a WINDOW, with an end as well as a start, and that is deliberate. Keying off
-    // `isLocked` instead would have made the ace reachable through any callable that
-    // clears the lock (season-lock then pay the early-unlock fee, mid-race) and would
-    // have frozen the ace for ever on a team nothing ever unlocks. A window needs no
-    // help: it cannot be opened early, and a stamp nobody clears expires on its own at
-    // the same failsafe ceiling the roster unlock uses.
+    // The freeze runs from the first scoring session to the failsafe ceiling, with ONE
+    // deliberate gap: once qualifying has been scored and before the race starts, the ace
+    // moves freely. That gap is the feature — choosing your ace on the strength of
+    // qualifying is the point of the ace — and it opens on `scoredRaces` carrying the
+    // qualifying key rather than on a time we guessed, so it cannot open before the
+    // points it would otherwise change are banked. `scoredRaces` is a denied key too.
+    // When qualifying cannot be scored on the day (an unmapped driver; it is folded in at
+    // race time instead) the gap simply never opens, which is the right answer: the ace
+    // is still live for those points.
+    //
+    // It is a WINDOW, with an end, and that is deliberate. Keying off `isLocked` instead
+    // would have made the ace reachable through any callable that clears the lock
+    // (season-lock then pay the early-unlock fee, mid-race) and would have frozen the ace
+    // for ever on a team nothing ever unlocks. A window needs no help: it cannot be
+    // opened early, and a stamp nobody clears expires on its own.
     //
     // `.get(…, default)` throughout: reading a field that is not there is an error, and
-    // an error denies — a team written before these fields existed has no window.
+    // an error denies — a team written before these fields existed has no window, and one
+    // stamped by F-095 before the freeze start existed falls back to the race start it
+    // already carries.
     function aceIsFrozen(team) {
-      let lockStatus = team.get('lockStatus', {});
-      let from = lockStatus is map ? lockStatus.get('aceLockTime', null) : null;
-      let until = lockStatus is map ? lockStatus.get('aceLockUntil', null) : null;
+      // Nine `let`s. Firestore allows ten per function and refuses to compile at eleven,
+      // which is why the conditions below are packed rather than named one per line.
+      let ls = team.get('lockStatus', {});
+      let raceStart = ls is map ? ls.get('aceLockTime', null) : null;
+      // A type test, not a default: `get(k, default)` gives the default only when the key
+      // is ABSENT, and a present null is exactly what createTeamSecure and the rescue
+      // script write. Reading that as "no freeze" left those teams wide open.
+      let stamped = ls is map ? ls.get('aceFreezeFrom', null) : null;
+      let from = stamped is timestamp ? stamped : raceStart;
+      let until = ls is map ? ls.get('aceLockUntil', null) : null;
+      let scored = team.get('scoredRaces', []) is list ? team.get('scoredRaces', []) : [];
+      let qualiMark = ls is map && ls.get('aceQualiKey', '') is string ? ls.get('aceQualiKey', '') : '';
+      let sprintMark = ls is map && ls.get('aceSprintKey', '') is string ? ls.get('aceSprintKey', '') : '';
+      // The gap: qualifying scored, the sprint settled where there is one, race not yet
+      // started. Either session can miss its own scoring run and be folded into race
+      // scoring instead, read live — so neither may be assumed done.
+      let gapOpen = qualiMark != '' && scored.hasAny([qualiMark])
+                    && (sprintMark == '' || scored.hasAny([sprintMark]))
+                    && raceStart is timestamp && request.time < raceStart;
       return from is timestamp && until is timestamp
-             && request.time >= from && request.time < until;
+             && request.time >= from && request.time < until
+             && !gapOpen;
     }
 
     // Compared by VALUE, not by affectedKeys: scoring removes the ace fields outright
