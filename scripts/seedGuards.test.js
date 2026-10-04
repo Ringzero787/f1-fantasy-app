@@ -41,7 +41,7 @@
 //     body. Plain ADC via a module-scope `admin.initializeApp()` IS caught —
 //     only the modular-SDK spelling of it escapes, as below.
 //   - The ratchet scans scripts/**, functions/src/** and functions/scripts/**.
-//     All nine operational scripts in functions/scripts are now guarded and
+//     All ten operational scripts in functions/scripts are now guarded and
 //     checked above; they are import-safe but their write discipline comes
 //     from the `aidlc op` kind, not from this test.
 //   - Three tracked scripts at the repo root — cleanup-dup-teams.js,
@@ -63,10 +63,12 @@
 //     through a differently-spelled call. Closing them needs symbol
 //     resolution, not a shape match.
 //   - `flagInGuard: false` waives more than the flag assertion: the check
-//     that the guard actually calls the entry point lives in the same test,
-//     so for the nine operational scripts nothing verifies their guard
-//     invokes main(). An empty guard body fails safe — the script becomes a
-//     no-op — but it would not be caught here.
+//     that the guard actually calls the entry point lives in the same test.
+//     That now covers the ten operational scripts plus getIndexLink and
+//     updateData, so for twelve of the files below nothing verifies the
+//     guard invokes its entry point. An empty guard body fails safe — the
+//     script becomes a no-op — but it would not be caught here. The
+//     initialiser check added alongside it runs for every file either way.
 //
 // Treat a failure here as real. Do not treat a pass as clearance.
 
@@ -258,8 +260,15 @@ function runUnderStub(file, argv) {
 const OP_SCRIPTS = [
   'backfillLeagueRaceResults', 'backfillZandvoortTsunoda', 'checkRaceCalendar',
   'exportPitwallHistory', 'pitwallPass', 'repairStuckLocks',
-  'setConstructorColors', 'setPitWallConfig', 'verifyRaceScoring',
-].map((n) => ({ file: `functions/scripts/${n}.js`, entry: 'main', flagInGuard: false }));
+  'setConstructorColors', 'setPitWallConfig', 'stampAceWindowForLiveRace',
+  'verifyRaceScoring',
+].map((n) => ({
+  file: `functions/scripts/${n}.js`,
+  entry: 'main',
+  // checkRaceCalendar names its initialiser setup(); the rest use initAdmin().
+  init: n === 'checkRaceCalendar' ? 'setup' : 'initAdmin',
+  flagInGuard: false,
+}));
 
 const GUARDED = [
   { file: 'scripts/runSeed.ts', entry: 'main', flagInGuard: true },
@@ -270,10 +279,37 @@ const GUARDED = [
   // script that no longer required it.
   { file: 'scripts/cleanAll.ts', entry: 'main', flagInGuard: true, refusesWithout: ['--apply'] },
   { file: 'functions/src/seedData.ts', entry: 'seedDatabase', flagInGuard: true },
+  // The last four. deleteTsunoda deletes a production document and
+  // setAdminClaim grants an admin claim on a real account, so both need the
+  // flag; getIndexLink only runs queries and updateData prints usage before
+  // it asks for a credential, so neither does.
+  { file: 'scripts/deleteTsunoda.ts', entry: 'deleteTsunoda', flagInGuard: true },
+  { file: 'scripts/setAdminClaim.ts', entry: 'main', flagInGuard: true },
+  { file: 'scripts/getIndexLink.ts', entry: 'testQueries', flagInGuard: false },
+  { file: 'functions/src/updateData.ts', entry: 'main', flagInGuard: false },
   ...OP_SCRIPTS,
 ];
 
-for (const { file, entry, flagInGuard } of GUARDED) {
+for (const { file, entry, flagInGuard, init = 'initAdmin' } of GUARDED) {
+  // The refactor that guards these files introduces its own escape: every one
+  // of them moves credential work into initAdmin(), and a module-scope call to
+  // THAT is a plain identifier, not `admin.initializeApp(`, so the ratchet does
+  // not see it. Hoisting `initAdmin();` one line above the guard restored
+  // full connect-on-import with the suite green. Treat the initialiser exactly
+  // like the entry point.
+  test(`${file}: the initialiser is never reached on import`, () => {
+    const sf = parse(file);
+    findMainGuard(sf, file);
+    for (const n of moduleScopeNodes(sf)) {
+      if (!ts.isIdentifier(n) || n.text !== init) continue;
+      const p = n.parent;
+      if ((ts.isFunctionDeclaration(p) || ts.isVariableDeclaration(p)) && p.name === n) continue;
+      if (ts.isPropertyAccessExpression(p) && p.name === n) continue;
+      if (ts.isExportSpecifier(p) || ts.isExportAssignment(p)) continue;
+      assert.fail(`${file} mentions ${init} at module scope — it would connect on import`);
+    }
+  });
+
   test(`${file}: the entry point is never reached on import`, () => {
     const sf = parse(file);
     findMainGuard(sf, file);
@@ -357,12 +393,10 @@ for (const { file, entry, flagInGuard } of GUARDED) {
 // report them as defects, and so adding to this list is a deliberate act.
 const INIT_ON_LOAD_BY_DESIGN = ['functions/src/index.ts', 'scripts/ops/_firestore.js'];
 
-const KNOWN_UNGUARDED = [
-  'scripts/deleteTsunoda.ts',
-  'scripts/getIndexLink.ts',
-  'scripts/setAdminClaim.ts',
-  'functions/src/updateData.ts',
-];
+// Empty, and that is the point of the ratchet: every file the scan reaches
+// now guards its own run. A new one here means something regressed or a new
+// script arrived unguarded — not that the list needs extending.
+const KNOWN_UNGUARDED = [];
 
 test('no new script reaches the production key on import', () => {
   // The previous scan was flat `scripts/*.ts` and only looked at require().

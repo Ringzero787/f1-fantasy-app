@@ -16,34 +16,51 @@
 import * as admin from 'firebase-admin';
 import * as path from 'path';
 
-// Initialize Firebase Admin
-const serviceAccountPath = path.join(__dirname, '../serviceAccountKey.json');
+// Nothing happens on import, and that matters more here than in the sibling
+// scripts: this file both calls main() at module scope AND exports its
+// update functions for programmatic use. So importing it to call
+// updateDriverPrice() also ran the CLI — and one of its commands is
+// reset-points, which zeroes every score.
+//
+// initAdmin() is called from the CLI guard at the bottom. A programmatic
+// caller must call it too; exported functions throw a clear error otherwise
+// rather than failing obscurely on an undefined db.
+let dbOrUndefined: admin.firestore.Firestore | undefined;
 
-try {
-  const serviceAccount = require(serviceAccountPath);
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-} catch (error) {
-  console.error('Error: Could not find serviceAccountKey.json');
-  console.log('Place your service account key in the functions/ folder');
-  process.exit(1);
+export function initAdmin(): void {
+  const serviceAccountPath = path.join(__dirname, '../serviceAccountKey.json');
+  try {
+    const serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  } catch (error) {
+    console.error('Error: Could not find serviceAccountKey.json');
+    console.log('Place your service account key in the functions/ folder');
+    process.exit(1);
+  }
+  dbOrUndefined = admin.firestore();
 }
 
-const db = admin.firestore();
+function database(): admin.firestore.Firestore {
+  if (!dbOrUndefined) {
+    throw new Error('updateData: call initAdmin() before using these functions.');
+  }
+  return dbOrUndefined;
+}
 
 // ============================================
 // Update Functions
 // ============================================
 
 async function updateDriverPrice(driverId: string, newPrice: number) {
-  const driverRef = db.collection('drivers').doc(driverId);
+  const driverRef = database().collection('drivers').doc(driverId);
   const doc = await driverRef.get();
 
   if (!doc.exists) {
     console.error(`Driver "${driverId}" not found`);
     console.log('\nValid driver IDs:');
-    const drivers = await db.collection('drivers').get();
+    const drivers = await database().collection('drivers').get();
     drivers.docs.forEach(d => console.log(`  - ${d.id}`));
     return;
   }
@@ -59,7 +76,7 @@ async function updateDriverPrice(driverId: string, newPrice: number) {
 }
 
 async function updateDriverPoints(driverId: string, points: number) {
-  const driverRef = db.collection('drivers').doc(driverId);
+  const driverRef = database().collection('drivers').doc(driverId);
   const doc = await driverRef.get();
 
   if (!doc.exists) {
@@ -76,13 +93,13 @@ async function updateDriverPoints(driverId: string, points: number) {
 }
 
 async function updateConstructorPrice(constructorId: string, newPrice: number) {
-  const ref = db.collection('constructors').doc(constructorId);
+  const ref = database().collection('constructors').doc(constructorId);
   const doc = await ref.get();
 
   if (!doc.exists) {
     console.error(`Constructor "${constructorId}" not found`);
     console.log('\nValid constructor IDs:');
-    const constructors = await db.collection('constructors').get();
+    const constructors = await database().collection('constructors').get();
     constructors.docs.forEach(c => console.log(`  - ${c.id}`));
     return;
   }
@@ -98,7 +115,7 @@ async function updateConstructorPrice(constructorId: string, newPrice: number) {
 }
 
 async function updateConstructorPoints(constructorId: string, points: number) {
-  const ref = db.collection('constructors').doc(constructorId);
+  const ref = database().collection('constructors').doc(constructorId);
   const doc = await ref.get();
 
   if (!doc.exists) {
@@ -121,13 +138,13 @@ async function updateRaceStatus(raceId: string, status: string) {
     return;
   }
 
-  const ref = db.collection('races').doc(raceId);
+  const ref = database().collection('races').doc(raceId);
   const doc = await ref.get();
 
   if (!doc.exists) {
     console.error(`Race "${raceId}" not found`);
     console.log('\nValid race IDs:');
-    const races = await db.collection('races').orderBy('round').get();
+    const races = await database().collection('races').orderBy('round').get();
     races.docs.forEach(r => console.log(`  - ${r.id} (Round ${r.data().round})`));
     return;
   }
@@ -137,7 +154,7 @@ async function updateRaceStatus(raceId: string, status: string) {
 }
 
 async function listDrivers() {
-  const drivers = await db.collection('drivers').orderBy('price', 'desc').get();
+  const drivers = await database().collection('drivers').orderBy('price', 'desc').get();
 
   console.log('\n📋 Drivers (sorted by price)\n');
   console.log('ID                  | Name                    | Price | Points');
@@ -154,7 +171,7 @@ async function listDrivers() {
 }
 
 async function listConstructors() {
-  const constructors = await db.collection('constructors').orderBy('price', 'desc').get();
+  const constructors = await database().collection('constructors').orderBy('price', 'desc').get();
 
   console.log('\n🏭 Constructors (sorted by price)\n');
   console.log('ID              | Name                              | Price | Points');
@@ -174,14 +191,14 @@ async function resetAllPoints() {
   console.log('Resetting all points to 0...\n');
 
   // Reset drivers
-  const drivers = await db.collection('drivers').get();
+  const drivers = await database().collection('drivers').get();
   for (const doc of drivers.docs) {
     await doc.ref.update({ seasonPoints: 0, fantasyPoints: 0 });
     console.log(`  ✓ Reset ${doc.data().name}`);
   }
 
   // Reset constructors
-  const constructors = await db.collection('constructors').get();
+  const constructors = await database().collection('constructors').get();
   for (const doc of constructors.docs) {
     await doc.ref.update({ seasonPoints: 0, fantasyPoints: 0 });
     console.log(`  ✓ Reset ${doc.data().name}`);
@@ -266,6 +283,16 @@ Examples:
       await listConstructors();
       break;
     case 'reset-points':
+      // The one command here that destroys data rather than changing a
+      // value: it zeroes seasonPoints and fantasyPoints on every driver and
+      // constructor. The others take explicit arguments and are reversible by
+      // running them again; this is not, so it asks.
+      if (!process.argv.includes('--apply')) {
+        console.log('reset-points zeroes seasonPoints and fantasyPoints on EVERY driver');
+        console.log('and constructor. Nothing was changed.');
+        console.log('To do it: reset-points --apply');
+        break;
+      }
       await resetAllPoints();
       break;
     default:
@@ -276,7 +303,13 @@ Examples:
   process.exit(0);
 }
 
-main().catch(console.error);
+if (require.main === module) {
+  // Usage before credentials: running with no command should explain itself,
+  // not demand a service-account key first. main() prints usage on that path
+  // and touches no collection, so initAdmin is only needed for a real command.
+  if (process.argv.length > 2) initAdmin();
+  main().catch(console.error);
+}
 
 // ============================================
 // Export for programmatic use

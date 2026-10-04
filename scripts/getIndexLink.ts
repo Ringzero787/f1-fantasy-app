@@ -6,13 +6,26 @@
 
 import * as admin from 'firebase-admin';
 
-const serviceAccount = require('./serviceAccountKey.json');
+// Nothing happens on import. This read the key, initialised firebase-admin
+// and called its entry point at module scope, so requiring the file
+// connected to production and ran it.
+// It only runs queries to surface Firestore index-creation links, so there is
+// no --apply: reading is the whole job.
+let db: admin.firestore.Firestore;
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
-const db = admin.firestore();
+function initAdmin(): void {
+  let serviceAccount;
+  try {
+    serviceAccount = require('./serviceAccountKey.json');
+  } catch {
+    console.error('Error: could not read scripts/serviceAccountKey.json (it is gitignored).');
+    process.exit(1);
+  }
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+  db = admin.firestore();
+}
 
 async function testQueries() {
   console.log('\n🔍 Testing Firestore queries to get index creation links...\n');
@@ -91,4 +104,7 @@ async function testQueries() {
   process.exit(0);
 }
 
-testQueries();
+if (require.main === module) {
+  initAdmin();
+  testQueries();
+}
