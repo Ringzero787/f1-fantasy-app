@@ -21,8 +21,11 @@ describe('pit wall lineup logic', () => {
 
   it('recommends only affordable swaps, doubles gains on the Ace slot, best first', () => {
     // d costs 200 more than either driver: outside the 100 bank. c is +20 over a/b.
-    expect(swapRecs(p, mine)).toEqual([{ out: 'b', in: 'c', gain: 16, cost: 20 }]);
-    expect(swapRecs(payload(p.drivers, p.constructors, 700), mine)[0]).toEqual({ out: 'b', in: 'd', gain: 80, cost: 200 });
+    // `edge` rides along now: the gain discounted by how reliably the incoming pick delivers it.
+    expect(swapRecs(p, mine)).toMatchObject([{ out: 'b', in: 'c', gain: 16, cost: 20 }]);
+    expect(swapRecs(payload(p.drivers, p.constructors, 700), mine)[0]).toMatchObject({ out: 'b', in: 'd', gain: 80, cost: 200 });
+    expect(swapRecs(p, mine)[0].edge).toBeGreaterThan(0);
+    expect(swapRecs(p, mine)[0].edge).toBeLessThanOrEqual(16);   // never flatters a gain
   });
 
   it('builds the briefing list: swap, Ace move, best-value hold, biggest risk, constructor', () => {
@@ -43,7 +46,24 @@ describe('pit wall lineup logic', () => {
     expect(rows.Price).toMatchObject({ a: '$100', b: '$120', winner: 'a' });
     expect(rows['League owned %'].winner).toBeNull();
     // constructors have no fit, price-move, risk or ownership rows
-    expect(compareRows(p, 'x', 'y').map((r) => r.label)).toEqual(['Projection', 'Floor', 'Ceiling', 'Pts per $100', 'Price']);
+    expect(compareRows(p, 'x', 'y').map((r) => r.label)).toEqual(['Projection', 'Floor', 'Ceiling', 'Range width', 'Pts per $100', 'Price']);
+    // Range width is the one row where a smaller number wins: it is how far the projection can
+    // swing, not how much it is worth (F-096). Every driver in this fixture has the same ±5 band,
+    // so it reads as too close to call — which is the honest answer and worth pinning.
+    const even = Object.fromEntries(compareRows(p, 'b', 'c').map((r) => [r.label, r]));
+    expect(even['Range width']).toMatchObject({ a: '10', b: '10', winner: null });
+
+    // and for two constructors with genuinely different bands, which the C() fixture cannot show
+    const tightC = { ...C('tc', 200, 60), floor: 55, ceil: 65 };
+    const wideC = { ...C('wc', 200, 60), floor: 30, ceil: 90 };
+    const pc = payload(p.drivers, [...p.constructors, tightC, wideC], 100);
+    const ctors = Object.fromEntries(compareRows(pc, 'tc', 'wc').map((r) => [r.label, r]));
+    expect(ctors['Range width']).toMatchObject({ a: '10', b: '60', winner: 'a' });
+
+    const wide = D('wide', 100, 40, { floor: 10, ceil: 70 });
+    const pw = payload([...p.drivers, wide], p.constructors, 100);
+    const vs = Object.fromEntries(compareRows(pw, 'b', 'wide').map((r) => [r.label, r]));
+    expect(vs['Range width']).toMatchObject({ a: '10', b: '60', winner: 'a' });   // narrower wins
   });
 
   it('predicts a rival\'s best affordable move and tags it against my lineup', () => {
@@ -263,5 +283,64 @@ describe('briefRecs ace cap', () => {
     const atCap = D('atcap', 200, 60);
     const p = payload([cheapAce, atCap], [C('x', 100, 20)], 1000);
     expect(briefRecs(p, { drivers: ['cheap', 'atcap'], ctor: 'x', ace: 'cheap' }).find((r) => r.kind === 'ACE')?.ace).toBe('atcap');
+  });
+});
+
+describe('ranking by edge rather than raw gain', () => {
+  // The reported failure: two swaps taken from this list moved a lineup out of the sharp end into
+  // the midfield and cost 34 points of weekend potential, because the list compared medians.
+  const steady = D('steady', 120, 46, { floor: 42, ceil: 50, t10: 90 });
+  const erratic = D('erratic', 120, 50, { floor: 20, ceil: 80, t10: 45 });
+  const held = D('held', 120, 40, { floor: 36, ceil: 44, t10: 85 });
+
+  it('prefers the smaller, surer gain over the bigger one with a band twice as wide', () => {
+    const p = payload([held, steady, erratic], [C('x', 100, 20)], 1000);
+    const recs = swapRecs(p, { drivers: ['held'], ctor: 'x', ace: '' });
+    expect(recs[0].in).toBe('steady');          // +6 tight beats +10 wide
+    expect(recs[0].gain).toBeLessThan(recs[1].gain);
+  });
+
+  it('still reports the raw gain, because that is what the reader is being offered', () => {
+    const p = payload([held, steady, erratic], [C('x', 100, 20)], 1000);
+    const top = swapRecs(p, { drivers: ['held'], ctor: 'x', ace: '' })[0];
+    expect(top.gain).toBe(6);
+    expect(top.edge).toBeLessThan(top.gain);
+  });
+});
+
+describe('the RISK card does not hand over a downgrade', () => {
+  const risky = D('risky', 200, 50, { dnf: 30, floor: 40, ceil: 60, t10: 80 });
+  const saferButWorse = D('safer', 200, 30, { dnf: 10, floor: 25, ceil: 35, t10: 60 });
+  const saferAndBetter = D('better', 200, 55, { dnf: 10, floor: 50, ceil: 60, t10: 85 });
+
+  it('states the cost and withholds the one-click when the swap loses points', () => {
+    const p = payload([risky, saferButWorse], [C('x', 100, 20)], 1000);
+    const risk = briefRecs(p, { drivers: ['risky'], ctor: 'x', ace: '' }).find((r) => r.kind === 'RISK');
+    expect(risk?.act).toBeUndefined();                       // no one-click downgrade
+    expect(risk?.why).toContain('20 points lower');
+    expect(risk?.why).toContain('not a trade this card will make for you');
+  });
+
+  it('offers it when the safer pick costs nothing', () => {
+    const p = payload([risky, saferAndBetter], [C('x', 100, 20)], 1000);
+    const risk = briefRecs(p, { drivers: ['risky'], ctor: 'x', ace: '' }).find((r) => r.kind === 'RISK');
+    expect(risk?.act).toBe('risky:better');
+    expect(risk?.why).toContain('5 points higher');
+  });
+
+  it('refuses the one-click when the alternative is riskier, not only when it costs points', () => {
+    // `nearest` falls back to an unfiltered search, so the "safer" pick can retire more often than
+    // the driver it replaces. The card used to offer that in one click.
+    const riskier = D('riskier', 200, 60, { dnf: 40, floor: 55, ceil: 65, t10: 80 });
+    const p = payload([risky, riskier], [C('x', 100, 20)], 1000);
+    const risk = briefRecs(p, { drivers: ['risky'], ctor: 'x', ace: '' }).find((r) => r.kind === 'RISK');
+    expect(risk?.act).toBeUndefined();
+    expect(risk?.why).toContain('MORE often');
+  });
+
+  it('no longer claims a safer floor it never checked', () => {
+    const p = payload([risky, saferButWorse], [C('x', 100, 20)], 1000);
+    const risk = briefRecs(p, { drivers: ['risky'], ctor: 'x', ace: '' }).find((r) => r.kind === 'RISK');
+    expect(risk?.why).not.toContain('safer floor');
   });
 });

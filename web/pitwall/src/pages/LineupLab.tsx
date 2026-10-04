@@ -142,6 +142,14 @@ export function LineupLab() {
                 <span className="pos num">+{x.gain.toFixed(0)}</span><button type="button" className="ghost" onClick={() => applyAct(`${x.out}:${x.in}`)}>Try</button>
               </div>
             ); })}
+            {/* The same swapRecs the Briefing uses, so this list is ordered by gain discounted for
+                range too. It shows the raw gain, which means the column can read 8, 10, 6 — the
+                order is not the number. Said here rather than left for someone to notice (F-096). */}
+            <p className="mut" style={{ margin: '8px 0 0', fontSize: 12 }}>
+              Ordered by gain discounted for how wide each projection's range is, so the figures
+              shown are not always descending. The discount comes from the published floor-to-ceiling
+              band, not a calibrated variance model.
+            </p>
            </Locked>
           </Tile>
         )}

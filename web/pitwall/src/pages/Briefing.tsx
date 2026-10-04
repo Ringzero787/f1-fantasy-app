@@ -89,6 +89,17 @@ export function Briefing() {
           {/* on narrow screens the comparison opens as a slide-over instead of lengthening the page */}
           <div className="only-cmp-wide">{recs[sel] ? <Compare rec={recs[sel]} /> : null}</div>
         </div>
+        {/* Said where the recommendations are, not in a footer nobody reads. A ranked list invites
+            the reader to take the top one, and these are ordered by a gain discounted for how wide
+            the projection's range is — which is a judgement from our own published band, not a
+            calibrated variance model. Worth saying plainly rather than letting the ordering imply
+            more precision than it has (F-096). */}
+        <p className="mut" style={{ margin: '10px 0 0', fontSize: 12 }}>
+          Swaps are ordered by projected gain discounted for range: a wide projection counts for less
+          than a narrow one of the same size. The cards below them — ace, value, risk, constructor —
+          are one of each, in that order. The discount comes from the floor-to-ceiling band published
+          here, not from a calibrated variance model, so read it as a lean rather than a price.
+        </p>
        </Locked>
       </Tile>
       <div className="cols">
