@@ -335,6 +335,19 @@ export function applySwap(l: Lineup, act: string): Lineup {
   return { drivers: l.drivers.map((x) => (x === o ? n : x)), ctor: l.ctor, ace: l.ace === o ? n : l.ace };
 }
 
+/** The act that reverses a recommendation's act: the driver swap the other way, or the constructor put back. */
+export function undoOf(rec: Pick<Rec, 'a' | 'act'>): string {
+  const [o, n] = (rec.act ?? '').split(':');
+  if (!o || !n) return '';
+  return o === 'CTOR' ? `CTOR:${rec.a}` : `${n}:${o}`;
+}
+
+/** Whether a committed call can still be undone: the pick it brought in is still held and the one it sent out is not. */
+export function undoApplies(d: { in: string; out: string }, l: Lineup): boolean {
+  const held = (id: string) => l.drivers.includes(id) || l.ctor === id;
+  return held(d.in) && !held(d.out);
+}
+
 /** The Lineup Lab's "top pick" card for a slot, as a recommendation. */
 export function topPickRec(p: Payload, l: Lineup, slot: string, purse: Purse = purseOf(p, l)): Rec | null {
   const top = swapPool(p, l, slot, purse)[0];

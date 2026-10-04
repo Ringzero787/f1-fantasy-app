@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { applySwap, sameLineup, entity, purseOf, type Purse } from './data/logic';
+import { applySwap, sameLineup, entity, purseOf, undoApplies, undoOf, type Purse, type Rec } from './data/logic';
 import type { Lineup, Payload } from './data/types';
 import type { MarketPrices, RealTeam } from './data/team';
 import { NO_PASS, type PassState } from './data/access';
@@ -34,8 +34,13 @@ export interface UIState {
   recOver: number | null;
   /** pinned compare tray, at most three */
   tray: string[];
+  /** calls acted on this session: shown struck through until undone or dismissed */
+  done: DoneCall[];
   toast: string | null;
 }
+
+/** A recommendation that was carried out: what moved, and the act that puts it back. */
+export interface DoneCall { key: string; kind: Rec['kind']; title: string; out: string; in: string; undo: string; saved: boolean }
 
 /** The signed-in user's real team and the live market (null in preview / when no team exists yet). */
 export interface RealContext { team: RealTeam; /** every team this user owns, for the switcher */ teams: RealTeam[]; market: MarketPrices; completedRaces: number }
@@ -68,6 +73,12 @@ interface Store {
   applyAct: (act: string) => void;
   tryAct: (act: string) => void;
   setAce: (id: string) => void;
+  /** Carry a swap out now: written to the real team at once (or applied locally without one). */
+  commitAct: (rec: Rec, expect?: { bankAfter: number }) => Promise<void>;
+  /** Reverse a committed call: sells the pick back and buys the old one at today's price. */
+  undoCall: (key: string) => Promise<void>;
+  /** Close a committed call out of the strip without undoing it. */
+  dismissCall: (key: string) => void;
   /** Save the what-if to the real team through the server. Resolves true on success. */
   save: () => Promise<boolean>;
   saving: string | null;
@@ -87,12 +98,12 @@ export const useStore = (): Store => {
   return s;
 };
 
-export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutFn, selectTeam, saver, wire: wireIn, onWire, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; pass?: PassState; checkoutFn?: () => Promise<string>; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void) => Promise<Lineup>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; go: (p: PageName) => void; children: ReactNode }) {
+export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutFn, selectTeam, saver, wire: wireIn, onWire, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; pass?: PassState; checkoutFn?: () => Promise<string>; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void, expect?: { bankAfter: number }) => Promise<Lineup>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; go: (p: PageName) => void; children: ReactNode }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<string | null>(null);
   const [ui, setUi] = useState<UIState>(() => ({
     boardTab: 'PROJECTIONS', preset: 'VALUE', sort: 'med', paceTab: 'QUALI VS RACE', mktTab: 'PRICE MODEL', lowerTab: 'RIVALS',
-    lineup, saved: lineup, slot: null, over: null, overTab: 'PRESENT', focus: null, thr: 25, win: 'L10', wire: 'ALL', rec: -1, recExpanded: false, recOver: null, tray: [], toast: null,
+    lineup, saved: lineup, slot: null, over: null, overTab: 'PRESENT', focus: null, thr: 25, win: 'L10', wire: 'ALL', rec: -1, recExpanded: false, recOver: null, tray: [], done: [], toast: null,
   }));
   const patch = useCallback((fn: (u: UIState) => Partial<UIState>) => setUi((u) => ({ ...u, ...fn(u) })), []);
   const toast = useCallback((text: string) => {
@@ -120,6 +131,12 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
   // Seeded from the server (and emptied on sign-out, so the next reader never inherits a history).
   const [wire, setWire] = useState<WirePrefs>(wireIn ?? EMPTY_PREFS);
   useEffect(() => { setWire(wireIn ?? EMPTY_PREFS); }, [wireIn]);
+  // The real team is the truth. When it reloads (after any write, including one that failed
+  // partway) and nothing is pending on the board, the board takes it; done calls whose undo no
+  // longer fits that lineup drop out.
+  useEffect(() => {
+    patch((u) => (sameLineup(u.lineup, u.saved) ? { lineup, saved: lineup, done: u.done.filter((d) => undoApplies(d, lineup)) } : { done: u.done.filter((d) => undoApplies(d, lineup)) }));
+  }, [lineup, patch]);
   // Functional updates: two marks in one tick both land, rather than the second overwriting the
   // first from a stale closure. The save is a whole-document write, so running it twice is harmless.
   const changeWire = useCallback((fn: (w: WirePrefs) => WirePrefs) => setWire((w) => { const next = fn(w); onWire?.(next); return next; }), [onWire]);
@@ -167,6 +184,49 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
       if (!saver || !sameLineup({ ...next, ace: ui.saved.ace }, ui.saved)) return;
       void saver(next, setSaving).then((saved) => { patch(() => ({ lineup: saved, saved })); toast(clearing ? 'Ace cleared and saved.' : `Ace moved to ${e?.name ?? id} and saved.`); }).catch((err: Error) => { patch((u) => ({ lineup: u.saved })); toast(err.message); }).finally(() => setSaving(null));
     },
+    // The act that undoes an act: a driver swap reversed, or the constructor put back.
+    commitAct: async (rec, expect) => {
+      if (!rec.act || saving) return;
+      // One click writes one swap. With what-ifs pending in the Lab the saver would write all of
+      // them under this button's name, so it refuses, as the ace write does.
+      if (saver && !sameLineup(ui.lineup, ui.saved)) { toast('You have unsaved changes in the Lineup Lab. Keep or reset them first.'); return; }
+      const undo = undoOf(rec);
+      const key = `${rec.kind}-${rec.a}-${rec.b}`;
+      const next = applySwap(ui.lineup, rec.act);
+      const entry = { key, kind: rec.kind, title: rec.title, out: rec.a, in: rec.b, undo, saved: !!saver };
+      const closeUp = { rec: -1, recExpanded: false, recOver: null, slot: null } as Partial<UIState>;
+      if (!saver) { patch((u) => ({ ...closeUp, lineup: next, saved: next, done: [entry, ...u.done.filter((d) => d.key !== key)] })); toast(`${entity(payload, rec.b)?.name ?? rec.b} is in for ${entity(payload, rec.a)?.name ?? rec.a} (example data: nothing saved).`); return; }
+      patch(() => ({ ...closeUp, lineup: next }));
+      setSaving('Saving…');   // from the first tick, so a second click or an Undo cannot start another write
+      try {
+        const saved = await saver(next, setSaving, expect);
+        patch((u) => ({ lineup: saved, saved, done: [entry, ...u.done.filter((d) => d.key !== key)] }));
+        toast(`Done: ${entity(payload, rec.b)?.name ?? rec.b} is in for ${entity(payload, rec.a)?.name ?? rec.a}.`);
+      } catch (err) {
+        patch((u) => ({ lineup: u.saved }));
+        toast((err as Error).message);
+      } finally { setSaving(null); }
+    },
+    undoCall: async (key) => {
+      const d = ui.done.find((x) => x.key === key);
+      if (!d || saving) return;
+      // The act was computed for the lineup as it stood; if the Lab has moved either pick since,
+      // replaying it would sell the wrong driver or write nothing while saying it did.
+      if (!undoApplies(d, ui.lineup)) { patch((u) => ({ done: u.done.filter((x) => x.key !== key) })); toast('That swap has changed since; nothing to undo.'); return; }
+      const next = applySwap(ui.lineup, d.undo);
+      if (!saver) { patch((u) => ({ lineup: next, saved: next, done: u.done.filter((x) => x.key !== key) })); toast(`Undone: ${entity(payload, d.out)?.name ?? d.out} is back.`); return; }
+      patch(() => ({ lineup: next }));
+      setSaving('Saving…');
+      try {
+        const saved = await saver(next, setSaving);
+        patch((u) => ({ lineup: saved, saved, done: u.done.filter((x) => x.key !== key) }));
+        toast(`Undone: ${entity(payload, d.out)?.name ?? d.out} is back.`);
+      } catch (err) {
+        patch((u) => ({ lineup: u.saved }));
+        toast((err as Error).message);
+      } finally { setSaving(null); }
+    },
+    dismissCall: (key) => patch((u) => ({ done: u.done.filter((x) => x.key !== key) })),
     save: async () => {
       if (!saver) { patch((u) => ({ saved: u.lineup })); toast('Example data: nothing to save.'); return true; }
       try {

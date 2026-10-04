@@ -21,7 +21,7 @@ import { Pill, Range, TeamBar } from './bits';
  * Nothing is locked at rest: the page opens readable, with no callout over the wire.
  */
 export function Calls({ recs }: { recs: Rec[] }) {
-  const { payload: p, ui, set } = useStore();
+  const { payload: p, ui, set, undoCall, dismissCall, saving } = useStore();
   const [hover, setHover] = useState<number | null>(null);
   // which edge the callout hangs from: the tile's own position decides, not its index, because
   // the grid's column count changes with the viewport
@@ -73,6 +73,23 @@ export function Calls({ recs }: { recs: Rec[] }) {
         <span className="lbl only-wide">{hoverable ? 'Hover to peek · click to lock and act · all stats one step further' : 'Tap a call to compare'}</span>
       </div>
       <div className="calls-grid">
+        {/* What was done this session stays in view, struck through, until it is undone or closed. */}
+        {ui.done.map((d) => {
+          const a = entity(p, d.out), b = entity(p, d.in);
+          return (
+            <div key={`done-${d.key}`} className="callw">
+              <div className="call done" role="group" aria-label={`Done: ${d.title}`}>
+                <span className="call-top">
+                  <Pill>Done ✓</Pill>
+                  <span className="call-title"><s>{d.title}</s></span>
+                  <button type="button" className="ghost call-x" aria-label={`Close ${d.title}`} onClick={() => dismissCall(d.key)}>✕</button>
+                </span>
+                <span className="call-note fg2">{b?.name ?? d.in} is in for {a?.name ?? d.out}{d.saved ? ' · saved to your team' : ' · example data'}</span>
+                <span className="srow"><button type="button" className="ghost" disabled={!!saving} onClick={() => void undoCall(d.key)}>{saving ? 'Saving…' : `Undo · ${a?.name ?? d.out} back`}</button></span>
+              </div>
+            </div>
+          );
+        })}
         {recs.map((r, i) => {
           const locked = pinned === i;
           // no peek while any call is locked: a second callout over the locked one, or over the
@@ -116,7 +133,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
                   <p className="peek-why">{r.why}</p>
                   {locked ? (
                     <div className="peek-actions">
-                      <RecAction rec={r} size="lg" />
+                      <RecAction rec={r} size="lg" instant />
                       <button type="button" className="ghost" onClick={() => set('recExpanded', true)}>All stats</button>
                     </div>
                   ) : null}
@@ -137,7 +154,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
               <button type="button" className="ghost" aria-label="Unlock and close" onClick={unlock}>✕</button>
             </span>
           </div>
-          <Compare rec={recs[pinned]} />
+          <Compare rec={recs[pinned]} instant />
         </div>
       ) : null}
     </section>
