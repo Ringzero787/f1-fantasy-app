@@ -1,0 +1,38 @@
+id: OP-127
+title: Deploy renameTeam for Pit Wall name edits (F-100)
+kind: functions-deploy
+status: applied
+params:
+  only: functions:renameTeam
+created_at: 2026-10-04T20:31:29.479Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T20:31:29.877Z
+    head_sha: 73eba1ea9399adced5d369db7288091f2290c2f5
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-127/dry-run-2026-10-04T20-31-29-877Z.log
+    log_sha256: 07f66efad5599787a1c02f826b6b97077fb88d737dec70be35d2088ee1da9a5c
+    lines: 62
+  - step: gates
+    at: 2026-10-04T20:41:11.900Z
+    head_sha: 73eba1ea9399adced5d369db7288091f2290c2f5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T20:41:11.909Z
+    head_sha: 73eba1ea9399adced5d369db7288091f2290c2f5
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:renameTeam' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-127/apply-2026-10-04T20-41-11-909Z.log
+    log_sha256: 154dc3e30c0de369a914cbc6dd5519d92ca4b4b6303cb2e446a35c7727d36d7b
+    lines: 35
+  - step: gates
+    at: 2026-10-04T20:42:25.926Z
+    head_sha: 73eba1ea9399adced5d369db7288091f2290c2f5
+    exit: 0
+    gates:
+      G15: skip
