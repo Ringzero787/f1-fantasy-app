@@ -64,7 +64,7 @@ jest.mock('../../src/store/remoteConfig.store', () => ({
 
 import { useTeamStore } from '../../src/store/team.store';
 
-const ACE_LOCKED = 'Ace selection is locked once the race starts';
+const ACE_LOCKED = 'Ace selection is locked while a scoring session is running';
 
 // Bahrain reinstated at Sepang as round 18, exactly as the server publishes it.
 const bahrainAtSepang = (status: string) => ({
@@ -201,6 +201,66 @@ const windowed = (fromIso: string | null, isLocked = true) =>
       aceLockUntil: fromIso ? new Date(Date.parse(fromIso) + 24 * HOUR) : null,
     },
   }) as unknown as FantasyTeam;
+
+// ── F-098: the freeze covers qualifying and the sprint too, not only the race ──
+// Three sessions score with the ace applied and each is scored from a live read minutes
+// after it ends, so each had its own window to watch the session and then point the ace
+// at whoever won it. `windowed` above is the F-095 shape (race only); this is the shape
+// autoLockTeams stamps now.
+const QUALI_MARK = 'quali_bahrain_2026';
+const sessionWindow = (firstSessionIso: string, raceIso: string, scoredRaces: string[] = []) =>
+  ({
+    ...team(),
+    isLocked: true,
+    scoredRaces,
+    lockStatus: {
+      isSeasonLocked: false,
+      seasonLockRacesRemaining: 0,
+      canModify: false,
+      aceFreezeFrom: new Date(firstSessionIso),
+      aceLockTime: new Date(raceIso),
+      aceLockUntil: new Date(Date.parse(raceIso) + 24 * HOUR),
+      aceQualiKey: QUALI_MARK,
+    },
+  }) as unknown as FantasyTeam;
+
+test('the Ace is frozen during qualifying, before the calendar says anything is locked', async () => {
+  races = [bahrainAtSepang('upcoming'), singapore];
+  // Mid-qualifying on the Saturday. computeLockoutStatus still reports aceLocked false —
+  // its only deadline is lights out — so without the stamped freeze this goes through.
+  jest.setSystemTime(new Date('2026-10-03T11:30:00Z'));
+  useTeamStore.setState({ currentTeam: sessionWindow('2026-10-03T11:00:00Z', '2026-10-04T09:00:00Z'), error: null } as never);
+
+  await useTeamStore.getState().setAce('hadjar');
+  expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
+  expect(useTeamStore.getState().currentTeam?.aceDriverId).toBeNull();
+});
+
+test('the Ace comes back once qualifying has been scored, up to lights out', async () => {
+  races = [bahrainAtSepang('upcoming'), singapore];
+  jest.setSystemTime(new Date('2026-10-03T14:00:00Z'));
+  useTeamStore.setState({
+    currentTeam: sessionWindow('2026-10-03T11:00:00Z', '2026-10-04T09:00:00Z', [QUALI_MARK]),
+    error: null,
+  } as never);
+
+  await useTeamStore.getState().setAce('hadjar');
+  expect(useTeamStore.getState().error).toBeNull();
+  expect(useTeamStore.getState().currentTeam?.aceDriverId).toBe('hadjar');
+});
+
+test('the Ace is frozen through the sprint, which qualifying has not been scored for yet', async () => {
+  races = [bahrainAtSepang('upcoming'), singapore];
+  // Sprint on Saturday morning; the freeze starts there and qualifying is hours away.
+  jest.setSystemTime(new Date('2026-10-03T08:30:00Z'));
+  useTeamStore.setState({
+    currentTeam: sessionWindow('2026-10-03T08:00:00Z', '2026-10-04T09:00:00Z', ['sprint_bahrain_2026']),
+    error: null,
+  } as never);
+
+  await useTeamStore.getState().setAce('hadjar');
+  expect(useTeamStore.getState().error).toBe(ACE_LOCKED);
+});
 
 test('the stamped window locks the Ace even after the calendar has moved on', async () => {
   races = [bahrainAtSepang('completed'), singapore];

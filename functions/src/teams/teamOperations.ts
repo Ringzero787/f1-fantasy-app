@@ -133,10 +133,14 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
       isSeasonLocked: false,
       seasonLockRacesRemaining: 0,
       nextUnlockTime: null,
-      // F-095: the window in which the ace is frozen — lights out to the failsafe
-      // ceiling — stamped when the weekend locks, consulted by firestore.rules.
+      // F-095/F-098: the window in which the ace is frozen — the first session it scores
+      // in to the failsafe ceiling, with a gap once qualifying is scored — stamped when
+      // the weekend locks, consulted by firestore.rules.
+      aceFreezeFrom: null,
       aceLockTime: null,
       aceLockUntil: null,
+      aceQualiKey: null,
+      aceSprintKey: null,
       canModify: true,
       lockReason: null,
     },

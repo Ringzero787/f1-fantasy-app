@@ -136,32 +136,57 @@ export function computeLockoutStatus(
 }
 
 /**
- * F-095: the ace window the SERVER enforces, read off the team rather than worked out
- * from the calendar.
+ * F-095/F-098: the ace freeze the SERVER enforces, read off the team rather than worked
+ * out from the calendar.
  *
- * `computeLockoutStatus` derives the same start from the schedule, and the two agree
- * while the weekend is running. They stop agreeing once the race is more than four hours
- * old: `getNextIncompleteRace` treats that race as implicitly complete and moves on to
- * the next one, whose start is a week away, so the app decides the ace is free again —
- * while firestore.rules still refuses the write. That is the shape of bug that offers a
- * player a button and then tells them no, so the stamped window wins where it is present.
+ * Three sessions score with the ace applied — qualifying, the sprint, the race — and the
+ * freeze covers all of them, from the first one to the failsafe ceiling, with one gap:
+ * once qualifying has been scored and before the race starts, the ace moves freely. That
+ * gap is the feature, and it opens on the qualifying key appearing in `scoredRaces`
+ * rather than on a clock, so it cannot open before the points it would change are banked.
  *
- * Mirrors `aceIsFrozen` in firestore.rules exactly, end date included. The end is what
- * lets neither side consult `isLocked`: a window cannot be opened early by clearing a
- * lock, and a stamp nobody clears expires instead of freezing the ace for ever. A
+ * `computeLockoutStatus` derives only the race start from the schedule, and it has no way
+ * to know when qualifying was scored. The two agree about the race; this one additionally
+ * knows about the earlier sessions, and about the four hours after a race when
+ * `getNextIncompleteRace` has moved on to the next round and reports the ace free while
+ * the rules still refuse the write. That is the shape of bug that offers a player a button
+ * and then tells them no, so the stamped freeze wins where it is present.
+ *
+ * Mirrors `aceIsFrozen` in firestore.rules exactly, fallbacks included: a weekend stamped
+ * before `aceFreezeFrom` existed still freezes from the race start it does carry, and a
  * half-written or unreadable window freezes nothing — fail open, not shut.
  *
- * The values arrive as Firestore Timestamps, and survive a round trip through the
- * persisted store as `{seconds, nanoseconds}` — hence the coercion rather than a cast.
+ * The timestamps arrive from Firestore and survive a round trip through the persisted
+ * store as `{seconds, nanoseconds}` — hence the coercion rather than a cast.
  */
-export function serverAceLocked(lockStatus: unknown, now: Date): boolean {
-  const ls = lockStatus as { aceLockTime?: unknown; aceLockUntil?: unknown } | null | undefined;
-  const from = toMillis(ls?.aceLockTime);
+export function serverAceLocked(
+  team: { lockStatus?: unknown; scoredRaces?: unknown } | null | undefined,
+  now: Date,
+): boolean {
+  const ls = team?.lockStatus as {
+    aceFreezeFrom?: unknown; aceLockTime?: unknown; aceLockUntil?: unknown;
+    aceQualiKey?: unknown; aceSprintKey?: unknown;
+  } | null | undefined;
+  const raceStart = toMillis(ls?.aceLockTime);
+  const from = toMillis(ls?.aceFreezeFrom) ?? raceStart;
   const until = toMillis(ls?.aceLockUntil);
   if (from === null || until === null) return false;
+
   const t = now.getTime();
-  return t >= from && t < until;
+  if (t < from || t >= until) return false;
+
+  const scored = Array.isArray(team?.scoredRaces) ? (team!.scoredRaces as unknown[]) : [];
+  const marker = (v: unknown) => (typeof v === 'string' ? v : '');
+  const qualiMarker = marker(ls?.aceQualiKey);
+  const sprintMarker = marker(ls?.aceSprintKey);
+  const qualifyingScored = qualiMarker !== '' && scored.includes(qualiMarker);
+  // The sprint can miss its own scoring run too, and is then folded into race scoring
+  // from a live ace read. Only stamped on sprint weekends; elsewhere it asks nothing.
+  const sprintSettled = sprintMarker === '' || scored.includes(sprintMarker);
+  const afterQualifyingBeforeRace = qualifyingScored && sprintSettled && raceStart !== null && t < raceStart;
+  return !afterQualifyingBeforeRace;
 }
+
 
 /** Date, Firestore Timestamp, a rehydrated `{seconds}` plain object, ISO string or epoch ms. */
 function toMillis(value: unknown): number | null {

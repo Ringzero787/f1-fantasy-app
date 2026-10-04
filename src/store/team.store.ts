@@ -1426,8 +1426,8 @@ export const useTeamStore = create<TeamState>()(
     // enforce. Without it a write made after the race starts is refused by Firestore and
     // then swallowed — syncTeamToFirebase only logs — leaving an ace on screen that the
     // scorer will never see.
-    if (lockoutStatus.aceLocked || serverAceLocked(currentTeam.lockStatus, new Date())) {
-      set({ error: 'Ace selection is locked once the race starts' });
+    if (lockoutStatus.aceLocked || serverAceLocked(currentTeam, new Date())) {
+      set({ error: 'Ace selection is locked while a scoring session is running' });
       return;
     }
 
@@ -1482,8 +1482,8 @@ export const useTeamStore = create<TeamState>()(
       if (result.isComplete) aceCCompletedRaceIds.add(raceId);
     });
     const aceCLockoutStatus = computeLockoutStatus(racesFromConfig(), aceCCompletedRaceIds, new Date(), aceCLockOverride);
-    if (aceCLockoutStatus.aceLocked || serverAceLocked(currentTeam.lockStatus, new Date())) {
-      set({ error: 'Ace selection is locked once the race starts' });
+    if (aceCLockoutStatus.aceLocked || serverAceLocked(currentTeam, new Date())) {
+      set({ error: 'Ace selection is locked while a scoring session is running' });
       return;
     }
 
@@ -1526,8 +1526,8 @@ export const useTeamStore = create<TeamState>()(
 
     // F-095: clearing is a change like any other and the rules refuse it after lights out.
     // Demo mode never reaches Firestore, so it keeps working.
-    if (!isDemoMode && serverAceLocked(currentTeam.lockStatus, new Date())) {
-      set({ error: 'Ace selection is locked once the race starts' });
+    if (!isDemoMode && serverAceLocked(currentTeam, new Date())) {
+      set({ error: 'Ace selection is locked while a scoring session is running' });
       return;
     }
 
