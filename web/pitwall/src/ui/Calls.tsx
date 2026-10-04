@@ -10,9 +10,10 @@ import { Pill, Range, TeamBar } from './bits';
  * swaps show while the lineup is open and the ace, hold, risk and team calls when it is locked.
  *
  * Desktop: hover or focus a tile that has a comparison to peek at it in a callout under the tile;
- * click to lock it (accent border, lock mark) with Expand and close; Expand puts the full
- * comparison in flow under the strip; Collapse goes back to the locked callout; the locked tile
- * again, close, or Escape unlocks. A tile whose two sides are the same pick only locks.
+ * click to lock it (accent border, lock mark). The locked callout leads with the recommendation's
+ * own action (RecAction), with All stats and close beside it; All stats puts the full comparison
+ * in flow under the strip; Collapse goes back to the locked callout; the locked tile again, close,
+ * or Escape unlocks. A tile whose two sides are the same pick only locks.
  *
  * Phone (no hover): a tap opens the comparison in the slide-over, as before, so the page never
  * grows under a floating panel it cannot fit.

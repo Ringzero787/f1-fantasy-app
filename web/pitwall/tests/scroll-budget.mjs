@@ -97,6 +97,10 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
     await page.keyboard.press('Escape');
   } else {
     if (!(await page.locator('.call[aria-pressed="true"]').count())) failures.push(`${size.name} ${scheme}: clicking a call did not lock it`);
+    // the locked callout leads with the recommendation's action, and All stats expands the comparison
+    if (!(await page.locator('.peek .peek-actions .cta, .peek .peek-actions .pill').count())) failures.push(`${size.name} ${scheme}: the locked callout has no action`);
+    const all = page.getByRole('button', { name: 'All stats' });
+    if (await all.count()) { await all.click(); await page.waitForTimeout(60); if (!(await page.locator('.callx').count())) failures.push(`${size.name} ${scheme}: All stats did not expand the comparison`); }
     await page.keyboard.press('Escape'); await page.waitForTimeout(60);
     if (await page.locator('.call[aria-pressed="true"]').count()) failures.push(`${size.name} ${scheme}: Escape did not unlock the call`);
   }

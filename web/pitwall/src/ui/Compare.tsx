@@ -14,8 +14,9 @@ export function RecAction({ rec, size = 'md' }: { rec: Rec; size?: 'md' | 'lg' }
   const { payload: p, tryAct, setAce, ui, real } = useStore();
   const cls = size === 'lg' ? 'cta lg' : 'cta';
   if (rec.act && (rec.good || rec.bad)) {
-    // A locked weekend still takes the what-if; the Lab says the save waits for the next round.
-    const label = real?.team.isLocked ? 'Plan this swap for next round →' : rec.good ? 'Make this swap →' : 'Swap them out →';
+    // A locked weekend still takes the what-if, but the Lab will refuse to save it until the team
+    // unlocks, so the button says preview rather than promising a change.
+    const label = real?.team.isLocked ? 'Preview this swap in the Lab →' : rec.good ? 'Make this swap →' : 'Swap them out →';
     return <button type="button" className={rec.good ? cls : `${cls} line`} onClick={() => tryAct(rec.act!)}>{label}</button>;
   }
   if (rec.ace) {
