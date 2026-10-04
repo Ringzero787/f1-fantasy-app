@@ -66,6 +66,13 @@ export const checkTeamNameAvailable = functions.https.onCall(async (data, contex
  * rename runs here with the same rules the app applies on the client: trimmed, 2–30 characters,
  * and no other team holding the name. Returns the saved name.
  */
+/** Why a rename is refused, or null when it may go ahead. Pure, so the rule is testable. */
+export function renameRefusal(team: { exists: boolean; ownerUid?: string }, callerUid: string, teamId: string, matchIds: string[]): 'permission-denied' | 'already-exists' | null {
+  if (!team.exists || team.ownerUid !== callerUid) return 'permission-denied';
+  if (isTakenBy(matchIds, teamId)) return 'already-exists';
+  return null;
+}
+
 export const renameTeam = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
@@ -79,13 +86,10 @@ export const renameTeam = functions.https.onCall(async (data, context) => {
   if (!teamId) throw new functions.https.HttpsError('invalid-argument', 'teamId is required');
   const ref = db.doc(`fantasyTeams/${teamId}`);
   const own = await ref.get();
-  if (!own.exists || own.data()?.userId !== context.auth.uid) {
-    throw new functions.https.HttpsError('permission-denied', 'Not your team');
-  }
   const snap = await db.collection('fantasyTeams').where('name', '==', name).limit(2).get();
-  if (isTakenBy(snap.docs.map((d) => d.id), teamId)) {
-    throw new functions.https.HttpsError('already-exists', 'That team name is taken');
-  }
+  const refusal = renameRefusal({ exists: own.exists, ownerUid: own.data()?.userId }, context.auth.uid, teamId, snap.docs.map((d) => d.id));
+  if (refusal === 'permission-denied') throw new functions.https.HttpsError('permission-denied', 'Not your team');
+  if (refusal === 'already-exists') throw new functions.https.HttpsError('already-exists', 'That team name is taken');
   await ref.update({ name, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
   return { name };
 });

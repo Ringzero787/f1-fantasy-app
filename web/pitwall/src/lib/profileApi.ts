@@ -5,6 +5,7 @@
  */
 import { updateProfile } from 'firebase/auth';
 import { auth, callable, firestore } from './firebase';
+import { saveErrorText } from './teamApi';
 
 export const NAME_MIN = 2;
 export const NAME_MAX = 30;
@@ -25,8 +26,10 @@ export async function renameUser(name: string): Promise<void> {
   const user = auth().currentUser;
   if (!user) throw new Error('Not signed in');
   const { m, db } = await firestore();
-  await m.updateDoc(m.doc(db, 'users', user.uid), { displayName: name, updatedAt: m.serverTimestamp() });
-  await updateProfile(user, { displayName: name });
+  // The users document is what the app reads, so it is the write that counts (merge: a handoff
+  // sign-in may not have created it yet). The Auth profile is kept in step on a best-effort basis.
+  await m.setDoc(m.doc(db, 'users', user.uid), { displayName: name, updatedAt: m.serverTimestamp() }, { merge: true });
+  await updateProfile(user, { displayName: name }).catch(() => undefined);
 }
 
 /** A readable error for the two things the server refuses. */
@@ -35,5 +38,5 @@ export function renameErrorText(e: unknown): string {
   if (code.endsWith('already-exists')) return 'That team name is taken.';
   if (code.endsWith('invalid-argument')) return `Use ${NAME_MIN} to ${NAME_MAX} characters.`;
   if (code.endsWith('permission-denied')) return 'That is not your team.';
-  return (e as Error)?.message || 'Could not save the name.';
+  return saveErrorText(e);
 }

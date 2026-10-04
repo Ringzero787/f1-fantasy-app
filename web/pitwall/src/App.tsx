@@ -125,9 +125,8 @@ export function App() {
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const accountUidRef = useRef<string | null>(null);
-  // after a rename the shell's bar re-reads the team document
-  const reloadAccount = useCallback(async () => { const uid = accountUidRef.current; if (!uid) return; setAccount(await loadAccount(uid).catch(() => EMPTY_ACCOUNT)); }, []);
+  // after a rename the shell's bar re-reads the team document; a sign-out mid-flight drops the result
+  const reloadAccount = useCallback(async () => { const uid = uidRef.current; if (!uid) return; const a = await loadAccount(uid).catch(() => EMPTY_ACCOUNT); if (uidRef.current === uid) setAccount(a); }, []);
 
   useEffect(() => {
     if (PREVIEW) return;
@@ -138,7 +137,7 @@ export function App() {
       window.history.replaceState({}, '', '/');
       if (code) setPendingCode(code); else setNotice(EXPIRED);
     }
-    return onAuthStateChanged(auth(), (user) => { setSession(user ? { state: 'in', user } : { state: 'out' }); setDisplayName(user?.displayName ?? null); });
+    return onAuthStateChanged(auth(), (user) => { setSession(user ? { state: 'in', user } : { state: 'out' }); setDisplayName(user?.displayName ?? null); });   // Auth name until the users document answers
   }, []);
 
   const uid = session.state === 'in' ? session.user.uid : null;
@@ -224,8 +223,7 @@ export function App() {
   useEffect(() => {
     if (!uid) { setReal(null); teamIdRef.current = null; return; }
     let live = true;
-    loadAccount(uid).then((a) => { if (live) setAccount(a); }).catch(() => { if (live) setAccount(EMPTY_ACCOUNT); });
-    accountUidRef.current = uid;
+    loadAccount(uid).then((a) => { if (live) { setAccount(a); if (a.displayName) setDisplayName(a.displayName); } }).catch(() => { if (live) setAccount(EMPTY_ACCOUNT); });
     void reloadReal();
     return () => { live = false; };
   }, [uid, reloadReal]);

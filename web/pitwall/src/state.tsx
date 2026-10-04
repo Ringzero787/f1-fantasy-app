@@ -254,7 +254,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     }),
     toast,
     selectTeam: (id: string) => { selectTeam?.(id); patch(() => ({ slot: null })); },
-  }), [payload, has, wire, purse, plan, markRead, rateNews, ui, go, patch, toast, real, saver, saving, pass, checkout, checkoutFn, selectTeam]);
+  }), [payload, has, wire, purse, plan, markRead, rateNews, ui, go, patch, toast, real, saver, saving, pass, checkout, checkoutFn, selectTeam, displayName, renameTeam, renameUser]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }
