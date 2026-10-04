@@ -73,6 +73,12 @@ test('renameTeam is exported alongside the availability check (F-100)', () => {
   assert.equal(typeof index.renameTeam, 'function');
 });
 
+test('names drop control and format characters before the length check (F-100)', () => {
+  assert.equal(normalizeTeamName('Late\u202eBrakers\u200b'), 'LateBrakers');
+  assert.equal(normalizeTeamName('Late\nBrakers'), 'Late Brakers');
+  assert.equal(normalizeDisplayName('N\u0000S'), 'N S');
+});
+
 test('normalizeDisplayName trims, collapses spaces and bounds the length', () => {
   assert.equal(normalizeDisplayName('  Nathan   S  '), 'Nathan S');
   assert.equal(normalizeDisplayName('N'), null);

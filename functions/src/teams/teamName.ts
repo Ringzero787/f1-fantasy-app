@@ -14,10 +14,13 @@ const db = admin.firestore();
 export const TEAM_NAME_MIN = 2;
 export const TEAM_NAME_MAX = 30;
 
-/** Trimmed name, or null when it is not an acceptable team name. */
+/** Control and format characters (bidi overrides, zero-width joiners) have no place in a name other people read. */
+const cleanName = (raw: string): string => raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\p{Cf}/gu, '').replace(/\s+/g, ' ').trim();
+
+/** Cleaned name, or null when it is not an acceptable team name. */
 export function normalizeTeamName(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
-  const name = raw.trim();
+  const name = cleanName(raw);
   if (name.length < TEAM_NAME_MIN || name.length > TEAM_NAME_MAX) return null;
   return name;
 }
@@ -27,7 +30,7 @@ export const DISPLAY_NAME_MAX = 30;
 /** Trimmed display name, or null when it is not acceptable (same bounds the app's Profile applies). */
 export function normalizeDisplayName(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
-  const name = raw.replace(/\s+/g, ' ').trim();
+  const name = cleanName(raw);
   if (name.length < DISPLAY_NAME_MIN || name.length > DISPLAY_NAME_MAX) return null;
   return name;
 }
