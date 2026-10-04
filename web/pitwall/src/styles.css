@@ -263,3 +263,15 @@ details.tbl>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spac
   .call-title{font-size:13px;-webkit-line-clamp:1}
   .calls-h{font-size:18px}
 }
+
+/* ---- lineup tiles on the Briefing (F-097 stage 4) ---- */
+.ltiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ltile{background:var(--raised);border:1.5px solid var(--raised);border-radius:20px;padding:14px;min-height:118px;display:flex;flex-direction:column;justify-content:space-between;gap:12px;text-align:left;min-width:0}
+.ltile:hover,.ltile:focus-visible{border-color:var(--borderS)}
+.ltile.ctor{background:var(--bg);border-color:var(--red)}
+.ltile-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;letter-spacing:.08em}
+.ltile-name{font:900 expanded 17px/1 var(--disp);text-transform:uppercase;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ltile-foot{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700}
+.ltile-foot .tbar{width:34px;margin:0}
+.ltile-ace{font:900 expanded 14px var(--disp);text-transform:uppercase}
+.lbl.linkish{color:var(--red)}

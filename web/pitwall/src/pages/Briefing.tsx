@@ -9,6 +9,7 @@ import { Calls } from '../ui/Calls';
 import { Locked } from '../ui/Locked';
 import { PassBar } from '../ui/PassBar';
 import { Hero } from '../ui/Hero';
+import { LineupTiles } from '../ui/LineupTiles';
 
 export function Briefing() {
   const { payload: p, has, pass, wire, purse, ui, set, open } = useStore();
@@ -84,12 +85,17 @@ export function Briefing() {
       <Locked feature="briefing.recommendations"><Calls recs={recs} /></Locked>
       <div className="cols">
       <div className="stack side">
+      <LineupTiles />
       <Tile span="only-wide" label="Price movers · predicted"><div className="list">{moversBody}</div></Tile>
-      <Tile span="only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
+      <Tile span="only-wide" label={`Top ten for ${p.round.name || 'this round'}`} right={<span className="mut only-wide">Projected points for the coming round</span>}>
+        <div className="list">
+        {topRows(topTen)}
+        </div>
+      </Tile>
       </div>
       <div className="stack main">
       {has.news ? (
-        <Tile label="What changed since yesterday" right={<span className="mut only-wide">{briefing.length ? `${briefing.length} unread · links out to sources` : 'links out to sources'}</span>}>
+        <Tile label={<><span className="only-narrow">What changed since yesterday</span><span className="only-wide h2 calls-h" style={{ color: 'var(--fg)' }}>The wire</span></>} right={<span className="mut only-wide">{briefing.length ? `${briefing.length} unread · links out to sources` : 'links out to sources'}</span>}>
           {briefing.length === 0 ? <Empty>You are caught up. New headlines appear here as the feeds carry them.</Empty> : null}
           {/* Ten on a wide screen, five on a phone, same as the top ten; the Wire carries all of them. */}
           <div className="list">{briefing.map((n, i) => <div key={newsKey(n)} className={i >= 5 ? 'only-wide' : undefined}><NewsRow n={n} /></div>)}</div>
@@ -102,11 +108,7 @@ export function Briefing() {
           the top ten (price movers, then the weather), so neither side leaves a hole. Rivals,
           mostly "not published" today, gets the full width at the bottom. */}
       <Tile span="only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals"><div className="list">{rivalsBody}</div></Locked></Tile>
-      <Tile span="only-wide" label={`Top ten for ${p.round.name || 'this round'}`} right={<span className="mut only-wide">Projected points for the coming round</span>}>
-        <div className="list">
-        {topRows(topTen)}
-        </div>
-      </Tile>
+      <Tile span="only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
       </div>
       </div>
       <Tile span="c12 only-narrow" label="This weekend" right={<Tabs value={ui.lowerTab} options={['TOP 5', 'RIVALS', 'MOVERS', 'WEATHER'] as const} onChange={(v) => set('lowerTab', v)} label="Weekend frames" />}>

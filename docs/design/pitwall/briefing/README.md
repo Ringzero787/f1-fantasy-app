@@ -17,4 +17,9 @@ Open the output in a browser. Event handlers are stripped, so the peek/lock/expa
 - On a phone the wire shows five headlines (the rest are on the Wire page) and the comparison opens as a slide-over rather than a floating callout. The handoff's layout measured 4.6 screens at 390px; the portal's limit is 3.
 - Archivo wide and the revised tokens are applied to the whole portal, not just the Briefing, so one page does not sit in a different typeface from the other seven. `docs/design/grid/TRANSITION.md` remains the app's spec; the portal's values are in `web/pitwall/src/styles.css`.
 - Frames the handoff did not draw but the spec requires stay: rivals' likely moves, weather, the free top ten, swap calls when the lineup is open, the locked state for readers without a pass, the example-data label, and the confidence lean on each call (F-096).
+- Nothing is locked at rest. The handoff opens with the first call locked and its callout over the wire; here the page opens readable, hover peeks, click locks.
+- The lineup tiles are desktop-only on the Briefing (the Lab is one tap away on a phone), and the tiles show projected points and the predicted price move, which the portal has, rather than the app's season points and trend. The handoff's SHARE link has nothing behind it yet (F-065) and is not drawn; EDIT goes to the Lineup Lab.
+- Column balance: the weather sits under the wire and rivals, the top ten under the lineup and movers, so the two columns end within 40px of each other and the expanded comparison stays inside the budget (2.92 screens at 1440×900).
 - The handoff labels Audi's colour as Sauber; the portal takes team colours from the payload.
+
+Screenshots of the result are in `verify/` (dark and light at 1440×900, phone at 390×844, and the expanded comparison).
