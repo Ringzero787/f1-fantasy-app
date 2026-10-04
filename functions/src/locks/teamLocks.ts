@@ -8,6 +8,9 @@ const db = admin.firestore();
 
 const BATCH_OP_LIMIT = 499;
 
+/** How long after its scheduled start a race still counts as "this weekend". */
+const WEEKEND_WINDOW_MS = 36 * 60 * 60 * 1000;
+
 /**
  * Is a race weekend running right now?
  *
@@ -15,10 +18,19 @@ const BATCH_OP_LIMIT = 499;
  * `checkResults` moves it to 'completed' when the results land, so this is the system's
  * own notion of a live weekend rather than a second one invented here. F-095 uses it to
  * refuse the callables that would otherwise unlock a team in the middle of a race.
+ *
+ * Bounded by the schedule as well as the status, because 'in_progress' has no way out
+ * but success: nothing times it out, and the admin re-trigger sets it in one write and
+ * clears it in another. One race stuck there would otherwise refuse seasonLockTeam and
+ * earlyUnlockTeam for every player, for the rest of the season. A stale latch should not
+ * cost people the use of a feature they paid for.
  */
-async function raceWeekendIsLive(): Promise<boolean> {
-  const live = await db.collection('races').where('status', '==', 'in_progress').limit(1).get();
-  return !live.empty;
+async function raceWeekendIsLive(now = Date.now()): Promise<boolean> {
+  const live = await db.collection('races').where('status', '==', 'in_progress').get();
+  return live.docs.some((doc) => {
+    const startMs = doc.data()?.schedule?.race?.toMillis?.();
+    return typeof startMs !== 'number' || now - startMs < WEEKEND_WINDOW_MS;
+  });
 }
 
 // Failsafe unlock: Phase 5 of onRaceCompleted schedules the real unlock
@@ -344,10 +356,16 @@ export const seasonLockTeam = functions.https.onCall(async (data, context) => {
   // between-races decision; there is no reason to allow it while the weekend is running.
   // Both halves of the test matter: a team can be locked outside a live weekend (season
   // lock), and a weekend can be live while this particular team is not yet locked.
-  if (team.isLocked || (await raceWeekendIsLive())) {
+  if (await raceWeekendIsLive()) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'Teams are locked for this race weekend. Season lock once the weekend is over.'
+      'A race weekend is under way. Season lock once it is over.'
+    );
+  }
+  if (team.isLocked) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Your team is still locked from the last race. Season lock once it unlocks.'
     );
   }
 
@@ -418,14 +436,19 @@ export const earlyUnlockTeam = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // The ace window is deliberately NOT cleared here. This is the only client-reachable
+  // path that could clear it, and there is a gap it would have been clearable in: a race
+  // flips to 'completed' with its results seconds before onRaceCompleted reads the aces,
+  // and in that gap the guard above passes while the outcome is already known. Leaving
+  // the window alone costs nothing — it expires on its own, which is the whole point of
+  // stamping an end — and means the sweep is its only writer and the unlock sweep its
+  // only clearer.
   await teamDoc.ref.update({
     isLocked: false,
     'lockStatus.isSeasonLocked': false,
     'lockStatus.seasonLockRacesRemaining': 0,
     'lockStatus.canModify': true,
     'lockStatus.lockReason': null,
-    'lockStatus.aceLockTime': null,
-    'lockStatus.aceLockUntil': null,
     budget: admin.firestore.FieldValue.increment(-EARLY_UNLOCK_FEE),
   });
 
