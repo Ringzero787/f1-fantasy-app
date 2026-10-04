@@ -8,12 +8,18 @@ import type { MarketPrices, Plan, RealTeam, RosterConstructor, RosterDriver, Ste
 
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
+/** F-098: the markers the session scorers write into `scoredRaces`, which open the gap. */
+const aceMarkerOf = (lockStatus: unknown, field: 'aceQualiKey' | 'aceSprintKey'): string | null => {
+  const k = (lockStatus as Record<string, unknown> | null | undefined)?.[field];
+  return typeof k === 'string' && k !== '' ? k : null;
+};
+
 /**
  * F-095: one end of `lockStatus`'s ace window as epoch ms. A Firestore Timestamp while
  * the weekend is locked, null the rest of the time, and absent on teams written before
  * the fields existed — all three mean "no window the portal should enforce".
  */
-const stampMs = (lockStatus: unknown, field: 'aceLockTime' | 'aceLockUntil'): number | null => {
+const stampMs = (lockStatus: unknown, field: 'aceFreezeFrom' | 'aceLockTime' | 'aceLockUntil'): number | null => {
   const t = (lockStatus as Record<string, { toMillis?: () => number } | undefined> | null | undefined)?.[field];
   return t && typeof t.toMillis === 'function' ? t.toMillis() : null;
 };
@@ -28,7 +34,9 @@ export async function loadTeams(uid: string): Promise<RealTeam[]> {
       id: d.id, name: typeof t.name === 'string' ? t.name : 'Team', leagueId: typeof t.leagueId === 'string' ? t.leagueId : null,
       drivers: Array.isArray(t.drivers) ? (t.drivers as RosterDriver[]).filter((x) => x && typeof x.driverId === 'string') : [],
       constructor: ctor && typeof ctor.constructorId === 'string' ? ctor : null,
-      budget: num(t.budget, 0), isLocked: t.isLocked === true, aceLockTime: stampMs(t.lockStatus, 'aceLockTime'), aceLockUntil: stampMs(t.lockStatus, 'aceLockUntil'), aceDriverId: typeof t.aceDriverId === 'string' ? t.aceDriverId : null,
+      budget: num(t.budget, 0), isLocked: t.isLocked === true, aceFreezeFrom: stampMs(t.lockStatus, 'aceFreezeFrom'), aceLockTime: stampMs(t.lockStatus, 'aceLockTime'),
+      aceLockUntil: stampMs(t.lockStatus, 'aceLockUntil'), aceQualiKey: aceMarkerOf(t.lockStatus, 'aceQualiKey'), aceSprintKey: aceMarkerOf(t.lockStatus, 'aceSprintKey'),
+      scoredRaces: Array.isArray(t.scoredRaces) ? (t.scoredRaces as unknown[]).filter((x): x is string => typeof x === 'string') : [], aceDriverId: typeof t.aceDriverId === 'string' ? t.aceDriverId : null,
       totalPoints: num(t.totalPoints), lockedPoints: num(t.lockedPoints), driverLockouts: (t.driverLockouts && typeof t.driverLockouts === 'object' ? t.driverLockouts : {}) as Record<string, number>,
     };
   });

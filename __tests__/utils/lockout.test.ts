@@ -219,53 +219,110 @@ describe('computeLockoutStatus', () => {
   });
 });
 
-describe('serverAceLocked (F-095)', () => {
+describe('serverAceLocked (F-095 / F-098)', () => {
   const HOUR = 60 * 60 * 1000;
-  const raceStart = new Date('2026-03-08T14:00:00Z');
-  const windowEnd = new Date(raceStart.getTime() + 24 * HOUR);
-  const win = { aceLockTime: raceStart, aceLockUntil: windowEnd };
-  const at = (ms: number) => new Date(raceStart.getTime() + ms);
+  const race = new Date('2026-03-08T14:00:00Z');
+  const quali = new Date('2026-03-07T14:00:00Z');
+  const QUALI_MARK = 'quali_bahrain_2026';
+  const SPRINT_MARK = 'sprint_bahrain_2026';
+  const at = (ms: number) => new Date(race.getTime() + ms);
 
-  it('is open before the race and shut from lights out', () => {
-    expect(serverAceLocked(win, at(-60_000))).toBe(false);
-    expect(serverAceLocked(win, raceStart)).toBe(true);
-    expect(serverAceLocked(win, at(60_000))).toBe(true);
+  /** What autoLockTeams stamps: the freeze from the first scoring session to race + 24h. */
+  const team = (over: Record<string, unknown> = {}, scoredRaces: string[] = []) => ({
+    scoredRaces,
+    lockStatus: {
+      aceFreezeFrom: quali, aceLockTime: race,
+      aceLockUntil: new Date(race.getTime() + 24 * HOUR), aceQualiKey: QUALI_MARK,
+      ...over,
+    },
   });
 
-  it('expires, so a window nobody cleared cannot freeze the ace for ever', () => {
-    expect(serverAceLocked(win, at(24 * HOUR - 1))).toBe(true);
-    expect(serverAceLocked(win, windowEnd)).toBe(false);
-    expect(serverAceLocked(win, at(72 * HOUR))).toBe(false);
+  it('is free before the weekend\'s first scoring session', () => {
+    expect(serverAceLocked(team(), new Date(quali.getTime() - 1))).toBe(false);
+  });
+
+  it('freezes through qualifying and the sprint, until qualifying is actually scored', () => {
+    expect(serverAceLocked(team(), quali)).toBe(true);
+    expect(serverAceLocked(team(), at(-20 * HOUR))).toBe(true);
+    expect(serverAceLocked(team(), at(-2 * HOUR))).toBe(true);
+  });
+
+  it('needs the sprint settled too, on a weekend that has one', () => {
+    const sprint = (over = {}, scoredRaces: string[] = []) =>
+      team({ aceSprintKey: SPRINT_MARK, ...over }, scoredRaces);
+    expect(serverAceLocked(sprint({}, [QUALI_MARK]), at(-2 * HOUR))).toBe(true);
+    expect(serverAceLocked(sprint({}, [QUALI_MARK, SPRINT_MARK]), at(-2 * HOUR))).toBe(false);
+    // a weekend with no sprint asks nothing of the marker
+    expect(serverAceLocked(team({}, [QUALI_MARK]), at(-2 * HOUR))).toBe(false);
+    expect(serverAceLocked(team({ aceSprintKey: null }, [QUALI_MARK]), at(-2 * HOUR))).toBe(false);
+  });
+
+  it('opens the gap when the qualifying key lands in scoredRaces, not on a clock', () => {
+    expect(serverAceLocked(team({}, [QUALI_MARK]), at(-2 * HOUR))).toBe(false);
+    // another race's key is not this one's
+    expect(serverAceLocked(team({}, ['quali_singapore_2026', 'singapore_2026']), at(-2 * HOUR))).toBe(true);
+  });
+
+  it('shuts the gap again at lights out', () => {
+    expect(serverAceLocked(team({}, [QUALI_MARK]), new Date(race.getTime() - 1))).toBe(false);
+    expect(serverAceLocked(team({}, [QUALI_MARK]), race)).toBe(true);
+    expect(serverAceLocked(team({}, [QUALI_MARK]), at(2 * HOUR))).toBe(true);
+  });
+
+  it('expires, so a freeze nobody cleared cannot hold the ace for ever', () => {
+    expect(serverAceLocked(team({}, [QUALI_MARK]), at(24 * HOUR - 1))).toBe(true);
+    expect(serverAceLocked(team({}, [QUALI_MARK]), at(24 * HOUR))).toBe(false);
+    expect(serverAceLocked(team({}, [QUALI_MARK]), at(72 * HOUR))).toBe(false);
+  });
+
+  it('falls back to the race start on a weekend stamped before aceFreezeFrom existed', () => {
+    // What F-095 stamped, and what the Bahrain backfill put on 75 live teams.
+    const f095 = { lockStatus: { aceLockTime: race, aceLockUntil: new Date(race.getTime() + 24 * HOUR) } };
+    expect(serverAceLocked(f095, at(-2 * HOUR))).toBe(false);
+    expect(serverAceLocked(f095, race)).toBe(true);
+    expect(serverAceLocked(f095, at(24 * HOUR))).toBe(false);
   });
 
   it('says nothing when there is no window — teams written before the fields existed', () => {
-    expect(serverAceLocked({ aceLockTime: null, aceLockUntil: null }, at(HOUR))).toBe(false);
-    expect(serverAceLocked({}, at(HOUR))).toBe(false);
-    expect(serverAceLocked(undefined, at(HOUR))).toBe(false);
-    expect(serverAceLocked(null, at(HOUR))).toBe(false);
+    expect(serverAceLocked({ lockStatus: { aceLockTime: null, aceLockUntil: null } }, race)).toBe(false);
+    expect(serverAceLocked({ lockStatus: {} }, race)).toBe(false);
+    expect(serverAceLocked({}, race)).toBe(false);
+    expect(serverAceLocked(undefined, race)).toBe(false);
+    expect(serverAceLocked(null, race)).toBe(false);
   });
 
   it('freezes nothing on half a window — fail open, not shut', () => {
-    expect(serverAceLocked({ aceLockTime: raceStart }, at(HOUR))).toBe(false);
-    expect(serverAceLocked({ aceLockUntil: windowEnd }, at(HOUR))).toBe(false);
+    expect(serverAceLocked(team({ aceLockUntil: null }), race)).toBe(false);
+    expect(serverAceLocked(team({ aceFreezeFrom: null, aceLockTime: null }), race)).toBe(false);
   });
 
   it('reads the shapes the values actually arrive in', () => {
     // Firestore Timestamp (the web SDK hands this straight through), its admin twin,
     // and what a Timestamp becomes after a round trip through the persisted store.
     const ms = (d: Date) => d.getTime();
-    expect(serverAceLocked({ aceLockTime: { toMillis: () => ms(raceStart) }, aceLockUntil: { toMillis: () => ms(windowEnd) } }, at(HOUR))).toBe(true);
-    expect(serverAceLocked({ aceLockTime: { toDate: () => raceStart }, aceLockUntil: { toDate: () => windowEnd } }, at(HOUR))).toBe(true);
-    expect(serverAceLocked({ aceLockTime: { seconds: ms(raceStart) / 1000, nanoseconds: 0 }, aceLockUntil: { seconds: ms(windowEnd) / 1000, nanoseconds: 0 } }, at(HOUR))).toBe(true);
-    expect(serverAceLocked({ aceLockTime: { _seconds: ms(raceStart) / 1000 }, aceLockUntil: { _seconds: ms(windowEnd) / 1000 } }, at(HOUR))).toBe(true);
-    expect(serverAceLocked({ aceLockTime: raceStart.toISOString(), aceLockUntil: windowEnd.toISOString() }, at(HOUR))).toBe(true);
-    expect(serverAceLocked({ aceLockTime: ms(raceStart), aceLockUntil: ms(windowEnd) }, at(HOUR))).toBe(true);
-    expect(serverAceLocked({ aceLockTime: raceStart.toISOString(), aceLockUntil: windowEnd.toISOString() }, at(-HOUR))).toBe(false);
+    const until = new Date(race.getTime() + 24 * HOUR);
+    const shapes: Array<(d: Date) => unknown> = [
+      (d) => ({ toMillis: () => ms(d) }),
+      (d) => ({ toDate: () => d }),
+      (d) => ({ seconds: ms(d) / 1000, nanoseconds: 0 }),
+      (d) => ({ _seconds: ms(d) / 1000 }),
+      (d) => d.toISOString(),
+      (d) => ms(d),
+    ];
+    for (const shape of shapes) {
+      const t = team({ aceFreezeFrom: shape(quali), aceLockTime: shape(race), aceLockUntil: shape(until) });
+      expect(serverAceLocked(t, at(-2 * HOUR))).toBe(true);
+      expect(serverAceLocked(t, new Date(quali.getTime() - 1))).toBe(false);
+    }
   });
 
   it('treats an unreadable window as no window rather than locking everyone out', () => {
-    expect(serverAceLocked({ aceLockTime: 'not a date', aceLockUntil: windowEnd }, at(HOUR))).toBe(false);
-    expect(serverAceLocked({ aceLockTime: raceStart, aceLockUntil: {} }, at(HOUR))).toBe(false);
-    expect(serverAceLocked({ aceLockTime: new Date('nope'), aceLockUntil: windowEnd }, at(HOUR))).toBe(false);
+    expect(serverAceLocked(team({ aceFreezeFrom: 'not a date', aceLockTime: null }), race)).toBe(false);
+    expect(serverAceLocked(team({ aceLockUntil: {} }), race)).toBe(false);
+    expect(serverAceLocked(team({ aceFreezeFrom: new Date('nope'), aceLockTime: null }), race)).toBe(false);
+  });
+
+  it('ignores a scoredRaces that is not a list, rather than throwing', () => {
+    expect(serverAceLocked({ ...team(), scoredRaces: 'quali_bahrain_2026' as unknown as string[] }, at(-2 * HOUR))).toBe(true);
   });
 });

@@ -221,17 +221,34 @@ test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped
   await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
 });
 
-// ── F-095: the ace locks at lights out, not at qualifying ──
-// The window between the two locks is a designed feature — you may move the ace after
-// seeing qualifying, right up to the start of the race — so these cases have to prove
-// both halves: the window stays open, and it shuts on time. The freeze itself is also a
-// window, with an end, so that nothing a player can call opens it early and nothing left
-// behind closes it for ever.
+// ── F-095/F-098: the ace is frozen for every session that scores with it ──
+// Three sessions score with the ace applied — qualifying, the sprint, the race — and each
+// is scored minutes after it ends from a live read, so each had a window to watch the
+// session and then point the ace at its winner. The freeze runs from the first of them to
+// the failsafe ceiling, with ONE gap: qualifying scored, race not yet started. These cases
+// have to prove the gap opens, that it opens on the scoring and not on a clock, and that
+// nothing else opens the freeze.
+const HOUR = 60 * 60 * 1000;
+const at = (offsetMs) => new Date(Date.now() + offsetMs);
+const QUALI_MARK = 'quali_round_9';
+const SPRINT_MARK = 'sprint_round_9';
+
+/**
+ * A weekend stamped as autoLockTeams stamps it. `fromMs` is the first scoring session,
+ * `raceMs` lights out; the freeze ends 24h after the race, as the sweep writes it.
+ */
+const weekend = (fromMs, raceMs, over = {}) => ({
+  isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null,
+  aceFreezeFrom: at(fromMs), aceLockTime: at(raceMs), aceLockUntil: at(raceMs + 24 * HOUR),
+  aceQualiKey: QUALI_MARK, aceSprintKey: null, ...over,
+});
+/** The same weekend with a sprint, as the sweep stamps one. */
+const sprintWeekend = (fromMs, raceMs) => weekend(fromMs, raceMs, { aceSprintKey: SPRINT_MARK });
 const aceTeam = (over = {}) => ({
   userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null,
   budget: 1000, totalSpent: 0, totalPoints: 0, aceDriverId: 'norris', aceConstructorId: null,
-  isLocked: true,
-  lockStatus: { isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null, aceLockTime: null, aceLockUntil: null },
+  isLocked: true, scoredRaces: [],
+  lockStatus: weekend(-HOUR, HOUR),
   ...over,
 });
 const seedTeam = async (data) => {
@@ -239,23 +256,90 @@ const seedTeam = async (data) => {
     await setDoc(doc(ctx.firestore(), 'fantasyTeams', 'T1'), data);
   });
 };
-const HOUR = 60 * 60 * 1000;
-const at = (offsetMs) => new Date(Date.now() + offsetMs);
-/** The weekend's ace window: frozen from `fromMs` until 24h after it, as autoLockTeams stamps it. */
-const lockStatusAt = (fromMs) => ({
-  isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null,
-  aceLockTime: at(fromMs), aceLockUntil: at(fromMs + 24 * HOUR),
+const moveAce = () => updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' });
+
+test('F-098 ace: free before the weekend\'s first scoring session', async () => {
+  await seedTeam(aceTeam({ lockStatus: weekend(HOUR, 20 * HOUR) }));
+  await assertSucceeds(moveAce());
 });
 
-test('F-095 ace: locked for qualifying but before lights out, the ace still moves', async () => {
-  await seedTeam(aceTeam({ lockStatus: lockStatusAt(HOUR) }));
+test('F-098 ace: frozen through qualifying, until qualifying is actually scored', async () => {
+  // Q3 is over, the ace is still pointed at whoever it was pointed at, and the scorer has
+  // not run yet. This is the hole: set the ace to the pole-sitter and those points double.
+  await seedTeam(aceTeam({ lockStatus: weekend(-HOUR, 20 * HOUR), scoredRaces: [] }));
+  await assertFails(moveAce());
+});
+
+test('F-098 ace: frozen through the sprint on a sprint weekend', async () => {
+  // Sprint on Saturday morning, qualifying hours later, race on Sunday. The freeze starts
+  // at the sprint, and qualifying has certainly not been scored yet.
+  await seedTeam(aceTeam({ lockStatus: weekend(-HOUR, 30 * HOUR), scoredRaces: [] }));
+  await assertFails(moveAce());
+  // and still frozen between the sprint being scored and qualifying starting
+  await seedTeam(aceTeam({ lockStatus: weekend(-2 * HOUR, 30 * HOUR), scoredRaces: ['sprint_round_9'] }));
+  await assertFails(moveAce());
+});
+
+test('F-098 ace: once qualifying is scored the ace moves again, right up to lights out', async () => {
+  // The designed window, and the reason the gap keys off scoredRaces rather than a clock.
+  await seedTeam(aceTeam({ lockStatus: weekend(-5 * HOUR, HOUR), scoredRaces: [QUALI_MARK] }));
   const d = db(ALICE);
   await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
   await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: null, aceConstructorId: 'mclaren' }));
 });
 
+test('F-098 ace: a qualifying key from another race does not open the gap', async () => {
+  await seedTeam(aceTeam({ lockStatus: weekend(-5 * HOUR, HOUR), scoredRaces: ['quali_round_8', 'round_8'] }));
+  await assertFails(moveAce());
+});
+
+test('F-098 ace: when qualifying is never scored on the day, the gap never opens', async () => {
+  // An unmapped driver leaves qualifying to be folded in at race time, with the ace read
+  // live then — so staying frozen is the correct answer, not an over-strict one.
+  await seedTeam(aceTeam({ lockStatus: weekend(-5 * HOUR, HOUR), scoredRaces: [] }));
+  await assertFails(moveAce());
+});
+
+test('F-098 ace: a scoredRaces that is not a list denies nothing beyond the ace', async () => {
+  // Pins the behaviour rather than catching a regression: the quality gate expected
+  // `hasAny` on a non-list to error, and an error denies the WHOLE update — a rename
+  // included — but the emulator accepts it and this case passes with or without the
+  // `is list` guard the rule now carries. Keeping both: the guard says what the two
+  // client predicates already do explicitly (a non-array is "not scored"), and this
+  // pins that a malformed field cannot make someone's team unwritable.
+  await seedTeam(aceTeam({ lockStatus: weekend(-5 * HOUR, HOUR), scoredRaces: QUALI_MARK }));
+  const d = db(ALICE);
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { name: 'Apex Two' }));
+  await assertFails(moveAce());
+});
+
+test('F-098 ace: on a sprint weekend the gap needs the sprint scored too', async () => {
+  // The sprint can miss its own scoring run exactly as qualifying can, and is then
+  // folded into race scoring from a live ace read. Opening the gap on qualifying alone
+  // would hand the player a known sprint result to point the ace at.
+  await seedTeam(aceTeam({ lockStatus: sprintWeekend(-5 * HOUR, HOUR), scoredRaces: [QUALI_MARK] }));
+  await assertFails(moveAce());
+  // both scored: the gap opens as usual
+  await seedTeam(aceTeam({ lockStatus: sprintWeekend(-5 * HOUR, HOUR), scoredRaces: [QUALI_MARK, SPRINT_MARK] }));
+  await assertSucceeds(moveAce());
+  // and a weekend with no sprint asks nothing of the sprint marker
+  await seedTeam(aceTeam({ lockStatus: weekend(-5 * HOUR, HOUR), scoredRaces: [QUALI_MARK] }));
+  await assertSucceeds(moveAce());
+});
+
+test('F-098 ace: an explicit null freeze start falls back to the race, it does not unfreeze', async () => {
+  // `get(k, default)` returns the default only when the key is ABSENT. createTeamSecure
+  // and the rescue script both write a present null, and reading that as "no freeze"
+  // left those teams completely open — worse than before this feature existed.
+  await seedTeam(aceTeam({ lockStatus: weekend(-5 * HOUR, -HOUR, { aceFreezeFrom: null }) }));
+  await assertFails(moveAce());
+  // still free before the race, though: the fallback is the race start, not "always on"
+  await seedTeam(aceTeam({ lockStatus: weekend(-5 * HOUR, HOUR, { aceFreezeFrom: null }) }));
+  await assertSucceeds(moveAce());
+});
+
 test('F-095 ace: once the race has started the ace is frozen', async () => {
-  await seedTeam(aceTeam({ lockStatus: lockStatusAt(-HOUR) }));
+  await seedTeam(aceTeam({ lockStatus: weekend(-5 * HOUR, -HOUR), scoredRaces: [QUALI_MARK] }));
   const d = db(ALICE);
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: null }));
@@ -276,55 +360,71 @@ test('F-095 ace: "no ace" spelled as null and spelled as absent are the same ace
   // and refuse the whole update — a rename included — for anyone racing without an ace.
   await seedTeam({
     userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null,
-    budget: 1000, totalSpent: 0, totalPoints: 0, isLocked: true,
-    lockStatus: lockStatusAt(-HOUR),
+    budget: 1000, totalSpent: 0, totalPoints: 0, isLocked: true, scoredRaces: [],
+    lockStatus: weekend(-5 * HOUR, -HOUR),
   });
   const d = db(ALICE);
   await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: null, aceConstructorId: null, name: 'Apex Two' }));
   // and the other way about: a null on the server, a field the client simply omits
-  await seedTeam(aceTeam({ aceDriverId: null, lockStatus: lockStatusAt(-HOUR) }));
+  await seedTeam(aceTeam({ aceDriverId: null, lockStatus: weekend(-5 * HOUR, -HOUR) }));
   await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { name: 'Apex Two' }));
-  // a real change is still refused
-  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await assertFails(moveAce());
 });
 
 test('F-095 ace: the freeze is a window, so a stamp nobody cleared expires', async () => {
-  // Last race's window, long past its end. Nothing unlocked this team — a season-locked
+  // Last race's weekend, long past its end. Nothing unlocked this team — a season-locked
   // team is never touched by the unlock sweep — and its ace must still be free.
-  await seedTeam(aceTeam({ lockStatus: { ...lockStatusAt(-72 * HOUR), isSeasonLocked: true } }));
-  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await seedTeam(aceTeam({ lockStatus: { ...weekend(-80 * HOUR, -72 * HOUR), isSeasonLocked: true } }));
+  await assertSucceeds(moveAce());
 });
 
 test('F-095 ace: clearing the lock does not open the window — only time does', async () => {
   // The freeze does not consult isLocked, so the callables that clear it (seasonLockTeam
   // then earlyUnlockTeam) buy nothing mid-race.
-  await seedTeam(aceTeam({ isLocked: false, lockStatus: { ...lockStatusAt(-HOUR), canModify: true } }));
-  await assertFails(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await seedTeam(aceTeam({ isLocked: false, lockStatus: { ...weekend(-5 * HOUR, -HOUR), canModify: true } }));
+  await assertFails(moveAce());
 });
 
 test('F-095 ace: a half-written window freezes nothing', async () => {
   // Fail open rather than shut: a start with no end, or an end with no start, is not a
   // window, and must not strand a player.
-  await seedTeam(aceTeam({ lockStatus: { ...lockStatusAt(-HOUR), aceLockUntil: null } }));
-  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
-  await seedTeam(aceTeam({ lockStatus: { ...lockStatusAt(-HOUR), aceLockTime: null } }));
-  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await seedTeam(aceTeam({ lockStatus: { ...weekend(-5 * HOUR, -HOUR), aceLockUntil: null } }));
+  await assertSucceeds(moveAce());
+  await seedTeam(aceTeam({ lockStatus: { ...weekend(-5 * HOUR, -HOUR), aceFreezeFrom: null, aceLockTime: null } }));
+  await assertSucceeds(moveAce());
+});
+
+test('F-098 ace: a weekend stamped before the freeze start existed still holds from the race', async () => {
+  // What F-095 stamped, and what the Bahrain backfill put on 75 live teams: no
+  // aceFreezeFrom, no aceQualiKey. It must still freeze from lights out, and must not
+  // freeze before it.
+  const f095 = (raceMs) => ({
+    isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null,
+    aceLockTime: at(raceMs), aceLockUntil: at(raceMs + 24 * HOUR),
+  });
+  await seedTeam(aceTeam({ lockStatus: f095(-HOUR) }));
+  await assertFails(moveAce());
+  await seedTeam(aceTeam({ lockStatus: f095(HOUR) }));
+  await assertSucceeds(moveAce());
 });
 
 test('F-095 ace: documents written before the fields existed are unaffected', async () => {
   await seedTeam({ userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null, budget: 1000, totalSpent: 0, totalPoints: 0, aceDriverId: 'norris', isLocked: true });
-  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await assertSucceeds(moveAce());
   await seedTeam(aceTeam({ lockStatus: { isSeasonLocked: false, canModify: false } }));
-  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+  await assertSucceeds(moveAce());
 });
 
 test('F-095 ace: the window itself is not the owner\'s to move', async () => {
-  await seedTeam(aceTeam({ lockStatus: lockStatusAt(-HOUR) }));
+  await seedTeam(aceTeam({ lockStatus: weekend(-5 * HOUR, -HOUR) }));
   const d = db(ALICE);
-  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockTime': at(HOUR) }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceFreezeFrom': at(HOUR) }));
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockUntil': at(-HOUR) }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceQualiKey': 'quali_elsewhere' }));
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { isLocked: false }));
-  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lockStatus.aceLockTime': at(HOUR), aceDriverId: 'piastri' }));
+  // nor can the owner claim qualifying was scored to open the gap early
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { scoredRaces: [QUALI_MARK] }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { scoredRaces: [QUALI_MARK], aceDriverId: 'piastri' }));
 });
 
 // ── F-062 race results and F-029 race snapshots: server-written, league-readable ──

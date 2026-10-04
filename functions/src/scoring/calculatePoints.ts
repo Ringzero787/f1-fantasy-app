@@ -363,7 +363,13 @@ export async function handleQualifyingScoring(
       };
     }
 
-    if (teamPoints !== 0) {
+    // F-098: written for every team, not only the ones that scored. The marker in
+    // scoredRaces is what the idempotency guard above reads AND what reopens the ace for
+    // the gap between qualifying and the race (firestore.rules `aceIsFrozen`), so a
+    // zero-point session used to cost that player the window and leave them re-scored on
+    // every run. increment(0) is a no-op and the snapshot of a blank session is still
+    // the roster as fielded, which is what F-029 is for.
+    {
       const updateData: Record<string, any> = {
         drivers: updatedDrivers,
         // increment() instead of snapshot + add: the snapshot may be minutes
@@ -503,7 +509,9 @@ export async function handleSprintScoring(
       };
     });
 
-    if (teamPoints !== 0) {
+    // F-098: written for every team — see the qualifying handler. The marker gates both
+    // the idempotency guard and the ace freeze, so it cannot depend on having scored.
+    {
       const updateData: Record<string, any> = {
         drivers: updatedDrivers,
         // increment() — see qualifying handler note on stale snapshots.

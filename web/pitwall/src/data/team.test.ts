@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { aceChange, aceFrozen, planSave, saleQuote, teamLineup, type MarketPrices, type RealTeam } from './team';
 
 const D = (driverId: string, currentPrice: number, extra = {}) => ({ driverId, name: driverId.toUpperCase(), shortName: driverId.slice(0, 3).toUpperCase(), constructorId: 'car', purchasePrice: currentPrice, currentPrice, contractLength: 3, racesHeld: 1, ...extra });
-const team: RealTeam = { id: 't1', name: 'Late Brakers', leagueId: 'L', budget: 50, isLocked: false, aceLockTime: null, aceLockUntil: null, aceDriverId: 'a', totalPoints: 0, lockedPoints: 0, driverLockouts: { gone: 9 },
+const team: RealTeam = { id: 't1', name: 'Late Brakers', leagueId: 'L', budget: 50, isLocked: false, aceFreezeFrom: null, aceLockTime: null, aceLockUntil: null, aceQualiKey: null, aceSprintKey: null, scoredRaces: [], aceDriverId: 'a', totalPoints: 0, lockedPoints: 0, driverLockouts: { gone: 9 },
   drivers: [D('a', 100), D('b', 200, { racesHeld: 0 }), D('c', 150, { isReservePick: true })], constructor: { constructorId: 'x', name: 'X', purchasePrice: 300, currentPrice: 300, contractLength: 3, racesHeld: 1 } };
 const market: MarketPrices = { drivers: { a: { price: 110, name: 'A' }, b: { price: 200, name: 'B' }, c: { price: 150, name: 'C' }, d: { price: 120, name: 'D' }, e: { price: 500, name: 'E' }, gone: { price: 50, name: 'GONE' }, dead: { price: 10, name: 'DEAD', isActive: false } }, constructors: { x: { price: 300, name: 'X' }, y: { price: 310, name: 'Y' } } };
 
@@ -67,28 +67,58 @@ describe('the lock refuses a roster change, not an ace change (F-095)', () => {
   });
 });
 
-describe('aceFrozen (F-095)', () => {
-  const start = Date.parse('2026-03-08T14:00:00Z');
-  const end = start + 24 * 60 * 60 * 1000;
-  const locked = { ...team, isLocked: true, aceLockTime: start, aceLockUntil: end };
+describe('aceFrozen (F-095 / F-098)', () => {
+  const HOUR = 60 * 60 * 1000;
+  const race = Date.parse('2026-03-08T14:00:00Z');
+  const quali = Date.parse('2026-03-07T14:00:00Z');
+  const QUALI_MARK = 'quali_bahrain_2026';
+  const SPRINT_MARK = 'sprint_bahrain_2026';
+  const frozen = {
+    ...team, isLocked: true,
+    aceFreezeFrom: quali, aceLockTime: race, aceLockUntil: race + 24 * HOUR, aceQualiKey: QUALI_MARK,
+  };
 
-  it('leaves the ace alone until the race starts, then freezes it', () => {
-    expect(aceFrozen(locked, start - 1)).toBe(false);
-    expect(aceFrozen(locked, start)).toBe(true);
-    expect(aceFrozen(locked, end - 1)).toBe(true);
+  it('is free before the first scoring session, and frozen from it', () => {
+    expect(aceFrozen(frozen, quali - 1)).toBe(false);
+    expect(aceFrozen(frozen, quali)).toBe(true);
+    expect(aceFrozen(frozen, race - 2 * HOUR)).toBe(true);
   });
 
-  it('expires, so a window nobody cleared cannot freeze the ace for ever', () => {
-    expect(aceFrozen(locked, end)).toBe(false);
+  it('opens the gap on the qualifying key, not on a clock, and shuts it at lights out', () => {
+    const scored = { ...frozen, scoredRaces: [QUALI_MARK] };
+    expect(aceFrozen(scored, race - 2 * HOUR)).toBe(false);
+    expect(aceFrozen(scored, race - 1)).toBe(false);
+    expect(aceFrozen(scored, race)).toBe(true);
+    // another race's key is not this one's
+    expect(aceFrozen({ ...frozen, scoredRaces: ['quali_singapore_2026'] }, race - 2 * HOUR)).toBe(true);
+  });
+
+  it('needs the sprint settled too, on a weekend that has one', () => {
+    const sprint = { ...frozen, aceSprintKey: SPRINT_MARK };
+    expect(aceFrozen({ ...sprint, scoredRaces: [QUALI_MARK] }, race - 2 * HOUR)).toBe(true);
+    expect(aceFrozen({ ...sprint, scoredRaces: [QUALI_MARK, SPRINT_MARK] }, race - 2 * HOUR)).toBe(false);
+    // a weekend with no sprint asks nothing of the marker
+    expect(aceFrozen({ ...frozen, scoredRaces: [QUALI_MARK] }, race - 2 * HOUR)).toBe(false);
+  });
+
+  it('expires, so a freeze nobody cleared cannot hold the ace for ever', () => {
+    expect(aceFrozen(frozen, race + 24 * HOUR - 1)).toBe(true);
+    expect(aceFrozen(frozen, race + 24 * HOUR)).toBe(false);
   });
 
   it('does not consult isLocked — clearing the lock mid-race buys nothing', () => {
-    expect(aceFrozen({ ...locked, isLocked: false }, start + 1)).toBe(true);
+    expect(aceFrozen({ ...frozen, isLocked: false }, race + HOUR)).toBe(true);
+  });
+
+  it('falls back to the race start on a weekend stamped before aceFreezeFrom existed', () => {
+    const f095 = { ...team, isLocked: true, aceLockTime: race, aceLockUntil: race + 24 * HOUR };
+    expect(aceFrozen(f095, race - HOUR)).toBe(false);
+    expect(aceFrozen(f095, race)).toBe(true);
   });
 
   it('freezes nothing without a window, or with half of one', () => {
-    expect(aceFrozen({ ...team, isLocked: true, aceLockTime: null, aceLockUntil: null }, start + 1)).toBe(false);
-    expect(aceFrozen({ ...locked, aceLockUntil: null }, start + 1)).toBe(false);
-    expect(aceFrozen({ ...locked, aceLockTime: null }, start + 1)).toBe(false);
+    expect(aceFrozen({ ...team, isLocked: true }, race)).toBe(false);
+    expect(aceFrozen({ ...frozen, aceLockUntil: null }, race)).toBe(false);
+    expect(aceFrozen({ ...frozen, aceFreezeFrom: null, aceLockTime: null }, race)).toBe(false);
   });
 });
