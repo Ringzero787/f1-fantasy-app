@@ -134,3 +134,50 @@ export function computeLockoutStatus(
     aceLocked: isAceNaturallyLocked,
   };
 }
+
+/**
+ * F-095: the ace window the SERVER enforces, read off the team rather than worked out
+ * from the calendar.
+ *
+ * `computeLockoutStatus` derives the same start from the schedule, and the two agree
+ * while the weekend is running. They stop agreeing once the race is more than four hours
+ * old: `getNextIncompleteRace` treats that race as implicitly complete and moves on to
+ * the next one, whose start is a week away, so the app decides the ace is free again —
+ * while firestore.rules still refuses the write. That is the shape of bug that offers a
+ * player a button and then tells them no, so the stamped window wins where it is present.
+ *
+ * Mirrors `aceIsFrozen` in firestore.rules exactly, end date included. The end is what
+ * lets neither side consult `isLocked`: a window cannot be opened early by clearing a
+ * lock, and a stamp nobody clears expires instead of freezing the ace for ever. A
+ * half-written or unreadable window freezes nothing — fail open, not shut.
+ *
+ * The values arrive as Firestore Timestamps, and survive a round trip through the
+ * persisted store as `{seconds, nanoseconds}` — hence the coercion rather than a cast.
+ */
+export function serverAceLocked(lockStatus: unknown, now: Date): boolean {
+  const ls = lockStatus as { aceLockTime?: unknown; aceLockUntil?: unknown } | null | undefined;
+  const from = toMillis(ls?.aceLockTime);
+  const until = toMillis(ls?.aceLockUntil);
+  if (from === null || until === null) return false;
+  const t = now.getTime();
+  return t >= from && t < until;
+}
+
+/** Date, Firestore Timestamp, a rehydrated `{seconds}` plain object, ISO string or epoch ms. */
+function toMillis(value: unknown): number | null {
+  if (value == null) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.getTime();
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  if (typeof value === 'object') {
+    const v = value as { toMillis?: () => number; toDate?: () => Date; seconds?: unknown; _seconds?: unknown };
+    if (typeof v.toMillis === 'function') return v.toMillis();
+    if (typeof v.toDate === 'function') return toMillis(v.toDate());
+    const seconds = typeof v.seconds === 'number' ? v.seconds : typeof v._seconds === 'number' ? v._seconds : null;
+    if (seconds !== null) return seconds * 1000;
+  }
+  return null;
+}

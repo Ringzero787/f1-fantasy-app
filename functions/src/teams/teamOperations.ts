@@ -133,6 +133,10 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
       isSeasonLocked: false,
       seasonLockRacesRemaining: 0,
       nextUnlockTime: null,
+      // F-095: the window in which the ace is frozen — lights out to the failsafe
+      // ceiling — stamped when the weekend locks, consulted by firestore.rules.
+      aceLockTime: null,
+      aceLockUntil: null,
       canModify: true,
       lockReason: null,
     },

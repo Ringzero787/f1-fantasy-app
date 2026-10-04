@@ -239,6 +239,18 @@ export interface LockStatus {
   isSeasonLocked: boolean;
   seasonLockRacesRemaining: number;
   nextUnlockTime?: Date;
+  /**
+   * F-095: the window in which the ace cannot be changed — from race start, hours after
+   * the roster locks at qualifying, to the same failsafe ceiling the roster unlock uses.
+   * Stamped by autoLockTeams and enforced by firestore.rules, so this is the deadline
+   * that actually counts; the schedule-derived one in lockout.ts is the same moment
+   * computed locally. It carries an end so nothing has to ask whether the team is
+   * locked: a window cannot be opened early, and one nobody clears expires. Arrives from
+   * Firestore as a Timestamp, which is why `serverAceLocked` coerces rather than reading
+   * `.getTime()`.
+   */
+  aceLockTime?: Date | null;
+  aceLockUntil?: Date | null;
   canModify: boolean;
   lockReason?: string;
 }

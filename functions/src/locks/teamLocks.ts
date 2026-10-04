@@ -8,6 +8,31 @@ const db = admin.firestore();
 
 const BATCH_OP_LIMIT = 499;
 
+/** How long after its scheduled start a race still counts as "this weekend". */
+const WEEKEND_WINDOW_MS = 36 * 60 * 60 * 1000;
+
+/**
+ * Is a race weekend running right now?
+ *
+ * `autoLockTeams` moves a race to 'in_progress' when it locks teams for it, and
+ * `checkResults` moves it to 'completed' when the results land, so this is the system's
+ * own notion of a live weekend rather than a second one invented here. F-095 uses it to
+ * refuse the callables that would otherwise unlock a team in the middle of a race.
+ *
+ * Bounded by the schedule as well as the status, because 'in_progress' has no way out
+ * but success: nothing times it out, and the admin re-trigger sets it in one write and
+ * clears it in another. One race stuck there would otherwise refuse seasonLockTeam and
+ * earlyUnlockTeam for every player, for the rest of the season. A stale latch should not
+ * cost people the use of a feature they paid for.
+ */
+async function raceWeekendIsLive(now = Date.now()): Promise<boolean> {
+  const live = await db.collection('races').where('status', '==', 'in_progress').get();
+  return live.docs.some((doc) => {
+    const startMs = doc.data()?.schedule?.race?.toMillis?.();
+    return typeof startMs !== 'number' || now - startMs < WEEKEND_WINDOW_MS;
+  });
+}
+
 // Failsafe unlock: Phase 5 of onRaceCompleted schedules the real unlock
 // (3h after race completion). This ceiling only exists so teams don't stay
 // locked forever if a race is cancelled or results never arrive.
@@ -59,11 +84,12 @@ export const autoLockTeams = functions.pubsub
     for (const raceDoc of dueRaces) {
       const race = raceDoc.data();
 
-      // Get all unlocked teams
-      const teamsSnapshot = await db
-        .collection('fantasyTeams')
-        .where('isLocked', '==', false)
-        .get();
+      // Every team, not just the unlocked ones. The ace deadline has to be stamped on a
+      // team that is ALREADY locked when the sweep runs — season-locked, or locked by the
+      // admin helper — because an unstamped team is one the F-095 rule cannot see, and
+      // its ace would stay writable right through the race. The lock itself is still only
+      // applied to teams that are not locked yet. (~40 docs; this is not a big read.)
+      const teamsSnapshot = await db.collection('fantasyTeams').get();
 
       if (teamsSnapshot.empty) {
         continue;
@@ -86,9 +112,23 @@ export const autoLockTeams = functions.pubsub
         }
       }
 
+      // F-095: the window in which the ace is frozen — from lights out to the same
+      // failsafe ceiling the roster unlock uses. Stamping an END as well as a start is
+      // what makes the rule safe to apply without also asking whether the team is locked:
+      // a stamp nobody ever clears expires on its own, so no path through the callables
+      // can leave a player unable to change their ace ever again, and none can clear it
+      // to open the ace mid-race either.
+      const aceWindow = {
+        'lockStatus.aceLockTime': race.schedule.race,
+        'lockStatus.aceLockUntil': admin.firestore.Timestamp.fromMillis(
+          race.schedule.race.toMillis() + UNLOCK_FAILSAFE_MS
+        ),
+      };
+
       // Lock teams in batches
       let batch = db.batch();
       let lockedCount = 0;
+      let stampedCount = 0;
       let filledCount = 0;
       let opsInBatch = 0;
 
@@ -97,10 +137,12 @@ export const autoLockTeams = functions.pubsub
         const lockDeadline = leagueSettings.get(team.leagueId) || 'qualifying';
 
         if (lockDeadline === 'qualifying') {
+          const alreadyLocked = team.isLocked === true;
+
           // Fill forgotten seats first, in a transaction of its own so a
           // last-minute edit is honoured and one corrupt roster cannot abort
           // the lock run for everyone else. The lock itself follows in the batch.
-          if (isIncomplete(team) && !fillCtxFailed) {
+          if (!alreadyLocked && isIncomplete(team) && !fillCtxFailed) {
             try {
               if (!fillCtx) {
                 try {
@@ -122,7 +164,12 @@ export const autoLockTeams = functions.pubsub
               console.error('Auto-fill failed for team %s; locking it as-is', teamDoc.id, err);
             }
           }
-          batch.update(teamDoc.ref, {
+          // F-095: the ace locks LATER than the roster — at lights out, not at
+          // qualifying — and that second deadline used to live only in the app.
+          // Stamping it gives firestore.rules something tamper-proof to compare
+          // request.time against (lockStatus is a denied key, so a client cannot move
+          // its own deadline), and it is exact rather than rounded up to the next sweep.
+          batch.update(teamDoc.ref, alreadyLocked ? aceWindow : {
             isLocked: true,
             'lockStatus.canModify': false,
             'lockStatus.lockReason': `Locked for ${race.name} ${lockSessionLabel(race)}`,
@@ -134,8 +181,10 @@ export const autoLockTeams = functions.pubsub
             'lockStatus.nextUnlockTime': admin.firestore.Timestamp.fromMillis(
               race.schedule.race.toMillis() + UNLOCK_FAILSAFE_MS
             ),
+            ...aceWindow,
           });
-          lockedCount++;
+          if (!alreadyLocked) lockedCount++;
+          stampedCount++;
           opsInBatch++;
 
           if (opsInBatch >= BATCH_OP_LIMIT) {
@@ -150,8 +199,8 @@ export const autoLockTeams = functions.pubsub
         await batch.commit();
       }
 
-      if (lockedCount > 0) {
-        console.log(`Locked ${lockedCount} teams for race ${race.name} (auto-filled ${filledCount})`);
+      if (stampedCount > 0) {
+        console.log(`Locked ${lockedCount} teams for race ${race.name} (auto-filled ${filledCount}; ace window stamped on ${stampedCount})`);
       }
 
       // Update race status
@@ -188,6 +237,9 @@ export const autoUnlockTeams = functions.pubsub
 
     for (const teamDoc of lockedTeamsSnap.docs) {
       const team = teamDoc.data();
+      // A season-locked team stays locked. Its ace comes free on its own: the F-095
+      // window has an end as well as a start, so a stamp this sweep never reaches
+      // expires rather than freezing the ace for the rest of the season.
       if (team.lockStatus?.isSeasonLocked) continue;
 
       batch.update(teamDoc.ref, {
@@ -195,6 +247,11 @@ export const autoUnlockTeams = functions.pubsub
         'lockStatus.canModify': true,
         'lockStatus.lockReason': null,
         'lockStatus.nextUnlockTime': null,
+        // F-095: tidiness, not correctness. The window expires by itself, which is the
+        // point of stamping an end — but leaving last race's dates lying around is how
+        // the next bug starts.
+        'lockStatus.aceLockTime': null,
+        'lockStatus.aceLockUntil': null,
       });
       count++;
       opsInBatch++;
@@ -215,11 +272,18 @@ export const autoUnlockTeams = functions.pubsub
   });
 
 /**
- * HTTP function to manually lock a team (for testing/admin)
+ * HTTP function to manually lock a team (testing/admin).
+ *
+ * F-095: admin only. Nothing in the app, the portal or scripts/ calls this, and as an
+ * owner-callable it was a way to set your own isLocked outside the sweep — which, before
+ * the ace window gained an end date, meant a lock the deadline was never stamped on.
  */
 export const lockTeam = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+  if (context.auth.token?.admin !== true) {
+    throw new functions.https.HttpsError('permission-denied', 'Admins only');
   }
   warnIfNoAppCheck(context, 'lockTeam');
 
@@ -286,6 +350,25 @@ export const seasonLockTeam = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // F-095: not during a live weekend. Paired with earlyUnlockTeam below this was a way
+  // out of the weekend lock entirely — season-lock, then pay the fee to unlock, and both
+  // the roster and the ace are editable in the middle of the race. Season locking is a
+  // between-races decision; there is no reason to allow it while the weekend is running.
+  // Both halves of the test matter: a team can be locked outside a live weekend (season
+  // lock), and a weekend can be live while this particular team is not yet locked.
+  if (await raceWeekendIsLive()) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'A race weekend is under way. Season lock once it is over.'
+    );
+  }
+  if (team.isLocked) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Your team is still locked from the last race. Season lock once it unlocks.'
+    );
+  }
+
   await teamDoc.ref.update({
     isLocked: true,
     'lockStatus.isSeasonLocked': true,
@@ -338,6 +421,28 @@ export const earlyUnlockTeam = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // F-095: the fee buys a way out of the SEASON lock, never out of a race weekend.
+  // Unlocking wholesale here was an escape hatch from both — the roster callables key
+  // off isLocked — so season-lock, then pay 50 mid-race, and the team reopened while the
+  // cars were running. Asking the race calendar rather than the team's own fields is the
+  // point: a team season-locked BEFORE the weekend never gets a nextUnlockTime, so
+  // reading one off the team answered "no weekend here" during exactly the race this is
+  // meant to protect. The ace is safe either way now — its window does not consult
+  // isLocked — but the roster is not, and they should not come apart.
+  if (await raceWeekendIsLive()) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'A race weekend is under way. Unlock once it is over.'
+    );
+  }
+
+  // The ace window is deliberately NOT cleared here. This is the only client-reachable
+  // path that could clear it, and there is a gap it would have been clearable in: a race
+  // flips to 'completed' with its results seconds before onRaceCompleted reads the aces,
+  // and in that gap the guard above passes while the outcome is already known. Leaving
+  // the window alone costs nothing — it expires on its own, which is the whole point of
+  // stamping an end — and means the sweep is its only writer and the unlock sweep its
+  // only clearer.
   await teamDoc.ref.update({
     isLocked: false,
     'lockStatus.isSeasonLocked': false,

@@ -252,6 +252,41 @@ service cloud.firestore {
     // the same people the app shows those lineups to. Written by the worker.
     match /pw_leagues/{id} { allow read: if isAuthenticated() && (isLeagueMember(resource.data.leagueId) || isLeagueOwner(resource.data.leagueId)); allow write: if false; }
 
+    // F-095: the ace locks at lights out, hours after the roster locks at qualifying, and
+    // that second deadline used to live only in the app — so between the start of the
+    // race and the moment scoring ran, an owner could point the ace at whoever was
+    // winning and have those points doubled. autoLockTeams stamps the weekend's ace
+    // window on every team it covers; `lockStatus` is a denied key below, so the window
+    // is not the client's to move. Comparing it to request.time is exact, where a
+    // scheduled sweep would have left the opening minutes of the race open.
+    //
+    // It is a WINDOW, with an end as well as a start, and that is deliberate. Keying off
+    // `isLocked` instead would have made the ace reachable through any callable that
+    // clears the lock (season-lock then pay the early-unlock fee, mid-race) and would
+    // have frozen the ace for ever on a team nothing ever unlocks. A window needs no
+    // help: it cannot be opened early, and a stamp nobody clears expires on its own at
+    // the same failsafe ceiling the roster unlock uses.
+    //
+    // `.get(…, default)` throughout: reading a field that is not there is an error, and
+    // an error denies — a team written before these fields existed has no window.
+    function aceIsFrozen(team) {
+      let lockStatus = team.get('lockStatus', {});
+      let from = lockStatus is map ? lockStatus.get('aceLockTime', null) : null;
+      let until = lockStatus is map ? lockStatus.get('aceLockUntil', null) : null;
+      return from is timestamp && until is timestamp
+             && request.time >= from && request.time < until;
+    }
+
+    // Compared by VALUE, not by affectedKeys: scoring removes the ace fields outright
+    // (`FieldValue.delete()`) when a weekend ends with no ace, while the app's sync spells
+    // the same thing as an explicit null. Absent-versus-null is a diff, so a keys-based
+    // test would have refused an innocent write — a rename, say — for anyone who went into
+    // a race without an ace, and syncTeamToFirebase only logs what it is refused.
+    function aceUnchanged(before, after) {
+      return before.get('aceDriverId', null) == after.get('aceDriverId', null)
+             && before.get('aceConstructorId', null) == after.get('aceConstructorId', null);
+    }
+
     match /fantasyTeams/{teamId} {
       // F-029: roster and points per race weekend, written by scoring only. Readable by
       // the team's owner and by the team's league (the same people who can see the team).
@@ -290,7 +325,8 @@ service cloud.firestore {
                       'drivers', 'constructor', 'budget', 'totalSpent',
                       'racesSinceTransfer', 'driverLockouts',
                       'bestRacePoints', 'bestRaceId'
-                    ]));
+                    ]))
+                    && (!aceIsFrozen(resource.data) || aceUnchanged(resource.data, request.resource.data));
       allow delete: if isOwner(resource.data.userId);
     }
 

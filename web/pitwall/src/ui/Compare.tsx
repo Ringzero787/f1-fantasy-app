@@ -1,4 +1,5 @@
 import { compareRows, entity, type Rec } from '../data/logic';
+import { aceFrozen } from '../data/team';
 import { isCtor } from '../data/types';
 import { useStore } from '../state';
 import { Lbl, Pill, Range, TeamBar } from './bits';
@@ -32,11 +33,13 @@ export function Compare({ rec }: { rec: Rec }) {
       <div className="th" style={{ justifyContent: 'flex-start' }}>
         {rec.act && (rec.good || rec.bad) ? <button type="button" className={rec.good ? 'cta' : 'ghost'} onClick={() => tryAct(rec.act!)}>Try this swap in lineup lab →</button> : null}
         {rec.ace ? (() => {
-          // A locked weekend cannot take an ace change, so the button says so rather than failing
-          // on the click. The recommendation itself still stands — it is what to do when it opens.
-          const locked = real?.team.isLocked === true;
+          // The button says so rather than failing on the click. The recommendation itself
+          // still stands — it is what to do when it opens. The gate is the race start, not
+          // the qualifying lock: moving the ace after qualifying is the point of the ace
+          // (F-095), and reading isLocked here shut the window a day early.
+          const locked = real ? aceFrozen(real.team) : false;
           const isAce = ui.lineup.ace === rec.ace;
-          const label = locked ? 'Locked for this weekend' : isAce ? `Ace is on ${entity(p, rec.ace)?.name}` : `Set ace on ${entity(p, rec.ace)?.name}`;
+          const label = locked ? 'The race has started' : isAce ? `Ace is on ${entity(p, rec.ace)?.name}` : `Set ace on ${entity(p, rec.ace)?.name}`;
           return <button type="button" className="cta" onClick={() => setAce(rec.ace!)} disabled={isAce || locked}>{label}</button>;
         })() : null}
         {!rec.good && !rec.bad ? <Pill>No change needed</Pill> : null}

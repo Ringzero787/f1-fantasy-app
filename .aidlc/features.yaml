@@ -1035,7 +1035,7 @@ features:
       - projection
   - id: F-095
     name: "UC: the ace lock holds on the server, not only in the app"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-095.md
     created_at: 2026-10-03
     keywords:

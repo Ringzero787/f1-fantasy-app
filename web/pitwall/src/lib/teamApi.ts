@@ -8,6 +8,16 @@ import type { MarketPrices, Plan, RealTeam, RosterConstructor, RosterDriver, Ste
 
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
+/**
+ * F-095: one end of `lockStatus`'s ace window as epoch ms. A Firestore Timestamp while
+ * the weekend is locked, null the rest of the time, and absent on teams written before
+ * the fields existed — all three mean "no window the portal should enforce".
+ */
+const stampMs = (lockStatus: unknown, field: 'aceLockTime' | 'aceLockUntil'): number | null => {
+  const t = (lockStatus as Record<string, { toMillis?: () => number } | undefined> | null | undefined)?.[field];
+  return t && typeof t.toMillis === 'function' ? t.toMillis() : null;
+};
+
 export async function loadTeams(uid: string): Promise<RealTeam[]> {
   const { m, db } = await firestore();
   const snap = await m.getDocs(m.query(m.collection(db, 'fantasyTeams'), m.where('userId', '==', uid), m.limit(3)));
@@ -18,7 +28,7 @@ export async function loadTeams(uid: string): Promise<RealTeam[]> {
       id: d.id, name: typeof t.name === 'string' ? t.name : 'Team', leagueId: typeof t.leagueId === 'string' ? t.leagueId : null,
       drivers: Array.isArray(t.drivers) ? (t.drivers as RosterDriver[]).filter((x) => x && typeof x.driverId === 'string') : [],
       constructor: ctor && typeof ctor.constructorId === 'string' ? ctor : null,
-      budget: num(t.budget, 0), isLocked: t.isLocked === true, aceDriverId: typeof t.aceDriverId === 'string' ? t.aceDriverId : null,
+      budget: num(t.budget, 0), isLocked: t.isLocked === true, aceLockTime: stampMs(t.lockStatus, 'aceLockTime'), aceLockUntil: stampMs(t.lockStatus, 'aceLockUntil'), aceDriverId: typeof t.aceDriverId === 'string' ? t.aceDriverId : null,
       totalPoints: num(t.totalPoints), lockedPoints: num(t.lockedPoints), driverLockouts: (t.driverLockouts && typeof t.driverLockouts === 'object' ? t.driverLockouts : {}) as Record<string, number>,
     };
   });
@@ -59,7 +69,21 @@ export async function executePlan(teamId: string, plan: Plan, ace: string | null
     // setAceSecure callable to route through.
     
     const { m, db } = await firestore();
-    await m.updateDoc(m.doc(db, 'fantasyTeams', teamId), { aceDriverId: ace || null, updatedAt: m.serverTimestamp() });
+    try {
+      // aceConstructorId goes too. The portal has no constructor-ace UI, but the app does,
+      // and the two are meant to be exclusive — writing only the driver half left a team
+      // with both set, and calculatePoints doubles them independently.
+      await m.updateDoc(m.doc(db, 'fantasyTeams', teamId), { aceDriverId: ace || null, aceConstructorId: null, updatedAt: m.serverTimestamp() });
+    } catch (e) {
+      // F-095: the ace is the one step that is not a callable, so a refusal arrives as a
+      // bare permission-denied with no sentence in it. Say what it means HERE, where we
+      // know which write was refused — reading every permission-denied as a race-start
+      // lock would mislabel a revoked session or a rules regression on any other step.
+      if ((e as { code?: string }).code?.endsWith('permission-denied')) {
+        throw new Error('The race has started, so your ace is set for this round. Nothing more was changed.');
+      }
+      throw e;
+    }
     done++;
   }
   tick(null);
@@ -69,6 +93,10 @@ export async function executePlan(teamId: string, plan: Plan, ace: string | null
 export function saveErrorText(e: unknown): string {
   const code = (e as { code?: string }).code ?? '';
   const msg = (e as { message?: string }).message ?? '';
+  // F-095 translates the ace refusal at the write itself (executePlan), where it is clear
+  // WHICH step was refused; a blanket permission-denied branch here would report a revoked
+  // session or a rules regression on any other step as a race-start lock.
+  if (/your ace is set for this round/.test(msg)) return msg;
   if (/locked/i.test(msg) || code.endsWith('failed-precondition') && /lock/i.test(msg)) return 'Your team is locked for this weekend. Nothing more was changed.';
   if (/Insufficient budget|budget/i.test(msg)) return 'The server found the bank short after fees. Nothing more was changed.';
   if (/lockout|cannot be re-added|re-bought/i.test(msg)) return 'That driver just left your team and cannot come back yet. Nothing more was changed.';
