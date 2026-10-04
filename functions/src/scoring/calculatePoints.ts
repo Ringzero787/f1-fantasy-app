@@ -363,7 +363,13 @@ export async function handleQualifyingScoring(
       };
     }
 
-    if (teamPoints !== 0) {
+    // F-098: written for every team, not only the ones that scored. The marker in
+    // scoredRaces is what the idempotency guard above reads AND what reopens the ace for
+    // the gap between qualifying and the race (firestore.rules `aceIsFrozen`), so a
+    // zero-point session used to cost that player the window and leave them re-scored on
+    // every run. increment(0) is a no-op and the snapshot of a blank session is still
+    // the roster as fielded, which is what F-029 is for.
+    {
       const updateData: Record<string, any> = {
         drivers: updatedDrivers,
         // increment() instead of snapshot + add: the snapshot may be minutes
@@ -389,19 +395,6 @@ export async function handleQualifyingScoring(
       } catch (err) {
         console.error(`[Qualifying] Failed to update team ${teamDoc.id}:`, err);
         continue;
-      }
-    } else {
-      // F-098: a team that scored nothing still has to be marked as scored. The key is
-      // what the idempotency guard above reads, and it is also what reopens the ace for
-      // the gap between qualifying and the race (firestore.rules `aceIsFrozen`) — so
-      // without this, a zero-point weekend silently costs that player the window.
-      try {
-        await teamDoc.ref.set(
-          { scoredRaces: admin.firestore.FieldValue.arrayUnion(qualiScoredKey) },
-          { merge: true },
-        );
-      } catch (err) {
-        console.error(`[Qualifying] Failed to mark team ${teamDoc.id} as scored:`, err);
       }
 
       pointsUpdates.push({
@@ -516,7 +509,9 @@ export async function handleSprintScoring(
       };
     });
 
-    if (teamPoints !== 0) {
+    // F-098: written for every team — see the qualifying handler. The marker gates both
+    // the idempotency guard and the ace freeze, so it cannot depend on having scored.
+    {
       const updateData: Record<string, any> = {
         drivers: updatedDrivers,
         // increment() — see qualifying handler note on stale snapshots.
@@ -539,17 +534,6 @@ export async function handleSprintScoring(
       } catch (err) {
         console.error(`[Sprint] Failed to update team ${teamDoc.id}:`, err);
         continue;
-      }
-    } else {
-      // F-098: as in the qualifying handler — the marker is read by the idempotency
-      // guard and by the ace freeze, so it cannot depend on having scored points.
-      try {
-        await teamDoc.ref.set(
-          { scoredRaces: admin.firestore.FieldValue.arrayUnion(sprintScoredKey) },
-          { merge: true },
-        );
-      } catch (err) {
-        console.error(`[Sprint] Failed to mark team ${teamDoc.id} as scored:`, err);
       }
 
       pointsUpdates.push({

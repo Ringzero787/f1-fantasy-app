@@ -137,7 +137,10 @@ export const autoLockTeams = functions.pubsub
         // Only on a sprint weekend. The sprint can miss its own scoring run exactly as
         // qualifying can — `onRaceCompleted` then folds it in at race time from a live
         // ace read — so the gap must not open on qualifying alone where there is one.
-        'lockStatus.aceSprintKey': race.schedule?.sprint ? `sprint_${raceDoc.id}` : null,
+        // `|| hasSprint` fails CLOSED: a sprint round whose OpenF1 sessions are not
+        // published yet has the flag from seed data but no time, and stamping no marker
+        // there would let the gap open on qualifying alone — the hole, not the fix.
+        'lockStatus.aceSprintKey': (race.schedule?.sprint || race.hasSprint === true) ? `sprint_${raceDoc.id}` : null,
       };
 
       // Lock teams in batches
