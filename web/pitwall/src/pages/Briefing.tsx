@@ -1,26 +1,32 @@
-import { briefRecs, money, projectedLineup, rateMyTeam, rivalMove } from '../data/logic';
+import { briefRecs, money, rivalMove } from '../data/logic';
 import { useStore } from '../state';
 import { Arrow, Empty, Money, Pill, Row, Tabs, TeamBar, Tile } from '../ui/bits';
 import { NOT_PUBLISHED } from '../data/coverage';
 import { WeatherMap } from '../ui/WeatherMap';
 import { forBriefing, newsKey } from '../data/wire';
 import { NewsRow } from '../ui/NewsRow';
-import { Compare } from '../ui/Compare';
+import { Calls } from '../ui/Calls';
 import { Locked } from '../ui/Locked';
 import { PassBar } from '../ui/PassBar';
+import { Hero } from '../ui/Hero';
+import { LineupTiles } from '../ui/LineupTiles';
 
 export function Briefing() {
-  const { payload: p, has, pass, wire, purse, ui, set, open, go } = useStore();
+  const { payload: p, has, pass, wire, purse, ui, set, open } = useStore();
   // the next ten this reader has not marked read, in their order
   const briefing = forBriefing(p.news, wire, 10);
   const recs = briefRecs(p, ui.lineup, purse);
-  const sel = Math.min(ui.rec, recs.length - 1);
-  const proj = projectedLineup(p, ui.lineup);
   // The free document publishes the top ten medians and zeroes the rest, so this is exactly what
   // the reader is entitled to see, whether or not they hold a pass.
   const topTen = [...p.drivers].filter((d) => d.med > 0).sort((a, b) => b.med - a.med).slice(0, 10);
-  const flags = ui.lineup.drivers.filter((id) => p.news.some((n) => n.entity === id && n.kind === 'PENALTY')).length;
-
+  
+  const topRows = (list: typeof topTen) => list.map((d, i) => (
+    <Row key={d.id} cols="24px 1fr auto" dense onClick={() => open(d.id)} label={`${d.name}, projected ${d.med} points`}>
+      <span className="mut num">{i + 1}</span>
+      <span><TeamBar p={p} team={d.team} />{d.name}{ui.lineup.drivers.includes(d.id) ? <span className="mut"> · yours</span> : null}</span>
+      <span className="num">{d.med}</span>
+    </Row>
+  ));
   const rivals = p.rivals.map((r) => rivalMove(p, ui.lineup, r)).filter((v) => v !== null);
   const rivalsBody = !has.rivals ? <Empty>{NOT_PUBLISHED.rivals} Likely moves need every rival's lineup and bank, which the worker does not collect yet.</Empty> : (
     <>
@@ -67,6 +73,7 @@ export function Briefing() {
 
   return (
     <div className="page">
+      <Hero />
       <PassBar feature="briefing.recommendations" what="The swaps the data backs, every rival's likely move, and the ranges and price model behind them come with the pass." />
       {/* Two separate tiles, never one wearing the other's hat. The wire leads when it has
           something; the top ten always has something, so it takes the slot when the wire does not
@@ -75,56 +82,20 @@ export function Briefing() {
           (a grid row would stretch to the tallest tile in it): the wire, the top ten and the rivals
           on the left; the reader's own tile, the price movers and the weather on the right. On a
           phone the reader's own tile comes first, then the wire, then the top five. */}
-      <Tile span="c12" label="Recommendations · your lineup against the data" right={<span className="mut">Click a recommendation to compare</span>}>
-       <Locked feature="briefing.recommendations">
-        <div className="recgrid">
-          <div>
-            {recs.map((x, i) => (
-              <Row key={x.title} pad cols="54px 1fr auto" selected={i === sel} label={`${x.kind}: ${x.title}, ${x.tag}`}
-                onClick={() => { set('rec', i); if (window.matchMedia('(max-width: 980px)').matches) set('recOver', i); }}>
-                <Pill red={x.bad}>{x.kind}</Pill><span><b>{x.title}</b></span><span className={`num ${x.good ? 'pos' : x.bad ? 'red' : 'mut'}`}>{x.tag}</span>
-              </Row>
-            ))}
-          </div>
-          {/* on narrow screens the comparison opens as a slide-over instead of lengthening the page */}
-          <div className="only-cmp-wide">{recs[sel] ? <Compare rec={recs[sel]} /> : null}</div>
-        </div>
-        {/* Said where the recommendations are, not in a footer nobody reads. A ranked list invites
-            the reader to take the top one, and these are ordered by a gain discounted for how wide
-            the projection's range is — which is a judgement from our own published band, not a
-            calibrated variance model. Worth saying plainly rather than letting the ordering imply
-            more precision than it has (F-096). */}
-        <p className="mut" style={{ margin: '10px 0 0', fontSize: 12 }}>
-          Swaps are ordered by projected gain discounted for range: a wide projection counts for less
-          than a narrow one of the same size. The cards below them — ace, value, risk, constructor —
-          are one of each, in that order. The discount comes from the floor-to-ceiling band published
-          here, not from a calibrated variance model, so read it as a lean rather than a price.
-        </p>
-       </Locked>
-      </Tile>
+      <Locked feature="briefing.recommendations"><Calls recs={recs} /></Locked>
       <div className="cols">
       <div className="stack side">
-      <Tile variant="you" label="Your lineup">
-        {proj.complete ? <>
-          <div className="big num">{proj.points}</div>
-          <div className="mut">Projected points · range {Math.round(proj.points * 0.72)} to {Math.round(proj.points * 1.3)}{proj.open ? ` · ${proj.open} open slot${proj.open === 1 ? '' : 's'} scoring nothing` : ''}</div>
-        </> : (
-          <div className="mut">{pass.access === 'pass'
-            ? `No projected total: ${proj.missing} of your picks ${proj.missing === 1 ? 'is' : 'are'} not projected for this round, and adding the rest up would be wrong.`
-            : `No projected total: the free view carries only the top ten, and ${proj.missing} of your picks ${proj.missing === 1 ? 'is' : 'are'} outside it. The whole board comes with the pass.`}</div>
-        )}
-        <div className="list">
-          <Row two cols="1fr auto" dense><span>Rate my team</span><span className="num">{proj.complete ? `${rateMyTeam(p, ui.lineup)} / 100` : '—'}</span></Row>
-          <Row two cols="1fr auto" dense><span>Flags</span><span className={flags || proj.open ? 'red' : 'mut'}>{flags} penalty risk · {proj.open} open slot{proj.open === 1 ? '' : 's'}</span></Row>
-        </div>
-        <button className="cta" type="button" onClick={() => go('LINEUP LAB')}>Open lineup lab →</button>
-      </Tile>
+      <LineupTiles />
       <Tile span="only-wide" label="Price movers · predicted"><div className="list">{moversBody}</div></Tile>
-      <Tile span="only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
+      <Tile span="only-wide" label={`Top ten for ${p.round.name || 'this round'}`} right={<span className="mut only-wide">Projected points for the coming round</span>}>
+        <div className="list">
+        {topRows(topTen)}
+        </div>
+      </Tile>
       </div>
       <div className="stack main">
       {has.news ? (
-        <Tile label="What changed since yesterday" right={<span className="mut only-wide">{briefing.length ? `${briefing.length} unread · links out to sources` : 'links out to sources'}</span>}>
+        <Tile label={<><span className="only-narrow">What changed since yesterday</span><span className="only-wide h2 calls-h" style={{ color: 'var(--fg)' }}>The wire</span></>} right={<span className="mut only-wide">{briefing.length ? `${briefing.length} unread · links out to sources` : 'links out to sources'}</span>}>
           {briefing.length === 0 ? <Empty>You are caught up. New headlines appear here as the feeds carry them.</Empty> : null}
           {/* Ten on a wide screen, five on a phone, same as the top ten; the Wire carries all of them. */}
           <div className="list">{briefing.map((n, i) => <div key={newsKey(n)} className={i >= 5 ? 'only-wide' : undefined}><NewsRow n={n} /></div>)}</div>
@@ -137,23 +108,11 @@ export function Briefing() {
           the top ten (price movers, then the weather), so neither side leaves a hole. Rivals,
           mostly "not published" today, gets the full width at the bottom. */}
       <Tile span="only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals"><div className="list">{rivalsBody}</div></Locked></Tile>
-      <Tile label={<><span className="only-wide">Top ten</span><span className="only-narrow">Top five</span> for {p.round.name || 'this round'}</>} right={<span className="mut only-wide">Projected points for the coming round</span>}>
-        <div className="list">
-        {topTen.map((d, i) => (
-          <div key={d.id} className={i >= 5 ? 'only-wide' : undefined}>
-          <Row cols="24px 1fr auto" dense onClick={() => open(d.id)} label={`${d.name}, projected ${d.med} points`}>
-            <span className="mut num">{i + 1}</span>
-            <span><TeamBar p={p} team={d.team} />{d.name}{ui.lineup.drivers.includes(d.id) ? <span className="mut"> · yours</span> : null}</span>
-            <span className="num">{d.med}</span>
-          </Row>
-          </div>
-        ))}
-        </div>
-      </Tile>
+      <Tile span="only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
       </div>
       </div>
-      <Tile span="c12 only-narrow" label="This weekend" right={<Tabs value={ui.lowerTab} options={['RIVALS', 'MOVERS', 'WEATHER'] as const} onChange={(v) => set('lowerTab', v)} label="Weekend frames" />}>
-        {ui.lowerTab === 'RIVALS' ? <Locked feature="briefing.rivals">{rivalsBody}</Locked> : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
+      <Tile span="c12 only-narrow" label="This weekend" right={<Tabs value={ui.lowerTab} options={['TOP 5', 'RIVALS', 'MOVERS', 'WEATHER'] as const} onChange={(v) => set('lowerTab', v)} label="Weekend frames" />}>
+        {ui.lowerTab === 'TOP 5' ? <div className="list">{topRows(topTen.slice(0, 5))}</div> : ui.lowerTab === 'RIVALS' ? <Locked feature="briefing.rivals">{rivalsBody}</Locked> : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
       </Tile>
     </div>
   );

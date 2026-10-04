@@ -253,6 +253,15 @@ describe('briefRecs ace cap', () => {
     expect(ace?.tag).toBe('+5 PTS');
   });
 
+  it('carries a real minus when the only allowed ace projects lower than the one over the cap', () => {
+    // The ace sits on the $535 driver; the rules force it onto the best pick under the cap even
+    // though that loses points. The tag read "+-5 PTS" before `signed`.
+    const p = payload([cheapAce, midAce, dear], [C('x', 100, 20)], 1000);
+    const ace = briefRecs(p, { drivers: ['cheap', 'mid', 'dear'], ctor: 'x', ace: 'dear' }).find((r) => r.kind === 'ACE');
+    expect(ace?.ace).toBe('mid');
+    expect(ace?.tag).toBe('−5 PTS');
+  });
+
   it('says hold, not move, when the ace is already the best one allowed', () => {
     // Not silence: the list still has something to say about the ace, and what it says is that the
     // current one is right. What it must never do is reach past the cap for the bigger projection.

@@ -53,6 +53,8 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
     // each control is tried from a fresh page, because one control can hide another (board presets only exist on one tab)
     const controls = await page.locator('main .tabs.sm button:visible, main .chip:visible').allTextContents();
     for (const text of controls) states.push([`control ${text}`, async () => { await open(page, BASE + route); await page.waitForSelector('.page'); await page.locator('main .tabs.sm button:visible, main .chip:visible').filter({ hasText: new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).first().click(); }]);
+    // the calls strip: a locked call and its expanded comparison are both in-flow states on a desktop
+    if (name === 'BRIEFING') { states.push(['call locked', async () => { await open(page, BASE + route); await page.locator('.call').first().click(); }]); states.push(['call expanded', async () => { await open(page, BASE + route); await page.locator('.call').first().click(); const ex = page.getByRole('button', { name: 'Expand' }); if (await ex.count()) await ex.click(); }]); }
     if (name === 'LINEUP LAB') { states.push(['driver slot open', async () => { await open(page, BASE + route); await page.locator('.dt').first().click(); }]); states.push(['constructor slot open', async () => { await open(page, BASE + route); await page.locator('.dt.ctor').click(); }]); }
     for (const [label, act] of states) {
       await act(); await page.waitForTimeout(60);
@@ -84,6 +86,20 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
   const locked = await measure(page);
   rows.push(`${size.name.padEnd(7)} ${scheme.padEnd(5)} ${'MARKET'.padEnd(10)} ${'locked view'.padEnd(22)} ${locked.ratio.toFixed(2)}`);
   if (locked.ratio > LIMIT) failures.push(`${size.name} ${scheme} MARKET [locked]: ${locked.ratio.toFixed(2)} screens`);
+
+  // the calls strip: on a desktop Escape unlocks a locked call; on a phone a tap opens the
+  // slide-over and leaves no tile locked behind it
+  await open(page, BASE + '/');
+  await page.locator('.call').first().click(); await page.waitForTimeout(60);
+  if (size.name === 'phone') {
+    if (!(await page.locator('[role="dialog"]').isVisible())) failures.push(`${size.name} ${scheme}: a tapped call did not open the slide-over`);
+    if (await page.locator('.call[aria-pressed="true"]').count()) failures.push(`${size.name} ${scheme}: a tapped call stayed locked`);
+    await page.keyboard.press('Escape');
+  } else {
+    if (!(await page.locator('.call[aria-pressed="true"]').count())) failures.push(`${size.name} ${scheme}: clicking a call did not lock it`);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(60);
+    if (await page.locator('.call[aria-pressed="true"]').count()) failures.push(`${size.name} ${scheme}: Escape did not unlock the call`);
+  }
 
   // the slide-over opens, traps nothing behind it, and closes on Escape
   await open(page, BASE + '/board');
