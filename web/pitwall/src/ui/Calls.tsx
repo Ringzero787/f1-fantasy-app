@@ -69,7 +69,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
     <section className="calls c12" aria-label="The calls">
       <div className="th">
         <h2 className="h2 calls-h">The calls</h2>
-        <span className="lbl only-wide">{hoverable ? 'Hover to peek · click to lock · expand for all stats' : 'Tap a call to compare'}</span>
+        <span className="lbl only-wide">{hoverable ? 'Hover to peek · click to lock and act · all stats one step further' : 'Tap a call to compare'}</span>
       </div>
       <div className="calls-grid">
         {recs.map((r, i) => {
