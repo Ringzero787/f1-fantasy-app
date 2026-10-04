@@ -247,11 +247,14 @@ function runUnderStub(file, argv) {
 //     `if (!APPLY)` line from any of them leaves this suite green, and
 //     `aidlc op dryrun` would then write production. Asserting it properly
 //     needs a behavioural check per writer, which this file does not have.
-//   - Three (backfillZandvoortTsunoda, repairStuckLocks, verifyRaceScoring)
-//     fall back to a hardcoded admin-SDK key on the share when SA_KEY is
-//     unset. So "no SA_KEY" does not mean "no credentials" for those: running
-//     them without the env var still reaches production. Found by running
-//     them, not by reading them.
+//   - All nine now require SA_KEY explicitly and refuse a key for the wrong
+//     project. Three of them used to fall back to a hardcoded admin-SDK key
+//     on the share when SA_KEY was unset, so running them without the env
+//     var still reached production, with nothing checking which project the
+//     key was for. Found by running them rather than reading them, and
+//     removed. NOTHING HERE ENFORCES THAT EITHER: delete a project check and
+//     this suite stays green while the comment above it lies. Same gap as
+//     the --apply note, and worth the same scepticism.
 const OP_SCRIPTS = [
   'backfillLeagueRaceResults', 'backfillZandvoortTsunoda', 'checkRaceCalendar',
   'exportPitwallHistory', 'pitwallPass', 'repairStuckLocks',

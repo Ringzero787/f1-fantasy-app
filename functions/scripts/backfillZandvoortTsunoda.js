@@ -25,6 +25,8 @@
  */
 
 const admin = require('firebase-admin');
+const EXPECTED_PROJECT = 'f1-app-18077';
+
 // Nothing happens on import. The key read, initializeApp and firestore()
 // used to sit at module scope with a self-invoking IIFE below them, so
 // requiring this file — from a test, a tool walking the tree, an editor's
@@ -34,8 +36,23 @@ const admin = require('firebase-admin');
 let db;
 
 function initAdmin() {
-  const KEY = process.env.SA_KEY || '/mnt/smb/f1-app/files/f1-app-18077-firebase-adminsdk-fbsvc-2b824e0c37.json';
-  admin.initializeApp({ credential: admin.credential.cert(require(KEY)) });
+  // No silent fallback. This used to default to an admin-SDK key on the
+  // share when SA_KEY was unset, so running the script without the env var
+  // still reached production — the opposite of fail-safe, and nothing here
+  // checked which project the key was for. `aidlc op` sets SA_KEY from
+  // ~/.config/aidlc/env, so the op flow is unaffected; a bare run now has to
+  // say which credential it means.
+  const KEY = process.env.SA_KEY;
+  if (!KEY) {
+    console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
+    process.exit(2);
+  }
+  const cred = require(KEY);
+  if (cred.project_id !== EXPECTED_PROJECT) {
+    console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`);
+    process.exit(2);
+  }
+  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
   db = admin.firestore();
 }
 
