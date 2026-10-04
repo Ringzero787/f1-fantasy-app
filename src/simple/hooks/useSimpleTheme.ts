@@ -59,7 +59,7 @@ export function useSimpleTheme() {
       color: colors.text.primary,
     });
 
-    // UI text (Unbounded). 900 for names/titles/numerals, 700 for values.
+    // UI text (Archivo wide). 900 for names/titles/numerals, 700 for values.
     const ui = (size: number, weight: 'regular' | 'bold' | 'black' = 'black') => ({
       fontFamily: S_FONT_FAMILY.ui[weight],
       fontSize: scaled(size),
@@ -77,7 +77,7 @@ export function useSimpleTheme() {
       label,
       mono,
       ui,
-      // Screen title: 26px Unbounded 900, tracking -0.03em, uppercase.
+      // Screen title: 26px Archivo 900, tracking -0.03em, uppercase.
       title: {
         fontFamily: S_FONT_FAMILY.ui.black,
         fontSize: scaled(S_TYPE.screenTitle),

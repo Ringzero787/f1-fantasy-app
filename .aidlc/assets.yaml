@@ -1,11 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Ringzero787/aidlc/main/schemas/assets.schema.json
 assets:
-  - { path: "package.json", kind: font, source: "@expo-google-fonts/unbounded, @expo-google-fonts/jetbrains-mono (npm)", license: OFL-1.1 }
+  - { path: "package.json", kind: font, source: "@expo-google-fonts/jetbrains-mono (npm)", license: OFL-1.1 }
+  - { path: "assets/fonts/ArchivoExpanded_*.ttf", kind: font, source: "Archivo variable font (Omnibus-Type) from github.com/google/fonts ofl/archivo, instanced at wdth 125 by scripts/design/make-archivo-expanded.sh; licence text in assets/fonts/OFL-Archivo.txt", license: OFL-1.1, notes: "F-099: the app's display face, matching the Pit Wall portal" }
   - { path: "assets/**", kind: image, source: first-party, license: proprietary-owned, notes: "Undercut icons, splash, banners" }
-  - { path: "assets/launch/**", kind: image, source: first-party, license: proprietary-owned, notes: "UNDERCUT wordmark halves for the launch reveal (F-067), drawn by scripts/design/make-u-mark.py from Unbounded Black (OFL-1.1)" }
+  - { path: "assets/launch/**", kind: image, source: first-party, license: proprietary-owned, notes: "UNDERCUT wordmark halves for the launch reveal (F-067), drawn by scripts/design/make-u-mark.py from Unbounded Black (OFL-1.1, vendored at assets/fonts/wordmark/ since F-099 removed the npm package)" }
   - { path: "newgame/assets/**", kind: image, source: first-party, license: proprietary-owned, notes: "Track Limits icons, splash, helmet/pack art" }
   - { path: "app-store-screenshots/**", kind: image, source: first-party, license: proprietary-owned }
   - { path: "docs/design/grid/verify/**", kind: image, source: first-party, license: proprietary-owned, notes: "Expo-web screenshots of the Grid screens (Playwright, demo data); no third-party content" }
   - { path: "web/pitwall/public/*.png", kind: image, source: first-party, license: proprietary-owned, notes: "Pit Wall portal favicon and touch icon: scaled copies of assets/icon.png, the Undercut U-mark drawn for this project under F-067. No third-party artwork, font or mark. Regenerate per web/pitwall/public/README.md" }
   - { path: "docs/design/pitwall/briefing/verify/**", kind: image, source: first-party, license: proprietary-owned, notes: "Playwright screenshots of the Pit Wall Briefing on the example payload (F-097); no third-party content" }
   - { path: "web/pitwall/index.html", kind: font, source: "Google Fonts stylesheet link: Archivo (Omnibus-Type), JetBrains Mono (JetBrains)", license: OFL-1.1, notes: "Loaded at runtime from fonts.googleapis.com; no font files in the repo (F-097 replaced Unbounded with Archivo)" }
+  - { path: "assets/fonts/wordmark/Unbounded_900Black.ttf", kind: font, source: "Unbounded (Google Fonts, formerly @expo-google-fonts/unbounded); licence text beside it", license: OFL-1.1, notes: "Only used by scripts/design/make-u-mark.py to draw the wordmark and launch assets; not loaded by the app" }

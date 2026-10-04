@@ -10,7 +10,7 @@ Legend: **MIGRATE** = build into the new design before handoff · **FOLD IN** = 
 
 | Current feature | Status | Recommendation |
 |---|---|---|
-| Login screen | FOLD IN | Not redesigned. Reskin the existing login with the new tokens (black/grey, Unbounded headline, red primary button). No new layout needed. |
+| Login screen | FOLD IN | Not redesigned. Reskin the existing login with the new tokens (black/grey, Archivo headline, red primary button). No new layout needed. |
 | Create team (first run: name input) | FOLD IN | New design assumes a team exists. Use the League Manager "New league" screen pattern (label + input + red CTA) for a one-field "Name your team" step. Then land on Team with 6 open slots. |
 | Budget cap ($1000) & driver prices | **MIGRATE** | Core game rule, missing from the new Picker. Add a budget line under the Picker header (`BUDGET $877` mono, red when <$50) and a price column per row. Rows you can't afford dim to 35% like blocked rows do now. |
 | Contract length 1–6 on add | **MIGRATE** | New design shows contract as 4 dots but has no way to choose it. On tap in the Picker, open a bottom sheet: name, price, 1–6 segmented picker (same style as MAX PLAYERS chips), red "ADD" button. Dot count on the tile = chosen contract length. |
@@ -84,11 +84,11 @@ Rule: light mode is a straight inversion — anything white-on-black becomes bla
 McLaren `#FF8000` · Ferrari `#E80020` · Red Bull `#3671C6` · Mercedes `#27F4D2` · Williams `#64C4FF` · Aston Martin `#229971` · Racing Bulls `#6692FF`. Used only as the 28×3 bar on tiles and the 20×3 bar in Picker rows.
 
 ### Typography
-- **Display / all UI text**: Unbounded (Google Fonts). Weights 900 (names, titles, numerals), 700 (body-ish values), 400 (the one paragraph in League Manager).
+- **Display / all UI text**: Archivo at width 125 (static instances of the OFL variable font in `assets/fonts/`, F-099; previously Unbounded). Weights 900 (names, titles, numerals), 700 (body-ish values), 400 (the one paragraph in League Manager). The Pit Wall portal loads the same face from Google Fonts.
 - **Data**: JetBrains Mono 700 / 500 for every label, number, code, status and caption.
 - Section labels: 11px mono 700, `letter-spacing 0.18em`, uppercase, muted.
-- Screen titles: 26px Unbounded 900, `letter-spacing -0.03em`, uppercase.
-- Driver name on tile: 19px Unbounded 900, uppercase, single line. Auto-step: >7 chars → 17px, >8 chars → 15px (Verstappen, Antonelli).
+- Screen titles: 26px Archivo 900, `letter-spacing -0.03em`, uppercase.
+- Driver name on tile: 19px Archivo 900, uppercase, single line. Auto-step: >7 chars → 17px, >8 chars → 15px (Verstappen, Antonelli).
 - Big season points: 56px 900, `line-height 0.9`, `letter-spacing -0.05em`.
 - Standings rank: 30px 900; player name 16px 900 uppercase; points 18px mono 700.
 - No italics, no gradients, no shadows, no skewed tabs, no `///` chevrons.
@@ -142,7 +142,7 @@ Minimums: tap targets ≥ 44px (rows, tiles, rings sit inside 44px rows); text �
 ---
 
 ## 6. Suggested order of work
-1. Swap tokens + fonts (Unbounded, JetBrains Mono via expo-font). Remove italics/skews/gradients/shadows.
+1. Swap tokens + fonts (Archivo, JetBrains Mono via expo-font). Remove italics/skews/gradients/shadows.
 2. Team screen tile grid + lock/open/AUTO states.
 3. Picker (replaces Market) — including budget + contract sheet if migrated.
 4. League tab + empty state; League Manager.

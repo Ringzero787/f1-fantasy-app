@@ -9,8 +9,8 @@ export function getDisplayScale(): number {
 
 // ============================================================================
 // "Grid" theme — design_handoff_grid_redesign (2026-09-18), TRANSITION.md §3.
-// Black / grey / one red. No gradients, italics, shadows or skews. Unbounded
-// for every piece of UI text, JetBrains Mono for every label, number, code
+// Black / grey / one red. No gradients, italics, shadows or skews. Archivo (wide,
+// width 125) for every piece of UI text, JetBrains Mono for every label, number, code
 // and caption. Dark is the default; light is a straight inversion.
 // ============================================================================
 
@@ -83,9 +83,9 @@ export type SimpleColors = typeof S_COLORS_DARK;
 // weight — do NOT combine these with fontWeight or iOS will double-embolden).
 export const S_FONT_FAMILY = {
   ui: {
-    regular: 'Unbounded_400Regular',
-    bold: 'Unbounded_700Bold',
-    black: 'Unbounded_900Black',
+    regular: 'ArchivoExpanded_400Regular',
+    bold: 'ArchivoExpanded_700Bold',
+    black: 'ArchivoExpanded_900Black',
   },
   mono: {
     medium: 'JetBrainsMono_500Medium',
@@ -97,7 +97,7 @@ export const S_FONT_FAMILY = {
 export const S_TYPE = {
   sectionLabel: 11,   // mono 700, tracking 0.18em, uppercase, muted
   caption: 10,        // mono, the only text allowed under 11px
-  screenTitle: 26,    // Unbounded 900, tracking -0.03em, uppercase
+  screenTitle: 26,    // Archivo 900, tracking -0.03em, uppercase
   tileName: 19,       // steps to 17 (>7 chars) and 15 (>8 chars)
   seasonPoints: 56,   // 900, line-height 0.9, tracking -0.05em
   lastRace: 22,
