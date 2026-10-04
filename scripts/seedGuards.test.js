@@ -235,7 +235,7 @@ function runUnderStub(file, argv) {
   }
 }
 
-// The ten operational scripts under functions/scripts. They are run by
+// The operational scripts under functions/scripts, read off disk. They are run by
 // `aidlc op` via scripts/ops/run-script.js, which spawns them directly, so
 // require.main holds.
 //
@@ -260,16 +260,38 @@ function runUnderStub(file, argv) {
 //     removed. NOTHING HERE ENFORCES THAT EITHER: delete a project check and
 //     this suite stays green while the comment above it lies. Same gap as
 //     the --apply note, and worth the same scepticism.
-const OP_SCRIPTS = [
-  'backfillLeagueRaceResults', 'backfillZandvoortTsunoda', 'checkRaceCalendar',
-  'exportPitwallHistory', 'pitwallPass', 'repairStuckLocks',
-  'setConstructorColors', 'setPitWallConfig', 'stampAceWindowForLiveRace',
-  'verifyRaceScoring',
-].map((n) => ({
-  file: `functions/scripts/${n}.js`,
-  entry: 'main',
-  flagInGuard: false,
-}));
+// Read off disk, not typed out. The hand-written list went stale within
+// minutes of being corrected to ten: clearStaleAceWindow.js landed on master
+// and the suite stayed green at 64/64, because a script nobody adds to the
+// list is a script this file never looks at. That is the wrong failure
+// direction for a check whose whole job is to notice an unguarded script.
+// Scanning means a new one is covered the moment it exists, and an author who
+// needs an exemption has to say so here.
+const OP_SCRIPT_EXEMPT = new Set([]);
+const OP_SCRIPTS = fs
+  .readdirSync(path.join(ROOT, 'functions', 'scripts'))
+  .filter((f) => f.endsWith('.js') && !f.endsWith('.test.js') && !f.startsWith('_'))
+  .filter((f) => !OP_SCRIPT_EXEMPT.has(f))
+  .sort()
+  .map((f) => ({
+    file: `functions/scripts/${f}`,
+    entry: 'main',
+    flagInGuard: false,
+  }));
+
+test('every script in functions/scripts is covered or explicitly exempt', () => {
+  const onDisk = fs
+    .readdirSync(path.join(ROOT, 'functions', 'scripts'))
+    .filter((f) => f.endsWith('.js') && !f.endsWith('.test.js') && !f.startsWith('_'));
+  const covered = new Set(OP_SCRIPTS.map((s) => path.basename(s.file)));
+  for (const f of onDisk) {
+    assert.ok(
+      covered.has(f) || OP_SCRIPT_EXEMPT.has(f),
+      `functions/scripts/${f} is neither checked nor listed in OP_SCRIPT_EXEMPT`
+    );
+  }
+  assert.ok(onDisk.length > 0, 'found no scripts to check — the scan path is wrong');
+});
 
 const GUARDED = [
   { file: 'scripts/runSeed.ts', entry: 'main', flagInGuard: true },
