@@ -189,3 +189,39 @@ details.tbl>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spac
 .dtw .dt{width:100%}
 .acepill{position:absolute;top:12px;left:12px;z-index:1;padding:4px 8px}
 .acepill[aria-pressed="true"],.acepill-inline[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:var(--onRed)}
+
+/* ---- Briefing hero (F-097 stage 2) ---- */
+.hero{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:20px;align-items:stretch;padding-top:6px}
+.hero-main{flex:999 1 520px;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:22px}
+.hero-name{margin:0;font:900 expanded clamp(44px,6.5vw,96px)/0.9 var(--disp);letter-spacing:-.035em;text-transform:uppercase;overflow-wrap:anywhere}
+.hero-teams{display:flex;gap:22px;margin-top:12px}
+.hero-teams button{display:flex;align-items:center;gap:10px;padding:8px 0;font:700 11px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.hero-teams button[aria-selected="true"]{color:var(--fg)}
+.hero-teams i{width:8px;height:8px;border-radius:99px;border:1px solid currentColor}
+.hero-teams button[aria-selected="true"] i{background:currentColor}
+.hero-stats{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 36px;border-top:1px solid var(--border);padding-top:18px}
+.hero-stat{display:flex;flex-direction:column;gap:6px;min-width:0}
+.hero-num{font:900 expanded 40px/1 var(--disp);letter-spacing:-.03em}
+.hero-stat.lead .hero-num{font-size:clamp(52px,5.5vw,80px);line-height:.9;letter-spacing:-.04em}
+.hero-num.sm{font-size:clamp(28px,3vw,40px)}
+.hero-of{font-size:.5em;letter-spacing:0}
+.weekend{flex:1 1 360px;min-width:0;border:1.5px solid var(--red);border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:16px;background:var(--bg)}
+.weekend-proj{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.weekend-proj .hero-num{font-size:clamp(56px,5vw,76px);line-height:.85;letter-spacing:-.045em}
+.weekend-proj .mut{padding-bottom:6px;letter-spacing:.1em;font-size:11px}
+.weekend-range{position:relative;height:6px;background:var(--borderS);border-radius:3px}
+.weekend-range i{position:absolute;top:-5px;width:3px;height:16px;background:var(--fg);border-radius:2px;transform:translateX(-50%)}
+.weekend .row.two{padding:10px 0;min-height:0}
+.fg2{color:var(--fg2)}
+.cta.lg{padding:17px 22px;font-size:14px;letter-spacing:.02em}
+@media(max-width:640px){
+  .hero{gap:12px;padding-top:4px}
+  .hero-main{gap:12px}
+  .hero-name{font-size:clamp(34px,11vw,44px)}
+  .hero-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;padding-top:12px}
+  .hero-stat.lead .hero-num{font-size:40px}
+  .hero-num.sm{font-size:26px}
+  .weekend{padding:16px;border-radius:22px;gap:10px}
+  .weekend-proj .hero-num{font-size:48px}
+  .cta.lg{padding:13px 18px;font-size:12px}
+}

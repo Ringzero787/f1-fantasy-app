@@ -14,7 +14,7 @@ export interface UIState {
   sort: string;
   paceTab: 'QUALI VS RACE' | 'STARTS' | 'LONG RUN';
   mktTab: 'PRICE MODEL' | 'VALUE' | 'OWNERSHIP';
-  lowerTab: 'RIVALS' | 'MOVERS' | 'WEATHER';
+  lowerTab: 'TOP 5' | 'RIVALS' | 'MOVERS' | 'WEATHER';
   lineup: Lineup;
   saved: Lineup;
   slot: string | null;
