@@ -1,5 +1,56 @@
 # Changelog
 
+## uc-v2.4.3 — 2026-10-04
+
+**This entry covers everything since `uc-v2.3.4`** — 2.4.0, 2.4.1 and 2.4.2 were released
+without a tag, so the generator had nothing nearer to stop at. Most of what follows reached
+players at 2.4.1 (versionCode 66, renumbered to 67 as 2.4.2).
+
+**New in 2.4.3 itself:** the Ace lock. It is enforced by the server now, across every session the
+Ace scores in — qualifying, the sprint and the race — rather than by client code that a player
+could step around. See `release-notes-2.4.3.md`.
+
+Undercut 2.4.0–2.4.3: unified accounts, purchase security, the server-side Ace lock, and Pit Wall
+premium features.
+
+## Added
+
+- Cross-store sign-in: your account works whether you installed from Google Play, the App Store, or Amazon Appstore
+- Share league standings and your team directly from the app
+- Pit Wall Pass entitlements now revoke when the store refunds your purchase
+- Driver detail in the app showing what your pass purchased
+- Pit Wall Briefing redesign with hero section, calls strip, and price movers
+
+## Changed
+
+- The Ace lock now reads the server calendar instead of the bundled one
+- Pit Wall projections include floor, median, ceiling, DNF risk, and next price estimates
+- The Pit Wall Pass ($14.99/season) is the sole premium product; League Pro derives from pass ownership
+
+## Fixed
+
+- **Security**: Crafted Play Store tokens could no longer purchase packs or passes at incorrect prices
+- **Security**: Production API key fallback removed; no silent downgrade on configuration errors
+- Ace window now freezes for every session it scores in, not just races
+- Sign-in handoff locked to the device that started it
+- Purchases now grant once per transaction, not once per app launch
+- Pass grants work correctly after revokes
+- Stranded purchases in the store's queue now finish properly
+- Round mapping corrected; Bahrain reinstated at Sepang as R18
+- Nine operational scripts no longer silently fail on import
+- Team SHARE field reads as control, not caption
+- Seeder import halted; calendar now correct
+- iOS build no longer offers Amazon Appstore option
+
+## Security
+
+- Ace lock moved to server; removed app-only implementation
+- Amazon and Apple shared secrets migrated to Secret Manager
+- Amazon receipt IDs use their own shape, not Play Store's
+- High-severity dependency advisories cleared
+- All import-time guards and escape classes now closed
+
+
 ## uc-v2.3.4 — 2026-09-24
 
 Undercut 2.3.4 adds per-race league leaderboards with race wins, and an R8-optimised Android build.

@@ -1033,7 +1033,7 @@ features:
       - projection
   - id: F-095
     name: "UC: the ace lock holds on the server, not only in the app"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-095.md
     created_at: 2026-10-03
     keywords:
@@ -1042,6 +1042,8 @@ features:
       - race
       - scoring
       - rules
+    version_shipped: 2.4.3
+    shipped_at: 2026-10-04
   - id: F-094
     name: "UC: the sign-in handoff is bound to the device that started it"
     status: building
@@ -1109,7 +1111,7 @@ features:
       - wide
   - id: F-098
     name: "UC: the ace freezes for every session it scores in, not just the race"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-098.md
     created_at: 2026-10-04
     keywords:
@@ -1120,3 +1122,5 @@ features:
       - sprint
       - scoring
       - rules
+    version_shipped: 2.4.3
+    shipped_at: 2026-10-04
