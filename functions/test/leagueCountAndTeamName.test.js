@@ -6,7 +6,7 @@ process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'demo-uc-test';
 process.env.FIREBASE_CONFIG = process.env.FIREBASE_CONFIG || JSON.stringify({ projectId: 'demo-uc-test', storageBucket: 'demo-uc-test.appspot.com' });
 const index = require('../lib/index.js');
 const { countsAsMember, approvedMemberCount, membershipChanged } = require('../lib/leagues/memberCount.js');
-const { normalizeTeamName, isTakenBy } = require('../lib/teams/teamName.js');
+const { normalizeTeamName, normalizeDisplayName, isTakenBy, renameRefusal } = require('../lib/teams/teamName.js');
 const { isUnusedExpansion } = require('../lib/purchases/leagueExpansion.js');
 
 test('only approved members count; docs without a status are approved', () => {
@@ -67,4 +67,29 @@ test('the member-count triggers listen on the right documents, retry, and are ex
   assert.ok(index.reconcileAllLeagueMemberCounts.__endpoint.scheduleTrigger);
   assert.equal(typeof index.checkTeamNameAvailable, 'function');
   assert.equal(typeof index.applyLeagueExpansion, 'function');
+});
+
+test('renameTeam is exported alongside the availability check (F-100)', () => {
+  assert.equal(typeof index.renameTeam, 'function');
+});
+
+test('renameRefusal: only the owner, only an unheld name, own current name allowed', () => {
+  assert.equal(renameRefusal({ exists: false }, 'u1', 't1', []), 'permission-denied');
+  assert.equal(renameRefusal({ exists: true, ownerUid: 'u2' }, 'u1', 't1', []), 'permission-denied');
+  assert.equal(renameRefusal({ exists: true, ownerUid: 'u1' }, 'u1', 't1', ['t9']), 'already-exists');
+  assert.equal(renameRefusal({ exists: true, ownerUid: 'u1' }, 'u1', 't1', ['t1']), null);
+  assert.equal(renameRefusal({ exists: true, ownerUid: 'u1' }, 'u1', 't1', []), null);
+});
+
+test('names drop control and format characters before the length check (F-100)', () => {
+  assert.equal(normalizeTeamName('Late\u202eBrakers\u200b'), 'LateBrakers');
+  assert.equal(normalizeTeamName('Late\nBrakers'), 'Late Brakers');
+  assert.equal(normalizeDisplayName('N\u0000S'), 'N S');
+});
+
+test('normalizeDisplayName trims, collapses spaces and bounds the length', () => {
+  assert.equal(normalizeDisplayName('  Nathan   S  '), 'Nathan S');
+  assert.equal(normalizeDisplayName('N'), null);
+  assert.equal(normalizeDisplayName('x'.repeat(31)), null);
+  assert.equal(normalizeDisplayName(42), null);
 });

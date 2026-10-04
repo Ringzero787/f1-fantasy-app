@@ -14,11 +14,24 @@ const db = admin.firestore();
 export const TEAM_NAME_MIN = 2;
 export const TEAM_NAME_MAX = 30;
 
-/** Trimmed name, or null when it is not an acceptable team name. */
+/** Control and format characters (bidi overrides, zero-width joiners) have no place in a name other people read. */
+const cleanName = (raw: string): string => raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\p{Cf}/gu, '').replace(/\s+/g, ' ').trim();
+
+/** Cleaned name, or null when it is not an acceptable team name. */
 export function normalizeTeamName(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
-  const name = raw.trim();
+  const name = cleanName(raw);
   if (name.length < TEAM_NAME_MIN || name.length > TEAM_NAME_MAX) return null;
+  return name;
+}
+
+export const DISPLAY_NAME_MIN = 2;
+export const DISPLAY_NAME_MAX = 30;
+/** Trimmed display name, or null when it is not acceptable (same bounds the app's Profile applies). */
+export function normalizeDisplayName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const name = cleanName(raw);
+  if (name.length < DISPLAY_NAME_MIN || name.length > DISPLAY_NAME_MAX) return null;
   return name;
 }
 
@@ -46,4 +59,37 @@ export const checkTeamNameAvailable = functions.https.onCall(async (data, contex
   // limit(2): one match may be the caller's own team being renamed.
   const snap = await db.collection('fantasyTeams').where('name', '==', name).limit(2).get();
   return { available: !isTakenBy(snap.docs.map((d) => d.id), excludeTeamId) };
+});
+
+/**
+ * Rename the caller's own team (F-100). The portal has no direct write to fantasyTeams, so the
+ * rename runs here with the same rules the app applies on the client: trimmed, 2–30 characters,
+ * and no other team holding the name. Returns the saved name.
+ */
+/** Why a rename is refused, or null when it may go ahead. Pure, so the rule is testable. */
+export function renameRefusal(team: { exists: boolean; ownerUid?: string }, callerUid: string, teamId: string, matchIds: string[]): 'permission-denied' | 'already-exists' | null {
+  if (!team.exists || team.ownerUid !== callerUid) return 'permission-denied';
+  if (isTakenBy(matchIds, teamId)) return 'already-exists';
+  return null;
+}
+
+export const renameTeam = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+  warnIfNoAppCheck(context, 'renameTeam');
+  const name = normalizeTeamName(data?.name);
+  if (!name) {
+    throw new functions.https.HttpsError('invalid-argument', `Team name must be ${TEAM_NAME_MIN}–${TEAM_NAME_MAX} characters`);
+  }
+  const teamId = typeof data?.teamId === 'string' && data.teamId && !data.teamId.includes('/') ? data.teamId : null;
+  if (!teamId) throw new functions.https.HttpsError('invalid-argument', 'teamId is required');
+  const ref = db.doc(`fantasyTeams/${teamId}`);
+  const own = await ref.get();
+  const snap = await db.collection('fantasyTeams').where('name', '==', name).limit(2).get();
+  const refusal = renameRefusal({ exists: own.exists, ownerUid: own.data()?.userId }, context.auth.uid, teamId, snap.docs.map((d) => d.id));
+  if (refusal === 'permission-denied') throw new functions.https.HttpsError('permission-denied', 'Not your team');
+  if (refusal === 'already-exists') throw new functions.https.HttpsError('already-exists', 'That team name is taken');
+  await ref.update({ name, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  return { name };
 });

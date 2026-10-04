@@ -280,3 +280,14 @@ details.tbl>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spac
 .ltile-foot .tbar{width:34px;margin:0}
 .ltile-ace{font:900 expanded 14px var(--disp);text-transform:uppercase}
 .lbl.linkish{color:var(--red)}
+
+/* ---- names editable in place (F-100) ---- */
+.namebtn{display:inline-flex;align-items:baseline;gap:.3em;text-align:left;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;max-width:100%}
+.namebtn .pencil{font-size:.35em;color:var(--muted);letter-spacing:0;transform:translateY(-.3em)}
+.namebtn:hover .pencil,.namebtn:focus-visible .pencil{color:var(--red)}
+.nameedit{display:flex;flex-direction:column;gap:8px;max-width:100%}
+.nameedit input{background:var(--card);border:1px solid var(--borderS);border-radius:14px;padding:10px 14px;color:var(--fg);font:500 14px var(--mono);width:min(420px,100%)}
+.nameedit input.hero-input{font:900 expanded clamp(28px,3.5vw,44px)/1 var(--disp);letter-spacing:-.03em;text-transform:uppercase;padding:8px 14px}
+.nameedit input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.hero-manager{display:flex;align-items:center;gap:12px;margin-top:10px;font:700 12px var(--mono);letter-spacing:.08em}
+.hero-manager .namebtn .pencil{font-size:.8em;transform:none}

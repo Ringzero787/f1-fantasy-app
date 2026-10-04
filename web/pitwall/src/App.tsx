@@ -8,6 +8,7 @@ import { NO_PASS, passFromClaims, payloadForAccess, type PassState } from './dat
 import { executePlan, loadMarket, loadTeams, saveErrorText } from './lib/teamApi';
 import { loadPayload } from './lib/payloadApi';
 import { loadLeagueDoc } from './lib/leagueApi';
+import { renameErrorText, renameTeam as renameTeamApi, renameUser as renameUserApi } from './lib/profileApi';
 import { withLeague, type LeagueDoc } from './data/league';
 import { loadWirePrefs, saveWirePrefs } from './lib/wirePrefs';
 import type { WirePrefs } from './data/wire';
@@ -33,7 +34,7 @@ import { Boundary } from './ui/Boundary';
 
 const PAGE: Record<PageName, () => ReactElement> = { BRIEFING: Briefing, BOARD: Board, CIRCUIT: Circuit, 'PACE LAB': PaceLab, MARKET: Market, 'LINEUP LAB': LineupLab, SEASON: Season, WIRE: Wire };
 
-function Portal({ account, real, pass, published, league, reloadReal, selectTeam, checkoutFn, wire, onWire, onSignOut }: { account: Account | null; real: RealContext | null; pass?: PassState; published?: Payload | null; league?: LeagueDoc | null; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; checkoutFn?: () => Promise<string>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; onSignOut?: () => void }) {
+function Portal({ account, real, pass, published, league, reloadReal, reloadAccount, selectTeam, checkoutFn, wire, onWire, onSignOut, displayName, onDisplayName }: { account: Account | null; reloadAccount?: () => Promise<void>; displayName?: string | null; onDisplayName?: (name: string) => void; real: RealContext | null; pass?: PassState; published?: Payload | null; league?: LeagueDoc | null; reloadReal?: () => Promise<RealContext | null>; selectTeam?: (id: string) => void; checkoutFn?: () => Promise<string>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; onSignOut?: () => void }) {
   const [page, go] = usePage();
   // The published payload when the worker has put one out and the rules let this user read it;
   // the browser-generated example set otherwise, which labels itself on every page.
@@ -63,8 +64,12 @@ function Portal({ account, real, pass, published, league, reloadReal, selectTeam
     const after = await reloadReal();
     return after ? teamLineup(after.team) : target;
   } : undefined;
+  // Renames (F-100): the team through the server, the person through their own users document and
+  // Auth profile; the shell's bar and the hero re-read afterwards so the new name shows at once.
+  const renameTeam = real && reloadReal ? async (name: string) => { try { await renameTeamApi(real.team.id, name); } catch (e) { throw new Error(renameErrorText(e)); } await reloadReal(); await reloadAccount?.(); } : undefined;
+  const renameUser = onDisplayName ? async (name: string) => { try { await renameUserApi(name); } catch (e) { throw new Error(renameErrorText(e)); } onDisplayName(name); } : undefined;
   return (
-    <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} pass={pass} checkoutFn={checkoutFn} selectTeam={selectTeam} saver={saver} wire={wire} onWire={onWire} go={go}>
+    <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} pass={pass} checkoutFn={checkoutFn} selectTeam={selectTeam} saver={saver} wire={wire} onWire={onWire} go={go} displayName={displayName ?? null} renameTeam={renameTeam} renameUser={renameUser}>
       <Wrap>
         <ContextBar page={page} account={account} onSignOut={onSignOut} />
         <main id="main"><Boundary key={page} label={page.toLowerCase()}><Page /></Boundary></main>
@@ -119,6 +124,9 @@ export function App() {
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  // after a rename the shell's bar re-reads the team document; a sign-out mid-flight drops the result
+  const reloadAccount = useCallback(async () => { const uid = uidRef.current; if (!uid) return; const a = await loadAccount(uid).catch(() => EMPTY_ACCOUNT); if (uidRef.current === uid) setAccount(a); }, []);
 
   useEffect(() => {
     if (PREVIEW) return;
@@ -129,7 +137,7 @@ export function App() {
       window.history.replaceState({}, '', '/');
       if (code) setPendingCode(code); else setNotice(EXPIRED);
     }
-    return onAuthStateChanged(auth(), (user) => setSession(user ? { state: 'in', user } : { state: 'out' }));
+    return onAuthStateChanged(auth(), (user) => { setSession(user ? { state: 'in', user } : { state: 'out' }); setDisplayName(user?.displayName ?? null); });   // Auth name until the users document answers
   }, []);
 
   const uid = session.state === 'in' ? session.user.uid : null;
@@ -215,7 +223,7 @@ export function App() {
   useEffect(() => {
     if (!uid) { setReal(null); teamIdRef.current = null; return; }
     let live = true;
-    loadAccount(uid).then((a) => { if (live) setAccount(a); }).catch(() => { if (live) setAccount(EMPTY_ACCOUNT); });
+    loadAccount(uid).then((a) => { if (live) { setAccount(a); if (a.displayName) setDisplayName(a.displayName); } }).catch(() => { if (live) setAccount(EMPTY_ACCOUNT); });
     void reloadReal();
     return () => { live = false; };
   }, [uid, reloadReal]);
@@ -262,7 +270,7 @@ export function App() {
       </main>
     );
   }
-  return <Portal account={account} real={real} pass={pass} published={current} league={league} reloadReal={reloadReal} selectTeam={selectTeam} checkoutFn={checkoutFn} wire={wirePrefs} onWire={onWire} onSignOut={() => void signOut(auth())} />;
+  return <Portal account={account} real={real} pass={pass} published={current} league={league} reloadReal={reloadReal} reloadAccount={reloadAccount} selectTeam={selectTeam} checkoutFn={checkoutFn} wire={wirePrefs} onWire={onWire} onSignOut={() => void signOut(auth())} displayName={displayName} onDisplayName={setDisplayName} />;
 }
 
 const EXPIRED = 'That sign-in link has expired or was already used. Sign in below, or open Pit Wall from the app again.';

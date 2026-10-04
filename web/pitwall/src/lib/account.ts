@@ -2,14 +2,17 @@
 import { firestore } from './firebase';
 import { countdown, lockTime, nextSession, type RaceSchedule } from './lock';
 
-export interface Account { teamName: string | null; bank: number | null; leagueName: string | null; roundLabel: string | null; firstSession: string | null; locksIn: string | null }
-export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null };
+export interface Account { teamName: string | null; bank: number | null; leagueName: string | null; roundLabel: string | null; firstSession: string | null; locksIn: string | null; /** the name the app shows for this person (users document), null when there is none */ displayName: string | null }
+export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null, displayName: null };
 
 const toDate = (v: unknown): Date | undefined => (v && typeof (v as { toDate?: () => Date }).toDate === 'function' ? (v as { toDate: () => Date }).toDate() : undefined);
 
 export async function loadAccount(uid: string): Promise<Account> {
   const { m, db } = await firestore();
   const out: Account = { ...EMPTY_ACCOUNT };
+  // The app's profile reads users/{uid}.displayName, not the Auth profile, so that is the name to show and edit (F-100).
+  const me = await m.getDoc(m.doc(db, 'users', uid)).catch(() => null);
+  out.displayName = typeof me?.data()?.displayName === 'string' ? (me.data()!.displayName as string) : null;
   const teams = await m.getDocs(m.query(m.collection(db, 'fantasyTeams'), m.where('userId', '==', uid), m.limit(2)));
   const team = teams.docs[0]?.data();
   if (team) {
