@@ -52,6 +52,20 @@ test('the sprint is recognised by its time, not by the hasSprint flag', () => {
   assert.equal(aceFreezeStart(staleFlag).iso, '2026-10-10T08:00:00Z');
 });
 
+test('a sprint round with no sprint time yet falls back to sprint qualifying, not past it', () => {
+  // OpenF1 has not published the sessions, so the doc has the flag from seed data and no
+  // sprint time. Falling through to qualifying would start the freeze hours after the
+  // sprint — the hole, in the one case the flag exists to warn about. autoLockTeams
+  // stamps the sprint marker on the same condition, so the two fail closed together.
+  const unpublished = {
+    hasSprint: true,
+    schedule: { sprintQualifying: ts('2026-10-09T14:00:00Z'), qualifying: ts('2026-10-10T12:00:00Z'), race: ts('2026-10-11T12:00:00Z') },
+  };
+  assert.equal(aceFreezeStart(unpublished).iso, '2026-10-09T14:00:00Z');
+  // without the flag there is no sprint to protect, so qualifying is right
+  assert.equal(aceFreezeStart({ ...unpublished, hasSprint: false }).iso, '2026-10-10T12:00:00Z');
+});
+
 test('a sprint scheduled after qualifying still freezes from qualifying', () => {
   const reordered = {
     hasSprint: true,

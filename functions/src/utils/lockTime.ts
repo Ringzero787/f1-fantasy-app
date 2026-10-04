@@ -51,7 +51,13 @@ export function aceFreezeStart(
   race: FirebaseFirestore.DocumentData,
 ): admin.firestore.Timestamp | null {
   const qualifying: admin.firestore.Timestamp | null = race.schedule?.qualifying ?? null;
-  const sprint: admin.firestore.Timestamp | null = race.schedule?.sprint ?? null;
+  // A sprint round whose OpenF1 sessions are not published yet carries the flag from seed
+  // data but no time. Falling through to qualifying there would start the freeze hours
+  // AFTER the sprint — the hole, in the one case the flag exists to warn about — so fall
+  // back to sprint qualifying, which precedes the sprint. `autoLockTeams` stamps the
+  // sprint marker on the same `|| hasSprint` condition; the two must fail closed together.
+  const sprint: admin.firestore.Timestamp | null =
+    race.schedule?.sprint ?? (race.hasSprint === true ? race.schedule?.sprintQualifying ?? null : null);
   if (sprint && qualifying) return sprint.toMillis() <= qualifying.toMillis() ? sprint : qualifying;
   return sprint ?? qualifying ?? race.schedule?.race ?? null;
 }
