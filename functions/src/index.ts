@@ -22,7 +22,7 @@ export * from './ingestion/syncSchedule';
 export * from './ingestion/scheduleMonitor';
 export * from './cache/marketCache';
 export * from './teams/teamOperations';
-export { checkTeamNameAvailable } from './teams/teamName';
+export { checkTeamNameAvailable, renameTeam } from './teams/teamName';
 export { onFantasyTeamDeleted } from './teams/teamSnapshotsCleanup';
 // Undercut Pit Wall (F-075): deployed as the `pw` group, e.g. pw-createPortalHandoff
 export * as pw from './pitwall';

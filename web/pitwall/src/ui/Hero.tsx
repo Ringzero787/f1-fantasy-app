@@ -1,6 +1,7 @@
 import { bank, entity, money, projectedLineup, rateMyTeam } from '../data/logic';
 import { PREVIEW } from '../lib/env';
 import { useStore } from '../state';
+import { NameEditor } from './NameEditor';
 import { Lbl } from './bits';
 
 /**
@@ -12,7 +13,7 @@ import { Lbl } from './bits';
  * figures are allowed, and the page already carries the EXAMPLE DATA pill when it is in use.
  */
 export function Hero() {
-  const { payload: p, has, ui, real, pass, go, selectTeam } = useStore();
+  const { payload: p, has, ui, real, pass, go, selectTeam, displayName, renameTeam, renameUser, toast } = useStore();
   const proj = projectedLineup(p, ui.lineup);
   // Example figures belong to the preview build only. A signed-in account with no team sees
   // dashes, as the context bar does, even while the worker has not published and the payload is
@@ -40,7 +41,10 @@ export function Hero() {
     <section className="hero c12" aria-label="Your team this season">
       <div className="hero-main">
         <div>
-          <h1 className="hero-name">{name ?? 'No team yet'}</h1>
+          {/* The team's name and the manager's are editable here (F-100): the app shows the new
+              names on its next load, from the same documents. */}
+          {name && renameTeam ? <h1 className="hero-name"><NameEditor value={name} label="Team name" inputClassName="hero-input" save={async (n) => { await renameTeam(n); toast(`Team renamed to ${n}.`); }} /></h1> : <h1 className="hero-name">{name ?? 'No team yet'}</h1>}
+          {renameUser ? <div className="hero-manager"><span className="lbl">Manager</span><NameEditor value={displayName ?? 'Set your name'} label="Your name" save={async (n) => { await renameUser(n); toast(`Your name is now ${n}.`); }} /></div> : null}
           {real && real.teams.length > 1 ? (
             <div className="hero-teams" role="tablist" aria-label="Your teams">
               {real.teams.map((t) => <button key={t.id} type="button" role="tab" aria-selected={t.id === real.team.id} onClick={() => selectTeam(t.id)}><i aria-hidden="true" />{t.name}</button>)}

@@ -87,6 +87,12 @@ interface Store {
   toast: (text: string) => void;
   /** switch to another of the user's teams */
   selectTeam: (id: string) => void;
+  /** the signed-in person's display name, as the app shows it; null without an account */
+  displayName: string | null;
+  /** rename the current real team through the server (F-100); absent without a real team */
+  renameTeam?: (name: string) => Promise<void>;
+  /** change the signed-in person's display name (F-100); absent without an account */
+  renameUser?: (name: string) => Promise<void>;
   dirty: boolean;
   go: (p: PageName) => void;
 }
@@ -98,7 +104,7 @@ export const useStore = (): Store => {
   return s;
 };
 
-export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutFn, selectTeam, saver, wire: wireIn, onWire, go, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; pass?: PassState; checkoutFn?: () => Promise<string>; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void, expect?: { bankAfter: number }) => Promise<Lineup>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; go: (p: PageName) => void; children: ReactNode }) {
+export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutFn, selectTeam, saver, wire: wireIn, onWire, go, displayName = null, renameTeam, renameUser, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; pass?: PassState; checkoutFn?: () => Promise<string>; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void, expect?: { bankAfter: number }) => Promise<Lineup>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; go: (p: PageName) => void; displayName?: string | null; renameTeam?: (name: string) => Promise<void>; renameUser?: (name: string) => Promise<void>; children: ReactNode }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<string | null>(null);
   const [ui, setUi] = useState<UIState>(() => ({
@@ -155,6 +161,7 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
       }
     },
     dirty: !sameLineup(ui.lineup, ui.saved),
+    displayName, renameTeam, renameUser,
     set: (key, value) => patch(() => ({ [key]: value } as Partial<UIState>)),
     open: (id) => { if (id) patch(() => ({ over: id, overTab: 'PRESENT', focus: id, recOver: null })); },
     close: () => patch(() => ({ over: null, recOver: null })),

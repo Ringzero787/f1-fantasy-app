@@ -1,4 +1,4 @@
-next_id: 99
+next_id: 101
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1124,3 +1124,18 @@ features:
       - rules
     version_shipped: 2.4.3
     shipped_at: 2026-10-04
+  - id: F-100
+    name: "UC: Pit Wall edits the team name and the manager's name"
+    summary: From the portal a signed-in user can rename their team (through a new server callable that reuses the app's
+      team-name rules and uniqueness check) and change their display name (the same users document the app reads), and
+      both show in the app on its next load
+    status: planned
+    spec: .aidlc/specs/F-100.md
+    created_at: 2026-10-04
+    keywords:
+      - wall
+      - edits
+      - team
+      - name
+      - manager
+      - name
