@@ -269,6 +269,25 @@ test('F-095 ace: once the race has started the ace is frozen', async () => {
   await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'norris', name: 'Apex Three' }));
 });
 
+test('F-095 ace: "no ace" spelled as null and spelled as absent are the same ace', async () => {
+  // Scoring deletes the ace fields outright when a weekend ends without one
+  // (FieldValue.delete in calculatePoints), and the app's sync sends an explicit null for
+  // the same state. Comparing affectedKeys would make that innocent difference a change
+  // and refuse the whole update — a rename included — for anyone racing without an ace.
+  await seedTeam({
+    userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null,
+    budget: 1000, totalSpent: 0, totalPoints: 0, isLocked: true,
+    lockStatus: lockStatusAt(-HOUR),
+  });
+  const d = db(ALICE);
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: null, aceConstructorId: null, name: 'Apex Two' }));
+  // and the other way about: a null on the server, a field the client simply omits
+  await seedTeam(aceTeam({ aceDriverId: null, lockStatus: lockStatusAt(-HOUR) }));
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { name: 'Apex Two' }));
+  // a real change is still refused
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { aceDriverId: 'piastri' }));
+});
+
 test('F-095 ace: the freeze is a window, so a stamp nobody cleared expires', async () => {
   // Last race's window, long past its end. Nothing unlocked this team — a season-locked
   // team is never touched by the unlock sweep — and its ace must still be free.
