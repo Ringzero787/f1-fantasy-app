@@ -41,4 +41,6 @@ async function main() {
   console.log(`backed up ${present} document(s), ${Object.keys(docs).length - present} absent, from ${paths.join(' ')} → ${out}`);
 }
 
-main().catch((e) => { console.error(`firestore-backup: ${e.message}`); process.exit(1); });
+if (require.main === module) {
+  main().catch((e) => { console.error(`firestore-backup: ${e.message}`); process.exit(1); });
+}

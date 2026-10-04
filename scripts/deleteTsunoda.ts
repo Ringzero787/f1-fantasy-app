@@ -7,18 +7,41 @@
 
 import * as admin from 'firebase-admin';
 
-// Initialize Firebase Admin
-const serviceAccount = require('./serviceAccountKey.json');
+// Nothing happens on import. This read the key, initialised firebase-admin
+// and called deleteTsunoda() all at module scope, so requiring the file
+// deleted a production document. It also needs --apply now: it is a delete,
+// and deletes are not recoverable by re-running the script.
+let db: admin.firestore.Firestore;
+const EXPECTED_PROJECT = 'f1-app-18077';
+let projectId = '';
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
-const db = admin.firestore();
+function initAdmin(): void {
+  let serviceAccount;
+  try {
+    serviceAccount = require('./serviceAccountKey.json');
+  } catch {
+    console.error('Error: could not read scripts/serviceAccountKey.json');
+    console.log('\nFirebase Console > Project Settings > Service Accounts > "Generate new private key",');
+    console.log('saved as scripts/serviceAccountKey.json (it is gitignored).');
+    process.exit(1);
+  }
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+  db = admin.firestore();
+  projectId = serviceAccount.project_id;
+  // It printed the target project but ran against any of them. An
+  // unrecoverable production delete had a weaker bar than cleanAll, which
+  // refuses on a project mismatch.
+  if (projectId !== EXPECTED_PROJECT) {
+    console.error(`Refusing to run: key is for project ${projectId}, expected ${EXPECTED_PROJECT}.`);
+    process.exit(2);
+  }
+}
 
 async function deleteTsunoda() {
   console.log('\n🏎️  F1 Fantasy - Delete Tsunoda Script\n');
-  console.log('Target Project:', serviceAccount.project_id);
+  console.log('Target Project:', projectId);
   console.log('-----------------------------------\n');
 
   try {
@@ -51,4 +74,13 @@ async function deleteTsunoda() {
   process.exit(0);
 }
 
-deleteTsunoda();
+if (require.main === module) {
+  if (process.argv.includes('--apply')) {
+    initAdmin();
+    deleteTsunoda();
+  } else {
+    console.log('deleteTsunoda: dry run. This DELETES the Tsunoda driver document from');
+    console.log('production Firestore. Re-run with --apply if you mean it.');
+    console.log('A delete belongs in an `aidlc op`, which takes a backup first.');
+  }
+}

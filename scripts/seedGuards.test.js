@@ -41,7 +41,7 @@
 //     body. Plain ADC via a module-scope `admin.initializeApp()` IS caught —
 //     only the modular-SDK spelling of it escapes, as below.
 //   - The ratchet scans scripts/**, functions/src/** and functions/scripts/**.
-//     All nine operational scripts in functions/scripts are now guarded and
+//     All ten operational scripts in functions/scripts are now guarded and
 //     checked above; they are import-safe but their write discipline comes
 //     from the `aidlc op` kind, not from this test.
 //   - Three tracked scripts at the repo root — cleanup-dup-teams.js,
@@ -63,10 +63,12 @@
 //     through a differently-spelled call. Closing them needs symbol
 //     resolution, not a shape match.
 //   - `flagInGuard: false` waives more than the flag assertion: the check
-//     that the guard actually calls the entry point lives in the same test,
-//     so for the nine operational scripts nothing verifies their guard
-//     invokes main(). An empty guard body fails safe — the script becomes a
-//     no-op — but it would not be caught here.
+//     that the guard actually calls the entry point lives in the same test.
+//     That now covers the ten operational scripts plus getIndexLink and
+//     updateData, so for fourteen of the files below nothing verifies the
+//     guard invokes its entry point. An empty guard body fails safe — the
+//     script becomes a no-op — but it would not be caught here. The
+//     initialiser check added alongside it runs for every file either way.
 //
 // Treat a failure here as real. Do not treat a pass as clearance.
 
@@ -233,21 +235,24 @@ function runUnderStub(file, argv) {
   }
 }
 
-// The nine operational scripts under functions/scripts. They are run by
+// The ten operational scripts under functions/scripts. They are run by
 // `aidlc op` via scripts/ops/run-script.js, which spawns them directly, so
 // require.main holds.
 //
 // Checked for IMPORT-SAFETY ONLY, and that limit is worth stating precisely:
-//   - Six of the nine write (backfillLeagueRaceResults, backfillZandvoortTsunoda,
-//     pitwallPass, repairStuckLocks, setConstructorColors, setPitWallConfig);
+//   - Seven of the ten write (backfillLeagueRaceResults,
+//     backfillZandvoortTsunoda, pitwallPass, repairStuckLocks,
+//     setConstructorColors, setPitWallConfig, stampAceWindowForLiveRace);
 //     three are read-only (checkRaceCalendar, exportPitwallHistory,
-//     verifyRaceScoring).
-//   - All six writers gate on --apply today, and the `uc-script` op kind
+//     verifyRaceScoring). pitwallPass writes through store.grantPass()
+//     rather than a db call of its own, so grepping for `.set(`/`.update(`
+//     reports it read-only — it is not.
+//   - All seven writers gate on --apply today, and the `uc-script` op kind
 //     passes it only on apply. But NOTHING HERE ENFORCES THAT. Deleting the
 //     `if (!APPLY)` line from any of them leaves this suite green, and
 //     `aidlc op dryrun` would then write production. Asserting it properly
 //     needs a behavioural check per writer, which this file does not have.
-//   - All nine now require SA_KEY explicitly and refuse a key for the wrong
+//   - All ten now require SA_KEY explicitly and refuse a key for the wrong
 //     project. Three of them used to fall back to a hardcoded admin-SDK key
 //     on the share when SA_KEY was unset, so running them without the env
 //     var still reached production, with nothing checking which project the
@@ -258,8 +263,13 @@ function runUnderStub(file, argv) {
 const OP_SCRIPTS = [
   'backfillLeagueRaceResults', 'backfillZandvoortTsunoda', 'checkRaceCalendar',
   'exportPitwallHistory', 'pitwallPass', 'repairStuckLocks',
-  'setConstructorColors', 'setPitWallConfig', 'verifyRaceScoring',
-].map((n) => ({ file: `functions/scripts/${n}.js`, entry: 'main', flagInGuard: false }));
+  'setConstructorColors', 'setPitWallConfig', 'stampAceWindowForLiveRace',
+  'verifyRaceScoring',
+].map((n) => ({
+  file: `functions/scripts/${n}.js`,
+  entry: 'main',
+  flagInGuard: false,
+}));
 
 const GUARDED = [
   { file: 'scripts/runSeed.ts', entry: 'main', flagInGuard: true },
@@ -270,10 +280,172 @@ const GUARDED = [
   // script that no longer required it.
   { file: 'scripts/cleanAll.ts', entry: 'main', flagInGuard: true, refusesWithout: ['--apply'] },
   { file: 'functions/src/seedData.ts', entry: 'seedDatabase', flagInGuard: true },
+  // The last four. deleteTsunoda deletes a production document and
+  // setAdminClaim grants an admin claim on a real account, so both need the
+  // flag; getIndexLink only runs queries and updateData prints usage before
+  // it asks for a credential, so neither does.
+  { file: 'scripts/deleteTsunoda.ts', entry: 'deleteTsunoda', flagInGuard: true },
+  { file: 'scripts/setAdminClaim.ts', entry: 'main', flagInGuard: true },
+  { file: 'scripts/getIndexLink.ts', entry: 'testQueries', flagInGuard: false },
+  { file: 'functions/src/updateData.ts', entry: 'main', flagInGuard: false },
+  // Found by review, not by this list: both self-invoked at module scope.
+  // firestore-backup took a backup on import; play-publish read the Play
+  // publishing key and, with argv present, could reach the store.
+  // firestore-backup's `db` still arrives from ./_firestore, which connects on
+  // require by design — the guard is what stops an import from acting.
+  // play-publish touches no Firestore at all; its credential is the Play
+  // publishing key, now read through a lazy accessor.
+  { file: 'scripts/ops/firestore-backup.js', entry: 'main', flagInGuard: false },
+  { file: 'scripts/ops/play-publish.js', entry: 'main', flagInGuard: false },
   ...OP_SCRIPTS,
 ];
 
 for (const { file, entry, flagInGuard } of GUARDED) {
+  // Naming the initialiser was the wrong shape of fix. The first version keyed
+  // on the identifiers `initAdmin` and `setup`; a wrapper function, an
+  // object-literal method, a second initialiser under another name, and
+  // `(exports as any).initAdmin()` all walked past it. Matching call names
+  // one level deep was only slightly better: `o.go()` is not a function
+  // declaration, so nothing connected the call to the body that initialises.
+  //
+  // So this walks the call graph instead. Seeds are the calls and `new`
+  // expressions that run on import; from each, every function body this file
+  // defines is followed transitively, and the closure is checked for admin
+  // initialisation or a credential read. That makes a wrapper, a method, a
+  // rename, or a chain of three one finding rather than four.
+  //
+  // It is still a NAME LIST matched on a node shape, not a proof about
+  // behaviour, and review got past it three ways after the rewrite. What
+  // escapes, all demonstrated against a green suite:
+  //   - a sibling module: `require('./_warm').init()` relocates the read out
+  //     of this file, and the walk never crosses a module boundary;
+  //   - a getter: `const x = lazy.ready` runs a body with no call node;
+  //   - shadowing: the name->body map is first-wins, so an earlier benign
+  //     `function boot(){}` masks a later real initialiser of that name.
+  // Closing those needs real symbol resolution across modules, which this
+  // file does not do. Treat it as the tripwire the header says it is.
+  test(`${file}: nothing reachable on import initialises admin`, () => {
+    const sf = parse(file);
+    findMainGuard(sf, file);
+
+    // name -> function-ish body, covering every form these scripts use.
+    const bodies = new Map();
+    const aliases = new Map();
+    const note = (name, node) => { if (name && !bodies.has(name)) bodies.set(name, node); };
+    const collectDefs = (n) => {
+      if (ts.isFunctionDeclaration(n) && n.name) note(n.name.text, n);
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer &&
+          (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) {
+        note(n.name.text, n.initializer);
+      }
+      // `const f = initAdmin;` then `f()`. Only function *expressions* were
+      // recorded, so an alias had no body and the walk treated it as a
+      // library call. Review proved it: suite green, credential read on
+      // import.
+      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer &&
+          ts.isIdentifier(n.initializer)) {
+        aliases.set(n.name.text, n.initializer.text);
+      }
+      // `new Boot()` seeds the class name, so it needs a body: the
+      // constructor is what runs. Without this the seed resolved to nothing.
+      if (ts.isClassDeclaration(n) && n.name) {
+        const ctor = n.members.find((m) => ts.isConstructorDeclaration(m));
+        if (ctor) note(n.name.text, ctor);
+      }
+      // { go() {} } and { go: () => {} } — the escape that name matching missed.
+      if (ts.isMethodDeclaration(n) && ts.isIdentifier(n.name)) note(n.name.text, n);
+      if (ts.isPropertyAssignment(n) && ts.isIdentifier(n.name) && n.initializer &&
+          (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) {
+        note(n.name.text, n.initializer);
+      }
+      n.forEachChild(collectDefs);
+    };
+    sf.forEachChild(collectDefs);
+
+    const calleeName = (e) => {
+      if (ts.isIdentifier(e)) return e.text;
+      if (ts.isPropertyAccessExpression(e)) return e.name.text;
+      if (ts.isElementAccessExpression(e) && e.argumentExpression &&
+          ts.isStringLiteral(e.argumentExpression)) return e.argumentExpression.text;
+      return null;
+    };
+
+    // Seeds: calls that execute on import (the guard's then-branch excluded).
+    const seeds = [];
+    for (const n of moduleScopeNodes(sf)) {
+      // `new Boot()` runs a constructor body, so it is a seed like any call.
+      if (ts.isCallExpression(n) || ts.isNewExpression(n)) {
+        const name = calleeName(n.expression);
+        if (name) seeds.push({ name, node: n });
+      }
+    }
+
+    // Does this body initialise admin or read credentials directly?
+    const initialisesAdmin = (body) => {
+      let hit = null;
+      const scan = (n) => {
+        if (hit) return;
+        if (ts.isCallExpression(n)) {
+          const e = n.expression;
+          // Element access as well as property access: `fs['readFileSync']`
+          // reached a key on import while this matched only `fs.readFileSync`,
+          // which calleeName() above had always resolved. The two disagreeing
+          // was the hole.
+          const member =
+            ts.isPropertyAccessExpression(e) ? e.name.text
+            : (ts.isElementAccessExpression(e) && e.argumentExpression &&
+               ts.isStringLiteral(e.argumentExpression)) ? e.argumentExpression.text
+            : null;
+          // `firestore` belongs here: without it `function attach(){ db =
+          // admin.firestore(); } attach();` passed the transitive check while
+          // the module-scope check below would have caught the same call.
+          if (member && ['initializeApp', 'cert', 'applicationDefault',
+                         'getFirestore', 'firestore'].includes(member)) {
+            hit = member + '()';
+          }
+          if (member === 'readFileSync') hit = 'readFileSync()';
+          if (ts.isIdentifier(e) && e.text === 'require' && n.arguments.length &&
+              ts.isStringLiteral(n.arguments[0]) &&
+              /credential|service-?account|\.json$/i.test(n.arguments[0].text)) {
+            hit = `require('${n.arguments[0].text}')`;
+          }
+        }
+        n.forEachChild(scan);
+      };
+      scan(body);
+      return hit;
+    };
+
+    const seen = new Set();
+    const queue = seeds.map((s) => ({ ...s, path: [s.name] }));
+    while (queue.length) {
+      const { name, path: chain } = queue.shift();
+      if (seen.has(name)) continue;
+      seen.add(name);
+      // Follow `const f = initAdmin` to initAdmin's body before giving up.
+      let resolved = name;
+      for (let i = 0; i < 10 && !bodies.has(resolved) && aliases.has(resolved); i++) {
+        resolved = aliases.get(resolved);
+      }
+      const body = bodies.get(resolved);
+      if (!body) continue; // a library call, not something this file defines
+      const what = initialisesAdmin(body);
+      assert.ok(
+        !what,
+        `${file}: importing it reaches ${what} via ${chain.join(' -> ')} — ` +
+          `admin initialisation must happen inside the require.main guard`
+      );
+      const follow = (n) => {
+        if (ts.isCallExpression(n)) {
+          const next = calleeName(n.expression);
+          if (next && !seen.has(next)) queue.push({ name: next, path: [...chain, next] });
+        }
+        n.forEachChild(follow);
+      };
+      follow(body);
+    }
+  });
+
   test(`${file}: the entry point is never reached on import`, () => {
     const sf = parse(file);
     findMainGuard(sf, file);
@@ -357,12 +529,10 @@ for (const { file, entry, flagInGuard } of GUARDED) {
 // report them as defects, and so adding to this list is a deliberate act.
 const INIT_ON_LOAD_BY_DESIGN = ['functions/src/index.ts', 'scripts/ops/_firestore.js'];
 
-const KNOWN_UNGUARDED = [
-  'scripts/deleteTsunoda.ts',
-  'scripts/getIndexLink.ts',
-  'scripts/setAdminClaim.ts',
-  'functions/src/updateData.ts',
-];
+// Empty, and that is the point of the ratchet: every file the scan reaches
+// now guards its own run. A new one here means something regressed or a new
+// script arrived unguarded — not that the list needs extending.
+const KNOWN_UNGUARDED = [];
 
 test('no new script reaches the production key on import', () => {
   // The previous scan was flat `scripts/*.ts` and only looked at require().
@@ -389,7 +559,7 @@ test('no new script reaches the production key on import', () => {
 
   // Keyed on `admin.initializeApp(` at module scope, not on a key path.
   // Matching the string `serviceAccount` missed every script that takes its
-  // key from SA_KEY — which is all nine under functions/scripts — and misses
+  // key from SA_KEY — which is all ten under functions/scripts — and misses
   // ADC, which needs no key at all. Connecting to a project on import is the
   // thing worth forbidding, however the credential is obtained.
   const unguarded = files
