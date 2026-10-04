@@ -481,7 +481,13 @@ export default function MyTeamScreen() {
 
   // V5: Lockout-aware canModify and canChangeAce
   const canModify = !lockoutInfo.isLocked && (currentTeam?.lockStatus.canModify ?? true);
-  const canChangeAce = !lockoutInfo.aceLocked && (currentTeam?.lockStatus.canModify ?? true);
+  // F-095: and the window the server stamped. canModify alone used to cover this by
+  // accident — a locked team cannot modify — but earlyUnlockTeam can now leave a team
+  // with canModify true inside a window that is still frozen, and offering an ace there
+  // is the offer-then-refuse this feature exists to remove.
+  const canChangeAce = !lockoutInfo.aceLocked
+    && !serverAceLocked(currentTeam?.lockStatus, new Date())
+    && (currentTeam?.lockStatus.canModify ?? true);
 
   // Find the first league that doesn't already have one of the user's teams
   const availableLeague = useMemo(() => {

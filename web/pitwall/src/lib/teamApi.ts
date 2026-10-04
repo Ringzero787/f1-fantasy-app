@@ -70,7 +70,10 @@ export async function executePlan(teamId: string, plan: Plan, ace: string | null
     
     const { m, db } = await firestore();
     try {
-      await m.updateDoc(m.doc(db, 'fantasyTeams', teamId), { aceDriverId: ace || null, updatedAt: m.serverTimestamp() });
+      // aceConstructorId goes too. The portal has no constructor-ace UI, but the app does,
+      // and the two are meant to be exclusive — writing only the driver half left a team
+      // with both set, and calculatePoints doubles them independently.
+      await m.updateDoc(m.doc(db, 'fantasyTeams', teamId), { aceDriverId: ace || null, aceConstructorId: null, updatedAt: m.serverTimestamp() });
     } catch (e) {
       // F-095: the ace is the one step that is not a callable, so a refusal arrives as a
       // bare permission-denied with no sentence in it. Say what it means HERE, where we
