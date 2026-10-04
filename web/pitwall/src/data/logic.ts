@@ -170,7 +170,9 @@ export function briefRecs(p: Payload, l: Lineup, purse: Purse = purseOf(p, l)): 
   for (const x of swapRecs(p, l, purse)) {
     const n = must(p, x.in), o = must(p, x.out);
     out.push({ kind: 'SWAP', a: x.out, b: x.in, title: `${o.name} → ${n.name}`, tag: `+${x.gain.toFixed(0)} PTS`, good: true, act: `${x.out}:${x.in}`,
-      why: `${n.name} projects ${n.med - o.med} points higher for ${x.cost >= 0 ? `${money(x.cost)} more` : `${money(-x.cost)} less`}, inside your ${money(room)} bank. Their range is ${confidenceOf(n).rangeLabel} — ${confidenceOf(n).spread} points between floor and ceiling — so the gain is worth about ${x.edge.toFixed(0)} once that is priced in.` });
+      // The range clause only appears when there is a range. Without the pass the band is published
+      // as zero, and "their range is narrow (0 points)" would assert certainty from missing data.
+      why: `${n.name} projects ${n.med - o.med} points higher for ${x.cost >= 0 ? `${money(x.cost)} more` : `${money(-x.cost)} less`}, inside your ${money(room)} bank.${confidenceOf(n).published ? ` Their range is ${confidenceOf(n).rangeLabel} — ${confidenceOf(n).spread} points between floor and ceiling — so the gain is worth about ${x.edge.toFixed(0)} once that is priced in.` : ''}` });
   }
   // Only a pick inside the ace cap can carry it. The save path and the scoring both enforce this
   // (team.ts ACE_MAX_PRICE, and calculatePoints strips the multiplier above it), and the Lineup Lab

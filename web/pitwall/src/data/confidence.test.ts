@@ -101,3 +101,27 @@ describe('rangeLabel, which is not the grid zone', () => {
     expect(confidenceOf(D({ med: 0, floor: 0, ceil: 0 })).rangeLabel).toBe('unpublished');
   });
 });
+
+describe('an unpublished band is unknown, not certain', () => {
+  // The free document keeps med and zeroes floor and ceil — exactly as the worker writes it. Run
+  // that through the weight and spread 0 gives weight 1, the formula's maximum: "fully trust this",
+  // asserted from an absence of data. That is the inversion this guards.
+  const free = D({ med: 44, floor: 0, ceil: 0, t10: 0 });
+
+  it('is marked unpublished rather than narrow', () => {
+    expect(confidenceOf(free).published).toBe(false);
+    expect(confidenceOf(free).rangeLabel).toBe('unpublished');
+  });
+
+  it('still weights 1, because there is nothing to discount by — and so does everyone else', () => {
+    // Uniform, so the ordering degrades to raw gain instead of favouring whoever happens to have a
+    // zero band. The weight is not a claim here; `published` is what a caller must read.
+    const other = D({ id: 'o', med: 80, floor: 0, ceil: 0, t10: 0 });
+    expect(confidenceOf(free).weight).toBe(1);
+    expect(confidenceOf(other).weight).toBe(1);
+  });
+
+  it('a real band of zero width is still published, because med and the band agree', () => {
+    expect(confidenceOf(D({ med: 0, floor: 0, ceil: 0 })).published).toBe(true);
+  });
+});

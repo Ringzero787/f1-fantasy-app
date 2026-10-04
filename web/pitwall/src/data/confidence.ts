@@ -33,8 +33,19 @@ export interface Confidence {
   /**
    * What one projected point here is worth beside a point from a tight projection, 0..1. A band as
    * wide as the projection itself halves it; a band of nothing leaves it whole.
+   *
+   * When `published` is false this is 1 — not because the projection is certain, but because there
+   * is nothing to discount it by. Every driver gets the same 1, so the ordering degrades uniformly
+   * to raw gain rather than favouring anyone.
    */
   weight: number;
+  /**
+   * Whether a band was published at all. The free document keeps `med` and zeroes `floor` and
+   * `ceil`, and `spread = 0` through the weight formula reads as *maximum* confidence — asserting
+   * certainty from an absence of data, which is the opposite of the point. Callers must not describe
+   * a range when this is false.
+   */
+  published: boolean;
 }
 
 /** Above this chance of a top-ten finish, a driver is at the sharp end and predictable. */
@@ -69,13 +80,19 @@ export function rangeLabelOf(spread: number, med: number): string {
 export function confidenceOf(e: Entity): Confidence {
   const d = e as Driver;
   const spread = Math.max(0, (d.ceil ?? 0) - (d.floor ?? 0));
+  // A projection with no band around it at all is the free document's shape, not a certainty.
+  const published = !((d.floor ?? 0) === 0 && (d.ceil ?? 0) === 0 && d.med > 0);
   const med = d.med > 0 ? d.med : 0;
   // 1 / (1 + spread/med): dimensionless, monotone, and it never reaches zero — a wide projection is
   // worth less, not nothing. A constructor has no top-ten chance, so it is read as front: its score
   // is the sum of two drivers and moves less than either.
   const weight = med > 0 ? 1 / (1 + spread / med) : 0;
   const zone = isCtor(e) ? 'front' : zoneOf(d.t10 ?? 0);
-  return { zone, label: LABEL[zone], rangeLabel: rangeLabelOf(spread, med), spread, weight: +weight.toFixed(3) };
+  return {
+    zone, label: LABEL[zone], spread, published,
+    rangeLabel: published ? rangeLabelOf(spread, med) : 'unpublished',
+    weight: +weight.toFixed(3),
+  };
 }
 
 /**

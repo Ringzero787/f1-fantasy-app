@@ -53,6 +53,13 @@ describe('pit wall lineup logic', () => {
     const even = Object.fromEntries(compareRows(p, 'b', 'c').map((r) => [r.label, r]));
     expect(even['Range width']).toMatchObject({ a: '10', b: '10', winner: null });
 
+    // and for two constructors with genuinely different bands, which the C() fixture cannot show
+    const tightC = { ...C('tc', 200, 60), floor: 55, ceil: 65 };
+    const wideC = { ...C('wc', 200, 60), floor: 30, ceil: 90 };
+    const pc = payload(p.drivers, [...p.constructors, tightC, wideC], 100);
+    const ctors = Object.fromEntries(compareRows(pc, 'tc', 'wc').map((r) => [r.label, r]));
+    expect(ctors['Range width']).toMatchObject({ a: '10', b: '60', winner: 'a' });
+
     const wide = D('wide', 100, 40, { floor: 10, ceil: 70 });
     const pw = payload([...p.drivers, wide], p.constructors, 100);
     const vs = Object.fromEntries(compareRows(pw, 'b', 'wide').map((r) => [r.label, r]));
