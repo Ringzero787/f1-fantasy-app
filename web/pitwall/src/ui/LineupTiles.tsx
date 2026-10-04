@@ -35,10 +35,10 @@ export function LineupTiles() {
           return (
             <button key={id} type="button" className={`ltile ${ctor ? 'ctor' : ''}`} onClick={() => open(id)} aria-label={`${e.name}, projected ${e.med} points. Open detail`}>
               <span className="ltile-top">
-                <span className={`num ${ctor ? 'red' : 'mut'}`}>{ctor ? 'TEAM' : e.num}{!ctor && id === ui.lineup.ace ? <> <Pill red>Ace</Pill></> : null}</span>
+                <span className={`num ${ctor ? 'red' : 'mut'}`}>{ctor ? 'TEAM' : e.num}{!ctor && id === ui.lineup.ace ? <> <Pill red>Ace</Pill></> : null}{ui.done.some((d) => d.in === id) ? <> <Pill red>In</Pill></> : null}</span>
                 <span className="num"><b>{e.med}</b></span>
               </span>
-              <span className="ltile-name">{ctor ? shortTeamName(e.name, e.id) : shortName(e.name)}</span>
+              <span className={`ltile-name ${ui.done.some((d) => d.in === id) ? 'red' : ''}`}>{ctor ? shortTeamName(e.name, e.id) : shortName(e.name)}</span>
               <span className="ltile-foot"><TeamBar p={p} team={e.team} />{has.priceModel && !ctor ? <span className="num"><Arrow n={e.dprice} /></span> : <span className="mut">—</span>}</span>
             </button>
           );

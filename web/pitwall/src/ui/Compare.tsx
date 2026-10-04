@@ -1,5 +1,5 @@
-import { compareRows, entity, type Rec } from '../data/logic';
-import { aceFrozen } from '../data/team';
+import { applySwap, compareRows, entity, money, type Rec } from '../data/logic';
+import { aceFrozen, CONTRACT_LENGTH, planSave } from '../data/team';
 import { isCtor } from '../data/types';
 import { useStore } from '../state';
 import { Lbl, Pill, Range, TeamBar } from './bits';
@@ -11,13 +11,22 @@ import { Lbl, Pill, Range, TeamBar } from './bits';
  * action is never further away than the stats.
  */
 export function RecAction({ rec, size = 'md' }: { rec: Rec; size?: 'md' | 'lg' }) {
-  const { payload: p, tryAct, setAce, ui, real } = useStore();
+  const { payload: p, tryAct, setAce, commitAct, ui, real, saving } = useStore();
   const cls = size === 'lg' ? 'cta lg' : 'cta';
   if (rec.act && (rec.good || rec.bad)) {
-    // A locked weekend still takes the what-if, but the Lab will refuse to save it until the team
-    // unlocks, so the button says preview rather than promising a change.
-    const label = real?.team.isLocked ? 'Preview this swap in the Lab →' : rec.good ? 'Make this swap →' : 'Swap them out →';
-    return <button type="button" className={rec.good ? cls : `${cls} line`} onClick={() => tryAct(rec.act!)}>{label}</button>;
+    // A locked weekend cannot take the swap; the Lab shows it as a what-if until the team unlocks.
+    if (real?.team.isLocked) return <button type="button" className="ghost" onClick={() => tryAct(rec.act!)}>Team locked · preview in the Lab →</button>;
+    // The swap is written the moment it is clicked, so what it costs is said first: the sale, any
+    // early-termination fee and the bank afterwards, from the same plan the Lab would confirm.
+    const plan = real ? planSave(real.team, applySwap(ui.lineup, rec.act), real.market, CONTRACT_LENGTH, real.completedRaces) : null;
+    const fees = plan ? plan.steps.reduce((s, x) => s + ('fee' in x ? x.fee : 0), 0) : 0;
+    const label = saving ? 'Saving…' : rec.good ? 'Make this swap →' : 'Swap them out →';
+    return (
+      <span className="act">
+        <button type="button" className={cls} disabled={!!saving || !!plan?.blocked} onClick={() => void commitAct(rec)}>{label}</button>
+        <span className="act-cost mut">{plan?.blocked ? plan.blocked : plan ? `Saved to your team at once${fees > 0 ? ` · early termination ${money(fees)}` : ''} · bank after ${money(plan.bankAfter)} · undo afterwards` : 'Applied at once · undo afterwards'}</span>
+      </span>
+    );
   }
   if (rec.ace) {
     // The button says so rather than failing on the click. The recommendation itself

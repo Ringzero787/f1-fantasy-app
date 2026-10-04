@@ -99,6 +99,9 @@ for (const size of SIZES) for (const scheme of ['dark', 'light']) {
     if (!(await page.locator('.call[aria-pressed="true"]').count())) failures.push(`${size.name} ${scheme}: clicking a call did not lock it`);
     // the locked callout leads with the recommendation's action, and All stats expands the comparison
     if (!(await page.locator('.peek .peek-actions .cta, .peek .peek-actions .pill').count())) failures.push(`${size.name} ${scheme}: the locked callout has no action`);
+    // the action commits: in the preview build it applies locally and the call is struck through
+    const act = page.locator('.peek .peek-actions .cta');
+    if (await act.count()) { await act.first().click(); await page.waitForTimeout(80); if (!(await page.locator('.call.done').count())) failures.push(`${size.name} ${scheme}: the swap did not show as done`); await open(page, BASE + '/'); await page.locator('.call').first().click(); await page.waitForTimeout(60); }
     const all = page.getByRole('button', { name: 'All stats' });
     if (await all.count()) { await all.click(); await page.waitForTimeout(60); if (!(await page.locator('.callx').count())) failures.push(`${size.name} ${scheme}: All stats did not expand the comparison`); }
     await page.keyboard.press('Escape'); await page.waitForTimeout(60);
