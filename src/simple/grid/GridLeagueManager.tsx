@@ -10,6 +10,7 @@ import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { useAuthStore } from '../../store/auth.store';
 import { useLeagueStore } from '../../store/league.store';
 import { usePurchaseStore } from '../../store/purchase.store';
+import { markDirty } from '../../utils/syncDirty';
 import { useTeamStore } from '../../store/team.store';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../config/firebase';
@@ -199,7 +200,7 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
 
   const detachTeam = useCallback(async () => {
     const cur = useTeamStore.getState().currentTeam;
-    if (cur) { useTeamStore.getState().setCurrentTeam({ ...cur, leagueId: null }); await syncToFirebase(); }
+    if (cur) { useTeamStore.getState().setCurrentTeam(markDirty({ ...cur, leagueId: null, updatedAt: new Date() }, ['leagueId'])); await syncToFirebase(); }
   }, [syncToFirebase]);
 
   const leaveOrDelete = useCallback(() => {

@@ -1161,7 +1161,9 @@ features:
     summary: "Bug: the 60-second periodic sync and the rehydrate sync push each team's local name, ace and league to
       Firestore with a fresh timestamp, so a rename made on the Pit Wall portal (F-100) or another device is reverted
       within a minute; syncTeam now reads the server copy first and skips the write when it is newer than the local one"
-    status: planned
+    status: building
+    prs:
+      - 170
     spec: .aidlc/specs/F-101.md
     created_at: 2026-10-05
     keywords:
