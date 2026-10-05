@@ -77,6 +77,20 @@
 //     repair-dedouble.js, diagnose-scoring.js — call initializeApp with a
 //     bare projectId and self-invoke. They are outside the scan roots, so
 //     nothing here looks at them at all.
+//   - scripts/simulation/exportCsv.ts writes three CSV files when imported.
+//     It touches no credential and no production data, so the sweep below
+//     deliberately does not flag it, but it is not import-safe either.
+//   - The sweep over every file in the scan roots looks for a CONNECTION
+//     (initializeApp/cert/applicationDefault, however spelled) or a
+//     credential-shaped file read. It does NOT flag taking a Firestore
+//     handle at module scope, because functions/src/** is Cloud Functions
+//     code loaded by index.ts, where that is exactly what it should do.
+//     A CLI script doing the same IS caught, by the per-file walk.
+//   - The suite needs functions/lib compiled: backfillZandvoortTsunoda
+//     requires ../lib/ingestion/openf1Client.js. On a fresh checkout its
+//     test fails with a message about argument validation rather than
+//     "build functions first". The gate command builds first, so this is
+//     latent rather than live.
 //   - `flagInGuard: false` waives the check that the guard calls its entry
 //     point, since it lives in the same test. An empty guard body fails safe
 //     — the script becomes a no-op — but it would not be caught here.
@@ -363,6 +377,17 @@ const GUARDED = [
  * of the same name — this file does no scope analysis, so the safe reading of
  * an ambiguous name is "all of them".
  */
+/** Resolve a relative specifier to a file, the one way. */
+function resolveRelative(fromFile, spec) {
+  if (!spec.startsWith('.')) return null;
+  const base = path.resolve(path.dirname(fromFile), spec);
+  for (const c of [base, `${base}.ts`, `${base}.js`, `${base}.cjs`, `${base}.mjs`,
+                   path.join(base, 'index.ts'), path.join(base, 'index.js')]) {
+    if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
+  }
+  return null;
+}
+
 function indexFile(abs) {
   if (indexFile.cache.has(abs)) return indexFile.cache.get(abs);
   const sf = ts.createSourceFile(abs, fs.readFileSync(abs, 'utf8'), ts.ScriptTarget.Latest, true);
@@ -387,13 +412,8 @@ function indexFile(abs) {
     if (!init || !ts.isCallExpression(init)) return null;
     if (!ts.isIdentifier(init.expression) || init.expression.text !== 'require') return null;
     const a = init.arguments[0];
-    if (!a || !ts.isStringLiteral(a) || !a.text.startsWith('.')) return null;
-    const base = path.resolve(path.dirname(abs), a.text);
-    for (const c of [base, `${base}.js`, `${base}.ts`, `${base}.cjs`, `${base}.mjs`,
-                     path.join(base, 'index.js'), path.join(base, 'index.ts')]) {
-      if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
-    }
-    return null;
+    if (!a || !ts.isStringLiteral(a)) return null;
+    return resolveRelative(abs, a.text);
   };
 
   const walk = (n) => {
@@ -443,13 +463,7 @@ function indexFile(abs) {
     // it: `import { boot } from './_warm'` was never followed.
     if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) &&
         n.moduleSpecifier.text.startsWith('.') && n.importClause) {
-      const spec = n.moduleSpecifier.text;
-      const base = path.resolve(path.dirname(abs), spec);
-      let target = null;
-      for (const c of [base, `${base}.ts`, `${base}.js`, `${base}.cjs`, `${base}.mjs`,
-                       path.join(base, 'index.ts'), path.join(base, 'index.js')]) {
-        if (fs.existsSync(c) && fs.statSync(c).isFile()) { target = c; break; }
-      }
+      const target = resolveRelative(abs, n.moduleSpecifier.text);
       if (target) {
         const nb = n.importClause.namedBindings;
         if (nb && ts.isNamedImports(nb)) {
@@ -520,9 +534,18 @@ function indexFile(abs) {
 indexFile.cache = new Map();
 
 const ADMIN_CALLS = ['initializeApp', 'cert', 'applicationDefault', 'getFirestore', 'firestore'];
+// Starting an app, as opposed to getting a handle from one already started.
+const CONNECT_CALLS = ['initializeApp', 'cert', 'applicationDefault'];
 
 /** Does this body itself initialise admin or read a credential? */
-function initialisesAdminBody(body, adminBindings = new Set()) {
+/**
+ * `calls` narrows what counts. The per-file walk uses the full set, where
+ * obtaining a Firestore handle at module scope is already a connection. This
+ * sweep uses CONNECT_CALLS, because functions/src/** is Cloud Functions code
+ * loaded by index.ts — taking a db handle at module load is what those are
+ * supposed to do, and flagging it would bury the thing being looked for.
+ */
+function initialisesAdminBody(body, adminBindings = new Set(), calls = ADMIN_CALLS, keyReadsOnly = false) {
   let hit = null;
   const scan = (n) => {
     if (hit) return;
@@ -533,11 +556,22 @@ function initialisesAdminBody(body, adminBindings = new Set()) {
         : (ts.isElementAccessExpression(e) && e.argumentExpression &&
            ts.isStringLiteral(e.argumentExpression)) ? e.argumentExpression.text
         : null;
-      if (member && ADMIN_CALLS.includes(member)) hit = `${member}()`;
+      if (member && calls.includes(member)) hit = `${member}()`;
       // A bare call to a destructured admin API: `ia({})` where
       // `const { initializeApp: ia } = require('firebase-admin/app')`.
       if (ts.isIdentifier(e) && adminBindings.has(e.text)) hit = `${e.text}() [admin]`;
-      if (member === 'readFileSync') hit = 'readFileSync()';
+      if (member === 'readFileSync') {
+        // In sweep mode only a credential-shaped read counts. Otherwise the
+        // sweep flags scripts/simulation/exportCsv.ts, which reads a local
+        // results.json — and which, separately, writes three CSV files on
+        // import. That is a genuine import-safety smell, but it touches no
+        // credential and no production data, so it is not what this check is
+        // about and burying it here would not help.
+        const argText = n.arguments.map((a) => a.getText()).join(' ');
+        if (!keyReadsOnly || /key|credential|service-?account|SA_KEY/i.test(argText)) {
+          hit = 'readFileSync()';
+        }
+      }
       if (ts.isIdentifier(e) && e.text === 'require' && n.arguments.length &&
           ts.isStringLiteral(n.arguments[0]) &&
           /credential|service-?account|\.json$/i.test(n.arguments[0].text)) {
@@ -580,14 +614,21 @@ function reachesAdminOnImport(abs) {
     // is the live case: firestore-backup gets its db from it, and the run
     // guard is what stops an import from acting.
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
-    if (INIT_ON_LOAD_BY_DESIGN.includes(rel)) return null;
+    // The exemption covers THIS file's own module-scope connect, not
+    // everything it pulls in. Returning early waived the whole subtree: a
+    // module required by _firestore.js that read a production key and called
+    // the modular initializeApp() was invisible, suite green.
+    const byDesign = INIT_ON_LOAD_BY_DESIGN.includes(rel);
     const ix = indexFile(file);
-    for (const n of moduleScopeNodes(ix.sf)) {
-      if (ts.isCallExpression(n)) {
-        const d = initialisesAdminBody(n, ix.adminBindings);
-        if (d) return { what: d, chain };
+    if (!byDesign) {
+      for (const n of moduleScopeNodes(ix.sf)) {
+        if (ts.isCallExpression(n)) {
+          const d = initialisesAdminBody(n, ix.adminBindings);
+          if (d) return { what: d, chain };
+        }
       }
     }
+    // Followed either way: what an exempt module requires is not exempt.
     for (const n of moduleScopeNodes(ix.sf)) {
       const t = ts.isCallExpression(n) ? inlineRequireTarget(ix, n) : null;
       if (t) {
@@ -677,13 +718,8 @@ function inlineRequireTarget(idx, expr) {
   if (!ts.isCallExpression(expr)) return null;
   if (!ts.isIdentifier(expr.expression) || expr.expression.text !== 'require') return null;
   const a = expr.arguments[0];
-  if (!a || !ts.isStringLiteral(a) || !a.text.startsWith('.')) return null;
-  const base = path.resolve(path.dirname(idx.sf.fileName), a.text);
-  for (const c of [base, `${base}.js`, `${base}.ts`, `${base}.cjs`, `${base}.mjs`,
-                   path.join(base, 'index.js'), path.join(base, 'index.ts')]) {
-    if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
-  }
-  return null;
+  if (!a || !ts.isStringLiteral(a)) return null;
+  return resolveRelative(idx.sf.fileName, a.text);
 }
 
 /** Where a callee expression points: a name, and the file it lives in. */
@@ -877,10 +913,21 @@ test('no new script reaches the production key on import', () => {
   // thing worth forbidding, however the credential is obtained.
   const unguarded = files
     .filter((rel) => !INIT_ON_LOAD_BY_DESIGN.includes(rel))
-    .filter((rel) => moduleScopeNodes(parse(rel)).some((n) => {
-      if (ts.isCallExpression(n) && isMemberCall(n, 'admin', 'initializeApp')) return true;
-      return (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && /serviceAccount/.test(n.text);
-    }))
+    .filter((rel) => {
+      // Uses the same detector as the per-file walk rather than its own
+      // substring match. Keying on `admin.initializeApp(` plus a literal
+      // containing "serviceAccount" missed the modular spelling entirely:
+      // a new module-scope connector using
+      // require('firebase-admin/app').initializeApp() and a readFileSync of
+      // a key path was invisible to this sweep, which is the one check that
+      // looks at files NOT in GUARDED/OP_SCRIPTS.
+      const sf = parse(rel);
+      const idx = indexFile(path.join(ROOT, rel));
+      return moduleScopeNodes(sf).some((n) => {
+        if (ts.isCallExpression(n) && initialisesAdminBody(n, idx.adminBindings, CONNECT_CALLS, true)) return true;
+        return (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && /serviceAccount/.test(n.text);
+      });
+    })
     .sort();
 
   assert.deepEqual(
@@ -902,6 +949,13 @@ for (const { file, refusesWithout } of GUARDED) {
     const r = runRecorded(file, refusesWithout, {}, { inTemp: true });
     assert.equal(r.status, 2, `${file} must refuse ${refusesWithout.join(' ')} alone with exit 2, got ${r.status}`);
     assert.deepEqual(r.writes, [], `${file} wrote ${r.writes.join(', ')} while refusing`);
+    // Exit 2 alone was not enough. Deleting the --project gate let it fall
+    // through to initAdmin() and refuse at the NEXT check with the same exit
+    // code, suite green — while the comment above claimed to catch exactly
+    // that. Refusing BEFORE connecting is the actual contract.
+    assert.equal(r.connected, false,
+      `${file} connected before refusing ${refusesWithout.join(' ')} — its first gate is gone ` +
+      `and a later check is covering for it`);
   });
 }
 
@@ -944,7 +998,7 @@ const STUB = (() => {
     const path = require('path');
     const LOG = process.env.SEEDGUARD_CALLS;
     const rec = (n) => { try { fs.appendFileSync(LOG, n + '\\n'); } catch {} };
-    rec('__stub_loaded');
+    rec('__preload_ran');
 
     // Reads answer plausibly so a script gets past its first query; every
     // other member records its own name and returns itself.
@@ -1004,11 +1058,18 @@ const STUB = (() => {
     // require('firebase-admin/app') and an absolute path from require.resolve.
     const STUBBED = /[\\\\/](firebase-admin|@google-cloud[\\\\/]firestore|google-auth-library)([\\\\/]|$)/;
     const orig = Module._load;
+    // The marker is recorded HERE, where interception actually happens, not
+    // at preload time. Review neutered these two returns, left a
+    // preload-time marker in place, and the subject loaded the real SDK
+    // while the test still saw a healthy marker and an empty call list: the
+    // refusal assertions then passed vacuously with a live SDK. A marker
+    // proving only that the preload ran proves nothing about isolation.
+    const intercept = () => { rec('__stub_served'); return admin; };
     Module._load = function (req, parent, isMain) {
-      if (/^(firebase-admin|@google-cloud\\/firestore|google-auth-library)(\\/|$)/.test(req)) return admin;
+      if (/^(firebase-admin|@google-cloud\\/firestore|google-auth-library)(\\/|$)/.test(req)) return intercept();
       try {
         const resolved = Module._resolveFilename(req, parent, isMain);
-        if (STUBBED.test(resolved)) return admin;
+        if (STUBBED.test(resolved)) return intercept();
       } catch {}
       return orig.apply(this, arguments);
     };
@@ -1040,6 +1101,14 @@ const BLANK_CREDS = {
   SA_KEY: '', PLAY_SA_KEY: '', GOOGLE_APPLICATION_CREDENTIALS: '',
   GCLOUD_PROJECT: '', GOOGLE_CLOUD_PROJECT: '', FIREBASE_CONFIG: '',
   FIRESTORE_EMULATOR_HOST: '', GCLOUD_CREDENTIALS: '',
+  // HOME and the gcloud config roots too. The ADC file under ~/.config/gcloud
+  // on this box is a service_account carrying a private_key, not a user
+  // refresh token, and it stayed readable by every spawned script. Nothing in
+  // the tree reaches it without hand-rolling OAuth — but a script being
+  // unable to is the point of this harness.
+  HOME: STUB.dir, USERPROFILE: STUB.dir,
+  CLOUDSDK_CONFIG: path.join(STUB.dir, 'gcloud'),
+  XDG_CONFIG_HOME: path.join(STUB.dir, 'config'),
 };
 
 // Reads, and the plumbing around them. Anything a script calls that is NOT
@@ -1051,20 +1120,22 @@ const BLANK_CREDS = {
 // green. A new Firestore method is now a test failure asking for a decision,
 // which is the safe direction for this to be wrong in.
 const READ_ONLY_CALLS = new Set([
-  '__stub_loaded', 'initializeApp', 'cert', 'applicationDefault', 'firestore',
+  'initializeApp', 'cert', 'applicationDefault', 'firestore',
   'getFirestore', 'Firestore', 'getApp', 'auth', 'getAuth', 'settings',
   'collection', 'collectionGroup', 'doc', 'get', 'where', 'orderBy', 'limit',
   'limitToLast', 'select', 'offset', 'startAt', 'startAfter', 'endAt',
   'endBefore', 'count', 'listDocuments', 'listCollections', 'batch',
   'bulkWriter', 'getUserByEmail', 'getUser', 'getUsers', 'listUsers',
   'verifyIdToken', 'forEach', 'map', 'filter', 'then', 'catch', 'finally',
-  'toDate', 'toMillis', 'data', 'ref', 'id', 'docs', 'empty', 'size', 'exists',
+  'toDate', 'toMillis', 'data',
   // Invoked by the JS runtime itself — string interpolation, JSON.stringify —
   // not by the script reaching for Firestore.
   'toString', 'valueOf', 'toJSON', 'inspect', 'constructor',
 ]);
 
-const isWrite = (c) => !c.startsWith('arg:') && !READ_ONLY_CALLS.has(c);
+// `arg:` rows are recorded arguments and `__` rows are this harness's own
+// bookkeeping; neither is something the script called.
+const isWrite = (c) => !c.startsWith('arg:') && !c.startsWith('__') && !READ_ONLY_CALLS.has(c);
 
 /**
  * Run a script for real with firebase-admin stubbed, and report what it did.
@@ -1129,7 +1200,8 @@ function runRecorded(file, argv = [], env = {}, { inTemp = false, fixtures = {} 
       out: (r.stdout || '') + (r.stderr || ''),
       calls,
       args: calls.filter((c) => c.startsWith('arg:')).map((c) => c.slice(4)),
-      stubLoaded: calls.includes('__stub_loaded'),
+      // Served, not merely loaded: proof the hook actually substituted.
+      stubServed: calls.includes('__stub_served'),
       connected: calls.includes('initializeApp'),
       writes: calls.filter(isWrite),
     };
@@ -1181,8 +1253,8 @@ for (const { file } of OP_SCRIPTS) {
       `${file} refused the correct key as if it were missing, so the refusals above prove nothing`);
     assert.doesNotMatch(right.out, /[Rr]efusing to run: key is for project|Cannot run[^\n]*expected/,
       `${file} refused the correct project too, so the project check above is not evidence`);
-    assert.ok(right.stubLoaded,
-      `${file} ran without loading the stub — it may have reached the real SDK`);
+    assert.ok(right.stubServed,
+      `${file} never received the stub for firebase-admin — it may have loaded the real SDK`);
   });
 }
 
@@ -1223,11 +1295,22 @@ test('the --apply gate is actually exercised on some scripts', () => {
 // One row of each kind, so the seeding loops actually execute. With the
 // empty arrays the old harness supplied, every loop body was skipped and
 // "wrote nothing" was true of a script that never tried.
-const SEED_FIXTURE = `module.exports = {
+const SEED_FIXTURE = `const RACE = {
+  id: 'r1', round: 1, name: 'Stub GP', date: '2026-01-01T00:00:00Z',
+  circuit: 'Stub Circuit', country: 'Stubland', status: 'upcoming',
+  // seedRaces reads race.schedule.fp1 directly. Without it the fixture threw
+  // and only the drivers and constructors writes were ever recorded — the
+  // races and seasons paths, the ones worth guarding, never ran at all.
+  schedule: {
+    fp1: '2026-01-01T09:00:00Z', fp2: '2026-01-01T13:00:00Z',
+    fp3: '2026-01-02T09:00:00Z', qualifying: '2026-01-02T13:00:00Z',
+    sprintQualifying: null, sprint: null, race: '2026-01-03T13:00:00Z',
+  },
+};
+module.exports = {
   drivers2026: [{ id: 'd1', name: 'Stub Driver', price: 1, team: 't1' }],
   constructors2026: [{ id: 't1', name: 'Stub Team', price: 1 }],
-  races2025: [{ id: 'r1', round: 1, name: 'Stub GP', date: '2026-01-01T00:00:00Z' }],
-  races2026: [{ id: 'r1', round: 1, name: 'Stub GP', date: '2026-01-01T00:00:00Z' }],
+  races2025: [RACE], races2026: [RACE],
   season2025: { id: 's2025', year: 2025 },
   season2026: { id: 's2026', year: 2026 },
 };`;
@@ -1247,6 +1330,13 @@ for (const file of ['scripts/runSeed.ts']) {
     assert.ok(apply.writes.length > 0,
       `${file} wrote nothing even WITH --apply, so the dry-run check below proves ` +
       `nothing. The harness can no longer drive it: ${apply.out.slice(0, 200)}`);
+    // Specifically the races path. The first fixture omitted race.schedule,
+    // so seedRaces threw and only drivers/constructors were ever exercised —
+    // the control passed while the collection this is actually about was
+    // never reached.
+    assert.ok(apply.args.includes('races'),
+      `${file} never reached the races write under --apply (collections touched: ` +
+      `${apply.args.join(', ')}), so the dry-run check does not cover it`);
     assert.deepEqual(dry.writes, [],
       `${file} called ${dry.writes.join(', ')} without --apply`);
   });
@@ -1271,12 +1361,8 @@ test('scripts/setAdminClaim.ts: the email is found wherever it sits in argv', ()
     const acted = [...r.args, r.out].join(' ');
     assert.match(acted, /a@example\.invalid/,
       `setAdminClaim ${argv.join(' ')} did not act on the address given; saw ${JSON.stringify(r.args)}`);
-    assert.doesNotMatch(acted, /arg:--apply|getUserByEmail[^\n]*--apply/,
-      `setAdminClaim ${argv.join(' ')} treated the flag as the email`);
-    for (const bad of ['--apply']) {
-      assert.ok(!r.args.includes(bad),
-        `setAdminClaim ${argv.join(' ')} passed ${bad} to firebase as the account`);
-    }
+    assert.ok(!r.args.includes('--apply'),
+      `setAdminClaim ${argv.join(' ')} passed --apply to firebase as the account`);
   }
 });
 
