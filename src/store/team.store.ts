@@ -339,15 +339,19 @@ function validateTeamSelectionLocal(
 // After a push, the keys it carried are no longer pending on that team (F-101).
 // `snapshots` are the teams as they were pushed: a key is forgotten only where the store still
 // holds the pushed value, so an edit made during the push stays pending.
-const forgetPushed = (results: Array<{ id: string; pushed: string[] }>, snapshots: FantasyTeam[]) => {
+const forgetPushed = (results: Array<{ id: string; pushed: string[]; refused?: boolean }>, snapshots: FantasyTeam[]) => {
   const { userTeams, currentTeam } = useTeamStore.getState();
   const byId = new Map(results.filter((r) => r.pushed.length).map((r) => [r.id, r.pushed]));
-  if (byId.size === 0) return;
+  // a refused push drops every pending key on that team and takes the server's copy
+  const refused = new Set(results.filter((r) => r.refused).map((r) => r.id));
+  if (byId.size === 0 && refused.size === 0) return;
   const values = (id: string) => snapshots.find((t) => t.id === id) as unknown as Record<string, unknown> | undefined;
+  const settle = (t: FantasyTeam): FantasyTeam => (refused.has(t.id) ? { ...t, dirtyKeys: undefined } : byId.has(t.id) ? clearDirty(t, byId.get(t.id)!, values(t.id)) : t);
   useTeamStore.setState({
-    userTeams: userTeams.map((t) => (byId.has(t.id) ? clearDirty(t, byId.get(t.id)!, values(t.id)) : t)),
-    currentTeam: currentTeam && byId.has(currentTeam.id) ? clearDirty(currentTeam, byId.get(currentTeam.id)!, values(currentTeam.id)) : currentTeam,
+    userTeams: userTeams.map(settle),
+    currentTeam: currentTeam ? settle(currentTeam) : currentTeam,
   });
+  for (const id of refused) void refreshTeamFromServer(useTeamStore.getState, useTeamStore.setState, id).catch(() => undefined);
 };
 
 // Helper to sync team to Firebase and update lastSyncTime
@@ -1702,7 +1706,7 @@ export const useTeamStore = create<TeamState>()(
       }
 
       const renamed = await teamService.updateTeamName(currentTeam.id, name.trim());
-      updateTeamAndSync(get, set, adoptServer(get().currentTeam ?? currentTeam, renamed), { isLoading: false });
+      updateTeamAndSync(get, set, adoptServer(get().userTeams.find(t => t.id === renamed.id) ?? currentTeam, renamed), { isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update team name';
       set({ error: message, isLoading: false });

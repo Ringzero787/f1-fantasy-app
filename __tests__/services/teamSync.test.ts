@@ -49,3 +49,22 @@ describe('syncTeam pushes only what this device changed (F-101)', () => {
     expect(Object.keys(updateDoc.mock.calls[0][1] as object)).toEqual(['leagueId', 'updatedAt']);
   });
 });
+
+describe('syncTeams settles per team (F-101)', () => {
+  beforeEach(() => updateDoc.mockReset());
+
+  it('one refused team does not stop another team from being forgotten', async () => {
+    updateDoc.mockImplementation(async (ref: { path: string }) => { if (ref.path.endsWith('/a')) { const e = new Error('no'); (e as Error & { code: string }).code = 'permission-denied'; throw e; } });
+    const a = markDirty({ ...base, id: 'a', aceDriverId: 'ver' }, ['aceDriverId']);
+    const b = markDirty({ ...base, id: 'b', leagueId: 'L2' }, ['leagueId']);
+    const res = await teamService.syncTeams([a, b]);
+    expect(res).toEqual([{ id: 'a', pushed: [], refused: true }, { id: 'b', pushed: ['leagueId'] }]);
+  });
+
+  it('an unexpected failure on one team is reported as nothing pushed, not thrown', async () => {
+    updateDoc.mockImplementation(async (ref: { path: string }) => { if (ref.path.endsWith('/a')) throw new Error('offline'); });
+    const a = markDirty({ ...base, id: 'a', aceDriverId: 'ver' }, ['aceDriverId']);
+    const b = markDirty({ ...base, id: 'b', leagueId: 'L2' }, ['leagueId']);
+    await expect(teamService.syncTeams([a, b])).resolves.toEqual([{ id: 'a', pushed: [] }, { id: 'b', pushed: ['leagueId'] }]);
+  });
+});
