@@ -4,10 +4,17 @@ import { pageFor, pathFor, isHandoffPath, PAGES } from './router';
 
 describe('lock countdown', () => {
   const fp3 = new Date('2026-09-26T08:30:00Z'), sq = new Date('2026-09-25T12:30:00Z'), q = new Date('2026-09-26T12:00:00Z');
-  it('locks at FP3, or at sprint qualifying on a sprint weekend, falling back to qualifying', () => {
-    expect(lockTime({ fp3, qualifying: q }, false)).toBe(fp3);
+  // F-103: qualifying, not FP3. This asserted FP3 until the ace line needed a lineup lock to
+  // measure against and turned up that the server had always locked at qualifying — the portal
+  // was showing a deadline three and a half hours before anything actually locked. FP3 scores
+  // nothing, which is why it was never the right session.
+  it('locks at qualifying, or at sprint qualifying on a sprint weekend', () => {
+    expect(lockTime({ fp3, qualifying: q }, false)).toBe(q);
     expect(lockTime({ fp3, sprintQualifying: sq, qualifying: q }, true)).toBe(sq);
     expect(lockTime({ qualifying: q }, false)).toBe(q);
+    // a sprint weekend whose sprint qualifying has not synced yet still has a deadline
+    expect(lockTime({ fp3, qualifying: q }, true)).toBe(q);
+    expect(lockTime({ fp3 }, false)).toBeNull();
     expect(lockTime({}, false)).toBeNull();
   });
   it('formats days and hours, then hours and minutes, then LOCKED', () => {
