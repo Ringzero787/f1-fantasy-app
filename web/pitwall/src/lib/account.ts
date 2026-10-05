@@ -1,9 +1,23 @@
 /** The signed-in user's real team and the next round, read from the same documents the app reads. */
 import { firestore } from './firebase';
-import { countdown, lockTime, nextSession, type RaceSchedule } from './lock';
+import { aceFreezeTime, aceOutlivesLineup, countdown, lockTime, nextSession, type RaceSchedule } from './lock';
 
-export interface Account { teamName: string | null; bank: number | null; leagueName: string | null; roundLabel: string | null; firstSession: string | null; locksIn: string | null; /** the name the app shows for this person (users document), null when there is none */ displayName: string | null }
-export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null, displayName: null };
+export interface Account {
+  teamName: string | null; bank: number | null; leagueName: string | null; roundLabel: string | null;
+  firstSession: string | null; locksIn: string | null;
+  /**
+   * F-098: when the ace stops moving, as epoch ms — but only on a weekend where that is later
+   * than the roster lock, which in practice means a sprint weekend. Null the rest of the time,
+   * because on a normal weekend the two coincide and `locksIn` has already said it.
+   *
+   * A moment rather than a formatted countdown on purpose: this loads once and never ticks, so
+   * `aceFreezeLine` derives the words at render time instead (F-102).
+   */
+  aceFreezesAtMs: number | null;
+  /** the name the app shows for this person (users document), null when there is none */
+  displayName: string | null;
+}
+export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null, aceFreezesAtMs: null, displayName: null };
 
 const toDate = (v: unknown): Date | undefined => (v && typeof (v as { toDate?: () => Date }).toDate === 'function' ? (v as { toDate: () => Date }).toDate() : undefined);
 
@@ -40,7 +54,13 @@ export async function loadAccount(uid: string): Promise<Account> {
     const schedule: RaceSchedule = { fp1: toDate(s.fp1), fp2: toDate(s.fp2), fp3: toDate(s.fp3), sprintQualifying: toDate(s.sprintQualifying), sprint: toDate(s.sprint), qualifying: toDate(s.qualifying), race: toDate(s.race) };
     out.roundLabel = `RD ${race.round} · ${String(race.city ?? race.country ?? race.name ?? '').toUpperCase()}`;
     out.firstSession = nextSession(schedule, new Date());
-    out.locksIn = countdown(new Date(), lockTime(schedule, race.hasSprint === true));
+    const hasSprint = race.hasSprint === true;
+    out.locksIn = countdown(new Date(), lockTime(schedule, hasSprint));
+    // Only worth a line when the ace genuinely outlives the lineup — see Account.aceFreezesAtMs.
+    if (aceOutlivesLineup(schedule, hasSprint)) {
+      const at = aceFreezeTime(schedule, hasSprint);
+      out.aceFreezesAtMs = at ? at.getTime() : null;
+    }
   }
   return out;
 }

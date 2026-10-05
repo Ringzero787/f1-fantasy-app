@@ -5,6 +5,69 @@ export function lockTime(s: RaceSchedule, hasSprint: boolean): Date | null {
   return (hasSprint ? s.sprintQualifying ?? s.qualifying : s.fp3 ?? s.qualifying) ?? null;
 }
 
+/**
+ * When the ACE stops moving — later than the lineup, and on a sprint weekend much later
+ * (F-098). Three sessions score with the ace applied, so it freezes when the first of them
+ * begins: the sprint where there is one, otherwise qualifying.
+ *
+ * Mirrors `aceFreezeStart` in functions/src/utils/lockTime.ts, including reading the sprint off
+ * `schedule.sprint` rather than the `hasSprint` flag — the flag is only ever set to true and a
+ * round whose sessions are unpublished would otherwise read as freezing at qualifying, hours
+ * after the sprint it has to cover. `hasSprint` is the fallback when the time is missing, which
+ * fails closed: sprint qualifying comes before the sprint.
+ */
+export function aceFreezeTime(s: RaceSchedule, hasSprint: boolean): Date | null {
+  const sprint = s.sprint ?? (hasSprint ? s.sprintQualifying : undefined);
+  const quali = s.qualifying;
+  if (sprint && quali) return sprint.getTime() <= quali.getTime() ? sprint : quali;
+  return sprint ?? quali ?? s.race ?? null;
+}
+
+/**
+ * The roster lock the SERVER applies: `effectiveLockTime` in functions/src/utils/lockTime.ts.
+ *
+ * Deliberately not `lockTime` above, which says FP3 on a normal weekend where the server says
+ * qualifying — the two have disagreed since before this change, and the ace line must be measured
+ * against the lock that is actually enforced rather than the one the header happens to display.
+ */
+function serverLockTime(s: RaceSchedule, hasSprint: boolean): Date | null {
+  return (hasSprint ? s.sprintQualifying ?? s.qualifying : s.qualifying) ?? null;
+}
+
+/**
+ * True only when the ace outlives the roster lock by enough to be worth saying. On a normal
+ * weekend the server locks the roster at qualifying and the ace freezes at the same moment, so
+ * there is nothing to tell anyone; on a sprint weekend the roster goes at sprint qualifying on
+ * Friday and the ace survives until Saturday's sprint.
+ */
+export function aceOutlivesLineup(s: RaceSchedule, hasSprint: boolean): boolean {
+  const lock = serverLockTime(s, hasSprint), ace = aceFreezeTime(s, hasSprint);
+  return !!lock && !!ace && ace.getTime() > lock.getTime();
+}
+
+/** "Sat 10 Oct 09:00 UTC" — the moment itself, for a line that has to be unambiguous. */
+export function sessionMoment(at: Date | null): string | null {
+  return at ? `${DAYS[at.getUTCDay()]} ${dayMonth(at)} ${hhmm(at)} UTC` : null;
+}
+
+/**
+ * What the ace line says, or null when there is nothing to say — evaluated at RENDER time, not
+ * when the account loaded.
+ *
+ * `loadAccount` runs once per sign-in and nothing ticks, so a countdown baked into it is a
+ * snapshot that quietly ages: leave the tab open past the sprint and a stale string would still be
+ * promising a window that has shut. Taking the moment as epoch ms and deriving both halves here
+ * means the line is right whenever anything re-renders, and disappears on its own once the freeze
+ * has passed.
+ */
+export function aceFreezeLine(atMs: number | null, now: Date): { in: string; at: string } | null {
+  if (atMs === null || !Number.isFinite(atMs)) return null;
+  const at = new Date(atMs);
+  if (at.getTime() <= now.getTime()) return null;
+  const moment = sessionMoment(at);
+  return moment ? { in: countdown(now, at), at: moment } : null;
+}
+
 /** "6d 04h", "3h 12m", "LOCKED". */
 export function countdown(now: Date, at: Date | null): string {
   if (!at) return '—';
