@@ -179,6 +179,8 @@ export interface FantasyTeam {
   lockStatus: LockStatus;
   createdAt: Date;
   updatedAt: Date;
+  /** metadata fields changed on this device and not yet pushed (client-only; the sync strips it) */
+  dirtyKeys?: string[];
   avatarUrl?: string;
   avatarGeneratedAt?: string;
   // V3: Ace System - choose one driver OR constructor each race weekend for 2x points

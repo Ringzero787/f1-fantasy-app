@@ -14,6 +14,7 @@ import {
   increment,
 } from 'firebase/firestore';
 import { db, functions, httpsCallable } from '../config/firebase';
+import { dirtyMetadataKeys } from '../utils/syncDirty';
 import { BUDGET, TEAM_SIZE } from '../config/constants';
 
 /**
@@ -498,65 +499,48 @@ export const teamService = {
    * pointsScored/racesHeld server-side on every buy — resetting loyalty
    * bonuses and contract clocks.)
    */
-  async syncTeam(team: FantasyTeam): Promise<void> {
+  async syncTeam(team: FantasyTeam): Promise<{ pushed: string[]; refused?: boolean }> {
+    // Only the metadata fields this device changed (F-101). A copy rehydrated from storage that
+    // nobody edited has no dirty keys and writes nothing, so it can no longer revert a rename made
+    // on the Pit Wall portal or another device; an ace change carries the ace fields and not the
+    // name. Roster, budget, points and locks are never written from here (rules deny them).
+    const keys = dirtyMetadataKeys(team);
+    if (keys.length === 0) return { pushed: [] };
+
+    const payload: Record<string, unknown> = {};
+    for (const k of keys) payload[k] = (team as unknown as Record<string, unknown>)[k] ?? null;   // Firestore rejects undefined
+
+    // updateDoc (NOT setDoc/merge): syncTeam must only ever UPDATE an existing team. New teams are
+    // created via createTeam (addDoc). setDoc/merge would re-create a team that was deleted
+    // server-side (e.g. admin cleanup of a duplicate) as an empty "ghost". On not-found we skip.
     const teamRef = doc(db, 'fantasyTeams', team.id);
-
-    // Helper to convert undefined to null recursively
-    const sanitizeForFirebase = (obj: any): any => {
-      if (obj === undefined) return null;
-      if (obj === null) return null;
-      if (Array.isArray(obj)) return obj.map(sanitizeForFirebase);
-      if (typeof obj === 'object' && obj !== null) {
-        const result: any = {};
-        for (const key of Object.keys(obj)) {
-          result[key] = sanitizeForFirebase(obj[key]);
-        }
-        return result;
-      }
-      return obj;
-    };
-
-    // Strip everything server-authoritative (must mirror the denied-keys list
-    // in firestore.rules — a stale local value for any of these would make the
-    // whole update fail the rules check).
-    const {
-      id, createdAt, updatedAt,
-      totalPoints, lockedPoints,
-      isLocked, lockStatus,
-      budget, totalSpent,
-      scoredRaces,
-      drivers,
-      constructor: teamCtor,
-      racesSinceTransfer,
-      driverLockouts,
-      ...metadataOnly
-    } = team as any;
-
-    const sanitizedData = sanitizeForFirebase({ ...metadataOnly });
-
-    // Use updateDoc (NOT setDoc/merge): syncTeam must only ever UPDATE an existing
-    // team. New teams are created via createTeam (addDoc). setDoc/merge would
-    // re-create a team that was deleted server-side (e.g. admin cleanup of a
-    // duplicate), resurrecting it as an empty "ghost". On not-found we skip.
     try {
-      await updateDoc(teamRef, {
-        ...sanitizedData,
-        updatedAt: serverTimestamp(),
-      });
+      await updateDoc(teamRef, { ...payload, updatedAt: serverTimestamp() });
     } catch (e: any) {
       if (e?.code === 'not-found') {
         console.warn(`[syncTeam] team ${team.id} no longer exists server-side; skipping (not re-creating)`);
-        return;
+        return { pushed: [] };
+      }
+      // The rules said no (an ace change inside the freeze, say). Re-pushing it every minute would
+      // never succeed and would keep a value the scorer will never see on screen; the caller drops
+      // the pending keys and takes the server's copy instead.
+      if (e?.code === 'permission-denied') {
+        console.warn(`[syncTeam] server refused ${keys.join(',')} for ${team.id}; dropping the pending edit`);
+        return { pushed: [], refused: true };
       }
       throw e;
     }
+    return { pushed: keys };
   },
 
   /**
    * Sync multiple teams to Firebase
    */
-  async syncTeams(teams: FantasyTeam[]): Promise<void> {
-    await Promise.all(teams.map(team => this.syncTeam(team)));
+  async syncTeams(teams: FantasyTeam[]): Promise<Array<{ id: string; pushed: string[]; refused?: boolean }>> {
+    // Settled, not all-or-nothing: one team's failure must not stop another team's successful
+    // push from being forgotten, or its keys would be re-pushed every minute.
+    const settled = await Promise.allSettled(teams.map((team) => this.syncTeam(team)));
+    return settled.map((r, i) => (r.status === 'fulfilled' ? { id: teams[i].id, ...r.value } : (console.warn(`[syncTeams] ${teams[i].id}: ${(r.reason as Error)?.message ?? r.reason}`), { id: teams[i].id, pushed: [] })));
   },
 
   /**

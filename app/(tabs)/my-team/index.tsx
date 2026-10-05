@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { markDirty } from '../../../src/utils/syncDirty';
 import { maybeRequestReview } from '../../../src/utils/reviewPrompt';
 import {
   View,
@@ -163,7 +164,7 @@ export default function MyTeamScreen() {
       setTeamAvatarUrl(url);
       const team = useTeamStore.getState().currentTeam;
       if (team) {
-        useTeamStore.getState().setCurrentTeam({ ...team, avatarUrl: url, updatedAt: new Date() });
+        useTeamStore.getState().setCurrentTeam(markDirty({ ...team, avatarUrl: url, updatedAt: new Date() }, ['avatarUrl']));
       }
     },
   });
@@ -216,7 +217,7 @@ export default function MyTeamScreen() {
 
   const persistAvatarToStore = (url: string) => {
     if (!currentTeam) return;
-    setCurrentTeam({ ...currentTeam, avatarUrl: url, updatedAt: new Date() });
+    setCurrentTeam(markDirty({ ...currentTeam, avatarUrl: url, updatedAt: new Date() }, ['avatarUrl']));
   };
 
   const handleGenerateTeamAvatar = async (style: 'simple' | 'detailed' = 'detailed') => {
