@@ -14,6 +14,7 @@ import {
   increment,
 } from 'firebase/firestore';
 import { db, functions, httpsCallable } from '../config/firebase';
+import { serverIsNewer } from '../utils/syncFreshness';
 import { BUDGET, TEAM_SIZE } from '../config/constants';
 
 /**
@@ -533,6 +534,19 @@ export const teamService = {
     } = team as any;
 
     const sanitizedData = sanitizeForFirebase({ ...metadataOnly });
+
+    // Server wins when it is newer (F-101). This device's copy may predate a rename or an ace
+    // change made on the Pit Wall portal or another device; pushing it back with a fresh
+    // serverTimestamp used to revert those within a minute (the periodic sync).
+    const current = await getDoc(teamRef);
+    if (!current.exists()) {
+      console.warn(`[syncTeam] team ${team.id} no longer exists server-side; skipping (not re-creating)`);
+      return;
+    }
+    if (serverIsNewer(team.updatedAt, current.data()?.updatedAt)) {
+      console.log(`[syncTeam] server copy of ${team.id} is newer than this device's; not pushing metadata`);
+      return;
+    }
 
     // Use updateDoc (NOT setDoc/merge): syncTeam must only ever UPDATE an existing
     // team. New teams are created via createTeam (addDoc). setDoc/merge would
