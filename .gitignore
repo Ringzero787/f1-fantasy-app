@@ -82,3 +82,6 @@ AppstoreAuthenticationKey.pem
 
 # Release keystore passwords (F-033): untracked, owner-only, KEY=VALUE
 .signing.env
+
+# transpiled test subjects (scripts/seedGuards.test.js); never committable
+.seedguard-subject-*.js
