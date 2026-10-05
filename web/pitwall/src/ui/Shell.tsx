@@ -24,7 +24,14 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
         </div>
       </div>
       <div className="ctxrow">
-        <div className="grp"><span>{round}</span><span className="mut only-wide">{account?.firstSession ?? p.round.firstSession}</span>{(() => { const l = account?.locksIn ?? p.round.locksIn; return <span className="red">{l === 'LOCKED' ? 'Lineups locked' : `Locks in ${l}`}</span>; })()}
+        <div className="grp"><span>{round}</span><span className="mut only-wide">{account?.firstSession ?? p.round.firstSession}</span>{(() => {
+            // F-103: the team's own flag wins over the countdown. The lock sweep stamps isLocked
+            // up to an hour before qualifying, so a countdown alone goes on promising a window
+            // the callables have already closed.
+            const l = account?.locksIn ?? p.round.locksIn;
+            const shut = account?.lineupLocked === true || l === 'LOCKED';
+            return <span className="red">{shut ? 'Lineups locked' : `Locks in ${l}`}</span>;
+          })()}
           {/* F-098/F-102: on a sprint weekend the lineup locks on Friday and the ace survives
               until Saturday's sprint, so "Lineups locked" on its own reads as though everything is
               settled. aceFreezeLine returns null once the moment has passed and on any weekend

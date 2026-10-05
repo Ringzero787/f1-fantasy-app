@@ -62,7 +62,10 @@ export function getLockoutTime(race: Race): Date | null {
   if (race.hasSprint && race.schedule.sprintQualifying) {
     return new Date(race.schedule.sprintQualifying);
   }
-  return race.schedule.qualifying ? new Date(race.schedule.qualifying) : null;
+  // The race is the last resort, matching the server: a schedule missing its qualifying time
+  // must still produce a deadline, because no deadline means no lock at all.
+  const last = race.schedule.qualifying ?? race.schedule.race;
+  return last ? new Date(last) : null;
 }
 
 /**

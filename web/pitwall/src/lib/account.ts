@@ -6,6 +6,14 @@ export interface Account {
   teamName: string | null; bank: number | null; leagueName: string | null; roundLabel: string | null;
   firstSession: string | null; locksIn: string | null;
   /**
+   * F-103: the team's own `isLocked`, which is the lock that is ENFORCED. The schedule-derived
+   * countdown cannot be trusted on its own: `autoLockTeams` runs every fifteen minutes over
+   * races locking within the next hour, so `isLocked` goes true up to an hour before qualifying.
+   * A header counting down to a deadline that has already passed is the offer-then-refuse this
+   * portal keeps having to be fixed for.
+   */
+  lineupLocked: boolean;
+  /**
    * F-098: when the ace stops moving, as epoch ms — but only on a weekend where that is later
    * than the roster lock, which in practice means a sprint weekend. Null the rest of the time,
    * because on a normal weekend the two coincide and `locksIn` has already said it.
@@ -17,7 +25,7 @@ export interface Account {
   /** the name the app shows for this person (users document), null when there is none */
   displayName: string | null;
 }
-export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null, aceFreezesAtMs: null, displayName: null };
+export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null, aceFreezesAtMs: null, lineupLocked: false, displayName: null };
 
 const toDate = (v: unknown): Date | undefined => (v && typeof (v as { toDate?: () => Date }).toDate === 'function' ? (v as { toDate: () => Date }).toDate() : undefined);
 
@@ -31,6 +39,7 @@ export async function loadAccount(uid: string): Promise<Account> {
   const team = teams.docs[0]?.data();
   if (team) {
     out.teamName = typeof team.name === 'string' ? team.name : null;
+    out.lineupLocked = team.isLocked === true || team.lockStatus?.canModify === false;
     out.bank = typeof team.budget === 'number' ? team.budget : null;
     if (typeof team.leagueId === 'string') {
       const league = await m.getDoc(m.doc(db, 'leagues', team.leagueId)).catch(() => null);

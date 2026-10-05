@@ -111,6 +111,39 @@ describe('getLockoutTime', () => {
     expect(lockTime?.toISOString()).toBe('2026-03-07T05:00:00.000Z');
   });
 
+  // F-103: the fallback chain must end at the race, not at null. A schedule with no qualifying
+  // time and no deadline means autoLockTeams drops the race from dueRaces and nothing is ever
+  // stamped — no isLocked, no ace window — while checkQualifyingResults still scores qualifying
+  // off OpenF1 without consulting this document. Late is a deadline; null is not.
+  it('falls back to the race when a schedule has no qualifying time', () => {
+    const race = makeRace({
+      id: 'partial', round: 3, hasSprint: false,
+      schedule: {
+        fp1: new Date('2026-03-06T01:30:00Z'),
+        fp3: new Date('2026-03-07T01:30:00Z'),
+        race: new Date('2026-03-08T04:00:00Z'),
+      } as never,
+    });
+    expect(getLockoutTime(race)?.toISOString()).toBe('2026-03-08T04:00:00.000Z');
+  });
+
+  it('falls back to qualifying for a sprint weekend whose sprint qualifying has not synced', () => {
+    const race = makeRace({
+      id: 'unsynced', round: 4, hasSprint: true,
+      schedule: {
+        fp1: new Date('2026-03-06T01:30:00Z'),
+        qualifying: new Date('2026-03-07T05:00:00Z'),
+        race: new Date('2026-03-08T04:00:00Z'),
+      } as never,
+    });
+    expect(getLockoutTime(race)?.toISOString()).toBe('2026-03-07T05:00:00.000Z');
+  });
+
+  it('has no deadline at all when the schedule cannot give one', () => {
+    const race = makeRace({ id: 'empty', round: 5, hasSprint: false, schedule: {} as never });
+    expect(getLockoutTime(race)).toBeNull();
+  });
+
   it('returns sprint qualifying time for a sprint weekend', () => {
     const race = makeRace({
       id: 'sprint',

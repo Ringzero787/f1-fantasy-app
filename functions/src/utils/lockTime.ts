@@ -7,7 +7,17 @@ import * as admin from 'firebase-admin';
  * outcome scores to rosters (sprint points fold into driver totals), so edits
  * after it would let users react to results they've already seen. Normal
  * weekends lock at Qualifying. Falls back to Qualifying when a sprint
- * weekend's sprintQualifying time hasn't been synced yet.
+ * weekend's sprintQualifying time hasn't been synced yet, and to the race
+ * itself when even that is missing.
+ *
+ * That last fallback exists so the stack fails CLOSED (F-103). Returning null
+ * drops the race out of `autoLockTeams`'s `dueRaces` filter, so nothing is ever
+ * stamped: no `isLocked`, no `canModify`, no ace window — while
+ * `checkQualifyingResults` scores qualifying off OpenF1 session keys without
+ * consulting this document at all. A partially synced schedule would then let a
+ * player watch qualifying and re-pick before the scorer ran. Locking at the
+ * race is late, but it is a deadline; null is not. `aceFreezeStart` below has
+ * always ended its chain at the race for the same reason.
  */
 export function effectiveLockTime(
   race: FirebaseFirestore.DocumentData,
@@ -15,7 +25,7 @@ export function effectiveLockTime(
   if (race.hasSprint && race.schedule?.sprintQualifying) {
     return race.schedule.sprintQualifying;
   }
-  return race.schedule?.qualifying ?? null;
+  return race.schedule?.qualifying ?? race.schedule?.race ?? null;
 }
 
 /** Human label for the session that locks the weekend (for messages). */

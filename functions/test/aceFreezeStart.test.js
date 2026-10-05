@@ -89,3 +89,21 @@ test('the ace freeze and the roster lock are different moments', () => {
   assert.ok(aceFreezeStart(SPRINT_WEEKEND).toMillis() > effectiveLockTime(SPRINT_WEEKEND).toMillis());
   assert.equal(effectiveLockTime(NORMAL_WEEKEND).iso, aceFreezeStart(NORMAL_WEEKEND).iso);
 });
+
+test('effectiveLockTime falls back to the race rather than to nothing (F-103)', () => {
+  // A deadline of null drops the race out of autoLockTeams' dueRaces filter, so nothing is ever
+  // stamped — no isLocked, no canModify, no ace window — while checkQualifyingResults still
+  // scores qualifying off OpenF1 session keys without consulting this document. A partially
+  // synced schedule would then let a player watch qualifying and re-pick before the scorer ran.
+  // Locking at the race is late, but it is a deadline. aceFreezeStart has always ended here.
+  const noQuali = { hasSprint: false, schedule: { fp3: ts('2026-10-03T07:30:00Z'), race: ts('2026-10-04T09:00:00Z') } };
+  assert.equal(effectiveLockTime(noQuali).iso, '2026-10-04T09:00:00Z');
+  assert.equal(aceFreezeStart(noQuali).iso, '2026-10-04T09:00:00Z');
+
+  // a sprint weekend whose sprint qualifying has not synced still lands on qualifying
+  const unsynced = { hasSprint: true, schedule: { qualifying: ts('2026-10-10T13:00:00Z'), race: ts('2026-10-11T12:00:00Z') } };
+  assert.equal(effectiveLockTime(unsynced).iso, '2026-10-10T13:00:00Z');
+
+  // and with nothing to go on, nothing — there is no deadline to invent
+  assert.equal(effectiveLockTime({ schedule: {} }), null);
+});

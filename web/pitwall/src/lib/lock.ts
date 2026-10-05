@@ -7,7 +7,9 @@
 export interface RaceSchedule { fp1?: Date; fp2?: Date; fp3?: Date; sprintQualifying?: Date; sprint?: Date; qualifying?: Date; race?: Date }
 
 export function lockTime(s: RaceSchedule, hasSprint: boolean): Date | null {
-  return (hasSprint ? s.sprintQualifying ?? s.qualifying : s.qualifying) ?? null;
+  // `?? s.race` last: a schedule missing its qualifying time must still show a deadline, for the
+  // same reason the server falls back there — no deadline means nothing ever locks.
+  return (hasSprint ? s.sprintQualifying ?? s.qualifying : s.qualifying) ?? s.race ?? null;
 }
 
 /**
