@@ -16,7 +16,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--red);outli
 .wrap{max-width:1360px;margin:0 auto;padding-inline:24px;padding-block:0 28px;background:var(--surface);min-height:100vh;border-inline:1px solid var(--border)}
 @media(max-width:640px){.wrap{padding-inline:16px}}
 .lbl{font:700 11px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-.red{color:var(--red)}.pos{color:var(--pos)}.mut{color:var(--muted)}.num{font-variant-numeric:tabular-nums}
+.red{color:var(--red)}.pos{color:var(--pos)}.warn{color:var(--warn)}.mut{color:var(--muted)}.num{font-variant-numeric:tabular-nums}
 /* context bar */
 .ctx{position:sticky;top:0;z-index:20;background:var(--surface);padding-block:14px 12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:12px}
 .ctxrow{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;justify-content:space-between;font:700 11px var(--mono);letter-spacing:.12em;text-transform:uppercase}

@@ -1,4 +1,4 @@
-next_id: 102
+next_id: 103
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1158,7 +1158,11 @@ features:
       - type
   - id: F-101
     name: "UC: the app's metadata sync no longer overwrites a newer server copy"
-    summary: "Bug: the 60-second periodic sync and the rehydrate sync pushed every team's local name, ace and league to\n      Firestore with a fresh timestamp, so a rename made on the Pit Wall portal (F-100) or another device was reverted\n      within a minute; the sync now writes only the metadata keys this device marked dirty, nothing when there are\n      none, and pending keys survive a reload"
+    summary: >-
+      Bug: the 60-second periodic sync and the rehydrate sync pushed every team's local name, ace and league to
+            Firestore with a fresh timestamp, so a rename made on the Pit Wall portal (F-100) or another device was reverted
+            within a minute; the sync now writes only the metadata keys this device marked dirty, nothing when there are
+            none, and pending keys survive a reload
     status: building
     prs:
       - 170
@@ -1172,3 +1176,15 @@ features:
       - newer
       - server
       - copy
+  - id: F-102
+    name: "UC: the portal says when the ace freezes on a sprint weekend"
+    status: building
+    spec: .aidlc/specs/F-102.md
+    created_at: 2026-10-05
+    keywords:
+      - portal
+      - says
+      - when
+      - freezes
+      - sprint
+      - weekend
