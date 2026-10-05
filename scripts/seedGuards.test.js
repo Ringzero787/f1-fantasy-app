@@ -35,40 +35,41 @@
 // was provably useless: deleting cleanAll's --project requirement left
 // `--project=` in the help text, and a source check passed on it.
 //
-// KNOWN GAPS, so nobody mistakes green for safe:
-//   - A script can still reach credentials through a path this does not
-//     model: fs.readFileSync of a concatenated path, or a deferred callback
-//     body. Plain ADC via a module-scope `admin.initializeApp()` IS caught —
-//     only the modular-SDK spelling of it escapes, as below.
-//   - The ratchet scans scripts/**, functions/src/** and functions/scripts/**.
-//     Every operational script in functions/scripts is now guarded and
-//     checked above; they are import-safe but their write discipline comes
-//     from the `aidlc op` kind, not from this test.
+// KNOWN GAPS, so nobody mistakes green for safe.
+//
+// What the import check now follows (each verified by mutation, every shape
+// below having been green at some point before it was closed): a direct call,
+// a wrapper, an object method, a getter, a class constructor via `new`, an
+// alias and a chain of aliases, an IIFE, a renamed initialiser, element
+// access, a three-deep call chain, a shadowed name, the modular Admin API in
+// both require and import spelling, a bare `fs.readFileSync` of a key, a
+// concatenated key path, and a hop into a sibling module (one or two deep,
+// through `exports.x`, `module.exports = {}` or a destructured require).
+//
+// What it still does not follow:
+//   - Anything that is not reachable by reading names and relative paths.
+//     There is no type checker here: resolution is by identifier and by
+//     require/import specifier. A name produced at runtime, a handler
+//     registered with a library that calls it later, or a module reached
+//     through node_modules will not be followed.
+//   - Scope. A name declared twice is treated as all of its declarations at
+//     once, which over-reports rather than under-reports — chosen on purpose
+//     after a benign `function boot(){}` was found masking a real one.
 //   - Three tracked scripts at the repo root — cleanup-dup-teams.js,
 //     repair-dedouble.js, diagnose-scoring.js — call initializeApp with a
-//     bare projectId and self-invoke. They are the ADC shape above, and they
-//     are outside the scan roots entirely.
-//   - It keys on a module-scope `admin.initializeApp(` call, plus any
-//     mention of a serviceAccount path. The first arm covers an SA_KEY env
-//     read and plain ADC. The second arm catches nothing under
-//     functions/scripts at all — the real key path there contains no such
-//     substring — so do not read it as a second line of defence.
-//     Three shapes are known to escape, each verified writing production on
-//     import while this suite stayed green:
-//       * the modular SDK — `require('firebase-admin/app').initializeApp()`,
-//         which is the current Admin API, not an exotic spelling;
-//       * an alias — `const fb = require('firebase-admin'); fb.initializeApp()`;
-//       * a module-scope `fs.readFileSync` of the key path.
-//     The first two are the same credential obtained the same way, reached
-//     through a differently-spelled call. Closing them needs symbol
-//     resolution, not a shape match.
-//   - `flagInGuard: false` waives more than the flag assertion: the check
-//     that the guard actually calls the entry point lives in the same test.
-//     That now covers every operational script plus getIndexLink and
-//     updateData, so for most of the files below nothing verifies the
-//     guard invokes its entry point. An empty guard body fails safe — the
-//     script becomes a no-op — but it would not be caught here. The
-//     initialiser check added alongside it runs for every file either way.
+//     bare projectId and self-invoke. They are outside the scan roots
+//     entirely, so nothing here looks at them at all.
+//   - Write discipline beyond what the behavioural tests at the foot of this
+//     file can drive. Those run each op script with a stubbed firebase-admin
+//     and assert it refuses a missing or wrong-project key, and writes
+//     nothing without --apply. The --apply half only means something for the
+//     scripts the stub can actually drive into a write; a script whose work
+//     is a loop over query results does nothing under it, and its dry-run
+//     assertion passes without proving anything. A floor test fails if that
+//     set shrinks below two, so the whole group cannot quietly go hollow.
+//   - `flagInGuard: false` waives the check that the guard actually calls the
+//     entry point, since it lives in the same test. An empty guard body fails
+//     safe — the script becomes a no-op — but it would not be caught here.
 //
 // Treat a failure here as real. Do not treat a pass as clearance.
 
@@ -374,6 +375,279 @@ const GUARDED = [
   ...OP_SCRIPTS,
 ];
 
+/**
+ * Index one file: every name it can call, and where names that live in other
+ * files actually come from.
+ *
+ * `bodies` maps a name to EVERY declaration of it, not the first. First-wins
+ * meant an earlier benign `function boot(){}` masked a later real initialiser
+ * of the same name — this file does no scope analysis, so the safe reading of
+ * an ambiguous name is "all of them".
+ */
+function indexFile(abs) {
+  if (indexFile.cache.has(abs)) return indexFile.cache.get(abs);
+  const sf = ts.createSourceFile(abs, fs.readFileSync(abs, 'utf8'), ts.ScriptTarget.Latest, true);
+  const bodies = new Map();
+  const aliases = new Map();   // const f = initAdmin
+  const modAlias = new Map();  // const lib = require('./lib')
+  const named = new Map();     // const { init } = require('./lib')
+  const getters = new Set();
+  // Local names bound to an admin API that connects, however spelled:
+  //   const { initializeApp } = require('firebase-admin/app')
+  //   const { initializeApp: ia } = require('firebase-admin/app')
+  // A call to `ia` has no member access to match, so without this the
+  // current modular Admin API walked straight past.
+  const adminBindings = new Set();
+
+  const note = (name, node) => {
+    if (!name) return;
+    if (!bodies.has(name)) bodies.set(name, []);
+    bodies.get(name).push(node);
+  };
+  const requireTarget = (init) => {
+    if (!init || !ts.isCallExpression(init)) return null;
+    if (!ts.isIdentifier(init.expression) || init.expression.text !== 'require') return null;
+    const a = init.arguments[0];
+    if (!a || !ts.isStringLiteral(a) || !a.text.startsWith('.')) return null;
+    const base = path.resolve(path.dirname(abs), a.text);
+    for (const c of [base, `${base}.js`, `${base}.ts`, `${base}.cjs`, `${base}.mjs`,
+                     path.join(base, 'index.js'), path.join(base, 'index.ts')]) {
+      if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
+    }
+    return null;
+  };
+
+  const walk = (n) => {
+    if (ts.isFunctionDeclaration(n) && n.name) note(n.name.text, n);
+    if (ts.isClassDeclaration(n) && n.name) {
+      const ctor = n.members.find((m) => ts.isConstructorDeclaration(m));
+      if (ctor) note(n.name.text, ctor);
+    }
+    if (ts.isMethodDeclaration(n) && ts.isIdentifier(n.name)) note(n.name.text, n);
+    // A getter runs a body on a bare property read — `const x = lazy.ready`
+    // has no call node at all, which is how it walked past the old check.
+    if (ts.isGetAccessor(n) && ts.isIdentifier(n.name)) { note(n.name.text, n); getters.add(n.name.text); }
+    if (ts.isPropertyAssignment(n) && ts.isIdentifier(n.name) && n.initializer &&
+        (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) {
+      note(n.name.text, n.initializer);
+    }
+    // CommonJS exports, which is how the sibling modules actually publish:
+    //   exports.init = function () {}       module.exports.init = () => {}
+    //   module.exports = { init() {} }      module.exports = { init: fn }
+    // A named function EXPRESSION is not a FunctionDeclaration, so none of
+    // these were collected and a cross-module hop landed on nothing.
+    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+        ts.isPropertyAccessExpression(n.left)) {
+      const lhs = n.left;
+      const root = lhs.expression;
+      const isExports =
+        (ts.isIdentifier(root) && root.text === 'exports') ||
+        (ts.isPropertyAccessExpression(root) && ts.isIdentifier(root.expression) &&
+         root.expression.text === 'module' && root.name.text === 'exports');
+      if (isExports && (ts.isFunctionExpression(n.right) || ts.isArrowFunction(n.right))) {
+        note(lhs.name.text, n.right);
+      }
+      if (isExports && ts.isIdentifier(n.right)) aliases.set(lhs.name.text, n.right.text);
+      // module.exports = { ... } — the object's members are the exports.
+      const isWholeExports =
+        ts.isIdentifier(root) && root.text === 'module' && lhs.name.text === 'exports';
+      if (isWholeExports && ts.isObjectLiteralExpression(n.right)) {
+        for (const m of n.right.properties) {
+          if (ts.isShorthandPropertyAssignment(m) && ts.isIdentifier(m.name)) {
+            aliases.set(m.name.text, m.name.text);
+          }
+        }
+      }
+    }
+    // The same thing in ESM, which is what the .ts scripts are written in:
+    //   import { initializeApp } from 'firebase-admin/app'
+    //   import { initializeApp as ia } from 'firebase-admin/app'
+    if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) &&
+        /^firebase-admin/.test(n.moduleSpecifier.text) &&
+        n.importClause && n.importClause.namedBindings &&
+        ts.isNamedImports(n.importClause.namedBindings)) {
+      for (const el of n.importClause.namedBindings.elements) {
+        const api = el.propertyName ? el.propertyName.text : el.name.text;
+        if (ADMIN_CALLS.includes(api)) adminBindings.add(el.name.text);
+      }
+    }
+    // firebase-admin destructuring, independent of the relative-require
+    // handling below (these specifiers are package names, not paths).
+    if (ts.isVariableDeclaration(n) && ts.isObjectBindingPattern(n.name) && n.initializer &&
+        ts.isCallExpression(n.initializer) && ts.isIdentifier(n.initializer.expression) &&
+        n.initializer.expression.text === 'require' &&
+        n.initializer.arguments[0] && ts.isStringLiteral(n.initializer.arguments[0]) &&
+        /^firebase-admin/.test(n.initializer.arguments[0].text)) {
+      for (const el of n.name.elements) {
+        const api = el.propertyName && ts.isIdentifier(el.propertyName)
+          ? el.propertyName.text
+          : (ts.isIdentifier(el.name) ? el.name.text : null);
+        if (api && ADMIN_CALLS.includes(api) && ts.isIdentifier(el.name)) {
+          adminBindings.add(el.name.text);
+        }
+      }
+    }
+    if (ts.isVariableDeclaration(n) && n.initializer) {
+      const target = requireTarget(n.initializer);
+      if (ts.isIdentifier(n.name)) {
+        if (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) {
+          note(n.name.text, n.initializer);
+        } else if (ts.isIdentifier(n.initializer)) {
+          aliases.set(n.name.text, n.initializer.text);
+        } else if (target) {
+          modAlias.set(n.name.text, target);
+        }
+      } else if (ts.isObjectBindingPattern(n.name) && target) {
+        // const { init } = require('./lib')
+        for (const el of n.name.elements) {
+          if (ts.isIdentifier(el.name)) {
+            named.set(el.name.text, { file: target, name: (el.propertyName && ts.isIdentifier(el.propertyName) ? el.propertyName.text : el.name.text) });
+          }
+        }
+      }
+    }
+    n.forEachChild(walk);
+  };
+  sf.forEachChild(walk);
+
+  const out = { sf, bodies, aliases, modAlias, named, getters, adminBindings };
+  indexFile.cache.set(abs, out);
+  return out;
+}
+indexFile.cache = new Map();
+
+const ADMIN_CALLS = ['initializeApp', 'cert', 'applicationDefault', 'getFirestore', 'firestore'];
+
+/** Does this body itself initialise admin or read a credential? */
+function initialisesAdminBody(body, adminBindings = new Set()) {
+  let hit = null;
+  const scan = (n) => {
+    if (hit) return;
+    if (ts.isCallExpression(n)) {
+      const e = n.expression;
+      const member =
+        ts.isPropertyAccessExpression(e) ? e.name.text
+        : (ts.isElementAccessExpression(e) && e.argumentExpression &&
+           ts.isStringLiteral(e.argumentExpression)) ? e.argumentExpression.text
+        : null;
+      if (member && ADMIN_CALLS.includes(member)) hit = `${member}()`;
+      // A bare call to a destructured admin API: `ia({})` where
+      // `const { initializeApp: ia } = require('firebase-admin/app')`.
+      if (ts.isIdentifier(e) && adminBindings.has(e.text)) hit = `${e.text}() [admin]`;
+      if (member === 'readFileSync') hit = 'readFileSync()';
+      if (ts.isIdentifier(e) && e.text === 'require' && n.arguments.length &&
+          ts.isStringLiteral(n.arguments[0]) &&
+          /credential|service-?account|\.json$/i.test(n.arguments[0].text)) {
+        hit = `require('${n.arguments[0].text}')`;
+      }
+    }
+    n.forEachChild(scan);
+  };
+  scan(body);
+  return hit;
+}
+
+/**
+ * Walk everything that runs when `abs` is imported, across module boundaries.
+ *
+ * The single-file version missed a sibling: `require('./_warm').init()` moved
+ * the credential read one file away and the walk stopped at the boundary,
+ * suite green. Resolution here is by name and by relative require path — not
+ * a real type checker — so it is still a ratchet, but it no longer stops at
+ * the file it started in.
+ */
+function reachesAdminOnImport(abs) {
+  const seen = new Set();
+  const queue = [];
+  const push = (file, name, chain) => {
+    const k = `${file}::${name}`;
+    if (!seen.has(k)) { seen.add(k); queue.push({ file, name, chain }); }
+  };
+
+  const idx0 = indexFile(abs);
+
+  // Module scope itself, first. The walk below follows calls INTO function
+  // bodies, so a credential read written straight at module scope — not
+  // inside anything — was never examined by it. That left the current Admin
+  // API spelling `require('firebase-admin/app').initializeApp()`, an alias
+  // `const fb = require('firebase-admin'); fb.initializeApp()`, and a bare
+  // `fs.readFileSync(KEY)` all passing, each of which connects on import.
+  // They were only ever half-covered by the substring scan further down,
+  // which matches `admin.initializeApp(` literally and so misses every one.
+  for (const n of moduleScopeNodes(idx0.sf)) {
+    if (!ts.isCallExpression(n)) continue;
+    const direct = initialisesAdminBody(n, idx0.adminBindings);
+    if (direct) return { what: direct, chain: ['(module scope)'] };
+  }
+
+  for (const n of moduleScopeNodes(idx0.sf)) {
+    if (ts.isCallExpression(n) || ts.isNewExpression(n)) {
+      const t = targetOf(idx0, n.expression);
+      if (t) push(t.file ?? abs, t.name, [t.name]);
+    } else if (ts.isPropertyAccessExpression(n) && idx0.getters.has(n.name.text)) {
+      push(abs, n.name.text, [`${n.name.text} (getter)`]);
+    }
+  }
+
+  while (queue.length) {
+    const { file, name, chain } = queue.shift();
+    if (!fs.existsSync(file)) continue;
+    const idx = indexFile(file);
+
+    let resolved = name;
+    for (let i = 0; i < 10 && !idx.bodies.has(resolved) && idx.aliases.has(resolved); i++) {
+      resolved = idx.aliases.get(resolved);
+    }
+    // A name imported from elsewhere continues the walk in that file.
+    if (!idx.bodies.has(resolved) && idx.named.has(resolved)) {
+      const n2 = idx.named.get(resolved);
+      push(n2.file, n2.name, [...chain, `${path.basename(n2.file)}:${n2.name}`]);
+      continue;
+    }
+    const list = idx.bodies.get(resolved);
+    if (!list) continue;
+
+    for (const body of list) {
+      const what = initialisesAdminBody(body, idx.adminBindings);
+      if (what) return { what, chain };
+      const follow = (n) => {
+        if (ts.isCallExpression(n) || ts.isNewExpression(n)) {
+          const t = targetOf(idx, n.expression);
+          if (t) push(t.file ?? file, t.name, [...chain, t.name]);
+        }
+        if (ts.isPropertyAccessExpression(n) && idx.getters.has(n.name.text)) {
+          push(file, n.name.text, [...chain, `${n.name.text} (getter)`]);
+        }
+        n.forEachChild(follow);
+      };
+      follow(body);
+    }
+  }
+  return null;
+}
+
+/** Where a callee expression points: a name, and the file it lives in. */
+function targetOf(idx, e) {
+  if (ts.isIdentifier(e)) {
+    if (idx.named.has(e.text)) return { file: idx.named.get(e.text).file, name: idx.named.get(e.text).name };
+    return { file: null, name: e.text };
+  }
+  if (ts.isPropertyAccessExpression(e)) {
+    // lib.init() where `lib` is require('./lib')
+    if (ts.isIdentifier(e.expression) && idx.modAlias.has(e.expression.text)) {
+      return { file: idx.modAlias.get(e.expression.text), name: e.name.text };
+    }
+    return { file: null, name: e.name.text };
+  }
+  if (ts.isElementAccessExpression(e) && e.argumentExpression && ts.isStringLiteral(e.argumentExpression)) {
+    if (ts.isIdentifier(e.expression) && idx.modAlias.has(e.expression.text)) {
+      return { file: idx.modAlias.get(e.expression.text), name: e.argumentExpression.text };
+    }
+    return { file: null, name: e.argumentExpression.text };
+  }
+  return null;
+}
+
 for (const { file, entry: entryName, flagInGuard } of GUARDED) {
   // Naming the initialiser was the wrong shape of fix. The first version keyed
   // on the identifiers `initAdmin` and `setup`; a wrapper function, an
@@ -399,125 +673,14 @@ for (const { file, entry: entryName, flagInGuard } of GUARDED) {
   // Closing those needs real symbol resolution across modules, which this
   // file does not do. Treat it as the tripwire the header says it is.
   test(`${file}: nothing reachable on import initialises admin`, () => {
-    const sf = parse(file);
-    findMainGuard(sf, file);
-
-    // name -> function-ish body, covering every form these scripts use.
-    const bodies = new Map();
-    const aliases = new Map();
-    const note = (name, node) => { if (name && !bodies.has(name)) bodies.set(name, node); };
-    const collectDefs = (n) => {
-      if (ts.isFunctionDeclaration(n) && n.name) note(n.name.text, n);
-      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer &&
-          (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) {
-        note(n.name.text, n.initializer);
-      }
-      // `const f = initAdmin;` then `f()`. Only function *expressions* were
-      // recorded, so an alias had no body and the walk treated it as a
-      // library call. Review proved it: suite green, credential read on
-      // import.
-      if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer &&
-          ts.isIdentifier(n.initializer)) {
-        aliases.set(n.name.text, n.initializer.text);
-      }
-      // `new Boot()` seeds the class name, so it needs a body: the
-      // constructor is what runs. Without this the seed resolved to nothing.
-      if (ts.isClassDeclaration(n) && n.name) {
-        const ctor = n.members.find((m) => ts.isConstructorDeclaration(m));
-        if (ctor) note(n.name.text, ctor);
-      }
-      // { go() {} } and { go: () => {} } — the escape that name matching missed.
-      if (ts.isMethodDeclaration(n) && ts.isIdentifier(n.name)) note(n.name.text, n);
-      if (ts.isPropertyAssignment(n) && ts.isIdentifier(n.name) && n.initializer &&
-          (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer))) {
-        note(n.name.text, n.initializer);
-      }
-      n.forEachChild(collectDefs);
-    };
-    sf.forEachChild(collectDefs);
-
-    const calleeName = (e) => {
-      if (ts.isIdentifier(e)) return e.text;
-      if (ts.isPropertyAccessExpression(e)) return e.name.text;
-      if (ts.isElementAccessExpression(e) && e.argumentExpression &&
-          ts.isStringLiteral(e.argumentExpression)) return e.argumentExpression.text;
-      return null;
-    };
-
-    // Seeds: calls that execute on import (the guard's then-branch excluded).
-    const seeds = [];
-    for (const n of moduleScopeNodes(sf)) {
-      // `new Boot()` runs a constructor body, so it is a seed like any call.
-      if (ts.isCallExpression(n) || ts.isNewExpression(n)) {
-        const name = calleeName(n.expression);
-        if (name) seeds.push({ name, node: n });
-      }
-    }
-
-    // Does this body initialise admin or read credentials directly?
-    const initialisesAdmin = (body) => {
-      let hit = null;
-      const scan = (n) => {
-        if (hit) return;
-        if (ts.isCallExpression(n)) {
-          const e = n.expression;
-          // Element access as well as property access: `fs['readFileSync']`
-          // reached a key on import while this matched only `fs.readFileSync`,
-          // which calleeName() above had always resolved. The two disagreeing
-          // was the hole.
-          const member =
-            ts.isPropertyAccessExpression(e) ? e.name.text
-            : (ts.isElementAccessExpression(e) && e.argumentExpression &&
-               ts.isStringLiteral(e.argumentExpression)) ? e.argumentExpression.text
-            : null;
-          // `firestore` belongs here: without it `function attach(){ db =
-          // admin.firestore(); } attach();` passed the transitive check while
-          // the module-scope check below would have caught the same call.
-          if (member && ['initializeApp', 'cert', 'applicationDefault',
-                         'getFirestore', 'firestore'].includes(member)) {
-            hit = member + '()';
-          }
-          if (member === 'readFileSync') hit = 'readFileSync()';
-          if (ts.isIdentifier(e) && e.text === 'require' && n.arguments.length &&
-              ts.isStringLiteral(n.arguments[0]) &&
-              /credential|service-?account|\.json$/i.test(n.arguments[0].text)) {
-            hit = `require('${n.arguments[0].text}')`;
-          }
-        }
-        n.forEachChild(scan);
-      };
-      scan(body);
-      return hit;
-    };
-
-    const seen = new Set();
-    const queue = seeds.map((s) => ({ ...s, path: [s.name] }));
-    while (queue.length) {
-      const { name, path: chain } = queue.shift();
-      if (seen.has(name)) continue;
-      seen.add(name);
-      // Follow `const f = initAdmin` to initAdmin's body before giving up.
-      let resolved = name;
-      for (let i = 0; i < 10 && !bodies.has(resolved) && aliases.has(resolved); i++) {
-        resolved = aliases.get(resolved);
-      }
-      const body = bodies.get(resolved);
-      if (!body) continue; // a library call, not something this file defines
-      const what = initialisesAdmin(body);
-      assert.ok(
-        !what,
-        `${file}: importing it reaches ${what} via ${chain.join(' -> ')} — ` +
-          `admin initialisation must happen inside the require.main guard`
-      );
-      const follow = (n) => {
-        if (ts.isCallExpression(n)) {
-          const next = calleeName(n.expression);
-          if (next && !seen.has(next)) queue.push({ name: next, path: [...chain, next] });
-        }
-        n.forEachChild(follow);
-      };
-      follow(body);
-    }
+    parse(file);
+    findMainGuard(parse(file), file);
+    const hit = reachesAdminOnImport(path.join(ROOT, file));
+    assert.ok(
+      !hit,
+      hit && `${file}: importing it reaches ${hit.what} via ${hit.chain.join(' -> ')} — ` +
+        `admin initialisation must happen inside the require.main guard`
+    );
   });
 
   test(`${file}: the entry point is never reached on import`, () => {
@@ -676,3 +839,249 @@ for (const { file, refusesWithout } of GUARDED) {
     assert.equal(status, 2, `${file} must refuse ${refusesWithout.join(' ')} alone with exit 2, got ${status}`);
   });
 }
+
+// ---------------------------------------------------------------------------
+// Behavioural checks (issue #161).
+//
+// Everything above is structural: it reads the source and asserts shapes. That
+// left the two guarantees these scripts actually rest on unasserted, and the
+// comments describing them were the only thing holding them up:
+//
+//   - they refuse to run without SA_KEY, and refuse a key for the wrong
+//     project;
+//   - they write nothing without --apply.
+//
+// Deleting either check left the whole suite green, which is how three
+// scripts kept a silent fallback to a hardcoded production key for as long as
+// they did. These run the scripts for real, with firebase-admin replaced by a
+// recording stub, and assert on what they did.
+//
+// The stub is loaded with `node -r`, so scripts run from their own directory
+// and their relative requires resolve exactly as in production. Nothing here
+// reaches the network: `firebase-admin` never loads.
+
+const STUB = (() => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'seedguard-stub-'));
+  fs.writeFileSync(path.join(dir, 'preload.js'), `
+    const Module = require('module');
+    const fs = require('fs');
+    const LOG = process.env.SEEDGUARD_CALLS;
+    const rec = (n) => { try { fs.appendFileSync(LOG, n + '\\n'); } catch {} };
+    // Reads answer plausibly so a script gets past its first query; anything
+    // else records its own name and returns itself.
+    const handle = new Proxy(function () {}, {
+      get(_t, k) {
+        if (k === 'then') return undefined;
+        if (k === 'empty') return false;
+        if (k === 'size') return 1;
+        if (k === 'docs') return [];
+        if (k === 'exists') return true;
+        rec(String(k));
+        return handle;
+      },
+      apply() { return handle; },
+    });
+    const admin = {
+      apps: [],
+      initializeApp: () => { rec('initializeApp'); return {}; },
+      credential: {
+        cert: () => { rec('cert'); return {}; },
+        applicationDefault: () => { rec('applicationDefault'); return {}; },
+      },
+      auth: () => { rec('auth'); return handle; },
+      firestore: Object.assign(() => { rec('firestore'); return handle; }, {
+        Timestamp: { fromDate: (d) => d, now: () => ({}) },
+        FieldValue: { serverTimestamp: () => ({}), delete: () => ({}), increment: () => ({}) },
+        FieldPath: { documentId: () => ({}) },
+      }),
+    };
+    const orig = Module._load;
+    Module._load = function (req, ...rest) {
+      if (req === 'firebase-admin') return admin;
+      return orig.call(this, req, ...rest);
+    };
+  `);
+  const key = (project) => {
+    const p = path.join(dir, `${project}.json`);
+    fs.writeFileSync(p, JSON.stringify({ project_id: project, client_email: 'stub@example.invalid', private_key: '-' }));
+    return p;
+  };
+  return {
+    preload: path.join(dir, 'preload.js'),
+    rightKey: key('f1-app-18077'),
+    wrongKey: key('some-other-project'),
+    out: path.join(dir, 'out.json'),
+  };
+})();
+
+const WRITE_CALLS = /^(set|update|delete|create|add|commit|setCustomUserClaims)$/;
+
+/** Run a script for real with firebase-admin stubbed, and report what it did. */
+function runRecorded(file, argv = [], env = {}) {
+  const log = path.join(os.tmpdir(), `seedguard-calls-${process.pid}-${Math.random().toString(36).slice(2)}.log`);
+  fs.writeFileSync(log, '');
+  // TypeScript is transpiled next to the original rather than into a temp
+  // directory, so `./serviceAccountKey.json` and every relative require
+  // resolve exactly as they do for the real script. The leading dot keeps the
+  // artefact out of the op-script scan (validScriptName rejects it).
+  const abs = path.join(ROOT, file);
+  let runFile = abs;
+  if (abs.endsWith('.ts')) {
+    runFile = path.join(
+      path.dirname(abs),
+      `.seedguard-subject-${process.pid}-${Math.random().toString(36).slice(2)}.js`
+    );
+    fs.writeFileSync(runFile, ts.transpileModule(fs.readFileSync(abs, 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 },
+    }).outputText);
+  }
+  try {
+    const r = require('node:child_process').spawnSync(
+      process.execPath, ['-r', STUB.preload, runFile, ...argv],
+      {
+        cwd: ROOT, encoding: 'utf8', timeout: 25000, killSignal: 'SIGKILL',
+        env: { ...process.env, SEEDGUARD_CALLS: log, SA_KEY: '', ...env },
+      }
+    );
+    const calls = fs.readFileSync(log, 'utf8').split('\n').filter(Boolean);
+    return {
+      status: r.status,
+      out: (r.stdout || '') + (r.stderr || ''),
+      calls,
+      connected: calls.includes('initializeApp'),
+      writes: calls.filter((c) => WRITE_CALLS.test(c)),
+    };
+  } finally {
+    fs.rmSync(log, { force: true });
+    if (runFile !== abs) fs.rmSync(runFile, { force: true });
+  }
+}
+
+// Two scripts validate their arguments before looking at the key. Without
+// these they would print usage and exit, and the refusal assertions below
+// would pass without ever reaching the credential code. The assertions match
+// the refusal message specifically, so if any other script starts doing the
+// same the test fails and says so rather than going quietly hollow.
+const ARGS_TO_REACH_CREDENTIALS = {
+  'exportPitwallHistory.js': [STUB.out],
+  'verifyRaceScoring.js': ['bahrain_2026'],
+};
+
+for (const { file } of OP_SCRIPTS) {
+  const base = path.basename(file);
+  const args = ARGS_TO_REACH_CREDENTIALS[base] ?? [];
+
+  test(`${file}: refuses to run without SA_KEY, and refuses another project's key`, () => {
+    const none = runRecorded(file, args);
+    assert.match(
+      none.out, /SA_KEY/,
+      `${file} without SA_KEY should refuse by naming SA_KEY, got: ${none.out.slice(0, 200)}` +
+        ` — if it printed usage instead, it validates arguments first and needs an` +
+        ` entry in ARGS_TO_REACH_CREDENTIALS, or this assertion proves nothing`
+    );
+    assert.equal(none.connected, false, `${file} initialised admin despite having no SA_KEY`);
+
+    const wrong = runRecorded(file, args, { SA_KEY: STUB.wrongKey });
+    assert.match(
+      wrong.out, /[Rr]efusing to run|wrong project|expected/,
+      `${file} accepted a key for some-other-project. Every one of these scripts` +
+        ` is meant to refuse a key that is not f1-app-18077; got: ${wrong.out.slice(0, 200)}`
+    );
+    assert.equal(wrong.connected, false, `${file} initialised admin with another project's key`);
+
+    // The control. Without this the two assertions above would also pass on a
+    // script that refuses everything, or that this harness cannot start.
+    const right = runRecorded(file, args, { SA_KEY: STUB.rightKey });
+    assert.doesNotMatch(
+      right.out, /SA_KEY must|[Rr]efusing to run: key is for project/,
+      `${file} refused the correct project's key too, so the refusals above are` +
+        ` not evidence of a working project check`
+    );
+  });
+}
+
+// The --apply gate, for the scripts this harness can actually drive into a
+// write. A script whose work is a loop over query results does nothing here,
+// because the stub returns no documents — for those, `writes === 0` on the dry
+// run is true but proves nothing, so the pair is only meaningful when the
+// --apply run does write. The aggregate test below is what stops that
+// shrinking to nothing unnoticed.
+const applyGateCoverage = [];
+
+for (const { file } of OP_SCRIPTS) {
+  const base = path.basename(file);
+  const args = ARGS_TO_REACH_CREDENTIALS[base] ?? [];
+
+  test(`${file}: writes nothing without --apply`, () => {
+    const dry = runRecorded(file, args, { SA_KEY: STUB.rightKey });
+    const apply = runRecorded(file, [...args, '--apply'], { SA_KEY: STUB.rightKey });
+    if (apply.writes.length > 0) applyGateCoverage.push(base);
+    assert.deepEqual(
+      dry.writes, [],
+      `${file} wrote ${dry.writes.join(', ')} without --apply`
+    );
+  });
+}
+
+test('the --apply gate is actually exercised on some scripts', () => {
+  // Every "writes nothing without --apply" above passes trivially if the stub
+  // can no longer drive any script into a write. This is the floor that makes
+  // the set of them mean something.
+  assert.ok(
+    applyGateCoverage.length >= 2,
+    `the --apply gate is only demonstrated on ${applyGateCoverage.length} script(s) ` +
+      `(${applyGateCoverage.join(', ') || 'none'}). The per-script checks above are ` +
+      `passing vacuously; the stub has probably stopped being able to drive a write`
+  );
+});
+
+// The argv contract, which has broken twice. The run guard once consumed
+// --apply while main() still read argv[2], so the documented
+// `setAdminClaim.ts <email>` form granted nothing; and a second email used to
+// be dropped in silence.
+test('scripts/setAdminClaim.ts: the email is found wherever it sits in argv', () => {
+  // The regression this guards: the run guard consumed --apply while main()
+  // still read argv[2], so the documented `setAdminClaim.ts <email>` form
+  // printed the dry-run notice and granted nothing. The dry run echoes the
+  // address it would act on, so that is the thing to assert.
+  const dry = runRecorded('scripts/setAdminClaim.ts', ['a@example.invalid']);
+  assert.match(
+    dry.out, /a@example\.invalid/,
+    'setAdminClaim <email> did not echo the address it would grant — reading ' +
+      'argv[2] instead of the first non-flag argument is how this broke before'
+  );
+
+  // With --apply it stops at the credential, which this harness deliberately
+  // does not supply: writing a service-account file into the repo to get
+  // further is not worth it. Reaching the credential at all is still the
+  // thing worth asserting — it means the email passed validation rather than
+  // falling out as a usage error, in either order.
+  for (const argv of [['a@example.invalid', '--apply'], ['--apply', 'a@example.invalid']]) {
+    const r = runRecorded('scripts/setAdminClaim.ts', argv);
+    assert.doesNotMatch(
+      r.out, /Usage:/,
+      `setAdminClaim ${argv.join(' ')} fell out as a usage error, so the email ` +
+        `was not recognised in that position`
+    );
+    assert.match(
+      r.out, /serviceAccountKey|credential/i,
+      `setAdminClaim ${argv.join(' ')} should get as far as reading the key; ` +
+        `got: ${r.out.slice(0, 160)}`
+    );
+  }
+});
+
+test('scripts/setAdminClaim.ts: refuses two emails rather than silently using one', () => {
+  const r = runRecorded('scripts/setAdminClaim.ts', ['a@example.invalid', 'b@example.invalid']);
+  assert.equal(r.status, 2, 'setAdminClaim must refuse more than one email with exit 2');
+  assert.equal(r.connected, false, 'setAdminClaim connected before rejecting the second email');
+});
+
+test('the destructive TS scripts connect to nothing on a dry run', () => {
+  for (const file of ['scripts/deleteTsunoda.ts', 'scripts/setAdminClaim.ts']) {
+    const r = runRecorded(file, []);
+    assert.equal(r.connected, false, `${file} initialised admin on a dry run`);
+    assert.deepEqual(r.writes, [], `${file} wrote ${r.writes.join(', ')} on a dry run`);
+    assert.match(r.out, /dry run/i, `${file} should say it is a dry run; got: ${r.out.slice(0, 160)}`);
+  }
+});
