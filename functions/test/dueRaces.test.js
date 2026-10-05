@@ -48,3 +48,20 @@ test('dueRaces still catches a deadline that has already passed', () => {
     'a lower bound on the lock time is what made a single missed sweep permanent');
   assert.match(filter, /<= oneHourFromNowMs/);
 });
+
+test('dueRaces survives a lock time that is not a Timestamp', () => {
+  // A hand-repaired or half-synced doc can hold a string where a Timestamp belongs. An
+  // unguarded .toMillis() throws before the `status: in_progress` write, so the doc stays
+  // `upcoming` and every later sweep throws on it again — and no race after it in iteration
+  // order ever locks.
+  assert.match(filter, /typeof lockMs !== 'number'/);
+  assert.ok(!/effectiveLockTime\(race\)\.toMillis\(\)/.test(filter), 'must not dereference without a guard');
+});
+
+test('one bad leagueId cannot reject the whole sweep', () => {
+  // db.collection('leagues').doc(id) throws synchronously on an id containing a slash, and the
+  // fantasyTeams create rule does not constrain leagueId — so one such team would stop every
+  // sweep for every player. The create rule is the real fix; this is the blast shield.
+  const body = SRC.slice(SRC.indexOf('const leagueIds'), SRC.indexOf('const leagueDocs'));
+  assert.match(body, /includes\('\/'\)/, 'a slash in a leagueId must be filtered before doc()');
+});
