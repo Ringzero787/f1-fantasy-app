@@ -12,6 +12,14 @@ export const DISCLAIMER = 'Unofficial. Not affiliated with any racing series, te
 /** Sticky context bar: round, session state, lock countdown, the user's team and bank. It drives every page. */
 export function ContextBar({ page, account, onSignOut }: { page: PageName; account: Account | null; onSignOut?: () => void }) {
   const { payload: p, ui, go } = useStore();
+  // F-103: both deadlines below are compared against the clock, and nothing else in this bar
+  // re-renders on its own — so an idle tab would have sat on "Locks in 00h 01m" straight past
+  // the lock. Thirty seconds is finer than the smallest unit either line shows.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
   const round = account?.roundLabel ?? `RD ${p.round.number} · ${p.round.name.toUpperCase()}`;
   return (
     <header className="ctx">

@@ -64,18 +64,46 @@ export const autoLockTeams = functions.pubsub
       .where('status', '==', 'upcoming')
       .get();
 
-    // F-103: `ms > nowMs` used to be part of this, so a lock time that had already passed
-    // dropped the race out for ever — one missed sweep inside the one-hour window (a function
-    // error, a cold outage, or a schedule that only published after the deadline) and the race
-    // was never locked at all: no isLocked, no canModify, no ace window, with the rules then
-    // failing open through the race. Late is the right answer when the deadline has gone; the
-    // `status == 'upcoming'` query above is what stops this re-locking a weekend already run,
-    // since autoLockTeams moves the race to in_progress as it locks it.
-    const dueRaces = racesSnapshot.docs.filter((doc) => {
-      const lockAt = effectiveLockTime(doc.data());
-      if (!lockAt) return false;
-      return lockAt.toMillis() <= oneHourFromNowMs;
-    });
+    // F-103. Two changes here, and the second only exists because of the first.
+    //
+    // `ms > nowMs` is gone, so a lock time already past is still caught: one missed sweep inside
+    // the old one-hour window — a function error, a cold outage, a schedule published after its
+    // own deadline — used to drop the race for ever, leaving the weekend unstamped and the ace
+    // rules failing open through the race.
+    //
+    // But dropping that bound also dropped the guarantee that at most one race is ever due, and
+    // the loop below stamps the ace window on EVERY team once per due race, last write winning.
+    // A race can sit at `upcoming` indefinitely (checkResults returns early when OpenF1 has no
+    // session, and scheduleMonitor's auto-cancel only fires in a narrow window), so a stale doc
+    // sharing a sweep with the live weekend would either overwrite the live ace window with past
+    // timestamps — the F-098 hole, reopened — or stamp nextUnlockTime in the past and have
+    // autoUnlockTeams free every roster half an hour later. So:
+    //
+    //  • a weekend already over is not ours to lock. It should be completed or cancelled, and
+    //    either way locking it now can only corrupt the live one.
+    //  • no `schedule.race`, no lock: the writes below dereference it, and a throw here leaves
+    //    the doc at `upcoming` to poison every later sweep.
+    //  • earliest first, one per run. Sweeps run every fifteen minutes and rounds are a week
+    //    apart, so this still catches up — it just cannot collide.
+    const dueRaces = racesSnapshot.docs
+      .filter((doc) => {
+        const race = doc.data();
+        const lockAt = effectiveLockTime(race);
+        const raceAt = race.schedule?.race?.toMillis?.();
+        if (!lockAt || typeof raceAt !== 'number') {
+          if (!lockAt) console.warn('Skipping race %s: no lock time in its schedule', doc.id);
+          else console.warn('Skipping race %s: no race start in its schedule', doc.id);
+          return false;
+        }
+        if (nowMs - raceAt > WEEKEND_WINDOW_MS) {
+          console.warn('Skipping race %s: its weekend ended %dh ago and it is still `upcoming`',
+            doc.id, Math.round((nowMs - raceAt) / 3600000));
+          return false;
+        }
+        return lockAt.toMillis() <= oneHourFromNowMs;
+      })
+      .sort((a, b) => (effectiveLockTime(a.data())?.toMillis() ?? 0) - (effectiveLockTime(b.data())?.toMillis() ?? 0))
+      .slice(0, 1);
 
     if (dueRaces.length === 0) {
       console.log('No races locking soon');
