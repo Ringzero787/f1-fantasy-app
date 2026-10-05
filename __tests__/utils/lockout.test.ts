@@ -92,7 +92,9 @@ describe('getNextIncompleteRace', () => {
 });
 
 describe('getLockoutTime', () => {
-  it('returns FP3 time for a normal weekend', () => {
+  // F-103: qualifying, not FP3 — nothing scores at FP3, and the server has always locked at
+  // qualifying (effectiveLockTime). This asserted FP3 for as long as the app disagreed.
+  it('returns qualifying time for a normal weekend', () => {
     const race = makeRace({
       id: 'normal',
       round: 1,
@@ -106,7 +108,40 @@ describe('getLockoutTime', () => {
       },
     });
     const lockTime = getLockoutTime(race);
-    expect(lockTime?.toISOString()).toBe('2026-03-07T01:30:00.000Z');
+    expect(lockTime?.toISOString()).toBe('2026-03-07T05:00:00.000Z');
+  });
+
+  // F-103: the fallback chain must end at the race, not at null. A schedule with no qualifying
+  // time and no deadline means autoLockTeams drops the race from dueRaces and nothing is ever
+  // stamped — no isLocked, no ace window — while checkQualifyingResults still scores qualifying
+  // off OpenF1 without consulting this document. Late is a deadline; null is not.
+  it('falls back to the race when a schedule has no qualifying time', () => {
+    const race = makeRace({
+      id: 'partial', round: 3, hasSprint: false,
+      schedule: {
+        fp1: new Date('2026-03-06T01:30:00Z'),
+        fp3: new Date('2026-03-07T01:30:00Z'),
+        race: new Date('2026-03-08T04:00:00Z'),
+      } as never,
+    });
+    expect(getLockoutTime(race)?.toISOString()).toBe('2026-03-08T04:00:00.000Z');
+  });
+
+  it('falls back to qualifying for a sprint weekend whose sprint qualifying has not synced', () => {
+    const race = makeRace({
+      id: 'unsynced', round: 4, hasSprint: true,
+      schedule: {
+        fp1: new Date('2026-03-06T01:30:00Z'),
+        qualifying: new Date('2026-03-07T05:00:00Z'),
+        race: new Date('2026-03-08T04:00:00Z'),
+      } as never,
+    });
+    expect(getLockoutTime(race)?.toISOString()).toBe('2026-03-07T05:00:00.000Z');
+  });
+
+  it('has no deadline at all when the schedule cannot give one', () => {
+    const race = makeRace({ id: 'empty', round: 5, hasSprint: false, schedule: {} as never });
+    expect(getLockoutTime(race)).toBeNull();
   });
 
   it('returns sprint qualifying time for a sprint weekend', () => {
@@ -144,6 +179,8 @@ describe('getLockoutTime', () => {
 
 describe('computeLockoutStatus', () => {
   const fp3Time = new Date('2026-03-07T01:30:00Z');
+  // F-103: the lineup locks here, not at FP3
+  const qualiTime = new Date('2026-03-07T05:00:00Z');
   const raceTime = new Date('2026-03-08T04:00:00Z');
   const races = [
     makeRace({
@@ -154,22 +191,28 @@ describe('computeLockoutStatus', () => {
         fp1: new Date('2026-03-06T01:30:00Z'),
         fp2: new Date('2026-03-06T05:00:00Z'),
         fp3: fp3Time,
-        qualifying: new Date('2026-03-07T05:00:00Z'),
+        qualifying: qualiTime,
         race: raceTime,
       },
     }),
   ];
 
-  it('is unlocked before FP3', () => {
-    const now = new Date('2026-03-06T12:00:00Z'); // After FP1 but before FP3
+  it('is unlocked before qualifying', () => {
+    const now = new Date('2026-03-06T12:00:00Z'); // After FP1, well before qualifying
     const result = computeLockoutStatus(races, new Set(), now, null);
     expect(result.isLocked).toBe(false);
     expect(result.aceLocked).toBe(false);
     expect(result.nextRace?.id).toBe('r1');
   });
 
-  it('is locked after FP3', () => {
-    const now = new Date('2026-03-07T02:00:00Z'); // After FP3
+  // F-103: the three and a half hours the app used to refuse and the server always allowed.
+  it('is still unlocked between FP3 and qualifying', () => {
+    const result = computeLockoutStatus(races, new Set(), new Date('2026-03-07T02:00:00Z'), null);
+    expect(result.isLocked).toBe(false);
+  });
+
+  it('is locked once qualifying starts', () => {
+    const now = new Date('2026-03-07T05:30:00Z'); // After qualifying began
     const result = computeLockoutStatus(races, new Set(), now, null);
     expect(result.isLocked).toBe(true);
     expect(result.lockReason).toContain('Australian Grand Prix');
@@ -214,7 +257,7 @@ describe('computeLockoutStatus', () => {
   it('provides lock and race times', () => {
     const now = new Date('2026-03-06T00:00:00Z');
     const result = computeLockoutStatus(races, new Set(), now, null);
-    expect(result.lockTime).toEqual(fp3Time);
+    expect(result.lockTime).toEqual(qualiTime);
     expect(result.raceStartTime).toEqual(raceTime);
   });
 });

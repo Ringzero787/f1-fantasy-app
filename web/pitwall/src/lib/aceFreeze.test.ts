@@ -74,14 +74,12 @@ describe('aceOutlivesLineup — whether the header says anything at all', () => 
     expect(aceOutlivesLineup(SPRINT, true)).toBe(true);
   });
 
-  it('is false on a normal weekend, where the two coincide on the server', () => {
-    // Measured against the server's roster lock (qualifying), not the portal's displayed one
-    // (FP3) — those two have disagreed since before this change. Against the enforced lock the
-    // ace freezes at the same moment, so there is nothing extra to say.
+  it('is false on a normal weekend, where the lineup lock and the ace freeze are one moment', () => {
     expect(aceOutlivesLineup(NORMAL, false)).toBe(false);
-    // the discrepancy itself, pinned so it is visible rather than folklore: the header tells
-    // players FP3 while the server locks at qualifying, 3.5 hours later
-    expect(lockTime(NORMAL, false)?.toISOString()).toBe('2026-10-03T07:30:00.000Z');
+    // Both are qualifying. They differed while the portal displayed FP3 (F-103) — fixed, so this
+    // now pins the agreement rather than the discrepancy, and `aceOutlivesLineup` can go back to
+    // the exported lockTime instead of a private copy of the server's rule.
+    expect(lockTime(NORMAL, false)?.toISOString()).toBe('2026-10-03T11:00:00.000Z');
     expect(aceFreezeTime(NORMAL, false)?.toISOString()).toBe('2026-10-03T11:00:00.000Z');
   });
 

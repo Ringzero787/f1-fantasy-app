@@ -64,12 +64,58 @@ export const autoLockTeams = functions.pubsub
       .where('status', '==', 'upcoming')
       .get();
 
-    const dueRaces = racesSnapshot.docs.filter((doc) => {
-      const lockAt = effectiveLockTime(doc.data());
-      if (!lockAt) return false;
-      const ms = lockAt.toMillis();
-      return ms > nowMs && ms <= oneHourFromNowMs;
-    });
+    // F-103. Two changes here, and the second only exists because of the first.
+    //
+    // `ms > nowMs` is gone, so a lock time already past is still caught: one missed sweep inside
+    // the old one-hour window — a function error, a cold outage, a schedule published after its
+    // own deadline — used to drop the race for ever, leaving the weekend unstamped and the ace
+    // rules failing open through the race.
+    //
+    // But dropping that bound also dropped the guarantee that at most one race is ever due, and
+    // the loop below stamps the ace window on EVERY team once per due race, last write winning.
+    // A race can sit at `upcoming` indefinitely (checkResults returns early when OpenF1 has no
+    // session, and scheduleMonitor's auto-cancel only fires in a narrow window), so a stale doc
+    // sharing a sweep with the live weekend would either overwrite the live ace window with past
+    // timestamps — the F-098 hole, reopened — or stamp nextUnlockTime in the past and have
+    // autoUnlockTeams free every roster half an hour later. So:
+    //
+    //  • a weekend already over is not ours to lock. It should be completed or cancelled, and
+    //    either way locking it now can only corrupt the live one.
+    //  • no `schedule.race`, no lock: the writes below dereference it, and a throw here leaves
+    //    the doc at `upcoming` to poison every later sweep.
+    //  • earliest first, one per run. Sweeps run every fifteen minutes and rounds are a week
+    //    apart, so this still catches up — it just cannot collide.
+    const dueRaces = racesSnapshot.docs
+      .filter((doc) => {
+        const race = doc.data();
+        // A hand-repaired or half-synced document can hold a string where a Timestamp belongs
+        // (scheduleMonitor guards the same shape), and an unguarded .toMillis() here throws
+        // before the `status: 'in_progress'` write — leaving the doc at `upcoming` so every
+        // later sweep throws on it again and no race after it in iteration order ever locks.
+        const lockMs = effectiveLockTime(race)?.toMillis?.();
+        if (typeof lockMs !== 'number') {
+          console.error('Skipping race %s: its lock time is not a timestamp (%s)', doc.id, typeof effectiveLockTime(race));
+          return false;
+        }
+        // Both the unlock ceiling and the ace window are derived from the race start, so a
+        // document without a usable one cannot be stamped at all — and guessing a ceiling for a
+        // corrupt schedule is worse than declining to. This is the one place F-103 fails OPEN:
+        // such a weekend never locks. It is logged at error level because the fix is to repair
+        // the document, not to make the sweep cleverer, and it is in the spec's open list.
+        const raceAt = race.schedule?.race?.toMillis?.();
+        if (typeof raceAt !== 'number') {
+          console.error('NOT LOCKING race %s: no usable schedule.race, so no unlock ceiling and no ace window can be derived. Repair the document.', doc.id);
+          return false;
+        }
+        if (nowMs - raceAt > WEEKEND_WINDOW_MS) {
+          console.warn('Skipping race %s: its weekend ended %dh ago and it is still `upcoming`',
+            doc.id, Math.round((nowMs - raceAt) / 3600000));
+          return false;
+        }
+        return lockMs <= oneHourFromNowMs;
+      })
+      .sort((a, b) => (effectiveLockTime(a.data())?.toMillis?.() ?? 0) - (effectiveLockTime(b.data())?.toMillis?.() ?? 0))
+      .slice(0, 1);
 
     if (dueRaces.length === 0) {
       console.log('No races locking soon');
@@ -100,7 +146,17 @@ export const autoLockTeams = functions.pubsub
         teamsSnapshot.docs.map((d) => d.data().leagueId).filter(Boolean)
       )] as string[];
 
-      const leagueRefs = leagueIds.map((id) => db.collection('leagues').doc(id));
+      // `doc(id)` THROWS synchronously on an id containing a slash, and the fantasyTeams create
+      // rule does not constrain `leagueId` — so one team created with `leagueId: "a/b"` would
+      // reject every sweep from here on: no lock, no ace freeze, for every player, until someone
+      // found the document. Filtering is not the real fix (the create rule is, and that is its
+      // own change) but it stops a single bad row disabling the control this file exists to be.
+      const validLeagueIds = leagueIds.filter((id) => {
+        const ok = typeof id === 'string' && id.length > 0 && !id.includes('/');
+        if (!ok) console.error('Ignoring unusable leagueId on a team: %j', id);
+        return ok;
+      });
+      const leagueRefs = validLeagueIds.map((id) => db.collection('leagues').doc(id));
       const leagueDocs = leagueRefs.length > 0 ? await db.getAll(...leagueRefs) : [];
 
       // Build lookup map
@@ -127,6 +183,13 @@ export const autoLockTeams = functions.pubsub
       // designed feature, and it should open when qualifying has actually been scored
       // rather than at a time we guessed. `scoredRaces` is a denied key, so the client
       // cannot claim it early.
+      // The cancelled-race ceiling, kept beside the ace window because both are derived from the
+      // race start and both have to be reapplied to a team an earlier sweep already locked.
+      const unlockFailsafe = {
+        'lockStatus.nextUnlockTime': admin.firestore.Timestamp.fromMillis(
+          race.schedule.race.toMillis() + UNLOCK_FAILSAFE_MS
+        ),
+      };
       const aceWindow = {
         'lockStatus.aceFreezeFrom': aceFreezeStart(race) ?? race.schedule.race,
         'lockStatus.aceLockTime': race.schedule.race,
@@ -187,7 +250,13 @@ export const autoLockTeams = functions.pubsub
           // Stamping it gives firestore.rules something tamper-proof to compare
           // request.time against (lockStatus is a denied key, so a client cannot move
           // its own deadline), and it is exact rather than rounded up to the next sweep.
-          batch.update(teamDoc.ref, alreadyLocked ? aceWindow : {
+          // An already-locked team gets the ace window AND its unlock pushed out. Without the
+          // second half, a team locked on an earlier sweep keeps that sweep's nextUnlockTime —
+          // and if the earlier race was a stale `upcoming` doc, race + 24h is already in the
+          // past, so autoUnlockTeams frees every roster inside half an hour, mid-weekend, with
+          // nothing to re-lock them because the live race is now `in_progress`. One race per
+          // sweep stopped the two colliding; this stops them handing off a dead deadline.
+          batch.update(teamDoc.ref, alreadyLocked ? { ...aceWindow, ...unlockFailsafe } : {
             isLocked: true,
             'lockStatus.canModify': false,
             'lockStatus.lockReason': `Locked for ${race.name} ${lockSessionLabel(race)}`,

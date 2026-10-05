@@ -12,6 +12,14 @@ export const DISCLAIMER = 'Unofficial. Not affiliated with any racing series, te
 /** Sticky context bar: round, session state, lock countdown, the user's team and bank. It drives every page. */
 export function ContextBar({ page, account, onSignOut }: { page: PageName; account: Account | null; onSignOut?: () => void }) {
   const { payload: p, ui, go } = useStore();
+  // F-103: both deadlines below are compared against the clock, and nothing else in this bar
+  // re-renders on its own — so an idle tab would have sat on "Locks in 00h 01m" straight past
+  // the lock. Thirty seconds is finer than the smallest unit either line shows.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
   const round = account?.roundLabel ?? `RD ${p.round.number} · ${p.round.name.toUpperCase()}`;
   return (
     <header className="ctx">
@@ -24,7 +32,17 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
         </div>
       </div>
       <div className="ctxrow">
-        <div className="grp"><span>{round}</span><span className="mut only-wide">{account?.firstSession ?? p.round.firstSession}</span>{(() => { const l = account?.locksIn ?? p.round.locksIn; return <span className="red">{l === 'LOCKED' ? 'Lineups locked' : `Locks in ${l}`}</span>; })()}
+        <div className="grp"><span>{round}</span><span className="mut only-wide">{account?.firstSession ?? p.round.firstSession}</span>{(() => {
+            // F-103: two signals, because neither alone is enough. `lineupLocked` is the team's
+            // own isLocked, which the sweep stamps up to an hour BEFORE qualifying — but it is
+            // read once at sign-in, so a session already open when the sweep runs never sees it.
+            // The deadline is therefore also checked against the clock at render time, the way
+            // the ace line is. Earliest of the two wins; both fail towards "locked".
+            const l = account?.locksIn ?? p.round.locksIn;
+            const past = account?.locksAtMs != null && Date.now() >= account.locksAtMs;
+            const shut = account?.lineupLocked === true || past || l === 'LOCKED';
+            return <span className="red">{shut ? 'Lineups locked' : `Locks in ${l}`}</span>;
+          })()}
           {/* F-098/F-102: on a sprint weekend the lineup locks on Friday and the ace survives
               until Saturday's sprint, so "Lineups locked" on its own reads as though everything is
               settled. aceFreezeLine returns null once the moment has passed and on any weekend

@@ -1,9 +1,14 @@
 /**
  * Lockout utility - pure functions for race weekend team lockout logic.
  *
- * Teams lock at FP3 (normal weekend) or Sprint Qualifying (sprint weekend)
- * and unlock when the race is marked complete.
- * Ace selection locks at race start time.
+ * Teams lock at the first session whose outcome scores — Sprint Qualifying on a
+ * sprint weekend, Qualifying otherwise — and unlock when the race is marked
+ * complete. The ace holds longer; see `serverAceLocked` below and F-098.
+ *
+ * This used to say FP3 for a normal weekend (F-103). Nothing scores at FP3, and
+ * the server has always locked at Qualifying (`effectiveLockTime` in
+ * functions/src/utils/lockTime.ts), so the app was refusing edits for three and
+ * a half hours that Firestore would have accepted.
  */
 
 import type { Race, RaceSchedule } from '../types';
@@ -45,19 +50,22 @@ export function getNextIncompleteRace(
 }
 
 /**
- * Determine the lockout time for a race:
- * - Sprint weekend → sprintQualifying time
- * - Normal weekend → fp3 time
+ * When team edits lock — the first session whose outcome scores to rosters.
+ *
+ * Mirrors `effectiveLockTime` in functions/src/utils/lockTime.ts, which is the one actually
+ * enforced: `autoLockTeams` reads it to set `isLocked`, and the rules and team callables gate on
+ * that. Sprint weekends lock at Sprint Qualifying because the sprint that follows it scores;
+ * normal weekends lock at Qualifying, which scores in its own right. FP3 scores nothing, so
+ * locking there only took time away from players.
  */
 export function getLockoutTime(race: Race): Date | null {
   if (race.hasSprint && race.schedule.sprintQualifying) {
     return new Date(race.schedule.sprintQualifying);
   }
-  if (race.schedule.fp3) {
-    return new Date(race.schedule.fp3);
-  }
-  // Fallback: qualifying time
-  return new Date(race.schedule.qualifying);
+  // The race is the last resort, matching the server: a schedule missing its qualifying time
+  // must still produce a deadline, because no deadline means no lock at all.
+  const last = race.schedule.qualifying ?? race.schedule.race;
+  return last ? new Date(last) : null;
 }
 
 /**

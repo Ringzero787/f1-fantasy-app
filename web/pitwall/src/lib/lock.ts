@@ -1,8 +1,15 @@
-/** Lineups lock at the last session before points are at stake: FP3, or sprint qualifying on a sprint weekend. */
+/**
+ * Lineups lock at the first session whose outcome scores: sprint qualifying on a sprint weekend,
+ * qualifying otherwise. Mirrors `effectiveLockTime` in functions/src/utils/lockTime.ts, which is
+ * what `autoLockTeams` enforces. It said FP3 for a normal weekend until F-103, three and a half
+ * hours before the server actually locked anything.
+ */
 export interface RaceSchedule { fp1?: Date; fp2?: Date; fp3?: Date; sprintQualifying?: Date; sprint?: Date; qualifying?: Date; race?: Date }
 
 export function lockTime(s: RaceSchedule, hasSprint: boolean): Date | null {
-  return (hasSprint ? s.sprintQualifying ?? s.qualifying : s.fp3 ?? s.qualifying) ?? null;
+  // `?? s.race` last: a schedule missing its qualifying time must still show a deadline, for the
+  // same reason the server falls back there — no deadline means nothing ever locks.
+  return (hasSprint ? s.sprintQualifying ?? s.qualifying : s.qualifying) ?? s.race ?? null;
 }
 
 /**
@@ -24,24 +31,13 @@ export function aceFreezeTime(s: RaceSchedule, hasSprint: boolean): Date | null 
 }
 
 /**
- * The roster lock the SERVER applies: `effectiveLockTime` in functions/src/utils/lockTime.ts.
- *
- * Deliberately not `lockTime` above, which says FP3 on a normal weekend where the server says
- * qualifying — the two have disagreed since before this change, and the ace line must be measured
- * against the lock that is actually enforced rather than the one the header happens to display.
- */
-function serverLockTime(s: RaceSchedule, hasSprint: boolean): Date | null {
-  return (hasSprint ? s.sprintQualifying ?? s.qualifying : s.qualifying) ?? null;
-}
-
-/**
  * True only when the ace outlives the roster lock by enough to be worth saying. On a normal
  * weekend the server locks the roster at qualifying and the ace freezes at the same moment, so
  * there is nothing to tell anyone; on a sprint weekend the roster goes at sprint qualifying on
  * Friday and the ace survives until Saturday's sprint.
  */
 export function aceOutlivesLineup(s: RaceSchedule, hasSprint: boolean): boolean {
-  const lock = serverLockTime(s, hasSprint), ace = aceFreezeTime(s, hasSprint);
+  const lock = lockTime(s, hasSprint), ace = aceFreezeTime(s, hasSprint);
   return !!lock && !!ace && ace.getTime() > lock.getTime();
 }
 
