@@ -1190,7 +1190,7 @@ features:
       - weekend
   - id: F-103
     name: "UC: the lineup lock the clients show is the one the server enforces"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-103.md
     created_at: 2026-10-05
     keywords:
