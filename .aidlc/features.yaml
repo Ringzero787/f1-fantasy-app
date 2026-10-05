@@ -1158,9 +1158,7 @@ features:
       - type
   - id: F-101
     name: "UC: the app's metadata sync no longer overwrites a newer server copy"
-    summary: "Bug: the 60-second periodic sync and the rehydrate sync push each team's local name, ace and league to
-      Firestore with a fresh timestamp, so a rename made on the Pit Wall portal (F-100) or another device is reverted
-      within a minute; syncTeam now reads the server copy first and skips the write when it is newer than the local one"
+    summary: "Bug: the 60-second periodic sync and the rehydrate sync pushed every team's local name, ace and league to\n      Firestore with a fresh timestamp, so a rename made on the Pit Wall portal (F-100) or another device was reverted\n      within a minute; the sync now writes only the metadata keys this device marked dirty, nothing when there are\n      none, and pending keys survive a reload"
     status: building
     prs:
       - 170

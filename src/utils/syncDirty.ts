@@ -27,8 +27,26 @@ export function dirtyMetadataKeys(team: Pick<FantasyTeam, 'dirtyKeys'>): Metadat
   return METADATA_SYNC_KEYS.filter((k) => dirty.has(k));
 }
 
-/** The team with `pushed` keys no longer pending. */
-export function clearDirty<T extends Pick<FantasyTeam, 'dirtyKeys'>>(team: T, pushed: readonly string[]): T {
-  const left = (team.dirtyKeys ?? []).filter((k) => !pushed.includes(k));
+/**
+ * The team with `pushed` keys no longer pending — but only where the value held now is the value
+ * that was pushed. An edit made while that push was in flight keeps its key, so the next sync
+ * carries it; clearing by name alone dropped a league detach made during a slow sync.
+ */
+export function clearDirty<T extends Pick<FantasyTeam, 'dirtyKeys'>>(team: T, pushed: readonly string[], pushedValues?: Record<string, unknown>): T {
+  const now = team as unknown as Record<string, unknown>;
+  const left = (team.dirtyKeys ?? []).filter((k) => !(pushed.includes(k) && (!pushedValues || (now[k] ?? null) === (pushedValues[k] ?? null))));
   return { ...team, dirtyKeys: left.length ? left : undefined };
+}
+
+/**
+ * A server copy adopted over a local one keeps the local values of keys still pending here, and
+ * the keys themselves, so an edit waiting for its push is not lost when the team reloads.
+ */
+export function adoptServer<T extends Pick<FantasyTeam, 'dirtyKeys'>>(local: T, server: T): T {
+  const keys = dirtyMetadataKeys(local);
+  if (keys.length === 0) return server;
+  const out = { ...server } as unknown as Record<string, unknown>;
+  const mine = local as unknown as Record<string, unknown>;
+  for (const k of keys) out[k] = mine[k];
+  return { ...(out as unknown as T), dirtyKeys: [...keys] };
 }

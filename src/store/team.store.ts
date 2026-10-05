@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { clearDirty, markDirty } from '../utils/syncDirty';
+import { adoptServer, clearDirty, markDirty } from '../utils/syncDirty';
 import type { FantasyTeam, FantasyDriver, FantasyConstructor, Driver, Constructor, TeamSelectionState, LockStatus } from '../types';
 import { teamService } from '../services/team.service';
 import { useAuthStore } from './auth.store';
@@ -337,13 +337,16 @@ function validateTeamSelectionLocal(
 }
 
 // After a push, the keys it carried are no longer pending on that team (F-101).
-const forgetPushed = (results: Array<{ id: string; pushed: string[] }>) => {
+// `snapshots` are the teams as they were pushed: a key is forgotten only where the store still
+// holds the pushed value, so an edit made during the push stays pending.
+const forgetPushed = (results: Array<{ id: string; pushed: string[] }>, snapshots: FantasyTeam[]) => {
   const { userTeams, currentTeam } = useTeamStore.getState();
   const byId = new Map(results.filter((r) => r.pushed.length).map((r) => [r.id, r.pushed]));
   if (byId.size === 0) return;
+  const values = (id: string) => snapshots.find((t) => t.id === id) as unknown as Record<string, unknown> | undefined;
   useTeamStore.setState({
-    userTeams: userTeams.map((t) => (byId.has(t.id) ? clearDirty(t, byId.get(t.id)!) : t)),
-    currentTeam: currentTeam && byId.has(currentTeam.id) ? clearDirty(currentTeam, byId.get(currentTeam.id)!) : currentTeam,
+    userTeams: userTeams.map((t) => (byId.has(t.id) ? clearDirty(t, byId.get(t.id)!, values(t.id)) : t)),
+    currentTeam: currentTeam && byId.has(currentTeam.id) ? clearDirty(currentTeam, byId.get(currentTeam.id)!, values(currentTeam.id)) : currentTeam,
   });
 };
 
@@ -353,7 +356,7 @@ const syncTeamToFirebase = (team: FantasyTeam, context: string) => {
   if (isDemoMode) return;
 
   teamService.syncTeam(team).then((r) => {
-    forgetPushed([{ id: team.id, ...r }]);
+    forgetPushed([{ id: team.id, ...r }], [team]);
     useTeamStore.setState({ lastSyncTime: Date.now() });
     console.log(`${context}: Firebase sync successful`);
   }).catch((firebaseError) => {
@@ -384,9 +387,11 @@ const refreshTeamFromServer = async (
   set: (state: Partial<TeamState>) => void,
   teamId: string,
 ): Promise<void> => {
-  const fresh = await teamService.getTeamById(teamId);
-  if (!fresh) return;
+  const fetched = await teamService.getTeamById(teamId);
+  if (!fetched) return;
   const { userTeams, currentTeam } = get();
+  const local = userTeams.find(t => t.id === teamId) ?? (currentTeam?.id === teamId ? currentTeam : undefined);
+  const fresh = local ? adoptServer(local, fetched) : fetched;
   const updatedUserTeams = userTeams.map(t => (t.id === teamId ? fresh : t));
   set({
     userTeams: updatedUserTeams,
@@ -421,7 +426,7 @@ export const useTeamStore = create<TeamState>()(
 
     set({ isSyncing: true });
     try {
-      forgetPushed(await teamService.syncTeams(userTeams));
+      forgetPushed(await teamService.syncTeams(userTeams), userTeams);
       set({ lastSyncTime: Date.now(), isSyncing: false });
       console.log('syncToFirebase: Sync successful at', new Date().toISOString());
     } catch (error) {
@@ -442,7 +447,7 @@ export const useTeamStore = create<TeamState>()(
     if (!currentTeam) return;
 
     try {
-      forgetPushed([{ id: currentTeam.id, ...(await teamService.syncTeam(currentTeam)) }]);
+      forgetPushed([{ id: currentTeam.id, ...(await teamService.syncTeam(currentTeam)) }], [currentTeam]);
       console.log('fullSyncToFirebase: metadata sync for', currentTeam.name);
     } catch (error) {
       errorLogService.logError('fullSyncToFirebase', error);
@@ -663,7 +668,8 @@ export const useTeamStore = create<TeamState>()(
             // reinstalls, which is how budgets diverged permanently.)
             const mergedLocal = currentLocal.map(localTeam => {
               const fbTeam = firebaseTeams.find(t => t.id === localTeam.id);
-              return fbTeam ?? localTeam;
+              // a key edited here and not yet pushed keeps its local value and stays pending (F-101)
+              return fbTeam ? adoptServer(localTeam, fbTeam) : localTeam;
             });
 
             if (newFromFirebase.length > 0) {
@@ -692,7 +698,7 @@ export const useTeamStore = create<TeamState>()(
           const { userTeams: latestLocal } = get();
           if (latestLocal.length > 0) {
             teamService.syncTeams(latestLocal).then((results) => {
-              forgetPushed(results);
+              forgetPushed(results, latestLocal);
               set({ lastSyncTime: Date.now() });
               console.log('loadUserTeams: Firebase sync successful');
             }).catch((firebaseError) => {
@@ -1695,8 +1701,8 @@ export const useTeamStore = create<TeamState>()(
         return;
       }
 
-      const updatedTeam = await teamService.updateTeamName(currentTeam.id, name.trim());
-      updateTeamAndSync(get, set, updatedTeam, { isLoading: false });
+      const renamed = await teamService.updateTeamName(currentTeam.id, name.trim());
+      updateTeamAndSync(get, set, adoptServer(get().currentTeam ?? currentTeam, renamed), { isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update team name';
       set({ error: message, isLoading: false });
