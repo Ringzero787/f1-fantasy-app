@@ -14,7 +14,7 @@
 // for the length of a sprint.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { aceFreezeStart, effectiveLockTime } = require('../lib/utils/lockTime.js');
+const { aceFreezeStart, effectiveLockTime, lockSessionLabel } = require('../lib/utils/lockTime.js');
 
 /** A Firestore Timestamp is only ever read through toMillis() here. */
 const ts = (iso) => ({ toMillis: () => Date.parse(iso), iso });
@@ -106,4 +106,15 @@ test('effectiveLockTime falls back to the race rather than to nothing (F-103)', 
 
   // and with nothing to go on, nothing — there is no deadline to invent
   assert.equal(effectiveLockTime({ schedule: {} }), null);
+});
+
+test('lockSessionLabel names the session the lock actually came from (F-103)', () => {
+  // A lockReason reading "Locked for X qualifying" when the deadline was really the race start
+  // is a message nobody can reconcile with the countdown they were shown.
+  assert.equal(lockSessionLabel(SPRINT_WEEKEND), 'sprint qualifying');
+  assert.equal(lockSessionLabel(NORMAL_WEEKEND), 'qualifying');
+  assert.equal(lockSessionLabel({ schedule: { fp3: ts('2026-10-03T07:30:00Z'), race: ts('2026-10-04T09:00:00Z') } }), 'race start');
+  assert.equal(lockSessionLabel({ schedule: {} }), 'the weekend');
+  // a sprint round whose sprint qualifying has not synced locks at qualifying, and says so
+  assert.equal(lockSessionLabel({ hasSprint: true, schedule: { qualifying: ts('2026-10-10T13:00:00Z') } }), 'qualifying');
 });

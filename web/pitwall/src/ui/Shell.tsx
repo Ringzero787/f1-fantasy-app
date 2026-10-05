@@ -25,11 +25,14 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
       </div>
       <div className="ctxrow">
         <div className="grp"><span>{round}</span><span className="mut only-wide">{account?.firstSession ?? p.round.firstSession}</span>{(() => {
-            // F-103: the team's own flag wins over the countdown. The lock sweep stamps isLocked
-            // up to an hour before qualifying, so a countdown alone goes on promising a window
-            // the callables have already closed.
+            // F-103: two signals, because neither alone is enough. `lineupLocked` is the team's
+            // own isLocked, which the sweep stamps up to an hour BEFORE qualifying — but it is
+            // read once at sign-in, so a session already open when the sweep runs never sees it.
+            // The deadline is therefore also checked against the clock at render time, the way
+            // the ace line is. Earliest of the two wins; both fail towards "locked".
             const l = account?.locksIn ?? p.round.locksIn;
-            const shut = account?.lineupLocked === true || l === 'LOCKED';
+            const past = account?.locksAtMs != null && Date.now() >= account.locksAtMs;
+            const shut = account?.lineupLocked === true || past || l === 'LOCKED';
             return <span className="red">{shut ? 'Lineups locked' : `Locks in ${l}`}</span>;
           })()}
           {/* F-098/F-102: on a sprint weekend the lineup locks on Friday and the ace survives

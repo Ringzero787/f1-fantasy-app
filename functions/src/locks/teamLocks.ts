@@ -64,11 +64,17 @@ export const autoLockTeams = functions.pubsub
       .where('status', '==', 'upcoming')
       .get();
 
+    // F-103: `ms > nowMs` used to be part of this, so a lock time that had already passed
+    // dropped the race out for ever — one missed sweep inside the one-hour window (a function
+    // error, a cold outage, or a schedule that only published after the deadline) and the race
+    // was never locked at all: no isLocked, no canModify, no ace window, with the rules then
+    // failing open through the race. Late is the right answer when the deadline has gone; the
+    // `status == 'upcoming'` query above is what stops this re-locking a weekend already run,
+    // since autoLockTeams moves the race to in_progress as it locks it.
     const dueRaces = racesSnapshot.docs.filter((doc) => {
       const lockAt = effectiveLockTime(doc.data());
       if (!lockAt) return false;
-      const ms = lockAt.toMillis();
-      return ms > nowMs && ms <= oneHourFromNowMs;
+      return lockAt.toMillis() <= oneHourFromNowMs;
     });
 
     if (dueRaces.length === 0) {

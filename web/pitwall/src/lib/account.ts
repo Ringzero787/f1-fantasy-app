@@ -22,10 +22,16 @@ export interface Account {
    * `aceFreezeLine` derives the words at render time instead (F-102).
    */
   aceFreezesAtMs: number | null;
+  /**
+   * F-103: when the lineup locks, epoch ms, for the same reason — `locksIn` below is a string
+   * computed once at sign-in, so a tab open across the deadline would count down past it for
+   * ever. The header takes the later of this and `lineupLocked`.
+   */
+  locksAtMs: number | null;
   /** the name the app shows for this person (users document), null when there is none */
   displayName: string | null;
 }
-export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null, aceFreezesAtMs: null, lineupLocked: false, displayName: null };
+export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null, aceFreezesAtMs: null, locksAtMs: null, lineupLocked: false, displayName: null };
 
 const toDate = (v: unknown): Date | undefined => (v && typeof (v as { toDate?: () => Date }).toDate === 'function' ? (v as { toDate: () => Date }).toDate() : undefined);
 
@@ -64,7 +70,9 @@ export async function loadAccount(uid: string): Promise<Account> {
     out.roundLabel = `RD ${race.round} · ${String(race.city ?? race.country ?? race.name ?? '').toUpperCase()}`;
     out.firstSession = nextSession(schedule, new Date());
     const hasSprint = race.hasSprint === true;
-    out.locksIn = countdown(new Date(), lockTime(schedule, hasSprint));
+    const locksAt = lockTime(schedule, hasSprint);
+    out.locksAtMs = locksAt ? locksAt.getTime() : null;
+    out.locksIn = countdown(new Date(), locksAt);
     // Only worth a line when the ace genuinely outlives the lineup — see Account.aceFreezesAtMs.
     if (aceOutlivesLineup(schedule, hasSprint)) {
       const at = aceFreezeTime(schedule, hasSprint);

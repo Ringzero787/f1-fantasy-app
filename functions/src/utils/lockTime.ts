@@ -10,13 +10,20 @@ import * as admin from 'firebase-admin';
  * weekend's sprintQualifying time hasn't been synced yet, and to the race
  * itself when even that is missing.
  *
- * That last fallback exists so the stack fails CLOSED (F-103). Returning null
- * drops the race out of `autoLockTeams`'s `dueRaces` filter, so nothing is ever
- * stamped: no `isLocked`, no `canModify`, no ace window — while
- * `checkQualifyingResults` scores qualifying off OpenF1 session keys without
- * consulting this document at all. A partially synced schedule would then let a
- * player watch qualifying and re-pick before the scorer ran. Locking at the
- * race is late, but it is a deadline; null is not. `aceFreezeStart` below has
+ * That last fallback exists so the stack fails LATE rather than not at all
+ * (F-103). Returning null drops the race out of `autoLockTeams`'s `dueRaces`
+ * filter, so nothing is ever stamped: no `isLocked`, no `canModify`, no ace
+ * window — while `checkQualifyingResults` scores qualifying off OpenF1 session
+ * keys without consulting this document at all. A partially synced schedule
+ * would then let a player watch qualifying and re-pick with no deadline ever
+ * arriving.
+ *
+ * **It narrows that window, it does not close it.** On this path the lock lands
+ * shortly before lights out, which is hours after qualifying has run, so the
+ * re-pick is still possible in between — just bounded. The real fix is for the
+ * schedule to carry a qualifying time; this is the floor under that. An earlier
+ * version of this comment said "fails CLOSED", which was not true and is the
+ * sort of claim that stops the next person looking. `aceFreezeStart` below has
  * always ended its chain at the race for the same reason.
  */
 export function effectiveLockTime(
@@ -28,11 +35,16 @@ export function effectiveLockTime(
   return race.schedule?.qualifying ?? race.schedule?.race ?? null;
 }
 
-/** Human label for the session that locks the weekend (for messages). */
+/**
+ * Human label for the session that locks the weekend (for messages). It has to agree with
+ * `effectiveLockTime` above, including that function's last-resort fallback — a lockReason
+ * reading "Locked for X qualifying" when the lock actually came from the race start would be a
+ * message nobody could reconcile with the countdown they were shown (F-103).
+ */
 export function lockSessionLabel(race: FirebaseFirestore.DocumentData): string {
-  return race.hasSprint && race.schedule?.sprintQualifying
-    ? 'sprint qualifying'
-    : 'qualifying';
+  if (race.hasSprint && race.schedule?.sprintQualifying) return 'sprint qualifying';
+  if (race.schedule?.qualifying) return 'qualifying';
+  return race.schedule?.race ? 'race start' : 'the weekend';
 }
 
 /**
