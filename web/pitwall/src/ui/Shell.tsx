@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { bank, money, projectedLineup } from '../data/logic';
 import type { Account } from '../lib/account';
-import { asOfLabel, isStale } from '../lib/lock';
+import { aceFreezeLine, asOfLabel, isStale } from '../lib/lock';
 import { PAGES, type PageName } from '../lib/router';
 import { toggleTheme } from '../lib/theme';
 import { useStore } from '../state';
@@ -25,13 +25,16 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
       </div>
       <div className="ctxrow">
         <div className="grp"><span>{round}</span><span className="mut only-wide">{account?.firstSession ?? p.round.firstSession}</span>{(() => { const l = account?.locksIn ?? p.round.locksIn; return <span className="red">{l === 'LOCKED' ? 'Lineups locked' : `Locks in ${l}`}</span>; })()}
-          {/* F-098: on a sprint weekend the lineup locks on Friday and the ace survives until the
-              sprint, so "Lineups locked" on its own reads as though everything is settled. Shown
-              only while that moment is still ahead, and only when it is later than the lineup lock
-              — on a normal weekend the two coincide and this would just repeat the line beside it. */}
-          {account?.aceFreezesIn && account.aceFreezesIn !== 'LOCKED'
-            ? <span className="warn" title={`Three sessions score with the Ace applied. It freezes when the first of them begins — the sprint, on a sprint weekend — and moves again once qualifying has been scored. ${account.aceFreezesAt ? `This weekend that is ${account.aceFreezesAt}.` : ''}`}>Ace freezes in {account.aceFreezesIn}<span className="only-wide">{account.aceFreezesAt ? ` · ${account.aceFreezesAt}` : ''}</span></span>
-            : null}</div>
+          {/* F-098/F-102: on a sprint weekend the lineup locks on Friday and the ace survives
+              until Saturday's sprint, so "Lineups locked" on its own reads as though everything is
+              settled. aceFreezeLine returns null once the moment has passed and on any weekend
+              where the ace and the roster lock coincide, so this is sprint-weekends-only without
+              asking the question here. The moment is NOT hidden on a narrow screen — it is the
+              part worth reading, and the hover explanation is unreachable on touch. */}
+          {(() => {
+            const a = aceFreezeLine(account?.aceFreezesAtMs ?? null, new Date());
+            return a ? <span className="warn" title={`Three sessions score with the Ace applied — the sprint, qualifying and the race. It freezes when the first of them begins, and moves again once the sprint and qualifying have both been scored. This weekend that is ${a.at}.`}>Ace freezes {a.at} <span className="mut">· in {a.in}</span></span> : null;
+          })()}</div>
         <div className="grp">
           <span className="mut">Team</span><span>{account?.teamName ?? (account ? 'No team yet' : 'Late Brakers')}</span>
           <span className="mut">Bank</span><span className="num">{account ? (account.bank === null ? '—' : money(account.bank)) : money(bank(p, ui.lineup))}</span>

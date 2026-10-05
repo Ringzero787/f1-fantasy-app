@@ -1,20 +1,23 @@
 /** The signed-in user's real team and the next round, read from the same documents the app reads. */
 import { firestore } from './firebase';
-import { aceFreezeTime, aceOutlivesLineup, countdown, lockTime, nextSession, sessionMoment, type RaceSchedule } from './lock';
+import { aceFreezeTime, aceOutlivesLineup, countdown, lockTime, nextSession, type RaceSchedule } from './lock';
 
 export interface Account {
   teamName: string | null; bank: number | null; leagueName: string | null; roundLabel: string | null;
   firstSession: string | null; locksIn: string | null;
   /**
-   * F-098: when the ace stops moving, and how long that is away — but only on a weekend where
-   * that is later than the lineup lock, which in practice means a sprint weekend. Null the rest
-   * of the time, because on a normal weekend the two coincide and `locksIn` has already said it.
+   * F-098: when the ace stops moving, as epoch ms — but only on a weekend where that is later
+   * than the roster lock, which in practice means a sprint weekend. Null the rest of the time,
+   * because on a normal weekend the two coincide and `locksIn` has already said it.
+   *
+   * A moment rather than a formatted countdown on purpose: this loads once and never ticks, so
+   * `aceFreezeLine` derives the words at render time instead (F-102).
    */
-  aceFreezesAt: string | null; aceFreezesIn: string | null;
+  aceFreezesAtMs: number | null;
   /** the name the app shows for this person (users document), null when there is none */
   displayName: string | null;
 }
-export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null, aceFreezesAt: null, aceFreezesIn: null, displayName: null };
+export const EMPTY_ACCOUNT: Account = { teamName: null, bank: null, leagueName: null, roundLabel: null, firstSession: null, locksIn: null, aceFreezesAtMs: null, displayName: null };
 
 const toDate = (v: unknown): Date | undefined => (v && typeof (v as { toDate?: () => Date }).toDate === 'function' ? (v as { toDate: () => Date }).toDate() : undefined);
 
@@ -56,8 +59,7 @@ export async function loadAccount(uid: string): Promise<Account> {
     // Only worth a line when the ace genuinely outlives the lineup — see Account.aceFreezesAt.
     if (aceOutlivesLineup(schedule, hasSprint)) {
       const at = aceFreezeTime(schedule, hasSprint);
-      out.aceFreezesAt = sessionMoment(at);
-      out.aceFreezesIn = countdown(new Date(), at);
+      out.aceFreezesAtMs = at ? at.getTime() : null;
     }
   }
   return out;

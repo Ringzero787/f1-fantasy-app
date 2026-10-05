@@ -50,6 +50,24 @@ export function sessionMoment(at: Date | null): string | null {
   return at ? `${DAYS[at.getUTCDay()]} ${dayMonth(at)} ${hhmm(at)} UTC` : null;
 }
 
+/**
+ * What the ace line says, or null when there is nothing to say — evaluated at RENDER time, not
+ * when the account loaded.
+ *
+ * `loadAccount` runs once per sign-in and nothing ticks, so a countdown baked into it is a
+ * snapshot that quietly ages: leave the tab open past the sprint and a stale string would still be
+ * promising a window that has shut. Taking the moment as epoch ms and deriving both halves here
+ * means the line is right whenever anything re-renders, and disappears on its own once the freeze
+ * has passed.
+ */
+export function aceFreezeLine(atMs: number | null, now: Date): { in: string; at: string } | null {
+  if (atMs === null || !Number.isFinite(atMs)) return null;
+  const at = new Date(atMs);
+  if (at.getTime() <= now.getTime()) return null;
+  const moment = sessionMoment(at);
+  return moment ? { in: countdown(now, at), at: moment } : null;
+}
+
 /** "6d 04h", "3h 12m", "LOCKED". */
 export function countdown(now: Date, at: Date | null): string {
   if (!at) return '—';
