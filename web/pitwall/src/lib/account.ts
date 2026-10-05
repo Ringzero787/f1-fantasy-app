@@ -56,7 +56,7 @@ export async function loadAccount(uid: string): Promise<Account> {
     out.firstSession = nextSession(schedule, new Date());
     const hasSprint = race.hasSprint === true;
     out.locksIn = countdown(new Date(), lockTime(schedule, hasSprint));
-    // Only worth a line when the ace genuinely outlives the lineup — see Account.aceFreezesAt.
+    // Only worth a line when the ace genuinely outlives the lineup — see Account.aceFreezesAtMs.
     if (aceOutlivesLineup(schedule, hasSprint)) {
       const at = aceFreezeTime(schedule, hasSprint);
       out.aceFreezesAtMs = at ? at.getTime() : null;
