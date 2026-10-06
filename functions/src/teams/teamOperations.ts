@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { projectTeam } from './projectTeam';
+import { isUsableLeagueId } from '../utils/leagueId';
 
 const db = admin.firestore();
 
@@ -97,6 +98,14 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
   }
 
   const { name, leagueId } = data;
+
+  // F-104: the rules cannot help here — this writes with the Admin SDK, so `usableLeagueId` in
+  // firestore.rules never runs. Without this the callable is a way straight back to the hole the
+  // rule closes: `doc(leagueId)` throws on a slash, which rejects every autoLockTeams run and
+  // aborts the league sync in calculatePoints, for everyone.
+  if (!isUsableLeagueId(leagueId)) {
+    throw new functions.https.HttpsError('invalid-argument', 'leagueId is not a valid league id');
+  }
   if (!name || typeof name !== 'string' || name.trim().length < 2) {
     throw new functions.https.HttpsError('invalid-argument', 'Team name must be at least 2 characters');
   }
