@@ -612,6 +612,7 @@ test('moonshot quotes are server-only; models are readable by any player and wri
     const a = ctx.firestore();
     await setDoc(doc(a, 'moonshotQuotes', 'q1'), { uid: ALICE, teamId: 'tA', multiplier: 1.25, used: false });
     await setDoc(doc(a, 'moonshotModels', 'singapore_2026'), { raceId: 'singapore_2026', season: '2026', round: 19, drivers: {}, positionsCount: 22 });
+    await setDoc(doc(a, 'moonshotTokens', 'tA_2026'), { teamId: 'tA', userId: ALICE, seasonId: '2026', used: 1 });
   });
   await assertFails(getDoc(doc(db(ALICE), 'moonshotQuotes', 'q1')));
   await assertFails(updateDoc(doc(db(ALICE), 'moonshotQuotes', 'q1'), { multiplier: 8 }));
@@ -619,6 +620,9 @@ test('moonshot quotes are server-only; models are readable by any player and wri
   await assertSucceeds(getDoc(doc(db(MALLORY), 'moonshotModels', 'singapore_2026')));
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'moonshotModels', 'singapore_2026')));
   await assertFails(setDoc(doc(db(ALICE), 'moonshotModels', 'singapore_2026'), { drivers: { norris: { positions: [1] } } }, { merge: true }));
+  await assertSucceeds(getDoc(doc(db(ALICE), 'moonshotTokens', 'tA_2026')));      // my own token count
+  await assertFails(getDoc(doc(db(BOB), 'moonshotTokens', 'tA_2026')));
+  await assertFails(updateDoc(doc(db(ALICE), 'moonshotTokens', 'tA_2026'), { used: 0 }));
 });
 
 // ── F-075 Pit Wall: handoff codes and the worker's collections are Admin SDK only ──

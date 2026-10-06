@@ -36,5 +36,5 @@ export function price(p: number, pricing: MoonshotConfig['pricing']): Price {
 /** Net gain on a hit, whole points or dollars. */
 export const potentialReward = (stake: number, multiplier: number): number => Math.round(stake * multiplier);
 
-/** Expected value per unit staked: what a sharp player sees. Positive means the house is giving points away. */
+/** Expected value per unit staked: what a sharp player sees. Positive means the game is giving points away. */
 export const expectedValue = (p: number, multiplier: number): number => p * multiplier - (1 - p);

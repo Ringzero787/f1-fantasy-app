@@ -495,9 +495,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Moonshot (F-106). A call is the owner's until it locks; after lock the league sees it.
-    // Quotes are server-only. Models are the weekly odds everyone may read: pricing is never
-    // behind the pass. Nothing here is client-writable; the callables are the only writers.
+    // Moonshot (F-106). A call is the owner's until it locks; after lock the league sees it
+    // (hideBeforeLock is fixed on here: rules cannot read config). Quotes are server-only.
+    // Models are the weekly model everyone may read: pricing is never behind the pass. The
+    // token count is the owner's. Nothing here is client-writable; the callables are the only writers.
     match /moonshots/{moonshotId} {
       allow get, list: if isAuthenticated() && (
         isOwner(resource.data.userId) || isAdmin()
@@ -513,6 +514,10 @@ service cloud.firestore {
     match /moonshotModels/{raceId} {
       allow read: if isAuthenticated();
       allow write: if false;
+    }
+    match /moonshotTokens/{teamSeason} {
+      allow get: if isAuthenticated() && isOwner(resource.data.userId);
+      allow list, write: if false;
     }
 
     // Game config — readable by all authenticated users, writable by admin only

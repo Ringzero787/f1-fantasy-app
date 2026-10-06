@@ -7,7 +7,7 @@
 // chance and the multiplier the current config would offer, and flags drivers the game does not
 // know or that the table is missing. `--write` writes.
 //
-// Usage (normally through the uc-moonshot-model-seed aidlc op kind):
+// Usage (normally through the uc-moonshot-model-seed aidlc op kind, which sets SA_KEY):
 //   node seedMoonshotModel.js --doc=/mnt/smb/share/tracklimits/MODELS_10.md --race=singapore_2026 [--source=ben_model_R19] [--write]
 //
 // A race with no document of its own needs no seeding: the quote carries the latest earlier
@@ -20,19 +20,40 @@ const { predictionProbability } = require('../lib/moonshot/distribution.js');
 const { price } = require('../lib/moonshot/pricing.js');
 const { mergeConfig } = require('../lib/moonshot/config.js');
 
-const args = Object.fromEntries(process.argv.slice(2).map((a) => { const m = a.match(/^--([^=]+)(?:=(.*))?$/); return m ? [m[1], m[2] ?? true] : [a, true]; }));
-if (!args.doc || !args.race) { console.error('Usage: node seedMoonshotModel.js --doc=<path> --race=<raceId> [--source=<tag>] [--write]'); process.exit(1); }
-if (!/^[a-z0-9_]+$/.test(args.race)) throw new Error(`race id "${args.race}" is not a plain id`);
+const EXPECTED_PROJECT = 'f1-app-18077';
 
-if (!admin.apps.length) admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'f1-app-18077' });
-const db = admin.firestore();
+// Nothing happens on import: the key read and initializeApp sit in initAdmin, which only the
+// require.main guard at the foot calls (scripts/seedGuards.test.js holds every op script to this).
+let db;
+function initAdmin() {
+  const KEY = process.env.SA_KEY;
+  if (!KEY) {
+    console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
+    process.exit(2);
+  }
+  const cred = require(KEY);
+  if (cred.project_id !== EXPECTED_PROJECT) {
+    console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`);
+    process.exit(2);
+  }
+  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
+  db = admin.firestore();
+}
 
-(async () => {
+function parseArgs(argv) {
+  const args = Object.fromEntries(argv.map((a) => { const m = a.match(/^--([^=]+)(?:=(.*))?$/); return m ? [m[1], m[2] ?? true] : [a, true]; }));
+  if (!args.doc || !args.race) { console.error('Usage: node seedMoonshotModel.js --doc=<path> --race=<raceId> [--source=<tag>] [--write]'); process.exit(1); }
+  if (!/^[a-z0-9_]+$/.test(args.race)) throw new Error(`race id "${args.race}" is not a plain id`);
+  return args;
+}
+
+async function main(args) {
   const md = fs.readFileSync(args.doc, 'utf8');
   const rows = parseRaceTable(md);
   const race = await db.doc(`races/${args.race}`).get();
   if (!race.exists) throw new Error(`races/${args.race} not found`);
   const r = race.data();
+  if (!Number.isInteger(r.round)) throw new Error(`races/${args.race} has no round number; the model cannot be carried forward from it`);
   const season = String(r.seasonId ?? '2026');
   const known = new Set((await db.collection('drivers').get()).docs.map((d) => d.id));
   const source = typeof args.source === 'string' ? args.source : `ben_model_R${r.round}`;
@@ -58,4 +79,10 @@ const db = admin.firestore();
   if (unknown.length) throw new Error('refusing to write a model with unknown drivers');
   await db.doc(`moonshotModels/${args.race}`).set({ ...model, createdAt: admin.firestore.FieldValue.serverTimestamp() });
   console.log(`== wrote moonshotModels/${args.race}`);
-})().catch((e) => { console.error(e.message); process.exit(1); });
+}
+
+if (require.main === module) {
+  const args = parseArgs(process.argv.slice(2));
+  initAdmin();
+  main(args).then(() => process.exit(0)).catch((e) => { console.error(e.message); process.exit(1); });
+}

@@ -42,6 +42,8 @@ export interface MoonshotConfig {
   quoteTtlSeconds: number;
   /** when a race has no model of its own, the most recent earlier round's model is used */
   carryForwardModel: boolean;
+  /** user-facing strings the clients read (SPEC §2, §8, §13, §20); F-108 supplies the defaults it falls back to */
+  copy: Record<string, string>;
 }
 
 export const DEFAULT_BANDS: RewardBand[] = [
@@ -71,6 +73,7 @@ export const DEFAULT_CONFIG: MoonshotConfig = {
   tutorialEnabled: true,
   quoteTtlSeconds: 600,
   carryForwardModel: true,
+  copy: {},
 };
 
 /** Defaults overlaid with whatever the document carries; unknown keys are ignored, bad types fall back. */
@@ -113,6 +116,7 @@ export function mergeConfig(raw: unknown): MoonshotConfig {
     tutorialEnabled: bool('tutorialEnabled', true),
     quoteTtlSeconds: num('quoteTtlSeconds', DEFAULT_CONFIG.quoteTtlSeconds),
     carryForwardModel: bool('carryForwardModel', true),
+    copy: r.copy && typeof r.copy === 'object' ? Object.fromEntries(Object.entries(r.copy as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string')) : {},
   };
 }
 

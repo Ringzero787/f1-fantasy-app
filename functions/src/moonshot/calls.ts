@@ -5,12 +5,18 @@
  *
  * - `moonshotQuote` prices a call from the current model and stores the quote with an
  *   expiry; the player confirms that quote by id.
- * - `moonshotConfirm` re-checks eligibility inside a transaction, spends a token by
- *   creating `moonshots/{id}` in CONFIRMED with the frozen terms, and marks the quote used.
- * - `moonshotCancel` deletes the call before lock (the token comes back); after lock it refuses.
+ * - `moonshotConfirm` re-checks eligibility inside a transaction against the race's live
+ *   lock time, spends a token by creating `moonshots/{id}` in CONFIRMED with the frozen
+ *   terms, bumps the team's token count and marks the quote used.
+ * - `moonshotCancel` voids a CONFIRMED call before lock (the token comes back; the record
+ *   stays CANCELLED for the audit trail); after lock it refuses.
  *
- * Lock: the call carries `lockAt`, the race's own lock time; F-107's settlement treats a
- * CONFIRMED call whose lockAt has passed as LOCKED.
+ * Lock: the call carries `lockAt`, the race's own lock time at confirmation; F-107's
+ * settlement treats a CONFIRMED call whose lockAt has passed as LOCKED. Confirm and cancel
+ * read the race again, so a schedule change that moves the lock earlier is honoured.
+ *
+ * Concurrency: two confirms for one team contend on `moonshotTokens/{teamId}_{season}`,
+ * which both transactions write, so one of them retries and sees the other's call.
  */
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
@@ -18,7 +24,7 @@ import { warnIfNoAppCheck } from '../utils/appCheck';
 import { effectiveLockTime } from '../utils/lockTime';
 import { loadMoonshotConfig, type PredictionType, type StakeCurrency } from './config';
 import { predictionProbability, summarise } from './distribution';
-import { eligibility, TOKEN_SPENDING_STATUSES } from './eligibility';
+import { eligibility, quoteRefusal, OPEN_STATUSES, TOKEN_SPENDING_STATUSES } from './eligibility';
 import { resolveModel } from './models';
 import { potentialReward, price } from './pricing';
 
@@ -27,15 +33,29 @@ const db = admin.firestore();
 const TYPES: PredictionType[] = ['WIN', 'PODIUM', 'TOP_5', 'EXACT_FINISH'];
 const str = (v: unknown): string | null => (typeof v === 'string' && v && !v.includes('/') ? v : null);
 
+/** What the team's existing calls this season already commit: tokens, calls on this race, stake still at risk. */
+interface Committed { used: number; onRace: number; openStake: number }
+function committed(docs: FirebaseFirestore.QueryDocumentSnapshot[], raceId: string, currency: StakeCurrency): Committed {
+  let onRace = 0, openStake = 0;
+  for (const d of docs) {
+    const m = d.data();
+    if (m.raceId === raceId) onRace++;
+    if ((OPEN_STATUSES as readonly string[]).includes(m.status) && m.stakeCurrency === currency) openStake += m.stakeAmount ?? 0;
+  }
+  return { used: docs.length, onRace, openStake };
+}
+const spendingQuery = (teamId: string, season: string) =>
+  db.collection('moonshots').where('teamId', '==', teamId).where('seasonId', '==', season).where('status', 'in', [...TOKEN_SPENDING_STATUSES]);
+
+const teamBalance = (team: FirebaseFirestore.DocumentData, currency: StakeCurrency): number =>
+  currency === 'POINTS' ? (team.totalPoints ?? 0) + (team.lockedPoints ?? 0) : team.budget ?? 0;
+const seasonMismatch = (team: FirebaseFirestore.DocumentData, season: string): boolean =>
+  team.seasonId != null && String(team.seasonId) !== season;
+
 async function ownTeam(teamId: string, uid: string) {
   const snap = await db.doc(`fantasyTeams/${teamId}`).get();
   if (!snap.exists || snap.data()?.userId !== uid) throw new functions.https.HttpsError('permission-denied', 'Not your team');
   return snap.data() as FirebaseFirestore.DocumentData;
-}
-
-async function tokensUsed(teamId: string, season: string): Promise<{ used: number; races: Set<string> }> {
-  const snap = await db.collection('moonshots').where('teamId', '==', teamId).where('seasonId', '==', season).where('status', 'in', [...TOKEN_SPENDING_STATUSES]).get();
-  return { used: snap.size, races: new Set(snap.docs.map((d) => d.data().raceId as string)) };
 }
 
 export const moonshotQuote = functions.https.onCall(async (data, context) => {
@@ -54,24 +74,30 @@ export const moonshotQuote = functions.https.onCall(async (data, context) => {
   if (!raceSnap.exists) throw new functions.https.HttpsError('not-found', 'Race not found');
   const race = raceSnap.data()!;
   const season = String(race.seasonId ?? '2026');
+  const round: number | null = Number.isInteger(race.round) ? race.round : null;
   const lock = effectiveLockTime(race);
-  const resolved = await resolveModel(db, season, raceId, race.round, cfg.carryForwardModel);
+  const resolved = round === null ? null : await resolveModel(db, season, raceId, round, cfg.carryForwardModel);
   const driver = resolved?.model.drivers[driverId];
-  const tokens = await tokensUsed(teamId, season);
-  const balance = currency === 'POINTS' ? (team.totalPoints ?? 0) + (team.lockedPoints ?? 0) : team.budget ?? 0;
+  const have = committed((await spendingQuery(teamId, season).get()).docs, raceId, currency);
   const p = driver ? predictionProbability(driver.positions, type, target) : null;
   const priced = p != null ? price(p, cfg.pricing) : undefined;
-  const refusal = eligibility({ cfg, race: { round: race.round, lockAtMs: lock ? lock.toMillis() : null }, nowMs: Date.now(), tokensUsed: tokens.used, hasCallOnRace: tokens.races.has(raceId), type, target, currency, stake, balance, driverInModel: !!driver, probability: p, multiplier: priced?.multiplier });
+  const refusal = eligibility({
+    cfg, race: { round, lockAtMs: lock ? lock.toMillis() : null }, nowMs: Date.now(), seasonMismatch: seasonMismatch(team, season),
+    tokensUsed: have.used, callsOnRace: have.onRace, type, target, positionsCount: resolved?.model.positionsCount,
+    currency, stake, balance: teamBalance(team, currency), openStake: have.openStake,
+    modelAvailable: !!resolved, driverInModel: !!driver, probability: p, multiplier: priced?.multiplier,
+  });
   if (refusal) throw new functions.https.HttpsError(refusal.code, refusal.message);
   if (!resolved || !driver || p == null || !priced) throw new functions.https.HttpsError('failed-precondition', 'No model is available to price this race yet.');
 
   const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + cfg.quoteTtlSeconds * 1000);
   const ownsDriver = Array.isArray(team.drivers) && team.drivers.some((d: { driverId?: string }) => d?.driverId === driverId);
   const quote = {
-    uid, teamId, leagueId: team.leagueId ?? null, seasonId: season, raceId, roundNumber: race.round, driverId,
+    uid, teamId, leagueId: team.leagueId ?? null, seasonId: season, raceId, roundNumber: round, driverId,
     predictionType: type, predictionTarget: type === 'EXACT_FINISH' ? target ?? null : null,
     stakeCurrency: currency, stakeAmount: stake,
     modelVersion: resolved.model.modelVersion, modelRaceId: resolved.model.raceId, carriedFrom: resolved.carriedFrom,
+    positionsCount: resolved.model.positionsCount,
     probabilitySnapshotId: `${resolved.model.raceId}:${resolved.model.modelVersion}`,
     modelProbability: Math.round(p * 10000) / 10000, rewardBand: priced.band, multiplier: priced.multiplier,
     potentialReward: potentialReward(stake, priced.multiplier), ownsDriver,
@@ -82,7 +108,7 @@ export const moonshotQuote = functions.https.onCall(async (data, context) => {
   return {
     quoteId: ref.id, modelProbability: quote.modelProbability, rewardBand: quote.rewardBand, multiplier: quote.multiplier,
     stakeAmount: stake, potentialReward: quote.potentialReward, expiresAt: expiresAt.toMillis(), ownsDriver,
-    carriedFrom: resolved.carriedFrom, tokensLeft: cfg.tokensPerTeam - tokens.used,
+    carriedFrom: resolved.carriedFrom, tokensLeft: cfg.tokensPerTeam - have.used,
     model: { expectedFinish: detail.expected, likelyLo: detail.lo, likelyHi: detail.hi, predicted: driver.predicted },
   };
 });
@@ -96,24 +122,36 @@ export const moonshotConfirm = functions.https.onCall(async (data, context) => {
   const cfg = await loadMoonshotConfig(db);
   if (!cfg.enabled) throw new functions.https.HttpsError('failed-precondition', 'Moonshots are not available.');
 
-  const moonshotId = await db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx) => {
     const qRef = db.doc(`moonshotQuotes/${quoteId}`);
     const q = await tx.get(qRef);
     if (!q.exists || q.data()?.uid !== uid) throw new functions.https.HttpsError('not-found', 'Quote not found');
     const quote = q.data()!;
-    if (quote.used) throw new functions.https.HttpsError('failed-precondition', 'That quote was already confirmed');
-    if (quote.expiresAt.toMillis() < Date.now()) throw new functions.https.HttpsError('failed-precondition', 'That quote has expired. Ask for a new one.');
-    const lockAtMs: number | null = quote.lockAt ? quote.lockAt.toMillis() : null;
-    // tokens and the one-per-race rule are re-checked inside the transaction so two confirms cannot both pass
-    const spent = await tx.get(db.collection('moonshots').where('teamId', '==', quote.teamId).where('seasonId', '==', quote.seasonId).where('status', 'in', [...TOKEN_SPENDING_STATUSES]));
-    const team = await tx.get(db.doc(`fantasyTeams/${quote.teamId}`));
+    const now = Date.now();
+    const stale = quoteRefusal({ used: quote.used, expiresAtMs: quote.expiresAt.toMillis() }, now);
+    if (stale) throw new functions.https.HttpsError(stale.code, stale.message);
+    // the live race, not the quote's copy: a schedule change that moves the lock earlier is honoured
+    const [raceSnap, team, spent] = await Promise.all([
+      tx.get(db.doc(`races/${quote.raceId}`)),
+      tx.get(db.doc(`fantasyTeams/${quote.teamId}`)),
+      tx.get(spendingQuery(quote.teamId, quote.seasonId)),
+    ]);
     if (!team.exists || team.data()?.userId !== uid) throw new functions.https.HttpsError('permission-denied', 'Not your team');
+    if (!raceSnap.exists) throw new functions.https.HttpsError('not-found', 'Race not found');
+    const race = raceSnap.data()!;
+    const lock = effectiveLockTime(race);
     const t = team.data()!;
-    const balance = quote.stakeCurrency === 'POINTS' ? (t.totalPoints ?? 0) + (t.lockedPoints ?? 0) : t.budget ?? 0;
-    const refusal = eligibility({ cfg, race: { round: quote.roundNumber, lockAtMs }, nowMs: Date.now(), tokensUsed: spent.size, hasCallOnRace: spent.docs.some((d) => d.data().raceId === quote.raceId), type: quote.predictionType, target: quote.predictionTarget ?? undefined, currency: quote.stakeCurrency, stake: quote.stakeAmount, balance, driverInModel: true, probability: quote.modelProbability, multiplier: quote.multiplier });
+    const have = committed(spent.docs, quote.raceId, quote.stakeCurrency);
+    const refusal = eligibility({
+      cfg, race: { round: Number.isInteger(race.round) ? race.round : null, lockAtMs: lock ? lock.toMillis() : null }, nowMs: now,
+      seasonMismatch: seasonMismatch(t, quote.seasonId), tokensUsed: have.used, callsOnRace: have.onRace,
+      type: quote.predictionType, target: quote.predictionTarget ?? undefined, positionsCount: quote.positionsCount,
+      currency: quote.stakeCurrency, stake: quote.stakeAmount, balance: teamBalance(t, quote.stakeCurrency), openStake: have.openStake,
+      modelAvailable: true, driverInModel: true, probability: quote.modelProbability, multiplier: quote.multiplier,
+    });
     if (refusal) throw new functions.https.HttpsError(refusal.code, refusal.message);
     const ref = db.collection('moonshots').doc();
-    const now = admin.firestore.FieldValue.serverTimestamp();
+    const stamp = admin.firestore.FieldValue.serverTimestamp();
     tx.set(ref, {
       id: ref.id, seasonId: quote.seasonId, leagueId: quote.leagueId, teamId: quote.teamId, userId: uid,
       raceId: quote.raceId, roundNumber: quote.roundNumber, driverId: quote.driverId,
@@ -122,13 +160,16 @@ export const moonshotConfirm = functions.https.onCall(async (data, context) => {
       modelVersion: quote.modelVersion, modelRaceId: quote.modelRaceId, carriedFrom: quote.carriedFrom,
       modelProbability: quote.modelProbability, probabilitySnapshotId: quote.probabilitySnapshotId,
       rewardBand: quote.rewardBand, multiplier: quote.multiplier, potentialReward: quote.potentialReward, ownsDriver: quote.ownsDriver ?? false,
-      quoteId, status: 'CONFIRMED', lockAt: quote.lockAt, createdAt: now, updatedAt: now,
+      quoteId, status: 'CONFIRMED', lockAt: lock, createdAt: stamp, updatedAt: stamp,
       lockedAt: null, settledAt: null, officialDriverFinish: null, result: null, adjustmentAmount: null, settlementVersion: null, settlementId: null,
     });
+    // one document both racing confirms must write, so they cannot both pass
+    tx.set(db.doc(`moonshotTokens/${quote.teamId}_${quote.seasonId}`), { teamId: quote.teamId, userId: uid, seasonId: quote.seasonId, used: have.used + 1, updatedAt: stamp });
     tx.update(qRef, { used: true, moonshotId: ref.id });
-    return ref.id;
+    return { moonshotId: ref.id, tokensLeft: cfg.tokensPerTeam - have.used - 1 };
   });
-  return { moonshotId };
+  console.log('moonshot_confirmed', JSON.stringify({ uid, quoteId, moonshotId: result.moonshotId }));
+  return result;
 });
 
 export const moonshotCancel = functions.https.onCall(async (data, context) => {
@@ -143,9 +184,16 @@ export const moonshotCancel = functions.https.onCall(async (data, context) => {
     if (!snap.exists || snap.data()?.userId !== uid) throw new functions.https.HttpsError('not-found', 'Moonshot not found');
     const m = snap.data()!;
     if (m.status !== 'CONFIRMED') throw new functions.https.HttpsError('failed-precondition', 'This Moonshot can no longer be changed.');
-    if (m.lockAt && m.lockAt.toMillis() <= Date.now()) throw new functions.https.HttpsError('failed-precondition', 'Selections are locked for this race.');
+    // the earlier of the call's lock and the race's live lock wins
+    const raceSnap = await tx.get(db.doc(`races/${m.raceId}`));
+    const live = raceSnap.exists ? effectiveLockTime(raceSnap.data()!) : null;
+    const lockMs = Math.min(m.lockAt ? m.lockAt.toMillis() : Infinity, live ? live.toMillis() : Infinity);
+    if (lockMs <= Date.now()) throw new functions.https.HttpsError('failed-precondition', 'Selections are locked for this race.');
     // cancelled before lock: the token comes back, and the record stays for the audit trail
-    tx.update(ref, { status: 'CANCELLED', updatedAt: admin.firestore.FieldValue.serverTimestamp(), cancelledAt: admin.firestore.FieldValue.serverTimestamp() });
+    const stamp = admin.firestore.FieldValue.serverTimestamp();
+    tx.update(ref, { status: 'CANCELLED', updatedAt: stamp, cancelledAt: stamp });
+    tx.set(db.doc(`moonshotTokens/${m.teamId}_${m.seasonId}`), { teamId: m.teamId, userId: uid, seasonId: m.seasonId, used: admin.firestore.FieldValue.increment(-1), updatedAt: stamp }, { merge: true });
   });
+  console.log('moonshot_cancelled', JSON.stringify({ uid, moonshotId }));
   return { cancelled: true };
 });

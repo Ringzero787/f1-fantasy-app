@@ -1218,6 +1218,8 @@ function runRecorded(file, argv = [], env = {}, { inTemp = false, fixtures = {} 
 // same it fails and says so rather than going quietly hollow.
 const ARGS_TO_REACH_CREDENTIALS = {
   'exportPitwallHistory.js': [STUB.out],
+  // the seeder reads the MODELS document before it connects; any readable file gets it to the key check
+  'seedMoonshotModel.js': ['--doc=' + path.join(ROOT, 'docs', 'design', 'moonshot', 'SPEC.md'), '--race=probe_2026'],
   'verifyRaceScoring.js': ['bahrain_2026'],
 };
 

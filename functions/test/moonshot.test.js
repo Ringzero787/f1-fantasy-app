@@ -6,7 +6,7 @@ process.env.FIREBASE_CONFIG = process.env.FIREBASE_CONFIG || JSON.stringify({ pr
 const { mergeConfig, DEFAULT_CONFIG } = require('../lib/moonshot/config.js');
 const { discretise, balance, distribute, predictionProbability, summarise, zoneSigma } = require('../lib/moonshot/distribution.js');
 const { bandFor, price, potentialReward, expectedValue } = require('../lib/moonshot/pricing.js');
-const { eligibility } = require('../lib/moonshot/eligibility.js');
+const { eligibility, quoteRefusal } = require('../lib/moonshot/eligibility.js');
 const { pickModel, parseRaceTable, buildModel } = require('../lib/moonshot/models.js');
 const index = require('../lib/index.js');
 
@@ -19,6 +19,7 @@ test('config: absent means disabled; the document overrides defaults; bad values
   assert.equal(c.pricing.mode, 'continuous'); assert.equal(c.pricing.vig, 0.05); assert.equal(c.dnfRule, 'VOID');
   assert.equal(c.tokensPerTeam, DEFAULT_CONFIG.tokensPerTeam);
   assert.equal(c.pricing.bands.length, 5);
+  assert.deepEqual(mergeConfig({ copy: { intro: 'Make the call', bad: 3 } }).copy, { intro: 'Make the call' });
 });
 
 test('distribution: a discretised finish sums to one and peaks at the prediction', () => {
@@ -38,7 +39,7 @@ test('distribution: balancing makes every driver finish somewhere and every posi
   const out = distribute(model);
   const ids = Object.keys(out);
   for (const id of ids) near(out[id].positions.reduce((a, b) => a + b, 0), 1, 1e-4);
-  for (let k = 0; k < ids.length; k++) near(ids.reduce((a, id) => a + out[id].positions[k], 0), 1, ids.length * 1e-4 + 1e-3);   // the post-balance floor drifts columns by at most n × FLOOR
+  for (let k = 0; k < ids.length; k++) near(ids.reduce((a, id) => a + out[id].positions[k], 0), 1, ids.length * 1e-4 + 1e-3);   // n × FLOOR for the post-balance floor, 1e-3 for the residual of 50 balancing passes
   assert.ok(out.a.positions[0] > out.e.positions[0]);   // the favourite is likeliest to win
   assert.ok(out.j.positions[0] > 0 && out.a.positions[9] > 0);   // balancing keeps the floor: no call is refused as impossible
 });
@@ -77,7 +78,7 @@ test('continuous pricing: fair less the vig, rounded, floored and capped, same l
 });
 
 const cfg = mergeConfig({ enabled: true });
-const okInput = { cfg, race: { round: 15, lockAtMs: 2_000 }, nowMs: 1_000, tokensUsed: 0, hasCallOnRace: false, type: 'PODIUM', currency: 'POINTS', stake: 100, balance: 2000, driverInModel: true, probability: 0.3, multiplier: 2.5 };
+const okInput = { cfg, race: { round: 15, lockAtMs: 2_000 }, nowMs: 1_000, tokensUsed: 0, callsOnRace: 0, type: 'PODIUM', currency: 'POINTS', stake: 100, balance: 2000, openStake: 0, modelAvailable: true, driverInModel: true, probability: 0.3, multiplier: 2.5 };
 
 test('eligibility: the happy path and every refusal', () => {
   assert.equal(eligibility(okInput), null);
@@ -90,10 +91,25 @@ test('eligibility: the happy path and every refusal', () => {
   assert.match(eligibility({ ...okInput, balance: 50 }).message, /points to risk/);
   assert.match(eligibility({ ...okInput, currency: 'CASH', balance: 50 }).message, /bank/);
   assert.equal(eligibility({ ...okInput, tokensUsed: 3 }).code, 'resource-exhausted');
-  assert.match(eligibility({ ...okInput, hasCallOnRace: true }).message, /already have/);
-  assert.match(eligibility({ ...okInput, driverInModel: false }).message, /No model/);
+  assert.match(eligibility({ ...okInput, callsOnRace: 1 }).message, /already have/);
+  assert.equal(eligibility({ ...okInput, callsOnRace: 1, cfg: mergeConfig({ enabled: true, maxPerRace: 2 }) }), null);   // the knob is honoured
+  assert.match(eligibility({ ...okInput, driverInModel: false }).message, /No model for that driver/);
+  assert.match(eligibility({ ...okInput, modelAvailable: false, driverInModel: false }).message, /No model is published/);
+  assert.match(eligibility({ ...okInput, race: { round: null, lockAtMs: 2_000 } }).message, /no round number/);
+  assert.match(eligibility({ ...okInput, seasonMismatch: true }).message, /not in the current season/);
+  assert.match(eligibility({ ...okInput, balance: 250, openStake: 200 }).message, /points to risk/);     // what is already at risk is not available again
+  assert.equal(eligibility({ ...okInput, balance: 300, openStake: 200 }), null);
+  const exact = { ...okInput, cfg: mergeConfig({ enabled: true, predictionTypesEnabled: ['EXACT_FINISH'] }), type: 'EXACT_FINISH' };
+  assert.equal(eligibility({ ...exact, target: 20, positionsCount: 20 }), null);
+  assert.match(eligibility({ ...exact, target: 21, positionsCount: 20 }).message, /finishing position/);
   assert.match(eligibility({ ...okInput, stake: 200, multiplier: 8 }).message, /at most 1000/);
   assert.equal(eligibility({ ...okInput, currency: 'CASH', stake: 200, multiplier: 8 }), null);          // the points cap is for points
+});
+
+test('a quote confirms once and only before it expires', () => {
+  assert.equal(quoteRefusal({ used: false, expiresAtMs: 2_000 }, 1_000), null);
+  assert.match(quoteRefusal({ used: true, expiresAtMs: 2_000 }, 1_000).message, /already confirmed/);
+  assert.match(quoteRefusal({ used: false, expiresAtMs: 999 }, 1_000).message, /expired/);
 });
 
 test('model carry-forward: own model first, else the latest earlier round, else nothing', () => {
@@ -109,7 +125,7 @@ test('model carry-forward: own model first, else the latest earlier round, else 
 test('the Race O/U table parses into driver predictions and builds a model the game can price', () => {
   const md = ['# doc', '## Race O/U Table (Over/Under finishing position)',
     '| Rk | Driver | Pred | O/U Line | Under % | Under $ | Over % | Over $ | Upper | Lower |', '|---:|---|---:|---:|---:|---:|---:|---:|:---:|:---:|',
-    ...['antonelli 2.58', 'verstappen 2.81', 'russell 3.67', 'leclerc 4.33', 'norris 5.1', 'piastri 5.9', 'hamilton 7.2', 'hadjar 8.1', 'sainz 9.4', 'albon 10.2', 'alonso 12.0', 'lawson 13.1'].map((s, i) => { const [d, p] = s.split(' '); return `| ${i + 1} | ${d} | ${p} | O/U ${Math.round(+p)}.5 | 48% | +107 | 52% | **-107** | P1 | P4 |`; }),
+    ...['antonelli 2.58', 'verstappen 2.81', 'russell 3.67', 'leclerc 4.33', 'norris 5.1', 'piastri 5.9', 'hamilton 7.2', 'hadjar 8.1', 'sainz 9.4', 'albon 10.2', 'alonso 12.0', 'lawson 13.1'].map((s, i) => { const [d, p] = s.split(' '); return `| ${i + 1} | ${d} | ${p} | ${Math.round(+p)}.5 | — | — | — | **—** | P1 | P4 |`; }),
     '', '## Next section'].join('\n');
   const rows = parseRaceTable(md);
   assert.equal(rows.length, 12); assert.deepEqual(rows[0], { driverId: 'antonelli', predicted: 2.58 });

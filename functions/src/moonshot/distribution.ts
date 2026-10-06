@@ -28,6 +28,7 @@ export const zoneSigma = (pred: number): number => {
   return 2.0 + 3.0 * up - 3.0 * down;
 };
 
+// Abramowitz & Stegun 7.1.26 (public domain), |error| < 1.5e-7
 const erf = (x: number): number => {
   const s = x < 0 ? -1 : 1;
   x = Math.abs(x);
