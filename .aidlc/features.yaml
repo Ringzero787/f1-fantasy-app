@@ -1,4 +1,4 @@
-next_id: 105
+next_id: 106
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1210,3 +1210,16 @@ features:
       - leagueid
       - usable
       - document
+  - id: F-105
+    name: "UC: creating a league cannot hand yourself the paid features"
+    status: building
+    spec: .aidlc/specs/F-105.md
+    created_at: 2026-10-06
+    keywords:
+      - creating
+      - league
+      - cannot
+      - hand
+      - yourself
+      - paid
+      - features

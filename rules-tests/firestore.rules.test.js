@@ -221,6 +221,67 @@ test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped
   await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
 });
 
+// ── F-105: creating a league cannot hand yourself the paid features ──
+// `allow create: if isAuthenticated()` constrained nothing, so a signed-in player could mint a
+// league with `pro: true` (which is what startLeagueTrial checks before granting a Pit Wall pass
+// trial), with `maxMembers` set past the league-expansion IAP, or owned by somebody else. The
+// F-068 guard only covered UPDATE.
+const newLeague = (over = {}) => ({ ...leagueData(ALICE), memberCount: 1, maxMembers: 22, ...over });
+
+test('F-105 league create: the shape a shipped client writes still works', async () => {
+  const d = db(ALICE);
+  await assertSucceeds(setDoc(doc(d, 'leagues', 'LA'), newLeague()));
+  // the Grid screen always sends the default; the legacy screen sends a chosen number
+  await assertSucceeds(setDoc(doc(d, 'leagues', 'LB'), newLeague({ maxMembers: 2 })));
+  await assertSucceeds(setDoc(doc(d, 'leagues', 'LC'), newLeague({ maxMembers: 22 })));
+  // and the batch a real client commits: league + its owner member
+  const batch = writeBatch(d);
+  batch.set(doc(d, 'leagues', 'LD'), newLeague());
+  batch.set(doc(d, 'leagues', 'LD', 'members', ALICE), ownerMember('LD', ALICE));
+  await assertSucceeds(batch.commit());
+});
+
+test('F-105 league create: Pro cannot be switched on at creation', async () => {
+  const d = db(ALICE);
+  await assertFails(setDoc(doc(d, 'leagues', 'P1'), newLeague({ pro: true })));
+  await assertFails(setDoc(doc(d, 'leagues', 'P2'), newLeague({ pro: true, proUntil: 99999999999 })));
+  await assertFails(setDoc(doc(d, 'leagues', 'P3'), newLeague({ proUntil: 99999999999 })));
+  // explicitly off, or absent, is the honest starting state
+  await assertSucceeds(setDoc(doc(d, 'leagues', 'P4'), newLeague({ pro: false })));
+  await assertSucceeds(setDoc(doc(d, 'leagues', 'P5'), newLeague({ pro: false, proUntil: null })));
+});
+
+test('F-105 league create: capacity beyond the free tier is the IAP, not a field', async () => {
+  const d = db(ALICE);
+  await assertFails(setDoc(doc(d, 'leagues', 'M1'), newLeague({ maxMembers: 23 })));
+  await assertFails(setDoc(doc(d, 'leagues', 'M2'), newLeague({ maxMembers: 100 })));
+  await assertFails(setDoc(doc(d, 'leagues', 'M3'), newLeague({ maxMembers: 999999 })));
+  await assertFails(setDoc(doc(d, 'leagues', 'M4'), newLeague({ maxMembers: 1 })));
+  await assertFails(setDoc(doc(d, 'leagues', 'M5'), newLeague({ maxMembers: '22' })));
+  await assertFails(setDoc(doc(d, 'leagues', 'M6'), newLeague({ maxMembers: 22.5 })));
+});
+
+test('F-105 league create: you cannot create a league for somebody else, or pre-filled', async () => {
+  const d = db(ALICE);
+  await assertFails(setDoc(doc(d, 'leagues', 'O1'), newLeague({ ownerId: BOB })));
+  await assertFails(setDoc(doc(d, 'leagues', 'O2'), newLeague({ memberCount: 0 })));
+  await assertFails(setDoc(doc(d, 'leagues', 'O3'), newLeague({ memberCount: 22 })));
+});
+
+test('F-105 league create: and the IAP path still gets you there', async () => {
+  // create free, then applyLeagueExpansion (a function, Admin SDK) raises it — the owner-update
+  // rule has always allowed capacity to grow, it just must not start there.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'leagues', 'LX'), newLeague());
+    await setDoc(doc(a, 'leagues', 'LX', 'members', ALICE), ownerMember('LX', ALICE));
+    // what the callable writes
+    await setDoc(doc(a, 'leagues', 'LX'), { maxMembers: 42 }, { merge: true });
+  });
+  const after = await getDoc(doc(db(ALICE), 'leagues', 'LX'));
+  assert.equal(after.data().maxMembers, 42);
+});
+
 // ── F-104: a leagueId has to be something doc() can take ──
 // `db.collection('leagues').doc(id)` throws synchronously on an id containing a slash, and
 // nothing validated this field — so any signed-in player could create a team with
