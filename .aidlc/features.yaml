@@ -1,4 +1,4 @@
-next_id: 104
+next_id: 105
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1200,3 +1200,13 @@ features:
       - show
       - server
       - enforces
+  - id: F-104
+    name: "UC: a team's leagueId has to be a usable document id"
+    status: building
+    spec: .aidlc/specs/F-104.md
+    created_at: 2026-10-06
+    keywords:
+      - team
+      - leagueid
+      - usable
+      - document
