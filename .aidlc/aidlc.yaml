@@ -189,6 +189,13 @@ overrides:
         paths: [ scripts/ops/play-publish.js, scripts/ops/_play.js ]
         dryrun: "node scripts/ops/play-publish.js promote {code} --track={track} --notes={notes}"
         apply: "node scripts/ops/play-publish.js promote {code} --track={track} --notes={notes} --apply --confirm=com.undercut.app"
+      uc-moonshot-model-seed:
+        summary: "Seed the Moonshot model for a race from a MODELS doc (race = singapore_2026, doc = path, source = ben_model_R19); dry run prints every driver's WIN/PODIUM/TOP 5 chance and multiplier"
+        params: [ race, doc, source ]
+        dryrun: "cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc={doc} --race={race} --source={source}"
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json moonshotModels/{race}"
+        apply: "cd functions && node scripts/seedMoonshotModel.js --doc={doc} --race={race} --source={source} --write"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=moonshotModels/{race} --write"
       uc-script:
         summary: "Undercut repair/backfill script that dry-runs by default and writes with --apply (script = file name in functions/scripts; backup = comma-separated doc/collection paths it touches)"
         params: [ script, backup ]

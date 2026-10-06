@@ -23,6 +23,8 @@ export * from './ingestion/scheduleMonitor';
 export * from './cache/marketCache';
 export * from './teams/teamOperations';
 export { checkTeamNameAvailable, renameTeam } from './teams/teamName';
+// Undercut Moonshot (F-106): quote, confirm and cancel a call
+export { moonshotQuote, moonshotConfirm, moonshotCancel } from './moonshot/calls';
 export { onFantasyTeamDeleted } from './teams/teamSnapshotsCleanup';
 // Undercut Pit Wall (F-075): deployed as the `pw` group, e.g. pw-createPortalHandoff
 export * as pw from './pitwall';
