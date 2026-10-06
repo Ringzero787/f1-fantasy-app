@@ -1,4 +1,4 @@
-next_id: 106
+next_id: 110
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1223,3 +1223,48 @@ features:
       - yourself
       - paid
       - features
+  - id: F-106
+    name: "UC: Moonshot config, pricing and calls"
+    summary: "Server side of Moonshot: a config/app block (unlock round, tokens, stakes, pricing mode and bands, DNF rules,
+      copy), a probability snapshot taken from the published model distribution, and a callable that creates, changes
+      and cancels a call before lock with the terms frozen at confirmation"
+    status: planned
+    spec: .aidlc/specs/F-106.md
+    created_at: 2026-10-06
+    keywords:
+      - moonshot
+      - config
+      - pricing
+      - calls
+  - id: F-107
+    name: "UC: Moonshot settlement and standings"
+    summary: "The scoring run settles each locked Moonshot from the final classification: idempotent, auditable, DNF loss /
+      DNS void / cancelled void by config; points adjustments kept apart from race scoring with a Moonshot column in
+      standings, cash adjustments applied to the bank; written into raceSnapshots and raceResults"
+    status: planned
+    spec: .aidlc/specs/F-107.md
+    created_at: 2026-10-06
+    keywords:
+      - moonshot
+      - settlement
+      - standings
+  - id: F-108
+    name: "UC: Moonshot in the app"
+    summary: "Driver tile sheet gets a Moonshot tab: currency choice, prediction types, model chance and reward, three stake
+      tiers, explicit confirmation, Double Down framing; race-day live card with IN/OUT/CLOSE; league feed declaration
+      private until lock; first-run overlay and info icon with server-driven copy"
+    status: planned
+    spec: .aidlc/specs/F-108.md
+    created_at: 2026-10-06
+    keywords:
+      - moonshot
+  - id: F-109
+    name: "UC: Moonshot in Pit Wall"
+    summary: The portal shows a team's open and settled Moonshots on the Briefing and race pages, prices any driver's
+      predictions from the same snapshot, and gives pass holders the deeper model view behind a multiplier
+    status: planned
+    spec: .aidlc/specs/F-109.md
+    created_at: 2026-10-06
+    keywords:
+      - moonshot
+      - wall
