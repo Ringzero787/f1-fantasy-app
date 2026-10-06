@@ -244,6 +244,14 @@
         { "fieldPath": "seasonId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "moonshots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "raceId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

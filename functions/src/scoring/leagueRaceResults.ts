@@ -10,7 +10,10 @@
 
 export interface RaceEntryIn {
   userId: string;
+  /** race points: what the roster scored this weekend */
   points: number;
+  /** F-107: this weekend's settled Moonshot points, if any */
+  moonshotPoints?: number;
   displayName?: string;
   teamName?: string;
 }
@@ -19,7 +22,12 @@ export interface RaceEntry {
   userId: string;
   displayName: string | null;
   teamName: string | null;
+  /** race points — the ranking and race wins are decided on these alone */
   points: number;
+  /** F-107 (SPEC §28): Race Points · Moonshot · Race Total, so a Moonshot stays identifiable */
+  racePoints: number;
+  moonshotPoints: number;
+  raceTotal: number;
   /** competition ranking: ties share a rank and the next rank skips (1, 1, 3) */
   rank: number;
 }
@@ -40,7 +48,8 @@ export function rankRaceEntries(entriesIn: RaceEntryIn[]): LeagueRaceResult {
   const entries: RaceEntry[] = [];
   sorted.forEach((e, i) => {
     const rank = i > 0 && sorted[i - 1].points === e.points ? entries[i - 1].rank : i + 1;
-    entries.push({ userId: e.userId, displayName: e.displayName ?? null, teamName: e.teamName ?? null, points: e.points, rank });
+    const moonshotPoints = finite(e.moonshotPoints);
+    entries.push({ userId: e.userId, displayName: e.displayName ?? null, teamName: e.teamName ?? null, points: e.points, racePoints: e.points, moonshotPoints, raceTotal: e.points + moonshotPoints, rank });
   });
   const topPoints = entries.length > 0 ? entries[0].points : null;
   // A weekend nobody scored in has no winner: an empty league of open rosters must not hand out wins.

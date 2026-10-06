@@ -185,6 +185,12 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // F-107: the league's season history (Moonshot hits, misses, voids), written by settlement only.
+      match /activity/{entryId} {
+        allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId));
+        allow write: if false;
+      }
+
       // League invites — members can create (max enforced by Cloud Function rate limit)
       // SECURITY: limit invite doc size to prevent abuse
       match /invites/{inviteId} {
@@ -406,7 +412,8 @@ service cloud.firestore {
                       'isLocked', 'lockStatus',
                       'drivers', 'constructor', 'budget', 'totalSpent',
                       'racesSinceTransfer', 'driverLockouts',
-                      'bestRacePoints', 'bestRaceId'
+                      'bestRacePoints', 'bestRaceId',
+                      'moonshotPoints', 'moonshotStats'
                     ]))
                     && (!aceIsFrozen(resource.data) || aceUnchanged(resource.data, request.resource.data))
                     && usableLeagueId(request.resource.data);
