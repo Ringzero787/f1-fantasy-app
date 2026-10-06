@@ -279,6 +279,35 @@ service cloud.firestore {
     // an error denies — a team written before these fields existed has no window, and one
     // stamped by F-095 before the freeze start existed falls back to the race start it
     // already carries.
+    // F-104: a `leagueId` has to be something `doc()` can take.
+    //
+    // `db.collection('leagues').doc(id)` throws SYNCHRONOUSLY on an id containing a slash, and
+    // nothing validated this field: any signed-in player could create a team with
+    // `leagueId: "a/b"` and reject every `autoLockTeams` run from then on — no lineup lock, no
+    // ace freeze, for everyone, until someone found the document. The same shape reaches
+    // `rankLeagueMembers` and `leagueRaceResultsWriter` off the scoring path.
+    //
+    // Real ids are Firestore auto-ids (`doc(leaguesCollection)` in league.service.ts): twenty
+    // characters of [A-Za-z0-9]. This is deliberately looser than that — a single path segment
+    // of word characters — so it constrains the shape without betting on the generator, and the
+    // short ids the rules tests use still pass.
+    //
+    // Null and absent are both fine: a solo team has no league, and 45 of the 77 teams in
+    // production are solo with one older team missing the field entirely.
+    //
+    // It is checked on UPDATE as well as create, because `leagueId` is not on the denied-key
+    // list — `syncTeam` writes it on every sync — so a create-only rule would leave the hole
+    // open to anyone who created a team properly and then edited it.
+    // The first character must be alphanumeric, which is how an id beginning `__` is excluded:
+    // Firestore reserves `__…__` and throws on it just as it does on a slash, and RE2 — what
+    // `matches()` runs — has no negative lookahead to say it directly. `__proto__` passed the
+    // first version of this rule and was caught by the test, not by me.
+    function usableLeagueId(data) {
+      let id = data.get('leagueId', null);
+      return id == null
+             || (id is string && id.size() > 0 && id.size() <= 64 && id.matches('^[A-Za-z0-9][A-Za-z0-9_-]*$'));
+    }
+
     function aceIsFrozen(team) {
       // Nine `let`s. Firestore allows ten per function and refuses to compile at eleven,
       // which is why the conditions below are packed rather than named one per line.
@@ -343,7 +372,8 @@ service cloud.firestore {
                     && request.resource.data.drivers.size() == 0
                     && request.resource.data.constructor == null
                     && (!('lockedPoints' in request.resource.data) || request.resource.data.lockedPoints == 0)
-                    && (!('scoredRaces' in request.resource.data) || request.resource.data.scoredRaces.size() == 0);
+                    && (!('scoredRaces' in request.resource.data) || request.resource.data.scoredRaces.size() == 0)
+                    && usableLeagueId(request.resource.data);
       allow update: if isOwner(resource.data.userId)
                     && request.resource.data.userId == resource.data.userId
                     && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
@@ -353,7 +383,8 @@ service cloud.firestore {
                       'racesSinceTransfer', 'driverLockouts',
                       'bestRacePoints', 'bestRaceId'
                     ]))
-                    && (!aceIsFrozen(resource.data) || aceUnchanged(resource.data, request.resource.data));
+                    && (!aceIsFrozen(resource.data) || aceUnchanged(resource.data, request.resource.data))
+                    && usableLeagueId(request.resource.data);
       allow delete: if isOwner(resource.data.userId);
     }
 

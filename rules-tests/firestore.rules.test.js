@@ -221,6 +221,61 @@ test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped
   await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
 });
 
+// ── F-104: a leagueId has to be something doc() can take ──
+// `db.collection('leagues').doc(id)` throws synchronously on an id containing a slash, and
+// nothing validated this field — so any signed-in player could create a team with
+// `leagueId: "a/b"` and reject every autoLockTeams run from then on: no lineup lock, no ace
+// freeze, for everyone, until someone found the document. Checked on update too, because
+// leagueId is not a denied key (syncTeam writes it on every sync) and a create-only rule would
+// leave the hole open to anyone who created a team properly and then edited it.
+const pristine = (over = {}) => ({
+  userId: ALICE, name: 'Apex', drivers: [], constructor: null,
+  budget: 1000, totalSpent: 0, totalPoints: 0, leagueId: null, ...over,
+});
+
+test('F-104 leagueId: a usable id, null, or absent — on create', async () => {
+  const d = db(ALICE);
+  await assertSucceeds(setDoc(doc(d, 'fantasyTeams', 'ok1'), pristine({ leagueId: 'aBc123XyZ0aBc123XyZ0' })));
+  await assertSucceeds(setDoc(doc(d, 'fantasyTeams', 'ok2'), pristine({ leagueId: null })));
+  await assertSucceeds(setDoc(doc(d, 'fantasyTeams', 'ok3'), pristine({ leagueId: 'L1' })));
+  const { leagueId, ...noField } = pristine();
+  await assertSucceeds(setDoc(doc(d, 'fantasyTeams', 'ok4'), noField));
+});
+
+test('F-104 leagueId: the shapes that crash doc() are refused on create', async () => {
+  const d = db(ALICE);
+  // the one that stops the sweep for everybody
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad1'), pristine({ leagueId: 'a/b' })));
+  // a path that escapes the collection entirely
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad2'), pristine({ leagueId: '../leagues/L1' })));
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad3'), pristine({ leagueId: '' })));
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad4'), pristine({ leagueId: '.' })));
+  // Firestore reserves ids matching `__…__` and throws on them as it does on a slash. This one
+  // passed the first version of the rule — underscores were allowed anywhere — and RE2 has no
+  // negative lookahead, so the rule requires an alphanumeric first character instead.
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad5'), pristine({ leagueId: '__proto__' })));
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad5b'), pristine({ leagueId: '__name__' })));
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad5c'), pristine({ leagueId: '_leading' })));
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad6'), pristine({ leagueId: 42 })));
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad7'), pristine({ leagueId: { id: 'L1' } })));
+  await assertFails(setDoc(doc(d, 'fantasyTeams', 'bad8'), pristine({ leagueId: 'x'.repeat(65) })));
+});
+
+test('F-104 leagueId: and refused on UPDATE, which a create-only rule would have missed', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'fantasyTeams', 'T9'), pristine({ leagueId: 'aBc123XyZ0aBc123XyZ0' }));
+  });
+  const d = db(ALICE);
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T9'), { leagueId: 'a/b' }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T9'), { leagueId: '' }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T9'), { leagueId: 7 }));
+  // riding along with an innocent field is still refused
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T9'), { name: 'Apex Two', leagueId: 'a/b' }));
+  // and the shipped client keeps working: syncTeam writes leagueId unchanged on every sync
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T9'), { leagueId: 'aBc123XyZ0aBc123XyZ0', name: 'Apex Two' }));
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T9'), { leagueId: null }));
+});
+
 // ── F-095/F-098: the ace is frozen for every session that scores with it ──
 // Three sessions score with the ace applied — qualifying, the sprint, the race — and each
 // is scored minutes after it ends from a live read, so each had a window to watch the

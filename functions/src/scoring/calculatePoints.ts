@@ -1,6 +1,19 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
+// F-104: `leagues.doc(id)` throws synchronously on an unusable id, and these sync loops feed
+// it straight from a client-written field. The rule and createTeamSecure stop new ones; this
+// is so a row predating them cannot abort scoring for every league after it in the scan.
+import { isUsableLeagueId as leagueIdIsUsable } from '../utils/leagueId';
+/**
+ * Skipping a league keeps scoring alive for everyone else, but silently it would show up only
+ * as member totals drifting from team totals — so say it.
+ */
+const keepUsableLeague = (id: string): boolean => {
+  if (leagueIdIsUsable(id)) return true;
+  console.error('[Scoring] Skipping league sync for an unusable leagueId: %j', id);
+  return false;
+};
 import { rebuildMarketCache } from '../cache/marketCache';
 import {
   RACE_POINTS,
@@ -408,7 +421,8 @@ export async function handleQualifyingScoring(
   console.log(`[Qualifying] Scored ${pointsUpdates.length} teams for ${raceId}`);
 
   // Sync league member totalPoints from team docs (authoritative source)
-  const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))];
+  const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))]
+    .filter(keepUsableLeague);
   for (const leagueId of affectedLeagues) {
     const leagueTeamsSnap = await db.collection('fantasyTeams').where('leagueId', '==', leagueId).get();
     const teamPtsByUser = new Map<string, number>();
@@ -547,7 +561,8 @@ export async function handleSprintScoring(
   console.log(`[Sprint] Scored ${pointsUpdates.length} teams for ${raceId}`);
 
   // Sync league member totalPoints from team docs (authoritative source)
-  const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))];
+  const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))]
+    .filter(keepUsableLeague);
   for (const leagueId of affectedLeagues) {
     const leagueTeamsSnap = await db.collection('fantasyTeams').where('leagueId', '==', leagueId).get();
     const teamPtsByUser = new Map<string, number>();
@@ -1420,7 +1435,8 @@ export const onRaceCompleted = functions
     // and SET league member totalPoints (not increment) to prevent drift.
     console.log(`[Phase 4] Syncing league member points from team totals`);
 
-    const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))];
+    const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))]
+    .filter(keepUsableLeague);
 
     for (const leagueId of affectedLeagues) {
       // Get all teams in this league
@@ -2043,7 +2059,13 @@ export const repairTeamScoring = functions
       // the quali/sprint syncs) — writing bare totalPoints here used to drop
       // every member with banked points down the leaderboard until the next
       // race resynced them.
-      if (team.leagueId && team.userId) {
+      // F-104: `leagueIdIsUsable` here too. This is the fourth dereference of a client-written
+      // field, and the one I missed when the spec said "all three" — without it a single bad row
+      // throws and the repair tool is unusable exactly when it is needed to clean that row up.
+      // `keepUsableLeague`, not the bare predicate: this is the tool used to clean such a row
+      // up, and it writes the team doc while skipping the member doc — manufacturing exactly the
+      // team-versus-member drift that is the only other symptom. It should say so.
+      if (team.leagueId && team.userId && keepUsableLeague(team.leagueId)) {
         const memberRef = db
           .collection('leagues')
           .doc(team.leagueId)
