@@ -1212,7 +1212,7 @@ features:
       - document
   - id: F-105
     name: "UC: creating a league cannot hand yourself the paid features"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-105.md
     created_at: 2026-10-06
     keywords:
