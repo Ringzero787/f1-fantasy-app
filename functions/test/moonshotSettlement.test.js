@@ -4,7 +4,9 @@ const assert = require('node:assert/strict');
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'demo-uc-test';
 process.env.FIREBASE_CONFIG = process.env.FIREBASE_CONFIG || JSON.stringify({ projectId: 'demo-uc-test', storageBucket: 'demo-uc-test.appspot.com' });
 const { mergeConfig } = require('../lib/moonshot/config.js');
-const { settleDecision, predictionHit, capHit, clampCash, settlementIdFor, nextStats, SETTLEMENT_VERSION, SETTLEABLE_STATUSES } = require('../lib/moonshot/settlement.js');
+const { settleDecision, predictionHit, capHit, clampCash, settlementIdFor, nextStats, isSettleable, settleMoonshotsForRace, SETTLEMENT_VERSION, SETTLEABLE_STATUSES } = require('../lib/moonshot/settlement.js');
+const { memberSeasonTotal, moonshotShare } = require('../lib/scoring/standingsFields.js');
+const admin = require('firebase-admin');
 const { rankRaceEntries } = require('../lib/scoring/leagueRaceResults.js');
 const index = require('../lib/index.js');
 
@@ -48,6 +50,8 @@ test('the season cap pays a hit up to the cap and marks it; misses are never cap
   assert.deepEqual(capHit(500, 1200, 1500), { paid: 300, capped: true });
   assert.deepEqual(capHit(500, 1500, 1500), { paid: 0, capped: true });
   assert.deepEqual(capHit(-100, 1500, 1500), { paid: -100, capped: false });
+  assert.deepEqual(capHit(500, -300, 1500), { paid: 500, capped: false });   // misses so far do not widen the room
+  assert.deepEqual(capHit(500, 0, 0), { paid: 0, capped: true });           // a zero cap pays nothing
 });
 
 test('cash never goes below zero; a miss larger than the bank is a shortfall', () => {
@@ -72,6 +76,103 @@ test('season stats accumulate per currency, count voids apart, and remember the 
   assert.deepEqual([s.used, s.voided], [2, 1]);   // a void spends nothing
   s = nextStats(s, { ...c, id: 'm4', potentialReward: 800 }, 'HIT', 300);   // capped hit: the paid amount is what counts
   assert.deepEqual([s.pointsWon, s.biggestHit.moonshotId], [800, 'm1']);
+  s = nextStats(s, { ...c, id: 'm5', stakeCurrency: 'CASH' }, 'HIT', 900);   // cash is another scale: never the points record
+  assert.equal(s.biggestHit.moonshotId, 'm1');
+  assert.equal(nextStats(undefined, { ...c, id: 'm6' }, 'HIT', 0).biggestHit, null);   // a hit capped to nothing is no record
+});
+
+test('the member season total is one definition: active + banked + Moonshot, absent fields read as zero', () => {
+  assert.equal(memberSeasonTotal({ totalPoints: 1200, lockedPoints: 300, moonshotPoints: 500 }), 2000);
+  assert.equal(memberSeasonTotal({ totalPoints: 1200, lockedPoints: 300 }), 1500);
+  assert.equal(memberSeasonTotal({ totalPoints: 100, moonshotPoints: -100 }), 0);
+  assert.equal(memberSeasonTotal({}), 0);
+  assert.equal(moonshotShare({ moonshotPoints: 'lots' }), 0);
+});
+
+test('only an unsettled confirmed, locked or live call is picked up', () => {
+  assert.ok(isSettleable({ status: 'CONFIRMED' })); assert.ok(isSettleable({ status: 'LOCKED' })); assert.ok(isSettleable({ status: 'LIVE' }));
+  assert.ok(!isSettleable({ status: 'CONFIRMED', settledAt: new Date() }));
+  for (const st of ['CANCELLED', 'HIT', 'MISSED', 'VOID', undefined]) assert.ok(!isSettleable({ status: st }), String(st));
+});
+
+// A stubbed Firestore: just enough of the Admin SDK surface settlement touches, recording every write.
+function fakeDb(docs) {
+  const store = new Map(Object.entries(docs).map(([k, v]) => [k, { ...v }]));
+  const writes = [];
+  const docRef = (path) => ({
+    path, id: path.split('/').pop(),
+    collection: (name) => ({ doc: (id) => docRef(`${path}/${name}/${id}`) }),
+    async get() { return snapOf(path); },
+  });
+  const snapOf = (path) => ({ id: path.split('/').pop(), ref: docRef(path), exists: store.has(path), data: () => (store.has(path) ? { ...store.get(path) } : undefined) });
+  const apply = (op, path, data, merge) => {
+    writes.push({ op, path, data });
+    const prev = store.get(path) ?? {};
+    const deep = (a, b) => { const o = { ...a }; for (const [k, v] of Object.entries(b)) o[k] = v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date) && v.constructor === Object && a[k] && typeof a[k] === 'object' ? deep(a[k], v) : v; return o; };
+    store.set(path, op === 'update' || merge ? deep(prev, data) : { ...data });
+  };
+  const db = {
+    writes, store,
+    doc: docRef,
+    collection: (name) => ({
+      where() { return this; },
+      async get() { const docsOut = [...store.keys()].filter((k) => k.startsWith(`${name}/`) && k.split('/').length === 2).map(snapOf); return { empty: docsOut.length === 0, docs: docsOut, size: docsOut.length }; },
+    }),
+    async runTransaction(fn) {
+      const tx = {
+        async get(ref) { return snapOf(ref.path); },
+        set(ref, data, opts) { apply('set', ref.path, data, !!(opts && opts.merge)); },
+        update(ref, data) { apply('update', ref.path, data, true); },
+      };
+      return fn(tx);
+    },
+  };
+  return db;
+}
+
+test('settlement is idempotent: the first run settles every open call, the second changes nothing', async () => {
+  const db = fakeDb({
+    'config/app': { moonshot: { enabled: true } },
+    'fantasyTeams/tA': { userId: 'alice', leagueId: 'L1', totalPoints: 100, lockedPoints: 0, budget: 240 },
+    'moonshots/m1': { teamId: 'tA', userId: 'alice', leagueId: 'L1', seasonId: '2026', raceId: 'r1', driverId: 'hadjar', predictionType: 'PODIUM', predictionTarget: null, stakeCurrency: 'POINTS', stakeAmount: 200, multiplier: 5, potentialReward: 1000, status: 'CONFIRMED', lockAt: 1 },
+    'moonshots/m2': { teamId: 'tA', userId: 'alice', leagueId: 'L1', seasonId: '2026', raceId: 'r1', driverId: 'norris', predictionType: 'WIN', predictionTarget: null, stakeCurrency: 'CASH', stakeAmount: 100, multiplier: 2.5, potentialReward: 250, status: 'LOCKED', lockAt: 1 },
+    'moonshots/m3': { teamId: 'tGone', userId: 'bob', leagueId: null, seasonId: '2026', raceId: 'r1', driverId: 'norris', predictionType: 'WIN', stakeCurrency: 'POINTS', stakeAmount: 50, potentialReward: 125, status: 'CONFIRMED' },
+  });
+  const race = { seasonId: '2026', round: 19, name: 'Round 19', results: { raceResults: [{ driverId: 'hadjar', position: 3, status: 'finished' }, { driverId: 'norris', position: 2, status: 'finished' }] } };
+  const first = await settleMoonshotsForRace(db, 'r1', race);
+  assert.deepEqual(first, { settled: 3, skipped: 0, failed: 0 });
+  const m1 = db.store.get('moonshots/m1'), m2 = db.store.get('moonshots/m2'), m3 = db.store.get('moonshots/m3'), team = db.store.get('fantasyTeams/tA');
+  assert.deepEqual([m1.status, m1.adjustmentAmount, m1.settlementId, m1.officialDriverFinish], ['HIT', 1000, '2026:r1:m1:v1', 3]);
+  assert.deepEqual([m2.status, m2.adjustmentAmount], ['MISSED', -100]);
+  assert.deepEqual([team.moonshotPoints, team.budget, team.totalPoints, team.moonshotStats.hit, team.moonshotStats.missed], [1000, 140, 100, 1, 1]);   // totalPoints untouched
+  assert.deepEqual([m3.status, m3.officialDriverStatus], ['VOID', 'team-missing']);
+  assert.ok(!db.store.has('fantasyTeams/tGone'), 'a deleted team is not resurrected');
+  assert.ok(db.store.has('leagues/L1/activity/m1_settled') && db.store.has('leagues/L1/activity/m2_settled'));
+  assert.deepEqual([db.store.get('fantasyTeams/tA/raceSnapshots/r1').moonshots.m1.adjustmentAmount, db.store.get('fantasyTeams/tA/raceSnapshots/r1').moonshots.m2.adjustmentAmount], [1000, -100]);   // keyed by call: both survive
+  assert.ok(m1.settledAt instanceof admin.firestore.FieldValue);
+
+  const before = db.writes.length;
+  const second = await settleMoonshotsForRace(db, 'r1', race);
+  assert.deepEqual(second, { settled: 0, skipped: 3, failed: 0 });
+  assert.equal(db.writes.length, before, 'the second pass issues no writes');
+  assert.deepEqual([db.store.get('fantasyTeams/tA').moonshotPoints, db.store.get('fantasyTeams/tA').budget], [1000, 140]);
+});
+
+test('a void returns the token and a cancelled race creates no weekend record', async () => {
+  const db = fakeDb({
+    'config/app': { moonshot: { enabled: true } },
+    'fantasyTeams/tA': { userId: 'alice', leagueId: 'L1', totalPoints: 100, budget: 240 },
+    'moonshotTokens/tA_2026': { teamId: 'tA', userId: 'alice', seasonId: '2026', used: 1 },
+    'moonshots/m1': { teamId: 'tA', userId: 'alice', leagueId: 'L1', seasonId: '2026', raceId: 'r2', driverId: 'hadjar', predictionType: 'WIN', stakeCurrency: 'POINTS', stakeAmount: 200, potentialReward: 1000, status: 'CONFIRMED' },
+  });
+  const out = await settleMoonshotsForRace(db, 'r2', { seasonId: '2026', round: 20, status: 'cancelled' }, { cancelled: true });
+  assert.deepEqual(out, { settled: 1, skipped: 0, failed: 0 });
+  assert.equal(db.store.get('moonshots/m1').status, 'VOID');
+  assert.equal(db.store.get('fantasyTeams/tA').moonshotPoints, undefined);                      // a void adjusts nothing
+  assert.equal(db.store.get('fantasyTeams/tA').moonshotStats.voided, 1);
+  assert.ok(db.writes.some((w) => w.path === 'moonshotTokens/tA_2026'), 'the token comes back');
+  assert.ok(!db.store.has('fantasyTeams/tA/raceSnapshots/r2'), 'no weekend record for a race that never ran');
+  assert.equal(db.store.get('leagues/L1/activity/m1_settled').type, 'MOONSHOT_VOID');
 });
 
 test('race entries carry race points, Moonshot points and the race total; ranking and wins stay on race points', () => {

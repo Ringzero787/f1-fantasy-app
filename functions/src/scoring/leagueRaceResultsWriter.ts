@@ -50,9 +50,11 @@ export async function writeLeagueRaceResult(
     if (snap && snap.exists) {
       usersWithSnapshot.add(userId);
       pointsByUser.set(userId, (pointsByUser.get(userId) ?? 0) + snapshotWeekendPoints(snap.data() as never));
-      // F-107: a settled points Moonshot sits beside the phases, never inside them
-      const ms = (snap.data() as { moonshot?: { stakeCurrency?: string; adjustmentAmount?: unknown } }).moonshot;
-      if (ms && ms.stakeCurrency === 'POINTS' && typeof ms.adjustmentAmount === 'number') moonshotByUser.set(userId, (moonshotByUser.get(userId) ?? 0) + ms.adjustmentAmount);
+      // F-107: settled points Moonshots sit beside the phases (keyed by call), never inside them
+      const calls = (snap.data() as { moonshots?: Record<string, { stakeCurrency?: string; adjustmentAmount?: unknown }> }).moonshots;
+      for (const ms of Object.values(calls ?? {})) {
+        if (ms && ms.stakeCurrency === 'POINTS' && typeof ms.adjustmentAmount === 'number') moonshotByUser.set(userId, (moonshotByUser.get(userId) ?? 0) + ms.adjustmentAmount);
+      }
     }
   });
   for (const [userId, pts] of racePhasePointsByUser) {

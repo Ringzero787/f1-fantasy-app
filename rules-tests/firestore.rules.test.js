@@ -633,6 +633,11 @@ test('moonshot settlement: a team cannot write its own moonshotPoints or stats; 
     await setDoc(doc(a, 'fantasyTeams', 'tA'), { userId: ALICE, leagueId: 'L1', name: 'Alice Racing', budget: 500, totalPoints: 120, lockedPoints: 0, moonshotPoints: 500, drivers: [], scoredRaces: [] });
     await setDoc(doc(a, 'leagues', 'L1', 'activity', 'm1_settled'), { type: 'MOONSHOT_HIT', userId: ALICE, teamId: 'tA', raceId: 'singapore_2026', adjustmentAmount: 500 });
   });
+  const fresh = { userId: BOB, leagueId: 'L1', name: 'Bob Racing', budget: 1000, totalSpent: 0, totalPoints: 0, drivers: [], constructor: null };
+  await assertSucceeds(setDoc(doc(db(BOB), 'fantasyTeams', 'tB'), fresh));
+  await assertSucceeds(setDoc(doc(db(BOB), 'fantasyTeams', 'tB0'), { ...fresh, moonshotPoints: 0 }));
+  await assertFails(setDoc(doc(db(BOB), 'fantasyTeams', 'tB1'), { ...fresh, moonshotPoints: 100000 }));          // minted on create
+  await assertFails(setDoc(doc(db(BOB), 'fantasyTeams', 'tB2'), { ...fresh, moonshotStats: { pointsWon: 0 } }));
   await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'tA'), { name: 'Alice Racing II' }));
   await assertFails(updateDoc(doc(db(ALICE), 'fantasyTeams', 'tA'), { moonshotPoints: 5000 }));
   await assertFails(updateDoc(doc(db(ALICE), 'fantasyTeams', 'tA'), { moonshotStats: { hit: 99 } }));

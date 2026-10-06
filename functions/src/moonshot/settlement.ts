@@ -115,7 +115,8 @@ export function nextStats(prev: Partial<MoonshotStats> | undefined, call: CallTe
     pointsRisked: s.pointsRisked + (points ? call.stakeAmount : 0), cashRisked: s.cashRisked + (points ? 0 : call.stakeAmount),
     pointsWon: s.pointsWon + (points && applied > 0 ? applied : 0), cashWon: s.cashWon + (!points && applied > 0 ? applied : 0),
   };
-  if (result === 'HIT' && applied > (s.biggestHit?.adjustmentAmount ?? -Infinity)) {
+  // the biggest hit is a points record: cash and points are not one scale, and a hit capped to nothing is no record
+  if (result === 'HIT' && points && applied > 0 && applied > (s.biggestHit?.adjustmentAmount ?? 0)) {
     out.biggestHit = { moonshotId: call.id, adjustmentAmount: applied, driverId: call.driverId, predictionType: call.predictionType, raceId: call.raceId };
   }
   return out;
@@ -124,7 +125,12 @@ export function nextStats(prev: Partial<MoonshotStats> | undefined, call: CallTe
 /** Statuses a settlement run picks up: anything confirmed that has not been settled or cancelled. */
 export const SETTLEABLE_STATUSES = ['CONFIRMED', 'LOCKED', 'LIVE'] as const;
 
-interface RaceLike { seasonId?: unknown; round?: unknown; name?: unknown; status?: unknown; results?: { raceResults?: DriverResultLike[] & { driverId?: string }[] } }
+type RaceDriverResult = DriverResultLike & { driverId?: string };
+interface RaceLike { seasonId?: unknown; round?: unknown; name?: unknown; status?: unknown; results?: { raceResults?: RaceDriverResult[] } }
+
+/** Pure: is this call still waiting to be settled? Settled, cancelled and void calls are never touched again. */
+export const isSettleable = (m: { status?: unknown; settledAt?: unknown }): boolean =>
+  !m.settledAt && typeof m.status === 'string' && (SETTLEABLE_STATUSES as readonly string[]).includes(m.status);
 
 /**
  * Settle every open call on a race. Safe to repeat: a call already carrying `settledAt` is skipped
@@ -134,7 +140,7 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
   const open = await db.collection('moonshots').where('raceId', '==', raceId).where('status', 'in', [...SETTLEABLE_STATUSES]).get();
   if (open.empty) return { settled: 0, skipped: 0, failed: 0 };
   const cfg = await loadMoonshotConfig(db);   // the rules apply to existing calls even when the mechanic is switched off
-  const results = (race.results?.raceResults ?? []) as Array<DriverResultLike & { driverId?: string }>;
+  const results: RaceDriverResult[] = race.results?.raceResults ?? [];
   const byDriver = new Map(results.filter((r) => typeof r.driverId === 'string').map((r) => [r.driverId as string, r]));
   const roundNumber = typeof race.round === 'number' ? race.round : null;
   let settled = 0, skipped = 0, failed = 0;
@@ -145,16 +151,24 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
         const snap = await tx.get(ref);
         if (!snap.exists) return false;
         const m = snap.data()!;
-        if (m.settledAt || !(SETTLEABLE_STATUSES as readonly string[]).includes(m.status)) return false;
+        if (!isSettleable(m)) return false;
         const teamRef = db.doc(`fantasyTeams/${m.teamId}`);
-        const team = (await tx.get(teamRef)).data() ?? {};
+        const teamSnap = await tx.get(teamRef);
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        const settlementId = settlementIdFor(String(m.seasonId), raceId, snap.id);
+        if (!teamSnap.exists) {
+          // the team is gone (account deleted): record the void on the call and touch nothing else,
+          // or a merge-set here would resurrect a stub team document
+          tx.update(ref, { status: 'VOID', result: 'VOID', officialDriverFinish: null, officialDriverStatus: 'team-missing', adjustmentAmount: 0, adjustmentRequested: 0, capped: false, shortfall: false, settlementId, settlementVersion: SETTLEMENT_VERSION, settledAt: now, lockedAt: m.lockedAt ?? m.lockAt ?? null, updatedAt: now });
+          return true;
+        }
+        const team = teamSnap.data()!;
         const call: CallTerms & { id: string; driverId: string; raceId: string } = {
           id: snap.id, driverId: m.driverId, raceId, predictionType: m.predictionType, predictionTarget: m.predictionTarget,
           stakeCurrency: m.stakeCurrency, stakeAmount: m.stakeAmount ?? 0, potentialReward: m.potentialReward ?? 0,
         };
         const decision = settleDecision(call, byDriver.get(m.driverId), cfg, !!opts.cancelled);
         const prevStats: Partial<MoonshotStats> | undefined = team.moonshotStats;
-        const now = admin.firestore.FieldValue.serverTimestamp();
         const teamUpdate: Record<string, unknown> = { updatedAt: now };
         let applied = decision.adjustmentAmount, capped = false, shortfall = false;
         if (decision.result !== 'VOID') {
@@ -169,16 +183,17 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
         teamUpdate.moonshotStats = nextStats(prevStats, call, decision.result, applied);
         tx.set(teamRef, teamUpdate, { merge: true });
 
-        const settlementId = settlementIdFor(String(m.seasonId), raceId, snap.id);
         tx.update(ref, {
           status: decision.result, result: decision.result, officialDriverFinish: decision.officialDriverFinish, officialDriverStatus: decision.driverStatus,
           adjustmentAmount: applied, adjustmentRequested: decision.adjustmentAmount, capped, shortfall,
           settlementId, settlementVersion: SETTLEMENT_VERSION, settledAt: now, lockedAt: m.lockedAt ?? m.lockAt ?? null, updatedAt: now,
         });
-        // the weekend record beside the scoring phases (not inside them: snapshotWeekendPoints sums phases)
-        tx.set(teamRef.collection('raceSnapshots').doc(raceId), {
+        // the weekend record beside the scoring phases (not inside them: snapshotWeekendPoints sums phases),
+        // keyed by call so a second call on the race (maxPerRace > 1) does not overwrite the first;
+        // a cancelled race has no weekend, so no snapshot is created for it
+        if (!opts.cancelled) tx.set(teamRef.collection('raceSnapshots').doc(raceId), {
           teamId: m.teamId, userId: m.userId, leagueId: m.leagueId ?? null, raceId,
-          moonshot: { moonshotId: snap.id, result: decision.result, stakeCurrency: m.stakeCurrency, stakeAmount: call.stakeAmount, adjustmentAmount: applied, driverId: m.driverId, predictionType: m.predictionType, predictionTarget: m.predictionTarget ?? null, officialDriverFinish: decision.officialDriverFinish, multiplier: m.multiplier ?? null },
+          moonshots: { [snap.id]: { moonshotId: snap.id, result: decision.result, stakeCurrency: m.stakeCurrency, stakeAmount: call.stakeAmount, adjustmentAmount: applied, driverId: m.driverId, predictionType: m.predictionType, predictionTarget: m.predictionTarget ?? null, officialDriverFinish: decision.officialDriverFinish, multiplier: m.multiplier ?? null } },
         }, { merge: true });
         // a void returns the token
         if (decision.result === 'VOID') {
@@ -205,10 +220,19 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
   return { settled, skipped, failed };
 }
 
-/** A cancelled race never reaches onRaceCompleted; its calls settle by `cancelledRule` here. */
-export const onRaceCancelled = functions.firestore.document('races/{raceId}').onUpdate(async (change, context) => {
+/**
+ * A cancelled race never reaches onRaceCompleted; its calls settle by `cancelledRule` here.
+ * A race that already carries a classification is not treated as cancelled — its calls settle on
+ * the result, so a mistaken status flip cannot void (or take) stakes on a race that ran. Un-cancelling
+ * a race after its calls were voided is a manual op: settledAt keeps them settled.
+ */
+export const onRaceCancelled = functions.runWith({ timeoutSeconds: 300 }).firestore.document('races/{raceId}').onUpdate(async (change, context) => {
   const before = change.before.data(), after = change.after.data();
   if (before.status === 'cancelled' || after.status !== 'cancelled') return null;
+  if (Array.isArray(after.results?.raceResults) && after.results.raceResults.length > 0) {
+    console.warn(`[moonshot] ${context.params.raceId} marked cancelled but carries a classification; not voiding its calls`);
+    return null;
+  }
   await settleMoonshotsForRace(admin.firestore(), context.params.raceId, after, { cancelled: true });
   return null;
 });

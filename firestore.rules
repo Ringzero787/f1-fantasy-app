@@ -404,6 +404,9 @@ service cloud.firestore {
                     && request.resource.data.constructor == null
                     && (!('lockedPoints' in request.resource.data) || request.resource.data.lockedPoints == 0)
                     && (!('scoredRaces' in request.resource.data) || request.resource.data.scoredRaces.size() == 0)
+                    // F-107: the Moonshot column is settlement's alone; a new team starts with none
+                    && (!('moonshotPoints' in request.resource.data) || request.resource.data.moonshotPoints == 0)
+                    && !('moonshotStats' in request.resource.data)
                     && usableLeagueId(request.resource.data);
       allow update: if isOwner(resource.data.userId)
                     && request.resource.data.userId == resource.data.userId

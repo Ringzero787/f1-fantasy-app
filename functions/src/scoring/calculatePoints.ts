@@ -31,7 +31,7 @@ import {
   SprintResult,
   QualifyingResult,
 } from './scoringCore';
-import { rankWrites, bestRaceUpdate } from './standingsFields';
+import { rankWrites, bestRaceUpdate, memberSeasonTotal, moonshotShare } from './standingsFields';
 import { buildRaceSnapshot } from './raceSnapshots';
 import { writeLeagueRaceResult } from './leagueRaceResultsWriter';
 import { settleMoonshotsForRace } from '../moonshot/settlement';
@@ -432,8 +432,8 @@ export async function handleQualifyingScoring(
     const moonshotByUser = new Map<string, number>();
     leagueTeamsSnap.docs.forEach(d => {
       const t = d.data();
-      const ms = typeof t.moonshotPoints === 'number' ? t.moonshotPoints : 0;
-      const pts = (t.totalPoints || 0) + (t.lockedPoints || 0) + ms;
+      const ms = moonshotShare(t);
+      const pts = memberSeasonTotal(t);
       teamPtsByUser.set(t.userId, (teamPtsByUser.get(t.userId) || 0) + pts);
       moonshotByUser.set(t.userId, (moonshotByUser.get(t.userId) || 0) + ms);
     });
@@ -577,8 +577,8 @@ export async function handleSprintScoring(
     const moonshotByUser = new Map<string, number>();
     leagueTeamsSnap.docs.forEach(d => {
       const t = d.data();
-      const ms = typeof t.moonshotPoints === 'number' ? t.moonshotPoints : 0;
-      const pts = (t.totalPoints || 0) + (t.lockedPoints || 0) + ms;
+      const ms = moonshotShare(t);
+      const pts = memberSeasonTotal(t);
       teamPtsByUser.set(t.userId, (teamPtsByUser.get(t.userId) || 0) + pts);
       moonshotByUser.set(t.userId, (moonshotByUser.get(t.userId) || 0) + ms);
     });
@@ -1030,7 +1030,8 @@ export const onRaceCompleted = functions
     // Every open call on this race is settled from the official classification, each in its
     // own transaction keyed by settlementId, so a repeat run pays or takes nothing twice. It
     // runs before Phase 4 so moonshotPoints is on the team docs the standings are built from.
-    // A failure here must not undo scoring; the next repair replay settles what is left.
+    // A failure here must not undo scoring; a replay (calculatePointsManually re-fires this
+    // trigger, repairTeamScoring calls settlement directly) settles what is left.
     try {
       await settleMoonshotsForRace(db, raceId, afterData);
     } catch (err) {
@@ -1483,8 +1484,8 @@ export const onRaceCompleted = functions
         const userId = team.userId;
         // F-107: season standings order by totalPoints + lockedPoints + moonshotPoints; the
         // Moonshot share is also written on the member so the table can show it as its own column.
-        const moonshotPoints = typeof team.moonshotPoints === 'number' ? team.moonshotPoints : 0;
-        const teamTotal = (team.totalPoints || 0) + (team.lockedPoints || 0) + moonshotPoints;
+        const moonshotPoints = moonshotShare(team);
+        const teamTotal = memberSeasonTotal(team);
 
         // If user has multiple teams in same league, sum team totals;
         // lastRacePoints comes from the per-user map (already summed).
@@ -1727,6 +1728,17 @@ export const repairTeamScoring = functions
         qualifyingResults: rd.results?.qualifyingResults || null,
         fastestLap: rd.results?.fastestLap || null,
       });
+    }
+
+    // F-107: settle any Moonshot still open on a completed race before the team docs are read
+    // below, so the member totals this repair writes include it. Idempotent: settled calls are
+    // skipped inside their own transaction, so a replay pays and takes nothing twice.
+    for (const raceDoc of sortedRaceDocs) {
+      try {
+        await settleMoonshotsForRace(db, raceDoc.id, raceDoc.data());
+      } catch (err) {
+        console.error(`[Repair] moonshot settlement for ${raceDoc.id} failed:`, err);
+      }
     }
 
     const completedRaceCount = completedRaces.length;
@@ -2099,10 +2111,10 @@ export const repairTeamScoring = functions
           .doc(team.leagueId)
           .collection('members')
           .doc(team.userId);
-        const moonshotPoints = typeof team.moonshotPoints === 'number' ? team.moonshotPoints : 0;   // F-107
+        // F-107: the same definition every sync uses, read from the team doc as settled above
         leagueMemberOps.push({
           ref: memberRef,
-          data: { totalPoints: totalPoints + lockedPoints + moonshotPoints, moonshotPoints },
+          data: { totalPoints: memberSeasonTotal({ totalPoints, lockedPoints, moonshotPoints: team.moonshotPoints }), moonshotPoints: moonshotShare(team as { moonshotPoints?: unknown }) },
         });
         affectedLeagueIds.add(team.leagueId);
       }
