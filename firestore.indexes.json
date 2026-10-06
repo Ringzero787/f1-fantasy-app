@@ -227,6 +227,23 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "schedule.race", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "moonshotModels",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "season", "order": "ASCENDING" },
+        { "fieldPath": "round", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "moonshots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "teamId", "order": "ASCENDING" },
+        { "fieldPath": "seasonId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

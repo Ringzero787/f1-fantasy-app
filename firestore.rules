@@ -495,6 +495,26 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Moonshot (F-106). A call is the owner's until it locks; after lock the league sees it.
+    // Quotes are server-only. Models are the weekly odds everyone may read: pricing is never
+    // behind the pass. Nothing here is client-writable; the callables are the only writers.
+    match /moonshots/{moonshotId} {
+      allow get, list: if isAuthenticated() && (
+        isOwner(resource.data.userId) || isAdmin()
+        || (resource.data.leagueId != null && isLeagueMember(resource.data.leagueId)
+            && resource.data.status != 'CANCELLED'
+            && resource.data.lockAt != null && resource.data.lockAt <= request.time)
+      );
+      allow write: if false;
+    }
+    match /moonshotQuotes/{quoteId} {
+      allow read, write: if false;
+    }
+    match /moonshotModels/{raceId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     // Game config — readable by all authenticated users, writable by admin only
     match /config/{docId} {
       allow read: if isAuthenticated();

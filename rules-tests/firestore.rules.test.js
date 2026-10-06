@@ -579,6 +579,48 @@ test('race snapshots: the owner and the league read them; solo snapshots are pri
   await assertFails(deleteDoc(doc(db(ALICE), 'fantasyTeams', 'tA', 'raceSnapshots', 'round_9')));
 });
 
+// ── F-106 Moonshot: calls are the owner's until lock, then the league's; quotes are server-only; models are readable ──
+const moonshot = (userId, leagueId, status, lockAt) => ({ id: 'm', seasonId: '2026', leagueId, teamId: 'tA', userId, raceId: 'singapore_2026', roundNumber: 19, driverId: 'norris', predictionType: 'PODIUM', predictionTarget: null, stakeCurrency: 'POINTS', stakeAmount: 100, modelProbability: 0.43, rewardBand: 'BOLD', multiplier: 1.25, potentialReward: 125, status, lockAt, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+test('moonshots: the owner sees their own call before lock; the league only after lock and never a cancelled one; nobody writes', async () => {
+  await seedLeague(); await seedMember('L1', ALICE); await seedMember('L1', BOB);
+  const past = new Date(Date.now() - 60_000), future = new Date(Date.now() + 86_400_000);
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'moonshots', 'open'), moonshot(ALICE, 'L1', 'CONFIRMED', future));
+    await setDoc(doc(a, 'moonshots', 'locked'), moonshot(ALICE, 'L1', 'CONFIRMED', past));
+    await setDoc(doc(a, 'moonshots', 'cancelled'), moonshot(ALICE, 'L1', 'CANCELLED', past));
+    await setDoc(doc(a, 'moonshots', 'solo'), moonshot(ALICE, null, 'CONFIRMED', past));
+  });
+  await assertSucceeds(getDoc(doc(db(ALICE), 'moonshots', 'open')));
+  await assertSucceeds(getDoc(doc(db(ALICE), 'moonshots', 'cancelled')));
+  await assertFails(getDoc(doc(db(BOB), 'moonshots', 'open')));          // a rival's call is hidden until lock
+  await assertSucceeds(getDoc(doc(db(BOB), 'moonshots', 'locked')));     // then the league sees it
+  await assertSucceeds(getDoc(doc(db(OWNER), 'moonshots', 'locked')));
+  await assertFails(getDoc(doc(db(BOB), 'moonshots', 'cancelled')));     // a cancelled call is the owner's business
+  await assertFails(getDoc(doc(db(BOB), 'moonshots', 'solo')));          // no league, no audience
+  await assertFails(getDoc(doc(db(MALLORY), 'moonshots', 'locked')));    // not in the league
+  await assertFails(getDocs(query(collection(db(MALLORY), 'moonshots'), where('leagueId', '==', 'L1'))));
+  await assertSucceeds(getDocs(query(collection(db(ALICE), 'moonshots'), where('userId', '==', ALICE))));
+  await assertFails(setDoc(doc(db(ALICE), 'moonshots', 'forged'), moonshot(ALICE, 'L1', 'HIT', past)));
+  await assertFails(updateDoc(doc(db(ALICE), 'moonshots', 'open'), { multiplier: 8, potentialReward: 800 }));
+  await assertFails(updateDoc(doc(db(ALICE), 'moonshots', 'locked'), { status: 'CANCELLED' }));
+  await assertFails(deleteDoc(doc(db(ALICE), 'moonshots', 'open')));
+});
+
+test('moonshot quotes are server-only; models are readable by any player and written by nobody', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'moonshotQuotes', 'q1'), { uid: ALICE, teamId: 'tA', multiplier: 1.25, used: false });
+    await setDoc(doc(a, 'moonshotModels', 'singapore_2026'), { raceId: 'singapore_2026', season: '2026', round: 19, drivers: {}, positionsCount: 22 });
+  });
+  await assertFails(getDoc(doc(db(ALICE), 'moonshotQuotes', 'q1')));
+  await assertFails(updateDoc(doc(db(ALICE), 'moonshotQuotes', 'q1'), { multiplier: 8 }));
+  await assertSucceeds(getDoc(doc(db(ALICE), 'moonshotModels', 'singapore_2026')));
+  await assertSucceeds(getDoc(doc(db(MALLORY), 'moonshotModels', 'singapore_2026')));
+  await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'moonshotModels', 'singapore_2026')));
+  await assertFails(setDoc(doc(db(ALICE), 'moonshotModels', 'singapore_2026'), { drivers: { norris: { positions: [1] } } }, { merge: true }));
+});
+
 // ── F-075 Pit Wall: handoff codes and the worker's collections are Admin SDK only ──
 test('pit wall server collections: no client can read or write them, signed in or not', async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {

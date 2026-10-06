@@ -1228,7 +1228,7 @@ features:
     summary: "Server side of Moonshot: a config/app block (unlock round, tokens, stakes, pricing mode and bands, DNF rules,
       copy), a probability snapshot taken from the published model distribution, and a callable that creates, changes
       and cancels a call before lock with the terms frozen at confirmation"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-106.md
     created_at: 2026-10-06
     keywords:
