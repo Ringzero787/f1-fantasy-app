@@ -15,6 +15,9 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
+// F-104: the same predicate as the rule and the sweep. `includes('/')` let `.`, `..` and a
+// reserved `__…__` name through to fail the RPC instead.
+import { isUsableLeagueId } from '../utils/leagueId';
 
 const db = admin.firestore();
 
@@ -34,7 +37,7 @@ export const applyLeagueExpansion = functions.https.onCall(async (data, context)
   const userId = context.auth.uid;
   const leagueId = typeof data?.leagueId === 'string' ? data.leagueId : '';
   // A document id, never a path: a slash would address a nested document under leagues/.
-  if (!leagueId || leagueId.includes('/')) {
+  if (!leagueId || !isUsableLeagueId(leagueId)) {
     throw new functions.https.HttpsError('invalid-argument', 'leagueId is required');
   }
 

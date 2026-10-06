@@ -9,7 +9,7 @@ import { isUsableLeagueId as leagueIdIsUsable } from '../utils/leagueId';
  * Skipping a league keeps scoring alive for everyone else, but silently it would show up only
  * as member totals drifting from team totals — so say it.
  */
-const skipUnusableLeague = (id: string): boolean => {
+const keepUsableLeague = (id: string): boolean => {
   if (leagueIdIsUsable(id)) return true;
   console.error('[Scoring] Skipping league sync for an unusable leagueId: %j', id);
   return false;
@@ -422,7 +422,7 @@ export async function handleQualifyingScoring(
 
   // Sync league member totalPoints from team docs (authoritative source)
   const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))]
-    .filter(skipUnusableLeague);
+    .filter(keepUsableLeague);
   for (const leagueId of affectedLeagues) {
     const leagueTeamsSnap = await db.collection('fantasyTeams').where('leagueId', '==', leagueId).get();
     const teamPtsByUser = new Map<string, number>();
@@ -562,7 +562,7 @@ export async function handleSprintScoring(
 
   // Sync league member totalPoints from team docs (authoritative source)
   const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))]
-    .filter(skipUnusableLeague);
+    .filter(keepUsableLeague);
   for (const leagueId of affectedLeagues) {
     const leagueTeamsSnap = await db.collection('fantasyTeams').where('leagueId', '==', leagueId).get();
     const teamPtsByUser = new Map<string, number>();
@@ -1436,7 +1436,7 @@ export const onRaceCompleted = functions
     console.log(`[Phase 4] Syncing league member points from team totals`);
 
     const affectedLeagues = [...new Set(pointsUpdates.map((u) => u.leagueId).filter(Boolean))]
-    .filter(skipUnusableLeague);
+    .filter(keepUsableLeague);
 
     for (const leagueId of affectedLeagues) {
       // Get all teams in this league
@@ -2062,7 +2062,10 @@ export const repairTeamScoring = functions
       // F-104: `leagueIdIsUsable` here too. This is the fourth dereference of a client-written
       // field, and the one I missed when the spec said "all three" — without it a single bad row
       // throws and the repair tool is unusable exactly when it is needed to clean that row up.
-      if (team.leagueId && team.userId && leagueIdIsUsable(team.leagueId)) {
+      // `keepUsableLeague`, not the bare predicate: this is the tool used to clean such a row
+      // up, and it writes the team doc while skipping the member doc — manufacturing exactly the
+      // team-versus-member drift that is the only other symptom. It should say so.
+      if (team.leagueId && team.userId && keepUsableLeague(team.leagueId)) {
         const memberRef = db
           .collection('leagues')
           .doc(team.leagueId)

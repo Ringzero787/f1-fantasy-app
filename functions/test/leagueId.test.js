@@ -35,6 +35,17 @@ test('the pattern and bound are READ OUT OF firestore.rules, not copied beside i
   // and both halves of the shape the rule relies on, so a loosened rule cannot pass quietly
   assert.match(body, /id is string/);
   assert.match(body, /size\(\) > 0/);
+
+  // The definition agreeing is not the same as the definition being USED. Deleting the conjunct
+  // from `allow update` while leaving the function intact passed every assertion above — the
+  // emulator suite caught it, but that suite is not in CI's test command, so this has to.
+  const teams = rules.slice(rules.indexOf('match /fantasyTeams/{teamId} {'));
+  const block = teams.slice(0, teams.indexOf('allow delete:'));
+  const uses = block.match(/usableLeagueId\(request\.resource\.data\)/g) ?? [];
+  assert.equal(uses.length, 2,
+    'usableLeagueId must be a conjunct of BOTH allow create and allow update on fantasyTeams — '
+    + `found ${uses.length}. A create-only rule leaves the hole open to anyone who creates a team `
+    + 'properly and then edits it.');
 });
 
 test('null and absent are a solo team, not an error', () => {
@@ -107,9 +118,9 @@ test('every server dereference of a team leagueId goes through the helper', () =
   // three league-sync loops plus the admin repair path
   const syncs = scoring.match(/const affectedLeagues = \[[\s\S]{0,140}?;/g) ?? [];
   assert.equal(syncs.length, 3, 'the number of league-sync loops changed — check each one filters');
-  for (const s of syncs) assert.match(s, /skipUnusableLeague|leagueIdIsUsable/);
-  assert.match(scoring, /team\.leagueId && team\.userId && leagueIdIsUsable\(team\.leagueId\)/,
-    'the repair path dereferences leagueId and must guard it too');
+  for (const s of syncs) assert.match(s, /keepUsableLeague/);
+  assert.match(scoring, /team\.leagueId && team\.userId && keepUsableLeague\(team\.leagueId\)/,
+    'the repair path dereferences leagueId and must guard it too — and log, like the sync loops');
 
   const locks = read('locks/teamLocks.ts');
   assert.match(locks, /isUsableLeagueId\(id\)/, 'the lock sweep must use the shared helper');
@@ -118,4 +129,10 @@ test('every server dereference of a team leagueId goes through the helper', () =
 
   const teams = read('teams/teamOperations.ts');
   assert.match(teams, /isUsableLeagueId\(leagueId\)/, 'createTeamSecure writes with the Admin SDK and the rules never run on it');
+
+  // the last door the helper reached: this one only self-DoSes its caller, but it was the final
+  // copy of the weaker includes('/') check
+  const expansion = read('purchases/leagueExpansion.ts');
+  assert.match(expansion, /isUsableLeagueId\(leagueId\)/);
+  assert.ok(!/leagueId\.includes\('\/'\)/.test(expansion), 'the weaker check should be gone');
 });
