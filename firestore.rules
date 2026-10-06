@@ -68,9 +68,34 @@ service cloud.firestore {
     }
 
     // Leagues collection
+    // F-105: the free tier's member ceiling. Beyond it is the league-expansion IAP, applied by
+    // `applyLeagueExpansion` in twenty-slot steps — never by the client. Mirrors
+    // DEFAULT_MAX_MEMBERS / FREE_LEAGUE_MEMBER_LIMIT in src/config/constants.ts.
+    function freeLeagueCeiling() { return 22; }
+
     match /leagues/{leagueId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      // F-105: `allow create: if isAuthenticated()` constrained NOTHING, so a signed-in player
+      // could mint a league with the paid features already switched on:
+      //   • `pro: true` with a far-future `proUntil` — and `pro == true` is exactly what
+      //     `startLeagueTrial` checks before granting a Pit Wall pass trial. The F-068 guard
+      //     below only blocks these on UPDATE, which is the half nobody reaches.
+      //   • `maxMembers` up to anything — walking around the league-expansion IAP entirely. The
+      //     legacy create screen offers 2–100 and gates it on a client-side credit check, which
+      //     is exactly the arrangement `applyLeagueExpansion` was written to replace.
+      //   • somebody else's `ownerId`.
+      // So creation now writes a FREE league owned by whoever is creating it, and every paid
+      // attribute arrives afterwards from a function.
+      allow create: if isAuthenticated()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.memberCount == 1
+                    && request.resource.data.maxMembers is int
+                    && request.resource.data.maxMembers >= 2
+                    && request.resource.data.maxMembers <= freeLeagueCeiling()
+                    // Pro is derived from the owner's pass and stamped by passStore; absent or
+                    // explicitly off is the only honest starting state.
+                    && (!('pro' in request.resource.data) || request.resource.data.pro == false)
+                    && (!('proUntil' in request.resource.data) || request.resource.data.proUntil == null);
       // F-056: the owner edits league details but can never hand the league to
       // someone else, and capacity never shrinks under the current head count.
       // Everyone else may only move memberCount by one, and only in step with

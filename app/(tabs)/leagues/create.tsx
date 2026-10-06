@@ -86,9 +86,13 @@ export default function CreateLeagueScreen() {
       return;
     }
 
+    // F-105: a league is CREATED at the free ceiling and grown afterwards by the expansion
+    // purchase, which a Cloud Function applies — the rules refuse anything larger at create, so
+    // offering 2–100 here would be offering what the server will not take. The credit is not
+    // lost: apply it to the league once it exists and it adds its slots then.
     const members = parseInt(maxMembers, 10);
-    if (isNaN(members) || members < 2 || members > 100) {
-      setValidationError('Max members must be between 2 and 100');
+    if (isNaN(members) || members < 2 || members > FREE_LEAGUE_MEMBER_LIMIT) {
+      setValidationError(`Max members must be between 2 and ${FREE_LEAGUE_MEMBER_LIMIT}. Buy and apply an expansion to go further once the league exists.`);
       return;
     }
 
