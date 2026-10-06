@@ -1202,7 +1202,7 @@ features:
       - enforces
   - id: F-104
     name: "UC: a team's leagueId has to be a usable document id"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-104.md
     created_at: 2026-10-06
     keywords:
