@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
 import { aceFreezeStart, effectiveLockTime, lockSessionLabel } from '../utils/lockTime';
 import { FillContext, autoFillTeamTx, isIncomplete, loadFillContext } from '../teams/autoFill';
+import { isUsableLeagueId } from '../utils/leagueId';
 
 const db = admin.firestore();
 
@@ -146,13 +147,15 @@ export const autoLockTeams = functions.pubsub
         teamsSnapshot.docs.map((d) => d.data().leagueId).filter(Boolean)
       )] as string[];
 
-      // `doc(id)` THROWS synchronously on an id containing a slash, and the fantasyTeams create
-      // rule does not constrain `leagueId` — so one team created with `leagueId: "a/b"` would
-      // reject every sweep from here on: no lock, no ace freeze, for every player, until someone
-      // found the document. Filtering is not the real fix (the create rule is, and that is its
-      // own change) but it stops a single bad row disabling the control this file exists to be.
+      // F-104: one unusable `leagueId` would reject every sweep from here on — no lock, no ace
+      // freeze, for every player, until someone found the document. The create rule and
+      // createTeamSecure stop new ones; this is for a row that predates them.
+      //
+      // `isUsableLeagueId` rather than the `includes('/')` check this started as: only a slash
+      // and an empty string throw inside `doc()`, but `.`, `..` and a reserved `__…__` name get
+      // past it and fail the RPC instead — which aborts the sweep just the same, one layer down.
       const validLeagueIds = leagueIds.filter((id) => {
-        const ok = typeof id === 'string' && id.length > 0 && !id.includes('/');
+        const ok = isUsableLeagueId(id);
         if (!ok) console.error('Ignoring unusable leagueId on a team: %j', id);
         return ok;
       });

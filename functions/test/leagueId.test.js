@@ -12,10 +12,29 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { isUsableLeagueId, LEAGUE_ID_PATTERN, LEAGUE_ID_MAX } = require('../lib/utils/leagueId.js');
 
-test('the pattern and bound match the ones firestore.rules carries', () => {
-  // If you change either, change `usableLeagueId` in firestore.rules in the same commit.
-  assert.equal(LEAGUE_ID_PATTERN, '^[A-Za-z0-9][A-Za-z0-9_-]*$');
-  assert.equal(LEAGUE_ID_MAX, 64);
+test('the pattern and bound are READ OUT OF firestore.rules, not copied beside it', () => {
+  // The first version of this asserted LEAGUE_ID_PATTERN against a hardcoded copy of itself, so
+  // editing usableLeagueId in firestore.rules and nothing else left every test green — a pin
+  // that pinned nothing. It reads the rule now.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const rules = fs.readFileSync(path.join(__dirname, '..', '..', 'firestore.rules'), 'utf8');
+  const fn = rules.slice(rules.indexOf('function usableLeagueId('));
+  const body = fn.slice(0, fn.indexOf('\n    }'));
+
+  const pattern = body.match(/matches\('([^']+)'\)/);
+  assert.ok(pattern, 'usableLeagueId in firestore.rules no longer calls matches() — these two have to agree');
+  assert.equal(pattern[1], LEAGUE_ID_PATTERN,
+    'the rule and functions/src/utils/leagueId.ts disagree about what a league id looks like');
+
+  const bound = body.match(/size\(\)\s*<=\s*(\d+)/);
+  assert.ok(bound, 'usableLeagueId in firestore.rules no longer bounds the length');
+  assert.equal(Number(bound[1]), LEAGUE_ID_MAX,
+    'the rule and the helper disagree about the maximum length');
+
+  // and both halves of the shape the rule relies on, so a loosened rule cannot pass quietly
+  assert.match(body, /id is string/);
+  assert.match(body, /size\(\) > 0/);
 });
 
 test('null and absent are a solo team, not an error', () => {
@@ -74,4 +93,29 @@ test('createTeamSecure validates it, because the Admin SDK never runs the rules'
   // and the check must come before the write
   assert.ok(body.indexOf('isUsableLeagueId') < body.indexOf('leagueId: leagueId || null'),
     'validate before writing, or the guard is decoration');
+});
+
+test('every server dereference of a team leagueId goes through the helper', () => {
+  // The predicate is only as good as the number of doors it stands in front of. The first
+  // version of this feature was a rules change alone; the second missed the admin repair path
+  // and left a weaker inline copy in the lock sweep. This counts the doors.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const read = (p) => fs.readFileSync(path.join(__dirname, '..', 'src', p), 'utf8');
+
+  const scoring = read('scoring/calculatePoints.ts');
+  // three league-sync loops plus the admin repair path
+  const syncs = scoring.match(/const affectedLeagues = \[[\s\S]{0,140}?;/g) ?? [];
+  assert.equal(syncs.length, 3, 'the number of league-sync loops changed — check each one filters');
+  for (const s of syncs) assert.match(s, /skipUnusableLeague|leagueIdIsUsable/);
+  assert.match(scoring, /team\.leagueId && team\.userId && leagueIdIsUsable\(team\.leagueId\)/,
+    'the repair path dereferences leagueId and must guard it too');
+
+  const locks = read('locks/teamLocks.ts');
+  assert.match(locks, /isUsableLeagueId\(id\)/, 'the lock sweep must use the shared helper');
+  assert.ok(!/!id\.includes\('\/'\)/.test(locks),
+    'the inline includes-slash check is weaker than the helper: ., .. and __name__ pass doc() and fail the RPC');
+
+  const teams = read('teams/teamOperations.ts');
+  assert.match(teams, /isUsableLeagueId\(leagueId\)/, 'createTeamSecure writes with the Admin SDK and the rules never run on it');
 });
