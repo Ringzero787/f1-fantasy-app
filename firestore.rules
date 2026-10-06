@@ -185,6 +185,12 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // F-107: the league's season history (Moonshot hits, misses, voids), written by settlement only.
+      match /activity/{entryId} {
+        allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId));
+        allow write: if false;
+      }
+
       // League invites — members can create (max enforced by Cloud Function rate limit)
       // SECURITY: limit invite doc size to prevent abuse
       match /invites/{inviteId} {
@@ -398,6 +404,9 @@ service cloud.firestore {
                     && request.resource.data.constructor == null
                     && (!('lockedPoints' in request.resource.data) || request.resource.data.lockedPoints == 0)
                     && (!('scoredRaces' in request.resource.data) || request.resource.data.scoredRaces.size() == 0)
+                    // F-107: the Moonshot column is settlement's alone; a new team starts with none
+                    && (!('moonshotPoints' in request.resource.data) || request.resource.data.moonshotPoints == 0)
+                    && !('moonshotStats' in request.resource.data)
                     && usableLeagueId(request.resource.data);
       allow update: if isOwner(resource.data.userId)
                     && request.resource.data.userId == resource.data.userId
@@ -406,7 +415,8 @@ service cloud.firestore {
                       'isLocked', 'lockStatus',
                       'drivers', 'constructor', 'budget', 'totalSpent',
                       'racesSinceTransfer', 'driverLockouts',
-                      'bestRacePoints', 'bestRaceId'
+                      'bestRacePoints', 'bestRaceId',
+                      'moonshotPoints', 'moonshotStats'
                     ]))
                     && (!aceIsFrozen(resource.data) || aceUnchanged(resource.data, request.resource.data))
                     && usableLeagueId(request.resource.data);

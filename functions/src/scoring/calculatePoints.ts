@@ -31,9 +31,10 @@ import {
   SprintResult,
   QualifyingResult,
 } from './scoringCore';
-import { rankWrites, bestRaceUpdate } from './standingsFields';
+import { rankWrites, bestRaceUpdate, memberSeasonTotal, moonshotShare } from './standingsFields';
 import { buildRaceSnapshot } from './raceSnapshots';
 import { writeLeagueRaceResult } from './leagueRaceResultsWriter';
+import { settleMoonshotsForRace } from '../moonshot/settlement';
 
 const db = admin.firestore();
 
@@ -425,17 +426,22 @@ export async function handleQualifyingScoring(
     .filter(keepUsableLeague);
   for (const leagueId of affectedLeagues) {
     const leagueTeamsSnap = await db.collection('fantasyTeams').where('leagueId', '==', leagueId).get();
+    // F-107: the same total as Phase 4 — totalPoints + lockedPoints + moonshotPoints — or the
+    // table would drop every Moonshot between the race and the next qualifying.
     const teamPtsByUser = new Map<string, number>();
+    const moonshotByUser = new Map<string, number>();
     leagueTeamsSnap.docs.forEach(d => {
       const t = d.data();
-      const pts = (t.totalPoints || 0) + (t.lockedPoints || 0);
+      const ms = moonshotShare(t);
+      const pts = memberSeasonTotal(t);
       teamPtsByUser.set(t.userId, (teamPtsByUser.get(t.userId) || 0) + pts);
+      moonshotByUser.set(t.userId, (moonshotByUser.get(t.userId) || 0) + ms);
     });
     const membersSnap = await db.collection('leagues').doc(leagueId).collection('members').get();
     const memberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
     membersSnap.docs.forEach(d => {
       const pts = teamPtsByUser.get(d.id);
-      if (pts !== undefined) memberOps.push({ ref: d.ref, data: { totalPoints: pts } });
+      if (pts !== undefined) memberOps.push({ ref: d.ref, data: { totalPoints: pts, moonshotPoints: moonshotByUser.get(d.id) || 0 } });
     });
     await commitInBatches(memberOps);
     await rankLeagueMembers(leagueId, raceId);
@@ -565,17 +571,22 @@ export async function handleSprintScoring(
     .filter(keepUsableLeague);
   for (const leagueId of affectedLeagues) {
     const leagueTeamsSnap = await db.collection('fantasyTeams').where('leagueId', '==', leagueId).get();
+    // F-107: the same total as Phase 4 — totalPoints + lockedPoints + moonshotPoints — or the
+    // table would drop every Moonshot between the race and the next qualifying.
     const teamPtsByUser = new Map<string, number>();
+    const moonshotByUser = new Map<string, number>();
     leagueTeamsSnap.docs.forEach(d => {
       const t = d.data();
-      const pts = (t.totalPoints || 0) + (t.lockedPoints || 0);
+      const ms = moonshotShare(t);
+      const pts = memberSeasonTotal(t);
       teamPtsByUser.set(t.userId, (teamPtsByUser.get(t.userId) || 0) + pts);
+      moonshotByUser.set(t.userId, (moonshotByUser.get(t.userId) || 0) + ms);
     });
     const membersSnap = await db.collection('leagues').doc(leagueId).collection('members').get();
     const memberOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
     membersSnap.docs.forEach(d => {
       const pts = teamPtsByUser.get(d.id);
-      if (pts !== undefined) memberOps.push({ ref: d.ref, data: { totalPoints: pts } });
+      if (pts !== undefined) memberOps.push({ ref: d.ref, data: { totalPoints: pts, moonshotPoints: moonshotByUser.get(d.id) || 0 } });
     });
     await commitInBatches(memberOps);
     await rankLeagueMembers(leagueId, raceId);
@@ -1013,6 +1024,18 @@ export const onRaceCompleted = functions
       }
     } else {
       console.log(`[Phase 1][RECONCILE] OK — all ${teamOps.length} scored teams reconcile with the raceScores breakdown`);
+    }
+
+    // ─── PHASE 1.5: Moonshot settlement (F-107) ───
+    // Every open call on this race is settled from the official classification, each in its
+    // own transaction keyed by settlementId, so a repeat run pays or takes nothing twice. It
+    // runs before Phase 4 so moonshotPoints is on the team docs the standings are built from.
+    // A failure here must not undo scoring; a replay (calculatePointsManually re-fires this
+    // trigger, repairTeamScoring calls settlement directly) settles what is left.
+    try {
+      await settleMoonshotsForRace(db, raceId, afterData);
+    } catch (err) {
+      console.error('[Phase 1.5] moonshot settlement failed:', err);
     }
 
     // ─── Idempotency gate for the market phases (2, 3, 3.5) ───
@@ -1455,11 +1478,14 @@ export const onRaceCompleted = functions
       }
 
       // Build userId → totalPoints from authoritative team docs
-      const teamPointsByUser = new Map<string, { totalPoints: number; lastRacePoints: number }>();
+      const teamPointsByUser = new Map<string, { totalPoints: number; lastRacePoints: number; moonshotPoints: number }>();
       for (const teamDoc of leagueTeamsSnap.docs) {
         const team = teamDoc.data();
         const userId = team.userId;
-        const teamTotal = (team.totalPoints || 0) + (team.lockedPoints || 0);
+        // F-107: season standings order by totalPoints + lockedPoints + moonshotPoints; the
+        // Moonshot share is also written on the member so the table can show it as its own column.
+        const moonshotPoints = moonshotShare(team);
+        const teamTotal = memberSeasonTotal(team);
 
         // If user has multiple teams in same league, sum team totals;
         // lastRacePoints comes from the per-user map (already summed).
@@ -1468,11 +1494,13 @@ export const onRaceCompleted = functions
           teamPointsByUser.set(userId, {
             totalPoints: existing.totalPoints + teamTotal,
             lastRacePoints: lastRaceByUser.get(userId) ?? 0,
+            moonshotPoints: existing.moonshotPoints + moonshotPoints,
           });
         } else {
           teamPointsByUser.set(userId, {
             totalPoints: teamTotal,
             lastRacePoints: lastRaceByUser.get(userId) ?? 0,
+            moonshotPoints,
           });
         }
       }
@@ -1496,6 +1524,7 @@ export const onRaceCompleted = functions
               totalPoints: teamData.totalPoints,
               lastRacePoints: teamData.lastRacePoints,
               lastRaceId: raceId,
+              moonshotPoints: teamData.moonshotPoints,
             },
           });
         }
@@ -1699,6 +1728,17 @@ export const repairTeamScoring = functions
         qualifyingResults: rd.results?.qualifyingResults || null,
         fastestLap: rd.results?.fastestLap || null,
       });
+    }
+
+    // F-107: settle any Moonshot still open on a completed race before the team docs are read
+    // below, so the member totals this repair writes include it. Idempotent: settled calls are
+    // skipped inside their own transaction, so a replay pays and takes nothing twice.
+    for (const raceDoc of sortedRaceDocs) {
+      try {
+        await settleMoonshotsForRace(db, raceDoc.id, raceDoc.data());
+      } catch (err) {
+        console.error(`[Repair] moonshot settlement for ${raceDoc.id} failed:`, err);
+      }
     }
 
     const completedRaceCount = completedRaces.length;
@@ -2071,9 +2111,10 @@ export const repairTeamScoring = functions
           .doc(team.leagueId)
           .collection('members')
           .doc(team.userId);
+        // F-107: the same definition every sync uses, read from the team doc as settled above
         leagueMemberOps.push({
           ref: memberRef,
-          data: { totalPoints: totalPoints + lockedPoints },
+          data: { totalPoints: memberSeasonTotal({ totalPoints, lockedPoints, moonshotPoints: team.moonshotPoints }), moonshotPoints: moonshotShare(team as { moonshotPoints?: unknown }) },
         });
         affectedLeagueIds.add(team.leagueId);
       }

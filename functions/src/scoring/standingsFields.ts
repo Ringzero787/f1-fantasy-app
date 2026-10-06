@@ -62,3 +62,14 @@ export function bestRaceUpdate(
   if (current === null || racePoints > current) return { bestRacePoints: racePoints, bestRaceId: raceId };
   return {};
 }
+
+/** F-107: the Moonshot share of a team's season, 0 when it never made a call. */
+export const moonshotShare = (team: { moonshotPoints?: unknown }): number =>
+  typeof team.moonshotPoints === 'number' && Number.isFinite(team.moonshotPoints) ? team.moonshotPoints : 0;
+
+/**
+ * A team's season total as the league table ranks it: active points + banked points + Moonshot
+ * points. Every member-total sync (race, qualifying, sprint, repair) uses this one definition.
+ */
+export const memberSeasonTotal = (team: { totalPoints?: unknown; lockedPoints?: unknown; moonshotPoints?: unknown }): number =>
+  (typeof team.totalPoints === 'number' ? team.totalPoints : 0) + (typeof team.lockedPoints === 'number' ? team.lockedPoints : 0) + moonshotShare(team);

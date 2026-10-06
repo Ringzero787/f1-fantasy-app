@@ -38,6 +38,7 @@ export async function writeLeagueRaceResult(
   const snaps = snapRefs.length > 0 ? await db.getAll(...snapRefs) : [];
 
   const pointsByUser = new Map<string, number>();
+  const moonshotByUser = new Map<string, number>();
   const teamNameByUser = new Map<string, string>();
   const usersWithSnapshot = new Set<string>();
   leagueTeams.forEach((teamDoc, i) => {
@@ -49,6 +50,11 @@ export async function writeLeagueRaceResult(
     if (snap && snap.exists) {
       usersWithSnapshot.add(userId);
       pointsByUser.set(userId, (pointsByUser.get(userId) ?? 0) + snapshotWeekendPoints(snap.data() as never));
+      // F-107: settled points Moonshots sit beside the phases (keyed by call), never inside them
+      const calls = (snap.data() as { moonshots?: Record<string, { stakeCurrency?: string; adjustmentAmount?: unknown }> }).moonshots;
+      for (const ms of Object.values(calls ?? {})) {
+        if (ms && ms.stakeCurrency === 'POINTS' && typeof ms.adjustmentAmount === 'number') moonshotByUser.set(userId, (moonshotByUser.get(userId) ?? 0) + ms.adjustmentAmount);
+      }
     }
   });
   for (const [userId, pts] of racePhasePointsByUser) {
@@ -60,6 +66,7 @@ export async function writeLeagueRaceResult(
   const result = rankRaceEntries(approved.map((m) => ({
     userId: m.id,
     points: pointsByUser.get(m.id) ?? 0,
+    moonshotPoints: moonshotByUser.get(m.id) ?? 0,
     displayName: cleanName(m.data().displayName),
     teamName: cleanName(teamNameByUser.get(m.id)),
   })));

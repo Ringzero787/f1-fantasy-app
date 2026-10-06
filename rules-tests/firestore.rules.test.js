@@ -625,6 +625,29 @@ test('moonshot quotes are server-only; models are readable by any player and wri
   await assertFails(updateDoc(doc(db(ALICE), 'moonshotTokens', 'tA_2026'), { used: 0 }));
 });
 
+// ── F-107 Moonshot settlement: the Moonshot columns are server-owned; the league feed is read-only ──
+test('moonshot settlement: a team cannot write its own moonshotPoints or stats; the league reads its activity feed', async () => {
+  await seedLeague(); await seedMember('L1', ALICE);
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'fantasyTeams', 'tA'), { userId: ALICE, leagueId: 'L1', name: 'Alice Racing', budget: 500, totalPoints: 120, lockedPoints: 0, moonshotPoints: 500, drivers: [], scoredRaces: [] });
+    await setDoc(doc(a, 'leagues', 'L1', 'activity', 'm1_settled'), { type: 'MOONSHOT_HIT', userId: ALICE, teamId: 'tA', raceId: 'singapore_2026', adjustmentAmount: 500 });
+  });
+  const fresh = { userId: BOB, leagueId: 'L1', name: 'Bob Racing', budget: 1000, totalSpent: 0, totalPoints: 0, drivers: [], constructor: null };
+  await assertSucceeds(setDoc(doc(db(BOB), 'fantasyTeams', 'tB'), fresh));
+  await assertSucceeds(setDoc(doc(db(BOB), 'fantasyTeams', 'tB0'), { ...fresh, moonshotPoints: 0 }));
+  await assertFails(setDoc(doc(db(BOB), 'fantasyTeams', 'tB1'), { ...fresh, moonshotPoints: 100000 }));          // minted on create
+  await assertFails(setDoc(doc(db(BOB), 'fantasyTeams', 'tB2'), { ...fresh, moonshotStats: { pointsWon: 0 } }));
+  await assertSucceeds(updateDoc(doc(db(ALICE), 'fantasyTeams', 'tA'), { name: 'Alice Racing II' }));
+  await assertFails(updateDoc(doc(db(ALICE), 'fantasyTeams', 'tA'), { moonshotPoints: 5000 }));
+  await assertFails(updateDoc(doc(db(ALICE), 'fantasyTeams', 'tA'), { moonshotStats: { hit: 99 } }));
+  await assertSucceeds(getDoc(doc(db(ALICE), 'leagues', 'L1', 'activity', 'm1_settled')));
+  await assertSucceeds(getDoc(doc(db(OWNER), 'leagues', 'L1', 'activity', 'm1_settled')));
+  await assertFails(getDoc(doc(db(MALLORY), 'leagues', 'L1', 'activity', 'm1_settled')));
+  await assertFails(setDoc(doc(db(ALICE), 'leagues', 'L1', 'activity', 'forged'), { type: 'MOONSHOT_HIT', userId: ALICE, adjustmentAmount: 9999 }));
+  await assertFails(deleteDoc(doc(db(ALICE), 'leagues', 'L1', 'activity', 'm1_settled')));
+});
+
 // ── F-075 Pit Wall: handoff codes and the worker's collections are Admin SDK only ──
 test('pit wall server collections: no client can read or write them, signed in or not', async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {

@@ -1241,7 +1241,7 @@ features:
     summary: "The scoring run settles each locked Moonshot from the final classification: idempotent, auditable, DNF loss /
       DNS void / cancelled void by config; points adjustments kept apart from race scoring with a Moonshot column in
       standings, cash adjustments applied to the bank; written into raceSnapshots and raceResults"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-107.md
     created_at: 2026-10-06
     keywords:
