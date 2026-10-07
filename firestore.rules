@@ -24,8 +24,10 @@ service cloud.firestore {
 
     // F-056: write privileges inside a league (chat, invites, replies, count)
     // need an APPROVED member; a join still awaiting approval does not count.
-    // Reads keep using isLeagueMember: released clients detect their own
-    // pending state by querying the members list.
+    // F-112: league content reads (raceResults, activity, invites, announcements,
+    // replies, messages) need one too. The members list and the league's teams
+    // keep isLeagueMember: released clients detect their own pending state by
+    // querying members, and enrich that list from fantasyTeams.
     function isApprovedLeagueMember(leagueId) {
       let path = /databases/$(database)/documents/leagues/$(leagueId)/members/$(request.auth.uid);
       return exists(path) && get(path).data.get('status', 'approved') != 'pending';

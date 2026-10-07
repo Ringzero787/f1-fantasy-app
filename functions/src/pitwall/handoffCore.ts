@@ -38,6 +38,17 @@ export function nextRateWindow(prev: Partial<RateWindow> | undefined, now: numbe
 }
 
 export const CREATE_LIMIT = { windowMs: 60_000, max: 10 };
+
+/**
+ * Pure: the client address behind Cloud Run's front end. Google APPENDS the connecting address to
+ * whatever `x-forwarded-for` the client sent, so the LAST hop is the one the platform vouches for
+ * and everything before it is the caller's to type (F-112). `req.ip` is the proxy hop — one key for
+ * everyone — so it is only the fallback for a request with no header at all.
+ */
+export function clientIpOf(fwd: string | string[] | undefined, fallback: string | undefined): string | undefined {
+  const hops = (Array.isArray(fwd) ? fwd.join(',') : fwd ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  return hops[hops.length - 1] || fallback;
+}
 export const REDEEM_LIMIT = { windowMs: 60_000, max: 20 };
 /** Rate-limit keys never store an IP address, only its hash. */
 export const ipKey = (ip: string | undefined): string => `ip_${createHash('sha256').update(ip || 'unknown', 'utf8').digest('hex').slice(0, 32)}`;

@@ -22,6 +22,8 @@ test('config: absent means disabled; the document overrides defaults; bad values
   assert.deepEqual(mergeConfig({ copy: { intro: 'Make the call', bad: 3, worse: 'Place your bet' } }).copy, { intro: 'Make the call' });   // a forbidden word drops the override
   const wild = mergeConfig({ enabled: true, tokensPerTeam: 99, maxPerRace: 0, pricing: { vig: 8, maxMultiplier: 500, minMultiplier: 0 } });
   assert.deepEqual([wild.tokensPerTeam, wild.maxPerRace, wild.pricing.vig, wild.pricing.maxMultiplier, wild.pricing.minMultiplier], [20, 1, 0.5, 50, 0.1]);   // a typo cannot go live as an 800% margin
+  const nan = mergeConfig({ pricing: { vig: NaN, minMultiplier: NaN, maxMultiplier: NaN, rounding: NaN } }).pricing;
+  assert.deepEqual([nan.vig, nan.minMultiplier, nan.maxMultiplier, nan.rounding], [DEFAULT_CONFIG.pricing.vig, DEFAULT_CONFIG.pricing.minMultiplier, DEFAULT_CONFIG.pricing.maxMultiplier, DEFAULT_CONFIG.pricing.rounding]);   // Firestore stores NaN; it never prices
 });
 
 test('distribution: a discretised finish sums to one and peaks at the prediction', () => {

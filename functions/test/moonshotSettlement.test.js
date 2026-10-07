@@ -232,6 +232,8 @@ test('the live sweep: the race window, the race session on the race day, the lat
   assert.equal(sessionForRace(sessions, Date.UTC(2026, 9, 10, 7)), null);
   const rows = [{ driver_number: 6, position: 5, date: '2026-10-11T12:05:00Z' }, { driver_number: 6, position: 4, date: '2026-10-11T12:40:00Z' }, { driver_number: 6, position: 9, date: 'garbage' }, { driver_number: 99, position: 1, date: '2026-10-11T12:40:00Z' }];
   assert.deepEqual(latestByDriver(rows, { 6: 'hadjar' }), { hadjar: 4 });   // latest wins, a bad time is skipped, an unknown car is dropped
+  const odd = [{ driver_number: 6.5, position: 1, date: '2026-10-11T12:50:00Z' }, { driver_number: 6, position: 0, date: '2026-10-11T12:50:00Z' }, { driver_number: 6, position: 31, date: '2026-10-11T12:51:00Z' }, { driver_number: 6, position: '3', date: '2026-10-11T12:52:00Z' }, { driver_number: 6, position: 3, date: '2026-10-11T12:53:00Z' }];
+  assert.deepEqual(latestByDriver(odd, { 6: 'hadjar', 6.5: 'ghost' }), { hadjar: 3 });   // fractional car, position 0 / 31 / a string: none becomes a key or a value
   assert.equal(typeof index.moonshotLiveSweep, 'function');
 });
 

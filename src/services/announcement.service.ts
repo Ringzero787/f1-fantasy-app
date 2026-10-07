@@ -83,11 +83,14 @@ export const announcementService = {
    * Get active announcements for multiple leagues.
    */
   async getActiveAnnouncementsForLeagues(leagueIds: string[]): Promise<LeagueAnnouncement[]> {
+    // F-112: announcements read as an approved member; a league where the join is still pending
+    // refuses, and that refusal must not hide the other leagues' announcements
+    const settled = await Promise.allSettled(leagueIds.map((leagueId) => this.getActiveAnnouncement(leagueId)));
     const results: LeagueAnnouncement[] = [];
-    for (const leagueId of leagueIds) {
-      const ann = await this.getActiveAnnouncement(leagueId);
-      if (ann) results.push(ann);
-    }
+    settled.forEach((r, i) => {
+      if (r.status === 'fulfilled') { if (r.value) results.push(r.value); }
+      else console.warn(`[announcements] ${leagueIds[i]}: ${(r.reason as { code?: string })?.code ?? r.reason}`);
+    });
     return results;
   },
 

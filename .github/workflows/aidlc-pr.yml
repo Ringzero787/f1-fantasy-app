@@ -52,7 +52,7 @@ jobs:
         run: |
           if [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
           elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable
-          elif [ -f package-lock.json ]; then npm ci --ignore-scripts
+          elif [ -f package-lock.json ]; then npm ci
           elif [ -f package.json ]; then npm install; fi
       - name: Run PR gates
         env:

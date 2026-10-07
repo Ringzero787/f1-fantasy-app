@@ -70,7 +70,9 @@ export const moonshotQuote = functions.https.onCall(async (data, context) => {
   const type = TYPES.includes(data?.predictionType) ? (data.predictionType as PredictionType) : null;
   const currency: StakeCurrency | null = data?.stakeCurrency === 'POINTS' || data?.stakeCurrency === 'CASH' ? data.stakeCurrency : null;
   const stake = typeof data?.stakeAmount === 'number' ? data.stakeAmount : NaN;
-  const target = typeof data?.predictionTarget === 'number' ? data.predictionTarget : undefined;
+  // a target means something only for EXACT_FINISH; for the other types it is dropped here so it
+  // cannot vary the quote document id (eligibility validates it only for EXACT_FINISH)
+  const target = type === 'EXACT_FINISH' && typeof data?.predictionTarget === 'number' ? data.predictionTarget : undefined;
   if (!teamId || !raceId || !driverId || !type || !currency || !Number.isFinite(stake)) throw new functions.https.HttpsError('invalid-argument', 'teamId, raceId, driverId, predictionType, stakeCurrency and stakeAmount are required');
 
   const cfg = await loadMoonshotConfig(db);
@@ -107,9 +109,14 @@ export const moonshotQuote = functions.https.onCall(async (data, context) => {
     potentialReward: potentialReward(stake, priced.multiplier), ownsDriver,
     lockAt: lock, expiresAt, used: false, createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
-  // one quote document per (team, race, driver, prediction, stake) tuple: a re-quote overwrites it, so
-  // a script cannot grow the collection without bound, and confirm still checks `used` and `expiresAt`
-  const ref = db.doc(`moonshotQuotes/${teamId}_${raceId}_${driverId}_${type}_${target ?? 'x'}_${currency}_${stake}`);
+  // one quote document per (team, race, driver, prediction, stake, tokens-used) tuple: a re-quote
+  // overwrites it, so a script cannot grow the collection without bound, and confirm still checks
+  // `used` and `expiresAt`. The tokens-used count keeps a confirmed quote out of reach: once a call
+  // is made the count moves on and the next quote for the same tuple is a new document, so a used
+  // quote is never reset to `used: false` and its moonshotId link survives.
+  const quoteId = `${teamId}_${raceId}_${driverId}_${type}_${target ?? 'x'}_${currency}_${stake}_t${have.used}`;
+  if (quoteId.length > 128) throw new functions.https.HttpsError('invalid-argument', 'Ids too long');   // confirm's str() cap
+  const ref = db.doc(`moonshotQuotes/${quoteId}`);
   await ref.set(quote);
   const detail = summarise(driver.positions);
   return {

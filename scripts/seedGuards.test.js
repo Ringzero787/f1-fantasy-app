@@ -73,10 +73,9 @@
 //   - Scope. A name declared twice is treated as all of its declarations at
 //     once, which over-reports rather than under-reports — chosen after a
 //     benign `function boot(){}` was found masking a real initialiser.
-//   - Three tracked scripts at the repo root — cleanup-dup-teams.js,
-//     repair-dedouble.js, diagnose-scoring.js — call initializeApp with a
-//     bare projectId and self-invoke. They are outside the scan roots, so
-//     nothing here looks at them at all.
+//   - The repo root is not a scan root. The three scratch scripts that lived
+//     there (cleanup-dup-teams.js, repair-dedouble.js, diagnose-scoring.js)
+//     were removed in F-112; anything new at the root is not looked at here.
 //   - scripts/simulation/exportCsv.ts writes three CSV files when imported.
 //     It touches no credential and no production data, so the sweep below
 //     deliberately does not flag it, but it is not import-safe either.

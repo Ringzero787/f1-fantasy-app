@@ -684,6 +684,9 @@ test('pending members read no league content; approved members do; team and noti
   await assertSucceeds(getDocs(query(collection(db(ALICE), 'fantasyTeams'), where('leagueId', '==', 'L1'))));
   await assertFails(getDocs(collection(db(ALICE), 'fantasyTeams')));
   await assertFails(getDocs(query(collection(db(MALLORY), 'fantasyTeams'), where('leagueId', '==', 'L1'))));
+  await assertSucceeds(getDocs(query(collection(db(BOB), 'fantasyTeams'), where('leagueId', '==', 'L1'))));   // deliberate: released clients enrich the member list from fantasyTeams while a join is pending
+  await assertSucceeds(getDocs(query(collection(db(BOB), 'fantasyTeams'), where('userId', '==', ALICE), where('leagueId', '==', 'L1'))));   // the peer-team read (getUserTeamInLeague)
+  await assertFails(getDocs(query(collection(db(MALLORY), 'fantasyTeams'), where('userId', '==', ALICE), where('leagueId', '==', 'L1'))));
   await assertSucceeds(getDocs(query(collection(db(ALICE), 'notifications'), where('userId', '==', ALICE), where('read', '==', false))));
   await assertFails(getDocs(collection(db(ALICE), 'notifications')));
 });

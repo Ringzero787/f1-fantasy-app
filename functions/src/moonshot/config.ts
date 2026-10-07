@@ -84,6 +84,8 @@ export const FORBIDDEN_TERMS = ['bet', 'bets', 'betting', 'wager', 'wagers', 'wa
 export const usesForbiddenTerm = (text: string): boolean => { const words = text.toLowerCase().split(/[^a-z]+/); return FORBIDDEN_TERMS.some((t) => words.includes(t)); };
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+/** a finite number or nothing: Firestore stores NaN, and clamp(NaN) is NaN */
+const fin = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
 /** Defaults overlaid with whatever the document carries; unknown keys are ignored, bad types fall back. */
 export function mergeConfig(raw: unknown): MoonshotConfig {
@@ -111,10 +113,10 @@ export function mergeConfig(raw: unknown): MoonshotConfig {
       mode: p.mode === 'continuous' ? 'continuous' : 'banded',
       bands: bands.length ? bands : DEFAULT_BANDS,
       // clamped: a typo in the config document must not go live as a 800% margin or a 500× cap
-      vig: clamp(typeof p.vig === 'number' ? (p.vig as number) : DEFAULT_CONFIG.pricing.vig, 0, 0.5),
-      rounding: typeof p.rounding === 'number' && (p.rounding as number) > 0 ? (p.rounding as number) : DEFAULT_CONFIG.pricing.rounding,
-      minMultiplier: clamp(typeof p.minMultiplier === 'number' ? (p.minMultiplier as number) : DEFAULT_CONFIG.pricing.minMultiplier, 0.1, 2),
-      maxMultiplier: clamp(typeof p.maxMultiplier === 'number' ? (p.maxMultiplier as number) : DEFAULT_CONFIG.pricing.maxMultiplier, 1, 50),
+      vig: clamp(fin(p.vig) ?? DEFAULT_CONFIG.pricing.vig, 0, 0.5),
+      rounding: (fin(p.rounding) ?? 0) > 0 ? (fin(p.rounding) as number) : DEFAULT_CONFIG.pricing.rounding,
+      minMultiplier: clamp(fin(p.minMultiplier) ?? DEFAULT_CONFIG.pricing.minMultiplier, 0.1, 2),
+      maxMultiplier: clamp(fin(p.maxMultiplier) ?? DEFAULT_CONFIG.pricing.maxMultiplier, 1, 50),
     },
     maxSingleRewardPoints: num('maxSingleRewardPoints', DEFAULT_CONFIG.maxSingleRewardPoints),
     maxSeasonMoonshotPointGain: num('maxSeasonMoonshotPointGain', DEFAULT_CONFIG.maxSeasonMoonshotPointGain),

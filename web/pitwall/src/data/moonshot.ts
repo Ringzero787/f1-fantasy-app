@@ -158,7 +158,8 @@ export function statsLines(s: { used: number; hit: number; missed: number; voide
     ['Points risked · won', `${n(s.pointsRisked).toLocaleString()} · ${n(s.pointsWon).toLocaleString()}`],
   ];
   if (n(s.cashRisked)) out.push(['Cash risked · won', `$${n(s.cashRisked).toLocaleString()} · $${n(s.cashWon).toLocaleString()}`]);
-  if (s.biggestHit) out.push(['Biggest hit', `${driverName(s.biggestHit.driverId)} ${predictionLabel(s.biggestHit.predictionType as PredictionType)} · ${signed(s.biggestHit.adjustmentAmount)}`]);
+  const b = s.biggestHit;
+  if (b && typeof b.driverId === 'string' && typeof b.adjustmentAmount === 'number' && Number.isFinite(b.adjustmentAmount)) out.push(['Biggest hit', `${driverName(b.driverId)} ${predictionLabel(b.predictionType as PredictionType)} · ${signed(b.adjustmentAmount)}`]);
   return out;
 }
 

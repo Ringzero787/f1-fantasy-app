@@ -5,9 +5,11 @@
 // server whether a team name is free (checkTeamNameAvailable); every earlier build ran a global
 // `where('name','==',…)` query over fantasyTeams, which the scoped list rule now refuses. Raising
 // the floor to 2.3.2 BEFORE that rule deploys turns a silent permission error on create/rename into
-// the update screen. latestVersion is not touched here: the release run sets it when a store has
-// the build. Dry run prints what is live beside what would be written; `--apply` merges the gate
-// fields only, so the Moonshot block and everything else in config/app survive.
+// the update screen. latestVersion and updateMessage are not touched here: the gate's default
+// wording is right for a hard block, and AppUpdateGate shows updateMessage on the soft "new version"
+// banner too, so a message written for the floor would read wrong to everyone else. Dry run prints
+// what is live beside what would be written; `--apply` merges minVersion only, so the Moonshot block
+// and everything else in config/app survive.
 //
 // Usage (normally through the uc-script op kind, which sets SA_KEY and passes --apply):
 //   node scripts/setAppVersionGate.js                        # dry run: show live vs desired
@@ -41,7 +43,6 @@ function initAdmin() {
 /** The gate. Keys absent here keep whatever is live. */
 const DESIRED = {
   minVersion: '2.3.2',
-  updateMessage: 'This version of Undercut can no longer sign in to leagues. Update from the store to keep playing.',
 };
 
 const VERSION = /^\d+\.\d+\.\d+$/;
