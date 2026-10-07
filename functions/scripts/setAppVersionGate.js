@@ -7,10 +7,14 @@
 // older ran a global fantasyTeams query the scoped list rule now refuses). The op must be applied
 // only once 2.5.0 is LIVE on Google Play, the Amazon Appstore and the App Store: the floor blocks
 // every store at once, and the force screen on an Amazon install opens the Play URL, which is why
-// updateMessage names the stores. AppUpdateGate shows updateMessage on the soft "new version"
-// banner too, so the wording has to read right there as well. latestVersion is not touched. Dry run
-// prints what is live beside what would be written; `--apply` merges only the keys below, so the
-// Moonshot block and everything else in config/app survive.
+// updateMessage names the stores. AppUpdateGate shows updateMessage on the dismissible "new
+// version" banner too (current >= minVersion but < latestVersion), so the message carries no
+// version number and no "to keep playing": it has to read right on both screens, and whenever
+// latestVersion is later moved above the floor, rewrite it here. latestVersion is not touched. Dry
+// run prints what is live beside what would be written; `--apply` merges only the keys below (the
+// --minVersion flag moves the floor; updateMessage from DESIRED is still written), so the Moonshot
+// block and everything else in config/app survive. scripts/versionGate.test.js holds the floor to
+// at most the version app.config.js ships — a floor above the current build locks everyone out.
 //
 // Usage (normally through the uc-script op kind, which sets SA_KEY and passes --apply):
 //   node scripts/setAppVersionGate.js                        # dry run: show live vs desired
@@ -44,7 +48,7 @@ function initAdmin() {
 /** The gate. Keys absent here keep whatever is live. */
 const DESIRED = {
   minVersion: '2.5.0',
-  updateMessage: 'Undercut 2.5.0 is out, with Moonshot and more. Update from the store you installed from — Google Play, the Amazon Appstore or the App Store — to keep playing.',
+  updateMessage: 'A new Undercut build is out, with Moonshot and more. Update from the store you installed from — Google Play, the Amazon Appstore or the App Store.',
 };
 
 const VERSION = /^\d+\.\d+\.\d+$/;
@@ -71,7 +75,7 @@ async function main(block, apply) {
   console.log('== desired (merged over live):'); console.log(JSON.stringify(block, null, 2));
   if (!apply) { console.log('== dry run: nothing written (add --apply)'); return; }
   await ref.set(block, { merge: true });
-  console.log(`== wrote config/app gate (minVersion=${block.minVersion})`);
+  console.log(`== wrote config/app gate: ${Object.entries(block).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ')}`);
 }
 
 if (require.main === module) {
