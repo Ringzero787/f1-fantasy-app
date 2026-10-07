@@ -169,7 +169,7 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
           id: snap.id, driverId: m.driverId, raceId, predictionType: m.predictionType, predictionTarget: m.predictionTarget,
           stakeCurrency: m.stakeCurrency, stakeAmount: m.stakeAmount ?? 0, potentialReward: m.potentialReward ?? 0,
         };
-        const seat = resolveSeat(m.driverId, results, drivers);
+        const seat = resolveSeat(m.driverId, results, drivers, Array.isArray(m.seatRegulars) ? { constructorId: m.seatConstructorId ?? null, regulars: m.seatRegulars } : null);
         const decision = settleDecision(call, seat.result, cfg, !!opts.cancelled);
         const prevStats: Partial<MoonshotStats> | undefined = team.moonshotStats;
         const teamUpdate: Record<string, unknown> = { updatedAt: now };
@@ -196,7 +196,7 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
         // a cancelled race has no weekend, so no snapshot is created for it
         if (!opts.cancelled) tx.set(teamRef.collection('raceSnapshots').doc(raceId), {
           teamId: m.teamId, userId: m.userId, leagueId: m.leagueId ?? null, raceId,
-          moonshots: { [snap.id]: { moonshotId: snap.id, result: decision.result, stakeCurrency: m.stakeCurrency, stakeAmount: call.stakeAmount, adjustmentAmount: applied, driverId: m.driverId, predictionType: m.predictionType, predictionTarget: m.predictionTarget ?? null, officialDriverFinish: decision.officialDriverFinish, multiplier: m.multiplier ?? null } },
+          moonshots: { [snap.id]: { moonshotId: snap.id, result: decision.result, stakeCurrency: m.stakeCurrency, stakeAmount: call.stakeAmount, adjustmentAmount: applied, driverId: m.driverId, settledOnDriverId: seat.substituteId ?? m.driverId, predictionType: m.predictionType, predictionTarget: m.predictionTarget ?? null, officialDriverFinish: decision.officialDriverFinish, multiplier: m.multiplier ?? null } },
         }, { merge: true });
         // a void returns the token
         if (decision.result === 'VOID') {

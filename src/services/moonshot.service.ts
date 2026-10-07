@@ -66,6 +66,7 @@ const toActivity = (id: string, d: Record<string, unknown>): ActivityEntry => ({
   adjustmentAmount: typeof d.adjustmentAmount === 'number' ? d.adjustmentAmount : 0,
   raceId: String(d.raceId ?? ''),
   roundNumber: typeof d.roundNumber === 'number' ? d.roundNumber : null,
+  settledOnDriverId: typeof d.settledOnDriverId === 'string' ? d.settledOnDriverId : null,
   createdAtMs: d.createdAt && typeof (d.createdAt as { toMillis?: unknown }).toMillis === 'function' ? (d.createdAt as { toMillis: () => number }).toMillis() : null,
 });
 

@@ -337,6 +337,8 @@ export interface ActivityEntry {
   raceId: string;
   roundNumber: number | null;
   createdAtMs: number | null;
+  /** F-110: the driver whose result the call settled on — a substitute when the call followed the car */
+  settledOnDriverId?: string | null;
 }
 
 /** "🚀 NATHAN CALLED HIS SHOT · HADJAR — PODIUM · 200 POINTS AT RISK · MODEL CHANCE 11% · REWARD 5× · Potential Gain +1,000" (SPEC §16, without the pronoun). */

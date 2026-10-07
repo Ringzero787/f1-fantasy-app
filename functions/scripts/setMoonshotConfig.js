@@ -14,6 +14,9 @@
 //   node scripts/setMoonshotConfig.js --enabled=false --apply   # switch it off, keep the rest
 //   node scripts/setMoonshotConfig.js --mode=banded --apply     # change the pricing mode
 //   node scripts/setMoonshotConfig.js --liveTiming=true --apply # let the app poll live positions
+//
+// The uc-script op kind passes only --apply, so through `aidlc op` the flags are not reachable:
+// to change a switch in production, edit DESIRED here, commit, and raise a new uc-script op.
 const admin = require('firebase-admin');
 
 const EXPECTED_PROJECT = 'f1-app-18077';
@@ -48,7 +51,7 @@ const DESIRED = {
   liveTiming: false,
 };
 
-const KNOWN_FLAGS = ['enabled', 'mode', 'liveTiming', 'unlockRound', 'apply'];
+const KNOWN_FLAGS = ['enabled', 'mode', 'liveTiming', 'unlockRound'];
 const BOOL = (v, name) => { if (v === 'true') return true; if (v === 'false') return false; console.error(`--${name} must be true or false (got "${v}")`); process.exit(2); };
 
 /** Flags adjust DESIRED; validated here, from the guard, never on import. */
@@ -56,6 +59,7 @@ function blockFor(argv) {
   const block = JSON.parse(JSON.stringify(DESIRED));
   for (const a of argv) {
     const m = a.match(/^--([^=]+)(?:=(.*))?$/);
+    if (m && m[1] === 'apply') { console.error('--apply takes no value. Nothing was written.'); process.exit(2); }
     if (!m || !KNOWN_FLAGS.includes(m[1])) { console.error(`"${a}" is not a flag this script understands. Nothing was written.`); process.exit(2); }
     const [, k, v] = m;
     if (k === 'enabled') block.enabled = BOOL(v, k);
@@ -66,9 +70,7 @@ function blockFor(argv) {
   return block;
 }
 
-async function main(argv) {
-  const apply = argv.includes('--apply');
-  const block = blockFor(argv.filter((a) => a !== '--apply'));
+async function main(block, apply) {
   const ref = db.doc('config/app');
   const snap = await ref.get();
   const live = (snap.exists && snap.data().moonshot) || {};
@@ -81,6 +83,9 @@ async function main(argv) {
 }
 
 if (require.main === module) {
+  // flags are checked before anything connects: a typo refuses without reaching production
+  const argv = process.argv.slice(2);
+  const block = blockFor(argv.filter((a) => a !== '--apply'));
   initAdmin();
-  main(process.argv.slice(2)).then(() => process.exit(0)).catch((e) => { console.error(e.message); process.exit(1); });
+  main(block, argv.includes('--apply')).then(() => process.exit(0)).catch((e) => { console.error(e.message); process.exit(1); });
 }

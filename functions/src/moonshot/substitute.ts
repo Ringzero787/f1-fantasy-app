@@ -9,6 +9,9 @@
 export interface SeatResult { driverId?: string; constructorId?: string; position?: number | null; status?: string | null }
 export interface KnownDriver { id: string; constructorId?: string | null; isActive?: boolean }
 
+/** The seat as it was when the call was confirmed: the car and the team's regular drivers then. */
+export interface StampedSeat { constructorId: string | null; regulars: string[] }
+
 export interface SeatResolution {
   /** the result the call settles on, or undefined when the driver is absent with no substitute */
   result: SeatResult | undefined;
@@ -18,17 +21,29 @@ export interface SeatResolution {
 
 /**
  * Pure. `results` is the race classification; `drivers` the game's driver list (regular seats by
- * constructor). The substitute is the one row for the called driver's constructor whose driver is
+ * constructor) — read at settlement, so a permanent replacement must be added to `drivers` after
+ * the race he first replaced someone in has been scored, or he counts as a regular, not a substitute. The substitute is the one row for the called driver's constructor whose driver is
  * neither the called driver nor another regular driver of that constructor.
  */
-export function resolveSeat(driverId: string, results: SeatResult[], drivers: KnownDriver[]): SeatResolution {
+export function resolveSeat(driverId: string, results: SeatResult[], drivers: KnownDriver[], stamped?: StampedSeat | null): SeatResolution {
   const own = results.find((r) => r.driverId === driverId);
-  if (own) return { result: own, substituteId: null };
-  const me = drivers.find((d) => d.id === driverId);
-  const constructorId = me?.constructorId ?? null;
-  if (!constructorId) return { result: undefined, substituteId: null };
-  const regulars = new Set(drivers.filter((d) => d.constructorId === constructorId && d.isActive !== false).map((d) => d.id));
+  // a driver who took part settles on his own result; one listed as DNS may have been replaced
+  // in the car (the classification can carry both rows), so the seat is searched before his row counts
+  if (own && own.status !== 'dns') return { result: own, substituteId: null };
+  // the seat as stamped at confirm wins over today's roster: a driver moved or added since must not
+  // turn a team-mate into a stranger, or a stand-in into a regular
+  const seat = stamped?.constructorId ? stamped : seatOf(driverId, drivers);
+  const constructorId = seat.constructorId;
+  if (!constructorId) return { result: own, substituteId: null };
+  const regulars = new Set(seat.regulars);
   const subs = results.filter((r) => r.constructorId === constructorId && r.driverId && !regulars.has(r.driverId));
-  if (subs.length !== 1) return { result: undefined, substituteId: null };   // nobody, or more than one car's worth of strangers: no guess
+  if (subs.length !== 1) return { result: own, substituteId: null };   // nobody, or more than one car's worth of strangers: no guess
   return { result: subs[0], substituteId: subs[0].driverId ?? null };
+}
+
+/** The car and the regular (active) drivers of the called driver's team, from the game's driver list. */
+export function seatOf(driverId: string, drivers: KnownDriver[]): StampedSeat {
+  const constructorId = drivers.find((d) => d.id === driverId)?.constructorId ?? null;
+  if (!constructorId) return { constructorId: null, regulars: [] };
+  return { constructorId, regulars: drivers.filter((d) => d.constructorId === constructorId && d.isActive !== false).map((d) => d.id) };
 }
