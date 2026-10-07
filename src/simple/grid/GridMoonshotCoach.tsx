@@ -20,7 +20,7 @@ export function GridMoonshotCoach({ visible, cfg, tokens, onDone }: { visible: b
     { glyph: '🚀', title: copyText(cfg, 'tutorial1Title'), body: copyText(cfg, 'tutorial1Body') },
     { glyph: '🎯', title: copyText(cfg, 'tutorial2Title'), body: copyText(cfg, 'tutorial2Body') },
     { glyph: '⚖️', title: copyText(cfg, 'tutorial3Title'), body: copyText(cfg, 'tutorial3Body') },
-    { glyph: '3️⃣', title: copyText(cfg, 'tutorial4Title', { n: tokens }), body: copyText(cfg, 'tutorial4Body') },
+    { glyph: tokens >= 1 && tokens <= 9 ? `${tokens}\uFE0F\u20E3` : '🎟️', title: copyText(cfg, 'tutorial4Title', { n: tokens }), body: copyText(cfg, 'tutorial4Body') },
   ];
   const step = steps[Math.min(i, steps.length - 1)];
   const last = i >= steps.length - 1;

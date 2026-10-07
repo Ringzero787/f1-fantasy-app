@@ -82,18 +82,20 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const tokensLeft = moonshotAvail === 'open' ? Math.max(0, moonshotCfg.tokensPerTeam - teamCalls.filter((c) => c.status !== 'CANCELLED' && c.status !== 'VOID').length) : null;
   const sheetMoonshot = useMemo<SheetMoonshot | undefined>(() => (moonshotAvail === 'off' || !team || !nextRace ? undefined : {
     availability: moonshotAvail, cfg: moonshotCfg, tokensLeft, current: currentCall,
-    onOpen: (t) => { setSheetId(null); setMoonshotTarget({ teamId: team.id, raceId: nextRace.id, raceName: nextRace.name, driverId: t.entry.id, driverName: t.entry.name }); },
+    onOpen: (t) => { setSheetId(null); track('moonshot_driver_selected', { driverId: t.entry.id, from: 'tile' }); setMoonshotTarget({ teamId: team.id, raceId: nextRace.id, raceName: nextRace.name, driverId: t.entry.id, driverName: t.entry.name }); },
   }), [moonshotAvail, team, nextRace, moonshotCfg, tokensLeft, currentCall]);
   const reloadMoonshots = useCallback(() => { if (user?.id && teamId && moonshotSeason) loadMoonshotCalls(user.id, teamId, moonshotSeason, true); }, [user?.id, teamId, moonshotSeason, loadMoonshotCalls]);
   // race day (SPEC §17): the live card from the race start until three hours after, with the league's locked calls
-  const window = raceWindow(nextRace, now.getTime());
-  const live = useMoonshotLive(moonshotAvail === 'open' ? nextRace : null, window);
+  const raceWin = raceWindow(nextRace, now.getTime());
+  const live = useMoonshotLive(moonshotAvail === 'open' ? nextRace : null, raceWin, moonshotCfg.liveTiming);
   const board = useMoonshotStore((s) => s.board);
   const loadBoard = useMoonshotStore((s) => s.loadBoard);
+  const boardTick = Math.floor(now.getTime() / (5 * 60 * 1000));   // while live, the league's board is re-read every five minutes, not every render
+  const nextRaceId = nextRace?.id ?? null;
   useEffect(() => {
-    if (moonshotAvail === 'open' && team?.leagueId && nextRace && window !== 'before') loadBoard(team.leagueId, nextRace.id, window === 'live');
-  }, [moonshotAvail, team?.leagueId, nextRace, window, loadBoard, now]);
-  useEffect(() => { if (window === 'live' && currentCall) track('moonshot_live_viewed', { raceId: currentCall.raceId }); }, [window, currentCall?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (moonshotAvail === 'open' && team?.leagueId && nextRaceId && raceWin !== 'before') loadBoard(team.leagueId, nextRaceId, raceWin === 'live');
+  }, [moonshotAvail, team?.leagueId, nextRaceId, raceWin, loadBoard, boardTick]);
+  useEffect(() => { if (raceWin === 'live' && currentCall) track('moonshot_live_viewed', { raceId: currentCall.raceId }); }, [raceWin, currentCall?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // coach marks (SPEC §20): once per account when the feature is first available; the sheet's info icon reopens them
   const tutorialSeen = useMoonshotStore((s) => s.tutorialSeen);
   const tutorialOpen = useMoonshotStore((s) => s.tutorialOpen);
@@ -444,7 +446,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
             ) : null
           ) : null}
           {/* F-108: race day — the live card with the league's calls; otherwise this race's Moonshot with Cancel before lock */}
-          {moonshotAvail === 'open' && nextRace && team && window !== 'before' ? (
+          {moonshotAvail === 'open' && nextRace && team && raceWin !== 'before' ? (
             <GridMoonshotLive call={currentCall} board={board} positions={live.positions} cfg={moonshotCfg} driverName={driverNameOf} nameOf={memberNameOf} updatedAt={live.updatedAt}
               onOpen={currentCall ? () => setMoonshotTarget({ teamId: team.id, raceId: nextRace.id, raceName: nextRace.name, driverId: currentCall.driverId, driverName: driverNameOf(currentCall.driverId) }) : undefined}
               style={{ marginHorizontal: gutter, marginTop: 14 }} />

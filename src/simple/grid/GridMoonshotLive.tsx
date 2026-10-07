@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, type StyleProp, type ViewStyle } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { MonoLabel } from './GridBits';
-import { chancePct, copyText, currencyWord, liveChip, liveState, multiplierLabel, predictionLabel, settledLine, signed, type BoardCall, type MoonshotCall, type MoonshotClientConfig } from './moonshot';
+import { chancePct, copyText, currencyWord, liveChip, liveState, multiplierLabel, predictionLabel, settledLine, signed, statusLabel, type BoardCall, type MoonshotCall, type MoonshotClientConfig } from './moonshot';
 
 /**
  * Race day (F-108, SPEC §17): "🚀 YOUR MOONSHOT" with the driver's current position from the live
@@ -40,7 +40,7 @@ export function GridMoonshotLive({ call, board, positions, cfg, driverName, name
             <Text style={{ fontFamily: family.mono.bold, fontSize: scaled(10), letterSpacing: scaled(10) * 0.12, color: '#F2F2F2' }}>🚀 {copyText(cfg, 'yourMoonshot')}</Text>
           </View>
           <View style={{ borderRadius: 999, borderWidth: 1, borderColor: tone, paddingHorizontal: 8, paddingVertical: 3 }}>
-            <Text style={{ fontFamily: family.mono.bold, fontSize: scaled(10), letterSpacing: scaled(10) * 0.12, color: tone }}>{settled ? String(call.result) : liveChip(state, cfg)}</Text>
+            <Text style={{ fontFamily: family.mono.bold, fontSize: scaled(10), letterSpacing: scaled(10) * 0.12, color: tone }}>{settled ? statusLabel(call.result as 'HIT' | 'MISSED' | 'VOID', cfg) : liveChip(state, cfg)}</Text>
           </View>
         </View>
         <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ fontFamily: family.ui.black, fontSize: scaled(16), letterSpacing: scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>
@@ -77,7 +77,7 @@ export function GridMoonshotLive({ call, board, positions, cfg, driverName, name
                     {b.stakeAmount.toLocaleString()} {currencyWord(b.stakeCurrency)} · {chancePct(b.modelProbability)} · {multiplierLabel(b.multiplier)} · {copyText(cfg, 'hit')} {signed(b.potentialReward)}{pos ? ` · P${pos}` : ''}
                   </Text>
                 </View>
-                <Text style={[mono(10), { color: tone }]}>{settled ? String(b.result) : liveChip(state, cfg)}</Text>
+                <Text style={[mono(10), { color: tone }]}>{settled ? statusLabel(b.result as 'HIT' | 'MISSED' | 'VOID', cfg) : liveChip(state, cfg)}</Text>
               </View>
             );
           })}

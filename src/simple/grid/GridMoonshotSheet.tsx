@@ -204,7 +204,7 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
           <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 10 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontFamily: family.ui.black, fontSize: scaled(14), letterSpacing: scaled(14) * 0.04, color: colors.text.primary }}>{predictionLabel('EXACT_FINISH')}</Text>
-              <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>CHOOSE A POSITION · UP TO {multiplierLabel(8)}</Text>
+              <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>CHOOSE A POSITION · UP TO {multiplierLabel(menu.maxMultiplier ?? cfg.maxMultiplier)}</Text>
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {Array.from({ length: menu.positionsCount }, (_, k) => k + 1).map((pos) => (

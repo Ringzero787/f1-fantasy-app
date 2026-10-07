@@ -39,6 +39,8 @@ interface MoonshotState {
   confirm: (quoteId: string) => Promise<boolean>;
   cancel: (moonshotId: string) => Promise<boolean>;
   clearError: () => void;
+  /** everything here belongs to one account; a sign-out or a switch empties it */
+  reset: () => void;
   loadBoard: (leagueId: string, raceId: string, force?: boolean) => Promise<void>;
   loadActivity: (leagueId: string, force?: boolean) => Promise<void>;
   checkTutorial: (uid: string) => Promise<void>;
@@ -142,6 +144,7 @@ export const useMoonshotStore = create<MoonshotState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+  reset: () => set({ calls: [], callsFor: null, menu: null, menuFor: null, quote: null, quoteFor: null, busy: null, error: null, board: [], boardFor: null, activity: [], activityFor: null, tutorialSeen: null, tutorialOpen: false }),
 
   loadBoard: async (leagueId, raceId, force) => {
     const key = `${leagueId}:${raceId}`;
@@ -174,6 +177,9 @@ export const useMoonshotStore = create<MoonshotState>((set, get) => ({
   },
 }));
 
+// a second account on the same device must not inherit the first one's calls or its tutorial answer
+useAuthStore.subscribe((state, prev) => { if (state.user?.id !== prev.user?.id) useMoonshotStore.getState().reset(); });
+
 // ── demo fixtures ───────────────────────────────────────────────────────────
 // Plausible numbers in the server's shapes, so screenshots and web verification can walk the
 // whole flow without a model, a config document or a signed-in account. Not the app's pricing.
@@ -194,7 +200,7 @@ const DEMO: { lastRequest: QuoteRequest | null; [k: string]: unknown } & Record<
     lockAtMs: Date.now() + 36 * 60 * 60 * 1000, round: 19,
     current: calls.find((c) => c.raceId === raceId && c.status !== 'CANCELLED') ?? null,
     ownsDriver: !!useTeamStore.getState().currentTeam?.drivers?.some((d) => d.driverId === driverId), modelAvailable: true, driverInModel: true, carriedFrom: null,
-    predictions: DEMO_PREDICTIONS, exactFinishEnabled: false, positionsCount: 22,
+    predictions: DEMO_PREDICTIONS, exactFinishEnabled: false, positionsCount: 22, maxMultiplier: 8,
     stakes: { POINTS: [50, 100, 200], CASH: [50, 100, 200] }, balances: { POINTS: 1284, CASH: 240 },
     model: { expectedFinish: 3.4, likelyLo: 1, likelyHi: 6, predicted: 3.1 }, copy: {}, tutorialEnabled: true,
   }),

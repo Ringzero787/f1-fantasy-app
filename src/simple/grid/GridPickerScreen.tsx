@@ -19,6 +19,8 @@ import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
 import { constructorShortName } from './entityNames';
 import { GridMoonshotSheet, type MoonshotTarget } from './GridMoonshotSheet';
+import { GridMoonshotCoach } from './GridMoonshotCoach';
+import { track } from '../../services/analytics.service';
 import { useMoonshotStore } from '../../store/moonshot.store';
 import { moonshotAvailability } from './moonshot';
 import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
@@ -260,6 +262,8 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const moonshotOpen = moonshotAvailability(moonshotCfg, moonshotRace?.round) === 'open' && !!team && !!moonshotRace;
   const moonshotCalls = useMoonshotStore((s) => s.calls);
   const [moonshotTarget, setMoonshotTarget] = useState<MoonshotTarget | null>(null);
+  const tutorialOpen = useMoonshotStore((s) => s.tutorialOpen);
+  const finishTutorial = useMoonshotStore((s) => s.finishTutorial);
   const moonshotCurrent = moonshotOpen ? moonshotCalls.find((c) => c.teamId === team!.id && c.raceId === moonshotRace!.id && c.status !== 'CANCELLED') ?? null : null;
 
   const renderRow = useCallback(({ item }: { item: Row }) => {
@@ -302,7 +306,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
             : <Text style={[mono(10), { color: trendColor }]}>{t.glyph} {t.last ?? '–'}</Text>}
         </View>
         {moonshotRow ? (
-          <Pressable onPress={() => setMoonshotTarget({ teamId: team!.id, raceId: moonshotRace!.id, raceName: moonshotRace!.name, driverId: item.id, driverName: item.fullName })} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Moonshot on ${item.fullName}`}
+          <Pressable onPress={() => { track('moonshot_driver_selected', { driverId: item.id, from: 'picker' }); setMoonshotTarget({ teamId: team!.id, raceId: moonshotRace!.id, raceName: moonshotRace!.name, driverId: item.id, driverName: item.fullName }); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Moonshot on ${item.fullName}`}
             style={({ pressed }) => ({ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: moonshotCurrent ? colors.primary : colors.borderStrong, opacity: pressed ? 0.7 : 1 })}>
             <Text style={{ fontSize: scaled(12) }}>🚀</Text>
           </Pressable>
@@ -386,6 +390,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
 
       {/* F-108: a Moonshot on any driver on the entry list */}
       <GridMoonshotSheet target={moonshotTarget} cfg={moonshotCfg} onClose={() => setMoonshotTarget(null)} onChanged={() => { if (team && moonshotRace) useMoonshotStore.getState().loadCalls(team.userId, team.id, moonshotRace.seasonId, true); }} />
+      {moonshotTarget ? <GridMoonshotCoach visible={tutorialOpen} cfg={moonshotCfg} tokens={moonshotCfg.tokensPerTeam} onDone={() => { if (team) finishTutorial(team.userId); }} /> : null}
       {/* Contract sheet */}
       <Modal visible={!!sheet} transparent animationType="fade" onRequestClose={() => setSheet(null)}>
         <Pressable style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }} onPress={() => setSheet(null)}>

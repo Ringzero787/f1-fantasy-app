@@ -20,6 +20,9 @@ async function resolveLogger(): Promise<Logger | null> {
     try {
       const mod = await import('firebase/analytics');
       if (await mod.isSupported()) {
+        // no consent flow exists yet: storage consent is denied by default, so Analytics measures
+        // nothing until a consent decision (and the store/privacy declaration that goes with it)
+        mod.setConsent({ analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
         const analytics = mod.getAnalytics(app);
         logger = (name, params) => mod.logEvent(analytics, name, params as Record<string, unknown>);
       }

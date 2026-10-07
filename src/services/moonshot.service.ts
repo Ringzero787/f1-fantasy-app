@@ -24,6 +24,8 @@ export interface MoonshotMenu {
   predictions: MenuPrediction[];
   exactFinishEnabled: boolean;
   positionsCount: number | null;
+  /** the pricing cap, for the EXACT FINISH caption */
+  maxMultiplier: number;
   stakes: Record<StakeCurrency, number[]>;
   balances: Record<StakeCurrency, number>;
   model: { expectedFinish: number; likelyLo: number; likelyHi: number; predicted: number } | null;

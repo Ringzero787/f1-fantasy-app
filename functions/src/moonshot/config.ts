@@ -38,6 +38,8 @@ export interface MoonshotConfig {
   cancelledRule: VoidRule;
   hideBeforeLock: boolean;
   tutorialEnabled: boolean;
+  /** the app's race-day card may poll live timing (F-108); off until the data arrangement covers it (ADR-001) */
+  liveTiming: boolean;
   /** how long a quote may be confirmed for, in seconds */
   quoteTtlSeconds: number;
   /** when a race has no model of its own, the most recent earlier round's model is used */
@@ -71,6 +73,7 @@ export const DEFAULT_CONFIG: MoonshotConfig = {
   cancelledRule: 'VOID',
   hideBeforeLock: true,
   tutorialEnabled: true,
+  liveTiming: false,
   quoteTtlSeconds: 600,
   carryForwardModel: true,
   copy: {},
@@ -118,6 +121,7 @@ export function mergeConfig(raw: unknown): MoonshotConfig {
     cancelledRule: rule('cancelledRule', 'VOID'),
     hideBeforeLock: bool('hideBeforeLock', true),
     tutorialEnabled: bool('tutorialEnabled', true),
+    liveTiming: bool('liveTiming', false),
     quoteTtlSeconds: num('quoteTtlSeconds', DEFAULT_CONFIG.quoteTtlSeconds),
     carryForwardModel: bool('carryForwardModel', true),
     copy: r.copy && typeof r.copy === 'object' ? Object.fromEntries(Object.entries(r.copy as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string' && !usesForbiddenTerm(e[1]))) : {},
