@@ -15,6 +15,18 @@ import {
 
 type Step = 'currency' | 'prediction' | 'stake' | 'confirm';
 
+/**
+ * Where a Moonshot can be called from: a real team, a round to price, not the example payload.
+ * Returns the opener (driver id → slide-over on the MOONSHOT tab) or null when the entry points should not render.
+ */
+export function useMoonshotEntry(): ((driverId: string) => void) | null {
+  const { payload: p, open, set, real } = useStore();
+  const ms = useMoonshot();
+  if (!ms || !ms.race || !real || p.example || !ms.ready) return null;
+  // open() lands on PRESENT, so the tab is set after it
+  return (id: string) => { open(id); set('overTab', 'MOONSHOT'); };
+}
+
 /** The slide-over's MOONSHOT tab: the predictions priced for this driver, the flow, and the depth view. */
 export function MoonshotPanel({ driverId, driverName }: { driverId: string; driverName: string }) {
   const { payload: p } = useStore();
@@ -196,15 +208,13 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
 
 /** The Briefing tile: your Moonshot this round, or how many you have left. Opens the driver's slide-over on the MOONSHOT tab. */
 export function MoonshotTile() {
-  const { payload: p, open, set, real } = useStore();
+  const { payload: p } = useStore();
   const ms = useMoonshot();
-  if (!ms || p.example || !real || !ms.ready) return null;
+  const openOn = useMoonshotEntry();
+  if (!ms || !openOn) return null;
   const cur = ms.current;
   const name = (id: string) => p.drivers.find((d) => d.id === id)?.name ?? id;
-  // open() lands on PRESENT, so the tab is set after it
-  const openOn = (id: string) => { open(id); set('overTab', 'MOONSHOT'); };
   if (!cur) {
-    if (!ms.race) return null;
     return (
       <section className="tile only-wide" aria-label="Your Moonshot">
         <div className="th"><Lbl>🚀 Moonshot</Lbl><span className="mut">{ms.tokens ? `${ms.tokens.left} of ${ms.tokens.perTeam} left this season` : 'From midseason, three a season'}</span></div>

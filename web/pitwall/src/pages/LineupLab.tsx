@@ -12,10 +12,12 @@ import { Compare } from '../ui/Compare';
 import { Locked } from '../ui/Locked';
 import { can } from '../data/access';
 import { PassBar } from '../ui/PassBar';
+import { MoonshotTile, useMoonshotEntry } from '../ui/Moonshot';
 
 export function LineupLab() {
   const { payload: p, has, pass, ui, purse, plan, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
   const [confirming, setConfirming] = useState(false);
+  const moonshotOn = useMoonshotEntry();   // F-109: the Lab is where drivers are studied, so a call starts here too
   // With a real team the roster, bank and lock come from the server's documents; projections stay example data.
   const ace = real ? aceChange(real.team, ui.lineup, real.market) : null;
   const blocked = plan?.blocked ?? ace?.blocked ?? null;
@@ -101,6 +103,7 @@ export function LineupLab() {
         </Tile>
       </div>
       <div className="c6" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <MoonshotTile />
         {slot && (cur || slot === OPEN_SEAT || isC) ? (
           <>
             {cur ? (
@@ -111,6 +114,7 @@ export function LineupLab() {
                 {!isC ? (cur.price > ACE_MAX_PRICE
                   ? <span className="mut">Only a pick at {money(ACE_MAX_PRICE)} or under can be the ace; {cur.name} is {money(cur.price)}.</span>
                   : <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setAce(cur.id)} disabled={l.ace === cur.id}>{l.ace === cur.id ? 'Ace is on this driver' : `Make ${cur.name} the ace`}</button>) : null}
+                {!isC && moonshotOn ? <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={() => moonshotOn(cur.id)}>🚀 Moonshot on {cur.name}</button> : null}
               </Tile>
             ) : (
               <Tile label={isC ? 'Empty constructor seat' : 'Open driver seat'}>
@@ -119,13 +123,15 @@ export function LineupLab() {
             )}
             <Tile label={`All options within ${money(room)} bank · tap to ${cur ? 'swap' : 'fill the seat'}`} right={<span className="mut only-wide">{curated ? 'Best gain first' : 'Highest projection first'}</span>}>
               <div className="scroll"><table>
-                <thead><tr><th scope="col">{isC ? 'Team' : 'Driver'}</th>{curated ? <th scope="col">Gain</th> : null}<th scope="col">Price</th><th scope="col">Proj</th><th scope="col">Pts/$100</th>{isC ? null : <>{has.fit ? <th scope="col">Fit</th> : null}<th scope="col">DNF</th><th scope="col">Next $</th></>}</tr></thead>
+                <thead><tr><th scope="col">{isC ? 'Team' : 'Driver'}</th>{curated ? <th scope="col">Gain</th> : null}<th scope="col">Price</th><th scope="col">Proj</th><th scope="col">Pts/$100</th>{isC ? null : <>{has.fit ? <th scope="col">Fit</th> : null}<th scope="col">DNF</th><th scope="col">Next $</th></>}{!isC && moonshotOn ? <th scope="col"><span className="visually-hidden">Moonshot</span><span aria-hidden="true">🚀</span></th> : null}</tr></thead>
                 <tbody>
-                  {cur ? <tr className="me"><td><TeamBar p={p} team={cur.team} /><b>{cur.name}</b> <span className="mut">now</span></td>{curated ? <td className="mut">—</td> : null}{stat(cur)}</tr> : null}
+                  {cur ? <tr className="me"><td><TeamBar p={p} team={cur.team} /><b>{cur.name}</b> <span className="mut">now</span></td>{curated ? <td className="mut">—</td> : null}{stat(cur)}{!isC && moonshotOn ? <td /> : null}</tr> : null}
                   {pool.map(({ e, gain }, n) => (
                     <Tr key={e.id} onClick={() => swapInSlot(e.id)} label={`Swap in ${e.name}, ${gain > 0 ? 'plus' : 'minus'} ${Math.abs(gain).toFixed(0)} points`}>
                       <td><TeamBar p={p} team={e.team} /><b>{e.name}</b>{curated && n === 0 && gain > 0 ? <> <Pill red>TOP</Pill></> : null}</td>
                       {curated ? <td className={gain > 0 ? 'pos' : 'red'}><b>{gain > 0 ? '+' : ''}{gain.toFixed(0)}</b></td> : null}{stat(e)}
+                      {/* a call on this driver, without swapping him in: the row's own click is the swap, so this stops the event */}
+                      {!isC && moonshotOn ? <td><button type="button" className="ghost" style={{ padding: '4px 8px' }} aria-label={`Moonshot on ${e.name}`} onClick={(ev) => { ev.stopPropagation(); moonshotOn(e.id); }} onKeyDown={(ev) => ev.stopPropagation()}><span aria-hidden="true">🚀</span></button></td> : null}
                     </Tr>
                   ))}
                 </tbody>
