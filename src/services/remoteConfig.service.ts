@@ -57,6 +57,8 @@ export interface AppVersionConfig {
   updateMessage: string | null;
   androidUrl: string | null;
   iosUrl: string | null;
+  /** F-108: the Moonshot block, parsed by src/simple/grid/moonshot.ts (absent → off) */
+  moonshot?: unknown;
 }
 
 const DEFAULT_APP_CONFIG: AppVersionConfig = {

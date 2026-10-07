@@ -1253,7 +1253,7 @@ features:
     summary: "Driver tile sheet gets a Moonshot tab: currency choice, prediction types, model chance and reward, three stake
       tiers, explicit confirmation, Double Down framing; race-day live card with IN/OUT/CLOSE; league feed declaration
       private until lock; first-run overlay and info icon with server-driven copy"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-108.md
     created_at: 2026-10-06
     keywords:

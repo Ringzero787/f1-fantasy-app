@@ -16,7 +16,11 @@ import { GridCreateTeam } from './GridCreateTeam';
 import { constructorShortName, driverNumber } from './entityNames';
 import { GridAvatar, MonoLabel, ScreenHeader } from './GridBits';
 import { GridTile } from './GridTile';
-import { GridTileSheet, sheetTargetFor, type SheetTarget } from './GridTileSheet';
+import { GridTileSheet, sheetTargetFor, type SheetTarget, type SheetMoonshot } from './GridTileSheet';
+import { GridMoonshotSheet, type MoonshotTarget } from './GridMoonshotSheet';
+import { GridMoonshotCard } from './GridMoonshotCard';
+import { useMoonshotStore } from '../../store/moonshot.store';
+import { moonshotAvailability, parseMoonshotConfig } from './moonshot';
 import { useTeamStore } from '../../store/team.store';
 import { runStoreAction } from './storeAction';
 import { teamText } from './shareTeam';
@@ -55,6 +59,25 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const [creatingSecondTeam, setCreatingSecondTeam] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [sheetId, setSheetId] = useState<string | null>(null);
+  // F-108: Moonshot — config from config/app, the season's calls from the store
+  const appConfig = useRemoteConfigStore((s) => s.appConfig);
+  const moonshotCfg = useMemo(() => parseMoonshotConfig(appConfig?.moonshot), [appConfig?.moonshot]);
+  const nextRace = lockoutInfo.nextRace;
+  const moonshotAvail = moonshotAvailability(moonshotCfg, nextRace?.round);
+  const moonshotCalls = useMoonshotStore((s) => s.calls);
+  const loadMoonshotCalls = useMoonshotStore((s) => s.loadCalls);
+  const [moonshotTarget, setMoonshotTarget] = useState<MoonshotTarget | null>(null);
+  const moonshotSeason = nextRace?.seasonId ?? null;
+  useEffect(() => {
+    if (moonshotAvail === 'open' && user?.id && moonshotSeason) loadMoonshotCalls(user.id, moonshotSeason);
+  }, [moonshotAvail, user?.id, moonshotSeason, loadMoonshotCalls]);
+  const currentCall = useMemo(() => (nextRace ? moonshotCalls.find((c) => c.raceId === nextRace.id && c.status !== 'CANCELLED') ?? null : null), [moonshotCalls, nextRace]);
+  const tokensLeft = moonshotAvail === 'open' ? Math.max(0, moonshotCfg.tokensPerTeam - moonshotCalls.filter((c) => c.status !== 'CANCELLED' && c.status !== 'VOID').length) : null;
+  const sheetMoonshot: SheetMoonshot | undefined = moonshotAvail === 'off' || !team || !nextRace ? undefined : {
+    availability: moonshotAvail, cfg: moonshotCfg, tokensLeft, current: currentCall,
+    onOpen: (t) => { setSheetId(null); setMoonshotTarget({ teamId: team.id, raceId: nextRace.id, raceName: nextRace.name, driverId: t.entry.id, driverName: t.entry.name }); },
+  };
+  const reloadMoonshots = useCallback(() => { if (user?.id && moonshotSeason) loadMoonshotCalls(user.id, moonshotSeason, true); }, [user?.id, moonshotSeason, loadMoonshotCalls]);
 
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
   useEffect(() => {
@@ -394,12 +417,23 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
               </View>
             ) : null
           ) : null}
+          {/* F-108: this race's Moonshot, with Cancel before lock */}
+          {moonshotAvail === 'open' && currentCall && nextRace && team ? (
+            <GridMoonshotCard
+              call={currentCall}
+              cfg={moonshotCfg}
+              driverName={remoteDrivers.find((d) => d.id === currentCall.driverId)?.name ?? currentCall.driverId}
+              onOpen={() => setMoonshotTarget({ teamId: team.id, raceId: nextRace.id, raceName: nextRace.name, driverId: currentCall.driverId, driverName: remoteDrivers.find((d) => d.id === currentCall.driverId)?.name ?? currentCall.driverId })}
+              style={{ marginHorizontal: gutter, marginTop: 14 }}
+            />
+          ) : null}
           <Text style={{ fontFamily: family.mono.bold, fontSize: scaled(13), letterSpacing: scaled(13) * 0.1, color: colors.text.secondary, paddingHorizontal: gutter, marginTop: 14 }}>
-            TAP A TILE FOR STATS{aceLocked ? '' : ', ACE'}{locked ? '' : ' OR REMOVE'}
+            TAP A TILE FOR STATS{aceLocked ? '' : ', ACE'}{locked ? '' : ' OR REMOVE'}{moonshotAvail === 'open' ? ' · 🚀 MOONSHOT' : ''}
           </Text>
         </>
       )}
-      <GridTileSheet target={sheetTarget} onClose={() => setSheetId(null)} locked={locked} aceLocked={aceLocked} onToggleAce={sheetToggleAce} onRemove={sheetRemove} />
+      <GridTileSheet target={sheetTarget} onClose={() => setSheetId(null)} locked={locked} aceLocked={aceLocked} onToggleAce={sheetToggleAce} onRemove={sheetRemove} moonshot={sheetMoonshot} />
+      <GridMoonshotSheet target={moonshotTarget} cfg={moonshotCfg} onClose={() => setMoonshotTarget(null)} onChanged={reloadMoonshots} />
     </ScrollView>
   );
 });

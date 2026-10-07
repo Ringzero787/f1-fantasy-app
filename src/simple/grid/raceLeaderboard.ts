@@ -4,6 +4,7 @@
  * panel lists the season's completed races and reads one document per pick.
  */
 import type { StandingsRow } from './standings';
+import { moonshotColumn } from './moonshot';
 
 export interface RaceResultEntry {
   userId: string;
@@ -11,6 +12,10 @@ export interface RaceResultEntry {
   teamName?: string | null;
   points: number;
   rank: number;
+  /** F-107: race points, the weekend's settled Moonshot points and their sum; rank and wins stay on `points` */
+  racePoints?: number;
+  moonshotPoints?: number;
+  raceTotal?: number;
 }
 
 export interface LeagueRaceResultDoc {
@@ -73,6 +78,7 @@ export function raceResultRows(result: LeagueRaceResultDoc | null, userId: strin
       isMe: !!userId && e.userId === userId,
       movement: '—',
       movementDir: 'flat' as const,
+      moonshot: moonshotColumn(e.moonshotPoints),
     };
   });
 }

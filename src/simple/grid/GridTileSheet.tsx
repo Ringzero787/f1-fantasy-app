@@ -11,6 +11,18 @@ import { PRICING_CONFIG } from '../../config/pricing.config';
 import { ColorBar, MonoLabel, PillButton } from './GridBits';
 import { constructorShortName } from './entityNames';
 import { tileDetail, type DetailEntry } from './tileDetail';
+import { copyText, type Availability, type MoonshotCall, type MoonshotClientConfig } from './moonshot';
+
+/** F-108: what the sheet shows about Moonshot for this driver; omitted when the feature is off. */
+export interface SheetMoonshot {
+  availability: Exclude<Availability, 'off'>;
+  cfg: MoonshotClientConfig;
+  /** the team's tokens left this season, when known */
+  tokensLeft: number | null;
+  /** the call already made on the current race, if any */
+  current: MoonshotCall | null;
+  onOpen: (t: SheetTarget) => void;
+}
 
 export interface SheetTarget {
   kind: 'driver' | 'constructor';
@@ -30,10 +42,12 @@ interface Props {
   /** resolve false when the action failed (the sheet then stays open) */
   onToggleAce?: (t: SheetTarget) => Promise<boolean | void> | boolean | void;
   onRemove?: (t: SheetTarget) => Promise<boolean | void> | boolean | void;
+  /** F-108: the Moonshot row (drivers only) */
+  moonshot?: SheetMoonshot;
 }
 
 // Tap a tile → stats, Ace and Remove without leaving the Team screen.
-export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce, onRemove }: Props) {
+export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce, onRemove, moonshot }: Props) {
   const { colors, family, spacing, scaled, mono } = useSimpleTheme();
   const insets = useSafeAreaInsets();
   const lastRaceScores = useRaceScoresStore((s) => s.lastRaceScores);
@@ -113,6 +127,30 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
 
             {/* what the pass bought, above the roster figures: it is the reason to open this sheet */}
             {pw ? <GridPitWallBlock projection={pw.byId[target.entry.id] ?? null} rounds={pw.rounds} round={pw.round} /> : null}
+
+            {/* F-108: Moonshot — a teaser before midseason, the call to make (or the one made) after */}
+            {moonshot && target.kind === 'driver' ? (
+              moonshot.availability === 'locked' ? (
+                <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 4 }}>
+                  <MonoLabel color={colors.text.muted}>🚀 {copyText(moonshot.cfg, 'lockedTitle')}</MonoLabel>
+                  <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>{copyText(moonshot.cfg, 'lockedBody', { round: moonshot.cfg.unlockRound })}</Text>
+                </View>
+              ) : (
+                <Pressable onPress={() => moonshot.onOpen(target)} accessibilityRole="button" accessibilityLabel={copyText(moonshot.cfg, moonshot.current ? 'alreadyCalled' : 'callTitle')}
+                  style={({ pressed }) => ({ borderWidth: 1, borderColor: colors.primary, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.75 : 1 })}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={{ fontFamily: family.ui.black, fontSize: scaled(12), letterSpacing: scaled(12) * 0.04, color: colors.primary }}>🚀 {moonshot.current ? copyText(moonshot.cfg, 'alreadyCalled') : copyText(moonshot.cfg, 'callTitle')}</Text>
+                    <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>
+                      {moonshot.current
+                        ? `${moonshot.current.driverId === target.entry.id ? target.entry.name.toUpperCase() : moonshot.current.driverId.toUpperCase()} · ${moonshot.current.status === 'CONFIRMED' ? 'TAP TO VIEW' : moonshot.current.status}`
+                        : moonshot.tokensLeft == null ? 'DRIVER · PREDICTION · CHANCE · RISK · REWARD'
+                        : moonshot.tokensLeft > 0 ? copyText(moonshot.cfg, 'tokensLeft', { n: moonshot.tokensLeft, s: moonshot.tokensLeft === 1 ? '' : 'S' }) : copyText(moonshot.cfg, 'tokensNone')}
+                    </Text>
+                  </View>
+                  <MonoLabel color={colors.primary}>›</MonoLabel>
+                </Pressable>
+              )
+            ) : null}
 
             {/* stats */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
