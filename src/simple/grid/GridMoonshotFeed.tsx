@@ -35,7 +35,7 @@ export function GridMoonshotFeed({ board, activity, cfg, driverName, nameOf, rac
       {activity.length > 0 ? (
         <View style={{ gap: 6 }}>
           <MonoLabel color={colors.text.muted}>MOONSHOT HISTORY</MonoLabel>
-          {activity.slice(0, 8).map((e) => line(activityLine(e, driverName(e.driverId), nameOf(e.userId), cfg), e.type === 'MOONSHOT_HIT' ? colors.positive : e.type === 'MOONSHOT_MISSED' ? colors.primary : colors.text.muted, e.id))}
+          {activity.slice(0, 8).map((e) => line(activityLine(e, driverName(e.settledOnDriverId ?? e.driverId), nameOf(e.userId), cfg), e.type === 'MOONSHOT_HIT' ? colors.positive : e.type === 'MOONSHOT_MISSED' ? colors.primary : colors.text.muted, e.id))}
         </View>
       ) : null}
     </View>

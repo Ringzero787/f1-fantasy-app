@@ -27,6 +27,7 @@ import { predictionProbability, summarise } from './distribution';
 import { eligibility, quoteRefusal, OPEN_STATUSES, TOKEN_SPENDING_STATUSES } from './eligibility';
 import { resolveModel } from './models';
 import { potentialReward, price } from './pricing';
+import { seatOf, type KnownDriver } from './substitute';
 
 const db = admin.firestore();
 
@@ -236,6 +237,9 @@ export const moonshotConfirm = functions.https.onCall(async (data, context) => {
       modelAvailable: true, driverInModel: true, probability: quote.modelProbability, multiplier: quote.multiplier,
     });
     if (refusal) throw new functions.https.HttpsError(refusal.code, refusal.message);
+    // the seat as it is now, so settlement can follow the car to a substitute even if the roster is edited later (F-110)
+    const roster: KnownDriver[] = (await tx.get(db.collection('drivers'))).docs.map((d) => ({ id: d.id, constructorId: d.data().constructorId ?? null, isActive: d.data().isActive !== false }));
+    const seat = seatOf(quote.driverId, roster);
     const ref = db.collection('moonshots').doc();
     const stamp = admin.firestore.FieldValue.serverTimestamp();
     tx.set(ref, {
@@ -246,6 +250,7 @@ export const moonshotConfirm = functions.https.onCall(async (data, context) => {
       modelVersion: quote.modelVersion, modelRaceId: quote.modelRaceId, carriedFrom: quote.carriedFrom,
       modelProbability: quote.modelProbability, probabilitySnapshotId: quote.probabilitySnapshotId,
       rewardBand: quote.rewardBand, multiplier: quote.multiplier, potentialReward: quote.potentialReward, ownsDriver: quote.ownsDriver ?? false,
+      seatConstructorId: seat.constructorId, seatRegulars: seat.regulars,
       quoteId, status: 'CONFIRMED', lockAt: lock, createdAt: stamp, updatedAt: stamp,
       lockedAt: null, settledAt: null, officialDriverFinish: null, result: null, adjustmentAmount: null, settlementVersion: null, settlementId: null,
     });

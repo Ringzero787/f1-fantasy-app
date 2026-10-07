@@ -1,4 +1,4 @@
-next_id: 110
+next_id: 111
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1268,3 +1268,16 @@ features:
     keywords:
       - moonshot
       - wall
+  - id: F-110
+    name: "UC: Moonshot follows the car when a substitute drives, and the enable script"
+    status: building
+    spec: .aidlc/specs/F-110.md
+    created_at: 2026-10-07
+    keywords:
+      - moonshot
+      - follows
+      - when
+      - substitute
+      - drives
+      - enable
+      - script

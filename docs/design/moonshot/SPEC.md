@@ -1,4 +1,4 @@
-# Regal Leagues — Moonshot
+# Undercut — Moonshot
 
 *Owner's design document, as delivered on 2026-10-06. Kept verbatim (light re-flow only; there was no §22 in the source). Implemented by F-106 to F-109.*
 
@@ -35,7 +35,7 @@ Each fantasy team receives 3 Moonshot Tokens for the remainder of the season. De
 V1 should deliberately have a small number of understandable predictions: **TOP 5** (P1–P5), **PODIUM** (P1–P3), **WIN** (P1), **EXACT FINISH** (exact finishing position; highest risk, largest multiplier). Top 10, Beats Teammate, Head-to-Head, Qualifying Result, Fastest Lap etc. can be added later. Do not overload V1.
 
 ## 5. Driver Interaction
-Moonshot originates from the existing driver experience: tapping a driver tile/card, the driver detail interface contains **🚀 MOONSHOT**, which opens the Moonshot sheet, e.g. "CHARLES LECLERC — 🚀 CALL A MOONSHOT — TOP 5 · Model Chance 76% · Reward 0.5× / PODIUM · 43% · 1.25× / WIN · 16% · 5× / EXACT FINISH · Choose Position · up to 8×". The probabilities come from the Regal Leagues prediction/modeling system. The player does NOT need to understand the underlying statistical model.
+Moonshot originates from the existing driver experience: tapping a driver tile/card, the driver detail interface contains **🚀 MOONSHOT**, which opens the Moonshot sheet, e.g. "CHARLES LECLERC — 🚀 CALL A MOONSHOT — TOP 5 · Model Chance 76% · Reward 0.5× / PODIUM · 43% · 1.25× / WIN · 16% · 5× / EXACT FINISH · Choose Position · up to 8×". The probabilities come from the Undercut prediction/modeling system. The player does NOT need to understand the underlying statistical model.
 
 ## 6. Model Probability
 The prediction model provides a probability distribution for each driver's expected finishing position (P1 16%, P2 15%, P3 12%, P4 11%, P5 10%, P6 8%, P7 7%, P8+ remaining). These aggregate into predictions: WIN = P1 (16%); PODIUM = P1+P2+P3 (43%); TOP 5 = P1…P5 (64%). The model probability is then converted into a Moonshot difficulty/reward band.
@@ -129,7 +129,7 @@ Events: moonshot_tutorial_viewed, _opened, _driver_selected, _prediction_selecte
 Configurable limits: maximum stake, maximum multiplier, maximum reward per Moonshot, maximum Moonshot points per season. Initial: maxPointsStake 200, maxCashStake 200, maxMultiplier 8, maxSingleMoonshotPointReward 1000, maxSeasonMoonshotPointGain 1500. Validate through simulation before launch. A manager should be able to make a dramatic comeback; a manager should NOT be able to ignore the game all season and win solely on one extremely unlikely prediction.
 
 ## 34. UX Principle
-Fantasy strategy + prediction + courage; NOT a sportsbook embedded inside Regal Leagues. The model does the complicated work; the player sees Driver, Prediction, Chance, Risk, Reward ("🚀 HADJAR — PODIUM · 11% chance · Risk 200 Points · 5× MOONSHOT · HIT +1,000 · MISS −200 · [CALL IT]"), understandable within seconds.
+Fantasy strategy + prediction + courage; NOT a sportsbook embedded inside Undercut. The model does the complicated work; the player sees Driver, Prediction, Chance, Risk, Reward ("🚀 HADJAR — PODIUM · 11% chance · Risk 200 Points · 5× MOONSHOT · HIT +1,000 · MISS −200 · [CALL IT]"), understandable within seconds.
 
 ## 35. V1 Scope
 V1 SHOULD include: midseason unlock; 3 tokens; one per race; driver selection; Top 5, Podium, Win; Points and Cash stakes; model probability; reward bands; server-side quote; confirmation; locking; race settlement; league feed; live status; first-time tutorial; history; analytics; remote configuration. V1 SHOULD NOT require: head-to-head; parlays / multi-driver; user-created markets; complex sliders; betting-style odds; trading; exact-position predictions if model calibration is not ready; Final Moonshot / Dark Side of the Moon.
