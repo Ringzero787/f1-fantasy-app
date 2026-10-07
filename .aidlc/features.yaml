@@ -613,7 +613,7 @@ features:
     summary: "Phase two of F-056: callable team-name availability check and client switch, then scope fantasyTeams list to
       own and same-league teams once that client is the minimum version; Cloud Function maintains memberCount;
       maxMembers bound to a verified purchase"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-059.md
     created_at: 2026-09-18
     keywords:
@@ -627,6 +627,8 @@ features:
       - scoped
       - team
       - reads
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-060
     name: "UC: League Pro entitlement and purchase verification"
     summary: "League Pro is derived from the league owner's Pit Wall Pass ($14.99 per season, the only product): re-enable
@@ -738,7 +740,7 @@ features:
     summary: "Pit Wall Pass, $14.99 per season, the one premium product (portal plus League Pro): Stripe checkout first,
       store IAP for the February 2027 release, server-owned entitlement, free look with Rate My Team and timing frames,
       beta allowlist and complimentary grants"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-068.md
     created_at: 2026-09-19
     keywords:
@@ -746,6 +748,8 @@ features:
       - pass
       - entitlement
       - checkout
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-069
     name: "UC: Pit Wall analytics data pipeline"
     summary: Daily and post-session timing ingest into precomputed analytics documents with history back to 2023;
@@ -762,7 +766,7 @@ features:
     name: "UC: Pit Wall projections and price model"
     summary: Statistical fantasy-points projection per driver and constructor with floor, median, ceiling, DNF risk and next
       price change estimate, simulated per round and backtested against scored races
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-070.md
     created_at: 2026-09-19
     keywords:
@@ -770,6 +774,8 @@ features:
       - projections
       - price
       - model
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-071
     name: "UC: Pit Wall news wire and daily briefing"
     summary: Multi-source news ingest with entity and impact tagging, de-duplicated story clusters with source links, and a
@@ -801,12 +807,14 @@ features:
     summary: Shows the signed-in user's lineup with ranked swap recommendations, a what-if simulator and optimizer under
       budget and contract rules, and saves lineup changes from the browser through the same server callables and lock
       rules as the app
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-073.md
     created_at: 2026-09-19
     keywords:
       - wall
       - lineup
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-074
     name: "UC: Pit Wall market and season outlook"
     summary: Market page with price movers, predicted changes, value per dollar, league ownership and leverage; season page
@@ -823,7 +831,7 @@ features:
     name: "UC: Pit Wall web portal shell and sign-in"
     summary: "Premium web analytics portal for Undercut on Firebase Hosting: Grid-themed responsive shell, same Firebase
       Auth account as the app, eight report pages capped at three screens of scroll with click-in slide-over detail"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-075.md
     created_at: 2026-09-19
     keywords:
@@ -831,6 +839,8 @@ features:
       - portal
       - shell
       - sign
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-076
     name: "TL: repair race schedules from seed data"
     status: planned
@@ -872,7 +882,7 @@ features:
       - locales
   - id: F-079
     name: "UC: UI string extraction and localization"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-079.md
     created_at: 2026-09-24
     summary: Nine languages for F1 markets. Scaffolding, auth screens and catalogs landed; the rest of the app converts area
@@ -882,6 +892,8 @@ features:
       - i18n
       - translation
       - locales
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-080
     name: "UC: right-to-left support and Arabic"
     status: idea
@@ -932,7 +944,7 @@ features:
       - text
   - id: F-084
     name: "UC: Amazon receipt ids get their own shape"
-    status: building
+    status: shipped
     created_at: 2026-10-01
     summary: Registered retroactively on 2026-10-02 only to reserve the id, which was taken from branch names without `aidlc
       feature add` — next_id would otherwise have handed F-084 out again. The name here is from the one merged PR
@@ -944,6 +956,8 @@ features:
       - amazon
       - receipt
       - purchases
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-085
     name: "UC: Revoke a pass when the store refunds it"
     status: planned
@@ -987,16 +1001,18 @@ features:
       - dedupe
   - id: F-087
     name: "UC: Share your team from the Team screen"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-087.md
     created_at: 2026-10-02
     keywords:
       - share
       - team
       - lineup
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-088
     name: "UC: Pit Wall driver detail in the app"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-088.md
     created_at: 2026-10-02
     keywords:
@@ -1004,9 +1020,11 @@ features:
       - wall
       - driver
       - detail
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-090
     name: "UC: the Amazon build survives R8"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-090.md
     created_at: 2026-10-02
     summary: Registered retroactively on 2026-10-02. The id was taken from the branch name (fix/F-090-amazon-r8-keep-rules)
@@ -1020,6 +1038,8 @@ features:
       - proguard
       - launch
       - crash
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-096
     name: "PW: recommendations carry confidence, not just a delta"
     status: building
@@ -1046,7 +1066,7 @@ features:
     shipped_at: 2026-10-04
   - id: F-094
     name: "UC: the sign-in handoff is bound to the device that started it"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-094.md
     created_at: 2026-10-03
     keywords:
@@ -1055,9 +1075,11 @@ features:
       - ticket
       - rate-limit
       - oauth
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-093
     name: "UC: Google sign-in on the Amazon build"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-093.md
     created_at: 2026-10-03
     keywords:
@@ -1066,9 +1088,11 @@ features:
       - fire
       - sign-in
       - oauth
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-092
     name: "UC: a purchase grants once, not once per launch"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-092.md
     created_at: 2026-10-02
     keywords:
@@ -1077,22 +1101,26 @@ features:
       - idempotency
       - credits
       - consumable
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-091
     name: "UC: cross-store sign-in"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-091.md
     created_at: 2026-10-02
     keywords:
       - cross
       - store
       - sign
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-097
     name: "UC: Pit Wall Briefing redesign (hero, calls strip, Archivo type and tokens portal-wide)"
     summary: "Applies the 2026-10-04 design handoff: Archivo wide display type and the revised dark/light tokens across the
       whole portal, a Briefing-only hero with team name, season stats and the weekend card, a calls strip with hover
       peek, click to lock and expand, lineup tiles and price movers; adapted to phones inside the three-screen scroll
       budget"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-097.md
     prs:
       - 158
@@ -1109,6 +1137,8 @@ features:
       - tokens
       - portal
       - wide
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-098
     name: "UC: the ace freezes for every session it scores in, not just the race"
     status: shipped
@@ -1129,7 +1159,7 @@ features:
     summary: From the portal a signed-in user can rename their team (through a new server callable that reuses the app's
       team-name rules and uniqueness check) and change their display name (the same users document the app reads), and
       both show in the app on its next load
-    status: building
+    status: shipped
     prs:
       - 168
     spec: .aidlc/specs/F-100.md
@@ -1141,12 +1171,14 @@ features:
       - name
       - manager
       - name
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-099
     name: "UC: Archivo wide display type in the app"
     summary: The Undercut app's Grid UI moves from Unbounded to Archivo at 125 width (static instances of the OFL variable
       font, bundled in assets/fonts) so the app and the Pit Wall portal share one typeface; same weights 400/700/900, no
       layout change
-    status: building
+    status: shipped
     prs:
       - 167
     spec: .aidlc/specs/F-099.md
@@ -1156,6 +1188,8 @@ features:
       - wide
       - display
       - type
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-101
     name: "UC: the app's metadata sync no longer overwrites a newer server copy"
     summary: >-
@@ -1163,7 +1197,7 @@ features:
             Firestore with a fresh timestamp, so a rename made on the Pit Wall portal (F-100) or another device was reverted
             within a minute; the sync now writes only the metadata keys this device marked dirty, nothing when there are
             none, and pending keys survive a reload
-    status: building
+    status: shipped
     prs:
       - 170
     spec: .aidlc/specs/F-101.md
@@ -1176,6 +1210,8 @@ features:
       - newer
       - server
       - copy
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-102
     name: "UC: the portal says when the ace freezes on a sprint weekend"
     status: implemented
@@ -1190,7 +1226,7 @@ features:
       - weekend
   - id: F-103
     name: "UC: the lineup lock the clients show is the one the server enforces"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-103.md
     created_at: 2026-10-05
     keywords:
@@ -1200,9 +1236,11 @@ features:
       - show
       - server
       - enforces
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-104
     name: "UC: a team's leagueId has to be a usable document id"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-104.md
     created_at: 2026-10-06
     keywords:
@@ -1210,9 +1248,11 @@ features:
       - leagueid
       - usable
       - document
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-105
     name: "UC: creating a league cannot hand yourself the paid features"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-105.md
     created_at: 2026-10-06
     keywords:
@@ -1223,12 +1263,14 @@ features:
       - yourself
       - paid
       - features
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-106
     name: "UC: Moonshot config, pricing and calls"
     summary: "Server side of Moonshot: a config/app block (unlock round, tokens, stakes, pricing mode and bands, DNF rules,
       copy), a probability snapshot taken from the published model distribution, and a callable that creates, changes
       and cancels a call before lock with the terms frozen at confirmation"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-106.md
     created_at: 2026-10-06
     keywords:
@@ -1236,28 +1278,34 @@ features:
       - config
       - pricing
       - calls
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-107
     name: "UC: Moonshot settlement and standings"
     summary: "The scoring run settles each locked Moonshot from the final classification: idempotent, auditable, DNF loss /
       DNS void / cancelled void by config; points adjustments kept apart from race scoring with a Moonshot column in
       standings, cash adjustments applied to the bank; written into raceSnapshots and raceResults"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-107.md
     created_at: 2026-10-06
     keywords:
       - moonshot
       - settlement
       - standings
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-108
     name: "UC: Moonshot in the app"
     summary: "Driver tile sheet gets a Moonshot tab: currency choice, prediction types, model chance and reward, three stake
       tiers, explicit confirmation, Double Down framing; race-day live card with IN/OUT/CLOSE; league feed declaration
       private until lock; first-run overlay and info icon with server-driven copy"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-108.md
     created_at: 2026-10-06
     keywords:
       - moonshot
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-109
     name: "UC: Moonshot in Pit Wall"
     summary: The portal shows a team's open and settled Moonshots on the Briefing and race pages, prices any driver's
@@ -1270,7 +1318,7 @@ features:
       - wall
   - id: F-110
     name: "UC: Moonshot follows the car when a substitute drives, and the enable script"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-110.md
     created_at: 2026-10-07
     keywords:
@@ -1281,9 +1329,11 @@ features:
       - drives
       - enable
       - script
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-111
     name: "UC: One live-timing ingest for race day, fanned out through Firestore"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-111.md
     created_at: 2026-10-07
     keywords:
@@ -1294,9 +1344,11 @@ features:
       - fanned
       - through
       - firestore
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
   - id: F-112
     name: "UC: Security review 2026-10 hardening before the 2.5.0 build"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-112.md
     created_at: 2026-10-07
     keywords:
@@ -1306,3 +1358,5 @@ features:
       - hardening
       - before
       - build
+    version_shipped: 2.5.0
+    shipped_at: 2026-10-07
