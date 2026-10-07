@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   callOpen, callSummary, chancePct, coveredPositions, declarationLine, distributionBars, moonshotErrorText, multiplierLabel, outcomeLine,
-  predictionLabel, quoteFresh, sameTerms, settledLine, signed, stakeOptions, statsLines, toCall, usesForbiddenTerm, type BoardCall, type MoonshotCall,
+  liveChip, liveState, predictionLabel, quoteFresh, sameTerms, settledLine, signed, stakeOptions, statsLines, toCall, toLiveDoc, usesForbiddenTerm, type BoardCall, type MoonshotCall,
 } from './moonshot';
 
 const call = (over: Partial<MoonshotCall> = {}): MoonshotCall => ({
@@ -62,5 +62,18 @@ describe('the wire', () => {
     expect(moonshotErrorText({ code: 'functions/failed-precondition', message: 'Selections are locked for this race.' })).toBe('Selections are locked for this race.');
     expect(moonshotErrorText({ code: 'functions/unavailable', message: 'INTERNAL' })).toMatch(/not answering/);
     expect(moonshotErrorText(new Error(''))).toBe('Something went wrong. Try again.');
+  });
+});
+
+describe('race day', () => {
+  it('IN inside the prediction, CLOSE one place outside, OUT beyond, PENDING without a position; the live document keeps usable positions', () => {
+    const podium = call();
+    expect([liveState(podium, 3), liveState(podium, 4), liveState(podium, 5), liveState(podium, null)]).toEqual(['IN', 'CLOSE', 'OUT', 'PENDING']);
+    expect(liveState(call({ predictionType: 'WIN' }), 2)).toBe('CLOSE');
+    const exact = call({ predictionType: 'EXACT_FINISH', predictionTarget: 7 });
+    expect([liveState(exact, 7), liveState(exact, 6), liveState(exact, 9)]).toEqual(['IN', 'CLOSE', 'OUT']);
+    expect(liveChip('CLOSE')).toBe('One position away');
+    expect(toLiveDoc({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, bad: 'x', zero: 0 }, at: { toMillis: () => 5_000 } })).toEqual({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4 }, atMs: 5_000 });
+    expect(toLiveDoc(undefined)).toBeNull();
   });
 });

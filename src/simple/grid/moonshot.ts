@@ -363,14 +363,16 @@ export function activityLine(e: ActivityEntry, driverName: string, who: string, 
  * keep every client polling forever).
  */
 export type RaceWindow = 'before' | 'live' | 'after';
-const LIVE_MS = 3 * 60 * 60 * 1000, LIVE_MAX_MS = 6 * 60 * 60 * 1000;
+const LIVE_MS = 3 * 60 * 60 * 1000, LIVE_MAX_MS = 6 * 60 * 60 * 1000, EARLY_MS = 30 * 60 * 1000;
 export function raceWindow(race: { status?: string; schedule?: { race?: Date | string | number | null } } | null | undefined, nowMs: number): RaceWindow {
   if (!race) return 'before';
   if (race.status === 'completed' || race.status === 'cancelled') return 'after';
   const start = race.schedule?.race ? new Date(race.schedule.race as string | number | Date).getTime() : NaN;
   const inProgress = race.status === 'in_progress';
   if (!Number.isFinite(start)) return inProgress ? 'live' : 'before';
-  if (nowMs < start) return inProgress ? 'live' : 'before';
+  // `in_progress` is set at Friday's lock, so the status alone never opens the window: half an hour before the start does
+  if (nowMs < start - EARLY_MS) return 'before';
+  if (nowMs < start) return 'live';
   const since = nowMs - start;
   return since <= LIVE_MS || (inProgress && since <= LIVE_MAX_MS) ? 'live' : 'after';
 }
@@ -400,3 +402,15 @@ export function sessionForRace<T extends { date_start: string; session_name?: st
 export function liveChip(state: LiveState, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
   return state === 'IN' ? copyText(cfg, 'stateIn') : state === 'OUT' ? copyText(cfg, 'stateOut') : state === 'CLOSE' ? copyText(cfg, 'stateClose') : copyText(cfg, 'statePending');
 }
+
+/** `races/{raceId}/live/positions`, as F-111's sweep writes it and the race-day card reads it. */
+export interface LivePositionsDoc { raceId: string; sessionKey: number | null; byDriver: Record<string, number>; atMs: number | null }
+
+export function toLiveDoc(d: Record<string, unknown> | undefined): LivePositionsDoc | null {
+  if (!d) return null;
+  const by = d.byDriver && typeof d.byDriver === 'object' ? Object.fromEntries(Object.entries(d.byDriver as Record<string, unknown>).filter((e): e is [string, number] => typeof e[1] === 'number' && e[1] >= 1)) : {};
+  const at = d.at && typeof (d.at as { toMillis?: unknown }).toMillis === 'function' ? (d.at as { toMillis: () => number }).toMillis() : null;
+  return { raceId: String(d.raceId ?? ''), sessionKey: typeof d.sessionKey === 'number' ? d.sessionKey : null, byDriver: by, atMs: at };
+}
+
+

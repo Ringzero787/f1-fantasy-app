@@ -9,6 +9,7 @@ const { memberSeasonTotal, moonshotShare } = require('../lib/scoring/standingsFi
 const admin = require('firebase-admin');
 const { rankRaceEntries } = require('../lib/scoring/leagueRaceResults.js');
 const { resolveSeat, seatOf } = require('../lib/moonshot/substitute.js');
+const { isLive, sessionForRace, latestByDriver, sweepLivePositions } = require('../lib/moonshot/liveSweep.js');
 const index = require('../lib/index.js');
 
 const cfg = mergeConfig({ enabled: true });
@@ -104,6 +105,8 @@ function fakeDb(docs) {
     path, id: path.split('/').pop(),
     collection: (name) => ({ doc: (id) => docRef(`${path}/${name}/${id}`) }),
     async get() { return snapOf(path); },
+    async set(data, opts) { apply('set', path, data, !!(opts && opts.merge)); },
+    async update(data) { apply('update', path, data, true); },
   });
   const snapOf = (path) => ({ id: path.split('/').pop(), ref: docRef(path), exists: store.has(path), data: () => (store.has(path) ? { ...store.get(path) } : undefined) });
   const apply = (op, path, data, merge) => {
@@ -117,6 +120,8 @@ function fakeDb(docs) {
     doc: docRef,
     collection: (name) => ({
       where() { return this; },
+      orderBy() { return this; },
+      limit() { return this; },
       async get() { const docsOut = [...store.keys()].filter((k) => k.startsWith(`${name}/`) && k.split('/').length === 2).map(snapOf); return { empty: docsOut.length === 0, docs: docsOut, size: docsOut.length }; },
     }),
     async runTransaction(fn) {
@@ -212,4 +217,42 @@ test('the call follows the car: an absent driver settles on the one substitute i
 test('the owner\u2019s rules: DNS and DNF both lose, so an absent driver with no substitute costs the stake', () => {
   const owner = mergeConfig({ enabled: true, dnsRule: 'LOSS', dnfRule: 'LOSS' });
   assert.deepEqual([settleDecision(call('WIN'), undefined, owner).result, settleDecision(call('WIN'), { status: 'dns' }, owner).result, settleDecision(call('WIN'), { position: 0, status: 'dnf' }, owner).result], ['MISSED', 'MISSED', 'MISSED']);
+});
+
+test('the live sweep: the race window, the race session on the race day, the latest position per car mapped to drivers', () => {
+  const start = Date.UTC(2026, 9, 11, 12);
+  const race = { id: 'r', status: 'upcoming', schedule: { race: new Date(start) } };
+  assert.equal(isLive(race, start - 31 * 60e3), false); assert.equal(isLive(race, start - 29 * 60e3), true); assert.equal(isLive(race, start), true); assert.equal(isLive(race, start + 3 * 3600e3 + 1), false);
+  assert.equal(isLive({ ...race, status: 'in_progress' }, start - 2 * 24 * 3600e3), false);   // Friday's lock sets in_progress; that alone never opens the window
+  assert.equal(isLive({ ...race, status: 'in_progress' }, start + 5 * 3600e3), true); assert.equal(isLive({ ...race, status: 'in_progress' }, start + 6 * 3600e3 + 1), false);
+  assert.equal(isLive({ ...race, status: 'completed' }, start + 1), false);
+  assert.equal(isLive({ id: 'r', status: 'upcoming', schedule: { race: { toMillis: () => start } } }, start + 60e3), true);   // a Firestore Timestamp
+  const sessions = [{ session_key: 9, session_name: 'Sprint', date_start: '2026-10-10T07:00:00+00:00' }, { session_key: 2, session_name: 'Race', date_start: '2026-10-11T20:00:00+08:00' }];
+  assert.equal(sessionForRace(sessions, start)?.session_key, 2);
+  assert.equal(sessionForRace(sessions, Date.UTC(2026, 9, 10, 7)), null);
+  const rows = [{ driver_number: 6, position: 5, date: '2026-10-11T12:05:00Z' }, { driver_number: 6, position: 4, date: '2026-10-11T12:40:00Z' }, { driver_number: 6, position: 9, date: 'garbage' }, { driver_number: 99, position: 1, date: '2026-10-11T12:40:00Z' }];
+  assert.deepEqual(latestByDriver(rows, { 6: 'hadjar' }), { hadjar: 4 });   // latest wins, a bad time is skipped, an unknown car is dropped
+  assert.equal(typeof index.moonshotLiveSweep, 'function');
+});
+
+test('the sweep: off does nothing; on, it finds the live race, looks the session up once, and writes the latest positions', async () => {
+  const start = Date.UTC(2026, 9, 11, 12);
+  const docs = {
+    'config/app': { moonshot: { enabled: true, liveTiming: true } },
+    'races/singapore_2026': { seasonId: '2026', status: 'in_progress', round: 19, schedule: { race: { toMillis: () => start } } },
+    'races/austin_2026': { seasonId: '2026', status: 'upcoming', round: 20, schedule: { race: { toMillis: () => start + 7 * 24 * 3600e3 } } },
+  };
+  let sessionCalls = 0;
+  const feed = { sessions: async () => { sessionCalls++; return [{ session_key: 2, session_name: 'Race', date_start: '2026-10-11T12:00:00+00:00' }]; }, positions: async () => [{ driver_number: 6, position: 4, date: '2026-10-11T12:40:00Z' }, { driver_number: 1, position: 1, date: '2026-10-11T12:40:00Z' }] };
+  const off = fakeDb({ ...docs, 'config/app': { moonshot: { enabled: true } } });
+  assert.deepEqual(await sweepLivePositions(off, start + 60e3, feed), { raceId: null, written: false, drivers: 0, off: true });
+  assert.equal(off.writes.length, 0);
+  const db = fakeDb(docs);
+  const first = await sweepLivePositions(db, start + 60e3, feed);
+  const written = db.store.get('races/singapore_2026/live/positions');
+  assert.deepEqual([first.raceId, first.written, first.drivers], ['singapore_2026', true, Object.keys(written.byDriver).length]);
+  assert.deepEqual([written.raceId, written.sessionKey, written.source, written.byDriver.hadjar], ['singapore_2026', 2, 'openf1', 4]);   // car 6 is Hadjar in the ingestion table; car 1 maps to whoever carries it this season
+  await sweepLivePositions(db, start + 120e3, feed);
+  assert.equal(sessionCalls, 1);   // the second minute reuses the stored session key
+  assert.deepEqual(await sweepLivePositions(db, start + 7 * 3600e3, feed), { raceId: null, written: false, drivers: 0 });   // seven hours on, still marked in progress: the six-hour cap closed the window
 });

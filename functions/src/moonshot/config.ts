@@ -38,7 +38,7 @@ export interface MoonshotConfig {
   cancelledRule: VoidRule;
   hideBeforeLock: boolean;
   tutorialEnabled: boolean;
-  /** the app's race-day card may poll live timing (F-108); off until the data arrangement covers it (ADR-001) */
+  /** F-111: the server sweep pulls live positions once a minute during a race and the clients render them; off, no pull and no card */
   liveTiming: boolean;
   /** how long a quote may be confirmed for, in seconds */
   quoteTtlSeconds: number;

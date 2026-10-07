@@ -648,6 +648,16 @@ test('moonshot settlement: a team cannot write its own moonshotPoints or stats; 
   await assertFails(deleteDoc(doc(db(ALICE), 'leagues', 'L1', 'activity', 'm1_settled')));
 });
 
+// ── F-111 live positions: any signed-in client reads the server sweep's document; nobody writes it ──
+test('live positions: signed-in read, no anonymous read, no client write', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'races', 'singapore_2026', 'live', 'positions'), { raceId: 'singapore_2026', sessionKey: 2, byDriver: { hadjar: 4 }, source: 'openf1' });
+  });
+  await assertSucceeds(getDoc(doc(db(ALICE), 'races', 'singapore_2026', 'live', 'positions')));
+  await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'races', 'singapore_2026', 'live', 'positions')));
+  await assertFails(setDoc(doc(db(ALICE), 'races', 'singapore_2026', 'live', 'positions'), { byDriver: { hadjar: 1 } }, { merge: true }));
+});
+
 // ── F-075 Pit Wall: handoff codes and the worker's collections are Admin SDK only ──
 test('pit wall server collections: no client can read or write them, signed in or not', async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {

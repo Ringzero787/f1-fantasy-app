@@ -5,7 +5,7 @@
  */
 import { callable, firestore } from './firebase';
 import { SEASON } from './env';
-import { toCall, type BoardCall, type MoonshotCall, type MoonshotMenu, type MoonshotModelDoc, type MoonshotQuote, type PredictionType, type StakeCurrency } from '../data/moonshot';
+import { toCall, toLiveDoc, type BoardCall, type LivePositionsDoc, type MoonshotCall, type MoonshotMenu, type MoonshotModelDoc, type MoonshotQuote, type PredictionType, type StakeCurrency } from '../data/moonshot';
 
 export interface CurrentRace { raceId: string; round: number; name: string; status: string }
 
@@ -65,4 +65,10 @@ export async function loadModel(raceId: string): Promise<MoonshotModelDoc | null
   if (!snap || !snap.exists()) return null;
   const d = snap.data() as Record<string, unknown>;
   return { raceId, round: Number(d.round ?? 0), source: String(d.source ?? ''), modelVersion: String(d.modelVersion ?? ''), positionsCount: Number(d.positionsCount ?? 0), drivers: (d.drivers ?? {}) as MoonshotModelDoc['drivers'] };
+}
+
+/** Listen to the race's live positions (F-111): one server sweep writes them each minute during the race; nothing exists outside it. */
+export async function subscribeLive(raceId: string, cb: (d: LivePositionsDoc | null) => void): Promise<() => void> {
+  const { m, db } = await firestore();
+  return m.onSnapshot(m.doc(db, 'races', raceId, 'live', 'positions'), (snap) => cb(snap.exists() ? toLiveDoc(snap.data() as Record<string, unknown>) : null), (e) => { console.warn('[moonshot live] listener:', e); cb(null); });
 }

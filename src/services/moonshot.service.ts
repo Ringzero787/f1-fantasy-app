@@ -3,9 +3,9 @@
  * and one read of the team's own calls. Nothing here writes Firestore directly — the rules
  * refuse it — and nothing the client sends about chance, multiplier or reward is read.
  */
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc, where } from 'firebase/firestore';
 import { db, functions, httpsCallable } from '../config/firebase';
-import { toCall, type ActivityEntry, type Availability, type BoardCall, type MenuPrediction, type MoonshotCall, type MoonshotQuote, type PredictionType, type StakeCurrency } from '../simple/grid/moonshot';
+import { toCall, toLiveDoc, type LivePositionsDoc, type ActivityEntry, type Availability, type BoardCall, type MenuPrediction, type MoonshotCall, type MoonshotQuote, type PredictionType, type StakeCurrency } from '../simple/grid/moonshot';
 
 export { callableMessage, toCall } from '../simple/grid/moonshot';
 
@@ -70,7 +70,13 @@ const toActivity = (id: string, d: Record<string, unknown>): ActivityEntry => ({
   createdAtMs: d.createdAt && typeof (d.createdAt as { toMillis?: unknown }).toMillis === 'function' ? (d.createdAt as { toMillis: () => number }).toMillis() : null,
 });
 
+export { toLiveDoc, type LivePositionsDoc } from '../simple/grid/moonshot';
+
 export const moonshotService = {
+  /** Listen to the race's live positions; the server sweep rewrites the document each minute during the race. */
+  subscribeLivePositions(raceId: string, cb: (d: LivePositionsDoc | null) => void): () => void {
+    return onSnapshot(doc(db, 'races', raceId, 'live', 'positions'), (snap) => cb(snap.exists() ? toLiveDoc(snap.data() as Record<string, unknown>) : null), (e) => { console.warn('[moonshot live] listener:', e); cb(null); });
+  },
   async menu(teamId: string, raceId: string, driverId: string): Promise<MoonshotMenu> {
     const m = (await callMenu({ teamId, raceId, driverId })).data;
     return { ...m, current: m.current ? toCall(m.current.id, m.current) : null };

@@ -1,7 +1,7 @@
 import {
   MOONSHOT_COPY, FORBIDDEN_TERMS, callOpen, callSummary, callableMessage, chancePct, copyText, liveState, moonshotAvailability, moonshotColumn, multiplierLabel,
   outcomeLine, parseMoonshotConfig, predictionLabel, predictionSentence, quoteFresh, sameTerms, settledLine, signed, stakeOptions, statusLabel, toCall, usesForbiddenTerm, type MoonshotCall,
-  activityLine, declarationLine, latestPositions, liveChip, raceWindow, sessionForRace,
+  activityLine, declarationLine, latestPositions, liveChip, raceWindow, sessionForRace, toLiveDoc,
 } from '../../src/simple/grid/moonshot';
 import { rankStandings } from '../../src/simple/grid/standings';
 import { raceResultRows } from '../../src/simple/grid/raceLeaderboard';
@@ -151,11 +151,13 @@ describe('the league and the race weekend', () => {
   it('the race window opens at the start and closes three hours after, or on completion', () => {
     const start = Date.UTC(2026, 9, 11, 12, 0, 0);
     const race = { status: 'upcoming', schedule: { race: new Date(start) } };
-    expect(raceWindow(race, start - 1)).toBe('before');
+    expect(raceWindow(race, start - 31 * 60 * 1000)).toBe('before');
     expect(raceWindow(race, start)).toBe('live');
     expect(raceWindow(race, start + 3 * 60 * 60 * 1000)).toBe('live');
     expect(raceWindow(race, start + 3 * 60 * 60 * 1000 + 1)).toBe('after');
-    expect(raceWindow({ ...race, status: 'in_progress' }, start - 1)).toBe('live');     // the server says it is on
+    expect(raceWindow({ ...race, status: 'in_progress' }, start - 1)).toBe('live');     // half an hour before the start the window opens
+    expect(raceWindow(race, start - 29 * 60 * 1000)).toBe('live');
+    expect(raceWindow({ ...race, status: 'in_progress' }, start - 31 * 60 * 1000)).toBe('before');   // Friday's lock sets in_progress; that alone never opens it
     expect(raceWindow({ ...race, status: 'completed' }, start + 1)).toBe('after');
     expect(raceWindow({ ...race, status: 'cancelled' }, start + 1)).toBe('after');
     expect(raceWindow({ ...race, status: 'in_progress' }, start + 5 * 60 * 60 * 1000)).toBe('live');       // the server still says it is on
@@ -178,5 +180,14 @@ describe('the league and the race weekend', () => {
     expect(sessionForRace(sessions, new Date(Date.UTC(2026, 9, 10, 7)))).toBeNull();   // a sprint is not the race
     expect(sessionForRace(sessions, null)).toBeNull();
     expect(liveChip('CLOSE')).toBe('ONE POSITION AWAY'); expect(liveChip('PENDING')).toBe('PENDING');
+  });
+});
+
+describe('the live document', () => {
+  it('keeps only usable positions and reads the stamp', () => {
+    const d = toLiveDoc({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, norris: 1, bad: 'x', zero: 0 }, at: { toMillis: () => 5_000 } });
+    expect(d).toEqual({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, norris: 1 }, atMs: 5_000 });
+    expect(toLiveDoc(undefined)).toBeNull();
+    expect(toLiveDoc({})?.byDriver).toEqual({});
   });
 });
