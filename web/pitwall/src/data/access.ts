@@ -34,11 +34,14 @@ export type Feature =
   | 'market' | 'season'
   | 'lineup.edit' | 'lineup.rateMyTeam' | 'lineup.topPick' | 'lineup.whatIf'
   | 'entity.present' | 'entity.past' | 'entity.outlook'
+  | 'entity.moonshot' | 'entity.moonshotModel'
   | 'wire.headlines' | 'wire.full';
 
 const FREE: ReadonlySet<Feature> = new Set<Feature>([
   'briefing.headlines', 'board.top10', 'circuit', 'pace',
   'lineup.edit', 'lineup.rateMyTeam', 'wire.headlines', 'entity.present',
+  // F-109: the Moonshot price is visible to everyone — a call is placed on it, so it is never behind the pass
+  'entity.moonshot',
 ]);
 
 export const can = (state: PassState, feature: Feature): boolean => state.access === 'pass' || FREE.has(feature);
@@ -57,6 +60,7 @@ export const LOCKED_COPY: Partial<Record<Feature, string>> = {
   'lineup.whatIf': 'Try a lineup and see the projection, bank and fees before you save.',
   'entity.past': 'See a full season of form, splits by circuit type and a percentile profile.',
   'entity.outlook': 'Read the outlook for the rounds ahead, built from the model and tagged news.',
+  'entity.moonshotModel': 'See the finishing-position distribution behind each Moonshot multiplier: every position\u2019s chance, the predicted finish and the likely range.',
   'wire.full': 'Read every story cluster with its sources and who it affects.',
 };
 

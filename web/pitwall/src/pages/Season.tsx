@@ -3,6 +3,7 @@ import { useStore } from '../state';
 import { AsTable, Empty, FitCell, Meter, Row, TeamBar, Tile, Tr } from '../ui/bits';
 import { NOT_PUBLISHED } from '../data/coverage';
 import { Locked } from '../ui/Locked';
+import { MoonshotSeason } from '../ui/Moonshot';
 
 /**
  * The season page (F-072 first cut). Schedule difficulty is the circuit fit from the results
@@ -62,6 +63,7 @@ export function Season() {
         <div className="big num">{money(spent(p, ui.lineup))}</div>
         <span className="mut">{has.league ? `League rank ${p.league.myRank} of ${p.league.size}.` : 'What your lineup is worth at today\'s prices.'}</span>
       </Tile>
+      <MoonshotSeason />
     </div>
   );
 }

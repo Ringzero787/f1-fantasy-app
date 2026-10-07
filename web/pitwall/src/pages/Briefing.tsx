@@ -10,6 +10,7 @@ import { Locked } from '../ui/Locked';
 import { PassBar } from '../ui/PassBar';
 import { Hero } from '../ui/Hero';
 import { LineupTiles } from '../ui/LineupTiles';
+import { MoonshotTile, MoonshotRivals } from '../ui/Moonshot';
 
 export function Briefing() {
   const { payload: p, has, pass, wire, purse, ui, set, open } = useStore();
@@ -86,6 +87,7 @@ export function Briefing() {
       <div className="cols">
       <div className="stack side">
       <LineupTiles />
+      <MoonshotTile />
       <Tile span="only-wide" label="Price movers · predicted"><div className="list">{moversBody}</div></Tile>
       <Tile span="only-wide" label={`Top ten for ${p.round.name || 'this round'}`} right={<span className="mut only-wide">Projected points for the coming round</span>}>
         <div className="list">
@@ -107,12 +109,12 @@ export function Briefing() {
       {/* The reader's own tile sits at the top right. Its column runs down beside both the wire and
           the top ten (price movers, then the weather), so neither side leaves a hole. Rivals,
           mostly "not published" today, gets the full width at the bottom. */}
-      <Tile span="only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals"><div className="list">{rivalsBody}</div></Locked></Tile>
+      <Tile span="only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals"><div className="list">{rivalsBody}</div></Locked><MoonshotRivals /></Tile>
       <Tile span="only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
       </div>
       </div>
       <Tile span="c12 only-narrow" label="This weekend" right={<Tabs value={ui.lowerTab} options={['TOP 5', 'RIVALS', 'MOVERS', 'WEATHER'] as const} onChange={(v) => set('lowerTab', v)} label="Weekend frames" />}>
-        {ui.lowerTab === 'TOP 5' ? <div className="list">{topRows(topTen.slice(0, 5))}</div> : ui.lowerTab === 'RIVALS' ? <Locked feature="briefing.rivals">{rivalsBody}</Locked> : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
+        {ui.lowerTab === 'TOP 5' ? <div className="list">{topRows(topTen.slice(0, 5))}</div> : ui.lowerTab === 'RIVALS' ? <><Locked feature="briefing.rivals">{rivalsBody}</Locked><MoonshotRivals /></> : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
       </Tile>
     </div>
   );
