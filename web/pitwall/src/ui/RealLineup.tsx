@@ -31,7 +31,7 @@ export function RealRoster() {
         return (
           <span key={id} className="dtw">
           <button type="button" className="dt" aria-pressed={ui.slot === id} aria-label={`${name}, ${money(price)}${ace ? ', ace' : ''}${own ? '' : ', new'}. Show swaps`} onClick={() => toggleSlot(id)}>
-            <span style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: ace || canAce ? 62 : 0, paddingRight: moonshotOn ? 40 : 0 }} className="mut">
+            <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', paddingLeft: ace || canAce ? 62 : 0, paddingRight: moonshotOn ? 40 : 0 }} className="mut">
               <span>{own ? '' : <Pill red>NEW</Pill>}</span><span className="num">{money(price)}</span>
             </span>
             <span><span className="nm">{name}</span>
