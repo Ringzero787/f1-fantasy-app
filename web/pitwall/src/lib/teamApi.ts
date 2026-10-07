@@ -37,7 +37,8 @@ export async function loadTeams(uid: string): Promise<RealTeam[]> {
       budget: num(t.budget, 0), isLocked: t.isLocked === true, aceFreezeFrom: stampMs(t.lockStatus, 'aceFreezeFrom'), aceLockTime: stampMs(t.lockStatus, 'aceLockTime'),
       aceLockUntil: stampMs(t.lockStatus, 'aceLockUntil'), aceQualiKey: aceMarkerOf(t.lockStatus, 'aceQualiKey'), aceSprintKey: aceMarkerOf(t.lockStatus, 'aceSprintKey'),
       scoredRaces: Array.isArray(t.scoredRaces) ? (t.scoredRaces as unknown[]).filter((x): x is string => typeof x === 'string') : [], aceDriverId: typeof t.aceDriverId === 'string' ? t.aceDriverId : null,
-      totalPoints: num(t.totalPoints), lockedPoints: num(t.lockedPoints), driverLockouts: (t.driverLockouts && typeof t.driverLockouts === 'object' ? t.driverLockouts : {}) as Record<string, number>,
+      totalPoints: num(t.totalPoints), lockedPoints: num(t.lockedPoints),
+      moonshotPoints: num(t.moonshotPoints), moonshotStats: t.moonshotStats && typeof t.moonshotStats === 'object' ? (t.moonshotStats as RealTeam['moonshotStats']) : null, driverLockouts: (t.driverLockouts && typeof t.driverLockouts === 'object' ? t.driverLockouts : {}) as Record<string, number>,
     };
   });
 }

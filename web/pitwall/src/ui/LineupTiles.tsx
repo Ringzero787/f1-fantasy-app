@@ -2,6 +2,7 @@ import { LINEUP_DRIVER_SLOTS, entity, shortName, shortTeamName } from '../data/l
 import { isCtor } from '../data/types';
 import { useStore } from '../state';
 import { Arrow, Pill, TeamBar } from './bits';
+import { useMoonshot } from '../lib/moonshotStore';
 
 /**
  * The lineup as six tiles beside the wire (F-097 stage 4), mirroring the app's Team screen:
@@ -13,6 +14,8 @@ import { Arrow, Pill, TeamBar } from './bits';
  */
 export function LineupTiles() {
   const { payload: p, ui, has, real, open, go } = useStore();
+  const ms = useMoonshot();
+  const moonshotDriver = ms?.current?.driverId ?? null;
   const seats = [...ui.lineup.drivers];
   while (seats.length < LINEUP_DRIVER_SLOTS) seats.push('');
   const ids = [...seats, ...(ui.lineup.ctor ? [ui.lineup.ctor] : [])];
@@ -35,7 +38,7 @@ export function LineupTiles() {
           return (
             <button key={id} type="button" className={`ltile ${ctor ? 'ctor' : ''}`} onClick={() => open(id)} aria-label={`${e.name}, projected ${e.med} points. Open detail`}>
               <span className="ltile-top">
-                <span className={`num ${ctor ? 'red' : 'mut'}`}>{ctor ? 'TEAM' : e.num}{!ctor && id === ui.lineup.ace ? <> <Pill red>Ace</Pill></> : null}{ui.done.some((d) => d.in === id) ? <> <Pill red>In</Pill></> : null}</span>
+                <span className={`num ${ctor ? 'red' : 'mut'}`}>{ctor ? 'TEAM' : e.num}{!ctor && id === ui.lineup.ace ? <> <Pill red>Ace</Pill></> : null}{ui.done.some((d) => d.in === id) ? <> <Pill red>In</Pill></> : null}{!ctor && id === moonshotDriver ? <> <Pill red>🚀</Pill></> : null}</span>
                 <span className="num"><b>{e.med}</b></span>
               </span>
               <span className={`ltile-name ${ui.done.some((d) => d.in === id) ? 'red' : ''}`}>{ctor ? shortTeamName(e.name, e.id) : shortName(e.name)}</span>

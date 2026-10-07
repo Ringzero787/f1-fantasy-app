@@ -16,6 +16,9 @@ export interface RealTeam {
   id: string;
   name: string;
   leagueId: string | null;
+  /** F-107: the Moonshot share of the season (server-written), and the season's Moonshot record */
+  moonshotPoints?: number;
+  moonshotStats?: MoonshotStats | null;
   drivers: RosterDriver[];
   constructor: RosterConstructor | null;
   budget: number;
@@ -161,4 +164,11 @@ export function aceChange(team: RealTeam, target: Lineup, market: MarketPrices):
   const price = market.drivers[target.ace]?.price ?? Number.POSITIVE_INFINITY;
   if (price > ACE_MAX_PRICE) return { to: null, blocked: `Only picks priced at $${ACE_MAX_PRICE} or less can be your ace.` };
   return { to: target.ace, blocked: null };
+}
+
+/** F-107: the team's season Moonshot record, as settlement writes it. */
+export interface MoonshotStats {
+  used: number; hit: number; missed: number; voided: number;
+  pointsRisked: number; pointsWon: number; cashRisked: number; cashWon: number;
+  biggestHit: { moonshotId: string; adjustmentAmount: number; driverId: string; predictionType: string; raceId: string } | null;
 }

@@ -10,6 +10,7 @@ import { Locked } from '../ui/Locked';
 import { PassBar } from '../ui/PassBar';
 import { Hero } from '../ui/Hero';
 import { LineupTiles } from '../ui/LineupTiles';
+import { MoonshotTile, MoonshotRivals } from '../ui/Moonshot';
 
 export function Briefing() {
   const { payload: p, has, pass, wire, purse, ui, set, open } = useStore();
@@ -39,6 +40,7 @@ export function Briefing() {
         </Row>
       ))}
       <span className="mut">{has.league ? `${p.league.name} · you are P${p.league.myRank}. ` : ''}Based on each rival's bank, best swap and how often they edit.</span>
+      <MoonshotRivals />
     </>
   );
   // The predicted move is part of the price model. Without it every row reads "0", which is a
@@ -86,6 +88,7 @@ export function Briefing() {
       <div className="cols">
       <div className="stack side">
       <LineupTiles />
+      <MoonshotTile />
       <Tile span="only-wide" label="Price movers · predicted"><div className="list">{moversBody}</div></Tile>
       <Tile span="only-wide" label={`Top ten for ${p.round.name || 'this round'}`} right={<span className="mut only-wide">Projected points for the coming round</span>}>
         <div className="list">

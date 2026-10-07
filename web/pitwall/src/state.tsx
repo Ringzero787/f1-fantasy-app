@@ -20,7 +20,7 @@ export interface UIState {
   slot: string | null;
   /** entity shown in the slide-over */
   over: string | null;
-  overTab: 'PAST' | 'PRESENT' | 'OUTLOOK' | 'COMPARE';
+  overTab: 'PAST' | 'PRESENT' | 'OUTLOOK' | 'MOONSHOT' | 'COMPARE';
   /** last entity the user clicked: highlighted on every page (cross-filter) */
   focus: string | null;
   thr: number;

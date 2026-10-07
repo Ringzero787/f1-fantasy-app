@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { MoonshotProvider } from './lib/moonshotStore';
 import type { Lineup, Payload } from './data/types';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { bareExamplePayload, examplePayload, EXAMPLE_LINEUP } from './data/example';
@@ -70,12 +71,14 @@ function Portal({ account, real, pass, published, league, reloadReal, reloadAcco
   const renameUser = onDisplayName ? async (name: string) => { try { await renameUserApi(name); } catch (e) { throw new Error(renameErrorText(e)); } onDisplayName(name); } : undefined;
   return (
     <StoreProvider key={real?.team.id ?? 'example'} payload={payload} lineup={lineup} real={real} pass={pass} checkoutFn={checkoutFn} selectTeam={selectTeam} saver={saver} wire={wire} onWire={onWire} go={go} displayName={displayName ?? null} renameTeam={renameTeam} renameUser={renameUser}>
+      <MoonshotProvider team={real?.team ?? null}>
       <Wrap>
         <ContextBar page={page} account={account} onSignOut={onSignOut} />
         <main id="main"><Boundary key={page} label={page.toLowerCase()}><Page /></Boundary></main>
         <CompareTray />
         <Footer page={page} />
       </Wrap>
+      </MoonshotProvider>
       <Boundary label="the detail panel"><SlideOver /></Boundary><Tooltip /><Toast />
     </StoreProvider>
   );

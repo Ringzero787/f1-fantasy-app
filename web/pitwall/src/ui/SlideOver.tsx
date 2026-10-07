@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { MoonshotPanel } from './Moonshot';
 import { briefRecs, entity, money, percentileOf } from '../data/logic';
 import { isCtor, type Driver, type Entity } from '../data/types';
 import { useStore } from '../state';
@@ -170,7 +171,7 @@ export function SlideOver() {
     body = (
       <>
         <div style={{ marginTop: -6 }}><TeamBar p={p} team={d.team} /><span className="num">{money(d.price)}</span>{!isCtor(d) ? <> · next <Arrow n={d.dprice} /></> : null} · {mine ? <span className="red">IN YOUR LINEUP</span> : <span className="mut">not owned</span>}</div>
-        <div className="srow"><Tabs value={ui.overTab === 'COMPARE' ? 'PRESENT' : ui.overTab} options={['PAST', 'PRESENT', 'OUTLOOK'] as const} onChange={(v) => set('overTab', v)} small={false} label="Detail views" /></div>
+        <div className="srow"><Tabs value={ui.overTab === 'COMPARE' ? 'PRESENT' : ui.overTab} options={(isCtor(d) ? ['PAST', 'PRESENT', 'OUTLOOK'] : ['PAST', 'PRESENT', 'OUTLOOK', 'MOONSHOT']) as readonly ('PAST' | 'PRESENT' | 'OUTLOOK' | 'MOONSHOT')[]} onChange={(v) => set('overTab', v)} small={false} label="Detail views" /></div>
         <div className="srow">
           <button type="button" className="ghost" onClick={() => togglePin(d.id)} aria-pressed={ui.tray.includes(d.id)}>{ui.tray.includes(d.id) ? 'Pinned to compare ✓' : 'Pin to compare'}</button>
           {/* the ace can be moved from wherever a driver of the lineup is shown */}
@@ -178,7 +179,7 @@ export function SlideOver() {
             ? <button type="button" className="chip acepill-inline" aria-pressed="true" onClick={() => setAce(d.id)} disabled={!!saving} title="Tap to clear the ace">ACE 2× · clear</button>
             : <button type="button" className="ghost" onClick={() => setAce(d.id)} disabled={!!saving}>{d.price > ACE_MAX_PRICE ? `Ace needs ≤ ${money(ACE_MAX_PRICE)}` : 'Make ace'}</button>) : null}
         </div>
-        {ui.overTab === 'PAST' ? <Past d={d} /> : ui.overTab === 'OUTLOOK' ? <Outlook d={d} /> : <Present d={d} />}
+        {ui.overTab === 'PAST' ? <Past d={d} /> : ui.overTab === 'OUTLOOK' ? <Outlook d={d} /> : ui.overTab === 'MOONSHOT' && !isCtor(d) ? <MoonshotPanel driverId={d.id} driverName={d.name} /> : <Present d={d} />}
       </>
     );
   }
