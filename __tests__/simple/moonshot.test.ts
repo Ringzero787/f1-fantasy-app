@@ -1,6 +1,7 @@
 import {
   MOONSHOT_COPY, FORBIDDEN_TERMS, callOpen, callSummary, callableMessage, chancePct, copyText, liveState, moonshotAvailability, moonshotColumn, multiplierLabel,
   outcomeLine, parseMoonshotConfig, predictionLabel, predictionSentence, quoteFresh, sameTerms, settledLine, signed, stakeOptions, statusLabel, toCall, usesForbiddenTerm, type MoonshotCall,
+  activityLine, declarationLine, latestPositions, liveChip, raceWindow, sessionForRace,
 } from '../../src/simple/grid/moonshot';
 import { rankStandings } from '../../src/simple/grid/standings';
 import { raceResultRows } from '../../src/simple/grid/raceLeaderboard';
@@ -24,6 +25,8 @@ describe('config and availability', () => {
     expect(cfg.pointsStakeLevels).toEqual([25, 50]);
     expect(cfg.predictionTypesEnabled).toEqual(['WIN']);
     expect(cfg.copy).toEqual({ callTitle: 'TAKE THE SHOT' });
+    expect([cfg.liveTiming, cfg.maxMultiplier]).toEqual([false, 8]);   // live timing is off until switched on; the cap is the pricing block's
+    expect(parseMoonshotConfig({ liveTiming: true, pricing: { maxMultiplier: 6 } }).maxMultiplier).toBe(6);
     expect(copyText(cfg, 'callTitle')).toBe('TAKE THE SHOT');   // the server's words win
     expect(copyText(cfg, 'tokensLeft', { n: 2, s: 'S' })).toBe('YOU HAVE 2 MOONSHOTS');
     // an override that uses a forbidden word is ignored in favour of the default
@@ -129,5 +132,51 @@ describe('standings column', () => {
   it('a race leaderboard carries the weekend’s Moonshot beside race points, ranked on race points', () => {
     const rows = raceResultRows({ raceId: 'r', entries: [{ userId: 'a', points: 187, rank: 2, racePoints: 187, moonshotPoints: 500, raceTotal: 687 }, { userId: 'b', points: 190, rank: 1 }], winners: ['b'] }, 'a');
     expect(rows.map((r) => [r.rank, r.shown, r.moonshot, r.isLeader])).toEqual([[2, '+187', '+500', false], [1, '+190', null, true]]);
+  });
+});
+
+describe('the league and the race weekend', () => {
+  it('the declaration and the history lines read as the design wrote them, in the vocabulary', () => {
+    const d = declarationLine(call(), 'Hadjar', 'Nathan');
+    expect(d).toBe('🚀 NATHAN CALLED A MOONSHOT · HADJAR — PODIUM · 200 POINTS AT RISK · MODEL CHANCE 11% · REWARD 5× · HIT +1,000');
+    const hit = activityLine({ id: 'a', type: 'MOONSHOT_HIT', userId: 'u', driverId: 'hadjar', predictionType: 'PODIUM', predictionTarget: null, officialDriverFinish: 3, stakeCurrency: 'POINTS', stakeAmount: 200, multiplier: 5, modelProbability: 0.11, adjustmentAmount: 1000, raceId: 'r', roundNumber: 19, createdAtMs: null }, 'Hadjar', 'Nathan');
+    expect(hit).toBe('🔥 MOONSHOT HIT · Nathan called Hadjar Podium. Hadjar finished P3. +1,000 Points');
+    const miss = activityLine({ id: 'b', type: 'MOONSHOT_MISSED', userId: 'u', driverId: 'norris', predictionType: 'WIN', predictionTarget: null, officialDriverFinish: 2, stakeCurrency: 'POINTS', stakeAmount: 100, multiplier: 2.5, modelProbability: 0.22, adjustmentAmount: -100, raceId: 'r', roundNumber: 19, createdAtMs: null }, 'Norris', 'Mike');
+    expect(miss).toBe('💥 MOONSHOT MISSED · Mike called Norris Win. Norris finished P2. \u2212100 Points');
+    const voided = activityLine({ id: 'c', type: 'MOONSHOT_VOID', userId: 'u', driverId: 'norris', predictionType: 'TOP_5', predictionTarget: null, officialDriverFinish: null, stakeCurrency: 'CASH', stakeAmount: 50, multiplier: 0.5, modelProbability: 0.8, adjustmentAmount: 0, raceId: 'r', roundNumber: 19, createdAtMs: null }, 'Norris', 'Sam');
+    expect(voided).toBe('↩ MOONSHOT VOID · TOKEN RETURNED · Sam called Norris Top 5. Norris was not classified.');
+    for (const l of [d, hit, miss, voided]) expect(usesForbiddenTerm(l)).toBeNull();
+    expect(activityLine({ id: 'x', type: 'MOONSHOT_SOMETHING_NEW', userId: 'u', driverId: 'norris', predictionType: 'WIN', predictionTarget: null, officialDriverFinish: 1, stakeCurrency: 'POINTS', stakeAmount: 50, multiplier: 5, modelProbability: 0.1, adjustmentAmount: 250, raceId: 'r', roundNumber: 20, createdAtMs: null }, 'Norris', 'Sam')).toMatch(/^🚀 MOONSHOT · Sam called Norris Win\./);
+  });
+  it('the race window opens at the start and closes three hours after, or on completion', () => {
+    const start = Date.UTC(2026, 9, 11, 12, 0, 0);
+    const race = { status: 'upcoming', schedule: { race: new Date(start) } };
+    expect(raceWindow(race, start - 1)).toBe('before');
+    expect(raceWindow(race, start)).toBe('live');
+    expect(raceWindow(race, start + 3 * 60 * 60 * 1000)).toBe('live');
+    expect(raceWindow(race, start + 3 * 60 * 60 * 1000 + 1)).toBe('after');
+    expect(raceWindow({ ...race, status: 'in_progress' }, start - 1)).toBe('live');     // the server says it is on
+    expect(raceWindow({ ...race, status: 'completed' }, start + 1)).toBe('after');
+    expect(raceWindow({ ...race, status: 'cancelled' }, start + 1)).toBe('after');
+    expect(raceWindow({ ...race, status: 'in_progress' }, start + 5 * 60 * 60 * 1000)).toBe('live');       // the server still says it is on
+    expect(raceWindow({ ...race, status: 'in_progress' }, start + 6 * 60 * 60 * 1000 + 1)).toBe('after');  // but not forever
+    expect(raceWindow(null, start)).toBe('before');
+  });
+  it('the latest position per car wins; the race session is the one on the race day', () => {
+    const rows = [
+      { driver_number: 6, position: 5, date: '2026-10-11T12:05:00Z' }, { driver_number: 6, position: 4, date: '2026-10-11T12:40:00Z' }, { driver_number: 6, position: 6, date: '2026-10-11T12:20:00Z' },
+      { driver_number: 1, position: 1, date: '2026-10-11T12:40:00Z' },
+    ];
+    expect([...latestPositions(rows)]).toEqual([[6, 4], [1, 1]]);
+    expect([...latestPositions([{ driver_number: 6, position: 9, date: 'garbage' }, { driver_number: 6, position: 2, date: '2026-10-11T12:40:00Z' }])]).toEqual([[6, 2]]);   // a row without a time is never "latest"
+    const sessions = [
+      { session_key: 1, session_name: 'Race', date_start: '2026-10-04T13:00:00+00:00' },
+      { session_key: 9, session_name: 'Sprint', date_start: '2026-10-10T07:00:00+00:00' },
+      { session_key: 2, session_name: 'Race', date_start: '2026-10-11T20:00:00+08:00' },   // 12:00 UTC: the offset is honoured
+    ];
+    expect(sessionForRace(sessions, new Date(Date.UTC(2026, 9, 11, 12)))?.session_key).toBe(2);
+    expect(sessionForRace(sessions, new Date(Date.UTC(2026, 9, 10, 7)))).toBeNull();   // a sprint is not the race
+    expect(sessionForRace(sessions, null)).toBeNull();
+    expect(liveChip('CLOSE')).toBe('ONE POSITION AWAY'); expect(liveChip('PENDING')).toBe('PENDING');
   });
 });

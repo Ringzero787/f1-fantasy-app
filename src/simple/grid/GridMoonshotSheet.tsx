@@ -4,10 +4,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { MonoLabel, PillButton } from './GridBits';
 import { useMoonshotStore } from '../../store/moonshot.store';
+import { track } from '../../services/analytics.service';
 import {
   callOpen, chancePct, copyText, currencyWord, multiplierLabel, outcomeLine, predictionLabel, predictionSentence,
   quoteFresh, sameTerms, settledLine, signed, stakeOptions, type MoonshotClientConfig, type PredictionType, type StakeCurrency,
 } from './moonshot';
+import { shortRaceName } from './raceLeaderboard';
 
 export interface MoonshotTarget {
   teamId: string;
@@ -42,13 +44,15 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
   const [stake, setStake] = useState<number | null>(null);
   const [why, setWhy] = useState(false);
   const [termsChanged, setTermsChanged] = useState(false);
+  const [target_, setTargetPos] = useState<number | null>(null);   // EXACT FINISH position, when enabled
+  const openTutorial = useMoonshotStore((s) => s.openTutorial);
   const [done, setDone] = useState<'confirmed' | 'cancelled' | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const key = target ? `${target.teamId}:${target.raceId}:${target.driverId}` : null;
 
   useEffect(() => {
-    setStep('currency'); setPrediction(null); setStake(null); setWhy(false); setTermsChanged(false); setDone(null);
-    if (target) openMenu(target.teamId, target.raceId, target.driverId); else closeMenu();
+    setStep('currency'); setPrediction(null); setStake(null); setWhy(false); setTermsChanged(false); setDone(null); setTargetPos(null);
+    if (target) { openMenu(target.teamId, target.raceId, target.driverId); track('moonshot_opened', { driverId: target.driverId, raceId: target.raceId }); } else closeMenu();
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 15 * 1000);
@@ -92,13 +96,14 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
     </View>
   ) : null;
 
-  const quoteFor = (amount: number) => requestQuote({ teamId: target.teamId, raceId: target.raceId, driverId: target.driverId, predictionType: prediction!, stakeCurrency: currency, stakeAmount: amount });
+  const quoteFor = (amount: number) => requestQuote({ teamId: target.teamId, raceId: target.raceId, driverId: target.driverId, predictionType: prediction!, predictionTarget: prediction === 'EXACT_FINISH' ? target_ ?? undefined : undefined, stakeCurrency: currency, stakeAmount: amount });
 
   const pickStake = async (amount: number) => {
     if (!menu || !prediction || loadingQuote) return;   // one quote in flight at a time
     setStake(amount); setTermsChanged(false);
+    track('moonshot_stake_selected', { stakeCurrency: currency, stakeAmount: amount });
     const q = await quoteFor(amount);
-    if (q) setStep('confirm');
+    if (q) { setStep('confirm'); track('moonshot_quote_viewed', { predictionType: prediction, multiplier: q.multiplier, modelProbability: q.modelProbability }); }
   };
   const doConfirm = async () => {
     if (!quote || !prediction || stake == null || busy || loadingQuote) return;
@@ -111,11 +116,11 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
       q = fresh;
     }
     setTermsChanged(false);
-    if (await confirm(q.quoteId)) { setDone('confirmed'); onChanged?.(); }
+    if (await confirm(q.quoteId)) { setDone('confirmed'); onChanged?.(); track('moonshot_confirmed', { predictionType: prediction, stakeCurrency: currency, stakeAmount: stake, multiplier: q.multiplier }); }
   };
   const doCancel = async () => {
     if (!menu?.current || busy) return;
-    if (await cancel(menu.current.id)) { setDone('cancelled'); onChanged?.(); }
+    if (await cancel(menu.current.id)) { setDone('cancelled'); onChanged?.(); track('moonshot_cancelled', { raceId: target.raceId }); }
   };
 
   const body = () => {
@@ -183,8 +188,8 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
       <View style={{ gap: 12 }}>
         {header}
         {title(copyText(copy, 'currencyTitle'))}
-        {choice('POINTS', `🏆 ${copyText(copy, 'currencyPoints')}`, copyText(copy, 'currencyPointsSub'), menu.balances.POINTS.toLocaleString(), () => { setCurrency('POINTS'); setStep('prediction'); })}
-        {choice('CASH', `💰 ${copyText(copy, 'currencyCash')}`, copyText(copy, 'currencyCashSub'), `$${menu.balances.CASH.toLocaleString()}`, () => { setCurrency('CASH'); setStep('prediction'); })}
+        {choice('POINTS', `🏆 ${copyText(copy, 'currencyPoints')}`, copyText(copy, 'currencyPointsSub'), `${menu.balances.POINTS.toLocaleString()} ${currencyWord('POINTS')}`, () => { setCurrency('POINTS'); setStep('prediction'); track('moonshot_currency_selected', { stakeCurrency: 'POINTS' }); })}
+        {choice('CASH', `💰 ${copyText(copy, 'currencyCash')}`, copyText(copy, 'currencyCashSub'), `$${menu.balances.CASH.toLocaleString()} ${currencyWord('CASH')}`, () => { setCurrency('CASH'); setStep('prediction'); track('moonshot_currency_selected', { stakeCurrency: 'CASH' }); })}
       </View>
     );
     if (step === 'prediction') return (
@@ -193,9 +198,25 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
         {title(copyText(copy, 'predictionTitle'))}
         {sub(copyText(copy, 'predictionSub'))}
         {[...menu.predictions].sort((a, b) => b.probability - a.probability).map((p) =>
-          choice(p.type, predictionLabel(p.type), `${predictionSentence(p.type, target.driverName)} · ${copyText(copy, 'modelChance').toLowerCase()} ${chancePct(p.probability)}`, `${p.band} ${multiplierLabel(p.multiplier)}`, () => { setPrediction(p.type); setStake(null); setStep('stake'); }),
+          choice(p.type, predictionLabel(p.type), `${predictionSentence(p.type, target.driverName)} · ${copyText(copy, 'modelChance').toLowerCase()} ${chancePct(p.probability)}`, `${p.band} ${multiplierLabel(p.multiplier)}`, () => { setPrediction(p.type); setStake(null); setStep('stake'); track('moonshot_prediction_selected', { predictionType: p.type, modelProbability: p.probability }); }),
         )}
-        <Pressable onPress={() => setWhy((w) => !w)} hitSlop={8} accessibilityRole="button" style={{ paddingVertical: 4 }}>
+        {menu.exactFinishEnabled && menu.positionsCount ? (
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 10 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontFamily: family.ui.black, fontSize: scaled(14), letterSpacing: scaled(14) * 0.04, color: colors.text.primary }}>{predictionLabel('EXACT_FINISH')}</Text>
+              <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>CHOOSE A POSITION · UP TO {multiplierLabel(menu.maxMultiplier ?? cfg.maxMultiplier)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {Array.from({ length: menu.positionsCount }, (_, k) => k + 1).map((pos) => (
+                <Pressable key={pos} onPress={() => { setPrediction('EXACT_FINISH'); setTargetPos(pos); setStake(null); setStep('stake'); track('moonshot_prediction_selected', { predictionType: 'EXACT_FINISH', predictionTarget: pos }); }} accessibilityRole="button" accessibilityLabel={`Finish P${pos}`}
+                  style={({ pressed }) => ({ width: scaled(40), paddingVertical: 8, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.borderStrong, opacity: pressed ? 0.7 : 1 })}>
+                  <Text style={mono(12)}>P{pos}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+        <Pressable onPress={() => { setWhy((w) => !w); if (!why) track('moonshot_model_details_viewed', { driverId: target.driverId }); }} hitSlop={8} accessibilityRole="button" style={{ paddingVertical: 4 }}>
           <MonoLabel color={colors.text.muted}>{copyText(copy, 'whyMultiplier')}</MonoLabel>
         </Pressable>
         {why && menu.model ? (
@@ -209,17 +230,18 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
         {back('currency')}
       </View>
     );
-    if (step === 'stake' && chosen) return (
+    const exact = prediction === 'EXACT_FINISH' && target_ != null;
+    if (step === 'stake' && (chosen || exact)) return (
       <View style={{ gap: 12 }}>
         {header}
         {title(copyText(copy, 'stakeTitle'))}
-        {sub(`${target.driverName.toUpperCase()} — ${predictionLabel(chosen.type)} · ${copyText(copy, 'modelChance')} ${chancePct(chosen.probability)} · ${chosen.band} ${multiplierLabel(chosen.multiplier)}`, colors.text.primary)}
+        {sub(chosen ? `${target.driverName.toUpperCase()} — ${predictionLabel(chosen.type)} · ${copyText(copy, 'modelChance')} ${chancePct(chosen.probability)} · ${chosen.band} ${multiplierLabel(chosen.multiplier)}` : `${target.driverName.toUpperCase()} — ${predictionLabel('EXACT_FINISH', target_)} · the quote prices this position`, colors.text.primary)}
         {stakes.map((s) => choice(String(s.amount), `${s.amount.toLocaleString()} ${currencyWord(currency)}`, s.label, loadingQuote && stake === s.amount ? '…' : null, () => pickStake(s.amount), stake === s.amount))}
         {refusal()}
         {back('prediction')}
       </View>
     );
-    if (step === 'confirm' && chosen && stake != null) {
+    if (step === 'confirm' && (chosen || exact) && stake != null) {
       if (loadingQuote || !quote) return <View style={{ gap: 12 }}><ActivityIndicator color={colors.primary} style={{ alignSelf: 'flex-start' }} />{refusal()}{back('stake')}</View>;
       return (
         <View style={{ gap: 12 }}>
@@ -227,7 +249,7 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
           {doubleDown}
           <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 8 }}>
             {row('DRIVER', target.driverName.toUpperCase(), true)}
-            {row('PREDICTION', `${predictionLabel(chosen.type)} · ${target.raceName.toUpperCase()}`)}
+            {row('PREDICTION', `${predictionLabel(prediction ?? 'WIN', target_)} · ${shortRaceName(target.raceName).toUpperCase()}`)}
             {row(copyText(copy, 'modelChance'), chancePct(quote.modelProbability))}
             {row(copyText(copy, 'reward'), `${quote.rewardBand} ${multiplierLabel(quote.multiplier)}`)}
             {row(copyText(copy, 'atRisk'), `${quote.stakeAmount.toLocaleString()} ${currencyWord(currency)}`)}
@@ -254,8 +276,11 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
         <Pressable onPress={() => {}} accessible={false} style={{ maxHeight: '88%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
           <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: Math.max(insets.bottom, 12) + 22, gap: 14 }} showsVerticalScrollIndicator={false}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <MonoLabel color={colors.primary}>🚀 {copyText(copy, 'tabTitle')} · {target.raceName.toUpperCase()}</MonoLabel>
-              <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"><MonoLabel color={colors.text.muted}>CLOSE</MonoLabel></Pressable>
+              <MonoLabel color={colors.primary}>🚀 {copyText(copy, 'tabTitle')} · {shortRaceName(target.raceName).toUpperCase()}</MonoLabel>
+              <View style={{ flexDirection: 'row', gap: 16 }}>
+                <Pressable onPress={() => { openTutorial(); track('moonshot_tutorial_viewed', { from: 'info' }); }} hitSlop={12} accessibilityRole="button" accessibilityLabel="How Moonshots work"><MonoLabel color={colors.text.muted}>ⓘ HOW IT WORKS</MonoLabel></Pressable>
+                <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"><MonoLabel color={colors.text.muted}>CLOSE</MonoLabel></Pressable>
+              </View>
             </View>
             {showName ? (
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(28), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{target.driverName}</Text>

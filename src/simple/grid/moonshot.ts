@@ -17,8 +17,11 @@ export interface MoonshotClientConfig {
   predictionTypesEnabled: PredictionType[];
   pointsStakeLevels: number[];
   cashStakeLevels: number[];
-  hideBeforeLock: boolean;
   tutorialEnabled: boolean;
+  /** the race-day card may poll the live timing feed (off until the data arrangement covers it, see ADR-001) */
+  liveTiming: boolean;
+  /** the pricing cap, for the EXACT FINISH caption; the server prices, this only labels */
+  maxMultiplier: number;
   copy: Record<string, string>;
 }
 
@@ -38,8 +41,9 @@ export function parseMoonshotConfig(raw: unknown): MoonshotClientConfig {
     predictionTypesEnabled: types,
     pointsStakeLevels: nums('pointsStakeLevels', [50, 100, 200]),
     cashStakeLevels: nums('cashStakeLevels', [50, 100, 200]),
-    hideBeforeLock: bool('hideBeforeLock', true),
     tutorialEnabled: bool('tutorialEnabled', true),
+    liveTiming: bool('liveTiming', false),
+    maxMultiplier: (() => { const pr = r.pricing as Record<string, unknown> | undefined; return pr && typeof pr.maxMultiplier === 'number' && pr.maxMultiplier > 0 ? pr.maxMultiplier : 8; })(),
     copy,
   };
 }
@@ -310,3 +314,87 @@ export function settledLine(call: MoonshotCall, driverName: string, cfg?: Pick<M
 /** The standings column: "+500" / "−100", or nothing when a member never made a call. */
 export const moonshotColumn = (points: number | null | undefined): string | null =>
   typeof points === 'number' && points !== 0 ? signed(points) : null;
+
+// ── the league, the race weekend ────────────────────────────────────────────
+
+/** A league-mate's call as the board returns it (locked or settled; never open, never cancelled). */
+export interface BoardCall extends MoonshotCall { userId: string; displayName: string | null; teamName: string | null }
+
+/** One entry of `leagues/{id}/activity`: a settlement, as F-107 writes it. */
+export interface ActivityEntry {
+  id: string;
+  type: 'MOONSHOT_HIT' | 'MOONSHOT_MISSED' | 'MOONSHOT_VOID' | string;
+  userId: string;
+  driverId: string;
+  predictionType: PredictionType;
+  predictionTarget: number | null;
+  officialDriverFinish: number | null;
+  stakeCurrency: StakeCurrency;
+  stakeAmount: number;
+  multiplier: number | null;
+  modelProbability: number | null;
+  adjustmentAmount: number;
+  raceId: string;
+  roundNumber: number | null;
+  createdAtMs: number | null;
+}
+
+/** "🚀 NATHAN CALLED HIS SHOT · HADJAR — PODIUM · 200 POINTS AT RISK · MODEL CHANCE 11% · REWARD 5× · Potential Gain +1,000" (SPEC §16, without the pronoun). */
+export function declarationLine(call: MoonshotCall, driverName: string, who: string, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
+  return `🚀 ${who.toUpperCase()} CALLED A MOONSHOT · ${driverName.toUpperCase()} — ${predictionLabel(call.predictionType, call.predictionTarget)} · ${call.stakeAmount.toLocaleString()} ${currencyWord(call.stakeCurrency)} ${copyText(cfg, 'atRisk')} · ${copyText(cfg, 'modelChance')} ${chancePct(call.modelProbability)} · ${copyText(cfg, 'reward')} ${multiplierLabel(call.multiplier)} · ${copyText(cfg, 'hit')} ${signed(call.potentialReward)}`;
+}
+
+/** "🔥 MOONSHOT HIT · Nathan called Hadjar Podium. Hadjar finished P3. +1,000 Points" (SPEC §29). An entry of a kind this build does not know reads as a plain Moonshot line. */
+export function activityLine(e: ActivityEntry, driverName: string, who: string, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
+  const known = e.type === 'MOONSHOT_HIT' || e.type === 'MOONSHOT_MISSED' || e.type === 'MOONSHOT_VOID';
+  const glyph = e.type === 'MOONSHOT_HIT' ? '🔥' : e.type === 'MOONSHOT_MISSED' ? '💥' : known ? '↩' : '🚀';
+  const head = e.type === 'MOONSHOT_HIT' ? copyText(cfg, 'resultHit') : e.type === 'MOONSHOT_MISSED' ? copyText(cfg, 'resultMissed') : known ? copyText(cfg, 'resultVoid') : copyText(cfg, 'tabTitle');
+  const what = predictionLabel(e.predictionType, e.predictionTarget);
+  const finish = e.officialDriverFinish ? `${driverName} finished P${e.officialDriverFinish}.` : `${driverName} was not classified.`;
+  const amount = e.type === 'MOONSHOT_VOID' ? '' : ` ${signed(e.adjustmentAmount)} ${e.stakeCurrency === 'POINTS' ? 'Points' : 'Cash'}`;
+  return `${glyph} ${head} · ${who} called ${driverName} ${what.charAt(0)}${what.slice(1).toLowerCase()}. ${finish}${amount}`;
+}
+
+/**
+ * The race weekend as the Team screen sees it: the live card shows from the race start until three
+ * hours after (six when the server still says `in_progress` — a race left in that state must not
+ * keep every client polling forever).
+ */
+export type RaceWindow = 'before' | 'live' | 'after';
+const LIVE_MS = 3 * 60 * 60 * 1000, LIVE_MAX_MS = 6 * 60 * 60 * 1000;
+export function raceWindow(race: { status?: string; schedule?: { race?: Date | string | number | null } } | null | undefined, nowMs: number): RaceWindow {
+  if (!race) return 'before';
+  if (race.status === 'completed' || race.status === 'cancelled') return 'after';
+  const start = race.schedule?.race ? new Date(race.schedule.race as string | number | Date).getTime() : NaN;
+  const inProgress = race.status === 'in_progress';
+  if (!Number.isFinite(start)) return inProgress ? 'live' : 'before';
+  if (nowMs < start) return inProgress ? 'live' : 'before';
+  const since = nowMs - start;
+  return since <= LIVE_MS || (inProgress && since <= LIVE_MAX_MS) ? 'live' : 'after';
+}
+
+/** The latest position per car from a position feed (OpenF1 `position` rows are a time series). */
+export function latestPositions(rows: Array<{ driver_number: number; position: number; date: string }>): Map<number, number> {
+  const out = new Map<number, { at: number; position: number }>();
+  for (const r of rows) {
+    const at = new Date(r.date).getTime();
+    if (!Number.isFinite(at)) continue;   // a row without a usable time cannot be "latest"
+    const prev = out.get(r.driver_number);
+    if (!prev || at >= prev.at) out.set(r.driver_number, { at, position: r.position });
+  }
+  return new Map([...out].map(([n, v]) => [n, v.position]));
+}
+
+/** The race session that belongs to a race: the one whose start falls on the race's calendar day (UTC). */
+export function sessionForRace<T extends { date_start: string; session_name?: string }>(sessions: T[], raceStart: Date | string | number | null | undefined): T | null {
+  if (!raceStart) return null;
+  const day = new Date(raceStart as string | number | Date).toISOString().slice(0, 10);
+  const utcDay = (iso: string) => { const t = new Date(iso).getTime(); return Number.isFinite(t) ? new Date(t).toISOString().slice(0, 10) : iso.slice(0, 10); };   // the feed's offset is honoured
+  const same = sessions.filter((s) => utcDay(s.date_start) === day && (!s.session_name || /race/i.test(s.session_name)) && !/sprint/i.test(s.session_name ?? ''));
+  return same[0] ?? null;
+}
+
+/** The chip on the live card. */
+export function liveChip(state: LiveState, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
+  return state === 'IN' ? copyText(cfg, 'stateIn') : state === 'OUT' ? copyText(cfg, 'stateOut') : state === 'CLOSE' ? copyText(cfg, 'stateClose') : copyText(cfg, 'statePending');
+}

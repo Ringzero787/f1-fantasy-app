@@ -162,12 +162,41 @@ export const moonshotMenu = functions.https.onCall(async (data, context) => {
     current: current ? pickCall(current.id, current.data()) : null,
     ownsDriver: Array.isArray(team.drivers) && team.drivers.some((d: { driverId?: string }) => d?.driverId === driverId),
     modelAvailable: !!resolved, driverInModel: !!driver, carriedFrom: resolved?.carriedFrom ?? null,
-    predictions, exactFinishEnabled: cfg.predictionTypesEnabled.includes('EXACT_FINISH'), positionsCount: resolved?.model.positionsCount ?? null,
+    predictions, exactFinishEnabled: cfg.predictionTypesEnabled.includes('EXACT_FINISH'), positionsCount: resolved?.model.positionsCount ?? null, maxMultiplier: cfg.pricing.maxMultiplier,
     stakes: { POINTS: cfg.pointsStakeLevels, CASH: cfg.cashStakeLevels },
     balances: { POINTS: teamBalance(team, 'POINTS'), CASH: teamBalance(team, 'CASH') },
     model: detail && driver ? { expectedFinish: detail.expected, likelyLo: detail.lo, likelyHi: detail.hi, predicted: driver.predicted } : null,
     copy: cfg.copy, tutorialEnabled: cfg.tutorialEnabled,
   };
+});
+
+/**
+ * The league's Moonshots on a race (F-108, SPEC §16/§17): what members may see of each other —
+ * locked calls (lockAt passed) and settled ones, never a cancelled one and never a call still open
+ * to change. The same rule the Firestore rules apply, decided here on the server clock so a
+ * client whose clock is ahead cannot peek, and so the client needs no list query on `moonshots`.
+ */
+export const moonshotLeagueBoard = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  warnIfNoAppCheck(context, 'moonshotLeagueBoard');
+  const uid = context.auth.uid;
+  const leagueId = str(data?.leagueId), raceId = str(data?.raceId);
+  if (!leagueId || !raceId) throw new functions.https.HttpsError('invalid-argument', 'leagueId and raceId are required');
+  const [me, members, raceSnap] = await Promise.all([db.doc(`leagues/${leagueId}/members/${uid}`).get(), db.collection(`leagues/${leagueId}/members`).get(), db.doc(`races/${raceId}`).get()]);
+  if (!me.exists) throw new functions.https.HttpsError('permission-denied', 'Not a member of this league');
+  const names = new Map(members.docs.map((d) => [d.id, { displayName: d.data().displayName ?? null, teamName: d.data().teamName ?? null }]));
+  const snap = await db.collection('moonshots').where('leagueId', '==', leagueId).where('raceId', '==', raceId).get();
+  const now = Date.now();
+  // a call is public once BOTH its stamped lock and the race's live lock have passed: cancel honours the live
+  // lock, so a declaration must not appear while its owner can still withdraw it (a lock moved later)
+  const liveLock = raceSnap.exists ? effectiveLockTime(raceSnap.data()!) : null;
+  const liveLockMs = liveLock ? liveLock.toMillis() : 0;
+  const calls = snap.docs
+    .map((d) => ({ id: d.id, m: d.data() }))
+    .filter(({ m }) => m.status !== 'CANCELLED' && m.lockAt && typeof m.lockAt.toMillis === 'function' && Math.max(m.lockAt.toMillis(), liveLockMs) <= now)
+    .map(({ id, m }) => ({ ...pickCall(id, m), userId: m.userId, ...(names.get(m.userId) ?? { displayName: null, teamName: null }) }))
+    .sort((a, b) => (b.potentialReward ?? 0) - (a.potentialReward ?? 0));
+  return { raceId, calls, lockedCount: calls.length };
 });
 
 export const moonshotConfirm = functions.https.onCall(async (data, context) => {

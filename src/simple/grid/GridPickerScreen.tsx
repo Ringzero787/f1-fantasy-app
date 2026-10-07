@@ -18,6 +18,12 @@ import { teamAccent } from '../theme/simpleTheme';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
 import { constructorShortName } from './entityNames';
+import { GridMoonshotSheet, type MoonshotTarget } from './GridMoonshotSheet';
+import { GridMoonshotCoach } from './GridMoonshotCoach';
+import { track } from '../../services/analytics.service';
+import { useMoonshotStore } from '../../store/moonshot.store';
+import { moonshotAvailability } from './moonshot';
+import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
 import { ColorBar, MonoLabel, PillButton, ScreenHeader, SegmentPill } from './GridBits';
 import { formatLockStatus } from './lockStatus';
 import { trendOf, surnameOf as surname } from './tileState';
@@ -250,9 +256,20 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   // Large display sizes: fewer scaled columns so names keep their room.
   const compact = displayScale > 1.15;
 
+  // F-108: a Moonshot can be called on any driver on the entry list, not only a roster one
+  const moonshotCfg = useMoonshotConfig();
+  const moonshotRace = lockoutInfo.nextRace;
+  const moonshotOpen = moonshotAvailability(moonshotCfg, moonshotRace?.round) === 'open' && !!team && !!moonshotRace;
+  const moonshotCalls = useMoonshotStore((s) => s.calls);
+  const [moonshotTarget, setMoonshotTarget] = useState<MoonshotTarget | null>(null);
+  const tutorialOpen = useMoonshotStore((s) => s.tutorialOpen);
+  const finishTutorial = useMoonshotStore((s) => s.finishTutorial);
+  const moonshotCurrent = moonshotOpen ? moonshotCalls.find((c) => c.teamId === team!.id && c.raceId === moonshotRace!.id && c.status !== 'CANCELLED') ?? null : null;
+
   const renderRow = useCallback(({ item }: { item: Row }) => {
     const t = trendOf(lastRaceScores[item.id]?.totalPoints, prevRaceScores[item.id]?.totalPoints);
     const trendColor = t.trend === 'up' ? colors.positive : t.trend === 'down' ? colors.primary : colors.text.muted;
+    const moonshotRow = moonshotOpen && item.kind === 'driver' && (!moonshotCurrent || moonshotCurrent.driverId === item.id);
     return (
       <Pressable
         onPress={() => onRowPress(item)}
@@ -288,6 +305,12 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
             ? <Text style={[mono(11), { color: item.selected ? colors.text.primary : colors.text.muted }]}>${item.price}</Text>
             : <Text style={[mono(10), { color: trendColor }]}>{t.glyph} {t.last ?? '–'}</Text>}
         </View>
+        {moonshotRow ? (
+          <Pressable onPress={() => { track('moonshot_driver_selected', { driverId: item.id, from: 'picker' }); setMoonshotTarget({ teamId: team!.id, raceId: moonshotRace!.id, raceName: moonshotRace!.name, driverId: item.id, driverName: item.fullName }); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Moonshot on ${item.fullName}`}
+            style={({ pressed }) => ({ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: moonshotCurrent ? colors.primary : colors.borderStrong, opacity: pressed ? 0.7 : 1 })}>
+            <Text style={{ fontSize: scaled(12) }}>🚀</Text>
+          </Pressable>
+        ) : null}
         {compact ? null : (
           <Text style={[mono(13), { minWidth: scaled(46), textAlign: 'right', color: item.selected ? colors.text.primary : colors.text.muted }]}>${item.price}</Text>
         )}
@@ -296,7 +319,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         </View>
       </Pressable>
     );
-  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress, compact]);
+  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress, compact, moonshotOpen, moonshotCurrent, moonshotRace, team]);
 
   const sheetBudgetAfter = sheet && plan ? (sheet.kind === 'driver' ? plan.budgetAfter - sheet.entry.price : ctorSwapBudget - sheet.entry.price) : 0;
 
@@ -365,6 +388,9 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         />
       </View>
 
+      {/* F-108: a Moonshot on any driver on the entry list */}
+      <GridMoonshotSheet target={moonshotTarget} cfg={moonshotCfg} onClose={() => setMoonshotTarget(null)} onChanged={() => { if (team && moonshotRace) useMoonshotStore.getState().loadCalls(team.userId, team.id, moonshotRace.seasonId, true); }} />
+      {moonshotTarget ? <GridMoonshotCoach visible={tutorialOpen} cfg={moonshotCfg} tokens={moonshotCfg.tokensPerTeam} onDone={() => { if (team) finishTutorial(team.userId); }} /> : null}
       {/* Contract sheet */}
       <Modal visible={!!sheet} transparent animationType="fade" onRequestClose={() => setSheet(null)}>
         <Pressable style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }} onPress={() => setSheet(null)}>
