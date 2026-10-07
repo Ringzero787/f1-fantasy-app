@@ -258,6 +258,12 @@ export const useAuthStore = create<AuthState>()(
         isDemoMode: state.isDemoMode,
         isAdmin: state.isAdmin,
       }),
+      // F-112: a demo session persisted by a verification build must not survive into a store build
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<AuthState>;
+        const demoAllowed = __DEV__ || process.env.EXPO_PUBLIC_ALLOW_DEMO === '1';
+        return { ...current, ...p, ...(p.isDemoMode && !demoAllowed ? { isDemoMode: false, user: null, isAuthenticated: false } : {}) };
+      },
     }
   )
 );

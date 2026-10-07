@@ -217,8 +217,9 @@ test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { totalPoints: 999 }));
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { budget: 5000 }));
   await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('userId', '==', ALICE))));
-  // released builds check team-name uniqueness with this global query; it must keep working until F-059
-  await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
+  // F-059 step B / F-112: the global team-name query is refused now; 2.3.2+ asks checkTeamNameAvailable
+  // and config/app.minVersion is raised to 2.3.2 in the same deploy (functions/scripts/setAppVersionGate.js)
+  await assertFails(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
 });
 
 // ── F-105: creating a league cannot hand yourself the paid features ──
@@ -656,6 +657,38 @@ test('live positions: signed-in read, no anonymous read, no client write', async
   await assertSucceeds(getDoc(doc(db(ALICE), 'races', 'singapore_2026', 'live', 'positions')));
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'races', 'singapore_2026', 'live', 'positions')));
   await assertFails(setDoc(doc(db(ALICE), 'races', 'singapore_2026', 'live', 'positions'), { byDriver: { hadjar: 1 } }, { merge: true }));
+});
+
+// ── F-112: a join awaiting approval reads the member list and nothing else; lists are the owner's or one league's ──
+test('pending members read no league content; approved members do; team and notification lists are scoped', async () => {
+  await seedLeague(); await seedMember('L1', ALICE); await seedMember('L1', BOB, { status: 'pending' });
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'leagues', 'L1', 'raceResults', 'r1'), { raceId: 'r1', entries: [] });
+    await setDoc(doc(a, 'leagues', 'L1', 'activity', 'x'), { type: 'MOONSHOT_HIT', userId: ALICE });
+    await setDoc(doc(a, 'leagues', 'L1', 'messages', 'm1'), { senderId: ALICE, text: 'hi' });
+    await setDoc(doc(a, 'leagues', 'L1', 'announcements', 'n1'), { text: 'welcome' });
+    await setDoc(doc(a, 'leagues', 'L1', 'invites', 'i1'), { email: 'friend@example.com', status: 'sent', sentBy: OWNER });
+    await setDoc(doc(a, 'fantasyTeams', 'tA'), { userId: ALICE, leagueId: 'L1', name: 'Alice Racing', budget: 500, totalPoints: 10, drivers: [] });
+    await setDoc(doc(a, 'fantasyTeams', 'tM'), { userId: MALLORY, leagueId: null, name: 'Solo', budget: 500, totalPoints: 10, drivers: [] });
+    await setDoc(doc(a, 'notifications', 'n-alice'), { userId: ALICE, read: false, title: 'x' });
+    await setDoc(doc(a, 'notifications', 'n-bob'), { userId: BOB, read: false, title: 'y' });
+  });
+  for (const path of [['raceResults', 'r1'], ['activity', 'x'], ['messages', 'm1'], ['announcements', 'n1'], ['invites', 'i1']]) {
+    await assertSucceeds(getDoc(doc(db(ALICE), 'leagues', 'L1', ...path)));
+    await assertFails(getDoc(doc(db(BOB), 'leagues', 'L1', ...path)));       // pending
+  }
+  await assertSucceeds(getDoc(doc(db(BOB), 'leagues', 'L1', 'members', ALICE)));   // the member list still tells a pending joiner where they stand
+  // lists: the shipped queries (own teams; one league's teams; own notifications) pass, a sweep of the collection does not
+  await assertSucceeds(getDocs(query(collection(db(ALICE), 'fantasyTeams'), where('userId', '==', ALICE))));
+  await assertSucceeds(getDocs(query(collection(db(ALICE), 'fantasyTeams'), where('leagueId', '==', 'L1'))));
+  await assertFails(getDocs(collection(db(ALICE), 'fantasyTeams')));
+  await assertFails(getDocs(query(collection(db(MALLORY), 'fantasyTeams'), where('leagueId', '==', 'L1'))));
+  await assertSucceeds(getDocs(query(collection(db(BOB), 'fantasyTeams'), where('leagueId', '==', 'L1'))));   // deliberate: released clients enrich the member list from fantasyTeams while a join is pending
+  await assertSucceeds(getDocs(query(collection(db(BOB), 'fantasyTeams'), where('userId', '==', ALICE), where('leagueId', '==', 'L1'))));   // the peer-team read (getUserTeamInLeague)
+  await assertFails(getDocs(query(collection(db(MALLORY), 'fantasyTeams'), where('userId', '==', ALICE), where('leagueId', '==', 'L1'))));
+  await assertSucceeds(getDocs(query(collection(db(ALICE), 'notifications'), where('userId', '==', ALICE), where('read', '==', false))));
+  await assertFails(getDocs(collection(db(ALICE), 'notifications')));
 });
 
 // ── F-075 Pit Wall: handoff codes and the worker's collections are Admin SDK only ──

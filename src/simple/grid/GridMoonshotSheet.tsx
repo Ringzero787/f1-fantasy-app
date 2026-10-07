@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
@@ -48,6 +48,7 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
   const openTutorial = useMoonshotStore((s) => s.openTutorial);
   const [done, setDone] = useState<'confirmed' | 'cancelled' | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const confirming = useRef(false);   // one confirm in flight, whatever the render closure says
   const key = target ? `${target.teamId}:${target.raceId}:${target.driverId}` : null;
 
   useEffect(() => {
@@ -106,8 +107,13 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
     if (q) { setStep('confirm'); track('moonshot_quote_viewed', { predictionType: prediction, multiplier: q.multiplier, modelProbability: q.modelProbability }); }
   };
   const doConfirm = async () => {
-    if (!quote || !prediction || stake == null || busy || loadingQuote) return;
-    let q = quote;
+    if (!quote || !prediction || stake == null || busy || loadingQuote || confirming.current) return;
+    confirming.current = true;
+    try { await confirmNow(quote); } finally { confirming.current = false; }
+  };
+  const confirmNow = async (quote0: NonNullable<typeof quote>) => {
+    if (!prediction || stake == null) return;
+    let q = quote0;
     if (!quoteFresh(q, Date.now())) {
       // past its expiry: re-fetch, and only go on if the player is still confirming the same terms
       const fresh = await quoteFor(stake);

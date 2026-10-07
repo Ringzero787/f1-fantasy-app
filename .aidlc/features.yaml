@@ -1,4 +1,4 @@
-next_id: 112
+next_id: 113
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1294,3 +1294,15 @@ features:
       - fanned
       - through
       - firestore
+  - id: F-112
+    name: "UC: Security review 2026-10 hardening before the 2.5.0 build"
+    status: building
+    spec: .aidlc/specs/F-112.md
+    created_at: 2026-10-07
+    keywords:
+      - security
+      - review
+      - "2026"
+      - hardening
+      - before
+      - build

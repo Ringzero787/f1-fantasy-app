@@ -4,7 +4,6 @@
  * SINGLE SOURCE OF TRUTH for how on-track results convert to fantasy points.
  * Imported by:
  *   - functions/src/scoring/calculatePoints.ts (live scoring + repair)
- *   - diagnose-scoring.js (read-only preview, via the compiled lib/ output)
  *
  * Keep this module dependency-free so both the Cloud Function and the standalone
  * diagnostic can share it without drifting.

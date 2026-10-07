@@ -45,3 +45,11 @@ test('rate limit: a fixed window that resets, and refuses when full', () => {
   assert.ok(!h.ipKey('203.0.113.9').includes('203'));
   assert.equal(h.ipKey(undefined), h.ipKey(''));
 });
+
+test('the rate-limit key is the LAST forwarded hop: a caller cannot pick a fresh key by typing a header (F-112)', () => {
+  assert.equal(h.clientIpOf('203.0.113.9', '10.0.0.1'), '203.0.113.9');
+  assert.equal(h.clientIpOf('1.2.3.4, 5.6.7.8, 203.0.113.9', '10.0.0.1'), '203.0.113.9');   // typed hops first, Google's last
+  assert.equal(h.clientIpOf(['1.2.3.4', '203.0.113.9'], '10.0.0.1'), '203.0.113.9');
+  assert.equal(h.clientIpOf(undefined, '10.0.0.1'), '10.0.0.1');
+  assert.equal(h.clientIpOf(' , ', '10.0.0.1'), '10.0.0.1');
+});

@@ -1973,6 +1973,14 @@ export const repairTeamScoring = functions
       // We need the original budget. Approximate: current budget + (expired driver sale returns already applied)
       // Actually, just recalculate budget from totalSpent
       const totalSpent = (team.totalSpent as number) ?? 0;
+      // F-112: a settled cash Moonshot moved `budget` outside the roster economy; rebuilding from
+      // totalSpent alone would refund every cash miss and erase every cash hit, and settlement will
+      // not re-apply (settledAt). Full mode is already refused above ('Full rebuild is disabled');
+      // this is the belt for the day it is switched back on: such a team is only repaired incrementally.
+      const cashRisked = (team.moonshotStats as { cashRisked?: unknown } | undefined)?.cashRisked;
+      if (typeof cashRisked === 'number' && cashRisked > 0) {
+        throw new functions.https.HttpsError('failed-precondition', `Team ${teamDoc.id} has settled cash Moonshots; a full rebuild would erase them. Use fromRound.`);
+      }
       budget = 1000 - totalSpent; // Reset to original budget (BUDGET = 1000)
 
       let saleReturns = 0;

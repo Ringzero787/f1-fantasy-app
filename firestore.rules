@@ -24,8 +24,10 @@ service cloud.firestore {
 
     // F-056: write privileges inside a league (chat, invites, replies, count)
     // need an APPROVED member; a join still awaiting approval does not count.
-    // Reads keep using isLeagueMember: released clients detect their own
-    // pending state by querying the members list.
+    // F-112: league content reads (raceResults, activity, invites, announcements,
+    // replies, messages) need one too. The members list and the league's teams
+    // keep isLeagueMember: released clients detect their own pending state by
+    // querying members, and enrich that list from fantasyTeams.
     function isApprovedLeagueMember(leagueId) {
       let path = /databases/$(database)/documents/leagues/$(leagueId)/members/$(request.auth.uid);
       return exists(path) && get(path).data.get('status', 'approved') != 'pending';
@@ -180,21 +182,22 @@ service cloud.firestore {
       }
 
       // F-062: per-race leaderboard and winners, written by scoring only.
+      // F-112: league content is for APPROVED members (a join awaiting approval reads only the member list)
       match /raceResults/{raceId} {
-        allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId));
+        allow read: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId));
         allow write: if false;
       }
 
       // F-107: the league's season history (Moonshot hits, misses, voids), written by settlement only.
       match /activity/{entryId} {
-        allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId));
+        allow read: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId));
         allow write: if false;
       }
 
       // League invites — members can create (max enforced by Cloud Function rate limit)
       // SECURITY: limit invite doc size to prevent abuse
       match /invites/{inviteId} {
-        allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId));
+        allow read: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId));
         allow create: if isApprovedLeagueMember(leagueId)
                       && request.resource.data.keys().hasOnly(['email', 'status', 'sentBy', 'createdAt', 'expiresAt'])
                       && request.resource.data.email is string
@@ -204,13 +207,13 @@ service cloud.firestore {
 
       // League announcements subcollection
       match /announcements/{announcementId} {
-        allow read: if isAuthenticated() && isLeagueMember(leagueId);
+        allow read: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId));
         allow create: if isAuthenticated() && isLeagueOwner(leagueId);
         allow update: if isAuthenticated() && isLeagueOwner(leagueId);
         allow delete: if isAuthenticated() && isLeagueOwner(leagueId);
 
         match /replies/{replyId} {
-          allow read: if isAuthenticated() && isLeagueMember(leagueId);
+          allow read: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId));
           allow create, update: if isAuthenticated() && isApprovedLeagueMember(leagueId);
           allow delete: if false;
         }
@@ -218,7 +221,7 @@ service cloud.firestore {
 
       // Chat messages subcollection
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && (isLeagueMember(leagueId) || isLeagueOwner(leagueId) || isAdmin());
+        allow read: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId) || isAdmin());
         allow create: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId))
                       && request.resource.data.senderId == request.auth.uid;
         allow update: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId))
@@ -392,7 +395,13 @@ service cloud.firestore {
         isLeagueOwner(resource.data.leagueId) ||
         isAdmin()
       );
-      allow list: if isAuthenticated();
+      // F-112: a list must be the owner's own teams or one league's teams — never the whole collection.
+      // Firestore proves this from the query's constraints (where userId == uid / where leagueId == X).
+      allow list: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        (resource.data.leagueId != null && (isLeagueMember(resource.data.leagueId) || isLeagueOwner(resource.data.leagueId))) ||
+        isAdmin()
+      );
       // Create allowed only with a pristine financial state — a client cannot
       // mint a team with extra budget, a pre-filled roster, or points.
       allow create: if isAuthenticated()
@@ -490,7 +499,8 @@ service cloud.firestore {
     // Notifications — users can only read/update their own
     match /notifications/{notificationId} {
       allow get: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow list: if isAuthenticated(); // Firestore can't enforce userId filter on list
+      // F-112: a list is the owner's own notifications; Firestore proves it from a `where userId == uid` constraint
+      allow list: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow create, delete: if false;
     }

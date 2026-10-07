@@ -138,6 +138,13 @@ export const isSettleable = (m: { status?: unknown; settledAt?: unknown }): bool
  * inside its own transaction. Returns counts for the scoring log.
  */
 export async function settleMoonshotsForRace(db: admin.firestore.Firestore, raceId: string, race: RaceLike, opts: { cancelled?: boolean } = {}): Promise<{ settled: number; skipped: number; failed: number }> {
+  // Only a cancelled race or a completed one with a classification settles anything. An empty or
+  // half-ingested results array with DNS = LOSS would mark every open call MISSED for good.
+  const classified = Array.isArray(race.results?.raceResults) && race.results!.raceResults!.length > 0;
+  if (!opts.cancelled && (race.status !== 'completed' || !classified)) {
+    console.log(`[moonshot] ${raceId}: not settling — ${race.status !== 'completed' ? `status ${String(race.status)}` : 'no classification yet'}`);
+    return { settled: 0, skipped: 0, failed: 0 };
+  }
   const open = await db.collection('moonshots').where('raceId', '==', raceId).where('status', 'in', [...SETTLEABLE_STATUSES]).get();
   if (open.empty) return { settled: 0, skipped: 0, failed: 0 };
   const cfg = await loadMoonshotConfig(db);   // the rules apply to existing calls even when the mechanic is switched off

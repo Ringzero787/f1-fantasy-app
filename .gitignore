@@ -85,3 +85,8 @@ AppstoreAuthenticationKey.pem
 
 # transpiled test subjects (scripts/seedGuards.test.js); never committable
 .seedguard-subject-*.js
+# signing and provisioning material never belongs in the repo (F-112)
+*.p8
+*.p12
+*.mobileprovision
+.env.production

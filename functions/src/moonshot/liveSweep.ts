@@ -52,7 +52,8 @@ export function sessionForRace(sessions: OpenF1Session[], raceStartMs: number): 
 export function latestByDriver(rows: PositionRow[], numberToId: Record<number, string> = DRIVER_NUMBER_TO_ID): Record<string, number> {
   const latest = new Map<number, { at: number; position: number }>();
   for (const r of rows) {
-    if (typeof r.driver_number !== 'number' || typeof r.position !== 'number') continue;   // the feed is third-party JSON: only numbers become keys and values
+    // the feed is third-party JSON: only whole car numbers and plausible positions become keys and values
+    if (!Number.isInteger(r.driver_number) || !Number.isInteger(r.position) || r.position < 1 || r.position > 30) continue;
     const at = new Date(r.date).getTime();
     if (!Number.isFinite(at)) continue;
     const prev = latest.get(r.driver_number);
@@ -88,7 +89,7 @@ export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = 
   let sessionKey: number | null = prior && prior.raceId === race.id && typeof prior.sessionKey === 'number' ? prior.sessionKey : null;
   if (sessionKey === null) {
     const session = sessionForRace(await feed.sessions(new Date(startMs(race) || nowMs).getUTCFullYear()), startMs(race));
-    if (!session) { console.warn(`[live] ${race.id}: no race session on its day yet`); return { raceId: race.id, written: false, drivers: 0 }; }
+    if (!session || !Number.isInteger(session.session_key)) { console.warn(`[live] ${race.id}: no race session on its day yet`); return { raceId: race.id, written: false, drivers: 0 }; }
     sessionKey = session.session_key;
   }
   const byDriver = latestByDriver(await feed.positions(sessionKey));

@@ -11,7 +11,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { CREATE_LIMIT, REDEEM_LIMIT, cleanSource, ipKey, isWellFormedCode, HANDOFF_TTL_MS } from './handoffCore';
+import { CREATE_LIMIT, REDEEM_LIMIT, cleanSource, clientIpOf, ipKey, isWellFormedCode, HANDOFF_TTL_MS } from './handoffCore';
 import { createHandoff, deleteOldHandoffs, redeemHandoff, takeRateSlot } from './handoffStore';
 import { currentSeason, passActive, PASS_PRICE_USD, type Pass } from './pass';
 import { expirePasses, grantPass, grantTrial, revokePass, stampClaim } from './passStore';
@@ -35,7 +35,10 @@ export const createPortalHandoff = onCall({ region: 'us-central1' }, async (requ
 // web app is tracked in F-075's build notes and tightens this further.
 export const redeemPortalHandoff = onCall({ region: 'us-central1' }, async (request) => {
   const now = Date.now();
-  if (!(await takeRateSlot(db, ipKey(request.rawRequest?.ip), now, REDEEM_LIMIT))) throw new HttpsError('resource-exhausted', 'Too many attempts. Try again in a minute.');
+  // behind Cloud Run's front end `req.ip` is the proxy hop, one key for everyone; the LAST
+  // x-forwarded-for entry is the client — Google appends it, the earlier ones the caller can type
+  const clientIp = clientIpOf(request.rawRequest?.headers?.['x-forwarded-for'], request.rawRequest?.ip);
+  if (!(await takeRateSlot(db, ipKey(clientIp), now, REDEEM_LIMIT))) throw new HttpsError('resource-exhausted', 'Too many attempts. Try again in a minute.');
   const code = (request.data as { code?: unknown } | undefined)?.code;
   const uid = isWellFormedCode(code) ? await redeemHandoff(db, code, now) : null;
   if (!uid) throw new HttpsError('failed-precondition', 'This sign-in link is not valid any more.');

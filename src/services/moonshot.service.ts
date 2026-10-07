@@ -3,9 +3,9 @@
  * and one read of the team's own calls. Nothing here writes Firestore directly — the rules
  * refuse it — and nothing the client sends about chance, multiplier or reward is read.
  */
-import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import { db, functions, httpsCallable } from '../config/firebase';
-import { toCall, toLiveDoc, type LivePositionsDoc, type ActivityEntry, type Availability, type BoardCall, type MenuPrediction, type MoonshotCall, type MoonshotQuote, type PredictionType, type StakeCurrency } from '../simple/grid/moonshot';
+import { toCall, toLiveDoc, toMenu, type LivePositionsDoc, type ActivityEntry, type Availability, type BoardCall, type MenuPrediction, type MoonshotCall, type MoonshotQuote, type PredictionType, type StakeCurrency } from '../simple/grid/moonshot';
 
 export { callableMessage, toCall } from '../simple/grid/moonshot';
 
@@ -78,8 +78,7 @@ export const moonshotService = {
     return onSnapshot(doc(db, 'races', raceId, 'live', 'positions'), (snap) => cb(snap.exists() ? toLiveDoc(snap.data() as Record<string, unknown>) : null), (e) => { console.warn('[moonshot live] listener:', e); cb(null); });
   },
   async menu(teamId: string, raceId: string, driverId: string): Promise<MoonshotMenu> {
-    const m = (await callMenu({ teamId, raceId, driverId })).data;
-    return { ...m, current: m.current ? toCall(m.current.id, m.current) : null };
+    return toMenu((await callMenu({ teamId, raceId, driverId })).data as unknown as Record<string, unknown>);
   },
   async quote(req: QuoteRequest): Promise<MoonshotQuote> {
     return (await callQuote(req)).data;
@@ -108,7 +107,8 @@ export const moonshotService = {
     } catch { return false; }
   },
   async markTutorialSeen(uid: string): Promise<void> {
-    try { await setDoc(doc(db, 'users', uid), { moonshotTutorialSeen: true }, { merge: true }); } catch (e) { console.warn('[moonshot] tutorial flag not saved:', e); }
+    // update, not set-merge: a missing profile must not come back as a one-field ghost document
+    try { await updateDoc(doc(db, 'users', uid), { moonshotTutorialSeen: true }); } catch (e) { console.warn('[moonshot] tutorial flag not saved:', e); }
   },
   /** One team's calls this season (the rules let an owner list their own; tokens are per team, so the team is part of the question). */
   async teamCalls(uid: string, teamId: string, seasonId: string): Promise<MoonshotCall[]> {
