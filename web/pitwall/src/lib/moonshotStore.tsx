@@ -9,6 +9,7 @@ import type { RealTeam } from '../data/team';
 import type { BoardCall, MoonshotCall, MoonshotMenu, MoonshotModelDoc, MoonshotQuote } from '../data/moonshot';
 import { cancelCall, confirmQuote, fetchBoard, fetchMenu, fetchQuote, loadCurrentRace, loadModel, loadTeamCalls, type CurrentRace, type QuoteRequest } from './moonshotApi';
 import { auth } from './firebase';
+import { hasFirebaseConfig } from './env';
 
 export interface MoonshotCtx {
   race: CurrentRace | null;
@@ -23,17 +24,22 @@ export interface MoonshotCtx {
   confirm: (quoteId: string) => Promise<void>;
   cancel: (moonshotId: string) => Promise<void>;
   ready: boolean;
+  /** the server's token count as last reported (menu or confirm); null until a menu has been priced */
+  tokens: { perTeam: number; left: number } | null;
 }
 
 const Ctx = createContext<MoonshotCtx | null>(null);
 
 export function MoonshotProvider({ team, children }: { team: RealTeam | null; children: ReactNode }) {
-  const uid = auth().currentUser?.uid ?? null;
+  // read once per render; safe because `team` stays null until the session has settled, and the Portal
+  // unmounts on sign-out. Without Firebase config (a bare preview) there is no auth to ask.
+  const uid = hasFirebaseConfig ? auth().currentUser?.uid ?? null : null;
   const [race, setRace] = useState<CurrentRace | null>(null);
   const [calls, setCalls] = useState<MoonshotCall[]>([]);
   const [board, setBoard] = useState<BoardCall[]>([]);
   const [model, setModel] = useState<MoonshotModelDoc | null>(null);
   const [ready, setReady] = useState(false);
+  const [tokens, setTokens] = useState<{ perTeam: number; left: number } | null>(null);
   const menus = useRef(new Map<string, Promise<MoonshotMenu>>());
   const teamId = team?.id ?? null, leagueId = team?.leagueId ?? null;
 
@@ -78,16 +84,17 @@ export function MoonshotProvider({ team, children }: { team: RealTeam | null; ch
       if (!teamId || !race) return Promise.reject(new Error('No team or race'));
       const key = `${teamId}:${race.raceId}:${driverId}`;
       let p = menus.current.get(key);
-      if (!p) { p = fetchMenu(teamId, race.raceId, driverId); menus.current.set(key, p); p.catch(() => menus.current.delete(key)); }
+      if (!p) { p = fetchMenu(teamId, race.raceId, driverId); menus.current.set(key, p); p.then((m) => setTokens({ perTeam: m.tokensPerTeam, left: m.tokensLeft })).catch(() => menus.current.delete(key)); }
       return p;
     },
     quote: (req) => {
       if (!teamId || !race) return Promise.reject(new Error('No team or race'));
       return fetchQuote({ ...req, teamId, raceId: race.raceId });
     },
-    confirm: async (quoteId) => { await confirmQuote(quoteId); await reloadCalls(); },
-    cancel: async (moonshotId) => { await cancelCall(moonshotId); await reloadCalls(); },
-  }), [race, calls, board, model, ready, teamId, reloadCalls]);
+    confirm: async (quoteId) => { const r = await confirmQuote(quoteId); setTokens((t) => (t ? { ...t, left: r.tokensLeft } : t)); await reloadCalls(); },
+    cancel: async (moonshotId) => { await cancelCall(moonshotId); setTokens((t) => (t ? { ...t, left: Math.min(t.perTeam, t.left + 1) } : t)); await reloadCalls(); },
+    tokens,
+  }), [race, calls, board, model, ready, tokens, teamId, reloadCalls]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

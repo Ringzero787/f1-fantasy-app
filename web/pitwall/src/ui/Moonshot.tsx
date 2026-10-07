@@ -37,7 +37,7 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
     if (!ms || !ms.race || p.example) { setMenu(null); return; }
     ms.menu(driverId).then((m) => { if (live) setMenu(m); }).catch((e) => { if (live) { setMenu(null); setError(moonshotErrorText(e)); } });
     return () => { live = false; };
-  }, [driverId, ms?.race?.raceId, ms?.calls.length, p.example]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [driverId, ms?.race?.raceId, p.example]); // eslint-disable-line react-hooks/exhaustive-deps -- a confirm or cancel ends on its own screen; the provider clears the menu cache for the next open
 
   if (p.example) return <Empty>Moonshots are placed from a real team. Sign in from the app to see this driver's predictions priced for the round.</Empty>;
   if (!ms || !ms.race) return <Empty>No round to price yet.</Empty>;
@@ -96,7 +96,7 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
     </div>
   );
 
-  if (done === 'confirmed') return <><div className="th"><Lbl>Moonshot called</Lbl><Pill red>{menu.tokensLeft - 1} left</Pill></div><p className="est">{driverName} — {predictionLabel(prediction ?? 'WIN', target)} · {(stake ?? 0).toLocaleString()} {currencyWord(currency)} at risk. This Moonshot locks when race selections lock.</p>{depth}</>;
+  if (done === 'confirmed') return <><div className="th"><Lbl>Moonshot called</Lbl>{ms.tokens ? <Pill red>{ms.tokens.left} left</Pill> : null}</div><p className="est">{driverName} — {predictionLabel(prediction ?? 'WIN', target)} · {(stake ?? 0).toLocaleString()} {currencyWord(currency)} at risk. This Moonshot locks when race selections lock.</p>{depth}</>;
   if (done === 'cancelled') return <><div className="th"><Lbl>Moonshot cancelled</Lbl></div><p className="est">The token is back. Call again when you are ready.</p></>;
 
   if (menu.current) {
@@ -176,7 +176,7 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
         <div className="th"><Lbl>Confirm Moonshot</Lbl></div>
         {doubleDown}
         <Row cols="1fr auto"><span>Driver</span><b>{driverName}</b></Row>
-        <Row cols="1fr auto"><span>Prediction</span><b>{predictionLabel(prediction!, target)} · {p.round.name}</b></Row>
+        <Row cols="1fr auto"><span>Prediction</span><b>{predictionLabel(prediction!, target)} · {ms.race.name}</b></Row>
         <Row cols="1fr auto"><span>Model chance</span><span className="num">{chancePct(quote.modelProbability)}</span></Row>
         <Row cols="1fr auto"><span>Reward</span><span className="num">{quote.rewardBand} {multiplierLabel(quote.multiplier)}</span></Row>
         <Row cols="1fr auto"><span>At risk</span><span className="num">{quote.stakeAmount.toLocaleString()} {currencyWord(currency)}</span></Row>
@@ -201,13 +201,13 @@ export function MoonshotTile() {
   if (!ms || p.example || !real || !ms.ready) return null;
   const cur = ms.current;
   const name = (id: string) => p.drivers.find((d) => d.id === id)?.name ?? id;
-  const used = ms.calls.filter((c) => c.status !== 'CANCELLED' && c.status !== 'VOID').length;
-  const openOn = (id: string) => { set('overTab', 'MOONSHOT'); open(id); };
+  // open() lands on PRESENT, so the tab is set after it
+  const openOn = (id: string) => { open(id); set('overTab', 'MOONSHOT'); };
   if (!cur) {
-    if (used === 0 && !ms.race) return null;
+    if (!ms.race) return null;
     return (
       <section className="tile only-wide" aria-label="Your Moonshot">
-        <div className="th"><Lbl>🚀 Moonshot</Lbl><span className="mut">{Math.max(0, 3 - used)} left this season</span></div>
+        <div className="th"><Lbl>🚀 Moonshot</Lbl><span className="mut">{ms.tokens ? `${ms.tokens.left} of ${ms.tokens.perTeam} left this season` : 'From midseason, three a season'}</span></div>
         <span className="mut">No call this round. Open any driver and pick the MOONSHOT tab to see the predictions priced.</span>
       </section>
     );

@@ -133,10 +133,6 @@ export function settledLine(call: MoonshotCall, driverName: string): string {
 export const declarationLine = (call: BoardCall, driverName: string): string =>
   `${call.teamName ?? call.displayName ?? 'A rival'} called ${driverName} ${predictionLabel(call.predictionType, call.predictionTarget)} · ${call.stakeAmount.toLocaleString()} ${call.stakeCurrency === 'POINTS' ? 'pts' : 'cash'} · ${multiplierLabel(call.multiplier)}`;
 
-/** The standings column: "+500" / "−100", or nothing when a member never made a call. */
-export const moonshotColumn = (points: number | null | undefined): string | null =>
-  typeof points === 'number' && points !== 0 ? signed(points) : null;
-
 /** The distribution as chart bars: each position's share, scaled to the largest, with the predicted finish marked. */
 export function distributionBars(d: { predicted: number; positions: number[] } | null | undefined): Array<{ position: number; share: number; height: number; predicted: boolean }> {
   if (!d || !Array.isArray(d.positions) || d.positions.length === 0) return [];

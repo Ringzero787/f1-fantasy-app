@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  callOpen, callSummary, chancePct, coveredPositions, declarationLine, distributionBars, moonshotColumn, moonshotErrorText, multiplierLabel, outcomeLine,
+  callOpen, callSummary, chancePct, coveredPositions, declarationLine, distributionBars, moonshotErrorText, multiplierLabel, outcomeLine,
   predictionLabel, quoteFresh, sameTerms, settledLine, signed, stakeOptions, statsLines, toCall, usesForbiddenTerm, type BoardCall, type MoonshotCall,
 } from './moonshot';
 
@@ -25,8 +25,7 @@ describe('formatting', () => {
     expect(declarationLine(b, 'Hadjar')).toBe('Turn One called Hadjar Podium · 200 pts · 5×');
     for (const l of [callSummary(call(), 'Hadjar'), settledLine(call({ result: 'MISSED', officialDriverFinish: 4, adjustmentAmount: -200 }), 'Hadjar'), declarationLine(b, 'Hadjar')]) expect(usesForbiddenTerm(l)).toBeNull();
   });
-  it('the standings column and the season record', () => {
-    expect(moonshotColumn(500)).toBe('+500'); expect(moonshotColumn(0)).toBeNull(); expect(moonshotColumn(undefined)).toBeNull();
+  it('the season record', () => {
     const lines = statsLines({ used: 3, hit: 1, missed: 2, voided: 0, pointsRisked: 500, pointsWon: 1000, cashRisked: 0, cashWon: 0, biggestHit: { adjustmentAmount: 1000, driverId: 'hadjar', predictionType: 'PODIUM' } }, (id) => (id === 'hadjar' ? 'Hadjar' : id));
     expect(lines.map((l) => l[0])).toEqual(['Moonshots used', 'Hit · missed', 'Hit rate', 'Points risked · won', 'Biggest hit']);
     expect(lines[2][1]).toBe('33%'); expect(lines[4][1]).toBe('Hadjar Podium · +1,000');

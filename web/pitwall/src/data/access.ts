@@ -60,7 +60,7 @@ export const LOCKED_COPY: Partial<Record<Feature, string>> = {
   'lineup.whatIf': 'Try a lineup and see the projection, bank and fees before you save.',
   'entity.past': 'See a full season of form, splits by circuit type and a percentile profile.',
   'entity.outlook': 'Read the outlook for the rounds ahead, built from the model and tagged news.',
-  'entity.moonshotModel': 'See the finishing-position distribution behind each Moonshot multiplier, and how the model has been calibrated this season.',
+  'entity.moonshotModel': 'See the finishing-position distribution behind each Moonshot multiplier: every position\u2019s chance, the predicted finish and the likely range.',
   'wire.full': 'Read every story cluster with its sources and who it affects.',
 };
 

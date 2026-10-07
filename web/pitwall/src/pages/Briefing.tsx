@@ -40,7 +40,6 @@ export function Briefing() {
         </Row>
       ))}
       <span className="mut">{has.league ? `${p.league.name} · you are P${p.league.myRank}. ` : ''}Based on each rival's bank, best swap and how often they edit.</span>
-      <MoonshotRivals />
     </>
   );
   // The predicted move is part of the price model. Without it every row reads "0", which is a
@@ -110,12 +109,12 @@ export function Briefing() {
       {/* The reader's own tile sits at the top right. Its column runs down beside both the wire and
           the top ten (price movers, then the weather), so neither side leaves a hole. Rivals,
           mostly "not published" today, gets the full width at the bottom. */}
-      <Tile span="only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals"><div className="list">{rivalsBody}</div></Locked></Tile>
+      <Tile span="only-wide" label="Rivals · likely moves"><Locked feature="briefing.rivals"><div className="list">{rivalsBody}</div></Locked><MoonshotRivals /></Tile>
       <Tile span="only-wide" label={`Weather · ${p.round.name}`}>{weatherBody}</Tile>
       </div>
       </div>
       <Tile span="c12 only-narrow" label="This weekend" right={<Tabs value={ui.lowerTab} options={['TOP 5', 'RIVALS', 'MOVERS', 'WEATHER'] as const} onChange={(v) => set('lowerTab', v)} label="Weekend frames" />}>
-        {ui.lowerTab === 'TOP 5' ? <div className="list">{topRows(topTen.slice(0, 5))}</div> : ui.lowerTab === 'RIVALS' ? <Locked feature="briefing.rivals">{rivalsBody}</Locked> : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
+        {ui.lowerTab === 'TOP 5' ? <div className="list">{topRows(topTen.slice(0, 5))}</div> : ui.lowerTab === 'RIVALS' ? <><Locked feature="briefing.rivals">{rivalsBody}</Locked><MoonshotRivals /></> : ui.lowerTab === 'MOVERS' ? moversBody : weatherBody}
       </Tile>
     </div>
   );

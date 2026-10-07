@@ -78,8 +78,8 @@ function Portal({ account, real, pass, published, league, reloadReal, reloadAcco
         <CompareTray />
         <Footer page={page} />
       </Wrap>
-      </MoonshotProvider>
       <Boundary label="the detail panel"><SlideOver /></Boundary><Tooltip /><Toast />
+      </MoonshotProvider>
     </StoreProvider>
   );
 }
