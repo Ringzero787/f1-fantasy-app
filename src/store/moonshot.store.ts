@@ -1,6 +1,6 @@
 /**
  * Moonshot state for the app (F-108). Not persisted: everything here is the server's answer
- * to a question asked moments ago (menu, quote, the season's calls), and a stale copy of a
+ * to a question asked moments ago (menu, quote, the team's calls), and a stale copy of a
  * quote or a token count is exactly what must not be shown.
  */
 import { create } from 'zustand';
@@ -9,17 +9,18 @@ import type { MoonshotCall, MoonshotQuote } from '../simple/grid/moonshot';
 
 interface MoonshotState {
   calls: MoonshotCall[];
-  callsFor: string | null;          // `${uid}:${season}` the list belongs to
+  callsFor: string | null;          // `${uid}:${teamId}:${season}` the list belongs to
   loadingCalls: boolean;
   menu: MoonshotMenu | null;
   menuFor: string | null;           // `${teamId}:${raceId}:${driverId}`
   loadingMenu: boolean;
   quote: MoonshotQuote | null;
+  quoteFor: string | null;          // the request the quote answers; a slower, older answer is dropped
   loadingQuote: boolean;
   busy: 'confirm' | 'cancel' | null;
   error: string | null;
 
-  loadCalls: (uid: string, seasonId: string, force?: boolean) => Promise<void>;
+  loadCalls: (uid: string, teamId: string, seasonId: string, force?: boolean) => Promise<void>;
   openMenu: (teamId: string, raceId: string, driverId: string) => Promise<MoonshotMenu | null>;
   closeMenu: () => void;
   requestQuote: (req: QuoteRequest) => Promise<MoonshotQuote | null>;
@@ -29,6 +30,8 @@ interface MoonshotState {
   clearError: () => void;
 }
 
+const quoteKey = (r: QuoteRequest) => `${r.teamId}:${r.raceId}:${r.driverId}:${r.predictionType}:${r.predictionTarget ?? ''}:${r.stakeCurrency}:${r.stakeAmount}`;
+
 export const useMoonshotStore = create<MoonshotState>((set, get) => ({
   calls: [],
   callsFor: null,
@@ -37,16 +40,17 @@ export const useMoonshotStore = create<MoonshotState>((set, get) => ({
   menuFor: null,
   loadingMenu: false,
   quote: null,
+  quoteFor: null,
   loadingQuote: false,
   busy: null,
   error: null,
 
-  loadCalls: async (uid, seasonId, force) => {
-    const key = `${uid}:${seasonId}`;
-    if (!force && get().callsFor === key && get().calls.length) return;
+  loadCalls: async (uid, teamId, seasonId, force) => {
+    const key = `${uid}:${teamId}:${seasonId}`;
+    if (!force && get().callsFor === key) return;
     set({ loadingCalls: true });
     try {
-      const calls = await moonshotService.myCalls(uid, seasonId);
+      const calls = await moonshotService.teamCalls(uid, teamId, seasonId);
       set({ calls, callsFor: key, loadingCalls: false });
     } catch (e) {
       // a failed read keeps whatever was shown; the rules allow this read, so this is transport
@@ -57,7 +61,7 @@ export const useMoonshotStore = create<MoonshotState>((set, get) => ({
 
   openMenu: async (teamId, raceId, driverId) => {
     const key = `${teamId}:${raceId}:${driverId}`;
-    set({ loadingMenu: true, menuFor: key, quote: null, error: null });
+    set({ loadingMenu: true, menuFor: key, menu: null, quote: null, quoteFor: null, error: null });
     try {
       const menu = await moonshotService.menu(teamId, raceId, driverId);
       if (get().menuFor !== key) return null;   // the player moved on
@@ -68,26 +72,28 @@ export const useMoonshotStore = create<MoonshotState>((set, get) => ({
       return null;
     }
   },
-  closeMenu: () => set({ menu: null, menuFor: null, quote: null, loadingMenu: false, loadingQuote: false, error: null }),
+  closeMenu: () => set({ menu: null, menuFor: null, quote: null, quoteFor: null, loadingMenu: false, loadingQuote: false, error: null }),
 
   requestQuote: async (req) => {
-    set({ loadingQuote: true, quote: null, error: null });
+    const key = quoteKey(req);
+    set({ loadingQuote: true, quote: null, quoteFor: key, error: null });
     try {
       const quote = await moonshotService.quote(req);
+      if (get().quoteFor !== key) return null;   // a later request superseded this one
       set({ quote, loadingQuote: false });
       return quote;
     } catch (e) {
-      set({ loadingQuote: false, error: callableMessage(e) });
+      if (get().quoteFor === key) set({ loadingQuote: false, error: callableMessage(e) });
       return null;
     }
   },
-  clearQuote: () => set({ quote: null }),
+  clearQuote: () => set({ quote: null, quoteFor: null, loadingQuote: false }),
 
   confirm: async (quoteId) => {
     set({ busy: 'confirm', error: null });
     try {
       await moonshotService.confirm(quoteId);
-      set({ busy: null, quote: null, callsFor: null });   // the list is stale now; the screen reloads it
+      set({ busy: null, quote: null, quoteFor: null, callsFor: null });   // the list is stale now; the screen reloads it
       return true;
     } catch (e) {
       set({ busy: null, error: callableMessage(e) });

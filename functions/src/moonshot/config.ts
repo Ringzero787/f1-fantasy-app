@@ -76,6 +76,10 @@ export const DEFAULT_CONFIG: MoonshotConfig = {
   copy: {},
 };
 
+/** The words the design keeps out of anything a player reads (SPEC §21, §34); a copy override that uses one is dropped. */
+export const FORBIDDEN_TERMS = ['bet', 'bets', 'betting', 'wager', 'wagers', 'wagering', 'odds', 'moneyline', 'parlay', 'parlays', 'sportsbook', 'gambling', 'gamble', 'bookmaker', 'bookmakers', 'bookie', 'payout', 'payouts', 'house'];
+export const usesForbiddenTerm = (text: string): boolean => { const words = text.toLowerCase().split(/[^a-z]+/); return FORBIDDEN_TERMS.some((t) => words.includes(t)); };
+
 /** Defaults overlaid with whatever the document carries; unknown keys are ignored, bad types fall back. */
 export function mergeConfig(raw: unknown): MoonshotConfig {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -116,7 +120,7 @@ export function mergeConfig(raw: unknown): MoonshotConfig {
     tutorialEnabled: bool('tutorialEnabled', true),
     quoteTtlSeconds: num('quoteTtlSeconds', DEFAULT_CONFIG.quoteTtlSeconds),
     carryForwardModel: bool('carryForwardModel', true),
-    copy: r.copy && typeof r.copy === 'object' ? Object.fromEntries(Object.entries(r.copy as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string')) : {},
+    copy: r.copy && typeof r.copy === 'object' ? Object.fromEntries(Object.entries(r.copy as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string' && !usesForbiddenTerm(e[1]))) : {},
   };
 }
 

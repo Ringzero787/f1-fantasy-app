@@ -56,6 +56,8 @@ export function moonshotAvailability(cfg: MoonshotClientConfig, round: number | 
 /** One call, as `moonshots/{id}` reaches the client (dates as ms). */
 export interface MoonshotCall {
   id: string;
+  /** the team that made the call: a player may own two teams, and tokens are per team */
+  teamId: string;
   raceId: string;
   roundNumber: number | null;
   driverId: string;
@@ -97,7 +99,7 @@ export interface MoonshotQuote {
 
 export const MOONSHOT_COPY = {
   lockedTitle: 'MOONSHOTS UNLOCK AT MIDSEASON',
-  lockedBody: 'From round {round}: call one driver’s result, risk points or cash, and a hit pays a multiplier.',
+  lockedBody: 'From round {round}: call one driver’s result, risk points or cash, and a hit earns a multiplier.',
   tabTitle: 'MOONSHOT',
   callTitle: 'CALL A MOONSHOT',
   tokensLeft: 'YOU HAVE {n} MOONSHOT{s}',
@@ -150,23 +152,100 @@ export const MOONSHOT_COPY = {
   tutorial4Title: 'YOU GET {n}.',
   tutorial4Body: 'Choose wisely.',
   tutorialStart: 'START MOONSHOTTING',
+  notAvailable: 'Moonshots are not available.',
+  noModel: 'No model is published for this race yet.',
+  noModelDriver: 'No model for this driver this race.',
+  changeHint: 'To change it, cancel and call again; the token comes back.',
+  tapToView: 'TAP TO VIEW',
+  called: 'MOONSHOT CALLED',
+  done: 'DONE',
+  back: 'BACK',
+  quoteChanged: 'THE TERMS CHANGED · CHECK THEM AND CONFIRM AGAIN',
+  stateLocked: 'LOCKED',
+  stateLive: 'LIVE',
+  stateHit: 'HIT',
+  stateMissed: 'MISSED',
+  stateVoid: 'VOID',
+  stateCancelled: 'CANCELLED',
+  genericError: 'Something went wrong. Try again.',
+  serverDown: 'The server is not answering right now. Try again in a moment.',
+  signInAgain: 'Sign in again to make a Moonshot.',
 } as const;
 
 export type CopyKey = keyof typeof MOONSHOT_COPY;
 
 /** The words the design rules out of anything a player reads (SPEC §21, §34). */
-export const FORBIDDEN_TERMS = ['bet', 'bets', 'betting', 'wager', 'odds', 'moneyline', 'parlay', 'sportsbook', 'gambling', 'gamble', 'bookmaker', 'payout'];
-
-/** A copy string with its placeholders filled; a server override wins when present. */
-export function copyText(cfg: Pick<MoonshotClientConfig, 'copy'> | null | undefined, key: CopyKey, vars: Record<string, string | number> = {}): string {
-  const base = cfg?.copy?.[key] ?? MOONSHOT_COPY[key];
-  return base.replace(/\{(\w+)\}/g, (_, k: string) => (k in vars ? String(vars[k]) : `{${k}}`));
-}
+export const FORBIDDEN_TERMS = ['bet', 'bets', 'betting', 'wager', 'wagers', 'wagering', 'odds', 'moneyline', 'parlay', 'parlays', 'sportsbook', 'gambling', 'gamble', 'bookmaker', 'bookmakers', 'bookie', 'payout', 'payouts', 'house'];
 
 /** Does a string use any forbidden word (whole words, any case)? */
 export function usesForbiddenTerm(text: string): string | null {
   const words = text.toLowerCase().split(/[^a-z]+/);
   return FORBIDDEN_TERMS.find((t) => words.includes(t)) ?? null;
+}
+
+/** A copy string with its placeholders filled; a server override wins when present — unless it uses a forbidden word, then the default stands. */
+export function copyText(cfg: Pick<MoonshotClientConfig, 'copy'> | null | undefined, key: CopyKey, vars: Record<string, string | number> = {}): string {
+  const override = cfg?.copy?.[key];
+  const base = override && !usesForbiddenTerm(override) ? override : MOONSHOT_COPY[key];
+  return base.replace(/\{(\w+)\}/g, (_, k: string) => (k in vars ? String(vars[k]) : `{${k}}`));
+}
+
+/** A call's status as the player reads it. */
+export function statusLabel(status: MoonshotStatus, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
+  switch (status) {
+    case 'CONFIRMED': return copyText(cfg, 'tapToView');
+    case 'LOCKED': return copyText(cfg, 'stateLocked');
+    case 'LIVE': return copyText(cfg, 'stateLive');
+    case 'HIT': return copyText(cfg, 'stateHit');
+    case 'MISSED': return copyText(cfg, 'stateMissed');
+    case 'VOID': case 'SETTLED': return copyText(cfg, 'stateVoid');
+    case 'CANCELLED': return copyText(cfg, 'stateCancelled');
+    default: return String(status);
+  }
+}
+
+// ── the wire ────────────────────────────────────────────────────────────────
+
+const toMs = (v: unknown): number | null => {
+  if (typeof v === 'number') return v;
+  if (v && typeof (v as { toMillis?: unknown }).toMillis === 'function') return (v as { toMillis: () => number }).toMillis();
+  if (v && typeof (v as { _seconds?: unknown })._seconds === 'number') return (v as { _seconds: number })._seconds * 1000;   // a Timestamp through onCall's JSON
+  return null;
+};
+
+/** A `moonshots` document (from Firestore or through a callable) as the UI reads it; missing numbers read as 0, missing dates as null. */
+export function toCall(id: string, d: Record<string, unknown>): MoonshotCall {
+  const num = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+  return {
+    id,
+    teamId: String(d.teamId ?? ''),
+    raceId: String(d.raceId ?? ''),
+    roundNumber: typeof d.roundNumber === 'number' ? d.roundNumber : null,
+    driverId: String(d.driverId ?? ''),
+    predictionType: d.predictionType as PredictionType,
+    predictionTarget: typeof d.predictionTarget === 'number' ? d.predictionTarget : null,
+    stakeCurrency: d.stakeCurrency === 'CASH' ? 'CASH' : 'POINTS',
+    stakeAmount: num(d.stakeAmount),
+    modelProbability: num(d.modelProbability),
+    rewardBand: String(d.rewardBand ?? ''),
+    multiplier: num(d.multiplier),
+    potentialReward: num(d.potentialReward),
+    ownsDriver: d.ownsDriver === true,
+    status: (d.status as MoonshotStatus) ?? 'CONFIRMED',
+    lockAtMs: toMs(d.lockAtMs ?? d.lockAt),
+    result: d.result === 'HIT' || d.result === 'MISSED' || d.result === 'VOID' ? d.result : null,
+    officialDriverFinish: typeof d.officialDriverFinish === 'number' ? d.officialDriverFinish : null,
+    adjustmentAmount: typeof d.adjustmentAmount === 'number' ? d.adjustmentAmount : null,
+  };
+}
+
+/** The server's refusals are written as sentences for the player; transport trouble gets a plain one. */
+export function callableMessage(e: unknown, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
+  const err = e as { code?: string; message?: string } | undefined;
+  const code = (err?.code ?? '').replace(/^functions\//, '');
+  if (code === 'unavailable' || code === 'deadline-exceeded' || code === 'internal') return copyText(cfg, 'serverDown');
+  if (code === 'unauthenticated') return copyText(cfg, 'signInAgain');
+  return err?.message && err.message !== 'INTERNAL' && err.message !== 'internal' ? err.message : copyText(cfg, 'genericError');
 }
 
 // ── formatting ──────────────────────────────────────────────────────────────
@@ -193,6 +272,10 @@ export const outcomeLine = (stake: number, potentialReward: number, cfg?: Pick<M
   `${copyText(cfg, 'hit')} ${signed(potentialReward)} · ${copyText(cfg, 'miss')} ${signed(-stake)}`;
 
 export const currencyWord = (c: StakeCurrency): string => (c === 'POINTS' ? 'POINTS' : 'CASH');
+
+/** Did a re-fetched quote keep the terms the player was looking at? If not, they confirm the new ones. */
+export const sameTerms = (a: Pick<MoonshotQuote, 'multiplier' | 'potentialReward' | 'rewardBand'>, b: Pick<MoonshotQuote, 'multiplier' | 'potentialReward' | 'rewardBand'>): boolean =>
+  a.multiplier === b.multiplier && a.potentialReward === b.potentialReward && a.rewardBand === b.rewardBand;
 
 /** A quote may be confirmed only while the server says it is fresh. */
 export const quoteFresh = (quote: { expiresAt: number } | null | undefined, nowMs: number): boolean => !!quote && quote.expiresAt > nowMs;

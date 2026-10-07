@@ -113,6 +113,17 @@ export const moonshotQuote = functions.https.onCall(async (data, context) => {
   };
 });
 
+/** The fields of a call the client reads (the shape of the app's MoonshotCall); server bookkeeping stays behind. */
+function pickCall(id: string, m: FirebaseFirestore.DocumentData) {
+  return {
+    id, teamId: m.teamId, raceId: m.raceId, roundNumber: m.roundNumber ?? null, driverId: m.driverId,
+    predictionType: m.predictionType, predictionTarget: m.predictionTarget ?? null, stakeCurrency: m.stakeCurrency, stakeAmount: m.stakeAmount,
+    modelProbability: m.modelProbability, rewardBand: m.rewardBand, multiplier: m.multiplier, potentialReward: m.potentialReward, ownsDriver: m.ownsDriver === true,
+    status: m.status, lockAtMs: m.lockAt && typeof m.lockAt.toMillis === 'function' ? m.lockAt.toMillis() : null,
+    result: m.result ?? null, officialDriverFinish: m.officialDriverFinish ?? null, adjustmentAmount: m.adjustmentAmount ?? null,
+  };
+}
+
 /**
  * Everything the Moonshot sheet needs to open on one driver in one round-trip (F-108): whether the
  * feature is open this round, tokens left, the call already made on this race (if any), every
@@ -148,7 +159,7 @@ export const moonshotMenu = functions.https.onCall(async (data, context) => {
   return {
     availability, unlockRound: cfg.unlockRound, tokensPerTeam: cfg.tokensPerTeam, tokensLeft: Math.max(0, cfg.tokensPerTeam - spent.length),
     lockAtMs: lock ? lock.toMillis() : null, round,
-    current: current ? { id: current.id, ...current.data(), lockAtMs: current.data().lockAt ? current.data().lockAt.toMillis() : null, lockAt: undefined, createdAt: undefined, updatedAt: undefined, settledAt: undefined, lockedAt: undefined } : null,
+    current: current ? pickCall(current.id, current.data()) : null,
     ownsDriver: Array.isArray(team.drivers) && team.drivers.some((d: { driverId?: string }) => d?.driverId === driverId),
     modelAvailable: !!resolved, driverInModel: !!driver, carriedFrom: resolved?.carriedFrom ?? null,
     predictions, exactFinishEnabled: cfg.predictionTypesEnabled.includes('EXACT_FINISH'), positionsCount: resolved?.model.positionsCount ?? null,

@@ -11,7 +11,7 @@ import { PRICING_CONFIG } from '../../config/pricing.config';
 import { ColorBar, MonoLabel, PillButton } from './GridBits';
 import { constructorShortName } from './entityNames';
 import { tileDetail, type DetailEntry } from './tileDetail';
-import { copyText, type Availability, type MoonshotCall, type MoonshotClientConfig } from './moonshot';
+import { copyText, statusLabel, type Availability, type MoonshotCall, type MoonshotClientConfig } from './moonshot';
 
 /** F-108: what the sheet shows about Moonshot for this driver; omitted when the feature is off. */
 export interface SheetMoonshot {
@@ -142,7 +142,7 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
                     <Text style={{ fontFamily: family.ui.black, fontSize: scaled(12), letterSpacing: scaled(12) * 0.04, color: colors.primary }}>🚀 {moonshot.current ? copyText(moonshot.cfg, 'alreadyCalled') : copyText(moonshot.cfg, 'callTitle')}</Text>
                     <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>
                       {moonshot.current
-                        ? `${moonshot.current.driverId === target.entry.id ? target.entry.name.toUpperCase() : moonshot.current.driverId.toUpperCase()} · ${moonshot.current.status === 'CONFIRMED' ? 'TAP TO VIEW' : moonshot.current.status}`
+                        ? `${moonshot.current.driverId === target.entry.id ? target.entry.name.toUpperCase() : moonshot.current.driverId.toUpperCase()} · ${statusLabel(moonshot.current.status, moonshot.cfg)}`
                         : moonshot.tokensLeft == null ? 'DRIVER · PREDICTION · CHANCE · RISK · REWARD'
                         : moonshot.tokensLeft > 0 ? copyText(moonshot.cfg, 'tokensLeft', { n: moonshot.tokensLeft, s: moonshot.tokensLeft === 1 ? '' : 'S' }) : copyText(moonshot.cfg, 'tokensNone')}
                     </Text>

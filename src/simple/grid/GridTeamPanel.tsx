@@ -68,16 +68,19 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const loadMoonshotCalls = useMoonshotStore((s) => s.loadCalls);
   const [moonshotTarget, setMoonshotTarget] = useState<MoonshotTarget | null>(null);
   const moonshotSeason = nextRace?.seasonId ?? null;
+  const teamId = team?.id ?? null;
   useEffect(() => {
-    if (moonshotAvail === 'open' && user?.id && moonshotSeason) loadMoonshotCalls(user.id, moonshotSeason);
-  }, [moonshotAvail, user?.id, moonshotSeason, loadMoonshotCalls]);
-  const currentCall = useMemo(() => (nextRace ? moonshotCalls.find((c) => c.raceId === nextRace.id && c.status !== 'CANCELLED') ?? null : null), [moonshotCalls, nextRace]);
-  const tokensLeft = moonshotAvail === 'open' ? Math.max(0, moonshotCfg.tokensPerTeam - moonshotCalls.filter((c) => c.status !== 'CANCELLED' && c.status !== 'VOID').length) : null;
-  const sheetMoonshot: SheetMoonshot | undefined = moonshotAvail === 'off' || !team || !nextRace ? undefined : {
+    if (moonshotAvail === 'open' && user?.id && teamId && moonshotSeason) loadMoonshotCalls(user.id, teamId, moonshotSeason);
+  }, [moonshotAvail, user?.id, teamId, moonshotSeason, loadMoonshotCalls]);
+  // tokens are per team: a player's second team has its own three, so only this team's calls count
+  const teamCalls = useMemo(() => moonshotCalls.filter((c) => c.teamId === teamId), [moonshotCalls, teamId]);
+  const currentCall = useMemo(() => (nextRace ? teamCalls.find((c) => c.raceId === nextRace.id && c.status !== 'CANCELLED') ?? null : null), [teamCalls, nextRace]);
+  const tokensLeft = moonshotAvail === 'open' ? Math.max(0, moonshotCfg.tokensPerTeam - teamCalls.filter((c) => c.status !== 'CANCELLED' && c.status !== 'VOID').length) : null;
+  const sheetMoonshot = useMemo<SheetMoonshot | undefined>(() => (moonshotAvail === 'off' || !team || !nextRace ? undefined : {
     availability: moonshotAvail, cfg: moonshotCfg, tokensLeft, current: currentCall,
     onOpen: (t) => { setSheetId(null); setMoonshotTarget({ teamId: team.id, raceId: nextRace.id, raceName: nextRace.name, driverId: t.entry.id, driverName: t.entry.name }); },
-  };
-  const reloadMoonshots = useCallback(() => { if (user?.id && moonshotSeason) loadMoonshotCalls(user.id, moonshotSeason, true); }, [user?.id, moonshotSeason, loadMoonshotCalls]);
+  }), [moonshotAvail, team, nextRace, moonshotCfg, tokensLeft, currentCall]);
+  const reloadMoonshots = useCallback(() => { if (user?.id && teamId && moonshotSeason) loadMoonshotCalls(user.id, teamId, moonshotSeason, true); }, [user?.id, teamId, moonshotSeason, loadMoonshotCalls]);
 
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
   useEffect(() => {
