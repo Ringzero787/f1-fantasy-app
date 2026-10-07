@@ -1296,7 +1296,7 @@ features:
       - firestore
   - id: F-112
     name: "UC: Security review 2026-10 hardening before the 2.5.0 build"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-112.md
     created_at: 2026-10-07
     keywords:
