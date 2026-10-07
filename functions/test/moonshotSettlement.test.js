@@ -144,7 +144,7 @@ test('settlement is idempotent: the first run settles every open call, the secon
     'moonshots/m2': { teamId: 'tA', userId: 'alice', leagueId: 'L1', seasonId: '2026', raceId: 'r1', driverId: 'norris', predictionType: 'WIN', predictionTarget: null, stakeCurrency: 'CASH', stakeAmount: 100, multiplier: 2.5, potentialReward: 250, status: 'LOCKED', lockAt: 1 },
     'moonshots/m3': { teamId: 'tGone', userId: 'bob', leagueId: null, seasonId: '2026', raceId: 'r1', driverId: 'norris', predictionType: 'WIN', stakeCurrency: 'POINTS', stakeAmount: 50, potentialReward: 125, status: 'CONFIRMED' },
   });
-  const race = { seasonId: '2026', round: 19, name: 'Round 19', results: { raceResults: [{ driverId: 'hadjar', position: 3, status: 'finished' }, { driverId: 'norris', position: 2, status: 'finished' }] } };
+  const race = { seasonId: '2026', round: 19, name: 'Round 19', status: 'completed', results: { raceResults: [{ driverId: 'hadjar', position: 3, status: 'finished' }, { driverId: 'norris', position: 2, status: 'finished' }] } };
   const first = await settleMoonshotsForRace(db, 'r1', race);
   assert.deepEqual(first, { settled: 3, skipped: 0, failed: 0 });
   const m1 = db.store.get('moonshots/m1'), m2 = db.store.get('moonshots/m2'), m3 = db.store.get('moonshots/m3'), team = db.store.get('fantasyTeams/tA');
@@ -255,4 +255,20 @@ test('the sweep: off does nothing; on, it finds the live race, looks the session
   await sweepLivePositions(db, start + 120e3, feed);
   assert.equal(sessionCalls, 1);   // the second minute reuses the stored session key
   assert.deepEqual(await sweepLivePositions(db, start + 7 * 3600e3, feed), { raceId: null, written: false, drivers: 0 });   // seven hours on, still marked in progress: the six-hour cap closed the window
+});
+
+test('settlement needs a classification: a completed race with empty results settles nothing, a cancelled one still voids', async () => {
+  const docs = {
+    'config/app': { moonshot: { enabled: true } },
+    'fantasyTeams/tA': { userId: 'alice', leagueId: 'L1', totalPoints: 100, budget: 240 },
+    'moonshots/m1': { teamId: 'tA', userId: 'alice', leagueId: 'L1', seasonId: '2026', raceId: 'r9', driverId: 'hadjar', predictionType: 'WIN', stakeCurrency: 'POINTS', stakeAmount: 200, potentialReward: 1000, status: 'CONFIRMED' },
+  };
+  const empty = fakeDb(docs);
+  assert.deepEqual(await settleMoonshotsForRace(empty, 'r9', { seasonId: '2026', round: 9, status: 'completed', results: { raceResults: [] } }), { settled: 0, skipped: 0, failed: 0 });
+  assert.equal(empty.writes.length, 0, 'an empty classification writes nothing');
+  const notDone = fakeDb(docs);
+  assert.equal((await settleMoonshotsForRace(notDone, 'r9', { seasonId: '2026', round: 9, status: 'in_progress', results: { raceResults: [{ driverId: 'hadjar', position: 1, status: 'finished' }] } })).settled, 0);
+  const cancelled = fakeDb(docs);
+  assert.equal((await settleMoonshotsForRace(cancelled, 'r9', { seasonId: '2026', round: 9, status: 'cancelled' }, { cancelled: true })).settled, 1);
+  assert.equal(cancelled.store.get('moonshots/m1').status, 'VOID');
 });

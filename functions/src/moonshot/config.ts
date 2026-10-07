@@ -83,6 +83,8 @@ export const DEFAULT_CONFIG: MoonshotConfig = {
 export const FORBIDDEN_TERMS = ['bet', 'bets', 'betting', 'wager', 'wagers', 'wagering', 'odds', 'moneyline', 'parlay', 'parlays', 'sportsbook', 'gambling', 'gamble', 'bookmaker', 'bookmakers', 'bookie', 'payout', 'payouts', 'house'];
 export const usesForbiddenTerm = (text: string): boolean => { const words = text.toLowerCase().split(/[^a-z]+/); return FORBIDDEN_TERMS.some((t) => words.includes(t)); };
 
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+
 /** Defaults overlaid with whatever the document carries; unknown keys are ignored, bad types fall back. */
 export function mergeConfig(raw: unknown): MoonshotConfig {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -100,18 +102,19 @@ export function mergeConfig(raw: unknown): MoonshotConfig {
   return {
     enabled: bool('enabled', false),
     unlockRound: num('unlockRound', DEFAULT_CONFIG.unlockRound),
-    tokensPerTeam: num('tokensPerTeam', DEFAULT_CONFIG.tokensPerTeam),
-    maxPerRace: num('maxPerRace', DEFAULT_CONFIG.maxPerRace),
+    tokensPerTeam: clamp(num('tokensPerTeam', DEFAULT_CONFIG.tokensPerTeam), 1, 20),
+    maxPerRace: clamp(num('maxPerRace', DEFAULT_CONFIG.maxPerRace), 1, 5),
     predictionTypesEnabled: types,
     pointsStakeLevels: nums('pointsStakeLevels', DEFAULT_CONFIG.pointsStakeLevels),
     cashStakeLevels: nums('cashStakeLevels', DEFAULT_CONFIG.cashStakeLevels),
     pricing: {
       mode: p.mode === 'continuous' ? 'continuous' : 'banded',
       bands: bands.length ? bands : DEFAULT_BANDS,
-      vig: typeof p.vig === 'number' ? (p.vig as number) : DEFAULT_CONFIG.pricing.vig,
+      // clamped: a typo in the config document must not go live as a 800% margin or a 500× cap
+      vig: clamp(typeof p.vig === 'number' ? (p.vig as number) : DEFAULT_CONFIG.pricing.vig, 0, 0.5),
       rounding: typeof p.rounding === 'number' && (p.rounding as number) > 0 ? (p.rounding as number) : DEFAULT_CONFIG.pricing.rounding,
-      minMultiplier: typeof p.minMultiplier === 'number' ? (p.minMultiplier as number) : DEFAULT_CONFIG.pricing.minMultiplier,
-      maxMultiplier: typeof p.maxMultiplier === 'number' ? (p.maxMultiplier as number) : DEFAULT_CONFIG.pricing.maxMultiplier,
+      minMultiplier: clamp(typeof p.minMultiplier === 'number' ? (p.minMultiplier as number) : DEFAULT_CONFIG.pricing.minMultiplier, 0.1, 2),
+      maxMultiplier: clamp(typeof p.maxMultiplier === 'number' ? (p.maxMultiplier as number) : DEFAULT_CONFIG.pricing.maxMultiplier, 1, 50),
     },
     maxSingleRewardPoints: num('maxSingleRewardPoints', DEFAULT_CONFIG.maxSingleRewardPoints),
     maxSeasonMoonshotPointGain: num('maxSeasonMoonshotPointGain', DEFAULT_CONFIG.maxSeasonMoonshotPointGain),

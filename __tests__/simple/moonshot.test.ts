@@ -1,7 +1,7 @@
 import {
   MOONSHOT_COPY, FORBIDDEN_TERMS, callOpen, callSummary, callableMessage, chancePct, copyText, liveState, moonshotAvailability, moonshotColumn, multiplierLabel,
   outcomeLine, parseMoonshotConfig, predictionLabel, predictionSentence, quoteFresh, sameTerms, settledLine, signed, stakeOptions, statusLabel, toCall, usesForbiddenTerm, type MoonshotCall,
-  activityLine, declarationLine, latestPositions, liveChip, raceWindow, sessionForRace, toLiveDoc,
+  activityLine, declarationLine, latestPositions, liveChip, raceWindow, sessionForRace, toLiveDoc, toMenu, safeLabel,
 } from '../../src/simple/grid/moonshot';
 import { rankStandings } from '../../src/simple/grid/standings';
 import { raceResultRows } from '../../src/simple/grid/raceLeaderboard';
@@ -189,5 +189,16 @@ describe('the live document', () => {
     expect(d).toEqual({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, norris: 1 }, atMs: 5_000 });
     expect(toLiveDoc(undefined)).toBeNull();
     expect(toLiveDoc({})?.byDriver).toEqual({});
+  });
+});
+
+describe('the menu on the wire', () => {
+  it('a partial or odd answer becomes a menu that cannot throw in a render, and server labels keep the vocabulary', () => {
+    const m = toMenu({ availability: 'open', tokensLeft: 2, predictions: [{ type: 'WIN', probability: 0.16, band: 'MOONSHOT', multiplier: 5 }, { type: 'nonsense' }, { type: 'PODIUM', probability: 0.43, band: 'Best odds', multiplier: 1.25 }], stakes: { POINTS: [50, 'x', 200] }, balances: { POINTS: 1284 }, current: { id: 'm1', teamId: 'tA', predictionType: 'WIN', status: 'CONFIRMED' } });
+    expect(m.predictions.map((p) => [p.type, p.band])).toEqual([['WIN', 'MOONSHOT'], ['PODIUM', 'REWARD']]);   // a label with a forbidden word is replaced
+    expect(m.stakes).toEqual({ POINTS: [50, 200], CASH: [] }); expect(m.balances).toEqual({ POINTS: 1284, CASH: 0 });
+    expect(m.current?.id).toBe('m1'); expect(m.model).toBeNull(); expect(m.maxMultiplier).toBe(8);
+    expect(toMenu({}).availability).toBe('off');
+    expect(safeLabel('LONGSHOT')).toBe('LONGSHOT'); expect(safeLabel('house pick', 'REWARD')).toBe('REWARD');
   });
 });

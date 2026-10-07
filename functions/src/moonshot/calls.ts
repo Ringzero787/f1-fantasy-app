@@ -27,12 +27,13 @@ import { predictionProbability, summarise } from './distribution';
 import { eligibility, quoteRefusal, OPEN_STATUSES, TOKEN_SPENDING_STATUSES } from './eligibility';
 import { resolveModel } from './models';
 import { potentialReward, price } from './pricing';
+import { memberSeasonTotal } from '../scoring/standingsFields';
 import { seatOf, type KnownDriver } from './substitute';
 
 const db = admin.firestore();
 
 const TYPES: PredictionType[] = ['WIN', 'PODIUM', 'TOP_5', 'EXACT_FINISH'];
-const str = (v: unknown): string | null => (typeof v === 'string' && v && !v.includes('/') ? v : null);
+const str = (v: unknown): string | null => (typeof v === 'string' && v && v.length <= 128 && !v.includes('/') ? v : null);
 
 /** What the team's existing calls this season already commit: tokens, calls on this race, stake still at risk. */
 interface Committed { used: number; onRace: number; openStake: number }
@@ -48,8 +49,10 @@ function committed(docs: FirebaseFirestore.QueryDocumentSnapshot[], raceId: stri
 const spendingQuery = (teamId: string, season: string) =>
   db.collection('moonshots').where('teamId', '==', teamId).where('seasonId', '==', season).where('status', 'in', [...TOKEN_SPENDING_STATUSES]);
 
+// POINTS balance is the ranked season total — active + banked + Moonshot — so a team already in the
+// red from earlier calls cannot keep risking its gross points
 const teamBalance = (team: FirebaseFirestore.DocumentData, currency: StakeCurrency): number =>
-  currency === 'POINTS' ? (team.totalPoints ?? 0) + (team.lockedPoints ?? 0) : team.budget ?? 0;
+  currency === 'POINTS' ? memberSeasonTotal(team) : team.budget ?? 0;
 const seasonMismatch = (team: FirebaseFirestore.DocumentData, season: string): boolean =>
   team.seasonId != null && String(team.seasonId) !== season;
 
@@ -78,7 +81,7 @@ export const moonshotQuote = functions.https.onCall(async (data, context) => {
   const round: number | null = Number.isInteger(race.round) ? race.round : null;
   const lock = effectiveLockTime(race);
   const resolved = round === null ? null : await resolveModel(db, season, raceId, round, cfg.carryForwardModel);
-  const driver = resolved?.model.drivers[driverId];
+  const driver = resolved && Object.prototype.hasOwnProperty.call(resolved.model.drivers, driverId) ? resolved.model.drivers[driverId] : undefined;
   const have = committed((await spendingQuery(teamId, season).get()).docs, raceId, currency);
   const p = driver ? predictionProbability(driver.positions, type, target) : null;
   const priced = p != null ? price(p, cfg.pricing) : undefined;
@@ -104,7 +107,10 @@ export const moonshotQuote = functions.https.onCall(async (data, context) => {
     potentialReward: potentialReward(stake, priced.multiplier), ownsDriver,
     lockAt: lock, expiresAt, used: false, createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
-  const ref = await db.collection('moonshotQuotes').add(quote);
+  // one quote document per (team, race, driver, prediction, stake) tuple: a re-quote overwrites it, so
+  // a script cannot grow the collection without bound, and confirm still checks `used` and `expiresAt`
+  const ref = db.doc(`moonshotQuotes/${teamId}_${raceId}_${driverId}_${type}_${target ?? 'x'}_${currency}_${stake}`);
+  await ref.set(quote);
   const detail = summarise(driver.positions);
   return {
     quoteId: ref.id, modelProbability: quote.modelProbability, rewardBand: quote.rewardBand, multiplier: quote.multiplier,
@@ -148,7 +154,7 @@ export const moonshotMenu = functions.https.onCall(async (data, context) => {
   const spent = (await spendingQuery(teamId, season).get()).docs;
   const current = spent.find((d) => d.data().raceId === raceId);
   const resolved = availability === 'open' && round !== null ? await resolveModel(db, season, raceId, round, cfg.carryForwardModel) : null;
-  const driver = resolved?.model.drivers[driverId];
+  const driver = resolved && Object.prototype.hasOwnProperty.call(resolved.model.drivers, driverId) ? resolved.model.drivers[driverId] : undefined;
   const predictions = driver
     ? cfg.predictionTypesEnabled.filter((t) => t !== 'EXACT_FINISH').map((type) => {
         const p = predictionProbability(driver.positions, type) ?? 0;
@@ -217,11 +223,15 @@ export const moonshotConfirm = functions.https.onCall(async (data, context) => {
     const now = Date.now();
     const stale = quoteRefusal({ used: quote.used, expiresAtMs: quote.expiresAt.toMillis() }, now);
     if (stale) throw new functions.https.HttpsError(stale.code, stale.message);
-    // the live race, not the quote's copy: a schedule change that moves the lock earlier is honoured
+    // the live race, not the quote's copy: a schedule change that moves the lock earlier is honoured.
+    // The tokens document is READ here too: Firestore aborts a transaction whose read set changed, so
+    // two confirms for one team now contend on a document both have read, not only both write.
+    const tokensRef = db.doc(`moonshotTokens/${quote.teamId}_${quote.seasonId}`);
     const [raceSnap, team, spent] = await Promise.all([
       tx.get(db.doc(`races/${quote.raceId}`)),
       tx.get(db.doc(`fantasyTeams/${quote.teamId}`)),
       tx.get(spendingQuery(quote.teamId, quote.seasonId)),
+      tx.get(tokensRef),
     ]);
     if (!team.exists || team.data()?.userId !== uid) throw new functions.https.HttpsError('permission-denied', 'Not your team');
     if (!raceSnap.exists) throw new functions.https.HttpsError('not-found', 'Race not found');
@@ -255,7 +265,7 @@ export const moonshotConfirm = functions.https.onCall(async (data, context) => {
       lockedAt: null, settledAt: null, officialDriverFinish: null, result: null, adjustmentAmount: null, settlementVersion: null, settlementId: null,
     });
     // one document both racing confirms must write, so they cannot both pass
-    tx.set(db.doc(`moonshotTokens/${quote.teamId}_${quote.seasonId}`), { teamId: quote.teamId, userId: uid, seasonId: quote.seasonId, used: have.used + 1, updatedAt: stamp });
+    tx.set(tokensRef, { teamId: quote.teamId, userId: uid, seasonId: quote.seasonId, used: have.used + 1, updatedAt: stamp });
     tx.update(qRef, { used: true, moonshotId: ref.id });
     return { moonshotId: ref.id, tokensLeft: cfg.tokensPerTeam - have.used - 1 };
   });

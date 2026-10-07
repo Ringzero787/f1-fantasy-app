@@ -147,15 +147,17 @@ export const coveredPositions = (type: PredictionType, target?: number | null): 
 
 /** Season Moonshot record lines for the Season page (SPEC §28/§30). */
 export function statsLines(s: { used: number; hit: number; missed: number; voided: number; pointsRisked: number; pointsWon: number; cashRisked: number; cashWon: number; biggestHit: { adjustmentAmount: number; driverId: string; predictionType: string } | null } | null | undefined, driverName: (id: string) => string): Array<[string, string]> {
-  if (!s || s.used === 0) return [];
-  const hitRate = s.used ? Math.round((s.hit / s.used) * 100) : 0;
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  if (!s || n(s.used) === 0) return [];
+  const used = n(s.used), hit = n(s.hit), missed = n(s.missed), voided = n(s.voided);
+  const hitRate = used ? Math.round((hit / used) * 100) : 0;
   const out: Array<[string, string]> = [
-    ['Moonshots used', String(s.used)],
-    ['Hit · missed', `${s.hit} · ${s.missed}${s.voided ? ` · ${s.voided} void` : ''}`],
+    ['Moonshots used', String(used)],
+    ['Hit · missed', `${hit} · ${missed}${voided ? ` · ${voided} void` : ''}`],
     ['Hit rate', `${hitRate}%`],
-    ['Points risked · won', `${s.pointsRisked.toLocaleString()} · ${s.pointsWon.toLocaleString()}`],
+    ['Points risked · won', `${n(s.pointsRisked).toLocaleString()} · ${n(s.pointsWon).toLocaleString()}`],
   ];
-  if (s.cashRisked) out.push(['Cash risked · won', `$${s.cashRisked.toLocaleString()} · $${s.cashWon.toLocaleString()}`]);
+  if (n(s.cashRisked)) out.push(['Cash risked · won', `$${n(s.cashRisked).toLocaleString()} · $${n(s.cashWon).toLocaleString()}`]);
   if (s.biggestHit) out.push(['Biggest hit', `${driverName(s.biggestHit.driverId)} ${predictionLabel(s.biggestHit.predictionType as PredictionType)} · ${signed(s.biggestHit.adjustmentAmount)}`]);
   return out;
 }

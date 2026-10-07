@@ -243,6 +243,9 @@ export function toCall(id: string, d: Record<string, unknown>): MoonshotCall {
   };
 }
 
+/** A label the server sends (band, carried-from race) is shown only if it keeps the vocabulary; otherwise a neutral word. */
+export const safeLabel = (s: unknown, fallback = ''): string => (typeof s === 'string' && !usesForbiddenTerm(s) ? s : fallback);
+
 /** The server's refusals are written as sentences for the player; transport trouble gets a plain one. */
 export function callableMessage(e: unknown, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
   const err = e as { code?: string; message?: string } | undefined;
@@ -413,4 +416,28 @@ export function toLiveDoc(d: Record<string, unknown> | undefined): LivePositions
   return { raceId: String(d.raceId ?? ''), sessionKey: typeof d.sessionKey === 'number' ? d.sessionKey : null, byDriver: by, atMs: at };
 }
 
-
+/** The menu as the UI reads it: every list an array, every balance a number, so a partial answer cannot throw inside a render. */
+export function toMenu(d: Record<string, unknown>): {
+  availability: Availability; unlockRound: number; tokensPerTeam: number; tokensLeft: number; lockAtMs: number | null; round: number | null;
+  current: MoonshotCall | null; ownsDriver: boolean; modelAvailable: boolean; driverInModel: boolean; carriedFrom: string | null;
+  predictions: MenuPrediction[]; exactFinishEnabled: boolean; positionsCount: number | null; maxMultiplier: number;
+  stakes: Record<StakeCurrency, number[]>; balances: Record<StakeCurrency, number>;
+  model: { expectedFinish: number; likelyLo: number; likelyHi: number; predicted: number } | null; copy: Record<string, string>; tutorialEnabled: boolean;
+} {
+  const num = (v: unknown, f = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : f);
+  const nums = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is number => typeof x === 'number' && Number.isFinite(x)) : []);
+  const avail = d.availability === 'open' || d.availability === 'locked' ? d.availability : 'off';
+  const preds = Array.isArray(d.predictions) ? (d.predictions as Array<Record<string, unknown>>).filter((p) => p && TYPES.includes(p.type as PredictionType)).map((p) => ({ type: p.type as PredictionType, probability: num(p.probability), band: safeLabel(p.band, 'REWARD'), multiplier: num(p.multiplier) })) : [];
+  const stakes = (d.stakes ?? {}) as Record<string, unknown>; const balances = (d.balances ?? {}) as Record<string, unknown>;
+  const model = d.model && typeof d.model === 'object' ? (d.model as Record<string, unknown>) : null;
+  const cur = d.current && typeof d.current === 'object' ? (d.current as Record<string, unknown> & { id?: unknown }) : null;
+  return {
+    availability: avail, unlockRound: num(d.unlockRound, 13), tokensPerTeam: num(d.tokensPerTeam, 3), tokensLeft: num(d.tokensLeft), lockAtMs: typeof d.lockAtMs === 'number' ? d.lockAtMs : null, round: typeof d.round === 'number' ? d.round : null,
+    current: cur && typeof cur.id === 'string' ? toCall(cur.id, cur) : null, ownsDriver: d.ownsDriver === true, modelAvailable: d.modelAvailable === true, driverInModel: d.driverInModel === true,
+    carriedFrom: typeof d.carriedFrom === 'string' && !usesForbiddenTerm(d.carriedFrom) ? d.carriedFrom : null,
+    predictions: preds, exactFinishEnabled: d.exactFinishEnabled === true, positionsCount: typeof d.positionsCount === 'number' ? d.positionsCount : null, maxMultiplier: num(d.maxMultiplier, 8),
+    stakes: { POINTS: nums(stakes.POINTS), CASH: nums(stakes.CASH) }, balances: { POINTS: num(balances.POINTS), CASH: num(balances.CASH) },
+    model: model ? { expectedFinish: num(model.expectedFinish), likelyLo: num(model.likelyLo, 1), likelyHi: num(model.likelyHi, 22), predicted: num(model.predicted) } : null,
+    copy: d.copy && typeof d.copy === 'object' ? Object.fromEntries(Object.entries(d.copy as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string')) : {}, tutorialEnabled: d.tutorialEnabled !== false,
+  };
+}
