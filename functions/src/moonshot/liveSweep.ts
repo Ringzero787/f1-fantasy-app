@@ -8,10 +8,11 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import { fetchSessions, type OpenF1Session } from '../ingestion/openf1Client';
-import { DRIVER_NUMBER_TO_ID } from '../ingestion/config';
+import { DRIVER_NUMBER_TO_ID, SEASON_YEAR } from '../ingestion/config';
+import { loadMoonshotConfig } from './config';
 
 const BASE_URL = 'https://api.openf1.org/v1';
-const LIVE_MS = 3 * 60 * 60 * 1000, LIVE_MAX_MS = 6 * 60 * 60 * 1000;
+const LIVE_MS = 3 * 60 * 60 * 1000, LIVE_MAX_MS = 6 * 60 * 60 * 1000, EARLY_MS = 30 * 60 * 1000;
 
 export interface PositionRow { driver_number: number; position: number; date: string }
 interface RaceLike { id: string; status?: unknown; schedule?: { race?: { toMillis?: () => number } | Date | string | number | null } }
@@ -23,13 +24,18 @@ const startMs = (race: RaceLike): number => {
   return new Date(v as string | number | Date).getTime();
 };
 
-/** Pure: is this race in its live window? From the start to three hours after; six when it is still marked in progress. */
+/**
+ * Pure: is this race in its live window? From half an hour before the start to three hours after;
+ * six when it is still marked in progress. `in_progress` alone is not enough — the lock sweep sets it
+ * on Friday, and a weekend of polling for a Sunday race is not the budget.
+ */
 export function isLive(race: RaceLike, nowMs: number): boolean {
   if (race.status === 'completed' || race.status === 'cancelled') return false;
   const start = startMs(race);
   const inProgress = race.status === 'in_progress';
   if (!Number.isFinite(start)) return inProgress;
-  if (nowMs < start) return inProgress;
+  if (nowMs < start - EARLY_MS) return false;
+  if (nowMs < start) return true;
   const since = nowMs - start;
   return since <= LIVE_MS || (inProgress && since <= LIVE_MAX_MS);
 }
@@ -46,33 +52,48 @@ export function sessionForRace(sessions: OpenF1Session[], raceStartMs: number): 
 export function latestByDriver(rows: PositionRow[], numberToId: Record<number, string> = DRIVER_NUMBER_TO_ID): Record<string, number> {
   const latest = new Map<number, { at: number; position: number }>();
   for (const r of rows) {
+    if (typeof r.driver_number !== 'number' || typeof r.position !== 'number') continue;   // the feed is third-party JSON: only numbers become keys and values
     const at = new Date(r.date).getTime();
-    if (!Number.isFinite(at) || typeof r.position !== 'number') continue;
+    if (!Number.isFinite(at)) continue;
     const prev = latest.get(r.driver_number);
     if (!prev || at >= prev.at) latest.set(r.driver_number, { at, position: r.position });
   }
   const out: Record<string, number> = {};
-  for (const [n, v] of latest) { const id = numberToId[n]; if (id) out[id] = v.position; }
+  for (const [n, v] of latest) { const id = Object.prototype.hasOwnProperty.call(numberToId, n) ? numberToId[n] : undefined; if (id) out[id] = v.position; }
   return out;
 }
 
 async function fetchPositions(sessionKey: number): Promise<PositionRow[]> {
-  const res = await fetch(`${BASE_URL}/position?session_key=${sessionKey}`);
+  const res = await fetch(`${BASE_URL}/position?session_key=${sessionKey}`, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`OpenF1 /position ${res.status}`);
   return (await res.json()) as PositionRow[];
 }
 
+/** The feed calls, injectable so the sweep can be driven by a test without the network. */
+export interface Feed { sessions: (year: number) => Promise<OpenF1Session[]>; positions: (sessionKey: number) => Promise<PositionRow[]> }
+const LIVE_FEED: Feed = { sessions: fetchSessions, positions: fetchPositions };
+
 /** The sweep body, separated so it can be driven from a test or a manual call. */
-export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = Date.now()): Promise<{ raceId: string | null; written: boolean; drivers: number }> {
-  const snap = await db.collection('races').where('status', 'in', ['in_progress', 'upcoming']).orderBy('round').limit(2).get();
+export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = Date.now(), feed: Feed = LIVE_FEED): Promise<{ raceId: string | null; written: boolean; drivers: number; off?: boolean }> {
+  // the owner's switch stops the pull itself, not only the rendering: no deploy needed to turn it off
+  const cfg = await loadMoonshotConfig(db);
+  if (!cfg.liveTiming) return { raceId: null, written: false, drivers: 0, off: true };
+  // the same query the account header runs (seasonId + status + round has its index); the season filter keeps a stray old `upcoming` out
+  const snap = await db.collection('races').where('seasonId', '==', String(SEASON_YEAR)).where('status', 'in', ['in_progress', 'upcoming']).orderBy('round').limit(2).get();
   const race = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<RaceLike, 'id'>) })).find((r) => isLive(r, nowMs));
   if (!race) return { raceId: null, written: false, drivers: 0 };
-  const sessions = await fetchSessions(new Date(startMs(race) || nowMs).getUTCFullYear());
-  const session = sessionForRace(sessions, startMs(race));
-  if (!session) { console.warn(`[live] ${race.id}: no race session on its day yet`); return { raceId: race.id, written: false, drivers: 0 }; }
-  const byDriver = latestByDriver(await fetchPositions(session.session_key));
+  const ref = db.doc(`races/${race.id}/live/positions`);
+  // the session is looked up once: the last document carries its key for the rest of the race
+  const prior = (await ref.get()).data();
+  let sessionKey: number | null = prior && prior.raceId === race.id && typeof prior.sessionKey === 'number' ? prior.sessionKey : null;
+  if (sessionKey === null) {
+    const session = sessionForRace(await feed.sessions(new Date(startMs(race) || nowMs).getUTCFullYear()), startMs(race));
+    if (!session) { console.warn(`[live] ${race.id}: no race session on its day yet`); return { raceId: race.id, written: false, drivers: 0 }; }
+    sessionKey = session.session_key;
+  }
+  const byDriver = latestByDriver(await feed.positions(sessionKey));
   if (Object.keys(byDriver).length === 0) { console.log(`[live] ${race.id}: feed has no positions yet`); return { raceId: race.id, written: false, drivers: 0 }; }
-  await db.doc(`races/${race.id}/live/positions`).set({ raceId: race.id, sessionKey: session.session_key, byDriver, source: 'openf1', at: admin.firestore.FieldValue.serverTimestamp() });
+  await ref.set({ raceId: race.id, sessionKey, byDriver, source: 'openf1', at: admin.firestore.FieldValue.serverTimestamp() });
   return { raceId: race.id, written: true, drivers: Object.keys(byDriver).length };
 }
 

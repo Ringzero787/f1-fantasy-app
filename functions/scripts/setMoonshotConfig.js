@@ -3,7 +3,7 @@
 // DESIRED below is the owner's decision of 2026-10-07: on, priced continuously (fair less the vig,
 // rounded, floored, capped), DNS and DNF both lose ("all drivers race; DNS and DNF mean no
 // points"), the call follows the car when a substitute drives (settlement code, F-110), live
-// timing off until the data arrangement covers in-app positions (ADR-001). Everything else keeps
+// timing off until the owner confirms the arrangement covers the app surface (ADR-001 note, F-111). Everything else keeps
 // the F-106 defaults (functions/src/moonshot/config.ts). Dry run prints the block that would be
 // written beside what is live; `--apply` writes it with merge, so keys this script does not name
 // are left as they are.
@@ -13,7 +13,7 @@
 //   node scripts/setMoonshotConfig.js --apply               # write DESIRED
 //   node scripts/setMoonshotConfig.js --enabled=false --apply   # switch it off, keep the rest
 //   node scripts/setMoonshotConfig.js --mode=banded --apply     # change the pricing mode
-//   node scripts/setMoonshotConfig.js --liveTiming=true --apply # let the app poll live positions
+//   node scripts/setMoonshotConfig.js --liveTiming=true --apply # start the live-positions sweep and show the race-day card
 //
 // The uc-script op kind passes only --apply, so through `aidlc op` the flags are not reachable:
 // to change a switch in production, edit DESIRED here, commit, and raise a new uc-script op.

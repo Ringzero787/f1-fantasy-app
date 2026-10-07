@@ -70,5 +70,5 @@ export async function loadModel(raceId: string): Promise<MoonshotModelDoc | null
 /** Listen to the race's live positions (F-111): one server sweep writes them each minute during the race; nothing exists outside it. */
 export async function subscribeLive(raceId: string, cb: (d: LivePositionsDoc | null) => void): Promise<() => void> {
   const { m, db } = await firestore();
-  return m.onSnapshot(m.doc(db, 'races', raceId, 'live', 'positions'), (snap) => cb(snap.exists() ? toLiveDoc(snap.data() as Record<string, unknown>) : null), () => cb(null));
+  return m.onSnapshot(m.doc(db, 'races', raceId, 'live', 'positions'), (snap) => cb(snap.exists() ? toLiveDoc(snap.data() as Record<string, unknown>) : null), (e) => { console.warn('[moonshot live] listener:', e); cb(null); });
 }

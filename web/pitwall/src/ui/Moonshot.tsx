@@ -213,8 +213,10 @@ export function MoonshotTile() {
     );
   }
   const open_ = callOpen(cur, Date.now());
-  const pos = ms.live?.byDriver[cur.driverId] ?? null;
-  const state = ms.live ? liveState(cur, pos) : null;
+  // a live pill only while the sweep is writing: the document persists after the race, so its age decides
+  const fresh = !!ms.live && ms.live.atMs != null && Date.now() - ms.live.atMs < 15 * 60 * 1000;
+  const pos = fresh ? ms.live!.byDriver[cur.driverId] ?? null : null;
+  const state = fresh ? liveState(cur, pos) : null;
   return (
     <section className="tile only-wide you" aria-label="Your Moonshot">
       <div className="th"><Lbl>🚀 Your Moonshot</Lbl>{cur.result ? <Pill red={cur.result === 'HIT'}>{cur.result}</Pill> : state ? <Pill red={state === 'IN' || state === 'CLOSE'}>{pos ? `P${pos} · ` : ''}{liveChip(state)}</Pill> : <Pill>{open_ ? 'Open until lock' : 'Locked'}</Pill>}</div>

@@ -151,11 +151,13 @@ describe('the league and the race weekend', () => {
   it('the race window opens at the start and closes three hours after, or on completion', () => {
     const start = Date.UTC(2026, 9, 11, 12, 0, 0);
     const race = { status: 'upcoming', schedule: { race: new Date(start) } };
-    expect(raceWindow(race, start - 1)).toBe('before');
+    expect(raceWindow(race, start - 31 * 60 * 1000)).toBe('before');
     expect(raceWindow(race, start)).toBe('live');
     expect(raceWindow(race, start + 3 * 60 * 60 * 1000)).toBe('live');
     expect(raceWindow(race, start + 3 * 60 * 60 * 1000 + 1)).toBe('after');
-    expect(raceWindow({ ...race, status: 'in_progress' }, start - 1)).toBe('live');     // the server says it is on
+    expect(raceWindow({ ...race, status: 'in_progress' }, start - 1)).toBe('live');     // half an hour before the start the window opens
+    expect(raceWindow(race, start - 29 * 60 * 1000)).toBe('live');
+    expect(raceWindow({ ...race, status: 'in_progress' }, start - 31 * 60 * 1000)).toBe('before');   // Friday's lock sets in_progress; that alone never opens it
     expect(raceWindow({ ...race, status: 'completed' }, start + 1)).toBe('after');
     expect(raceWindow({ ...race, status: 'cancelled' }, start + 1)).toBe('after');
     expect(raceWindow({ ...race, status: 'in_progress' }, start + 5 * 60 * 60 * 1000)).toBe('live');       // the server still says it is on

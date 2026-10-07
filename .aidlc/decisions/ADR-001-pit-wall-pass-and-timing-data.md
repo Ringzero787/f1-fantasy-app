@@ -42,3 +42,7 @@ switch. Nothing moves behind the pass.
 The $10 a month is a cost of goods for the free tier, which is the right way round: the free tier is
 what sells the pass.
 - League Pro is derived from the owner's pass (F-060), so there is one purchase flow, one product in each store and one entitlement to support.
+
+## Note · 2026-10-07 · a second consumer of the timing feed (F-111)
+
+Moonshot's race-day card (F-108) shows each called driver's current position. It does not poll the provider from devices: one scheduled server sweep (`moonshotLiveSweep`) pulls positions once a minute while a race is in its window and writes `races/{raceId}/live/positions`; every client reads that document. Volume: one request a minute for ~3 hours per race, the same class as the existing results ingestion. The surface is free to every signed-in Undercut player and never behind the pass, consistent with decision 3. It is a different surface from the portal the provider's grant described, so the sweep ships behind `config/app.moonshot.liveTiming` (off), and the owner confirms with the provider that the arrangement covers the app surface before switching it on; when the paid feed's credentials exist the sweep moves to them.

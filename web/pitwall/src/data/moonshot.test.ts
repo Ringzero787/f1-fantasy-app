@@ -70,6 +70,8 @@ describe('race day', () => {
     const podium = call();
     expect([liveState(podium, 3), liveState(podium, 4), liveState(podium, 5), liveState(podium, null)]).toEqual(['IN', 'CLOSE', 'OUT', 'PENDING']);
     expect(liveState(call({ predictionType: 'WIN' }), 2)).toBe('CLOSE');
+    const exact = call({ predictionType: 'EXACT_FINISH', predictionTarget: 7 });
+    expect([liveState(exact, 7), liveState(exact, 6), liveState(exact, 9)]).toEqual(['IN', 'CLOSE', 'OUT']);
     expect(liveChip('CLOSE')).toBe('One position away');
     expect(toLiveDoc({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, bad: 'x', zero: 0 }, at: { toMillis: () => 5_000 } })).toEqual({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4 }, atMs: 5_000 });
     expect(toLiveDoc(undefined)).toBeNull();

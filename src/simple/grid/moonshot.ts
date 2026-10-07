@@ -363,14 +363,16 @@ export function activityLine(e: ActivityEntry, driverName: string, who: string, 
  * keep every client polling forever).
  */
 export type RaceWindow = 'before' | 'live' | 'after';
-const LIVE_MS = 3 * 60 * 60 * 1000, LIVE_MAX_MS = 6 * 60 * 60 * 1000;
+const LIVE_MS = 3 * 60 * 60 * 1000, LIVE_MAX_MS = 6 * 60 * 60 * 1000, EARLY_MS = 30 * 60 * 1000;
 export function raceWindow(race: { status?: string; schedule?: { race?: Date | string | number | null } } | null | undefined, nowMs: number): RaceWindow {
   if (!race) return 'before';
   if (race.status === 'completed' || race.status === 'cancelled') return 'after';
   const start = race.schedule?.race ? new Date(race.schedule.race as string | number | Date).getTime() : NaN;
   const inProgress = race.status === 'in_progress';
   if (!Number.isFinite(start)) return inProgress ? 'live' : 'before';
-  if (nowMs < start) return inProgress ? 'live' : 'before';
+  // `in_progress` is set at Friday's lock, so the status alone never opens the window: half an hour before the start does
+  if (nowMs < start - EARLY_MS) return 'before';
+  if (nowMs < start) return 'live';
   const since = nowMs - start;
   return since <= LIVE_MS || (inProgress && since <= LIVE_MAX_MS) ? 'live' : 'after';
 }

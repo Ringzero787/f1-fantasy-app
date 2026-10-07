@@ -80,7 +80,7 @@ export function MoonshotProvider({ team, children }: { team: RealTeam | null; ch
     return () => { live = false; };
   }, [race?.raceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // the live document exists only during the race, so one listener per race costs nothing outside it
+  // one listener per race; the document is written only during the race and persists afterwards, so the tile checks its age
   useEffect(() => {
     let stop: (() => void) | null = null, gone = false;
     setLive(null);
