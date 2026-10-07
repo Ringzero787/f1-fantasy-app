@@ -8,6 +8,7 @@ const { settleDecision, predictionHit, capHit, clampCash, settlementIdFor, nextS
 const { memberSeasonTotal, moonshotShare } = require('../lib/scoring/standingsFields.js');
 const admin = require('firebase-admin');
 const { rankRaceEntries } = require('../lib/scoring/leagueRaceResults.js');
+const { resolveSeat } = require('../lib/moonshot/substitute.js');
 const index = require('../lib/index.js');
 
 const cfg = mergeConfig({ enabled: true });
@@ -183,4 +184,22 @@ test('race entries carry race points, Moonshot points and the race total; rankin
 
 test('the cancelled-race trigger is exported', () => {
   assert.equal(typeof index.onRaceCancelled, 'function');
+});
+
+test('the call follows the car: an absent driver settles on the one substitute in that seat, never on a team-mate', () => {
+  const drivers = [{ id: 'hadjar', constructorId: 'rb', isActive: true }, { id: 'lawson', constructorId: 'rb', isActive: true }, { id: 'norris', constructorId: 'mclaren', isActive: true }];
+  const results = [{ driverId: 'lawson', constructorId: 'rb', position: 6, status: 'finished' }, { driverId: 'lindblad', constructorId: 'rb', position: 3, status: 'finished' }, { driverId: 'norris', constructorId: 'mclaren', position: 1, status: 'finished' }];
+  assert.deepEqual(resolveSeat('hadjar', results, drivers), { result: results[1], substituteId: 'lindblad' });   // Lindblad drove Hadjar's car
+  assert.deepEqual(resolveSeat('lawson', results, drivers), { result: results[0], substituteId: null });          // present: his own result
+  assert.deepEqual(resolveSeat('hadjar', [results[0], results[2]], drivers), { result: undefined, substituteId: null });   // nobody in the seat: the DNS rule
+  assert.deepEqual(resolveSeat('ghost', results, drivers), { result: undefined, substituteId: null });            // unknown driver, unknown car
+  const twoStrangers = [...results, { driverId: 'someone', constructorId: 'rb', position: 9, status: 'finished' }];
+  assert.equal(resolveSeat('hadjar', twoStrangers, drivers).substituteId, null);                                    // two strangers in one team: no guess
+  // through the decision: the sub's podium is the caller's hit
+  assert.equal(settleDecision(call('PODIUM'), resolveSeat('hadjar', results, drivers).result, cfg).result, 'HIT');
+});
+
+test('the owner\u2019s rules: DNS and DNF both lose, so an absent driver with no substitute costs the stake', () => {
+  const owner = mergeConfig({ enabled: true, dnsRule: 'LOSS', dnfRule: 'LOSS' });
+  assert.deepEqual([settleDecision(call('WIN'), undefined, owner).result, settleDecision(call('WIN'), { status: 'dns' }, owner).result, settleDecision(call('WIN'), { position: 0, status: 'dnf' }, owner).result], ['MISSED', 'MISSED', 'MISSED']);
 });

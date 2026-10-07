@@ -20,6 +20,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { loadMoonshotConfig, type MoonshotConfig, type PredictionType, type StakeCurrency, type VoidRule } from './config';
+import { resolveSeat, type KnownDriver } from './substitute';
 
 export const SETTLEMENT_VERSION = 1;
 
@@ -125,7 +126,7 @@ export function nextStats(prev: Partial<MoonshotStats> | undefined, call: CallTe
 /** Statuses a settlement run picks up: anything confirmed that has not been settled or cancelled. */
 export const SETTLEABLE_STATUSES = ['CONFIRMED', 'LOCKED', 'LIVE'] as const;
 
-type RaceDriverResult = DriverResultLike & { driverId?: string };
+type RaceDriverResult = DriverResultLike & { driverId?: string; constructorId?: string };
 interface RaceLike { seasonId?: unknown; round?: unknown; name?: unknown; status?: unknown; results?: { raceResults?: RaceDriverResult[] } }
 
 /** Pure: is this call still waiting to be settled? Settled, cancelled and void calls are never touched again. */
@@ -141,7 +142,8 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
   if (open.empty) return { settled: 0, skipped: 0, failed: 0 };
   const cfg = await loadMoonshotConfig(db);   // the rules apply to existing calls even when the mechanic is switched off
   const results: RaceDriverResult[] = race.results?.raceResults ?? [];
-  const byDriver = new Map(results.filter((r) => typeof r.driverId === 'string').map((r) => [r.driverId as string, r]));
+  // the game's driver list, for the seat rule: a call on an absent driver follows the car to a substitute
+  const drivers: KnownDriver[] = opts.cancelled ? [] : (await db.collection('drivers').get()).docs.map((d) => ({ id: d.id, constructorId: d.data().constructorId ?? null, isActive: d.data().isActive !== false }));
   const roundNumber = typeof race.round === 'number' ? race.round : null;
   let settled = 0, skipped = 0, failed = 0;
   for (const doc of open.docs) {
@@ -167,7 +169,8 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
           id: snap.id, driverId: m.driverId, raceId, predictionType: m.predictionType, predictionTarget: m.predictionTarget,
           stakeCurrency: m.stakeCurrency, stakeAmount: m.stakeAmount ?? 0, potentialReward: m.potentialReward ?? 0,
         };
-        const decision = settleDecision(call, byDriver.get(m.driverId), cfg, !!opts.cancelled);
+        const seat = resolveSeat(m.driverId, results, drivers);
+        const decision = settleDecision(call, seat.result, cfg, !!opts.cancelled);
         const prevStats: Partial<MoonshotStats> | undefined = team.moonshotStats;
         const teamUpdate: Record<string, unknown> = { updatedAt: now };
         let applied = decision.adjustmentAmount, capped = false, shortfall = false;
@@ -185,7 +188,7 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
 
         tx.update(ref, {
           status: decision.result, result: decision.result, officialDriverFinish: decision.officialDriverFinish, officialDriverStatus: decision.driverStatus,
-          adjustmentAmount: applied, adjustmentRequested: decision.adjustmentAmount, capped, shortfall,
+          settledOnDriverId: seat.substituteId ?? m.driverId, adjustmentAmount: applied, adjustmentRequested: decision.adjustmentAmount, capped, shortfall,
           settlementId, settlementVersion: SETTLEMENT_VERSION, settledAt: now, lockedAt: m.lockedAt ?? m.lockAt ?? null, updatedAt: now,
         });
         // the weekend record beside the scoring phases (not inside them: snapshotWeekendPoints sums phases),
@@ -203,7 +206,7 @@ export async function settleMoonshotsForRace(db: admin.firestore.Firestore, race
         if (typeof m.leagueId === 'string' && m.leagueId && !m.leagueId.includes('/')) {
           tx.set(db.doc(`leagues/${m.leagueId}/activity/${snap.id}_settled`), {
             type: `MOONSHOT_${decision.result}`, moonshotId: snap.id, userId: m.userId, teamId: m.teamId, raceId, roundNumber, raceName: typeof race.name === 'string' ? race.name : null,
-            driverId: m.driverId, predictionType: m.predictionType, predictionTarget: m.predictionTarget ?? null, officialDriverFinish: decision.officialDriverFinish, officialDriverStatus: decision.driverStatus,
+            driverId: m.driverId, settledOnDriverId: seat.substituteId ?? m.driverId, predictionType: m.predictionType, predictionTarget: m.predictionTarget ?? null, officialDriverFinish: decision.officialDriverFinish, officialDriverStatus: decision.driverStatus,
             stakeCurrency: m.stakeCurrency, stakeAmount: call.stakeAmount, multiplier: m.multiplier ?? null, modelProbability: m.modelProbability ?? null, adjustmentAmount: applied, capped, shortfall,
             createdAt: now,
           });
