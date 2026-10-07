@@ -19,8 +19,13 @@ import { GridTile } from './GridTile';
 import { GridTileSheet, sheetTargetFor, type SheetTarget, type SheetMoonshot } from './GridTileSheet';
 import { GridMoonshotSheet, type MoonshotTarget } from './GridMoonshotSheet';
 import { GridMoonshotCard } from './GridMoonshotCard';
+import { GridMoonshotLive } from './GridMoonshotLive';
+import { GridMoonshotCoach } from './GridMoonshotCoach';
 import { useMoonshotStore } from '../../store/moonshot.store';
-import { moonshotAvailability, parseMoonshotConfig } from './moonshot';
+import { useMoonshotLive } from '../hooks/useMoonshotLive';
+import { track } from '../../services/analytics.service';
+import { moonshotAvailability, raceWindow } from './moonshot';
+import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
 import { useTeamStore } from '../../store/team.store';
 import { runStoreAction } from './storeAction';
 import { teamText } from './shareTeam';
@@ -60,8 +65,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const [now, setNow] = useState(() => new Date());
   const [sheetId, setSheetId] = useState<string | null>(null);
   // F-108: Moonshot — config from config/app, the season's calls from the store
-  const appConfig = useRemoteConfigStore((s) => s.appConfig);
-  const moonshotCfg = useMemo(() => parseMoonshotConfig(appConfig?.moonshot), [appConfig?.moonshot]);
+  const moonshotCfg = useMoonshotConfig();
   const nextRace = lockoutInfo.nextRace;
   const moonshotAvail = moonshotAvailability(moonshotCfg, nextRace?.round);
   const moonshotCalls = useMoonshotStore((s) => s.calls);
@@ -81,6 +85,25 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
     onOpen: (t) => { setSheetId(null); setMoonshotTarget({ teamId: team.id, raceId: nextRace.id, raceName: nextRace.name, driverId: t.entry.id, driverName: t.entry.name }); },
   }), [moonshotAvail, team, nextRace, moonshotCfg, tokensLeft, currentCall]);
   const reloadMoonshots = useCallback(() => { if (user?.id && teamId && moonshotSeason) loadMoonshotCalls(user.id, teamId, moonshotSeason, true); }, [user?.id, teamId, moonshotSeason, loadMoonshotCalls]);
+  // race day (SPEC §17): the live card from the race start until three hours after, with the league's locked calls
+  const window = raceWindow(nextRace, now.getTime());
+  const live = useMoonshotLive(moonshotAvail === 'open' ? nextRace : null, window);
+  const board = useMoonshotStore((s) => s.board);
+  const loadBoard = useMoonshotStore((s) => s.loadBoard);
+  useEffect(() => {
+    if (moonshotAvail === 'open' && team?.leagueId && nextRace && window !== 'before') loadBoard(team.leagueId, nextRace.id, window === 'live');
+  }, [moonshotAvail, team?.leagueId, nextRace, window, loadBoard, now]);
+  useEffect(() => { if (window === 'live' && currentCall) track('moonshot_live_viewed', { raceId: currentCall.raceId }); }, [window, currentCall?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // coach marks (SPEC §20): once per account when the feature is first available; the sheet's info icon reopens them
+  const tutorialSeen = useMoonshotStore((s) => s.tutorialSeen);
+  const tutorialOpen = useMoonshotStore((s) => s.tutorialOpen);
+  const checkTutorial = useMoonshotStore((s) => s.checkTutorial);
+  const openTutorial = useMoonshotStore((s) => s.openTutorial);
+  const finishTutorial = useMoonshotStore((s) => s.finishTutorial);
+  useEffect(() => { if (moonshotAvail === 'open' && moonshotCfg.tutorialEnabled && user?.id) checkTutorial(user.id); }, [moonshotAvail, moonshotCfg.tutorialEnabled, user?.id, checkTutorial]);
+  useEffect(() => { if (moonshotAvail === 'open' && moonshotCfg.tutorialEnabled && tutorialSeen === false && !tutorialOpen) { openTutorial(); track('moonshot_tutorial_viewed', { from: 'unlock' }); } }, [moonshotAvail, moonshotCfg.tutorialEnabled, tutorialSeen]); // eslint-disable-line react-hooks/exhaustive-deps
+  const driverNameOf = useCallback((id: string) => remoteDrivers.find((d) => d.id === id)?.name ?? id, [remoteDrivers]);
+  const memberNameOf = useCallback((uid: string) => leagueMembers.find((m) => m.userId === uid)?.displayName ?? 'Player', [leagueMembers]);
 
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
   useEffect(() => {
@@ -420,8 +443,12 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
               </View>
             ) : null
           ) : null}
-          {/* F-108: this race's Moonshot, with Cancel before lock */}
-          {moonshotAvail === 'open' && currentCall && nextRace && team ? (
+          {/* F-108: race day — the live card with the league's calls; otherwise this race's Moonshot with Cancel before lock */}
+          {moonshotAvail === 'open' && nextRace && team && window !== 'before' ? (
+            <GridMoonshotLive call={currentCall} board={board} positions={live.positions} cfg={moonshotCfg} driverName={driverNameOf} nameOf={memberNameOf} updatedAt={live.updatedAt}
+              onOpen={currentCall ? () => setMoonshotTarget({ teamId: team.id, raceId: nextRace.id, raceName: nextRace.name, driverId: currentCall.driverId, driverName: driverNameOf(currentCall.driverId) }) : undefined}
+              style={{ marginHorizontal: gutter, marginTop: 14 }} />
+          ) : moonshotAvail === 'open' && currentCall && nextRace && team ? (
             <GridMoonshotCard
               call={currentCall}
               cfg={moonshotCfg}
@@ -437,6 +464,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
       )}
       <GridTileSheet target={sheetTarget} onClose={() => setSheetId(null)} locked={locked} aceLocked={aceLocked} onToggleAce={sheetToggleAce} onRemove={sheetRemove} moonshot={sheetMoonshot} />
       <GridMoonshotSheet target={moonshotTarget} cfg={moonshotCfg} onClose={() => setMoonshotTarget(null)} onChanged={reloadMoonshots} />
+      <GridMoonshotCoach visible={tutorialOpen} cfg={moonshotCfg} tokens={moonshotCfg.tokensPerTeam} onDone={() => { if (user?.id) finishTutorial(user.id); }} />
     </ScrollView>
   );
 });

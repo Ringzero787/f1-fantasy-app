@@ -137,5 +137,5 @@ test('the Race O/U table parses into driver predictions and builds a model the g
 });
 
 test('the callables are exported', () => {
-  for (const f of ['moonshotQuote', 'moonshotConfirm', 'moonshotCancel', 'moonshotMenu']) assert.equal(typeof index[f], 'function', f);
+  for (const f of ['moonshotQuote', 'moonshotConfirm', 'moonshotCancel', 'moonshotMenu', 'moonshotLeagueBoard']) assert.equal(typeof index[f], 'function', f);
 });

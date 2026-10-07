@@ -170,6 +170,31 @@ export const moonshotMenu = functions.https.onCall(async (data, context) => {
   };
 });
 
+/**
+ * The league's Moonshots on a race (F-108, SPEC §16/§17): what members may see of each other —
+ * locked calls (lockAt passed) and settled ones, never a cancelled one and never a call still open
+ * to change. The same rule the Firestore rules apply, decided here on the server clock so a
+ * client whose clock is ahead cannot peek, and so the client needs no list query on `moonshots`.
+ */
+export const moonshotLeagueBoard = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  warnIfNoAppCheck(context, 'moonshotLeagueBoard');
+  const uid = context.auth.uid;
+  const leagueId = str(data?.leagueId), raceId = str(data?.raceId);
+  if (!leagueId || !raceId) throw new functions.https.HttpsError('invalid-argument', 'leagueId and raceId are required');
+  const [me, members] = await Promise.all([db.doc(`leagues/${leagueId}/members/${uid}`).get(), db.collection(`leagues/${leagueId}/members`).get()]);
+  if (!me.exists) throw new functions.https.HttpsError('permission-denied', 'Not a member of this league');
+  const names = new Map(members.docs.map((d) => [d.id, { displayName: d.data().displayName ?? null, teamName: d.data().teamName ?? null }]));
+  const snap = await db.collection('moonshots').where('leagueId', '==', leagueId).where('raceId', '==', raceId).get();
+  const now = Date.now();
+  const calls = snap.docs
+    .map((d) => ({ id: d.id, m: d.data() }))
+    .filter(({ m }) => m.status !== 'CANCELLED' && m.lockAt && typeof m.lockAt.toMillis === 'function' && m.lockAt.toMillis() <= now)
+    .map(({ id, m }) => ({ ...pickCall(id, m), userId: m.userId, ...(names.get(m.userId) ?? { displayName: null, teamName: null }) }))
+    .sort((a, b) => (b.potentialReward ?? 0) - (a.potentialReward ?? 0));
+  return { raceId, calls, lockedCount: calls.length };
+});
+
 export const moonshotConfirm = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   warnIfNoAppCheck(context, 'moonshotConfirm');

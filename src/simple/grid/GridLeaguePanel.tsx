@@ -7,7 +7,12 @@ import { useAuthStore } from '../../store/auth.store';
 import { useLeagueStore } from '../../store/league.store';
 import { GridAvatar, MonoLabel, ScreenHeader } from './GridBits';
 import { rankStandings, playersCaption, type StandingsRow, type StandingsSort } from './standings';
-import { raceOptions, raceResultRows, teamLineWithWins, type LeagueRaceResultDoc } from './raceLeaderboard';
+import { raceOptions, raceResultRows, shortRaceName, teamLineWithWins, type LeagueRaceResultDoc } from './raceLeaderboard';
+import { GridMoonshotFeed } from './GridMoonshotFeed';
+import { useMoonshotStore } from '../../store/moonshot.store';
+import { useLockoutStatus } from '../../hooks/useLockoutStatus';
+import { moonshotAvailability } from './moonshot';
+import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
 import { GridRaceSelectSheet } from './GridRaceSelectSheet';
 import { standingsText } from './shareStandings';
 import { shareText } from './shareText';
@@ -31,6 +36,26 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const loadLeagueMembers = useLeagueStore((s) => s.loadLeagueMembers);
   const subscribeToLeagueMembers = useLeagueStore((s) => s.subscribeToLeagueMembers);
   const [sort, setSort] = useState<StandingsSort>('season');
+  // F-108: the league's Moonshot feed — this race's locked declarations and the season's history
+  const moonshotCfg = useMoonshotConfig();
+  const lockout = useLockoutStatus();
+  const moonshotAvail = moonshotAvailability(moonshotCfg, lockout.nextRace?.round);
+  const board = useMoonshotStore((s) => s.board);
+  const activity = useMoonshotStore((s) => s.activity);
+  const loadBoard = useMoonshotStore((s) => s.loadBoard);
+  const loadActivity = useMoonshotStore((s) => s.loadActivity);
+  const remoteDrivers = useRemoteConfigStore((s) => s.drivers);
+  useEffect(() => {
+    if (moonshotAvail !== 'open' || !leagueId) return;
+    loadActivity(leagueId);
+    if (lockout.nextRace) loadBoard(leagueId, lockout.nextRace.id);
+  }, [moonshotAvail, leagueId, lockout.nextRace?.id, loadActivity, loadBoard]); // eslint-disable-line react-hooks/exhaustive-deps
+  const feed = moonshotAvail === 'open' && leagueId ? (
+    <GridMoonshotFeed board={board.filter((b) => !lockout.nextRace || b.raceId === lockout.nextRace.id)} activity={activity} cfg={moonshotCfg}
+      driverName={(id) => remoteDrivers.find((d) => d.id === id)?.name ?? id}
+      nameOf={(uid) => members.find((m) => m.userId === uid)?.displayName ?? 'Player'}
+      raceLabel={lockout.nextRace ? `RD ${lockout.nextRace.round} · ${shortRaceName(lockout.nextRace.name).toUpperCase()}` : null} />
+  ) : null;
   const [refreshing, setRefreshing] = useState(false);
   // F-062: one race's leaderboard instead of the season table. null = season / last race.
   const [raceId, setRaceId] = useState<string | null>(null);
@@ -192,6 +217,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
       ) : null}
       {picking ? <GridRaceSelectSheet options={selectorOptions} value={selectorValue} onPick={onPick} onClose={() => setPicking(false)} /> : null}
       <FlatList
+        ListHeaderComponent={feed}
         data={rows}
         keyExtractor={(r) => r.userId}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: 12 }}
