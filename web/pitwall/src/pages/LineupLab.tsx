@@ -74,7 +74,6 @@ export function LineupLab() {
             {real || !proj.complete ? null : <div><div className="h2 num">{Math.min(99, Math.round(18 + proj.points / 9))}%</div><span className="mut">League win chance</span></div>}
           </div>
           {real ? <RealRoster /> : <div className="lineup">{l.drivers.map((id) => tile(entity(p, id)!, false))}{tile(entity(p, l.ctor)!, true)}</div>}
-          <MoonshotTile />
           {blocked && dirty ? <p className="err" role="alert" style={{ margin: 0 }}>{blocked}</p> : null}
           <div className="th">
             {real ? (
@@ -104,6 +103,7 @@ export function LineupLab() {
         </Tile>
       </div>
       <div className="c6" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <MoonshotTile />
         {slot && (cur || slot === OPEN_SEAT || isC) ? (
           <>
             {cur ? (
@@ -123,7 +123,7 @@ export function LineupLab() {
             )}
             <Tile label={`All options within ${money(room)} bank · tap to ${cur ? 'swap' : 'fill the seat'}`} right={<span className="mut only-wide">{curated ? 'Best gain first' : 'Highest projection first'}</span>}>
               <div className="scroll"><table>
-                <thead><tr><th scope="col">{isC ? 'Team' : 'Driver'}</th>{curated ? <th scope="col">Gain</th> : null}<th scope="col">Price</th><th scope="col">Proj</th><th scope="col">Pts/$100</th>{isC ? null : <>{has.fit ? <th scope="col">Fit</th> : null}<th scope="col">DNF</th><th scope="col">Next $</th></>}{!isC && moonshotOn ? <th scope="col"><span className="visually-hidden">Moonshot</span>🚀</th> : null}</tr></thead>
+                <thead><tr><th scope="col">{isC ? 'Team' : 'Driver'}</th>{curated ? <th scope="col">Gain</th> : null}<th scope="col">Price</th><th scope="col">Proj</th><th scope="col">Pts/$100</th>{isC ? null : <>{has.fit ? <th scope="col">Fit</th> : null}<th scope="col">DNF</th><th scope="col">Next $</th></>}{!isC && moonshotOn ? <th scope="col"><span className="visually-hidden">Moonshot</span><span aria-hidden="true">🚀</span></th> : null}</tr></thead>
                 <tbody>
                   {cur ? <tr className="me"><td><TeamBar p={p} team={cur.team} /><b>{cur.name}</b> <span className="mut">now</span></td>{curated ? <td className="mut">—</td> : null}{stat(cur)}{!isC && moonshotOn ? <td /> : null}</tr> : null}
                   {pool.map(({ e, gain }, n) => (
@@ -131,7 +131,7 @@ export function LineupLab() {
                       <td><TeamBar p={p} team={e.team} /><b>{e.name}</b>{curated && n === 0 && gain > 0 ? <> <Pill red>TOP</Pill></> : null}</td>
                       {curated ? <td className={gain > 0 ? 'pos' : 'red'}><b>{gain > 0 ? '+' : ''}{gain.toFixed(0)}</b></td> : null}{stat(e)}
                       {/* a call on this driver, without swapping him in: the row's own click is the swap, so this stops the event */}
-                      {!isC && moonshotOn ? <td><button type="button" className="ghost" style={{ padding: '4px 8px' }} aria-label={`Moonshot on ${e.name}`} onClick={(ev) => { ev.stopPropagation(); moonshotOn(e.id); }}>🚀</button></td> : null}
+                      {!isC && moonshotOn ? <td><button type="button" className="ghost" style={{ padding: '4px 8px' }} aria-label={`Moonshot on ${e.name}`} onClick={(ev) => { ev.stopPropagation(); moonshotOn(e.id); }} onKeyDown={(ev) => ev.stopPropagation()}><span aria-hidden="true">🚀</span></button></td> : null}
                     </Tr>
                   ))}
                 </tbody>
