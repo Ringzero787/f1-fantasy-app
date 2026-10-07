@@ -3,11 +3,13 @@ import { ACE_MAX_PRICE, TEAM_SIZE, type Plan } from '../data/team';
 import { useStore } from '../state';
 import { Pill, TeamBar } from './bits';
 import { useMoonshot } from '../lib/moonshotStore';
+import { useMoonshotEntry } from './Moonshot';
 
 /** The user's real roster as tiles: names, prices and contracts from the team document. */
 export function RealRoster() {
   const { payload: p, ui, real, toggleSlot, setAce } = useStore();
   const moonshotDriver = useMoonshot()?.current?.driverId ?? null;
+  const moonshotOn = useMoonshotEntry();   // F-109: a call on a roster driver starts from the tile itself
   if (!real) return null;
   const { team, market } = real;
   const byId = new Map(team.drivers.map((d) => [d.driverId, d]));
@@ -29,8 +31,8 @@ export function RealRoster() {
         return (
           <span key={id} className="dtw">
           <button type="button" className="dt" aria-pressed={ui.slot === id} aria-label={`${name}, ${money(price)}${ace ? ', ace' : ''}${own ? '' : ', new'}. Show swaps`} onClick={() => toggleSlot(id)}>
-            <span style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: ace || canAce ? 62 : 0 }} className="mut">
-              <span>{own ? '' : <Pill red>NEW</Pill>}{id === moonshotDriver ? <Pill red>🚀</Pill> : null}</span><span className="num">{money(price)}</span>
+            <span style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: ace || canAce ? 62 : 0, paddingRight: moonshotOn ? 40 : 0 }} className="mut">
+              <span>{own ? '' : <Pill red>NEW</Pill>}</span><span className="num">{money(price)}</span>
             </span>
             <span><span className="nm">{name}</span>
               <span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(own?.constructorId ?? '')} /></span>
@@ -38,6 +40,10 @@ export function RealRoster() {
           </button>
           {ace || canAce ? (
             <button type="button" className="chip acepill" aria-pressed={ace} aria-label={ace ? `${name} is the ace. Tap to clear` : `Make ${name} the ace`} title={ace ? 'Ace · 2× points · tap to clear' : `Make ${name} the ace`} onClick={() => setAce(id)}>{ace ? 'ACE 2×' : 'ACE'}</button>
+          ) : null}
+          {/* the Moonshot chip in the other corner: filled when this driver carries your call, outlined when he could */}
+          {moonshotOn ? (
+            <button type="button" className="chip moonpill" aria-pressed={id === moonshotDriver} aria-label={id === moonshotDriver ? `Your Moonshot is on ${name}. Open it` : `Moonshot on ${name}`} title={id === moonshotDriver ? 'Your Moonshot · open it' : `Moonshot on ${name}`} onClick={() => moonshotOn(id)}><span aria-hidden="true">🚀</span></button>
           ) : null}
           </span>
         );

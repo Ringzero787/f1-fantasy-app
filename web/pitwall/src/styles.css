@@ -184,7 +184,8 @@ details.tbl>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spac
 .dtw{position:relative;display:flex;min-width:0}
 .dtw .dt{width:100%}
 .acepill{position:absolute;top:12px;left:12px;z-index:1;padding:4px 8px}
-.acepill[aria-pressed="true"],.acepill-inline[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:var(--onRed)}
+.moonpill{position:absolute;top:12px;right:12px;z-index:1;padding:4px 7px}
+.acepill[aria-pressed="true"],.acepill-inline[aria-pressed="true"],.moonpill[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:var(--onRed)}
 
 /* ---- Briefing hero (F-097 stage 2) ---- */
 .hero{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:20px;align-items:stretch;padding-top:6px}
