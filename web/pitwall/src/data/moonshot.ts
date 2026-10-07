@@ -182,3 +182,28 @@ export function moonshotErrorText(e: unknown): string {
   if (code === 'unauthenticated') return 'Sign in again to make a Moonshot.';
   return err?.message && !/^internal$/i.test(err.message) ? err.message : 'Something went wrong. Try again.';
 }
+
+// ── race day (F-111) ────────────────────────────────────────────────────────
+
+export type LiveState = 'IN' | 'OUT' | 'CLOSE' | 'PENDING';
+
+/** Race-day state from the driver's current position (SPEC §17): IN when the prediction currently holds, CLOSE one place outside it. */
+export function liveState(call: Pick<MoonshotCall, 'predictionType' | 'predictionTarget'>, position: number | null | undefined): LiveState {
+  if (position == null || position < 1) return 'PENDING';
+  const limit = call.predictionType === 'WIN' ? 1 : call.predictionType === 'PODIUM' ? 3 : call.predictionType === 'TOP_5' ? 5 : call.predictionTarget ?? 0;
+  if (call.predictionType === 'EXACT_FINISH') return position === limit ? 'IN' : Math.abs(position - limit) === 1 ? 'CLOSE' : 'OUT';
+  if (position <= limit) return 'IN';
+  return position === limit + 1 ? 'CLOSE' : 'OUT';
+}
+
+export const liveChip = (s: LiveState): string => (s === 'IN' ? 'In' : s === 'OUT' ? 'Out' : s === 'CLOSE' ? 'One position away' : 'Pending');
+
+/** `races/{raceId}/live/positions`, as the server sweep writes it. */
+export interface LivePositionsDoc { raceId: string; sessionKey: number | null; byDriver: Record<string, number>; atMs: number | null }
+
+export function toLiveDoc(d: Record<string, unknown> | undefined): LivePositionsDoc | null {
+  if (!d) return null;
+  const by = d.byDriver && typeof d.byDriver === 'object' ? Object.fromEntries(Object.entries(d.byDriver as Record<string, unknown>).filter((e): e is [string, number] => typeof e[1] === 'number' && e[1] >= 1)) : {};
+  const at = d.at && typeof (d.at as { toMillis?: unknown }).toMillis === 'function' ? (d.at as { toMillis: () => number }).toMillis() : null;
+  return { raceId: String(d.raceId ?? ''), sessionKey: typeof d.sessionKey === 'number' ? d.sessionKey : null, byDriver: by, atMs: at };
+}

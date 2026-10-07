@@ -1,7 +1,7 @@
 import {
   MOONSHOT_COPY, FORBIDDEN_TERMS, callOpen, callSummary, callableMessage, chancePct, copyText, liveState, moonshotAvailability, moonshotColumn, multiplierLabel,
   outcomeLine, parseMoonshotConfig, predictionLabel, predictionSentence, quoteFresh, sameTerms, settledLine, signed, stakeOptions, statusLabel, toCall, usesForbiddenTerm, type MoonshotCall,
-  activityLine, declarationLine, latestPositions, liveChip, raceWindow, sessionForRace,
+  activityLine, declarationLine, latestPositions, liveChip, raceWindow, sessionForRace, toLiveDoc,
 } from '../../src/simple/grid/moonshot';
 import { rankStandings } from '../../src/simple/grid/standings';
 import { raceResultRows } from '../../src/simple/grid/raceLeaderboard';
@@ -178,5 +178,14 @@ describe('the league and the race weekend', () => {
     expect(sessionForRace(sessions, new Date(Date.UTC(2026, 9, 10, 7)))).toBeNull();   // a sprint is not the race
     expect(sessionForRace(sessions, null)).toBeNull();
     expect(liveChip('CLOSE')).toBe('ONE POSITION AWAY'); expect(liveChip('PENDING')).toBe('PENDING');
+  });
+});
+
+describe('the live document', () => {
+  it('keeps only usable positions and reads the stamp', () => {
+    const d = toLiveDoc({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, norris: 1, bad: 'x', zero: 0 }, at: { toMillis: () => 5_000 } });
+    expect(d).toEqual({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, norris: 1 }, atMs: 5_000 });
+    expect(toLiveDoc(undefined)).toBeNull();
+    expect(toLiveDoc({})?.byDriver).toEqual({});
   });
 });

@@ -1,4 +1,4 @@
-next_id: 111
+next_id: 112
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1281,3 +1281,16 @@ features:
       - drives
       - enable
       - script
+  - id: F-111
+    name: "UC: One live-timing ingest for race day, fanned out through Firestore"
+    status: building
+    spec: .aidlc/specs/F-111.md
+    created_at: 2026-10-07
+    keywords:
+      - live
+      - timing
+      - ingest
+      - race
+      - fanned
+      - through
+      - firestore

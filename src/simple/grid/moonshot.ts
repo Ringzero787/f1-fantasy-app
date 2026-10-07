@@ -400,3 +400,15 @@ export function sessionForRace<T extends { date_start: string; session_name?: st
 export function liveChip(state: LiveState, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
   return state === 'IN' ? copyText(cfg, 'stateIn') : state === 'OUT' ? copyText(cfg, 'stateOut') : state === 'CLOSE' ? copyText(cfg, 'stateClose') : copyText(cfg, 'statePending');
 }
+
+/** `races/{raceId}/live/positions`, as F-111's sweep writes it and the race-day card reads it. */
+export interface LivePositionsDoc { raceId: string; sessionKey: number | null; byDriver: Record<string, number>; atMs: number | null }
+
+export function toLiveDoc(d: Record<string, unknown> | undefined): LivePositionsDoc | null {
+  if (!d) return null;
+  const by = d.byDriver && typeof d.byDriver === 'object' ? Object.fromEntries(Object.entries(d.byDriver as Record<string, unknown>).filter((e): e is [string, number] => typeof e[1] === 'number' && e[1] >= 1)) : {};
+  const at = d.at && typeof (d.at as { toMillis?: unknown }).toMillis === 'function' ? (d.at as { toMillis: () => number }).toMillis() : null;
+  return { raceId: String(d.raceId ?? ''), sessionKey: typeof d.sessionKey === 'number' ? d.sessionKey : null, byDriver: by, atMs: at };
+}
+
+

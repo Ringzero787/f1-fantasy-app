@@ -6,8 +6,8 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { RealTeam } from '../data/team';
-import type { BoardCall, MoonshotCall, MoonshotMenu, MoonshotModelDoc, MoonshotQuote } from '../data/moonshot';
-import { cancelCall, confirmQuote, fetchBoard, fetchMenu, fetchQuote, loadCurrentRace, loadModel, loadTeamCalls, type CurrentRace, type QuoteRequest } from './moonshotApi';
+import type { BoardCall, LivePositionsDoc, MoonshotCall, MoonshotMenu, MoonshotModelDoc, MoonshotQuote } from '../data/moonshot';
+import { cancelCall, confirmQuote, fetchBoard, fetchMenu, fetchQuote, loadCurrentRace, loadModel, loadTeamCalls, subscribeLive, type CurrentRace, type QuoteRequest } from './moonshotApi';
 import { auth } from './firebase';
 import { hasFirebaseConfig } from './env';
 
@@ -26,6 +26,8 @@ export interface MoonshotCtx {
   ready: boolean;
   /** the server's token count as last reported (menu or confirm); null until a menu has been priced */
   tokens: { perTeam: number; left: number } | null;
+  /** race-day positions from the server sweep (F-111); null outside a race */
+  live: LivePositionsDoc | null;
 }
 
 const Ctx = createContext<MoonshotCtx | null>(null);
@@ -40,6 +42,7 @@ export function MoonshotProvider({ team, children }: { team: RealTeam | null; ch
   const [model, setModel] = useState<MoonshotModelDoc | null>(null);
   const [ready, setReady] = useState(false);
   const [tokens, setTokens] = useState<{ perTeam: number; left: number } | null>(null);
+  const [live, setLive] = useState<LivePositionsDoc | null>(null);
   const menus = useRef(new Map<string, Promise<MoonshotMenu>>());
   const teamId = team?.id ?? null, leagueId = team?.leagueId ?? null;
 
@@ -77,8 +80,17 @@ export function MoonshotProvider({ team, children }: { team: RealTeam | null; ch
     return () => { live = false; };
   }, [race?.raceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // the live document exists only during the race, so one listener per race costs nothing outside it
+  useEffect(() => {
+    let stop: (() => void) | null = null, gone = false;
+    setLive(null);
+    if (!active || !race) return;
+    subscribeLive(race.raceId, (d) => { if (!gone) setLive(d); }).then((u) => { if (gone) u(); else stop = u; }).catch(() => undefined);
+    return () => { gone = true; stop?.(); };
+  }, [active, race?.raceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const value = useMemo<MoonshotCtx>(() => ({
-    race, calls, board, model, ready,
+    race, calls, board, model, ready, live,
     current: race ? calls.find((c) => c.raceId === race.raceId && c.status !== 'CANCELLED') ?? null : null,
     menu: (driverId) => {
       if (!teamId || !race) return Promise.reject(new Error('No team or race'));
@@ -94,7 +106,7 @@ export function MoonshotProvider({ team, children }: { team: RealTeam | null; ch
     confirm: async (quoteId) => { const r = await confirmQuote(quoteId); setTokens((t) => (t ? { ...t, left: r.tokensLeft } : t)); await reloadCalls(); },
     cancel: async (moonshotId) => { await cancelCall(moonshotId); setTokens((t) => (t ? { ...t, left: Math.min(t.perTeam, t.left + 1) } : t)); await reloadCalls(); },
     tokens,
-  }), [race, calls, board, model, ready, tokens, teamId, reloadCalls]);
+  }), [race, calls, board, model, ready, tokens, live, teamId, reloadCalls]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

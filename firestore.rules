@@ -432,6 +432,13 @@ service cloud.firestore {
         allow read: if true;
         allow write: if false;
       }
+
+      // F-111: the race-day positions one server sweep writes each minute; every signed-in
+      // client listens here instead of asking the timing provider itself.
+      match /live/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
     }
 
     // Transactions collection

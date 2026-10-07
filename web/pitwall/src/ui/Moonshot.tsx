@@ -9,7 +9,7 @@ import { useMoonshot } from '../lib/moonshotStore';
 import { Locked } from './Locked';
 import { AsTable, Empty, Lbl, Pill, Row } from './bits';
 import {
-  callOpen, chancePct, coveredPositions, currencyWord, declarationLine, distributionBars, moonshotErrorText, multiplierLabel, outcomeLine, predictionLabel,
+  callOpen, chancePct, coveredPositions, currencyWord, declarationLine, distributionBars, liveChip, liveState, moonshotErrorText, multiplierLabel, outcomeLine, predictionLabel,
   predictionSentence, quoteFresh, sameTerms, settledLine, signed, stakeOptions, statsLines, type MoonshotMenu, type MoonshotQuote, type PredictionType, type StakeCurrency,
 } from '../data/moonshot';
 
@@ -213,9 +213,11 @@ export function MoonshotTile() {
     );
   }
   const open_ = callOpen(cur, Date.now());
+  const pos = ms.live?.byDriver[cur.driverId] ?? null;
+  const state = ms.live ? liveState(cur, pos) : null;
   return (
     <section className="tile only-wide you" aria-label="Your Moonshot">
-      <div className="th"><Lbl>🚀 Your Moonshot</Lbl>{cur.result ? <Pill red={cur.result === 'HIT'}>{cur.result}</Pill> : <Pill>{open_ ? 'Open until lock' : 'Locked'}</Pill>}</div>
+      <div className="th"><Lbl>🚀 Your Moonshot</Lbl>{cur.result ? <Pill red={cur.result === 'HIT'}>{cur.result}</Pill> : state ? <Pill red={state === 'IN' || state === 'CLOSE'}>{pos ? `P${pos} · ` : ''}{liveChip(state)}</Pill> : <Pill>{open_ ? 'Open until lock' : 'Locked'}</Pill>}</div>
       <Row cols="1fr auto" onClick={() => openOn(cur.driverId)} label={`${name(cur.driverId)} ${predictionLabel(cur.predictionType, cur.predictionTarget)}, open detail`}>
         <span><b>{name(cur.driverId)} — {predictionLabel(cur.predictionType, cur.predictionTarget)}</b><br /><span className="mut">{cur.result ? settledLine(cur, name(cur.driverId)) : `${chancePct(cur.modelProbability)} · ${cur.rewardBand} ${multiplierLabel(cur.multiplier)} · ${cur.stakeAmount.toLocaleString()} ${currencyWord(cur.stakeCurrency)} at risk`}</span></span>
         <span className="num"><span className="red">{signed(cur.potentialReward)}</span> · {signed(-cur.stakeAmount)}</span>

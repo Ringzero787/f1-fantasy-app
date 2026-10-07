@@ -9,6 +9,7 @@ const { memberSeasonTotal, moonshotShare } = require('../lib/scoring/standingsFi
 const admin = require('firebase-admin');
 const { rankRaceEntries } = require('../lib/scoring/leagueRaceResults.js');
 const { resolveSeat, seatOf } = require('../lib/moonshot/substitute.js');
+const { isLive, sessionForRace, latestByDriver } = require('../lib/moonshot/liveSweep.js');
 const index = require('../lib/index.js');
 
 const cfg = mergeConfig({ enabled: true });
@@ -212,4 +213,19 @@ test('the call follows the car: an absent driver settles on the one substitute i
 test('the owner\u2019s rules: DNS and DNF both lose, so an absent driver with no substitute costs the stake', () => {
   const owner = mergeConfig({ enabled: true, dnsRule: 'LOSS', dnfRule: 'LOSS' });
   assert.deepEqual([settleDecision(call('WIN'), undefined, owner).result, settleDecision(call('WIN'), { status: 'dns' }, owner).result, settleDecision(call('WIN'), { position: 0, status: 'dnf' }, owner).result], ['MISSED', 'MISSED', 'MISSED']);
+});
+
+test('the live sweep: the race window, the race session on the race day, the latest position per car mapped to drivers', () => {
+  const start = Date.UTC(2026, 9, 11, 12);
+  const race = { id: 'r', status: 'upcoming', schedule: { race: new Date(start) } };
+  assert.equal(isLive(race, start - 1), false); assert.equal(isLive(race, start), true); assert.equal(isLive(race, start + 3 * 3600e3 + 1), false);
+  assert.equal(isLive({ ...race, status: 'in_progress' }, start + 5 * 3600e3), true); assert.equal(isLive({ ...race, status: 'in_progress' }, start + 6 * 3600e3 + 1), false);
+  assert.equal(isLive({ ...race, status: 'completed' }, start + 1), false);
+  assert.equal(isLive({ id: 'r', status: 'upcoming', schedule: { race: { toMillis: () => start } } }, start + 60e3), true);   // a Firestore Timestamp
+  const sessions = [{ session_key: 9, session_name: 'Sprint', date_start: '2026-10-10T07:00:00+00:00' }, { session_key: 2, session_name: 'Race', date_start: '2026-10-11T20:00:00+08:00' }];
+  assert.equal(sessionForRace(sessions, start)?.session_key, 2);
+  assert.equal(sessionForRace(sessions, Date.UTC(2026, 9, 10, 7)), null);
+  const rows = [{ driver_number: 6, position: 5, date: '2026-10-11T12:05:00Z' }, { driver_number: 6, position: 4, date: '2026-10-11T12:40:00Z' }, { driver_number: 6, position: 9, date: 'garbage' }, { driver_number: 99, position: 1, date: '2026-10-11T12:40:00Z' }];
+  assert.deepEqual(latestByDriver(rows, { 6: 'hadjar' }), { hadjar: 4 });   // latest wins, a bad time is skipped, an unknown car is dropped
+  assert.equal(typeof index.moonshotLiveSweep, 'function');
 });
