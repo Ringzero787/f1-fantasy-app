@@ -218,7 +218,7 @@ test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped
   await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { budget: 5000 }));
   await assertSucceeds(getDocs(query(collection(d, 'fantasyTeams'), where('userId', '==', ALICE))));
   // F-059 step B / F-112: the global team-name query is refused now; 2.3.2+ asks checkTeamNameAvailable
-  // and config/app.minVersion is raised to 2.3.2 in the same deploy (functions/scripts/setAppVersionGate.js)
+  // and config/app.minVersion is raised (to 2.5.0, owner decision; 2.3.2 is the minimum) in the same deploy (functions/scripts/setAppVersionGate.js)
   await assertFails(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
 });
 

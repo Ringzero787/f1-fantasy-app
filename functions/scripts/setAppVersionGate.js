@@ -1,20 +1,25 @@
 // Write the app-version gate of config/app (F-112): the floor below which the app blocks with
 // "Update required" (src/components/AppUpdateGate.tsx reads minVersion; absent = no gate).
 //
-// DESIRED below is the F-059/F-112 decision of 2026-10-07: 2.3.2 is the first build that asks the
-// server whether a team name is free (checkTeamNameAvailable); every earlier build ran a global
-// `where('name','==',…)` query over fantasyTeams, which the scoped list rule now refuses. Raising
-// the floor to 2.3.2 BEFORE that rule deploys turns a silent permission error on create/rename into
-// the update screen. latestVersion and updateMessage are not touched here: the gate's default
-// wording is right for a hard block, and AppUpdateGate shows updateMessage on the soft "new version"
-// banner too, so a message written for the floor would read wrong to everyone else. Dry run prints
-// what is live beside what would be written; `--apply` merges minVersion only, so the Moonshot block
-// and everything else in config/app survive.
+// DESIRED below is the owner's decision of 2026-10-07: every store build moves to 2.5.0 — the
+// Moonshot build, with the F-099/F-101/F-103 fixes and the F-112 hardening — so the floor is 2.5.0,
+// not merely 2.3.2 (the first build that asks the server whether a team name is free; everything
+// older ran a global fantasyTeams query the scoped list rule now refuses). The op must be applied
+// only once 2.5.0 is LIVE on Google Play, the Amazon Appstore and the App Store: the floor blocks
+// every store at once, and the force screen on an Amazon install opens the Play URL, which is why
+// updateMessage names the stores. AppUpdateGate shows updateMessage on the dismissible "new
+// version" banner too (current >= minVersion but < latestVersion), so the message carries no
+// version number and no "to keep playing": it has to read right on both screens, and whenever
+// latestVersion is later moved above the floor, rewrite it here. latestVersion is not touched. Dry
+// run prints what is live beside what would be written; `--apply` merges only the keys below (the
+// --minVersion flag moves the floor; updateMessage from DESIRED is still written), so the Moonshot
+// block and everything else in config/app survive. scripts/versionGate.test.js holds the floor to
+// at most the version app.config.js ships — a floor above the current build locks everyone out.
 //
 // Usage (normally through the uc-script op kind, which sets SA_KEY and passes --apply):
 //   node scripts/setAppVersionGate.js                        # dry run: show live vs desired
 //   node scripts/setAppVersionGate.js --apply                # write DESIRED
-//   node scripts/setAppVersionGate.js --minVersion=2.4.0 --apply   # a different floor on a hand run
+//   node scripts/setAppVersionGate.js --minVersion=2.3.2 --apply   # a lower floor on a hand run
 //
 // The uc-script op kind passes only --apply, so through `aidlc op` the flag is not reachable:
 // to move the floor in production, edit DESIRED here, commit, and raise a new uc-script op.
@@ -42,7 +47,8 @@ function initAdmin() {
 
 /** The gate. Keys absent here keep whatever is live. */
 const DESIRED = {
-  minVersion: '2.3.2',
+  minVersion: '2.5.0',
+  updateMessage: 'A new Undercut build is out, with Moonshot and more. Update from the store you installed from — Google Play, the Amazon Appstore or the App Store.',
 };
 
 const VERSION = /^\d+\.\d+\.\d+$/;
@@ -69,7 +75,7 @@ async function main(block, apply) {
   console.log('== desired (merged over live):'); console.log(JSON.stringify(block, null, 2));
   if (!apply) { console.log('== dry run: nothing written (add --apply)'); return; }
   await ref.set(block, { merge: true });
-  console.log(`== wrote config/app gate (minVersion=${block.minVersion})`);
+  console.log(`== wrote config/app gate: ${Object.entries(block).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ')}`);
 }
 
 if (require.main === module) {
