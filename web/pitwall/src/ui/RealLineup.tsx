@@ -2,10 +2,12 @@ import { OPEN_SEAT, money, shortName, shortTeamName } from '../data/logic';
 import { ACE_MAX_PRICE, TEAM_SIZE, type Plan } from '../data/team';
 import { useStore } from '../state';
 import { Pill, TeamBar } from './bits';
+import { useMoonshot } from '../lib/moonshotStore';
 
 /** The user's real roster as tiles: names, prices and contracts from the team document. */
 export function RealRoster() {
   const { payload: p, ui, real, toggleSlot, setAce } = useStore();
+  const moonshotDriver = useMoonshot()?.current?.driverId ?? null;
   if (!real) return null;
   const { team, market } = real;
   const byId = new Map(team.drivers.map((d) => [d.driverId, d]));
@@ -28,7 +30,7 @@ export function RealRoster() {
           <span key={id} className="dtw">
           <button type="button" className="dt" aria-pressed={ui.slot === id} aria-label={`${name}, ${money(price)}${ace ? ', ace' : ''}${own ? '' : ', new'}. Show swaps`} onClick={() => toggleSlot(id)}>
             <span style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: ace || canAce ? 62 : 0 }} className="mut">
-              <span>{own ? '' : <Pill red>NEW</Pill>}</span><span className="num">{money(price)}</span>
+              <span>{own ? '' : <Pill red>NEW</Pill>}{id === moonshotDriver ? <Pill red>🚀</Pill> : null}</span><span className="num">{money(price)}</span>
             </span>
             <span><span className="nm">{name}</span>
               <span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(own?.constructorId ?? '')} /></span>

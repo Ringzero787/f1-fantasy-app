@@ -15,6 +15,18 @@ import {
 
 type Step = 'currency' | 'prediction' | 'stake' | 'confirm';
 
+/**
+ * Where a Moonshot can be called from: a real team, a round to price, not the example payload.
+ * Returns the opener (driver id → slide-over on the MOONSHOT tab) or null when the entry points should not render.
+ */
+export function useMoonshotEntry(): ((driverId: string) => void) | null {
+  const { payload: p, open, set, real } = useStore();
+  const ms = useMoonshot();
+  if (!ms || !ms.race || !real || p.example) return null;
+  // open() lands on PRESENT, so the tab is set after it
+  return (id: string) => { open(id); set('overTab', 'MOONSHOT'); };
+}
+
 /** The slide-over's MOONSHOT tab: the predictions priced for this driver, the flow, and the depth view. */
 export function MoonshotPanel({ driverId, driverName }: { driverId: string; driverName: string }) {
   const { payload: p } = useStore();
