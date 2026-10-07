@@ -113,6 +113,63 @@ export const moonshotQuote = functions.https.onCall(async (data, context) => {
   };
 });
 
+/** The fields of a call the client reads (the shape of the app's MoonshotCall); server bookkeeping stays behind. */
+function pickCall(id: string, m: FirebaseFirestore.DocumentData) {
+  return {
+    id, teamId: m.teamId, raceId: m.raceId, roundNumber: m.roundNumber ?? null, driverId: m.driverId,
+    predictionType: m.predictionType, predictionTarget: m.predictionTarget ?? null, stakeCurrency: m.stakeCurrency, stakeAmount: m.stakeAmount,
+    modelProbability: m.modelProbability, rewardBand: m.rewardBand, multiplier: m.multiplier, potentialReward: m.potentialReward, ownsDriver: m.ownsDriver === true,
+    status: m.status, lockAtMs: m.lockAt && typeof m.lockAt.toMillis === 'function' ? m.lockAt.toMillis() : null,
+    result: m.result ?? null, officialDriverFinish: m.officialDriverFinish ?? null, adjustmentAmount: m.adjustmentAmount ?? null,
+  };
+}
+
+/**
+ * Everything the Moonshot sheet needs to open on one driver in one round-trip (F-108): whether the
+ * feature is open this round, tokens left, the call already made on this race (if any), every
+ * enabled prediction priced for the driver, the stake levels and balances, and the model summary.
+ * Nothing is stored; the quote that is confirmed comes from `moonshotQuote` at the stake step.
+ */
+export const moonshotMenu = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  warnIfNoAppCheck(context, 'moonshotMenu');
+  const uid = context.auth.uid;
+  const teamId = str(data?.teamId), raceId = str(data?.raceId), driverId = str(data?.driverId);
+  if (!teamId || !raceId || !driverId) throw new functions.https.HttpsError('invalid-argument', 'teamId, raceId and driverId are required');
+  const cfg = await loadMoonshotConfig(db);
+  const [team, raceSnap] = await Promise.all([ownTeam(teamId, uid), db.doc(`races/${raceId}`).get()]);
+  if (!raceSnap.exists) throw new functions.https.HttpsError('not-found', 'Race not found');
+  const race = raceSnap.data()!;
+  const season = String(race.seasonId ?? '2026');
+  const round: number | null = Number.isInteger(race.round) ? race.round : null;
+  const lock = effectiveLockTime(race);
+  const availability = !cfg.enabled ? 'off' : round === null || round < cfg.unlockRound ? 'locked' : 'open';
+  const spent = (await spendingQuery(teamId, season).get()).docs;
+  const current = spent.find((d) => d.data().raceId === raceId);
+  const resolved = availability === 'open' && round !== null ? await resolveModel(db, season, raceId, round, cfg.carryForwardModel) : null;
+  const driver = resolved?.model.drivers[driverId];
+  const predictions = driver
+    ? cfg.predictionTypesEnabled.filter((t) => t !== 'EXACT_FINISH').map((type) => {
+        const p = predictionProbability(driver.positions, type) ?? 0;
+        const priced = price(p, cfg.pricing);
+        return { type, probability: Math.round(p * 10000) / 10000, band: priced.band, multiplier: priced.multiplier };
+      })
+    : [];
+  const detail = driver ? summarise(driver.positions) : null;
+  return {
+    availability, unlockRound: cfg.unlockRound, tokensPerTeam: cfg.tokensPerTeam, tokensLeft: Math.max(0, cfg.tokensPerTeam - spent.length),
+    lockAtMs: lock ? lock.toMillis() : null, round,
+    current: current ? pickCall(current.id, current.data()) : null,
+    ownsDriver: Array.isArray(team.drivers) && team.drivers.some((d: { driverId?: string }) => d?.driverId === driverId),
+    modelAvailable: !!resolved, driverInModel: !!driver, carriedFrom: resolved?.carriedFrom ?? null,
+    predictions, exactFinishEnabled: cfg.predictionTypesEnabled.includes('EXACT_FINISH'), positionsCount: resolved?.model.positionsCount ?? null,
+    stakes: { POINTS: cfg.pointsStakeLevels, CASH: cfg.cashStakeLevels },
+    balances: { POINTS: teamBalance(team, 'POINTS'), CASH: teamBalance(team, 'CASH') },
+    model: detail && driver ? { expectedFinish: detail.expected, likelyLo: detail.lo, likelyHi: detail.hi, predicted: driver.predicted } : null,
+    copy: cfg.copy, tutorialEnabled: cfg.tutorialEnabled,
+  };
+});
+
 export const moonshotConfirm = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   warnIfNoAppCheck(context, 'moonshotConfirm');

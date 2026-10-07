@@ -11,7 +11,7 @@ import type { StandingsRow } from '../../src/simple/grid/standings';
 const row = (rank: number, name: string, shown: string, over: Partial<StandingsRow> = {}): StandingsRow => ({
   userId: `u${rank}`, rank, rankLabel: String(rank).padStart(2, '0'), name, team: 'TEAM',
   value: 0, shown, delta: '', isLeader: rank === 1, isMe: false,
-  movement: '—', movementDir: 'flat', ...over,
+  movement: '—', movementDir: 'flat', moonshot: null, ...over,
 });
 
 const many = (n: number) => Array.from({ length: n }, (_, i) => row(i + 1, `Player ${i + 1}`, String(2000 - i * 7)));

@@ -216,6 +216,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
             <View style={{ alignItems: 'flex-end', gap: 4 }}>
               <Text style={[mono(18), { letterSpacing: -scaled(18) * 0.02 }]}>{item.shown}</Text>
               <Text style={[mono(11), { color: item.isLeader ? colors.primary : colors.text.muted }]}>{item.delta}</Text>
+              {item.moonshot ? <Text style={[mono(10), { color: item.moonshot.startsWith('+') ? colors.positive : colors.primary }]}>🚀 {item.moonshot}</Text> : null}
             </View>
           </Pressable>
         )}

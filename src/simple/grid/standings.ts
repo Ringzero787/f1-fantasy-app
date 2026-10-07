@@ -3,6 +3,8 @@
  * rankLeagueMembers order (totalPoints desc, lastRacePoints desc, userId
  * asc); the LAST RACE toggle re-ranks by the last race alone.
  */
+import { moonshotColumn } from './moonshot';
+
 export type StandingsSort = 'season' | 'last';
 
 export interface StandingsMember {
@@ -15,6 +17,8 @@ export interface StandingsMember {
   previousRank?: number;
   rank?: number;
   isWithdrawn?: boolean;
+  /** F-107: the Moonshot share of totalPoints (server-written); undefined or 0 → no column */
+  moonshotPoints?: number;
 }
 
 export interface StandingsRow {
@@ -30,6 +34,8 @@ export interface StandingsRow {
   isMe: boolean;
   movement: string;       // "▲ 1", "▼ 2", "—"
   movementDir: 'up' | 'down' | 'flat';
+  /** F-108: "+500" / "−100" when a member has Moonshot points; null otherwise */
+  moonshot: string | null;
 }
 
 export function rankStandings(members: StandingsMember[], sortBy: StandingsSort, userId: string | null): StandingsRow[] {
@@ -65,6 +71,8 @@ export function rankStandings(members: StandingsMember[], sortBy: StandingsSort,
       isMe: !!userId && m.userId === userId,
       movement: mv == null ? '—' : mv > 0 ? `▲ ${mv}` : mv < 0 ? `▼ ${-mv}` : '—',
       movementDir: mv == null || mv === 0 ? 'flat' : mv > 0 ? 'up' : 'down',
+      // the season table shows the Moonshot share; the LAST RACE toggle is race points alone
+      moonshot: byLast ? null : moonshotColumn(m.moonshotPoints),
     };
   });
 }

@@ -127,6 +127,7 @@ export interface LeagueMember {
   isWithdrawn?: boolean; // Team was deleted but score preserved
   previousRank?: number; // Rank before the last race (server-written, F-054)
   lastRacePoints?: number; // Points in the most recent scored race (server-written)
+  moonshotPoints?: number; // F-107: the Moonshot share of totalPoints (server-written)
 }
 
 export interface LeagueInvite {
@@ -203,6 +204,9 @@ export interface FantasyTeam {
   // Server-written by onRaceCompleted (F-054): best single-race total
   bestRacePoints?: number;
   bestRaceId?: string;
+  // F-107: Moonshot settlement, server-written; a separate column from totalPoints/lockedPoints
+  moonshotPoints?: number;
+  moonshotStats?: { used: number; hit: number; missed: number; voided: number; pointsRisked: number; pointsWon: number; cashRisked: number; cashWon: number; biggestHit: { moonshotId: string; adjustmentAmount: number; driverId: string; predictionType: string; raceId: string } | null };
 }
 
 export interface FantasyDriver {

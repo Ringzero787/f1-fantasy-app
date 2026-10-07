@@ -19,7 +19,7 @@ test('config: absent means disabled; the document overrides defaults; bad values
   assert.equal(c.pricing.mode, 'continuous'); assert.equal(c.pricing.vig, 0.05); assert.equal(c.dnfRule, 'VOID');
   assert.equal(c.tokensPerTeam, DEFAULT_CONFIG.tokensPerTeam);
   assert.equal(c.pricing.bands.length, 5);
-  assert.deepEqual(mergeConfig({ copy: { intro: 'Make the call', bad: 3 } }).copy, { intro: 'Make the call' });
+  assert.deepEqual(mergeConfig({ copy: { intro: 'Make the call', bad: 3, worse: 'Place your bet' } }).copy, { intro: 'Make the call' });   // a forbidden word drops the override
 });
 
 test('distribution: a discretised finish sums to one and peaks at the prediction', () => {
@@ -137,5 +137,5 @@ test('the Race O/U table parses into driver predictions and builds a model the g
 });
 
 test('the callables are exported', () => {
-  for (const f of ['moonshotQuote', 'moonshotConfirm', 'moonshotCancel']) assert.equal(typeof index[f], 'function', f);
+  for (const f of ['moonshotQuote', 'moonshotConfirm', 'moonshotCancel', 'moonshotMenu']) assert.equal(typeof index[f], 'function', f);
 });
