@@ -13,6 +13,7 @@ import { Locked } from '../ui/Locked';
 import { can } from '../data/access';
 import { PassBar } from '../ui/PassBar';
 import { MoonshotTile, useMoonshotEntry } from '../ui/Moonshot';
+import { LeagueTile } from '../ui/LeagueTile';
 
 export function LineupLab() {
   const { payload: p, has, pass, ui, purse, plan, toggleSlot, swapInSlot, applyAct, setAce, save, reset, dirty, real, saving, selectTeam } = useStore();
@@ -103,6 +104,7 @@ export function LineupLab() {
         </Tile>
       </div>
       <div className="c6" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <LeagueTile />
         <MoonshotTile />
         {slot && (cur || slot === OPEN_SEAT || isC) ? (
           <>

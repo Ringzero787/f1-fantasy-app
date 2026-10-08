@@ -11,7 +11,7 @@ export const DISCLAIMER = 'Unofficial. Not affiliated with any racing series, te
 
 /** Sticky context bar: round, session state, lock countdown, the user's team and bank. It drives every page. */
 export function ContextBar({ page, account, onSignOut }: { page: PageName; account: Account | null; onSignOut?: () => void }) {
-  const { payload: p, ui, go } = useStore();
+  const { payload: p, ui, go, real } = useStore();
   // F-103: both deadlines below are compared against the clock, and nothing else in this bar
   // re-renders on its own — so an idle tab would have sat on "Locks in 00h 01m" straight past
   // the lock. Thirty seconds is finer than the smallest unit either line shows.
@@ -55,6 +55,9 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
           })()}</div>
         <div className="grp">
           <span className="mut">Team</span><span>{account?.teamName ?? (account ? 'No team yet' : 'Late Brakers')}</span>
+          {/* F-114: the league is the context a team plays in; it was nowhere in the portal before the Lab tile.
+              The account's league is the FIRST team's, so it hides once a two-team player switches — the tile carries the right one */}
+          {account?.leagueName && (!real || real.teams[0]?.id === real.team.id) ? <><span className="mut only-wide">League</span><span className="only-wide">{account.leagueName}</span></> : null}
           <span className="mut">Bank</span><span className="num">{account ? (account.bank === null ? '—' : money(account.bank)) : money(bank(p, ui.lineup))}</span>
           <span className="mut only-wide">Proj</span><span className="num only-wide">{(() => { const q = projectedLineup(p, ui.lineup); return q.complete ? `${q.points} pts` : '—'; })()}</span>
         </div>
