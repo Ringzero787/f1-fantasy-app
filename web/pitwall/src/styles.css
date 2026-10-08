@@ -168,6 +168,8 @@ details.tbl>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spac
   .over{padding:16px}
 }
 @media(min-width:641px){.only-narrow{display:none !important}}
+/* F-115: a wide screen has room — every table steps up (cells 13px, headers 11px, the bold name cell 15px; padding stays, or the half-width tables scroll sideways on a laptop — the first cell, or the second in the League tile where rank comes first); the phone keeps 12px */
+@media(min-width:981px){td{font-size:13px}th{font-size:11px}td:first-child b,#league-table td:nth-child(2) b{font-size:15px}}
 
 /* ---- locked frames (F-068) ---- */
 /* Enough of the frame to show what it is, not so much that the offer sits in a field of blur. */
