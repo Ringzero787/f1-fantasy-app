@@ -114,6 +114,44 @@ export function SegmentPill<T extends string>({ segments, value, onChange, size 
 }
 
 // ── Pill button (SAVE LINEUP, SIGN OUT, JOIN LEAGUE …) ─────────────────────
+/**
+ * A number you have to be able to read at a glance, on a chip so it separates from the screen.
+ *
+ * The picker's BUDGET was a bare `MonoLabel` in `text.muted`, which measures **exactly** 4.50:1 on
+ * the dark surface — the AA floor for *normal* text, and the wrong bar for a 10px label with 0.18em
+ * letterspacing. The palette comment says "≥ 4.5:1" and is technically right; on a phone it read as
+ * invisible. `text.primary` on `card` is 15.6:1.
+ *
+ * `tone` says what the number means, and deliberately never red: red is the accent this UI uses for
+ * an error (a negative BANK AFTER), and a budget you still have is not an error.
+ */
+export function ValuePill({ label, value, tone = 'normal', style }: {
+  label: string;
+  value: string;
+  tone?: 'normal' | 'caution';
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { colors, label: labelStyle, scaled } = useSimpleTheme();
+  const fg = tone === 'caution' ? colors.warning : colors.text.primary;
+  const fontSize = labelStyle.fontSize;
+  return (
+    <View
+      style={[{
+        flexDirection: 'row', alignItems: 'center', gap: scaled(6),
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: tone === 'caution' ? colors.warning : colors.border,
+        borderRadius: 999,
+        paddingHorizontal: scaled(10),
+        paddingVertical: scaled(4),
+      }, style]}
+    >
+      <Text style={[labelStyle, { fontSize, letterSpacing: fontSize * 0.18, color: colors.text.secondary }]}>{label}</Text>
+      <Text style={[labelStyle, { fontSize, letterSpacing: fontSize * 0.18, color: fg }]}>{value}</Text>
+    </View>
+  );
+}
+
 export function PillButton({ label, onPress, variant = 'primary', disabled, style }: {
   label: string;
   onPress?: () => void;
