@@ -4,8 +4,8 @@
       {
         "appIDs": ["MWVD9BU5VW.com.undercut.app"],
         "components": [
-          { "/": "/join", "comment": "league invite from an email or a shared link" },
-          { "/": "/join*", "comment": "and with its query string" }
+          { "/": "/join", "comment": "league invite from an email or a shared link; the query string is not matched by this key and does not need to be" },
+          { "/": "/join.html", "comment": "the same page before cleanUrls rewrites it, which older invite links still carry" }
         ]
       }
     ]

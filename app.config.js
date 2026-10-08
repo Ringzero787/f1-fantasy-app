@@ -73,7 +73,14 @@ module.exports = {
         {
           action: "VIEW",
           autoVerify: true,
-          data: [{ scheme: "https", host: "undercut.humannpc.com", pathPrefix: "/join" }],
+          // Exact paths, not a prefix: pathPrefix "/join" would also claim /join-pro,
+          // /joinleague and anything else starting with those five characters. The app only
+          // understands these two (extractInviteCode in app/_layout.tsx), and the invite email
+          // sends /join?code=… — a query string does not affect path matching.
+          data: [
+            { scheme: "https", host: "undercut.humannpc.com", path: "/join" },
+            { scheme: "https", host: "undercut.humannpc.com", path: "/join.html" },
+          ],
           category: ["BROWSABLE", "DEFAULT"],
         },
       ]
