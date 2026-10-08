@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["MWVD9BU5VW.com.undercut.app"],
+        "components": [
+          { "/": "/join", "comment": "league invite from an email or a shared link" },
+          { "/": "/join*", "comment": "and with its query string" }
+        ]
+      }
+    ]
+  }
+}
