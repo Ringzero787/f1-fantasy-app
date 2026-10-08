@@ -35,6 +35,7 @@ export type Feature =
   | 'lineup.edit' | 'lineup.rateMyTeam' | 'lineup.topPick' | 'lineup.whatIf'
   | 'entity.present' | 'entity.past' | 'entity.outlook'
   | 'entity.moonshot' | 'entity.moonshotModel'
+  | 'league.standings'
   | 'wire.headlines' | 'wire.full';
 
 const FREE: ReadonlySet<Feature> = new Set<Feature>([
@@ -42,6 +43,8 @@ const FREE: ReadonlySet<Feature> = new Set<Feature>([
   'lineup.edit', 'lineup.rateMyTeam', 'wire.headlines', 'entity.present',
   // F-109: the Moonshot price is visible to everyone — a call is placed on it, so it is never behind the pass
   'entity.moonshot',
+  // F-114: the player's own league table — their membership, never behind the pass
+  'league.standings',
 ]);
 
 export const can = (state: PassState, feature: Feature): boolean => state.access === 'pass' || FREE.has(feature);

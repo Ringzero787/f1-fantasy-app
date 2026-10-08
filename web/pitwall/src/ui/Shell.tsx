@@ -55,6 +55,8 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
           })()}</div>
         <div className="grp">
           <span className="mut">Team</span><span>{account?.teamName ?? (account ? 'No team yet' : 'Late Brakers')}</span>
+          {/* F-114: the league is the context a team plays in; it was nowhere in the portal before the Lab tile */}
+          {account?.leagueName ? <><span className="mut only-wide">League</span><span className="only-wide">{account.leagueName}</span></> : null}
           <span className="mut">Bank</span><span className="num">{account ? (account.bank === null ? '—' : money(account.bank)) : money(bank(p, ui.lineup))}</span>
           <span className="mut only-wide">Proj</span><span className="num only-wide">{(() => { const q = projectedLineup(p, ui.lineup); return q.complete ? `${q.points} pts` : '—'; })()}</span>
         </div>

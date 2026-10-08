@@ -1,4 +1,4 @@
-next_id: 113
+next_id: 115
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1360,3 +1360,26 @@ features:
       - build
     version_shipped: 2.5.0
     shipped_at: 2026-10-07
+  - id: F-113
+    name: "UC: an invite link opens the app, and the host it points at exists"
+    status: building
+    spec: .aidlc/specs/F-113.md
+    created_at: 2026-10-08
+    keywords:
+      - invite
+      - link
+      - opens
+      - host
+      - points
+      - exists
+  - id: F-114
+    name: "UC: Pit Wall shows the league your team is in"
+    status: building
+    spec: .aidlc/specs/F-114.md
+    created_at: 2026-10-08
+    keywords:
+      - wall
+      - shows
+      - league
+      - your
+      - team
