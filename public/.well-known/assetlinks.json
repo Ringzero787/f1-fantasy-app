@@ -1,0 +1,24 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.undercut.app",
+      "sha256_cert_fingerprints": [
+        "3D:2B:59:DC:03:A0:63:81:A5:D6:35:14:07:DF:4A:59:95:53:ED:F5:AE:FA:AD:55:B3:82:B8:14:D8:96:26:4F",
+        "70:EC:4C:19:A6:62:B7:30:21:47:86:B3:A2:F1:0F:D8:91:15:AD:4E:79:41:BA:73:44:F3:E1:76:50:16:CF:E7"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tracklimits.app",
+      "sha256_cert_fingerprints": [
+        "1A:13:65:71:1B:FF:CA:96:02:DE:BD:FE:F6:8D:44:EF:46:39:3D:D6:0A:0E:AA:F0:22:03:31:DD:BA:22:49:9C",
+        "6A:ED:64:8F:75:65:9A:D7:3E:E4:73:81:6B:DB:8C:69:ED:78:C6:5F:B9:D6:88:0D:0E:C7:0C:81:7D:62:E9:66"
+      ]
+    }
+  }
+]

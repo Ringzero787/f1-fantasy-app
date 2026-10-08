@@ -66,6 +66,21 @@
           { "key": "Content-Disposition", "value": "attachment" },
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
         ]
+      },
+      {
+        "comment": "Both association files are served from their real .well-known path (F-113). Hosting does upload them: the `ignore` glob `**/.*` only matches a final segment beginning with a dot, and listFiles runs with nodir, so the directory is never itself an entry — measured against firebase-tools 15.14.0, which is what scripts/ops/firebase-deploy.sh invokes. The Content-Type is explicit because the Apple file has no extension and Hosting would otherwise guess application/octet-stream, which Apple rejects.",
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Cache-Control", "value": "public, max-age=300" }
+        ]
+      },
+      {
+        "source": "/.well-known/apple-app-site-association",
+        "headers": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Cache-Control", "value": "public, max-age=300" }
+        ]
       }
     ]
   }

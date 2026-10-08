@@ -64,7 +64,7 @@ export const S_COLORS_LIGHT = {
 
   positive: '#15803D',
   negative: '#FF2E2E',
-  warning: '#B45309',
+  warning: '#96450A',  // darkened: #B45309 was 4.09:1 on `card`, below AA for the ValuePill chip
 
   border: '#D6D6D2',
   borderLight: '#DDDDD9',

@@ -39,6 +39,14 @@ module.exports = {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
+      // Universal Links: tapping https://undercut.humannpc.com/join?code=... opens the app
+      // instead of Safari. The landing page in public/join.html stays as the fallback for
+      // desktop and for anyone without the app installed.
+      //
+      // REQUIRES the Associated Domains capability on the com.undercut.app App ID and a
+      // regenerated provisioning profile. Without it the next iOS archive FAILS TO SIGN —
+      // see .aidlc/specs/F-113.md.
+      associatedDomains: ["applinks:undercut.humannpc.com"],
     },
     android: {
       adaptiveIcon: {
@@ -53,6 +61,28 @@ module.exports = {
       blockedPermissions: [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
+      ],
+      // App Links: the same https invite opens the app rather than Chrome. `autoVerify`
+      // makes Android fetch /.well-known/assetlinks.json on install and only honour the
+      // link if a fingerprint there matches the one the APK was signed with.
+      //
+      // Play re-signs every upload with ITS OWN key, so that file must list the Play App
+      // signing certificate, not only our upload key — otherwise verification silently
+      // fails for everyone who installed from Play. See .aidlc/specs/F-113.md.
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          // Exact paths, not a prefix: pathPrefix "/join" would also claim /join-pro,
+          // /joinleague and anything else starting with those five characters. The app only
+          // understands these two (extractInviteCode in app/_layout.tsx), and the invite email
+          // sends /join?code=… — a query string does not affect path matching.
+          data: [
+            { scheme: "https", host: "undercut.humannpc.com", path: "/join" },
+            { scheme: "https", host: "undercut.humannpc.com", path: "/join.html" },
+          ],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
       ]
     },
     web: {

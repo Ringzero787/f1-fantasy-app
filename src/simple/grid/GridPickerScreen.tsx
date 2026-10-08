@@ -24,7 +24,7 @@ import { track } from '../../services/analytics.service';
 import { useMoonshotStore } from '../../store/moonshot.store';
 import { moonshotAvailability } from './moonshot';
 import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
-import { ColorBar, MonoLabel, PillButton, ScreenHeader, SegmentPill } from './GridBits';
+import { ColorBar, MonoLabel, PillButton, ScreenHeader, SegmentPill, ValuePill } from './GridBits';
 import { formatLockStatus } from './lockStatus';
 import { trendOf, surnameOf as surname } from './tileState';
 import {
@@ -341,7 +341,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           }
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-            <MonoLabel color={budgetAfter < LOW_BUDGET ? colors.primary : colors.text.muted}>BUDGET ${budgetAfter}</MonoLabel>
+            <ValuePill label="BUDGET" value={`$${budgetAfter}`} tone={budgetAfter < LOW_BUDGET ? 'caution' : 'normal'} />
             {plan?.changed ? <MonoLabel color={colors.text.muted}>{plan.sells.length} SELL · {plan.buys.length} BUY</MonoLabel> : null}
           </View>
         </ScreenHeader>
@@ -399,7 +399,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
             <Text style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.03, textTransform: 'uppercase', color: colors.text.primary }} numberOfLines={1}>{sheet?.entry.name}</Text>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <MonoLabel color={colors.text.muted}>PRICE ${sheet?.entry.price ?? 0}</MonoLabel>
-              <MonoLabel color={sheetBudgetAfter < LOW_BUDGET ? colors.primary : colors.text.muted}>LEAVES ${sheetBudgetAfter}</MonoLabel>
+              <ValuePill label="LEAVES" value={`$${sheetBudgetAfter}`} tone={sheetBudgetAfter < LOW_BUDGET ? 'caution' : 'normal'} />
             </View>
             <MonoLabel>CONTRACT · RACES</MonoLabel>
             <View style={{ flexDirection: 'row', gap: 8 }}>
