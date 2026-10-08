@@ -57,15 +57,21 @@ test('both files are served as application/json, and uncached enough to fix a mi
   }
 });
 
-test('TODO that must not be forgotten: the Play App signing fingerprint', () => {
-  // Play re-signs every upload with its own key. Until that certificate is listed here, Android
-  // App Links DO NOT verify for anyone who installed from Play — which is nearly everyone. The
-  // upload key below is correct only for the Amazon APK and direct installs.
+test('assetlinks.json carries the PLAY signing certificate, not just the upload key', () => {
+  // Play re-signs every upload with its own key, so the upload key alone verifies nothing for the
+  // people who installed from Play — which is nearly everyone. This fingerprint is the certificate
+  // Play actually signs com.undercut.app with, read off a Play-generated APK on 2026-10-08:
+  //   androidpublisher v3 applications/com.undercut.app/generatedApks/<versionCode>
+  //     -> certificateSha256Hash, and .../downloads/<id>:download verified with
+  //        `apksigner verify --print-certs` (SHA-1 45e235603ba3eb610c4d3e3116da61150ae45a5a,
+  //        the same one registered on the Firebase Android app).
+  // Re-derive it that way if it ever has to change; do not take it from the upload keystore.
+  const playCert =
+    '3D:2B:59:DC:03:A0:63:81:A5:D6:35:14:07:DF:4A:59:95:53:ED:F5:AE:FA:AD:55:B3:82:B8:14:D8:96:26:4F';
   const prints = json('public/.well-known/assetlinks.json')[0].target.sha256_cert_fingerprints;
-  if (prints.length < 2) {
-    console.warn('\n  ⚠ assetlinks.json lists %d fingerprint(s). Add the Play App signing SHA-256\n'
-      + '    (Play Console → Setup → App integrity → App signing key certificate) before\n'
-      + '    expecting App Links to work on Play installs.\n', prints.length);
-  }
-  assert.ok(prints.length >= 1);
+  assert.ok(prints.includes(playCert),
+    'assetlinks.json must list the Play App signing certificate, or App Links silently fail to '
+    + 'verify on every Play install');
+  assert.ok(prints.length >= 2,
+    'keep the upload key too: it is what signs the Amazon APK and direct installs');
 });
