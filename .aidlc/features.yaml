@@ -1362,7 +1362,7 @@ features:
     shipped_at: 2026-10-07
   - id: F-113
     name: "UC: an invite link opens the app, and the host it points at exists"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-113.md
     created_at: 2026-10-08
     keywords:
