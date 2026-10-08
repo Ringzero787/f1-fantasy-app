@@ -1,4 +1,4 @@
-next_id: 114
+next_id: 116
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1382,4 +1382,15 @@ features:
       - shows
       - league
       - team
+    unit: undercut
+  - id: F-115
+    name: "UC: Pit Wall tables read larger on a wide screen"
+    status: building
+    spec: .aidlc/specs/F-115.md
+    created_at: 2026-10-08
+    keywords:
+      - wall
+      - tables
+      - larger
+      - wide
     unit: undercut

@@ -168,6 +168,8 @@ details.tbl>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spac
   .over{padding:16px}
 }
 @media(min-width:641px){.only-narrow{display:none !important}}
+/* F-115: a wide screen has room — tables step up (cells 13px, headers 11px, the name cell 15px); the phone keeps 12px */
+@media(min-width:981px){td{font-size:13px;padding:8px 10px}th{font-size:11px;padding:7px 10px}td:first-child b{font-size:15px}}
 
 /* ---- locked frames (F-068) ---- */
 /* Enough of the frame to show what it is, not so much that the offer sits in a field of blur. */
