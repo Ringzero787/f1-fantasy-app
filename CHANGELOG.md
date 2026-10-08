@@ -1,5 +1,32 @@
 # Changelog
 
+## uc-v2.5.1 — 2026-10-08
+
+F1 Fantasy 2.5.1: Security hardening, invite links, and readability fixes
+
+## Fixed
+
+- **Security**: Version floor enforcement across all app store builds now properly synchronized (Google Play, Apple, Amazon)
+- Invite links now correctly open the app and route to the correct host
+- Picker budget values are now readable and display correctly
+
+## Security
+
+- Completed security review hardening to ensure consistent version management across all distribution platforms
+
+## uc-v2.5.1 — 2026-10-08
+
+Two fixes reported from the field.
+
+### Fixed
+
+- A league invite opens the app instead of a browser. The address those emails pointed at did not
+  exist until now, so the link had been going nowhere; the host is live and the app claims
+  `/join` and `/join.html` on it directly.
+- The budget on the driver-pick screen can be read again. It was dim grey on a dark panel, barely
+  above the contrast floor for normal text and well below what a small letterspaced label needs.
+  It changes colour when the budget runs low, and deliberately not to red.
+
 ## uc-v2.5.0 — 2026-10-07
 
 Moonshot racing predictions, team name editing, and live-timing improvements in Undercut 2.5.0.
