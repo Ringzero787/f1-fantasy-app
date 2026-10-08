@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Undercut",
     slug: "f1-fantasy-app",
-    version: "2.5.0",
+    version: "2.5.1",
     orientation: "default",
     icon: "./assets/icon.png",
     scheme: "theundercut",
@@ -33,7 +33,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.undercut.app",
-      buildNumber: "51",
+      buildNumber: "52",
       usesAppleSignIn: true,
       googleServicesFile: process.env.GOOGLE_SERVICES_IOS ?? "./GoogleService-Info.plist",
       infoPlist: {
@@ -56,7 +56,7 @@ module.exports = {
       package: "com.undercut.app",
       // 65 went to Play internal testing as 2.4.0 (OP-098), which is why 2.4.1 starts at 66: Play
       // refuses a version code it has already seen, released or not.
-      versionCode: 69,
+      versionCode: 70,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       blockedPermissions: [
         "android.permission.CAMERA",
