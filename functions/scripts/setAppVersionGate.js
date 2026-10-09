@@ -15,6 +15,16 @@
 // later, separate change: edit DESIRED to 2.5.0, commit, raise a NEW op, once 2.5.0 or newer is
 // live on Google Play, the Amazon Appstore and the App Store.
 //
+// WHY 2.3.2 AND NOT 2.4.3, which the oldest live store would also allow: 2.4.3 is the first build
+// with the legacy Amazon sign-in flow deleted (F-094) — the one that hands an Amazon authorization
+// code to a custom scheme any installed Android app can claim — so a 2.4.3 floor would retire that
+// client population and unblock deleting the `signInWithAmazon` callable. It was NOT taken here
+// because it has a precondition nobody can check from this machine: on 2.4.3+ the replacement web
+// flow is gated off until the Login with Amazon return URL is registered, so a Fire OS user who
+// signs out, or installs fresh, could be left with no Amazon sign-in at all. Already-signed-in
+// users would be fine (the session survives the update). Raise it to 2.4.3 as a separate, owner-
+// confirmed change once that return URL is registered.
+//
 // STORE PRECONDITION, every time this changes: the floor must be at or below what is LIVE on the
 // OLDEST store, not what has been built. The floor blocks all three at once, and the force screen
 // on an Amazon install opens the PLAY url (AppUpdateGate.openStore has no Amazon branch), so a
@@ -25,7 +35,9 @@
 //
 // NOTE FOR WHOEVER FINDS OP-156: it was planned while DESIRED said 2.5.0 and its title claims it
 // forces 2.5.0. It would now write 2.3.2. Do not apply it for either purpose — raise a fresh op,
-// which also forces a fresh dry-run that prints the value actually about to be written. AppUpdateGate shows updateMessage on the dismissible "new
+// which also forces a fresh dry-run that prints the value actually about to be written.
+//
+// AppUpdateGate shows updateMessage on the dismissible "new
 // version" banner too (current >= minVersion but < latestVersion), so the message carries no
 // version number and no "to keep playing": it has to read right on both screens, and whenever
 // latestVersion is later moved above the floor, rewrite it here. latestVersion is not touched. Dry
@@ -63,10 +75,88 @@ function initAdmin() {
   db = admin.firestore();
 }
 
+// What is actually LIVE in each store, by hand, because the floor blocks all three at once and a
+// floor above the oldest one locks those users out — on Amazon without even a reachable store.
+// Structured rather than prose so the guard below and the test can read it per store: an earlier
+// version of this lived only in the header comment, and a regex over prose could be made to pass
+// vacuously by mentioning the floor near it. Amazon has no API, so it is always a question for the
+// owner; update every entry whenever a release goes live, and the date with it.
+const KNOWN_LIVE = {
+  asOf: '2026-10-09',
+  play: '2.5.1',       // vc70
+  appStore: '2.5.0',   // 2.5.1 staged, not submitted
+  amazon: '2.4.3',     // vc68 — the oldest, and the one that bounds the floor
+};
+
+const STORES = ['play', 'appStore', 'amazon'];
+
+/** The oldest version live in any store, as [major, minor, patch]. */
+function oldestLive() {
+  const parse = (v) => v.split('.').map((n) => parseInt(n, 10));
+  const lte = (a, b) => { for (let i = 0; i < 3; i++) { if (a[i] !== b[i]) return a[i] < b[i]; } return true; };
+  return STORES.map((k) => {
+    const v = KNOWN_LIVE[k];
+    if (!/^\d+\.\d+\.\d+$/.test(v || '')) {
+      console.error(`KNOWN_LIVE.${k} is not MAJOR.MINOR.PATCH. Nothing was written.`);
+      process.exit(2);
+    }
+    return parse(v);
+  }).reduce((a, b) => (lte(a, b) ? a : b));
+}
+
+/**
+ * Refuse a floor above the oldest live store. This is the whole safety property: a floor that no
+ * store can satisfy is a hard block with no dismiss and no way out, and it is not undoable from
+ * the device — it needs a rollback op. Checked before anything connects, and it covers the
+ * --minVersion flag too, not just DESIRED.
+ */
+function refuseIfItWouldLockAnyoneOut(floor) {
+  const parse = (v) => v.split('.').map((n) => parseInt(n, 10));
+  const lte = (a, b) => { for (let i = 0; i < 3; i++) { if (a[i] !== b[i]) return a[i] < b[i]; } return true; };
+  const oldest = oldestLive();
+  if (!lte(parse(floor), oldest)) {
+    const which = STORES.filter((k) => KNOWN_LIVE[k] === oldest.join('.'));
+    console.error(
+      `Refusing to write minVersion ${floor}: the oldest live store is ${oldest.join('.')}`
+      + `${which.length ? ` (${which.join(', ')})` : ''}, as of ${KNOWN_LIVE.asOf}.\n`
+      + 'Those users would be hard-blocked with no way to update — on Amazon not even a reachable\n'
+      + 'store, because AppUpdateGate.openStore has no Amazon branch. Ship the build to every store\n'
+      + 'first, then update KNOWN_LIVE here. Nothing was written.');
+    process.exit(2);
+  }
+}
+
+const LIVE_DECLARATION_MAX_AGE_DAYS = 45;
+
+/**
+ * Refuse to APPLY on a stale live-store declaration. Deliberately not a test: a check that fails
+ * with the passage of time would block unrelated CI runs, and the declaration only matters at the
+ * moment something is written.
+ */
+function refuseIfLiveSetIsStale() {
+  const asOf = Date.parse(`${KNOWN_LIVE.asOf}T00:00:00Z`);
+  if (Number.isNaN(asOf)) {
+    console.error('KNOWN_LIVE.asOf is not a YYYY-MM-DD date. Nothing was written.');
+    process.exit(2);
+  }
+  const days = Math.floor((Date.now() - asOf) / 86400000);
+  if (days > LIVE_DECLARATION_MAX_AGE_DAYS) {
+    console.error(
+      `Refusing to write: KNOWN_LIVE was last checked ${days} days ago (${KNOWN_LIVE.asOf}).\n`
+      + 'The floor is only safe relative to what is live, so re-check Play, the App Store and the\n'
+      + 'Amazon Appstore, update KNOWN_LIVE and its asOf date, then run again. Nothing was written.');
+    process.exit(2);
+  }
+}
+
 /** The gate. Keys absent here keep whatever is live. */
 const DESIRED = {
   minVersion: '2.3.2',
-  updateMessage: 'A new Undercut build is out, with Moonshot and more. Update from the store you installed from — Google Play, the Amazon Appstore or the App Store.',
+  // The Fire OS mitigation lives HERE, not in the app. AppUpdateGate.openStore has no Amazon
+  // branch, so on a Fire tablet the button opens Google Play and does nothing useful — and an
+  // app-side fix cannot reach a build that is already installed below the floor, which is
+  // exactly who sees this screen. This text is read from Firestore, so it reaches them.
+  updateMessage: 'A new Undercut build is out, with Moonshot and more. Update from the store you installed from — Google Play, the Amazon Appstore or the App Store. On a Fire tablet, open the Amazon Appstore and search for Undercut: the button below cannot take you there.',
 };
 
 const VERSION = /^\d+\.\d+\.\d+$/;
@@ -96,10 +186,18 @@ async function main(block, apply) {
   console.log(`== wrote config/app gate: ${Object.entries(block).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ')}`);
 }
 
+// Only inert values and the pure helper. The two refuse* functions are what the require.main
+// guard runs, and scripts/seedGuards.test.js forbids naming those at module scope — a bare
+// reference is enough to defer or alias them into running on a plain require(). The test
+// exercises them through a child process instead, which is also closer to how the op runs.
+module.exports = { KNOWN_LIVE, STORES, oldestLive, LIVE_DECLARATION_MAX_AGE_DAYS };
+
 if (require.main === module) {
   // flags are checked before anything connects: a typo refuses without reaching production
   const argv = process.argv.slice(2);
   const block = blockFor(argv.filter((a) => a !== '--apply'));
+  refuseIfItWouldLockAnyoneOut(block.minVersion);
+  if (argv.includes('--apply')) refuseIfLiveSetIsStale();
   initAdmin();
   main(block, argv.includes('--apply')).then(() => process.exit(0)).catch((e) => { console.error(e.message); process.exit(1); });
 }
