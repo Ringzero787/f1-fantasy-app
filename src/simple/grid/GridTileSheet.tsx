@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { teamAccent } from '../theme/simpleTheme';
@@ -112,8 +112,12 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }} onPress={onClose} accessibilityLabel="Close">
-        <Pressable onPress={() => {}} accessible={false} style={{ maxHeight: '88%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
+      {/* The scrim sits behind the sheet, not around it. Wrapped in two Pressables the sheet did
+          not scroll at all on iOS (Android was fine), and since the Pit Wall block it is taller
+          than the screen — reproduced and fixed on the simulator (F-119). */}
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} onPress={onClose} accessibilityLabel="Close" />
+        <View style={{ maxHeight: '88%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
           <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: Math.max(insets.bottom, 12) + 22, gap: 14 }} showsVerticalScrollIndicator={false}>
             {/* identity */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -233,8 +237,8 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
               </View>
             )}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

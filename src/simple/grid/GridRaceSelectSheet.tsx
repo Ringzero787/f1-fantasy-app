@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { MonoLabel } from './GridBits';
@@ -17,8 +17,10 @@ export function GridRaceSelectSheet({ options, value, onPick, onClose }: {
   const insets = useSafeAreaInsets();
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }} onPress={onClose} accessibilityLabel="Close">
-        <Pressable onPress={() => {}} accessible={false} accessibilityLabel="Choose what the standings show" style={{ maxHeight: '70%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
+      {/* scrim behind the sheet, not around it: nested Pressables stop the list scrolling on iOS (F-119) */}
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} onPress={onClose} accessibilityLabel="Close" />
+        <View accessibilityLabel="Choose what the standings show" style={{ maxHeight: '70%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: 10 }}>
             <MonoLabel>SHOW POINTS FOR</MonoLabel>
             <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"><MonoLabel color={colors.text.muted}>CLOSE</MonoLabel></Pressable>
@@ -41,8 +43,8 @@ export function GridRaceSelectSheet({ options, value, onPick, onClose }: {
               );
             })}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
