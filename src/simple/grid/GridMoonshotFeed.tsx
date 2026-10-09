@@ -19,10 +19,10 @@ export function GridMoonshotFeed({ board, activity, cfg, driverName, nameOf, rac
   raceLabel: string | null;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { colors, mono } = useSimpleTheme();
+  const { colors, mono, scaled } = useSimpleTheme();
   if (board.length === 0 && activity.length === 0) return null;
   const line = (text: string, tone: string, key: string) => (
-    <Text key={key} style={[mono(11, 'medium'), { color: tone, lineHeight: 16 }]}>{text}</Text>
+    <Text key={key} style={[mono(11, 'medium'), { color: tone, lineHeight: scaled(16) }]}>{text}</Text>
   );
   return (
     <View style={[{ gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.borderLight }, style]}>
