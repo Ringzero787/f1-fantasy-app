@@ -11,6 +11,7 @@ import { PRICING_CONFIG } from '../../config/pricing.config';
 import { ColorBar, MonoLabel, PillButton } from './GridBits';
 import { constructorShortName } from './entityNames';
 import { tileDetail, type DetailEntry } from './tileDetail';
+import type { AceVerdict } from '../../pitwall/aceAdvice';
 import { copyText, statusLabel, type Availability, type MoonshotCall, type MoonshotClientConfig } from './moonshot';
 
 /** F-108: what the sheet shows about Moonshot for this driver; omitted when the feature is off. */
@@ -44,10 +45,12 @@ interface Props {
   onRemove?: (t: SheetTarget) => Promise<boolean | void> | boolean | void;
   /** F-108: the Moonshot row (drivers only) */
   moonshot?: SheetMoonshot;
+  /** F-119: what Pit Wall says about acing this driver; the owner's view only */
+  aceVerdict?: AceVerdict | null;
 }
 
 // Tap a tile → stats, Ace and Remove without leaving the Team screen.
-export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce, onRemove, moonshot }: Props) {
+export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce, onRemove, moonshot, aceVerdict }: Props) {
   const { colors, family, spacing, scaled, mono } = useSimpleTheme();
   const insets = useSafeAreaInsets();
   const lastRaceScores = useRaceScoresStore((s) => s.lastRaceScores);
@@ -126,7 +129,7 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
             </View>
 
             {/* what the pass bought, above the roster figures: it is the reason to open this sheet */}
-            {pw ? <GridPitWallBlock projection={pw.byId[target.entry.id] ?? null} rounds={pw.rounds} round={pw.round} /> : null}
+            {pw ? <GridPitWallBlock projection={pw.byId[target.entry.id] ?? null} rounds={pw.rounds} round={pw.round} ace={aceVerdict ?? null} /> : null}
 
             {/* F-108: Moonshot — a teaser before midseason, the call to make (or the one made) after */}
             {moonshot && target.kind === 'driver' ? (

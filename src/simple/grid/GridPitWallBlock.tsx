@@ -16,8 +16,9 @@ import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { MonoLabel } from './GridBits';
 import { driverDetail, hasDetail } from '../../pitwall/driverDetail';
 import type { Projection } from '../../pitwall/projections';
+import type { AceVerdict } from '../../pitwall/aceAdvice';
 
-export function GridPitWallBlock({ projection, rounds, round }: { projection: Projection | null; rounds: string[]; round: number }) {
+export function GridPitWallBlock({ projection, rounds, round, ace }: { projection: Projection | null; rounds: string[]; round: number; ace?: AceVerdict | null }) {
   const { colors, family, scaled, mono } = useSimpleTheme();
   const d = driverDetail(projection, rounds);
   if (!hasDetail(d) || !d) return null;
@@ -41,6 +42,14 @@ export function GridPitWallBlock({ projection, rounds, round }: { projection: Pr
         <MonoLabel color={colors.primary}>PIT WALL</MonoLabel>
         {round ? <MonoLabel size={10} color={colors.text.muted}>{`RD ${round}`}</MonoLabel> : null}
       </View>
+
+      {/* F-119: the question the sheet is opened to answer, before the figures behind it */}
+      {ace ? (
+        <View style={{ gap: 4, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
+          {head('ACE CALL')}
+          <Text style={[mono(11), { color: ace.pick ? colors.primary : colors.text.primary }]}>{ace.text}</Text>
+        </View>
+      ) : null}
 
       {d.range ? (
         <View style={{ gap: 7 }}>

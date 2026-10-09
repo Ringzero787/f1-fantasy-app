@@ -33,6 +33,8 @@ import { shareText } from './shareText';
 import { computeTiles, lineupStatus, openSlotCount, rosterRacePoints, rosterConstructor, type GridTile as Tile } from './tileState';
 import { formatLockStatus, formatRoundStatus, seasonProgress } from './lockStatus';
 import { serverAceLocked } from '../../utils/lockout';
+import { usePitWallStore } from '../../store/pitwall.store';
+import { aceAdvice, aceAdviceLine, aceVerdictFor } from '../../pitwall/aceAdvice';
 
 interface Props {
   refreshing: boolean;
@@ -41,7 +43,7 @@ interface Props {
 
 // Header + stat row + lineup label + 2-column tile grid (TRANSITION.md §4).
 export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onRefresh }: Props) {
-  const { colors, family, spacing, scaled, title } = useSimpleTheme();
+  const { colors, family, spacing, scaled, title, mono } = useSimpleTheme();
   const { width } = useWindowDimensions();
   const {
     team, teamConstructor, hasTeam, createTeam, setAce, setAceConstructor, clearAce, updateTeamName, removeDriver, removeConstructor,
@@ -160,6 +162,14 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   // No Ace chosen yet, it can still be chosen this round, and at least one pick is allowed to be Ace.
   const anyAceEligible = tiles.some((t) => t.kind !== 'empty' && t.aceEligible);
   const aceNeeded = hasTeam && anyAceEligible && !aceTile && !aceLocked;
+  // F-119: who Pit Wall would ace. Null without a pass (no projections), and once the ace is
+  // locked — advice the player cannot act on is noise.
+  const pwProjections = usePitWallStore((s) => s.projections);
+  const pwAce = useMemo(() => {
+    if (!pwProjections || !team || aceLocked) return null;
+    const drivers = tiles.flatMap((t) => (t.kind === 'driver' ? [{ id: t.id, name: t.name, eligible: t.aceEligible }] : []));
+    return aceAdvice(drivers, team.aceDriverId ?? team.aceConstructorId ?? null, pwProjections.byId);
+  }, [pwProjections, team, tiles, aceLocked]);
   const isFull = hasTeam && open === 0;
   const reviewed = React.useRef(false);
   useEffect(() => {
@@ -445,6 +455,13 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
               </View>
             ) : null
           ) : null}
+          {/* F-119: the ace Pit Wall would choose, said where the ace is decided */}
+          {filledCount > 0 && pwAce ? (
+            <View accessibilityLabel={`Pit Wall: ${aceAdviceLine(pwAce)}`} style={{ marginHorizontal: gutter, marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <MonoLabel size={10} color={colors.primary}>PIT WALL</MonoLabel>
+              <Text style={[mono(11, 'medium'), { flex: 1, color: colors.text.primary }]}>{aceAdviceLine(pwAce)}</Text>
+            </View>
+          ) : null}
           {/* F-108: race day — the live card with the league's calls; otherwise this race's Moonshot with Cancel before lock */}
           {moonshotAvail === 'open' && nextRace && team && raceWin !== 'before' ? (
             <GridMoonshotLive call={currentCall} board={board} positions={live.positions} cfg={moonshotCfg} driverName={driverNameOf} nameOf={memberNameOf} updatedAt={live.updatedAt}
@@ -464,7 +481,8 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
           </Text>
         </>
       )}
-      <GridTileSheet target={sheetTarget} onClose={() => setSheetId(null)} locked={locked} aceLocked={aceLocked} onToggleAce={sheetToggleAce} onRemove={sheetRemove} moonshot={sheetMoonshot} />
+      <GridTileSheet target={sheetTarget} onClose={() => setSheetId(null)} locked={locked} aceLocked={aceLocked} onToggleAce={sheetToggleAce} onRemove={sheetRemove} moonshot={sheetMoonshot}
+        aceVerdict={sheetTarget && sheetTarget.kind === 'driver' && pwProjections ? aceVerdictFor(sheetTarget.entry.id, tiles.some((t) => t.kind === 'driver' && t.id === sheetTarget.entry.id && t.aceEligible), pwAce, pwProjections.byId) : null} />
       <GridMoonshotSheet target={moonshotTarget} cfg={moonshotCfg} onClose={() => setMoonshotTarget(null)} onChanged={reloadMoonshots} />
       <GridMoonshotCoach visible={tutorialOpen} cfg={moonshotCfg} tokens={moonshotCfg.tokensPerTeam} onDone={() => { if (user?.id) finishTutorial(user.id); }} />
     </ScrollView>
