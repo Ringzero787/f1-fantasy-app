@@ -7,5 +7,8 @@ export function fitFontSize(target: number, available: number, emWidth: number):
   return Math.max(1, Math.min(target, Math.floor(available / emWidth)));
 }
 
-// "UNDERCUT" in Archivo Black at -0.05em tracking: 284pt wide at 40pt.
-export const WORDMARK_EM_WIDTH = 7.2;
+// "UNDERCUT" in Archivo Black at -0.05em tracking measures 7.11em on the iOS simulator (320pt wide
+// at 45pt). The constant is that plus about 5%, for a platform that sets the face a little wider:
+// too generous costs a point of size, too tight costs the end of the name.
+export const WORDMARK_MEASURED_EM = 7.11;
+export const WORDMARK_EM_WIDTH = 7.5;

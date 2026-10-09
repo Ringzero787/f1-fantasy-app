@@ -23,8 +23,9 @@ export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?
   const demoAllowed = __DEV__ || isExpoGo || process.env.EXPO_PUBLIC_ALLOW_DEMO === '1';
   const longPress = demoAllowed ? onWordmarkLongPress : undefined;
   // One line at every display size and phone width: at XXL the full size broke as "UNDERC / UT".
-  const { width } = useWindowDimensions();
-  const wordmarkSize = fitFontSize(scaled(40), width - spacing.xl * 2, WORDMARK_EM_WIDTH);
+  // The system text size multiplies whatever is set here, so the row is measured in those units too.
+  const { width, fontScale } = useWindowDimensions();
+  const wordmarkSize = fitFontSize(scaled(40), (width - spacing.xl * 2) / (fontScale || 1), WORDMARK_EM_WIDTH);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
@@ -34,7 +35,7 @@ export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?
             <MonoLabel>{caption ?? 'FANTASY · SEASON ' + new Date().getFullYear()}</MonoLabel>
           </View>
           <Pressable onLongPress={longPress} accessibilityRole="header" accessibilityLabel="Undercut">
-            <Text numberOfLines={1} style={{ fontFamily: family.ui.black, fontSize: wordmarkSize, lineHeight: wordmarkSize, letterSpacing: -wordmarkSize * 0.05, textTransform: 'uppercase', color: colors.text.primary, marginTop: 10 }}>
+            <Text numberOfLines={1} ellipsizeMode="clip" style={{ fontFamily: family.ui.black, fontSize: wordmarkSize, lineHeight: wordmarkSize, letterSpacing: -wordmarkSize * 0.05, textTransform: 'uppercase', color: colors.text.primary, marginTop: 10 }}>
               Under<Text style={{ color: colors.primary }}>cut</Text>
             </Text>
           </Pressable>
@@ -137,11 +138,11 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
       disabled={disabled || !!busy}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: scaled(18), paddingHorizontal: 18, borderRadius: 999, backgroundColor: bg, borderWidth: 1, borderColor: border, opacity: pressed || (busy && busy !== key) ? 0.6 : 1 })}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: scaled(18), paddingHorizontal: 14, borderRadius: 999, backgroundColor: bg, borderWidth: 1, borderColor: border, opacity: pressed || (busy && busy !== key) ? 0.6 : 1 })}
     >
       {icon}
       {/* shrinks to stay inside the pill on one line, as SegmentPill labels do: at XXL the label ran past the edge */}
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ flexShrink: 1, fontFamily: family.ui.black, fontSize, letterSpacing: fontSize * 0.08, color: fg }}>{busy === key ? 'SIGNING IN…' : label}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ flexShrink: 1, fontFamily: family.ui.black, fontSize, letterSpacing: fontSize * 0.08, color: fg }}>{busy === key ? 'SIGNING IN…' : label}</Text>
     </Pressable>
   );
 
