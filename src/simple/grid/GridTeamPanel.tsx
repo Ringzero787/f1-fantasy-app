@@ -317,8 +317,8 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
               value={editingName ? newName : team!.name}
               onChangeText={(v) => setNewName(v.replace(/\s*\n\s*/g, ' '))}
               onFocus={() => { setNewName(team!.name); setEditingName(true); }}
+              // the one place the name is saved: return blurs the field (submitBehavior below), so saving on submit as well wrote it twice
               onBlur={handleNameCommit}
-              onSubmitEditing={handleNameCommit}
               maxLength={30}
               returnKeyType="done"
               // multiline so a name too wide for one line wraps instead of being cut at a word (a long name, or any name at the larger display sizes); return still commits
