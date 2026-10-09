@@ -283,17 +283,17 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
         <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
         <View style={{ maxHeight: '88%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
           <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: Math.max(insets.bottom, 12) + 22, gap: 14 }} showsVerticalScrollIndicator={false}>
-            {/* the title gives way, never the buttons: on a long race name it wraps instead of pushing CLOSE off the edge */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <MonoLabel color={colors.primary} numberOfLines={2} style={{ flex: 1, minWidth: 0 }}>🚀 {copyText(copy, 'tabTitle')} · {shortRaceName(target.raceName).toUpperCase()}</MonoLabel>
-              <View style={{ flexDirection: 'row', gap: 16, flexShrink: 0 }}>
+            {/* a wrapping row: when the title and the buttons do not fit side by side (most race names, any larger display size) the buttons drop to their own line instead of running off the edge */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', columnGap: 12, rowGap: 10 }}>
+              <MonoLabel color={colors.primary} style={{ flexShrink: 1 }}>🚀 {copyText(copy, 'tabTitle')} · {shortRaceName(target.raceName).toUpperCase()}</MonoLabel>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', flexShrink: 1, marginLeft: 'auto', columnGap: 16, rowGap: 10 }}>
                 <Pressable onPress={() => { openTutorial(); track('moonshot_tutorial_viewed', { from: 'info' }); }} hitSlop={12} accessibilityRole="button" accessibilityLabel="How Moonshots work"><MonoLabel color={colors.text.muted}>ⓘ HOW IT WORKS</MonoLabel></Pressable>
                 <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"><MonoLabel color={colors.text.muted}>CLOSE</MonoLabel></Pressable>
               </View>
             </View>
             {showName ? (
-              // no adjustsFontSizeToFit: this mounts once the menu has loaded, and on iOS the fit then shrinks the name to a few points
-              <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(28), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{target.driverName}</Text>
+              // no adjustsFontSizeToFit: on iOS it rendered this name a few points high the first time the sheet opened; a long name wraps
+              <Text style={{ fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(28), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{target.driverName}</Text>
             ) : null}
             {body()}
           </ScrollView>
