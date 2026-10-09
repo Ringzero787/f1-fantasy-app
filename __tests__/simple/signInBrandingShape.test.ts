@@ -53,7 +53,11 @@ describe('sign-in buttons use the providers\' own artwork and wording', () => {
   });
 
   it('the three are one height, so none is smaller than another', () => {
-    expect((src.match(/height: pillHeight/g) ?? []).length).toBe(3);
+    // the custom pill and the Amazon image take the shared height; Apple's frame is a touch
+    // taller because the system button draws itself inset
+    expect((src.match(/height: pillHeight/g) ?? []).length).toBe(2);
+    expect(src).toMatch(/const appleFrame = Math\.round\(pillHeight \* 1\.0\d+\)/);
+    expect(src).toContain('height: appleFrame');
     expect(src).not.toContain('minHeight: pillHeight');
   });
 

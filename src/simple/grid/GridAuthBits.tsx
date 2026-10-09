@@ -199,13 +199,17 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
     'Continue with Google', google, 'google', Platform.OS === 'ios' ? 12 : 10);
   // Apple on iOS: the system's own button, which is the one the HIG guarantees is right (mark,
   // wording, face, localisation). Black on light, white on dark.
+  // The system button draws itself about 4% shorter than the frame it is given (46 in 48 on the
+  // simulator), which left it smaller than the Google button beside it. The HIG asks for the
+  // opposite, so its frame is that much taller.
+  const appleFrame = Math.round(pillHeight * 1.045);
   const appleNative = () => (
     <View key="apple" pointerEvents={blocked ? 'none' : 'auto'} accessibilityState={{ disabled: blocked, busy: busy === 'apple' }} style={{ opacity: dimmed('apple') }}>
       <AppleAuthentication.AppleAuthenticationButton
         buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
         buttonStyle={isDark ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-        cornerRadius={pillHeight / 2}
-        style={{ width: '100%', height: pillHeight }}
+        cornerRadius={appleFrame / 2}
+        style={{ width: '100%', height: appleFrame }}
         onPress={once(apple)}
       />
     </View>
