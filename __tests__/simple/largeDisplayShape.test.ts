@@ -33,4 +33,24 @@ describe('layouts that must survive the largest display size', () => {
     expect(card).toBeDefined();
     expect(card).toContain("flexDirection: stackChoices ? 'column' : 'row'");
   });
+
+  it('the Team stat row restacks above display size L', () => {
+    const src = read('src/simple/grid/GridTeamPanel.tsx');
+    expect(src).toMatch(/const stackStats = usePrefsStore\(\(s\) => s\.displayScale\) > 1\.15;/);
+    expect(src).toContain("stackStats ? { flexDirection: 'column', alignItems: 'flex-start' }");
+  });
+
+  it('the sign-in wordmark is sized to its row, and the pill labels shrink inside the pill', () => {
+    const src = read('src/simple/grid/GridAuthBits.tsx');
+    expect(src).toContain('fitFontSize(scaled(40), (width - spacing.xl * 2) / (fontScale || 1), WORDMARK_EM_WIDTH)');
+    const pill = src.match(/const pill = [\s\S]*?<\/Pressable>/)?.[0];
+    expect(pill).toBeDefined();
+    expect(pill).toMatch(/<Text numberOfLines=\{1\} adjustsFontSizeToFit minimumFontScale=\{0\.6\} style=\{\{ flexShrink: 1/);
+  });
+
+  it('no line height in the League feed is a bare number', () => {
+    // an unscaled lineHeight clipped the first line of every entry at XXL
+    const src = read('src/simple/grid/GridMoonshotFeed.tsx');
+    expect(src).not.toMatch(/lineHeight:\s*\d/);
+  });
 });
