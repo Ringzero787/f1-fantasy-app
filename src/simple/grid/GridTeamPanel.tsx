@@ -309,15 +309,23 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
         titleNode={
           <View style={{ flex: 1, minWidth: 0 }}>
             <TextInput
+              // remounts when the display size changes: iOS keeps the old height otherwise and hides the second line until the app restarts
+              key={`team-name-${scaled(100)}`}
               style={[title, { width: '100%', paddingVertical: 0, borderBottomWidth: 1, borderBottomColor: editingName ? colors.primary : 'transparent' }]}
               value={editingName ? newName : team!.name}
-              onChangeText={setNewName}
+              onChangeText={(v) => setNewName(v.replace(/\s*\n\s*/g, ' '))}
               onFocus={() => { setNewName(team!.name); setEditingName(true); }}
               onBlur={handleNameCommit}
               onSubmitEditing={handleNameCommit}
               maxLength={30}
               returnKeyType="done"
-              numberOfLines={1}
+              // multiline so a name too wide for one line wraps instead of being cut at a word (a long name, or any name at the larger display sizes); return still commits
+              multiline
+              scrollEnabled={false}
+              submitBehavior="blurAndSubmit"
+              // a multiline field keeps iOS's red spelling dots on screen after editing ends, and team names are not prose
+              spellCheck={false}
+              autoCorrect={false}
               accessibilityLabel="Team name, tap to edit"
             />
           </View>

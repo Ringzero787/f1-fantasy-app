@@ -10,6 +10,7 @@ import {
   quoteFresh, sameTerms, settledLine, signed, stakeOptions, type MoonshotClientConfig, type PredictionType, type StakeCurrency,
 } from './moonshot';
 import { shortRaceName } from './raceLeaderboard';
+import { usePrefsStore } from '../../store/prefs.store';
 
 export interface MoonshotTarget {
   teamId: string;
@@ -36,6 +37,8 @@ type Step = 'currency' | 'prediction' | 'stake' | 'confirm';
  */
 export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
   const { colors, family, spacing, scaled, mono } = useSimpleTheme();
+  // Large display sizes: the value goes under the label, or the label column is too narrow for a word and breaks inside it.
+  const stackChoices = usePrefsStore((s) => s.displayScale) > 1.15;
   const insets = useSafeAreaInsets();
   const { menu, loadingMenu, quote, loadingQuote, busy, error, openMenu, closeMenu, requestQuote, clearQuote, confirm, cancel, clearError } = useMoonshotStore();
   const [step, setStep] = useState<Step>('currency');
@@ -77,8 +80,8 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
   );
   const choice = (id: string, label: string, detail: string, right: string | null, onPress: () => void, selected = false) => (
     <Pressable key={id} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}, ${detail}${right ? `, ${right}` : ''}`}
-      style={({ pressed }) => ({ backgroundColor: selected ? colors.text.primary : colors.card, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.75 : 1 })}>
-      <View style={{ flex: 1, gap: 4 }}>
+      style={({ pressed }) => ({ backgroundColor: selected ? colors.text.primary : colors.card, borderRadius: 14, padding: 14, flexDirection: stackChoices ? 'column' : 'row', alignItems: stackChoices ? 'flex-start' : 'center', gap: stackChoices ? 8 : 12, opacity: pressed ? 0.75 : 1 })}>
+      <View style={stackChoices ? { alignSelf: 'stretch', gap: 4 } : { flex: 1, gap: 4 }}>
         <Text style={{ fontFamily: family.ui.black, fontSize: scaled(14), letterSpacing: scaled(14) * 0.04, color: selected ? colors.text.inverse : colors.text.primary }}>{label}</Text>
         <Text style={[mono(11, 'medium'), { color: selected ? colors.text.inverse : colors.text.muted }]}>{detail}</Text>
       </View>
