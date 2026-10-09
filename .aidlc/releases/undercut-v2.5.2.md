@@ -3,7 +3,7 @@
 Undercut 2.5.2: the driver sheet scrolls on iPhone, and Pit Wall says who to ace.
 
 ## Added
-- Pit Wall now displays which driver to ace for your team.
+- With a Pit Wall Pass, Pit Wall now says which driver to ace, on the Team screen and in each driver's sheet.
 
 ## Fixed
 - Driver sheet now scrolls properly on iOS devices.

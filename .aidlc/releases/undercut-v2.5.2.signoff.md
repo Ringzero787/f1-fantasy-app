@@ -7,7 +7,8 @@ Decision: **approve** — No blocking gate failed, no gate failed without a waiv
 **Commit:** 566486d5  **Tag:** uc-v2.5.2  **Since:** uc-v2.5.1  **Notes:** .aidlc/releases/undercut-v2.5.2.md (translated 9/9)
 
 ## What shipped
-- F-112, F-118, F-119
+- F-119
+- The run listed F-112 and F-118 as well. Corrected by hand: F-112 shipped in 2.5.1 and F-118 is server-side with no app code in this build (`.aidlc/features.yaml`).
 - CHANGELOG.md updated
 
 ## Gates run

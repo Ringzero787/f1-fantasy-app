@@ -8,14 +8,15 @@ said who to ace.
 
 ## Store copy
 
-**The same copy on all three stores.** The scroll fix is an iPhone fix; Android and Fire OS
-scrolled before and get the ace advice.
+**Two versions.** The scroll fix is an iPhone fix, so the App Store gets both paragraphs. Android
+and Fire OS scrolled before, and neither store wants another platform named in its listing, so
+**Google Play and Amazon get the second paragraph only** (the Pit Wall one).
 
 German and Dutch keep the informal register the rest of the listing uses.
 
 ---
 
-### English (398 / 500)
+### English (376 / 500; Play and Amazon paragraph alone 195)
 
 The driver sheet scrolls on iPhone again. It had grown taller than the screen and a swipe did
 nothing, so the stats, the contract and the Ace and Remove buttons were out of reach.
@@ -25,22 +26,22 @@ you whether to set the ace, move it or keep it, from the same projections the Pi
 
 ### Deutsch
 
-Das Fahrer-Blatt lässt sich auf dem iPhone wieder scrollen. Es war höher als der Bildschirm
+Das Fahrerblatt lässt sich auf dem iPhone wieder scrollen. Es war höher als der Bildschirm
 geworden, und ein Wisch tat nichts – Statistik, Vertrag und die Tasten für Ass und Entfernen
 waren nicht erreichbar.
 
 Pit Wall sagt jetzt, wer dein Ass sein sollte. Mit einem Pit Wall Pass zeigen dir der Team-Bildschirm
-und jedes Fahrer-Blatt, ob du das Ass setzen, verschieben oder behalten solltest – mit denselben
+und jedes Fahrerblatt, ob du das Ass setzen, verschieben oder behalten solltest – mit denselben
 Prognosen wie auf der Pit-Wall-Seite.
 
 ### Nederlands
 
-Het rijdersblad scrolt weer op de iPhone. Het was hoger geworden dan het scherm en vegen deed
-niets, waardoor de statistieken, het contract en de knoppen voor Aas en Verwijderen onbereikbaar
+Het coureurblad scrolt weer op de iPhone. Het was hoger geworden dan het scherm en vegen deed
+niets, waardoor de statistieken, het contract en de knoppen voor Ace en Verwijderen onbereikbaar
 waren.
 
-Pit Wall zegt nu wie je aas moet zijn. Met een Pit Wall Pass vertellen het teamscherm en elk
-rijdersblad je of je de aas moet zetten, verplaatsen of houden – met dezelfde prognoses als op de
+Pit Wall zegt nu wie je ace moet zijn. Met een Pit Wall Pass vertellen het teamscherm en elk
+coureurblad je of je de ace moet zetten, verplaatsen of houden – met dezelfde prognoses als op de
 Pit Wall-site.
 
 ---

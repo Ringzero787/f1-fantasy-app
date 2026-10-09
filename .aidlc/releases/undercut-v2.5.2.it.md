@@ -3,7 +3,7 @@
 Undercut 2.5.2: la scheda pilota scorre su iPhone e il Pit Wall indica quale pilota schierare come asso.
 
 ## Aggiunte
-- Il Pit Wall ora mostra quale pilota schierare come asso per la tua squadra.
+- Con un Pit Wall Pass, il Pit Wall ora indica quale pilota schierare come asso.
 
 ## Correzioni
 - La scheda pilota ora scorre correttamente sui dispositivi iOS.
