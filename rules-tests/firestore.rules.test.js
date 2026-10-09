@@ -824,3 +824,169 @@ test('a league document is readable by that league\'s members and owner, by nobo
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'pw_leagues', `${L}_2026_18`)));
   await assertFails(setDoc(doc(db(OWNER), 'pw_leagues', `${L}_2026_18`), { leagueId: L, ownership: { a: 100 } }));
 });
+
+// ── F-118: the team the lock sweep never reached ──────────────────────────────
+// autoLockTeams only sweeps races still `upcoming`, and locking a weekend takes that race out of
+// the set, so it never returns. A team created between the lock and the race has no window of its
+// own, so aceIsFrozen finds nothing to compare and the ace stayed free to move through the sprint
+// and the race. config/lockState is the weekend's window at a fixed path — the only shape rules
+// can read, since they cannot query for the live race.
+
+/** lockStatus as the SHIPPED CLIENT writes it on create: no ace window at all. */
+const unsweptStatus = { isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: true };
+const unsweptTeam = (over = {}) => aceTeam({ isLocked: false, lockStatus: unsweptStatus, ...over });
+
+const seedLockState = async (fromMs, raceMs) => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'config', 'lockState'), {
+      raceId: 'round_9',
+      lockedAt: at(-2 * HOUR),
+      aceFreezeFrom: at(fromMs),
+      aceLockTime: at(raceMs),
+      aceLockUntil: at(raceMs + 24 * HOUR),
+      aceQualiKey: QUALI_MARK,
+      aceSprintKey: SPRINT_MARK,
+    });
+  });
+};
+
+test('F-118 ace: a team created after the sweep is frozen by the live weekend', async () => {
+  await seedLockState(-HOUR, 20 * HOUR);
+  await seedTeam(unsweptTeam());
+  await assertFails(moveAce());
+});
+
+test('F-118 ace: and its constructor ace too, not just the driver', async () => {
+  await seedLockState(-HOUR, 20 * HOUR);
+  await seedTeam(unsweptTeam());
+  await assertFails(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), { aceConstructorId: 'mclaren' }));
+});
+
+test('F-118 ace: free with no lockState at all — between weekends', async () => {
+  await seedTeam(unsweptTeam());
+  await assertSucceeds(moveAce());
+});
+
+test('F-118 ace: free before the live weekend\'s first scoring session', async () => {
+  await seedLockState(HOUR, 20 * HOUR);          // freeze has not started yet
+  await seedTeam(unsweptTeam());
+  await assertSucceeds(moveAce());
+});
+
+test('F-118 ace: a lockState past its own ceiling is ignored, not a season-long freeze', async () => {
+  // The marker carries its end for the same reason the per-team window does: F-095's second
+  // rejected shape was a deadline with no end, and one nobody cleared would freeze every new
+  // team for the rest of the season.
+  await seedLockState(-50 * HOUR, -30 * HOUR);   // race was 30h ago, ceiling 6h ago
+  await seedTeam(unsweptTeam());
+  await assertSucceeds(moveAce());
+});
+
+test('F-118 ace: the designed gap still opens for a SWEPT team while the marker is live', () => {
+  // This is the real reason the check keys on the team's own stamp rather than simply "is a
+  // weekend live". A swept team's ace reopens once the sessions it doubles have been scored —
+  // the gap between qualifying and the race is a deliberate F-098 feature — and a blanket freeze
+  // on the live weekend would have taken it away from every player. Here the marker is live, the
+  // team carries this weekend's window, both markers are banked, and the ace must still move.
+  return (async () => {
+    const fromMs = -5 * HOUR, raceMs = HOUR;
+    await seedLockState(fromMs, raceMs);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const live = (await getDoc(doc(ctx.firestore(), 'config', 'lockState'))).data();
+      await setDoc(doc(ctx.firestore(), 'fantasyTeams', 'T1'), aceTeam({
+        lockStatus: {
+          isSeasonLocked: false, seasonLockRacesRemaining: 0, canModify: false, nextUnlockTime: null,
+          aceFreezeFrom: live.aceFreezeFrom, aceLockTime: live.aceLockTime,
+          aceLockUntil: live.aceLockUntil, aceQualiKey: live.aceQualiKey, aceSprintKey: live.aceSprintKey,
+        },
+        scoredRaces: [QUALI_MARK, SPRINT_MARK],
+      }));
+    });
+    await assertSucceeds(moveAce());
+  })();
+});
+
+test('F-118 ace: an unswept team cannot forge a window to escape the live weekend', async () => {
+  // lockStatus is a denied key on update, so claiming a stamp is not a route out.
+  await seedLockState(-HOUR, 20 * HOUR);
+  await seedTeam(unsweptTeam());
+  await assertFails(updateDoc(doc(db(ALICE), 'fantasyTeams', 'T1'), {
+    aceDriverId: 'piastri',
+    lockStatus: weekend(-50 * HOUR, -30 * HOUR),
+  }));
+});
+
+test('F-118: nobody writes config/lockState from a client, admin claim included', async () => {
+  // It is the ace freeze for every unswept team. autoLockTeams writes it and scoring deletes it,
+  // both through the Admin SDK, which does not consult these rules — so the client grant buys
+  // nothing and costs the ability to unfreeze a live weekend by hand.
+  const admin = env.authenticatedContext('root', { admin: true }).firestore();
+  const payload = { raceId: 'round_9', aceFreezeFrom: at(-HOUR), aceLockTime: at(HOUR), aceLockUntil: at(25 * HOUR), aceQualiKey: QUALI_MARK, aceSprintKey: null };
+  await assertFails(setDoc(doc(admin, 'config', 'lockState'), payload));
+  await assertFails(updateDoc(doc(admin, 'config', 'lockState'), { aceLockUntil: at(-HOUR) }));
+  await assertFails(deleteDoc(doc(admin, 'config', 'lockState')));
+  await assertFails(setDoc(doc(db(ALICE), 'config', 'lockState'), payload));
+  // The rest of config/ still works the way it did: an admin may write it, a player may not.
+  await assertSucceeds(setDoc(doc(admin, 'config', 'app'), { minVersion: '2.3.2' }));
+  await assertFails(setDoc(doc(db(ALICE), 'config', 'app'), { minVersion: '0.0.1' }));
+  // And everyone can still READ the marker, which is what the app's own lock display needs.
+  await assertSucceeds(getDoc(doc(db(ALICE), 'config', 'lockState')));
+});
+
+// ── F-118 round two: the forged window ───────────────────────────────────────
+// The first version keyed the freeze on "does this team have a window" — a presence test where an
+// identity test was needed. `allow update` denies lockStatus, but `allow create` never constrained
+// it and the shipped client creates teams with a bare addDoc, so the one field the freeze depends
+// on was the client's to choose at the only ungated entry point. The security read proved both
+// bypasses in the emulator.
+
+test('F-118 ace: a STALE forged window does not escape the live weekend', async () => {
+  await seedLockState(-HOUR, 20 * HOUR);
+  await seedTeam(unsweptTeam({ lockStatus: weekend(-800 * HOUR, -700 * HOUR) }));
+  await assertFails(moveAce());
+});
+
+test('F-118 ace: a window forged as a non-timestamp does not escape either', async () => {
+  await seedLockState(-HOUR, 20 * HOUR);
+  await seedTeam(unsweptTeam({
+    lockStatus: { ...unsweptStatus, aceFreezeFrom: 'x', aceLockTime: 'x', aceLockUntil: 'x' },
+  }));
+  await assertFails(moveAce());
+});
+
+test('F-118 ace: forging THIS weekend\'s window is self-defeating', async () => {
+  // The only value that gets past aceFrozenByLiveWeekend is the live window itself — and
+  // aceIsFrozen freezes on exactly that.
+  const fromMs = -HOUR, raceMs = 20 * HOUR;
+  await seedLockState(fromMs, raceMs);
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const live = (await getDoc(doc(ctx.firestore(), 'config', 'lockState'))).data();
+    await setDoc(doc(ctx.firestore(), 'fantasyTeams', 'T1'), aceTeam({
+      isLocked: false,
+      lockStatus: {
+        ...unsweptStatus,
+        aceFreezeFrom: live.aceFreezeFrom, aceLockTime: live.aceLockTime,
+        aceLockUntil: live.aceLockUntil, aceQualiKey: live.aceQualiKey, aceSprintKey: live.aceSprintKey,
+      },
+    }));
+  });
+  await assertFails(moveAce());
+});
+
+test('F-118 create: a client cannot create a team carrying an ace window', async () => {
+  const withWindow = {
+    userId: ALICE, leagueId: null, name: 'Forge', drivers: [], constructor: null,
+    budget: 1000, totalSpent: 0, totalPoints: 0, aceDriverId: null, aceConstructorId: null,
+    isLocked: false, scoredRaces: [],
+    lockStatus: weekend(-800 * HOUR, -700 * HOUR),
+  };
+  await assertFails(setDoc(doc(db(ALICE), 'fantasyTeams', 'NEW1'), withWindow));
+  // And the shape every shipped build actually sends still creates fine — this must not break
+  // team creation for anyone, which is the whole reason creation is not otherwise gated.
+  await assertSucceeds(setDoc(doc(db(ALICE), 'fantasyTeams', 'NEW2'), {
+    ...withWindow, lockStatus: unsweptStatus,
+  }));
+  await assertSucceeds(setDoc(doc(db(ALICE), 'fantasyTeams', 'NEW3'), {
+    ...withWindow, lockStatus: { isSeasonLocked: false, seasonLockRacesRemaining: 0, nextUnlockTime: null, aceFreezeFrom: null, aceLockTime: null, aceLockUntil: null, aceQualiKey: null, aceSprintKey: null, canModify: true, lockReason: null },
+  }));
+});

@@ -1,4 +1,4 @@
-next_id: 118
+next_id: 119
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1417,3 +1417,18 @@ features:
       - firestore
       - rules
       - tests
+  - id: F-118
+    name: "UC: a team created after the lock sweep is still locked for that race"
+    status: planned
+    spec: .aidlc/specs/F-118.md
+    created_at: 2026-10-09
+    keywords:
+      - team
+      - created
+      - after
+      - lock
+      - sweep
+      - still
+      - locked
+      - that
+      - race

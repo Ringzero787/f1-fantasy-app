@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { projectTeam } from './projectTeam';
 import { isUsableLeagueId } from '../utils/leagueId';
+import { LockState, liveLockState, lockedTeamStatus, stampedForWeekend } from '../locks/lockState';
 
 const db = admin.firestore();
 
@@ -63,11 +64,35 @@ function validateContractLength(raw: unknown): number {
 function assertOwnedUnlockedTeam(
   teamSnap: FirebaseFirestore.DocumentSnapshot,
   userId: string,
+  liveLock: LockState | null = null,
 ): FirebaseFirestore.DocumentData {
   if (!teamSnap.exists) throw new functions.https.HttpsError('not-found', 'Team not found');
   const team = teamSnap.data()!;
   if (team.userId !== userId) throw new functions.https.HttpsError('permission-denied', 'Not your team');
   if (team.isLocked) throw new functions.https.HttpsError('failed-precondition', 'Team is locked');
+  // F-118: a team the lock sweep never reached is unlocked but must not be edited mid-weekend.
+  // autoLockTeams only sweeps `upcoming` races, and locking a weekend takes that race out of the
+  // set, so a team created afterwards keeps `isLocked: false` through the sprint and the race —
+  // the only check above — and could pick a roster with the sessions already run.
+  //
+  // Keyed on THIS weekend's stamp. Note what it is NOT keyed on: `earlyUnlockTeam` is not a
+  // mid-weekend escape to work around — it refuses outright while a weekend is live (it buys a way
+  // out of the SEASON lock), so during a live weekend an unlocked team is essentially always one
+  // the sweep never reached. The stamp is still the right test because it is the thing a forged
+  // payload cannot fake: `allow create` does not constrain `lockStatus` and the shipped client
+  // creates teams with a bare addDoc, so a presence test on that field was the client's to pass.
+  // THIS weekend's stamp, not merely a truthy one. `!team.lockStatus?.aceLockTime` was a
+  // truthiness test: a forged `'x'`, or last month's timestamp, passed it and all five roster
+  // callables accepted edits with the sessions already run. `allow create` does not constrain
+  // `lockStatus` and the shipped client creates teams with a bare addDoc, so that field was the
+  // client's to choose. Comparing the instant makes a stale or fabricated stamp fail, while the
+  // paid earlyUnlockTeam team still passes, because F-095 leaves THIS weekend's stamp on it.
+  if (!stampedForWeekend(team, liveLock)) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'The race weekend is already under way, so this team is set for the next race.',
+    );
+  }
   return team;
 }
 
@@ -126,6 +151,32 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
     throw new functions.https.HttpsError('already-exists', 'You already have a team in this league');
   }
 
+  // F-118: a weekend already under way means this team is created LOCKED, with the ace window
+  // stamped. autoLockTeams only sweeps races still `upcoming`, and locking a weekend takes this
+  // one out of that set, so nothing would ever come back to lock a team made now: its roster
+  // would stay editable through the sprint and the race, and firestore.rules would see no ace
+  // window and let the ace move too — with the sessions already run. Locking at creation makes
+  // every existing mechanism work unchanged, rather than needing a new one: the roster callables
+  // refuse on isLocked, and aceIsFrozen governs the ace from the stamped window, gap included.
+  const lockState = await liveLockState(db);
+  const lockStatus = lockState
+    ? lockedTeamStatus(lockState)
+    : {
+        isSeasonLocked: false,
+        seasonLockRacesRemaining: 0,
+        nextUnlockTime: null,
+        // F-095/F-098: the window in which the ace is frozen — the first session it scores
+        // in to the failsafe ceiling, with a gap once qualifying is scored — stamped when
+        // the weekend locks, consulted by firestore.rules.
+        aceFreezeFrom: null,
+        aceLockTime: null,
+        aceLockUntil: null,
+        aceQualiKey: null,
+        aceSprintKey: null,
+        canModify: true,
+        lockReason: null,
+      };
+
   const teamRef = db.collection('fantasyTeams').doc();
   const team = {
     userId,
@@ -137,22 +188,8 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
     totalSpent: 0,
     totalPoints: 0,
     lockedPoints: 0,
-    isLocked: false,
-    lockStatus: {
-      isSeasonLocked: false,
-      seasonLockRacesRemaining: 0,
-      nextUnlockTime: null,
-      // F-095/F-098: the window in which the ace is frozen — the first session it scores
-      // in to the failsafe ceiling, with a gap once qualifying is scored — stamped when
-      // the weekend locks, consulted by firestore.rules.
-      aceFreezeFrom: null,
-      aceLockTime: null,
-      aceLockUntil: null,
-      aceQualiKey: null,
-      aceSprintKey: null,
-      canModify: true,
-      lockReason: null,
-    },
+    isLocked: lockState !== null,
+    lockStatus,
     aceDriverId: null,
     aceConstructorId: null,
     racesSinceTransfer: 0,
@@ -193,9 +230,13 @@ export const addDriverSecure = functions.https.onCall(async (data, context) => {
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const driverRef = db.collection('drivers').doc(driverId);
 
+  // F-118: read outside the transaction on purpose — this is an advisory gate, and the
+  // authoritative state is still the team's own isLocked, which the same sweep writes. The
+  // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
+  const liveLock = await liveLockState(db);
   const result = await db.runTransaction(async (tx) => {
     const [teamSnap, driverSnap] = await Promise.all([tx.get(teamRef), tx.get(driverRef)]);
-    const team = assertOwnedUnlockedTeam(teamSnap, userId);
+    const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
 
     if (!driverSnap.exists) throw new functions.https.HttpsError('not-found', 'Driver not found');
     const driver = driverSnap.data()!;
@@ -278,9 +319,13 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const driverRef = db.collection('drivers').doc(driverId);
 
+  // F-118: read outside the transaction on purpose — this is an advisory gate, and the
+  // authoritative state is still the team's own isLocked, which the same sweep writes. The
+  // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
+  const liveLock = await liveLockState(db);
   const result = await db.runTransaction(async (tx) => {
     const [teamSnap, driverSnap] = await Promise.all([tx.get(teamRef), tx.get(driverRef)]);
-    const team = assertOwnedUnlockedTeam(teamSnap, userId);
+    const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
 
     const drivers: any[] = team.drivers || [];
     const driver = drivers.find((d: any) => d.driverId === driverId);
@@ -352,9 +397,13 @@ export const setConstructorSecure = functions.https.onCall(async (data, context)
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const newCtorRef = db.collection('constructors').doc(constructorId);
 
+  // F-118: read outside the transaction on purpose — this is an advisory gate, and the
+  // authoritative state is still the team's own isLocked, which the same sweep writes. The
+  // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
+  const liveLock = await liveLockState(db);
   const result = await db.runTransaction(async (tx) => {
     const [teamSnap, newCtorSnap] = await Promise.all([tx.get(teamRef), tx.get(newCtorRef)]);
-    const team = assertOwnedUnlockedTeam(teamSnap, userId);
+    const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
 
     if (!newCtorSnap.exists) throw new functions.https.HttpsError('not-found', 'Constructor not found');
     const newCtor = newCtorSnap.data()!;
@@ -461,9 +510,13 @@ export const removeConstructorSecure = functions.https.onCall(async (data, conte
   const userId = context.auth.uid;
   const teamRef = db.collection('fantasyTeams').doc(teamId);
 
+  // F-118: read outside the transaction on purpose — this is an advisory gate, and the
+  // authoritative state is still the team's own isLocked, which the same sweep writes. The
+  // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
+  const liveLock = await liveLockState(db);
   const result = await db.runTransaction(async (tx) => {
     const teamSnap = await tx.get(teamRef);
-    const team = assertOwnedUnlockedTeam(teamSnap, userId);
+    const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
 
     const ctor = getTeamCtor(team);
     if (!ctor) throw new functions.https.HttpsError('not-found', 'No constructor on team');
@@ -539,13 +592,17 @@ export const buildTeamSecure = functions.https.onCall(async (data, context) => {
   const completedRaceCount = await getCompletedRaceCount();
   const teamRef = db.collection('fantasyTeams').doc(teamId);
 
+  // F-118: read outside the transaction on purpose — this is an advisory gate, and the
+  // authoritative state is still the team's own isLocked, which the same sweep writes. The
+  // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
+  const liveLock = await liveLockState(db);
   const result = await db.runTransaction(async (tx) => {
     const reads: Promise<FirebaseFirestore.DocumentSnapshot>[] = [tx.get(teamRef)];
     for (const dId of driverIds) reads.push(tx.get(db.collection('drivers').doc(dId)));
     if (constructorId) reads.push(tx.get(db.collection('constructors').doc(constructorId)));
     const snaps = await Promise.all(reads);
 
-    const team = assertOwnedUnlockedTeam(snaps[0], userId);
+    const team = assertOwnedUnlockedTeam(snaps[0], userId, liveLock);
     if ((team.drivers || []).length > 0 || getTeamCtor(team)) {
       throw new functions.https.HttpsError('failed-precondition',
         'Team already has a roster — use add/remove operations instead');
