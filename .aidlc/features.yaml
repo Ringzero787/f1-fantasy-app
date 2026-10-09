@@ -1,4 +1,4 @@
-next_id: 117
+next_id: 118
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1408,3 +1408,12 @@ features:
       - once
       - every
       - store
+  - id: F-117
+    name: "UC: the Firestore rules tests run in CI"
+    status: implemented
+    spec: .aidlc/specs/F-117.md
+    created_at: 2026-10-09
+    keywords:
+      - firestore
+      - rules
+      - tests
