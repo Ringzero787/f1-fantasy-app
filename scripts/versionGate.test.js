@@ -18,3 +18,51 @@ test('setAppVersionGate.js: DESIRED.minVersion is a full version no newer than a
   assert.ok(shipping, 'app.config.js version not found');
   assert.ok(lte(semver(floor[1]), semver(shipping[1])), `floor ${floor[1]} is above the shipping version ${shipping[1]}`);
 });
+
+test('setAppVersionGate.js: the floor is not above the OLDEST store that is live', () => {
+  // The shipping-version check above is necessary but not sufficient: it compares the floor to what
+  // this checkout BUILDS, while the floor blocks what users have INSTALLED, store by store. A floor
+  // above the oldest live store hard-blocks those users — and on Amazon they cannot even reach
+  // their own store, because AppUpdateGate.openStore has no Amazon branch and opens the Play url.
+  //
+  // Amazon has no API, so the live set is declared by hand in KNOWN_LIVE. It is read here as
+  // STRUCTURED DATA, per store. An earlier version of this test scraped the script's header prose
+  // for version-shaped substrings, which could be made to pass vacuously: mention the floor near
+  // the declaration and it becomes its own "oldest live store".
+  const gate = require('../functions/scripts/setAppVersionGate.js');
+  for (const store of gate.STORES) {
+    assert.match(gate.KNOWN_LIVE[store] ?? '', /^\d+\.\d+\.\d+$/,
+      `KNOWN_LIVE.${store} must be the version live in that store`);
+  }
+  assert.match(gate.KNOWN_LIVE.asOf ?? '', /^\d{4}-\d{2}-\d{2}$/, 'KNOWN_LIVE.asOf must be a date');
+  const floor = read('functions/scripts/setAppVersionGate.js').match(/minVersion:\s*'(\d+\.\d+\.\d+)'/)[1];
+  assert.ok(lte(semver(floor), gate.oldestLive()),
+    `floor ${floor} is above the oldest live store (${gate.oldestLive().join('.')}) — those users `
+    + 'would be blocked with no way to update, Amazon users to a store they cannot open');
+});
+
+test('setAppVersionGate.js: the script itself refuses a floor that locks a store out', () => {
+  // Not only the test: the op applies by running this script, so the refusal has to live in the
+  // script or a hand run with --minVersion walks straight past it.
+  const gate = require('../functions/scripts/setAppVersionGate.js');
+  const oldest = gate.oldestLive().join('.');
+  const above = [...gate.oldestLive()];
+  above[2] += 1;
+  const run = (floor) => {
+    const r = require('node:child_process').spawnSync(process.execPath,
+      [path.join(ROOT, 'functions/scripts/setAppVersionGate.js'), `--minVersion=${floor}`],
+      { encoding: 'utf8', env: { ...process.env, SA_KEY: '' } });
+    return { code: r.status, err: (r.stderr || '') + (r.stdout || '') };
+  };
+  const bad = run(above.join('.'));
+  assert.equal(bad.code, 2, 'a floor above the oldest live store must refuse');
+  assert.match(bad.err, /Refusing to write minVersion/);
+  // A substring check, not a RegExp built from a string: hand-escaping only the dots is the
+  // incomplete-sanitization pattern CodeQL flags, and nothing here needs a pattern anyway.
+  assert.ok(bad.err.includes(`oldest live store is ${oldest}`),
+    `the refusal must name the oldest live store; got: ${bad.err}`);
+  // And it refuses BEFORE connecting: no SA_KEY is set, so a script that got as far as initAdmin
+  // would complain about the key instead.
+  assert.doesNotMatch(bad.err, /SA_KEY must point at/,
+    'the lockout refusal must happen before initAdmin, so it cannot be skipped by a missing key');
+});

@@ -1,4 +1,4 @@
-next_id: 116
+next_id: 117
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1396,3 +1396,15 @@ features:
       - larger
       - wide
     unit: undercut
+  - id: F-116
+    name: "UC: raise the update floor to 2.5.0 once every store has it"
+    status: planned
+    spec: .aidlc/specs/F-116.md
+    created_at: 2026-10-09
+    keywords:
+      - raise
+      - update
+      - floor
+      - once
+      - every
+      - store
