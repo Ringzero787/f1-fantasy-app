@@ -135,7 +135,7 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
   // Sign-in buttons follow each provider's own button rules, not this app's type: the provider's
   // mark as they publish it, their wording in sentence case, the system face rather than the
   // display face, and their colours. Only the pill shape and height are ours.
-  const fontSize = scaled(15);
+  const fontSize = scaled(17);
   const pillHeight = scaled(18) * 2 + Math.round(fontSize * 1.3) + 2;
   const pill = (bg: string, border: string, fg: string, icon: React.ReactNode, label: string, onPress: () => void, key: string) => (
     <Pressable
