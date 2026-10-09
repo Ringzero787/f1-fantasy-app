@@ -372,6 +372,60 @@ service cloud.firestore {
     // the same thing as an explicit null. Absent-versus-null is a diff, so a keys-based
     // test would have refused an innocent write — a rename, say — for anyone who went into
     // a race without an ace, and syncTeamToFirebase only logs what it is refused.
+    // F-118: the ace of a team the lock sweep never reached.
+    //
+    // autoLockTeams only sweeps races still `upcoming`, and locking a weekend takes that race out
+    // of the set, so it never comes back. A team created between the lock and the race therefore
+    // has no window of its own, `aceIsFrozen` above finds nothing to compare request.time against,
+    // and the ace stays free to move through the sprint and the race with the sessions already
+    // run — the exact hole F-095 and F-098 closed for every team the sweep did reach.
+    //
+    // `config/lockState` is the weekend's window published at a fixed path by the sweep, because a
+    // fixed path is the only thing rules can read: they cannot run a query, and the live race id
+    // is not derivable here. It carries its own end (race + 24h), so a marker nobody clears
+    // expires rather than freezing every new team for the rest of the season.
+    //
+    // Why it compares the team's own stamp instead of freezing on the live weekend outright: a
+    // blanket freeze would take away the deliberate F-098 GAP, which reopens the ace once the
+    // sessions it doubles have been scored — qualifying and the sprint — before lights out. A
+    // swept team carries this weekend's stamp, so `aceIsFrozen` above stays the single authority
+    // on it, gap included; only a team with a different stamp, or none, lands here.
+    // F-118: a client-created team may not arrive carrying an ace window.
+    //
+    // `allow update` denies `lockStatus` outright, but `allow create` never constrained it, and
+    // the shipped client creates teams with a direct `addDoc` — so the one field the freeze is
+    // keyed on was the client's to choose at the only ungated entry point. Every shipped build
+    // satisfies this already: their create payload has no ace fields at all. createTeamSecure
+    // writes a real window for a mid-weekend team, which is unaffected because the Admin SDK does
+    // not consult these rules.
+    function createdWithoutAceWindow(data) {
+      let s = data.get('lockStatus', {});
+      return !(s is map)
+             || (s.get('aceFreezeFrom', null) == null
+                 && s.get('aceLockTime', null) == null
+                 && s.get('aceLockUntil', null) == null);
+    }
+
+    function aceFrozenByLiveWeekend(team) {
+      let ls = exists(/databases/$(database)/documents/config/lockState)
+               ? get(/databases/$(database)/documents/config/lockState).data
+               : {};
+      let from = ls.get('aceFreezeFrom', null);
+      let until = ls.get('aceLockUntil', null);
+      let lockAt = ls.get('aceLockTime', null);
+      let status = team.get('lockStatus', {});
+      let own = status is map ? status.get('aceLockTime', null) : null;
+      // THIS weekend's stamp, not merely some stamp. Keying on "has a window" was a presence test
+      // where an identity test was needed: `allow create` does not constrain `lockStatus`, and the
+      // shipped client creates teams with a bare addDoc, so a crafted payload could carry
+      // `aceLockTime` set to last month — or to the string 'x' — and land on the free side of this
+      // check AND of aceIsFrozen, which sees an expired window and permits the write. Comparing
+      // against the marker makes forgery self-defeating: the only value that escapes here is the
+      // live window itself, and aceIsFrozen freezes on exactly that.
+      return own != lockAt
+             && from is timestamp && until is timestamp
+             && request.time >= from && request.time < until;
+    }
     function aceUnchanged(before, after) {
       return before.get('aceDriverId', null) == after.get('aceDriverId', null)
              && before.get('aceConstructorId', null) == after.get('aceConstructorId', null);
@@ -416,6 +470,8 @@ service cloud.firestore {
                     // F-107: the Moonshot column is settlement's alone; a new team starts with none
                     && (!('moonshotPoints' in request.resource.data) || request.resource.data.moonshotPoints == 0)
                     && !('moonshotStats' in request.resource.data)
+                    // F-118: and no forged ace window, which the freeze is keyed on
+                    && createdWithoutAceWindow(request.resource.data)
                     && usableLeagueId(request.resource.data);
       allow update: if isOwner(resource.data.userId)
                     && request.resource.data.userId == resource.data.userId
@@ -427,7 +483,8 @@ service cloud.firestore {
                       'bestRacePoints', 'bestRaceId',
                       'moonshotPoints', 'moonshotStats'
                     ]))
-                    && (!aceIsFrozen(resource.data) || aceUnchanged(resource.data, request.resource.data))
+                    && ((!aceIsFrozen(resource.data) && !aceFrozenByLiveWeekend(resource.data))
+                        || aceUnchanged(resource.data, request.resource.data))
                     && usableLeagueId(request.resource.data);
       allow delete: if isOwner(resource.data.userId);
     }
@@ -550,7 +607,14 @@ service cloud.firestore {
     // Game config — readable by all authenticated users, writable by admin only
     match /config/{docId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      // F-118: `lockState` is excluded. It is the ace freeze for every team the lock sweep never
+      // reached, so a hand-write to it unfreezes all of them mid-race — or freezes everyone's.
+      // Nothing legitimate needs the grant: autoLockTeams writes it and scoring deletes it, both
+      // through the Admin SDK, which does not consult these rules at all. An admin custom claim
+      // is a person, and this is not a decision a person should be able to make from a client.
+      // Note Firestore grants on ANY matching rule, so this has to be an exclusion here rather
+      // than a stricter `match /config/lockState` block, which would simply be additive.
+      allow write: if isAdmin() && docId != 'lockState';
     }
 
     // Cache — authenticated users can read, only Cloud Functions write

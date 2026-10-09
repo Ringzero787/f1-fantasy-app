@@ -83,3 +83,69 @@ export function aceFreezeStart(
   if (sprint && qualifying) return sprint.toMillis() <= qualifying.toMillis() ? sprint : qualifying;
   return sprint ?? qualifying ?? race.schedule?.race ?? null;
 }
+
+/**
+ * Failsafe unlock ceiling. Phase 5 of `onRaceCompleted` schedules the real unlock (3h after the
+ * race is scored); this exists only so a cancelled race, or results that never arrive, cannot
+ * leave teams locked for the rest of the season. It also bounds the ace freeze, for the same
+ * reason — F-095's second rejected shape was a deadline with no end.
+ */
+export const UNLOCK_FAILSAFE_MS = 24 * 60 * 60 * 1000;
+
+export interface AceWindow {
+  aceFreezeFrom: admin.firestore.Timestamp;
+  aceLockTime: admin.firestore.Timestamp;
+  aceLockUntil: admin.firestore.Timestamp;
+  aceQualiKey: string;
+  aceSprintKey: string | null;
+}
+
+/**
+ * The ace freeze window for one race — the single definition of it (F-118).
+ *
+ * It used to be built inline in `autoLockTeams`, which was the only writer. It is not any more:
+ * a team created while a weekend is already live has to be stamped at creation, because the sweep
+ * has already run for that race and never comes back for it (the race is `in_progress` and the
+ * sweep only looks at `upcoming`). Two copies of this arithmetic would diverge, and the whole
+ * failure mode of F-095 and F-098 was a lock deadline that one writer knew about and another did
+ * not.
+ *
+ * Note what this does NOT depend on: the league's `lockDeadline`. The ace locks at lights out and
+ * starts scoring at the first session it doubles, both of which come from the race schedule.
+ * Keying the window off the league's roster deadline is why `lockDeadline: 'race'` leagues got no
+ * freeze at all.
+ *
+ * Returns null when the race has no usable start, which is the one case the caller must not stamp:
+ * a window without an end is F-095's rejected shape.
+ */
+export function aceWindowFor(
+  raceId: string,
+  race: FirebaseFirestore.DocumentData,
+): AceWindow | null {
+  const start = race.schedule?.race;
+  if (!start || typeof start.toMillis !== 'function') return null;
+  return {
+    aceFreezeFrom: aceFreezeStart(race) ?? start,
+    aceLockTime: start,
+    aceLockUntil: admin.firestore.Timestamp.fromMillis(start.toMillis() + UNLOCK_FAILSAFE_MS),
+    aceQualiKey: `quali_${raceId}`,
+    // Only on a sprint weekend. The sprint can miss its own scoring run exactly as qualifying
+    // can — `onRaceCompleted` then folds it in at race time from a live ace read — so the gap
+    // must not open on qualifying alone where there is one. `|| hasSprint` fails CLOSED: a sprint
+    // round whose OpenF1 sessions are not published yet has the flag from seed data but no time,
+    // and stamping no marker there would let the gap open on qualifying alone — the hole, not the
+    // fix.
+    aceSprintKey: (race.schedule?.sprint || race.hasSprint === true) ? `sprint_${raceId}` : null,
+  };
+}
+
+/** The same window as the dotted field paths an `update()` needs. */
+export function aceWindowUpdate(w: AceWindow): Record<string, unknown> {
+  return {
+    'lockStatus.aceFreezeFrom': w.aceFreezeFrom,
+    'lockStatus.aceLockTime': w.aceLockTime,
+    'lockStatus.aceLockUntil': w.aceLockUntil,
+    'lockStatus.aceQualiKey': w.aceQualiKey,
+    'lockStatus.aceSprintKey': w.aceSprintKey,
+  };
+}

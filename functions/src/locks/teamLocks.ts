@@ -1,7 +1,13 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
-import { aceFreezeStart, effectiveLockTime, lockSessionLabel } from '../utils/lockTime';
+import {
+  UNLOCK_FAILSAFE_MS,
+  aceWindowFor,
+  aceWindowUpdate,
+  effectiveLockTime,
+  lockSessionLabel,
+} from '../utils/lockTime';
 import { FillContext, autoFillTeamTx, isIncomplete, loadFillContext } from '../teams/autoFill';
 import { isUsableLeagueId } from '../utils/leagueId';
 
@@ -34,10 +40,6 @@ async function raceWeekendIsLive(now = Date.now()): Promise<boolean> {
   });
 }
 
-// Failsafe unlock: Phase 5 of onRaceCompleted schedules the real unlock
-// (3h after race completion). This ceiling only exists so teams don't stay
-// locked forever if a race is cancelled or results never arrive.
-const UNLOCK_FAILSAFE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Scheduled function to lock teams before the weekend's first roster-scoring
@@ -193,21 +195,18 @@ export const autoLockTeams = functions.pubsub
           race.schedule.race.toMillis() + UNLOCK_FAILSAFE_MS
         ),
       };
-      const aceWindow = {
-        'lockStatus.aceFreezeFrom': aceFreezeStart(race) ?? race.schedule.race,
-        'lockStatus.aceLockTime': race.schedule.race,
-        'lockStatus.aceLockUntil': admin.firestore.Timestamp.fromMillis(
-          race.schedule.race.toMillis() + UNLOCK_FAILSAFE_MS
-        ),
-        'lockStatus.aceQualiKey': `quali_${raceDoc.id}`,
-        // Only on a sprint weekend. The sprint can miss its own scoring run exactly as
-        // qualifying can — `onRaceCompleted` then folds it in at race time from a live
-        // ace read — so the gap must not open on qualifying alone where there is one.
-        // `|| hasSprint` fails CLOSED: a sprint round whose OpenF1 sessions are not
-        // published yet has the flag from seed data but no time, and stamping no marker
-        // there would let the gap open on qualifying alone — the hole, not the fix.
-        'lockStatus.aceSprintKey': (race.schedule?.sprint || race.hasSprint === true) ? `sprint_${raceDoc.id}` : null,
-      };
+      // F-118: one definition of the window, shared with createTeamSecure, which has to stamp a
+      // team created while this weekend is already live. Two copies of this arithmetic would
+      // diverge, and a lock deadline one writer knows about and another does not is exactly how
+      // F-095 and F-098 went wrong.
+      const aceW = aceWindowFor(raceDoc.id, race);
+      if (!aceW) {
+        // dueRaces already rejects a race with no usable start; belt and braces, because a window
+        // with no end is F-095's rejected shape and would freeze an ace for the rest of the season.
+        console.error('No usable race start for %s; not stamping an ace window', raceDoc.id);
+        continue;
+      }
+      const aceWindow = aceWindowUpdate(aceW);
 
       // Lock teams in batches
       let batch = db.batch();
@@ -219,6 +218,24 @@ export const autoLockTeams = functions.pubsub
       for (const teamDoc of teamsSnapshot.docs) {
         const team = teamDoc.data();
         const lockDeadline = leagueSettings.get(team.leagueId) || 'qualifying';
+
+        // The ace window is stamped for EVERY team the weekend covers, whatever the league's
+        // roster deadline is (F-118). The ace locks at lights out and starts scoring at the first
+        // session it doubles — both from the race schedule, neither from `lockDeadline`. Keying
+        // the window off the roster deadline meant a `lockDeadline: 'race'` league got no freeze
+        // at all: its players could watch the sprint, then the race, and move the ace throughout,
+        // which is the hole F-095 and F-098 closed for everyone else. No league is configured
+        // that way today (0 of 24 on 2026-10-09), so this was latent, not live.
+        if (lockDeadline !== 'qualifying') {
+          batch.update(teamDoc.ref, { ...aceWindow, ...unlockFailsafe });
+          stampedCount++;
+          opsInBatch++;
+          if (opsInBatch >= BATCH_OP_LIMIT) {
+            await batch.commit();
+            batch = db.batch();
+            opsInBatch = 0;
+          }
+        }
 
         if (lockDeadline === 'qualifying') {
           const alreadyLocked = team.isLocked === true;
@@ -292,6 +309,28 @@ export const autoLockTeams = functions.pubsub
       if (stampedCount > 0) {
         console.log(`Locked ${lockedCount} teams for race ${race.name} (auto-filled ${filledCount}; ace window stamped on ${stampedCount})`);
       }
+
+      // F-118: publish the window at a path firestore.rules can read.
+      //
+      // The sweep only looks at races still `upcoming`, and the line below is what takes this one
+      // out of that set — so the sweep never returns to this weekend. A team created from here
+      // until the race is scored was therefore never locked and never stamped: its roster stayed
+      // editable through the sprint and the race, and `aceIsFrozen` saw no window so its ace did
+      // too. `createTeamSecure` can read the race calendar and fix its own writes, but the shipped
+      // client creates teams with a direct `addDoc`, so the RULES have to know as well — and rules
+      // cannot run a query. One document at a fixed path is the only shape they can read.
+      //
+      // Written before the status flip, so there is no instant where the race is out of the
+      // sweep's set and the rules cannot yet tell a weekend is live.
+      await db.doc('config/lockState').set({
+        raceId: raceDoc.id,
+        lockedAt: admin.firestore.FieldValue.serverTimestamp(),
+        aceFreezeFrom: aceW.aceFreezeFrom,
+        aceLockTime: aceW.aceLockTime,
+        aceLockUntil: aceW.aceLockUntil,
+        aceQualiKey: aceW.aceQualiKey,
+        aceSprintKey: aceW.aceSprintKey,
+      });
 
       // Update race status
       await raceDoc.ref.update({ status: 'in_progress' });

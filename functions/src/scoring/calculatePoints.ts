@@ -1586,6 +1586,25 @@ export const onRaceCompleted = functions
     await commitInBatches(unlockOps);
     console.log(`[Phase 5] Scheduled unlock for ${unlockOps.length} teams`);
 
+    // F-118: this weekend is over, so stop telling firestore.rules it is live.
+    //
+    // config/lockState is what lets the rules — which cannot run a query — see that a weekend is
+    // in progress, so a team created after the sweep is created locked with the ace window rather
+    // than free to pick a roster and an ace with the results already known. It is bounded by its
+    // own aceLockUntil (race + 24h) and so expires on its own; clearing it here is what makes it
+    // stop mattering at scoring time instead, which is hours earlier. Without this, a team created
+    // between now and race + 24h would be created locked and then wait for the failsafe rather
+    // than the completion + 3h unlock every other team just received.
+    //
+    // Only this race's marker: a document from another weekend is not ours to delete, and deleting
+    // the wrong one would unfreeze a live weekend's aces.
+    const lockStateRef = db.doc('config/lockState');
+    const lockStateSnap = await lockStateRef.get();
+    if (lockStateSnap.exists && lockStateSnap.data()?.raceId === raceId) {
+      await lockStateRef.delete();
+      console.log('[Phase 5] Cleared config/lockState for %s', raceId);
+    }
+
     console.log(`Race ${raceId} fully processed: scored, priced, ranked, unlocked`);
     return null;
   });
