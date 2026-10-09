@@ -12,7 +12,9 @@ SHA256=56cfc0939de77ec0195a28c5d7fbdc2bfd7e8b9c2c1e8d48d5e76b64e2e940a0
 curl -sS -f -L -o "$tmp/gs.tgz" "$PKG"
 echo "$SHA256  $tmp/gs.tgz" | sha256sum -c --quiet
 tar xzf "$tmp/gs.tgz" -C "$tmp" package/500Medium/GoogleSans_500Medium.ttf package/LICENSE_FONT
-cp "$tmp/package/LICENSE_FONT" assets/fonts/OFL-GoogleSans.txt
+# the package's licence file drops the copyright line that google/fonts' OFL.txt opens with, and
+# the OFL asks for the notice and the licence together
+{ echo 'Copyright 2025 The Google Sans Project Authors (https://github.com/googlefonts/googlesans)'; echo; cat "$tmp/package/LICENSE_FONT"; } > assets/fonts/OFL-GoogleSans.txt
 python3 -m fontTools.subset "$tmp/package/500Medium/GoogleSans_500Medium.ttf" \
   --unicodes='U+0020-007E,U+00A0-00FF,U+2026' --layout-features='*' --name-IDs='*' --notdef-outline \
   --output-file=assets/fonts/GoogleSans_500Medium.ttf

@@ -167,7 +167,7 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
     >
       {icon}
       {/* shrinks to stay inside the pill on one line; the system text size may enlarge it only a little, the pill being a fixed height */}
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.15} style={[{ flexShrink: 1, fontSize, color: fg }, face ? { fontFamily: face } : { fontWeight: '500' }]}>{busy === key ? 'Signing in…' : label}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.15} style={[{ flexShrink: 1, fontSize, color: fg, includeFontPadding: false }, face ? { fontFamily: face } : { fontWeight: '500' }]}>{busy === key ? 'Signing in…' : label}</Text>
     </Pressable>
   );
 
