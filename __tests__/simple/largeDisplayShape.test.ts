@@ -45,7 +45,8 @@ describe('layouts that must survive the largest display size', () => {
     expect(src).toContain('fitFontSize(scaled(40), (width - spacing.xl * 2) / (fontScale || 1), WORDMARK_EM_WIDTH)');
     const pill = src.match(/const pill = [\s\S]*?<\/Pressable>/)?.[0];
     expect(pill).toBeDefined();
-    expect(pill).toMatch(/<Text numberOfLines=\{1\} adjustsFontSizeToFit minimumFontScale=\{0\.6\} style=\{\{ flexShrink: 1/);
+    const label = pill!.match(/<Text [^>]*>/)?.[0] ?? '';
+    for (const prop of ['numberOfLines={1}', 'adjustsFontSizeToFit', 'minimumFontScale={0.6}', 'flexShrink: 1']) expect(label).toContain(prop);
   });
 
   it('no line height in the League feed is a bare number', () => {
