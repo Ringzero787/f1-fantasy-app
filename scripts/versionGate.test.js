@@ -57,7 +57,10 @@ test('setAppVersionGate.js: the script itself refuses a floor that locks a store
   const bad = run(above.join('.'));
   assert.equal(bad.code, 2, 'a floor above the oldest live store must refuse');
   assert.match(bad.err, /Refusing to write minVersion/);
-  assert.match(bad.err, new RegExp(`oldest live store is ${oldest.replace(/\./g, '\\.')}`));
+  // A substring check, not a RegExp built from a string: hand-escaping only the dots is the
+  // incomplete-sanitization pattern CodeQL flags, and nothing here needs a pattern anyway.
+  assert.ok(bad.err.includes(`oldest live store is ${oldest}`),
+    `the refusal must name the oldest live store; got: ${bad.err}`);
   // And it refuses BEFORE connecting: no SA_KEY is set, so a script that got as far as initAdmin
   // would complain about the key instead.
   assert.doesNotMatch(bad.err, /SA_KEY must point at/,
