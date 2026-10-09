@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Alert, KeyboardAvoidingView, Platform, StatusBar, type TextInputProps } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Alert, KeyboardAvoidingView, Platform, StatusBar, useWindowDimensions, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -11,6 +11,7 @@ import { amazonWebSignInAvailable } from '../../utils/amazonSignIn';
 import { googleWebSignIn, googleWebSignInAvailable } from '../../utils/googleWebSignIn';
 import { providerOrder, type Provider } from './signInProviders';
 import { MonoLabel } from './GridBits';
+import { fitFontSize, WORDMARK_EM_WIDTH } from './fitText';
 
 const isExpoGo = Constants.appOwnership === 'expo';
 
@@ -21,6 +22,9 @@ export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?
   // verification builds made with EXPO_PUBLIC_ALLOW_DEMO=1 (store builds never set it).
   const demoAllowed = __DEV__ || isExpoGo || process.env.EXPO_PUBLIC_ALLOW_DEMO === '1';
   const longPress = demoAllowed ? onWordmarkLongPress : undefined;
+  // One line at every display size and phone width: at XXL the full size broke as "UNDERC / UT".
+  const { width } = useWindowDimensions();
+  const wordmarkSize = fitFontSize(scaled(40), width - spacing.xl * 2, WORDMARK_EM_WIDTH);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
@@ -30,7 +34,7 @@ export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?
             <MonoLabel>{caption ?? 'FANTASY · SEASON ' + new Date().getFullYear()}</MonoLabel>
           </View>
           <Pressable onLongPress={longPress} accessibilityRole="header" accessibilityLabel="Undercut">
-            <Text style={{ fontFamily: family.ui.black, fontSize: scaled(40), lineHeight: scaled(40), letterSpacing: -scaled(40) * 0.05, textTransform: 'uppercase', color: colors.text.primary, marginTop: 10 }}>
+            <Text numberOfLines={1} style={{ fontFamily: family.ui.black, fontSize: wordmarkSize, lineHeight: wordmarkSize, letterSpacing: -wordmarkSize * 0.05, textTransform: 'uppercase', color: colors.text.primary, marginTop: 10 }}>
               Under<Text style={{ color: colors.primary }}>cut</Text>
             </Text>
           </Pressable>
@@ -133,10 +137,11 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
       disabled={disabled || !!busy}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: scaled(18), borderRadius: 999, backgroundColor: bg, borderWidth: 1, borderColor: border, opacity: pressed || (busy && busy !== key) ? 0.6 : 1 })}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: scaled(18), paddingHorizontal: 18, borderRadius: 999, backgroundColor: bg, borderWidth: 1, borderColor: border, opacity: pressed || (busy && busy !== key) ? 0.6 : 1 })}
     >
       {icon}
-      <Text style={{ fontFamily: family.ui.black, fontSize, letterSpacing: fontSize * 0.08, color: fg }}>{busy === key ? 'SIGNING IN…' : label}</Text>
+      {/* shrinks to stay inside the pill on one line, as SegmentPill labels do: at XXL the label ran past the edge */}
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ flexShrink: 1, fontFamily: family.ui.black, fontSize, letterSpacing: fontSize * 0.08, color: fg }}>{busy === key ? 'SIGNING IN…' : label}</Text>
     </Pressable>
   );
 

@@ -36,6 +36,7 @@ import { serverAceLocked } from '../../utils/lockout';
 import { usePitWallStore } from '../../store/pitwall.store';
 import { aceAdvice, aceAdviceLine, aceVerdictFor, projectionsAreForRound } from '../../pitwall/aceAdvice';
 import { SHOWCASE_ENABLED } from './showcaseData';
+import { usePrefsStore } from '../../store/prefs.store';
 
 interface Props {
   refreshing: boolean;
@@ -46,6 +47,7 @@ interface Props {
 export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onRefresh }: Props) {
   const { colors, family, spacing, scaled, title, mono } = useSimpleTheme();
   const { width } = useWindowDimensions();
+  const stackStats = usePrefsStore((s) => s.displayScale) > 1.15;
   const {
     team, teamConstructor, hasTeam, createTeam, setAce, setAceConstructor, clearAce, updateTeamName, removeDriver, removeConstructor,
     teamCount, activeTeamIndex, canCreateSecondTeam, switchTeam,
@@ -368,8 +370,9 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
         />
       ) : (
         <>
-          {/* Stat row: SEASON PTS · LAST RACE · RANK */}
-          <View style={{ marginHorizontal: gutter, marginTop: 22, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+          {/* Stat row: SEASON PTS · LAST RACE · RANK. At large display sizes the two smaller stats go
+              under the total: side by side they squeezed it until its tight tracking overlapped the digits. */}
+          <View style={[{ marginHorizontal: gutter, marginTop: 22, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 12 }, stackStats ? { flexDirection: 'column', alignItems: 'flex-start' } : { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }]}>
             <View style={{ gap: 2, flexShrink: 1 }}>
               <MonoLabel>SEASON PTS</MonoLabel>
               <Text
@@ -381,13 +384,13 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
               </Text>
             </View>
             <View style={{ flexDirection: 'row', gap: 18, alignItems: 'flex-end' }}>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+              <View style={{ alignItems: stackStats ? 'flex-start' : 'flex-end', gap: 2 }}>
                 <MonoLabel>LAST RACE</MonoLabel>
                 <Text style={{ fontFamily: family.ui.bold, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.02, color: lastPoints != null && lastPoints < 0 ? colors.negative : colors.primary }}>
                   {lastPoints == null ? '—' : `${lastPoints >= 0 ? '+' : ''}${lastPoints}`}
                 </Text>
               </View>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+              <View style={{ alignItems: stackStats ? 'flex-start' : 'flex-end', gap: 2 }}>
                 <MonoLabel>RANK</MonoLabel>
                 <Text style={{ fontFamily: family.ui.bold, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.02, color: colors.text.primary }}>
                   {myMember?.rank ? myMember.rank : '—'}
