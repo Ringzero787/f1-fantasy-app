@@ -62,8 +62,10 @@ async function main() {
   const usable = live.docs.filter((doc) => {
     const startMs = doc.data()?.schedule?.race?.toMillis?.();
     if (typeof startMs !== 'number') {
-      console.warn('Skipping %s: no usable race start', doc.id);
-      return false;
+      // Not a skip: this is the weekend that needs the marker, and exiting 0 would let the op
+      // report success with the hole still open.
+      console.error('Refusing to run: %s is in_progress but has no schedule.race timestamp.', doc.id);
+      process.exit(2);
     }
     // The same bound raceWeekendIsLive applies: `in_progress` has no way out but success, and a
     // stuck latch from a past weekend must not become a marker that freezes new teams.
@@ -104,7 +106,8 @@ async function main() {
   teams.forEach((t) => {
     const own = t.data()?.lockStatus?.aceLockTime;
     if (!own?.toMillis) { unstamped++; return; }
-    if (own.toMillis() === start.toMillis()) agree++; else disagree++;
+    // isEqual, not toMillis: the rule compares the whole timestamp.
+    if (own.isEqual(start)) agree++; else disagree++;
   });
 
   console.log('live race      : %s (%s)', doc.id, race.name);
@@ -115,13 +118,24 @@ async function main() {
   console.log('aceSprintKey   : %s', state.aceSprintKey);
   console.log('teams          : %d stamped for this race, %d stamped for another, %d unstamped',
     agree, disagree, unstamped);
+  if (agree === 0 && teams.size > 0) {
+    console.error('No team is stamped for this race: the sweep cannot have locked this weekend. Refusing to write a marker for it.');
+    if (APPLY) process.exit(2);
+  }
   if (disagree > 0) {
-    console.warn('%d team(s) carry a DIFFERENT aceLockTime. They will be treated as unstamped and', disagree);
-    console.warn('refused roster edits until this weekend ends. Investigate before applying.');
+    console.error('%d team(s) carry a DIFFERENT aceLockTime. Against this marker they count as', disagree);
+    console.error('unstamped: their ace would stay frozen from aceFreezeFrom to aceLockUntil, with no');
+    console.error('gap after qualifying or the sprint. Refusing to write it.');
+    if (APPLY) process.exit(2);
+  }
+  if (state.aceLockUntil.toMillis() <= Date.now()) {
+    console.error('aceLockUntil has already passed: every reader would ignore this marker. Refusing to write it.');
+    if (APPLY) process.exit(2);
   }
 
   if (!APPLY) { console.log('== dry run: nothing written (add --apply)'); return; }
-  await db.doc('config/lockState').set(state);
+  // create, not set: a marker published since the check above must not be overwritten.
+  await db.doc('config/lockState').create(state);
   console.log('== wrote config/lockState for %s', doc.id);
 }
 
