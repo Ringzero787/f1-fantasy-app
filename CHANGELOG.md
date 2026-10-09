@@ -1,18 +1,19 @@
 # Changelog
 
-## uc-v2.5.1 — 2026-10-08
+## uc-v2.5.2 — 2026-10-09
 
-F1 Fantasy 2.5.1: Security hardening, invite links, and readability fixes
+Two things reported from the field on the driver sheet.
 
-## Fixed
+### Added
 
-- **Security**: Version floor enforcement across all app store builds now properly synchronized (Google Play, Apple, Amazon)
-- Invite links now correctly open the app and route to the correct host
-- Picker budget values are now readable and display correctly
+- Pit Wall says who to ace. With a Pit Wall Pass, the Team screen and each driver's sheet say
+  whether to set the ace, move it or keep it, from the same projections as the Pit Wall site.
 
-## Security
+### Fixed
 
-- Completed security review hardening to ensure consistent version management across all distribution platforms
+- The driver sheet scrolls on iPhone again. It is taller than the screen and a swipe did nothing,
+  so the stats, the contract and the Ace and Remove buttons were out of reach. The Moonshot sheet
+  and the League race selector were built the same way and get the same change.
 
 ## uc-v2.5.1 — 2026-10-08
 
