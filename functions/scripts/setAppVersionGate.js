@@ -1,13 +1,31 @@
 // Write the app-version gate of config/app (F-112): the floor below which the app blocks with
 // "Update required" (src/components/AppUpdateGate.tsx reads minVersion; absent = no gate).
 //
-// DESIRED below is the owner's decision of 2026-10-07: every store build moves to 2.5.0 — the
-// Moonshot build, with the F-099/F-101/F-103 fixes and the F-112 hardening — so the floor is 2.5.0,
-// not merely 2.3.2 (the first build that asks the server whether a team name is free; everything
-// older ran a global fantasyTeams query the scoped list rule now refuses). The op must be applied
-// only once 2.5.0 is LIVE on Google Play, the Amazon Appstore and the App Store: the floor blocks
-// every store at once, and the force screen on an Amazon install opens the Play URL, which is why
-// updateMessage names the stores. AppUpdateGate shows updateMessage on the dismissible "new
+// THE FLOOR IS 2.3.2, AND THAT IS DELIBERATELY NOT THE 2.5.0 FORCE-UPDATE (owner, 2026-10-09).
+// Two separate decisions were bundled here and the bundling blocked a security fix:
+//   1. The SECURITY MINIMUM is 2.3.2 — the first build that asks the server whether a team name is
+//      free. Everything older runs a global fantasyTeams query that F-112's scoped list rule
+//      refuses, so the floor has to be at least this before those rules deploy, or an old device
+//      gets a failed rename instead of the update screen. F-112's own spec says 2.3.2 "would have
+//      been the minimum the rule needs".
+//   2. The 2.5.0 FORCE-UPDATE — moving every store onto the Moonshot build — is the owner's
+//      product decision of 2026-10-07. It is NOT required by any rule.
+// (2) needs 2.5.0 live on all three stores; (1) does not, and holding (1) hostage to (2) left the
+// F-112 rules undeployed. So the floor here is the security minimum, and the force-update is a
+// later, separate change: edit DESIRED to 2.5.0, commit, raise a NEW op, once 2.5.0 or newer is
+// live on Google Play, the Amazon Appstore and the App Store.
+//
+// STORE PRECONDITION, every time this changes: the floor must be at or below what is LIVE on the
+// OLDEST store, not what has been built. The floor blocks all three at once, and the force screen
+// on an Amazon install opens the PLAY url (AppUpdateGate.openStore has no Amazon branch), so a
+// locked-out Fire OS user cannot even reach their own store. Known live at 2026-10-09: Play 2.5.1
+// (vc70), App Store 2.5.0 (2.5.1 staged, not submitted), Amazon 2.4.3 (vc68) — the oldest is
+// Amazon's 2.4.3, which clears a 2.3.2 floor and does NOT clear 2.5.0. Re-check all three before
+// moving it; Amazon has no API, so that one is always a question for the owner.
+//
+// NOTE FOR WHOEVER FINDS OP-156: it was planned while DESIRED said 2.5.0 and its title claims it
+// forces 2.5.0. It would now write 2.3.2. Do not apply it for either purpose — raise a fresh op,
+// which also forces a fresh dry-run that prints the value actually about to be written. AppUpdateGate shows updateMessage on the dismissible "new
 // version" banner too (current >= minVersion but < latestVersion), so the message carries no
 // version number and no "to keep playing": it has to read right on both screens, and whenever
 // latestVersion is later moved above the floor, rewrite it here. latestVersion is not touched. Dry
@@ -47,7 +65,7 @@ function initAdmin() {
 
 /** The gate. Keys absent here keep whatever is live. */
 const DESIRED = {
-  minVersion: '2.5.0',
+  minVersion: '2.3.2',
   updateMessage: 'A new Undercut build is out, with Moonshot and more. Update from the store you installed from — Google Play, the Amazon Appstore or the App Store.',
 };
 
