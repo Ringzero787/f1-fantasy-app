@@ -22,6 +22,7 @@ const GOOGLE_G = require('../../../assets/signin/google-g.png');
 const AMAZON_BUTTON = require('../../../assets/signin/login-with-amazon.png');
 const AMAZON_BUTTON_PRESSED = require('../../../assets/signin/login-with-amazon-pressed.png');
 const AMAZON_BUTTON_ASPECT = 195 / 46;
+const GOOGLE_BUTTON_FACE = 'GoogleSans_500Medium';
 
 // ── Shell: surface background, wordmark header, centred content ────────────
 export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?: string; onWordmarkLongPress?: () => void; children: React.ReactNode }) {
@@ -154,7 +155,7 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
   };
   const blocked = disabled || !!busy;
   const dimmed = (key: string) => (busy && busy !== key ? 0.6 : 1);
-  const pill = (bg: string, border: string, fg: string, icon: React.ReactNode, label: string, onPress: () => Promise<void>, key: string, gap = 10) => (
+  const pill = (bg: string, border: string, fg: string, icon: React.ReactNode, label: string, onPress: () => Promise<void>, key: string, gap = 10, face?: string) => (
     <Pressable
       key={key}
       onPress={once(onPress)}
@@ -166,7 +167,7 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
     >
       {icon}
       {/* shrinks to stay inside the pill on one line; the system text size may enlarge it only a little, the pill being a fixed height */}
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.15} style={{ flexShrink: 1, fontSize, fontWeight: '500', color: fg }}>{busy === key ? 'Signing in…' : label}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1.15} style={[{ flexShrink: 1, fontSize, color: fg }, face ? { fontFamily: face } : { fontWeight: '500' }]}>{busy === key ? 'Signing in…' : label}</Text>
     </Pressable>
   );
 
@@ -193,10 +194,11 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
   );
   // Google: the light button from the Sign in with Google guidelines: white fill, #747775 stroke,
   // #1F1F1F text, and the G from Google's own asset bundle at the bundle's size relative to the
-  // button (20 in 44). The gap is theirs too: 12 on iOS, 10 on Android.
+  // button (20 in 44). The gap is theirs too: 12 on iOS, 10 on Android. The label is in Google
+  // Sans Medium, the face those guidelines name; it is embedded for this one label.
   const googlePill = () => pill('#FFFFFF', '#747775', '#1F1F1F',
     <Image source={GOOGLE_G} style={{ width: Math.round(pillHeight * 20 / 44), height: Math.round(pillHeight * 20 / 44) }} />,
-    'Continue with Google', google, 'google', Platform.OS === 'ios' ? 12 : 10);
+    'Continue with Google', google, 'google', Platform.OS === 'ios' ? 12 : 10, GOOGLE_BUTTON_FACE);
   // Apple on iOS: the system's own button, which is the one the HIG guarantees is right (mark,
   // wording, face, localisation). Black on light, white on dark.
   // The system button draws itself about 4% shorter than the frame it is given (46 in 48 on the

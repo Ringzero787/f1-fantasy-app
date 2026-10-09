@@ -50,8 +50,8 @@ printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m\n' >> android/
 # loading fails in release builds. The expo-font plugin in app.config.js puts
 # them here at prebuild; fail loudly if that ever stops happening.
 FONTS=$(ls android/app/src/main/assets/fonts/*.ttf 2>/dev/null | wc -l)
-if [ "$FONTS" -lt 5 ]; then
-  echo "expected 5 embedded font files in android/app/src/main/assets/fonts, found $FONTS (check the expo-font plugin in app.config.js)" >&2
+if [ "$FONTS" -lt 6 ]; then
+  echo "expected 6 embedded font files in android/app/src/main/assets/fonts, found $FONTS (check the expo-font plugin in app.config.js)" >&2
   exit 5
 fi
 

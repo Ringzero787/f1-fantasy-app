@@ -33,6 +33,16 @@ describe('sign-in buttons use the providers\' own artwork and wording', () => {
     expect(src).toContain("'Continue with Google'");
   });
 
+  it('Google: the label face is Google Sans Medium, embedded in the build and registered at runtime', () => {
+    expect(src).toContain("GOOGLE_BUTTON_FACE = 'GoogleSans_500Medium'");
+    const font = fs.readFileSync(path.join(root, 'assets/fonts/GoogleSans_500Medium.ttf'));
+    expect(font.length).toBeGreaterThan(20000);
+    expect(font.length).toBeLessThan(200000);   // the Latin subset, not the 2 MB original
+    expect(fs.readFileSync(path.join(root, 'assets/fonts/OFL-GoogleSans.txt'), 'utf8')).toContain('SIL OPEN FONT LICENSE Version 1.1');
+    expect(fs.readFileSync(path.join(root, 'app.config.js'), 'utf8')).toContain('"./assets/fonts/GoogleSans_500Medium.ttf"');
+    expect(fs.readFileSync(path.join(root, 'app/_layout.tsx'), 'utf8')).toContain("GoogleSans_500Medium: require('../assets/fonts/GoogleSans_500Medium.ttf')");
+  });
+
   it('Apple: the system button on iOS, wired to the same handler; a one-colour custom button elsewhere', () => {
     const native = src.match(/<AppleAuthentication\.AppleAuthenticationButton[\s\S]*?\/>/)?.[0];
     expect(native).toBeDefined();
@@ -64,7 +74,10 @@ describe('sign-in buttons use the providers\' own artwork and wording', () => {
   it('no label is in capitals, transformed to capitals, or in the display face', () => {
     const block = src.slice(src.indexOf('const pillHeight'), src.indexOf('// Which pills'));
     expect(block.length).toBeGreaterThan(500);
-    expect(block).not.toMatch(/textTransform|family\.|fontFamily|letterSpacing/);
+    expect(block).not.toMatch(/textTransform|family\.|letterSpacing/);
+    // the only named face is Google's own, on Google's button
+    expect((block.match(/GOOGLE_BUTTON_FACE/g) ?? []).length).toBe(1);
+    expect(block).toMatch(/face \? \{ fontFamily: face \} : \{ fontWeight: '500' \}/);
     for (const label of block.match(/'[^']*(?:with|in)[^']*'/g) ?? []) expect(label).not.toBe(label.toUpperCase());
   });
 });

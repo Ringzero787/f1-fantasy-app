@@ -158,6 +158,8 @@ module.exports = {
           "./assets/fonts/ArchivoExpanded_900Black.ttf",
           "./node_modules/@expo-google-fonts/jetbrains-mono/500Medium/JetBrainsMono_500Medium.ttf",
           "./node_modules/@expo-google-fonts/jetbrains-mono/700Bold/JetBrainsMono_700Bold.ttf",
+          // the Continue with Google label only: the face Google's sign-in button guidelines name
+          "./assets/fonts/GoogleSans_500Medium.ttf",
         ],
       }],
       "expo-web-browser",

@@ -60,6 +60,8 @@ export default function RootLayout() {
     ArchivoExpanded_900Black: require('../assets/fonts/ArchivoExpanded_900Black.ttf'),
     JetBrainsMono_500Medium,
     JetBrainsMono_700Bold,
+    // the Continue with Google label only (Google's sign-in button guidelines); a Latin subset
+    GoogleSans_500Medium: require('../assets/fonts/GoogleSans_500Medium.ttf'),
   });
   useEffect(() => {
     if (fontError) console.warn('[fonts] load failed:', fontError.message ?? fontError);
