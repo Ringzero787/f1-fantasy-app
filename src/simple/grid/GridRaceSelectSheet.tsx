@@ -19,8 +19,8 @@ export function GridRaceSelectSheet({ options, value, onPick, onClose }: {
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       {/* scrim behind the sheet, not around it: nested Pressables stop the list scrolling on iOS (F-119) */}
       <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} onPress={onClose} accessibilityLabel="Close" />
-        <View accessibilityLabel="Choose what the standings show" style={{ maxHeight: '70%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
+        <View accessible={false} accessibilityLabel="Choose what the standings show" style={{ maxHeight: '70%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: 10 }}>
             <MonoLabel>SHOW POINTS FOR</MonoLabel>
             <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"><MonoLabel color={colors.text.muted}>CLOSE</MonoLabel></Pressable>

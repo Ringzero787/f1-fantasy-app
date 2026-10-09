@@ -34,7 +34,8 @@ import { computeTiles, lineupStatus, openSlotCount, rosterRacePoints, rosterCons
 import { formatLockStatus, formatRoundStatus, seasonProgress } from './lockStatus';
 import { serverAceLocked } from '../../utils/lockout';
 import { usePitWallStore } from '../../store/pitwall.store';
-import { aceAdvice, aceAdviceLine, aceVerdictFor } from '../../pitwall/aceAdvice';
+import { aceAdvice, aceAdviceLine, aceVerdictFor, projectionsAreForRound } from '../../pitwall/aceAdvice';
+import { SHOWCASE_ENABLED } from './showcaseData';
 
 interface Props {
   refreshing: boolean;
@@ -162,14 +163,19 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   // No Ace chosen yet, it can still be chosen this round, and at least one pick is allowed to be Ace.
   const anyAceEligible = tiles.some((t) => t.kind !== 'empty' && t.aceEligible);
   const aceNeeded = hasTeam && anyAceEligible && !aceTile && !aceLocked;
-  // F-119: who Pit Wall would ace. Null without a pass (no projections), and once the ace is
-  // locked — advice the player cannot act on is noise.
+  // F-119: who Pit Wall would ace. Null without a pass (no projections), once the ace is locked —
+  // advice the player cannot act on is noise — and while the projections are still last round's.
+  // The showcase's fixed round is exempt; it exists to be looked at.
   const pwProjections = usePitWallStore((s) => s.projections);
+  const pwRound = lockoutInfo.nextRace?.round ?? null;
   const pwAce = useMemo(() => {
     if (!pwProjections || !team || aceLocked) return null;
+    if (!SHOWCASE_ENABLED && !projectionsAreForRound(pwProjections.round, pwRound)) return null;
     const drivers = tiles.flatMap((t) => (t.kind === 'driver' ? [{ id: t.id, name: t.name, eligible: t.aceEligible }] : []));
-    return aceAdvice(drivers, team.aceDriverId ?? team.aceConstructorId ?? null, pwProjections.byId);
-  }, [pwProjections, team, tiles, aceLocked]);
+    const holder = tiles.find((t) => t.kind !== 'empty' && t.ace);
+    const ace = holder && holder.kind !== 'empty' ? { id: holder.id, eligible: holder.aceEligible } : null;
+    return aceAdvice(drivers, ace, pwProjections.byId);
+  }, [pwProjections, pwRound, team, tiles, aceLocked]);
   const isFull = hasTeam && open === 0;
   const reviewed = React.useRef(false);
   useEffect(() => {
