@@ -10,7 +10,9 @@ import { appleWebSignIn, appleWebSignInAvailable } from '../../utils/appleWebSig
 import { amazonWebSignInAvailable } from '../../utils/amazonSignIn';
 import { googleWebSignIn, googleWebSignInAvailable } from '../../utils/googleWebSignIn';
 import { providerOrder, type Provider } from './signInProviders';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { MonoLabel } from './GridBits';
+import { GoogleGMark } from './GoogleGMark';
 import { fitFontSize, WORDMARK_EM_WIDTH } from './fitText';
 
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -81,7 +83,7 @@ interface SocialProps {
 }
 
 export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignIn, disabled }: SocialProps) {
-  const { colors, family, scaled, mono } = useSimpleTheme();
+  const { colors, scaled, mono, isDark } = useSimpleTheme();
   const [busy, setBusy] = useState<'google' | 'apple' | 'amazon' | null>(null);
 
   const google = async () => {
@@ -130,7 +132,11 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
     } finally { setBusy(null); }
   };
 
-  const fontSize = scaled(12);
+  // Sign-in buttons follow each provider's own button rules, not this app's type: the provider's
+  // mark as they publish it, their wording in sentence case, the system face rather than the
+  // display face, and their colours. Only the pill shape and height are ours.
+  const fontSize = scaled(15);
+  const pillHeight = scaled(18) * 2 + Math.round(fontSize * 1.3) + 2;
   const pill = (bg: string, border: string, fg: string, icon: React.ReactNode, label: string, onPress: () => void, key: string) => (
     <Pressable
       key={key}
@@ -138,19 +144,36 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
       disabled={disabled || !!busy}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: scaled(18), paddingHorizontal: 14, borderRadius: 999, backgroundColor: bg, borderWidth: 1, borderColor: border, opacity: pressed || (busy && busy !== key) ? 0.6 : 1 })}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: pillHeight, paddingHorizontal: 16, borderRadius: 999, backgroundColor: bg, borderWidth: 1, borderColor: border, opacity: pressed || (busy && busy !== key) ? 0.6 : 1 })}
     >
       {icon}
-      {/* shrinks to stay inside the pill on one line, as SegmentPill labels do: at XXL the label ran past the edge */}
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ flexShrink: 1, fontFamily: family.ui.black, fontSize, letterSpacing: fontSize * 0.08, color: fg }}>{busy === key ? 'SIGNING IN…' : label}</Text>
+      {/* shrinks to stay inside the pill on one line: at XXL a label ran past the edge */}
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ flexShrink: 1, fontSize, fontWeight: '600', color: fg }}>{busy === key ? 'Signing in…' : label}</Text>
     </Pressable>
   );
 
-  const amazonPill = () => pill('#FF9900', '#FF9900', '#111111', <Ionicons name="cart" size={18} color="#111111" />, 'LOGIN WITH AMAZON', amazon, 'amazon');
-  // Google: light button with the G mark, per Google's sign-in branding.
-  const googlePill = () => pill('#FFFFFF', '#D6D6D2', '#1F1F1F', <Ionicons name="logo-google" size={18} color="#1F1F1F" />, 'CONTINUE WITH GOOGLE', google, 'google');
-  // Apple: black on light, white on dark, per the HIG.
-  const applePill = () => pill(colors.text.primary, colors.text.primary, colors.text.inverse, <Ionicons name="logo-apple" size={18} color={colors.text.inverse} />, 'CONTINUE WITH APPLE', apple, 'apple');
+  // Amazon: the gold Login with Amazon button with Amazon's mark and wording.
+  const amazonPill = () => pill('#FF9900', '#FF9900', '#111111', <Ionicons name="logo-amazon" size={18} color="#111111" />, 'Login with Amazon', amazon, 'amazon');
+  // Google: the light button from the Sign in with Google guidelines: white fill, #747775 stroke,
+  // #1F1F1F text, the four-colour G.
+  const googlePill = () => pill('#FFFFFF', '#747775', '#1F1F1F', <GoogleGMark size={18} />, 'Continue with Google', google, 'google');
+  // Apple on iOS: the system's own button, which is the one the HIG guarantees is right (mark,
+  // wording, face, localisation). Black on light, white on dark.
+  const appleNative = () => (
+    <View key="apple" pointerEvents={disabled || busy ? 'none' : 'auto'} style={{ opacity: busy && busy !== 'apple' ? 0.6 : 1 }}>
+      <AppleAuthentication.AppleAuthenticationButton
+        buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+        buttonStyle={isDark ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+        cornerRadius={pillHeight / 2}
+        style={{ width: '100%', height: pillHeight }}
+        onPress={apple}
+      />
+    </View>
+  );
+  // Apple elsewhere (its web flow): a custom button the HIG allows, mark and title in one colour.
+  const applePill = () => Platform.OS === 'ios'
+    ? appleNative()
+    : pill(colors.text.primary, colors.text.primary, colors.text.inverse, <Ionicons name="logo-apple" size={18} color={colors.text.inverse} />, 'Continue with Apple', apple, 'apple');
 
   // Which pills, in which order, is decided in `signInProviders.ts` so it can be tested — getting
   // it wrong is the difference between reaching your account and quietly making a second one.
