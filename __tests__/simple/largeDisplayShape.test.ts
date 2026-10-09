@@ -19,6 +19,9 @@ describe('layouts that must survive the largest display size', () => {
     expect(field).toContain('submitBehavior="blurAndSubmit"');
     // one line cut the name to its first word once it was wider than the row
     expect(field).not.toContain('numberOfLines={1}');
+    // return blurs the field, so a save on submit as well as on blur writes the name twice
+    expect(field).toContain('onBlur={handleNameCommit}');
+    expect(field).not.toContain('onSubmitEditing');
     // iOS keeps the one-line height across a display-size change unless the field remounts
     expect(field).toMatch(/key=\{`team-name-\$\{scaled\(100\)\}`\}/);
   });
