@@ -1434,7 +1434,7 @@ features:
       - race
   - id: F-119
     name: "UC: Pit Wall says who to ace in the app, and the driver sheet scrolls"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-119.md
     created_at: 2026-10-09
     keywords:
