@@ -136,6 +136,7 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
   // mark as they publish it, their wording in sentence case, the system face rather than the
   // display face, and their colours. Only the pill shape and height are ours.
   const fontSize = scaled(17);
+  const markSize = scaled(18);
   const pillHeight = scaled(18) * 2 + Math.round(fontSize * 1.3) + 2;
   const pill = (bg: string, border: string, fg: string, icon: React.ReactNode, label: string, onPress: () => void, key: string) => (
     <Pressable
@@ -153,10 +154,10 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
   );
 
   // Amazon: the gold Login with Amazon button with Amazon's mark and wording.
-  const amazonPill = () => pill('#FF9900', '#FF9900', '#111111', <Ionicons name="logo-amazon" size={18} color="#111111" />, 'Login with Amazon', amazon, 'amazon');
+  const amazonPill = () => pill('#FF9900', '#FF9900', '#111111', <Ionicons name="logo-amazon" size={markSize} color="#111111" />, 'Login with Amazon', amazon, 'amazon');
   // Google: the light button from the Sign in with Google guidelines: white fill, #747775 stroke,
   // #1F1F1F text, the four-colour G.
-  const googlePill = () => pill('#FFFFFF', '#747775', '#1F1F1F', <GoogleGMark size={18} />, 'Continue with Google', google, 'google');
+  const googlePill = () => pill('#FFFFFF', '#747775', '#1F1F1F', <GoogleGMark size={markSize} />, 'Continue with Google', google, 'google');
   // Apple on iOS: the system's own button, which is the one the HIG guarantees is right (mark,
   // wording, face, localisation). Black on light, white on dark.
   const appleNative = () => (
@@ -173,7 +174,7 @@ export function GridSocialButtons({ onGoogleSignIn, onAppleSignIn, onAmazonSignI
   // Apple elsewhere (its web flow): a custom button the HIG allows, mark and title in one colour.
   const applePill = () => Platform.OS === 'ios'
     ? appleNative()
-    : pill(colors.text.primary, colors.text.primary, colors.text.inverse, <Ionicons name="logo-apple" size={18} color={colors.text.inverse} />, 'Continue with Apple', apple, 'apple');
+    : pill(colors.text.primary, colors.text.primary, colors.text.inverse, <Ionicons name="logo-apple" size={markSize} color={colors.text.inverse} />, 'Continue with Apple', apple, 'apple');
 
   // Which pills, in which order, is decided in `signInProviders.ts` so it can be tested — getting
   // it wrong is the difference between reaching your account and quietly making a second one.

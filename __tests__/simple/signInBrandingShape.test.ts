@@ -14,7 +14,7 @@ const src = read('src/simple/grid/GridAuthBits.tsx');
 
 describe('sign-in buttons use the providers\' own marks and wording', () => {
   it('Google: the four-colour G on the light button, never a recoloured glyph', () => {
-    expect(src).toContain("<GoogleGMark size={18} />, 'Continue with Google'");
+    expect(src).toContain("<GoogleGMark size={markSize} />, 'Continue with Google'");
     expect(src).not.toContain('logo-google');
     expect(src).toContain("pill('#FFFFFF', '#747775', '#1F1F1F'");
     const mark = read('src/simple/grid/GoogleGMark.tsx');
