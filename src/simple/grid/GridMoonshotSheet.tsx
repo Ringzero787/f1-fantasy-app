@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { MonoLabel, PillButton } from './GridBits';
@@ -278,8 +278,10 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
   const showName = menu && !menu.current && done == null && menu.availability === 'open' && menu.tokensLeft > 0;
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }} onPress={onClose} accessibilityLabel="Close">
-        <Pressable onPress={() => {}} accessible={false} style={{ maxHeight: '88%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
+      {/* scrim behind the sheet, not around it: nested Pressables stop the list scrolling on iOS (F-119) */}
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
+        <View style={{ maxHeight: '88%', backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border }}>
           <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: Math.max(insets.bottom, 12) + 22, gap: 14 }} showsVerticalScrollIndicator={false}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <MonoLabel color={colors.primary}>🚀 {copyText(copy, 'tabTitle')} · {shortRaceName(target.raceName).toUpperCase()}</MonoLabel>
@@ -293,8 +295,8 @@ export function GridMoonshotSheet({ target, cfg, onClose, onChanged }: Props) {
             ) : null}
             {body()}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
