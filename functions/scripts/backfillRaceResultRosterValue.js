@@ -50,8 +50,11 @@ function initAdmin() {
   if (cred.project_id !== EXPECTED_PROJECT) { console.error(`Refusing to run: key is for project ${cred.project_id}, expected ${EXPECTED_PROJECT}.`); process.exit(2); }
   const lib = path.join(__dirname, '..', 'lib', 'scoring', 'leagueRaceResults.js');
   if (!fs.existsSync(lib)) { console.error('functions/lib is not built. Run: npm --prefix functions run build'); process.exit(2); }
-  ({ rosterValuesByUser } = require(lib));
-  if (typeof rosterValuesByUser !== 'function') { console.error('functions/lib is older than F-120. Run: npm --prefix functions run build'); process.exit(2); }
+  const built = require(lib);
+  ({ rosterValuesByUser } = built);
+  // A lib built before the full-lineup rule would write values for partial lineups, and this
+  // script never rewrites a value once written. Refuse rather than write them.
+  if (typeof rosterValuesByUser !== 'function' || built.FULL_LINEUP_DRIVERS !== 5) { console.error('functions/lib is older than the F-120 full-lineup rule. Run: npm --prefix functions run build'); process.exit(2); }
   admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
   db = admin.firestore();
 }

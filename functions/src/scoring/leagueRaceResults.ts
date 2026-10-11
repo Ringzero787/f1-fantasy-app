@@ -91,7 +91,7 @@ export function snapshotRosterValue(snapshot: { roster?: { drivers?: unknown; co
   // Only a full lineup has a value worth comparing. A manager who fielded one $5 driver and lost
   // 36 points would otherwise read as -720 points per $100, and a lucky one as the best value in
   // the league: true as arithmetic, and not what "value" means to anyone reading it.
-  if (drivers.length < FULL_LINEUP_DRIVERS || !ctor) return null;
+  if (drivers.length !== FULL_LINEUP_DRIVERS || !ctor) return null;
   const prices = [...drivers.map(priceOf), priceOf(ctor)];
   if (prices.some((p) => p <= 0)) return null;
   return prices.reduce((s, p) => s + p, 0);

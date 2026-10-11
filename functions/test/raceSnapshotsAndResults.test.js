@@ -127,6 +127,7 @@ test('F-120: only a full lineup has a value: one $5 driver is not a roster to co
   assert.equal(snapshotRosterValue({ roster: { drivers: fullRoster([17, 5, 70, 113, 216]).drivers } }), null);   // no constructor key: not Object's own
   assert.equal(snapshotRosterValue({ roster: { drivers: [], constructor: null } }), null);
   assert.equal(snapshotRosterValue({ roster: fullRoster([17, 5, 70, 113, 216], 21) }), 442);
+  assert.equal(snapshotRosterValue({ roster: fullRoster([17, 5, 70, 113, 216, 50], 21) }), null);   // more than a lineup is not one either
 });
 
 test('F-120: race entries carry the roster value through, as null when it is missing or not a positive number', () => {
