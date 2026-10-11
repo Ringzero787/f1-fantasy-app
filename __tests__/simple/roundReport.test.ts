@@ -158,6 +158,13 @@ describe('value: race points per $100 of roster', () => {
     expect(r.leastEfficient).toMatchObject({ value: 20, includesMe: true });
   });
 
+  it('says nothing when fewer than half of those scored are priced: a best of a handful is not the league\'s', () => {
+    const few = doc(19, [e('a', 300, 1, { rosterValue: 1000 }), e('b', 250, 2, { rosterValue: 500 }), e('c', 200, 3, { rosterValue: 800 }), ...['d', 'f', 'g', 'h'].map((u, i) => e(u, 100 - i, 4 + i))]);
+    const r = buildRoundReport(few, null, null)!;
+    expect(r.mostEfficient).toBeNull();
+    expect(r.leastEfficient).toBeNull();
+  });
+
   it('says nothing on a leaderboard written before roster values were recorded', () => {
     const r = buildRoundReport(now, before, null)!;
     expect(r.mostEfficient).toBeNull();
@@ -179,6 +186,10 @@ describe('Moonshots of the round', () => {
   const act = (id: string, type: string, userId: string, extra: Partial<ActivityEntry> = {}): ActivityEntry => ({
     id, type, userId, driverId: 'hadjar', predictionType: 'PODIUM', predictionTarget: null, officialDriverFinish: 3, stakeCurrency: 'POINTS', stakeAmount: 200,
     multiplier: 5, modelProbability: 0.11, adjustmentAmount: 1000, raceId: 'r19', roundNumber: 19, createdAtMs: 1, ...extra,
+  });
+
+  it('an activity type that happens to be an object property name is not an outcome', () => {
+    expect(buildRoundReport(now, null, null, [act('x', 'constructor', 'ann'), act('y', 'toString', 'bob')])!.moonshots).toEqual([]);
   });
 
   it('lists every call settled on this race and no other, named from the leaderboard', () => {

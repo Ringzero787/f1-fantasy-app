@@ -142,7 +142,7 @@ export function RoundReportBody({ report, loading, label }: { report: RoundRepor
       <Text style={[mono(10, 'medium'), { color: colors.text.muted }]}>
         {`${report.size} ${report.size === 1 ? 'MANAGER' : 'MANAGERS'} SCORED${label ? ` · ${label}` : ''}`}
         {report.climb || report.drop ? ` · CLIMB AND DROP COMPARE RACE POINTS WITH ${vs}` : ''}
-        {report.mostEfficient ? ' · VALUE IS RACE POINTS FOR EACH $100 THE ROSTER WAS WORTH AT LOCK' : ''}
+        {report.mostEfficient || report.leastEfficient ? ' · VALUE IS RACE POINTS FOR EACH $100 THE ROSTER WAS WORTH AT LOCK' : ''}
         {report.estimated ? ' · RACE-DAY POINTS ONLY' : ''}
       </Text>
     </View>

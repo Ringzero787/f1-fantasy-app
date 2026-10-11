@@ -20,9 +20,11 @@ export function GridWeekendRecap() {
   // left, so the race the report is for is held here; the report is the same card's second step,
   // not a second modal, because iOS will not present one while the first is still going away.
   const { team } = useSimpleTeam();
-  const league = useLeagueStore((s) => (team?.leagueId ? s.leagues.find((l) => l.id === team.leagueId) ?? null : null));
+  const leagueId = team?.leagueId ?? null;
+  // only narrows which earlier round is compared; the report does not wait for it
+  const resultIds = useLeagueStore((s) => (leagueId ? s.leagues.find((l) => l.id === leagueId)?.raceResultIds : undefined));
   const [reportRaceId, setReportRaceId] = useState<string | null>(null);
-  const report = useRoundReport(reportRaceId && league ? league.id : null, reportRaceId, league?.raceResultIds);
+  const report = useRoundReport(reportRaceId ? leagueId : null, reportRaceId, resultIds);
   if (reportRaceId) {
     const close = () => setReportRaceId(null);
     return (
@@ -40,10 +42,11 @@ export function GridWeekendRecap() {
     );
   }
   if (!recap) return null;
-  // Offered to anyone in a league. Not gated on the league's list of leaderboards: that list is
-  // refreshed in the background, and a recap shown before it lands would lose the step for good
-  // once dismissed. A league with no leaderboard for the race yet says so on the next step.
-  const hasReport = !!league;
+  // Offered to anyone whose team is in a league. Not gated on the league list or its list of
+  // leaderboards: both load in the background, and a recap shown before they land would lose the
+  // step for good once dismissed. A league with no leaderboard for the race yet says so on the
+  // next step, and is asked again next time.
+  const hasReport = !!leagueId;
 
   const { raceName, teamPoints, best, worst, rank, leagueSize, entities } = recap;
   const showWorst = worst && best && worst.name !== best.name && worst.points < best.points;

@@ -26,7 +26,9 @@ describe('round report entry points', () => {
 
   it('the weekend recap offers the next step to anyone in a league, never on a list that may be stale', () => {
     const src = read('src/simple/grid/GridWeekendRecap.tsx');
-    expect(src).toContain('const hasReport = !!league;');
+    expect(src).toContain('const hasReport = !!leagueId;');
+    // the report is asked for by the team's league id, not a league object that may not have loaded
+    expect(src).toContain('useRoundReport(reportRaceId ? leagueId : null, reportRaceId, resultIds)');
     // gating on the league's list of leaderboards lost the step for good when the recap was dismissed before the list refreshed
     expect(src).not.toMatch(/hasReport = [^;]*raceResultIds/);
     // the race is captured before the recap marks itself seen, and the old ending stays available

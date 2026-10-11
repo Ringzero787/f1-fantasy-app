@@ -66,9 +66,10 @@ interface PricedEntity { currentPrice?: unknown; purchasePrice?: unknown }
 
 /**
  * F-120: what a team's fielded roster was worth, from its race snapshot (F-029 records the roster
- * as it stood at lock). Each driver and the constructor at the price it held that weekend, or at
- * what was paid when no market price was recorded. Null when the snapshot has no priced roster,
- * so a missing value is never read as a free one.
+ * as it stood at lock). Each driver and the constructor at the price on the team when the weekend
+ * was scored (the market price after the previous race, or what was paid if bought since), or at
+ * what was paid when no market price was recorded. Null when the snapshot has no roster or any
+ * pick in it has no price, so a missing value is never read as a free one.
  */
 export function snapshotRosterValue(snapshot: { roster?: { drivers?: unknown; constructor?: unknown } | null } | null | undefined): number | null {
   // `constructor` is a real key on the stored document; on a bare object it is Object's own function
@@ -81,8 +82,11 @@ export function snapshotRosterValue(snapshot: { roster?: { drivers?: unknown; co
   };
   const drivers = Array.isArray(roster.drivers) ? (roster.drivers as PricedEntity[]) : [];
   const ctor = Object.prototype.hasOwnProperty.call(roster, 'constructor') ? (roster.constructor as PricedEntity | null) : null;
-  const total = drivers.reduce((s, d) => s + priceOf(d), 0) + priceOf(ctor);
-  return total > 0 ? total : null;
+  // The snapshot stores a missing price as 0. A rostered pick with no price makes the total
+  // unknown, not smaller: counting it as free would flatter the points per dollar.
+  const prices = [...drivers.map(priceOf), ...(ctor ? [priceOf(ctor)] : [])];
+  if (prices.length === 0 || prices.some((p) => p <= 0)) return null;
+  return prices.reduce((s, p) => s + p, 0);
 }
 
 /**

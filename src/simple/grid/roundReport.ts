@@ -113,7 +113,7 @@ export function pointsPer100(points: number, rosterValue: number): number {
   return Math.round((points / rosterValue) * 1000) / 10;
 }
 
-const OUTCOMES: Record<string, ReportMoonshot['outcome']> = { MOONSHOT_HIT: 'HIT', MOONSHOT_MISSED: 'MISSED', MOONSHOT_VOID: 'VOID' };
+const OUTCOMES = new Map<string, ReportMoonshot['outcome']>([['MOONSHOT_HIT', 'HIT'], ['MOONSHOT_MISSED', 'MISSED'], ['MOONSHOT_VOID', 'VOID']]);
 
 /**
  * `activity` is the league's Moonshot history (F-107); only entries settled on this race are used,
@@ -144,8 +144,10 @@ export function buildRoundReport(current: LeagueRaceResultDoc | null, previous: 
   // Points per $100 of the roster fielded. Only managers the server recorded a roster value for.
   const priced = entries.filter((e) => typeof e.rosterValue === 'number' && Number.isFinite(e.rosterValue) && e.rosterValue > 0)
     .map((e) => ({ entry: e, per100: pointsPer100(e.points, e.rosterValue as number) }));
-  const effTop = priced.length >= 2 ? callout(priced, (x) => x.per100, 'max', (x) => x.entry, userId) : null;
-  const effBottom = priced.length >= 3 ? callout(priced, (x) => x.per100, 'min', (x) => x.entry, userId) : null;
+  // A best or least of a handful is not the league's: at least half of those scored must be priced.
+  const enough = priced.length * 2 >= entries.length;
+  const effTop = enough && priced.length >= 2 ? callout(priced, (x) => x.per100, 'max', (x) => x.entry, userId) : null;
+  const effBottom = enough && priced.length >= 3 ? callout(priced, (x) => x.per100, 'min', (x) => x.entry, userId) : null;
   const mostEfficient = effTop && effTop.value > 0 ? effTop : null;
   const leastEfficient = effBottom && effTop && effBottom.value < effTop.value ? effBottom : null;
 
@@ -166,7 +168,7 @@ export function buildRoundReport(current: LeagueRaceResultDoc | null, previous: 
   // Every Moonshot settled on this race, named from the leaderboard so a manager reads the same here as above.
   const byUser = new Map(entries.map((e) => [e.userId, e]));
   const moonshotsAll: ReportMoonshot[] = activity
-    .filter((a) => a && a.raceId === current.raceId && OUTCOMES[a.type])
+    .filter((a) => a && a.raceId === current.raceId && OUTCOMES.has(a.type))
     .map((a) => {
       const e = byUser.get(a.userId);
       return {
@@ -175,8 +177,8 @@ export function buildRoundReport(current: LeagueRaceResultDoc | null, previous: 
         driverId: a.settledOnDriverId ?? a.driverId,
         predictionType: a.predictionType,
         predictionTarget: a.predictionTarget,
-        outcome: OUTCOMES[a.type],
-        amount: OUTCOMES[a.type] === 'VOID' ? 0 : a.adjustmentAmount,
+        outcome: OUTCOMES.get(a.type) as ReportMoonshot['outcome'],
+        amount: OUTCOMES.get(a.type) === 'VOID' ? 0 : a.adjustmentAmount,
         currency: a.stakeCurrency,
         stake: a.stakeAmount,
         multiplier: a.multiplier,

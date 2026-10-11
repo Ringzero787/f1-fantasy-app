@@ -106,8 +106,11 @@ test('names copied into server-owned results are single-line and at most 60 char
 });
 
 test('F-120: roster value at lock is the fielded roster at that weekend\'s prices, and unknown is never zero', () => {
-  const snap = { roster: { drivers: [{ driverId: 'a', currentPrice: 120, purchasePrice: 100 }, { driverId: 'b', currentPrice: 0, purchasePrice: 80 }, { driverId: 'c' }], constructor: { constructorId: 'x', currentPrice: 200 } } };
-  assert.equal(snapshotRosterValue(snap), 400);                       // 120 + 80 (paid, no market price) + 0 + 200
+  const snap = { roster: { drivers: [{ driverId: 'a', currentPrice: 120, purchasePrice: 100 }, { driverId: 'b', currentPrice: 0, purchasePrice: 80 }], constructor: { constructorId: 'x', currentPrice: 200 } } };
+  assert.equal(snapshotRosterValue(snap), 400);                       // 120 + 80 (paid, no market price) + 200
+  // one pick with no price at all makes the whole roster unknown, not $0 cheaper
+  assert.equal(snapshotRosterValue({ roster: { drivers: [...snap.roster.drivers, { driverId: 'c' }], constructor: snap.roster.constructor } }), null);
+  assert.equal(snapshotRosterValue({ roster: { drivers: snap.roster.drivers, constructor: { constructorId: 'x', currentPrice: 0, purchasePrice: 0 } } }), null);
   assert.equal(snapshotRosterValue({ roster: { drivers: [{ currentPrice: 50 }], constructor: null } }), 50);
   assert.equal(snapshotRosterValue({ roster: { drivers: [{ currentPrice: 50 }] } }), 50);   // no constructor key: not Object's own
   assert.equal(snapshotRosterValue({ roster: { drivers: [], constructor: null } }), null);
@@ -141,8 +144,12 @@ test('F-120 backfill: only the roster value changes on an entry, and an untouche
   const entries = [{ userId: 'a', points: 88, rank: 1, displayName: 'A' }, { userId: 'b', points: 40, rank: 2 }, { userId: 'c', points: 5, rank: 3, rosterValue: 700 }];
   const next = withRosterValues(entries, new Map([['a', 950], ['b', null], ['c', 700]]));
   assert.deepEqual(next, [{ userId: 'a', points: 88, rank: 1, displayName: 'A', rosterValue: 950 }, { userId: 'b', points: 40, rank: 2, rosterValue: null }, { userId: 'c', points: 5, rank: 3, rosterValue: 700 }]);
-  assert.equal(next[2], entries[2]);                                  // already right: the same object
+  assert.equal(next[2], entries[2]);                                  // already had one: the same object
   assert.equal(withRosterValues(next, new Map([['a', 950], ['b', null], ['c', 700]])), null);   // a second run writes nothing
+  // What scoring recorded at the time is never overwritten by today's recomputation: a team deleted
+  // since has lost its snapshot, and would turn a correct value into null or part of one.
+  const scored = [{ userId: 'a', points: 1, rank: 1, rosterValue: 950 }, { userId: 'b', points: 1, rank: 1, rosterValue: null }];
+  assert.equal(withRosterValues(scored, new Map([['a', null], ['b', 400]])), null);
   assert.deepEqual(withRosterValues([{ userId: 'z', points: 1, rank: 1 }], new Map()), [{ userId: 'z', points: 1, rank: 1, rosterValue: null }]);
   assert.equal(withRosterValues(undefined, new Map()), null);
 });

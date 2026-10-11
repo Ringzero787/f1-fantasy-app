@@ -14,11 +14,15 @@ import { SHOWCASE_RESULT_ROUND, showcaseRaceResult } from '../grid/showcaseData'
 // pull-to-refresh and on sign-out.
 const results = new Map<string, Promise<LeagueRaceResultDoc | null>>();
 const shots = new Map<string, Promise<ActivityEntry[]>>();
-function cached<T>(store: Map<string, Promise<T>>, key: string, load: () => Promise<T>, onError: T): Promise<T> {
+export function cached<T>(store: Map<string, Promise<T>>, key: string, load: () => Promise<T>, onError: T, keep: (value: T) => boolean = () => true): Promise<T> {
   let hit = store.get(key);
   if (!hit) {
-    // a failed read is not remembered, and must not evict a newer attempt made after a refresh
-    const p: Promise<T> = load().catch(() => { if (store.get(key) === p) store.delete(key); return onError; });
+    // Only an answer worth keeping is remembered. A failed read is not, and neither is "nothing
+    // there yet": the recap can ask for a leaderboard minutes before scoring writes it, and that
+    // must not empty the League tab's table for the rest of the session. Forgetting never evicts
+    // a newer attempt made after a refresh.
+    const forget = () => { if (store.get(key) === p) store.delete(key); };
+    const p: Promise<T> = load().then((value) => { if (!keep(value)) forget(); return value; }, () => { forget(); return onError; });
     hit = p;
     store.set(key, hit);
   }
@@ -26,10 +30,11 @@ function cached<T>(store: Map<string, Promise<T>>, key: string, load: () => Prom
 }
 /** One league's leaderboard for one race, read once per session. */
 export const readLeagueRaceResult = (leagueId: string, raceId: string) =>
-  cached(results, `${leagueId}:${raceId}`, () => getLeagueRaceResult(leagueId, raceId), null);
+  cached(results, `${leagueId}:${raceId}`, () => getLeagueRaceResult(leagueId, raceId), null, (doc) => doc !== null);
 const readRaceMoonshots = (leagueId: string, raceId: string) =>
   cached(shots, `${leagueId}:${raceId}`, () => moonshotService.leagueActivityForRace(leagueId, raceId), [] as ActivityEntry[]);
 export const clearRoundReportCache = () => { results.clear(); shots.clear(); };
+const NO_ACTIVITY: ActivityEntry[] = [];
 
 export interface RoundReportState {
   report: RoundReport | null;
@@ -47,7 +52,8 @@ export function useRoundReport(leagueId: string | null, raceId: string | null, r
   const userId = useAuthStore((s) => s.user?.id ?? null);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const races = useRemoteConfigStore((s) => s.races);
-  const demoActivity = useMoonshotStore((s) => s.activity);
+  // only the demo league's history comes from the store; a live league's is read per race below
+  const demoActivity = useMoonshotStore((s) => (isDemoMode ? s.activity : NO_ACTIVITY));
   const loadActivity = useMoonshotStore((s) => s.loadActivity);
   const [docs, setDocs] = useState<{ key: string; current: LeagueRaceResultDoc | null; previous: LeagueRaceResultDoc | null; activity: ActivityEntry[] } | null>(null);
 
