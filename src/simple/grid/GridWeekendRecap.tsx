@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Modal, ScrollView } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useWeekendRecap } from '../hooks/useWeekendRecap';
 import { MonoLabel, PillButton } from './GridBits';
+import { useSimpleTeam } from '../hooks/useSimpleTeam';
+import { useLeagueStore } from '../../store/league.store';
+import { useRoundReport } from '../hooks/useRoundReport';
+import { RoundReportBody } from './GridRoundReport';
 
 /**
  * One-time post-weekend recap shown after a race the user's team was scored
@@ -12,7 +16,32 @@ import { MonoLabel, PillButton } from './GridBits';
 export function GridWeekendRecap() {
   const { colors, family, scaled, mono } = useSimpleTheme();
   const { recap, dismiss } = useWeekendRecap();
+  // F-120: after "how did I do" comes "how did everyone do". The recap marks itself seen when it is
+  // left, so the race the report is for is held here; the report is the same card's second step,
+  // not a second modal, because iOS will not present one while the first is still going away.
+  const { team } = useSimpleTeam();
+  const league = useLeagueStore((s) => (team?.leagueId ? s.leagues.find((l) => l.id === team.leagueId) ?? null : null));
+  const [reportRaceId, setReportRaceId] = useState<string | null>(null);
+  const report = useRoundReport(reportRaceId && league ? league.id : null, reportRaceId, league?.raceResultIds);
+  if (reportRaceId) {
+    const close = () => setReportRaceId(null);
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={close}>
+        <View style={{ flex: 1, backgroundColor: colors.scrim, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <View style={{ width: '100%', maxWidth: 380, maxHeight: '86%', backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 24, gap: 14 }}>
+            <MonoLabel>{`ROUND REPORT${report.label ? ` · ${report.label}` : ''}`}</MonoLabel>
+            <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
+              <RoundReportBody {...report} />
+            </ScrollView>
+            <PillButton label="DONE" variant="inverse" onPress={close} />
+          </View>
+        </View>
+      </Modal>
+    );
+  }
   if (!recap) return null;
+  // Only offered when the league is known to have a leaderboard for this race; otherwise the recap ends as it always did.
+  const hasReport = !!league && (league.raceResultIds ?? []).includes(recap.raceId);
 
   const { raceName, teamPoints, best, worst, rank, leagueSize, entities } = recap;
   const showWorst = worst && best && worst.name !== best.name && worst.points < best.points;
@@ -59,7 +88,14 @@ export function GridWeekendRecap() {
             ))}
           </ScrollView>
 
-          <PillButton label="GOT IT" variant="inverse" onPress={dismiss} />
+          {hasReport ? (
+            <>
+              <PillButton label="NEXT · HOW THE LEAGUE DID" variant="inverse" onPress={() => { setReportRaceId(recap.raceId); dismiss(); }} />
+              <PillButton label="GOT IT" variant="muted" onPress={dismiss} />
+            </>
+          ) : (
+            <PillButton label="GOT IT" variant="inverse" onPress={dismiss} />
+          )}
         </View>
       </View>
     </Modal>

@@ -14,6 +14,8 @@ import { useLockoutStatus } from '../../hooks/useLockoutStatus';
 import { moonshotAvailability } from './moonshot';
 import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
 import { GridRaceSelectSheet } from './GridRaceSelectSheet';
+import { GridRoundReportSheet } from './GridRoundReport';
+import { clearRoundReportCache } from '../hooks/useRoundReport';
 import { standingsText } from './shareStandings';
 import { shareText } from './shareText';
 import { SHOWCASE_RESULT_ROUND, showcaseRaceResult } from './showcaseData';
@@ -62,6 +64,8 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const [raceResult, setRaceResult] = useState<LeagueRaceResultDoc | null>(null);
   const [raceLoading, setRaceLoading] = useState(false);
   const [picking, setPicking] = useState(false);
+  // F-120: the round report for the race on screen, or the latest one while the season table is showing.
+  const [reporting, setReporting] = useState(false);
   const raceCache = useRef(new Map<string, LeagueRaceResultDoc | null>());
   const races = useRemoteConfigStore((s) => s.races);
 
@@ -102,6 +106,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     raceCache.current.clear();
+    clearRoundReportCache();
     if (userId) await loadUserLeagues(userId);
     if (league) await loadLeagueMembers(league.id, true);
     setRefreshing(false);
@@ -117,6 +122,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   }, [members, league, sort, userId, raceId, raceResult]);
 
   const selectorValue = raceId ?? sort;
+  const reportRaceId = raceId ?? options[0]?.raceId ?? null;
   const selectorLabel = raceId ? options.find((o) => o.raceId === raceId)?.label ?? 'RACE' : sort === 'season' ? 'SEASON' : 'LAST RACE';
   const selectorOptions = useMemo(() => [
     { key: 'season', label: 'SEASON' },
@@ -198,6 +204,11 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
           <Pressable onPress={() => setPicking(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Showing ${selectorLabel}. Choose season, last race or a race`}>
             <MonoLabel color={colors.text.primary}>{`${selectorLabel} ▾`}</MonoLabel>
           </Pressable>
+          {reportRaceId ? (
+            <Pressable onPress={() => setReporting(true)} hitSlop={{ top: 18, bottom: 18, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Round report" accessibilityHint="How everyone in the league did in this race">
+              <MonoLabel color={colors.primary}>REPORT</MonoLabel>
+            </Pressable>
+          ) : null}
           {rows.length ? (
             <Pressable
               onPress={onShare}
@@ -216,6 +227,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
         <Text style={[mono(10, 'medium'), { color: colors.text.muted, marginHorizontal: spacing.xl, marginTop: 8 }]}>RACE-DAY POINTS ONLY · NOT COUNTED AS A WIN</Text>
       ) : null}
       {picking ? <GridRaceSelectSheet options={selectorOptions} value={selectorValue} onPick={onPick} onClose={() => setPicking(false)} /> : null}
+      {reporting && league && reportRaceId ? <GridRoundReportSheet leagueId={league.id} raceId={reportRaceId} resultIds={league.raceResultIds} onClose={() => setReporting(false)} /> : null}
       <FlatList
         ListHeaderComponent={feed}
         data={rows}
