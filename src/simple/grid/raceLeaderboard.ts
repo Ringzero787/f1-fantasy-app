@@ -16,6 +16,8 @@ export interface RaceResultEntry {
   racePoints?: number;
   moonshotPoints?: number;
   raceTotal?: number;
+  /** F-120: what the roster fielded was worth at lock; absent on leaderboards written before it, null when unknown */
+  rosterValue?: number | null;
 }
 
 export interface LeagueRaceResultDoc {

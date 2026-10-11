@@ -3,7 +3,7 @@
  * Firestore side of leagueRaceResults.ts; called by calculatePoints Phase 4.
  */
 import * as admin from 'firebase-admin';
-import { rankRaceEntries, countRaceWins, raceWinWrites, type StoredRaceResult } from './leagueRaceResults';
+import { rankRaceEntries, countRaceWins, raceWinWrites, rosterValuesByUser, type StoredRaceResult } from './leagueRaceResults';
 import { snapshotWeekendPoints } from './raceSnapshots';
 
 /** Names come from client-written documents: keep them short, single-line strings in a server-owned document. */
@@ -61,6 +61,9 @@ export async function writeLeagueRaceResult(
     if (!usersWithSnapshot.has(userId)) pointsByUser.set(userId, (pointsByUser.get(userId) ?? 0) + pts);
   }
 
+  // F-120: what each manager's fielded roster was worth at lock, for points per dollar in the round report
+  const rosterValueByUser = rosterValuesByUser(leagueTeams.map((teamDoc, i) => ({ userId: teamDoc.data().userId as string | undefined, snapshot: snaps[i] && snaps[i].exists ? (snaps[i].data() as never) : null })));
+
   // Only approved members appear; a member with no team this weekend scores 0.
   const approved = members.filter((m) => m.data().status !== 'pending');
   const result = rankRaceEntries(approved.map((m) => ({
@@ -69,6 +72,7 @@ export async function writeLeagueRaceResult(
     moonshotPoints: moonshotByUser.get(m.id) ?? 0,
     displayName: cleanName(m.data().displayName),
     teamName: cleanName(teamNameByUser.get(m.id)),
+    rosterValue: rosterValueByUser.get(m.id) ?? null,
   })));
 
   const leagueRef = db.collection('leagues').doc(leagueId);

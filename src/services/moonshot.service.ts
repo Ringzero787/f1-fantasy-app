@@ -99,6 +99,11 @@ export const moonshotService = {
     const snap = await getDocs(query(collection(db, 'leagues', leagueId, 'activity'), orderBy('createdAt', 'desc'), limit(max)));
     return snap.docs.map((d) => toActivity(d.id, d.data() as Record<string, unknown>));
   },
+  /** F-120: every Moonshot settled on one race, for the round report. One equality filter, so no composite index. The cap is far above a full league calling the most a race allows. */
+  async leagueActivityForRace(leagueId: string, raceId: string, max = 300): Promise<ActivityEntry[]> {
+    const snap = await getDocs(query(collection(db, 'leagues', leagueId, 'activity'), where('raceId', '==', raceId), limit(max)));
+    return snap.docs.map((d) => toActivity(d.id, d.data() as Record<string, unknown>));
+  },
   /** Has this account seen the coach marks? Stored on the user document so it follows the account, not the device. */
   async tutorialSeen(uid: string): Promise<boolean> {
     try {

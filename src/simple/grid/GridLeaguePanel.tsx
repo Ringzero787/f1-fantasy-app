@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
@@ -14,10 +14,11 @@ import { useLockoutStatus } from '../../hooks/useLockoutStatus';
 import { moonshotAvailability } from './moonshot';
 import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
 import { GridRaceSelectSheet } from './GridRaceSelectSheet';
+import { GridRoundReportSheet } from './GridRoundReport';
+import { clearRoundReportCache, readLeagueRaceResult } from '../hooks/useRoundReport';
 import { standingsText } from './shareStandings';
 import { shareText } from './shareText';
 import { SHOWCASE_RESULT_ROUND, showcaseRaceResult } from './showcaseData';
-import { getLeagueRaceResult } from '../../services/leagueRaceResults.service';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 
 // LEAGUE tab: standings (TRANSITION.md §4) or the "Racing solo." empty state.
@@ -62,7 +63,8 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const [raceResult, setRaceResult] = useState<LeagueRaceResultDoc | null>(null);
   const [raceLoading, setRaceLoading] = useState(false);
   const [picking, setPicking] = useState(false);
-  const raceCache = useRef(new Map<string, LeagueRaceResultDoc | null>());
+  // F-120: the round report for the race on screen, or the latest one while the season table is showing.
+  const [reporting, setReporting] = useState(false);
   const races = useRemoteConfigStore((s) => s.races);
 
   // The user's league: the active team's, else their first.
@@ -88,20 +90,18 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   // One document read per race picked; cached for the session (pull to refresh clears it).
   useEffect(() => {
     if (!league || !raceId) { setRaceResult(null); setRaceLoading(false); return; }
-    const key = `${league.id}:${raceId}`;
-    if (raceCache.current.has(key)) { setRaceResult(raceCache.current.get(key) ?? null); setRaceLoading(false); return; }
     let cancelled = false;
     setRaceLoading(true);
-    (isDemoMode ? Promise.resolve(showcaseRaceResult(league.id, userId ?? '', options.find((o) => o.raceId === raceId)?.round ?? 0)) : getLeagueRaceResult(league.id, raceId))
-      .catch(() => null)
-      .then((r) => { if (cancelled) return; raceCache.current.set(key, r); setRaceResult(r); setRaceLoading(false); });
+    // the table and the round report share one cached read per league and race (F-120)
+    (isDemoMode ? Promise.resolve(showcaseRaceResult(league.id, userId ?? '', options.find((o) => o.raceId === raceId)?.round ?? 0)) : readLeagueRaceResult(league.id, raceId))
+      .then((r) => { if (cancelled) return; setRaceResult(r); setRaceLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- league identity, race and mode only
   }, [league?.id, raceId, isDemoMode]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    raceCache.current.clear();
+    clearRoundReportCache();
     if (userId) await loadUserLeagues(userId);
     if (league) await loadLeagueMembers(league.id, true);
     setRefreshing(false);
@@ -117,6 +117,8 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   }, [members, league, sort, userId, raceId, raceResult]);
 
   const selectorValue = raceId ?? sort;
+  const reportRaceId = raceId ?? options[0]?.raceId ?? null;
+  const reportLabel = options.find((o) => o.raceId === reportRaceId)?.label ?? null;
   const selectorLabel = raceId ? options.find((o) => o.raceId === raceId)?.label ?? 'RACE' : sort === 'season' ? 'SEASON' : 'LAST RACE';
   const selectorOptions = useMemo(() => [
     { key: 'season', label: 'SEASON' },
@@ -215,7 +217,22 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
       {raceId && raceResult?.estimated ? (
         <Text style={[mono(10, 'medium'), { color: colors.text.muted, marginHorizontal: spacing.xl, marginTop: 8 }]}>RACE-DAY POINTS ONLY · NOT COUNTED AS A WIN</Text>
       ) : null}
+      {/* F-120: its own row, not a third link in the header: that row has no room, and this is the thing to tap after a race */}
+      {reportRaceId ? (
+        <Pressable
+          onPress={() => setReporting(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Round report${reportLabel ? `, ${reportLabel}` : ''}`}
+          accessibilityHint="How everyone in the league did in this race"
+          style={({ pressed }) => ({ marginHorizontal: spacing.xl, marginTop: 10, paddingVertical: scaled(12), paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.card, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12, rowGap: 6, opacity: pressed ? 0.7 : 1 })}
+        >
+          {/* a wrapping row: when the two do not fit side by side the second drops under the first, instead of squeezing the first to a column of letters */}
+          <MonoLabel color={colors.text.primary} style={{ flexShrink: 1 }}>{`ROUND REPORT${reportLabel ? ` · ${reportLabel}` : ''}`}</MonoLabel>
+          <MonoLabel color={colors.primary} style={{ marginLeft: 'auto' }}>HOW THE LEAGUE DID →</MonoLabel>
+        </Pressable>
+      ) : null}
       {picking ? <GridRaceSelectSheet options={selectorOptions} value={selectorValue} onPick={onPick} onClose={() => setPicking(false)} /> : null}
+      {reporting && league && reportRaceId ? <GridRoundReportSheet leagueId={league.id} raceId={reportRaceId} resultIds={league.raceResultIds} onClose={() => setReporting(false)} /> : null}
       <FlatList
         ListHeaderComponent={feed}
         data={rows}

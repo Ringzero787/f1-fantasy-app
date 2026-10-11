@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Modal, ScrollView } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useWeekendRecap } from '../hooks/useWeekendRecap';
 import { MonoLabel, PillButton } from './GridBits';
+import { useSimpleTeam } from '../hooks/useSimpleTeam';
+import { useLeagueStore } from '../../store/league.store';
+import { useRoundReport } from '../hooks/useRoundReport';
+import { RoundReportBody } from './GridRoundReport';
 
 /**
  * One-time post-weekend recap shown after a race the user's team was scored
@@ -12,7 +16,37 @@ import { MonoLabel, PillButton } from './GridBits';
 export function GridWeekendRecap() {
   const { colors, family, scaled, mono } = useSimpleTheme();
   const { recap, dismiss } = useWeekendRecap();
+  // F-120: after "how did I do" comes "how did everyone do". The recap marks itself seen when it is
+  // left, so the race the report is for is held here; the report is the same card's second step,
+  // not a second modal, because iOS will not present one while the first is still going away.
+  const { team } = useSimpleTeam();
+  const leagueId = team?.leagueId ?? null;
+  // only narrows which earlier round is compared; the report does not wait for it
+  const resultIds = useLeagueStore((s) => (leagueId ? s.leagues.find((l) => l.id === leagueId)?.raceResultIds : undefined));
+  const [reportRaceId, setReportRaceId] = useState<string | null>(null);
+  const report = useRoundReport(reportRaceId ? leagueId : null, reportRaceId, resultIds);
+  if (reportRaceId) {
+    const close = () => setReportRaceId(null);
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={close}>
+        <View style={{ flex: 1, backgroundColor: colors.scrim, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <View style={{ width: '100%', maxWidth: 380, maxHeight: '86%', backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 24, gap: 14 }}>
+            <MonoLabel>{`ROUND REPORT${report.label ? ` · ${report.label}` : ''}`}</MonoLabel>
+            <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
+              <RoundReportBody {...report} />
+            </ScrollView>
+            <PillButton label="DONE" variant="inverse" onPress={close} />
+          </View>
+        </View>
+      </Modal>
+    );
+  }
   if (!recap) return null;
+  // Offered to anyone whose team is in a league. Not gated on the league list or its list of
+  // leaderboards: both load in the background, and a recap shown before they land would lose the
+  // step for good once dismissed. A league with no leaderboard for the race yet says so on the
+  // next step, and is asked again next time.
+  const hasReport = !!leagueId;
 
   const { raceName, teamPoints, best, worst, rank, leagueSize, entities } = recap;
   const showWorst = worst && best && worst.name !== best.name && worst.points < best.points;
@@ -25,7 +59,7 @@ export function GridWeekendRecap() {
         <View style={{ width: '100%', maxWidth: 380, maxHeight: '86%', backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 24, gap: 14 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <MonoLabel>WEEKEND RECAP</MonoLabel>
-            {rank != null ? <MonoLabel color={colors.primary}>{`P${rank}${leagueSize ? ` / ${leagueSize}` : ''}`}</MonoLabel> : null}
+            {rank != null ? <MonoLabel color={colors.primary}>{`SEASON P${rank}${leagueSize ? ` / ${leagueSize}` : ''}`}</MonoLabel> : null}
           </View>
           <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{raceName}</Text>
           <Text style={{ fontFamily: family.ui.black, fontSize: scaled(56), lineHeight: scaled(56) * 0.95, letterSpacing: -scaled(56) * 0.05, color: teamPoints < 0 ? colors.primary : colors.text.primary, includeFontPadding: false }}>{sign(teamPoints)}</Text>
@@ -59,7 +93,14 @@ export function GridWeekendRecap() {
             ))}
           </ScrollView>
 
-          <PillButton label="GOT IT" variant="inverse" onPress={dismiss} />
+          {hasReport ? (
+            <>
+              <PillButton label="NEXT · HOW THE LEAGUE DID" variant="inverse" onPress={() => { setReportRaceId(recap.raceId); dismiss(); }} />
+              <PillButton label="GOT IT" variant="muted" onPress={dismiss} />
+            </>
+          ) : (
+            <PillButton label="GOT IT" variant="inverse" onPress={dismiss} />
+          )}
         </View>
       </View>
     </Modal>

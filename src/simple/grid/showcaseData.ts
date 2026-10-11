@@ -100,11 +100,21 @@ export function showcaseMembers(leagueId: string, userId: string): LeagueMember[
 /** The one round the showcase league has a leaderboard for. */
 export const SHOWCASE_RESULT_ROUND = 16;
 
-/** The latest race's leaderboard for the showcase league (F-062); other races have none. */
+/**
+ * The latest race's leaderboard for the showcase league (F-062); the selector lists no other.
+ * The round before it exists only for the round report (F-120), which needs something to compare
+ * against: the same field, each score moved by a fixed amount so there is a climb and a drop.
+ */
+const SHOWCASE_PREVIOUS_SWING = [-36, 58, -120, 22, 141, -9, 74, -63];
+// the same two managers the demo Moonshot history names (moonshot.store DEMO.activity)
+const SHOWCASE_MOONSHOTS: Record<string, number> = { 'showcase-0': 1000, 'showcase-2': -100 };
 export function showcaseRaceResult(leagueId: string, userId: string, round: number): LeagueRaceResultDoc | null {
   const members = showcaseMembers(leagueId, userId);
-  if (!members || round !== SHOWCASE_RESULT_ROUND) return null;
-  const sorted = members.map((m) => ({ userId: m.userId, displayName: m.displayName, teamName: m.teamName ?? null, points: m.lastRacePoints ?? 0 })).sort((a, b) => b.points - a.points);
+  if (!members || (round !== SHOWCASE_RESULT_ROUND && round !== SHOWCASE_RESULT_ROUND - 1)) return null;
+  const latest = round === SHOWCASE_RESULT_ROUND;
+  const sorted = members
+    .map((m, i) => ({ userId: m.userId, displayName: m.displayName, teamName: m.teamName ?? null, points: Math.max(0, (m.lastRacePoints ?? 0) + (latest ? 0 : SHOWCASE_PREVIOUS_SWING[i % SHOWCASE_PREVIOUS_SWING.length])), ...(latest && SHOWCASE_MOONSHOTS[m.userId] ? { moonshotPoints: SHOWCASE_MOONSHOTS[m.userId] } : {}), ...(latest ? { rosterValue: 880 + ((i * 37) % 9) * 15 } : {}) }))
+    .sort((a, b) => b.points - a.points);
   const entries = sorted.map((e, i) => ({ ...e, rank: i > 0 && sorted[i - 1].points === e.points ? i : i + 1 }));
   return { raceId: `showcase_r${round}`, season: '2026', round, entries, winners: entries.filter((e) => e.points === entries[0].points).map((e) => e.userId), topPoints: entries[0].points, estimated: false };
 }
