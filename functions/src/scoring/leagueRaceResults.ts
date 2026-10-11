@@ -16,6 +16,8 @@ export interface RaceEntryIn {
   moonshotPoints?: number;
   displayName?: string;
   teamName?: string;
+  /** F-120: what the roster fielded this weekend was worth at lock; null when it is not known for every team */
+  rosterValue?: number | null;
 }
 
 export interface RaceEntry {
@@ -30,6 +32,8 @@ export interface RaceEntry {
   raceTotal: number;
   /** competition ranking: ties share a rank and the next rank skips (1, 1, 3) */
   rank: number;
+  /** F-120: roster value at lock, for points per dollar in the round report; null when unknown */
+  rosterValue: number | null;
 }
 
 export interface LeagueRaceResult {
@@ -49,12 +53,54 @@ export function rankRaceEntries(entriesIn: RaceEntryIn[]): LeagueRaceResult {
   sorted.forEach((e, i) => {
     const rank = i > 0 && sorted[i - 1].points === e.points ? entries[i - 1].rank : i + 1;
     const moonshotPoints = finite(e.moonshotPoints);
-    entries.push({ userId: e.userId, displayName: e.displayName ?? null, teamName: e.teamName ?? null, points: e.points, racePoints: e.points, moonshotPoints, raceTotal: e.points + moonshotPoints, rank });
+    const rosterValue = typeof e.rosterValue === 'number' && Number.isFinite(e.rosterValue) && e.rosterValue > 0 ? e.rosterValue : null;
+    entries.push({ userId: e.userId, displayName: e.displayName ?? null, teamName: e.teamName ?? null, points: e.points, racePoints: e.points, moonshotPoints, raceTotal: e.points + moonshotPoints, rank, rosterValue });
   });
   const topPoints = entries.length > 0 ? entries[0].points : null;
   // A weekend nobody scored in has no winner: an empty league of open rosters must not hand out wins.
   const winners = topPoints !== null && topPoints > 0 ? entries.filter((e) => e.points === topPoints).map((e) => e.userId) : [];
   return { entries, winners, topPoints };
+}
+
+interface PricedEntity { currentPrice?: unknown; purchasePrice?: unknown }
+
+/**
+ * F-120: what a team's fielded roster was worth, from its race snapshot (F-029 records the roster
+ * as it stood at lock). Each driver and the constructor at the price it held that weekend, or at
+ * what was paid when no market price was recorded. Null when the snapshot has no priced roster,
+ * so a missing value is never read as a free one.
+ */
+export function snapshotRosterValue(snapshot: { roster?: { drivers?: unknown; constructor?: unknown } | null } | null | undefined): number | null {
+  // `constructor` is a real key on the stored document; on a bare object it is Object's own function
+  const roster = snapshot && typeof snapshot === 'object' ? snapshot.roster : null;
+  if (!roster || typeof roster !== 'object') return null;
+  const priceOf = (e: PricedEntity | null | undefined): number => {
+    if (!e || typeof e !== 'object') return 0;
+    const now = finite(e.currentPrice);
+    return now > 0 ? now : Math.max(0, finite(e.purchasePrice));
+  };
+  const drivers = Array.isArray(roster.drivers) ? (roster.drivers as PricedEntity[]) : [];
+  const ctor = Object.prototype.hasOwnProperty.call(roster, 'constructor') ? (roster.constructor as PricedEntity | null) : null;
+  const total = drivers.reduce((s, d) => s + priceOf(d), 0) + priceOf(ctor);
+  return total > 0 ? total : null;
+}
+
+/**
+ * F-120: roster value per manager for one race. A manager's teams are summed, as their points
+ * are; a manager with any team whose value is unknown (no snapshot, or one with no priced roster)
+ * gets null, rather than a ratio worked out on part of what they fielded. Used by the scoring
+ * writer and by the backfill, so past rounds are filled by the same rule.
+ */
+export function rosterValuesByUser(teams: Array<{ userId?: string | null; snapshot: Parameters<typeof snapshotRosterValue>[0] }>): Map<string, number | null> {
+  const out = new Map<string, number | null>();
+  for (const t of teams) {
+    if (!t.userId) continue;
+    const value = snapshotRosterValue(t.snapshot);
+    const sofar = out.get(t.userId);
+    if (value === null || sofar === null) out.set(t.userId, null);
+    else out.set(t.userId, (sofar ?? 0) + value);
+  }
+  return out;
 }
 
 export interface StoredRaceResult {

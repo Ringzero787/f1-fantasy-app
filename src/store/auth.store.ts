@@ -175,6 +175,8 @@ export const useAuthStore = create<AuthState>()(
           import('./chat.store').then(({ useChatStore }) => {
             useChatStore.getState().clearChatState();
           });
+          // F-120: league leaderboards read this session must not be served to the next account
+          import('../simple/hooks/useRoundReport').then(({ clearRoundReportCache }) => clearRoundReportCache());
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Sign out failed';
           set({ error: message, isLoading: false });

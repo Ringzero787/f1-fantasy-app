@@ -1,24 +1,35 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
+import { useMoonshotStore } from '../../store/moonshot.store';
 import { getLeagueRaceResult } from '../../services/leagueRaceResults.service';
-import { raceOptions, type LeagueRaceResultDoc } from '../grid/raceLeaderboard';
-import { buildRoundReport, previousRaceId, type RoundReport } from '../grid/roundReport';
+import { moonshotService } from '../../services/moonshot.service';
+import type { LeagueRaceResultDoc } from '../grid/raceLeaderboard';
+import type { ActivityEntry } from '../grid/moonshot';
+import { buildRoundReport, reportRaces, type RoundReport } from '../grid/roundReport';
 import { SHOWCASE_RESULT_ROUND, showcaseRaceResult } from '../grid/showcaseData';
 
-// Leaderboards do not change once a race is scored, so one read per league and race serves the
-// League tab and the recap for the session.
-const cache = new Map<string, Promise<LeagueRaceResultDoc | null>>();
-const read = (leagueId: string, raceId: string) => {
-  const key = `${leagueId}:${raceId}`;
-  let hit = cache.get(key);
+// Leaderboards and settled Moonshots do not change once a race is scored, so one read per league
+// and race serves the League tab's table, its report and the recap for the session. Cleared by
+// pull-to-refresh and on sign-out.
+const results = new Map<string, Promise<LeagueRaceResultDoc | null>>();
+const shots = new Map<string, Promise<ActivityEntry[]>>();
+function cached<T>(store: Map<string, Promise<T>>, key: string, load: () => Promise<T>, onError: T): Promise<T> {
+  let hit = store.get(key);
   if (!hit) {
-    hit = getLeagueRaceResult(leagueId, raceId).catch(() => { cache.delete(key); return null; });
-    cache.set(key, hit);
+    // a failed read is not remembered, and must not evict a newer attempt made after a refresh
+    const p: Promise<T> = load().catch(() => { if (store.get(key) === p) store.delete(key); return onError; });
+    hit = p;
+    store.set(key, hit);
   }
   return hit;
-};
-export const clearRoundReportCache = () => cache.clear();
+}
+/** One league's leaderboard for one race, read once per session. */
+export const readLeagueRaceResult = (leagueId: string, raceId: string) =>
+  cached(results, `${leagueId}:${raceId}`, () => getLeagueRaceResult(leagueId, raceId), null);
+const readRaceMoonshots = (leagueId: string, raceId: string) =>
+  cached(shots, `${leagueId}:${raceId}`, () => moonshotService.leagueActivityForRace(leagueId, raceId), [] as ActivityEntry[]);
+export const clearRoundReportCache = () => { results.clear(); shots.clear(); };
 
 export interface RoundReportState {
   report: RoundReport | null;
@@ -28,34 +39,47 @@ export interface RoundReportState {
 }
 
 /**
- * The league round report (F-120) for one race: that race's leaderboard and the one before it,
- * two document reads at most. `resultIds` is the league's `raceResultIds`, so the round before
- * is the last one the league actually has a leaderboard for.
+ * The league round report (F-120) for one race: that race's leaderboard, the one for the round
+ * before it, and the Moonshots settled on it. Three reads at most. `resultIds` is the league's
+ * `raceResultIds` when it is known; it only narrows which earlier round is compared.
  */
 export function useRoundReport(leagueId: string | null, raceId: string | null, resultIds: string[] | null | undefined): RoundReportState {
   const userId = useAuthStore((s) => s.user?.id ?? null);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const races = useRemoteConfigStore((s) => s.races);
-  const [docs, setDocs] = useState<{ key: string; current: LeagueRaceResultDoc | null; previous: LeagueRaceResultDoc | null } | null>(null);
+  const demoActivity = useMoonshotStore((s) => s.activity);
+  const loadActivity = useMoonshotStore((s) => s.loadActivity);
+  const [docs, setDocs] = useState<{ key: string; current: LeagueRaceResultDoc | null; previous: LeagueRaceResultDoc | null; activity: ActivityEntry[] } | null>(null);
 
-  const ids = resultIds ?? (isDemoMode ? races.filter((r) => r.round === SHOWCASE_RESULT_ROUND).map((r) => r.id) : []);
-  const options = useMemo(() => raceOptions(races as never, ids), [races, ids.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
-  const option = raceId ? options.find((o) => o.raceId === raceId) ?? null : null;
-  const key = leagueId && raceId ? `${leagueId}:${raceId}:${isDemoMode ? 'demo' : 'live'}` : null;
+  const ids = (resultIds ?? []).join('|');
+  const race = useMemo(() => (raceId ? reportRaces(races as never, raceId, resultIds) : { round: null, label: null, previousId: null }), [races, raceId, ids]); // eslint-disable-line react-hooks/exhaustive-deps
+  const key = leagueId && raceId ? `${leagueId}:${raceId}:${race.previousId ?? '-'}:${isDemoMode ? `demo:${race.round}:${userId}` : 'live'}` : null;
 
   useEffect(() => {
     if (!leagueId || !raceId || !key) { setDocs(null); return; }
     let cancelled = false;
-    const load = isDemoMode
-      // the showcase league has one round on record; the round before it is derived so the comparison can be seen
-      ? Promise.resolve([showcaseRaceResult(leagueId, userId ?? '', option?.round ?? 0), showcaseRaceResult(leagueId, userId ?? '', (option?.round ?? 0) - 1)] as const)
-      : Promise.all([read(leagueId, raceId), (() => { const prev = previousRaceId(options, raceId); return prev ? read(leagueId, prev) : Promise.resolve(null); })()]);
-    load.then(([current, previous]) => { if (!cancelled) setDocs({ key, current, previous }); });
+    if (isDemoMode) {
+      // The showcase league has one round on record; the round before it is derived so the comparison can be seen.
+      loadActivity(leagueId).catch(() => {});
+      const round = race.round ?? SHOWCASE_RESULT_ROUND;
+      setDocs({ key, current: showcaseRaceResult(leagueId, userId ?? '', round), previous: showcaseRaceResult(leagueId, userId ?? '', round - 1), activity: [] });
+      return;
+    }
+    Promise.all([
+      readLeagueRaceResult(leagueId, raceId),
+      race.previousId ? readLeagueRaceResult(leagueId, race.previousId) : Promise.resolve(null),
+      readRaceMoonshots(leagueId, raceId),
+    ]).then(([current, previous, activity]) => { if (!cancelled) setDocs({ key, current, previous, activity }); });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- league, race, mode and the set of rounds on record
-  }, [key, options.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` carries the league, both races, the mode and the viewer
+  }, [key]);
 
   const ready = !!key && docs?.key === key;
-  const report = useMemo(() => (ready ? buildRoundReport(docs!.current, docs!.previous, userId) : null), [ready, docs, userId]);
-  return { report, loading: !!key && !ready, label: option?.label ?? null };
+  const report = useMemo(() => {
+    if (!ready) return null;
+    // demo history is one fixed list with its own race ids; show it as this round's so the block can be seen
+    const activity = isDemoMode && docs!.current ? demoActivity.map((a) => ({ ...a, raceId: docs!.current!.raceId })) : docs!.activity;
+    return buildRoundReport(docs!.current, docs!.previous, userId, activity);
+  }, [ready, docs, userId, isDemoMode, demoActivity]);
+  return { report, loading: !!key && !ready, label: race.label };
 }

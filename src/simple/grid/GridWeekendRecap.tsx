@@ -40,8 +40,10 @@ export function GridWeekendRecap() {
     );
   }
   if (!recap) return null;
-  // Only offered when the league is known to have a leaderboard for this race; otherwise the recap ends as it always did.
-  const hasReport = !!league && (league.raceResultIds ?? []).includes(recap.raceId);
+  // Offered to anyone in a league. Not gated on the league's list of leaderboards: that list is
+  // refreshed in the background, and a recap shown before it lands would lose the step for good
+  // once dismissed. A league with no leaderboard for the race yet says so on the next step.
+  const hasReport = !!league;
 
   const { raceName, teamPoints, best, worst, rank, leagueSize, entities } = recap;
   const showWorst = worst && best && worst.name !== best.name && worst.points < best.points;
@@ -54,7 +56,7 @@ export function GridWeekendRecap() {
         <View style={{ width: '100%', maxWidth: 380, maxHeight: '86%', backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 24, gap: 14 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <MonoLabel>WEEKEND RECAP</MonoLabel>
-            {rank != null ? <MonoLabel color={colors.primary}>{`P${rank}${leagueSize ? ` / ${leagueSize}` : ''}`}</MonoLabel> : null}
+            {rank != null ? <MonoLabel color={colors.primary}>{`SEASON P${rank}${leagueSize ? ` / ${leagueSize}` : ''}`}</MonoLabel> : null}
           </View>
           <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{raceName}</Text>
           <Text style={{ fontFamily: family.ui.black, fontSize: scaled(56), lineHeight: scaled(56) * 0.95, letterSpacing: -scaled(56) * 0.05, color: teamPoints < 0 ? colors.primary : colors.text.primary, includeFontPadding: false }}>{sign(teamPoints)}</Text>
