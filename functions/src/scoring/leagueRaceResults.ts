@@ -64,12 +64,16 @@ export function rankRaceEntries(entriesIn: RaceEntryIn[]): LeagueRaceResult {
 
 interface PricedEntity { currentPrice?: unknown; purchasePrice?: unknown }
 
+/** A full lineup is five drivers and a constructor (teams/autoFill TEAM_SIZE). */
+export const FULL_LINEUP_DRIVERS = 5;
+
 /**
  * F-120: what a team's fielded roster was worth, from its race snapshot (F-029 records the roster
  * as it stood at lock). Each driver and the constructor at the price on the team when the weekend
  * was scored (the market price after the previous race, or what was paid if bought since), or at
- * what was paid when no market price was recorded. Null when the snapshot has no roster or any
- * pick in it has no price, so a missing value is never read as a free one.
+ * what was paid when no market price was recorded. Null when the snapshot has no roster, the
+ * lineup was not full, or any pick in it has no price: a value is recorded only when it means
+ * the same thing for everyone it will be compared with.
  */
 export function snapshotRosterValue(snapshot: { roster?: { drivers?: unknown; constructor?: unknown } | null } | null | undefined): number | null {
   // `constructor` is a real key on the stored document; on a bare object it is Object's own function
@@ -84,8 +88,12 @@ export function snapshotRosterValue(snapshot: { roster?: { drivers?: unknown; co
   const ctor = Object.prototype.hasOwnProperty.call(roster, 'constructor') ? (roster.constructor as PricedEntity | null) : null;
   // The snapshot stores a missing price as 0. A rostered pick with no price makes the total
   // unknown, not smaller: counting it as free would flatter the points per dollar.
-  const prices = [...drivers.map(priceOf), ...(ctor ? [priceOf(ctor)] : [])];
-  if (prices.length === 0 || prices.some((p) => p <= 0)) return null;
+  // Only a full lineup has a value worth comparing. A manager who fielded one $5 driver and lost
+  // 36 points would otherwise read as -720 points per $100, and a lucky one as the best value in
+  // the league: true as arithmetic, and not what "value" means to anyone reading it.
+  if (drivers.length < FULL_LINEUP_DRIVERS || !ctor) return null;
+  const prices = [...drivers.map(priceOf), priceOf(ctor)];
+  if (prices.some((p) => p <= 0)) return null;
   return prices.reduce((s, p) => s + p, 0);
 }
 
