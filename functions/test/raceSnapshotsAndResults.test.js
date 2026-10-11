@@ -105,18 +105,29 @@ test('names copied into server-owned results are single-line and at most 60 char
   assert.equal(cleanName(42), undefined);
 });
 
-test('F-120: roster value at lock is the fielded roster at that weekend\'s prices, and unknown is never zero', () => {
-  const snap = { roster: { drivers: [{ driverId: 'a', currentPrice: 120, purchasePrice: 100 }, { driverId: 'b', currentPrice: 0, purchasePrice: 80 }], constructor: { constructorId: 'x', currentPrice: 200 } } };
-  assert.equal(snapshotRosterValue(snap), 400);                       // 120 + 80 (paid, no market price) + 200
+const fullRoster = (prices, ctor = 200) => ({ drivers: prices.map((p, i) => ({ driverId: `d${i}`, currentPrice: p })), constructor: ctor === null ? null : { constructorId: 'x', currentPrice: ctor } });
+
+test('F-120: roster value at lock is a full lineup at that weekend\'s prices, and unknown is never zero', () => {
+  assert.equal(snapshotRosterValue({ roster: fullRoster([120, 80, 100, 50, 150]) }), 700);
+  // what was paid stands in where no market price was recorded
+  const paid = fullRoster([120, 0, 100, 50, 150]); paid.drivers[1].purchasePrice = 80;
+  assert.equal(snapshotRosterValue({ roster: paid }), 700);
   // one pick with no price at all makes the whole roster unknown, not $0 cheaper
-  assert.equal(snapshotRosterValue({ roster: { drivers: [...snap.roster.drivers, { driverId: 'c' }], constructor: snap.roster.constructor } }), null);
-  assert.equal(snapshotRosterValue({ roster: { drivers: snap.roster.drivers, constructor: { constructorId: 'x', currentPrice: 0, purchasePrice: 0 } } }), null);
-  assert.equal(snapshotRosterValue({ roster: { drivers: [{ currentPrice: 50 }], constructor: null } }), 50);
-  assert.equal(snapshotRosterValue({ roster: { drivers: [{ currentPrice: 50 }] } }), 50);   // no constructor key: not Object's own
-  assert.equal(snapshotRosterValue({ roster: { drivers: [], constructor: null } }), null);
+  assert.equal(snapshotRosterValue({ roster: fullRoster([120, 0, 100, 50, 150]) }), null);
+  assert.equal(snapshotRosterValue({ roster: fullRoster([120, 80, 100, 50, 150], 0) }), null);
   assert.equal(snapshotRosterValue({ moonshots: {} }), null);        // a snapshot Moonshot settlement created, with no roster
   assert.equal(snapshotRosterValue(null), null);
   assert.equal(snapshotRosterValue({ roster: { drivers: [{ currentPrice: NaN, purchasePrice: -5 }] } }), null);
+});
+
+test('F-120: only a full lineup has a value: one $5 driver is not a roster to compare on points per dollar', () => {
+  assert.equal(snapshotRosterValue({ roster: { drivers: [{ driverId: 'a', currentPrice: 5 }], constructor: null } }), null);
+  assert.equal(snapshotRosterValue({ roster: fullRoster([58, 101, 192]) }), null);                 // three drivers and a constructor
+  assert.equal(snapshotRosterValue({ roster: fullRoster([17, 5, 70, 113, 216], null) }), null);    // five drivers, no constructor
+  assert.equal(snapshotRosterValue({ roster: { drivers: fullRoster([17, 5, 70, 113, 216]).drivers } }), null);   // no constructor key: not Object's own
+  assert.equal(snapshotRosterValue({ roster: { drivers: [], constructor: null } }), null);
+  assert.equal(snapshotRosterValue({ roster: fullRoster([17, 5, 70, 113, 216], 21) }), 442);
+  assert.equal(snapshotRosterValue({ roster: fullRoster([17, 5, 70, 113, 216, 50], 21) }), null);   // more than a lineup is not one either
 });
 
 test('F-120: race entries carry the roster value through, as null when it is missing or not a positive number', () => {
@@ -127,7 +138,7 @@ test('F-120: race entries carry the roster value through, as null when it is mis
 });
 
 test('F-120: a manager\'s teams are summed, and one unknown team makes the whole value unknown', () => {
-  const priced = (v) => ({ roster: { drivers: [{ currentPrice: v }], constructor: null } });
+  const priced = (v) => ({ roster: fullRoster([v - 100, 20, 20, 20, 20], 20) });
   const m = rosterValuesByUser([
     { userId: 'a', snapshot: priced(400) }, { userId: 'a', snapshot: priced(500) },
     { userId: 'b', snapshot: priced(300) }, { userId: 'b', snapshot: null },
