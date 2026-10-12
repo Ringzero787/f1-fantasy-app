@@ -1,73 +1,83 @@
 # Provenance — undercut 2.5.3 (uc-v2.5.3)
 
-Collected by hand on 2026-10-12 from the built artifacts. **G13 records `hold`** for this release,
-twice, on the one thing it has held every Undercut release on since 2.4.3: the artifact list,
-signatures, reproducible-build hash and SBOM diff are not in its evidence package (`syft` is not
-installed and the gate does not gather the rest). No other gate failed: G03 warned (the advisory
-lint), and G14 and G06 have no verdict in this release's record. This file is that artifact list;
-it answers the hold and does not clear it.
+Collected by hand on 2026-10-12 from the built artifacts.
 
 ## How this release was run
 
+It took three complete builds, and the artifacts below are from the third.
+
 1. First run at `71b293a`: all three targets built (iOS build 54 uploaded to App Store Connect),
    then **G05 failed** on nine critical dependency findings published since 2.5.2, and G13 held on
-   them. That was a real hold.
-2. PR #215 patched the four packages (proxy-addr, shell-quote, handlebars, tinypool) in the
-   lockfiles. No application code.
-3. Second run at `2c42c36`: every target rebuilt, G05 passes, G13 holds on the evidence gap only.
-   G05 passes with no critical finding left, and with about sixty older high and medium
-   advisories still covered by the standing `GHSA-` waiver, which expires on 2026-10-31.
-   The iOS build number was moved to 55 by hand because 54 was already on App Store Connect; the
-   Android code stayed 72, which no store has seen.
+   them. That was a real hold. PR #215 patched the four packages (proxy-addr, shell-quote,
+   handlebars, tinypool) in the lockfiles; no application code.
+2. Second run at `2c42c36`: everything rebuilt (iOS build 55 uploaded), G05 passed, and G13 held
+   twice on the evidence gap it has held every Undercut release on since 2.4.3: no artifact list,
+   signatures, reproducible-build hash or SBOM diff in its package.
+3. The owner then tested the Play and Amazon builds on the Android emulator and asked for two
+   changes: the Amazon build's button order (#218) and the recap button's label (#219). A run
+   started after the first of those was stopped before its iOS upload. Third complete run at
+   `586c791`, with both: everything rebuilt, iOS build 56 uploaded.
 
-**The artifacts below are from the second run.** Build 54 and the first run's AAB and APK are
-superseded; `undercut-2.5.3-build54.ipa` is still on the share and should not be submitted.
+**Sign-off on the third run: G13 approves.** Read that for what it is. The run was made on the
+release branch, where the earlier records were already committed, so the gate judged the change
+set to be "metadata-only" and found no hold trigger. Nothing about the artifact evidence changed
+between the hold and the approve: `syft` is still not installed and the gate still does not
+gather signatures. This file is that evidence, collected by hand, as it was for 2.5.1 and 2.5.2.
+
+G05 passes with no critical finding left, and with about sixty older high and medium advisories
+still covered by the standing `GHSA-` waiver, which expires on 2026-10-31. G03 warned on the
+advisory lint, as it has on every release.
+
+Builds 54 and 55 are superseded and should not be submitted. Their IPAs are still on the share.
+The Android version code is 72 in all three runs; no store has seen it, so it was reused.
 
 ## Artifacts and hashes
 
 | artifact | sha256 | bytes |
 |---|---|---|
-| `undercut-2.5.3-vc72.aab` | `23b46e9ed8c35b510e917d5175bef01d5a8d49142d4a889e61c2db62cdc1ed61` | 75187597 |
-| `undercut-2.5.3-vc72-amazon.apk` | `f0e24d0f723b8adb6a4137f8b47172259cb7e4eefe2f7ae6b95eb9f88ec93a91` | 101910153 |
-| `undercut-2.5.3-build55.ipa` | `8547a56f01ecc9153cfde4827bdfb6e103ed26821466fe3b5deae97d1ca0829e` | 27964269 |
+| `undercut-2.5.3-vc72.aab` | `977251e072e4a216f1ff702750c4c7e171a0d64a3473e215cd1a2b368f1773e9` | 75187443 |
+| `undercut-2.5.3-vc72-amazon.apk` | `4dca18e38577c3af3786bee4ccfbb920dc4f0b376db8dcffa590a0ec532be8d6` | 101910125 |
+| `undercut-2.5.3-build56.ipa` | `3d94df7d194a1f16098bbaba6ebb69c455190b283d38966ac3505a163fcbf3df` | 27966257 |
 
 All three on `/mnt/smb/share/undercut/`. The IPA on the Mac at
 `~/projects/f1-app/build/export/Undercut.ipa` has the same hash.
 
 ## Signatures
 
-- **AAB** (`jarsigner -verify -certs`): jar verified, `CN=Nathan Shanks, OU=Mobile, O=Undercut` —
-  the upload key; Play re-signs.
+- **AAB** (`jarsigner -verify`): jar verified, `CN=Nathan Shanks, OU=Mobile, O=Undercut` — the
+  upload key; Play re-signs.
 - **Amazon APK** (`apksigner verify --print-certs`): same certificate, SHA-256
-  `70ec4c19a662b730214786b3a2f10fd89115ad4e7941ba7344f3e1765016cfe7`, SHA-1
-  `b9e5550621db608f927dca7eb7ec283d725a98b8`.
+  `70ec4c19a662b730214786b3a2f10fd89115ad4e7941ba7344f3e1765016cfe7`.
 - **IPA** (`codesign -dv` on the Mac): `Apple Distribution: Nathan Shanks (MWVD9BU5VW)`, embedded
-  profile `fe08ac16-b61e-4cc5-8294-278b50b3e6b7`, signed entitlements
-  `applinks:undercut.humannpc.com` and `com.apple.developer.applesignin`.
+  profile `fe08ac16-b61e-4cc5-8294-278b50b3e6b7`.
 
 ## Contents verified in the binaries
 
 | check | AAB | Amazon APK | IPA |
 |---|---|---|---|
-| version | `2.5.3` in `base/manifest` (protobuf) | `versionCode='72' versionName='2.5.3'` | `CFBundleShortVersionString 2.5.3`, `CFBundleVersion 55` |
-| F-120 round report in the JS bundle (`ROUND REPORT`, `CALL OF THE ROUND`) | present | present | present |
+| version | 2.5.3 (code 72 from `app.config.js` and the build script) | `versionCode='72' versionName='2.5.3'` | `CFBundleShortVersionString 2.5.3`, `CFBundleVersion 56` |
+| F-120 round report (`ROUND REPORT`) | present | present | present |
+| the recap button reads `LEAGUE SCORES`, and the old label is gone | yes | yes | yes |
 | F-119 ace advice (`ACE CALL`) | present | present | present |
-| Google Sans Medium embedded | 6 fonts in `assets/fonts`, one of them it | present in the APK | 6 `.ttf` in the app, one of them it |
-| sign-in artwork | in the resource table | 3 `assets_signin_*` drawables | `assets/assets/signin/google-g*.png` |
+| Google Sans Medium embedded | 6 fonts in `assets/fonts` | present | 6 `.ttf` in the app |
 | demo entry | flag absent from the bundle | absent | absent |
 
 iOS upload to App Store Connect: `UPLOAD SUCCEEDED with no errors`, Delivery UUID
-`28235675-eb96-4769-9c46-d26b81c761fa`.
+`92a54ecb-bc10-415f-969e-cf21d245b36b`.
 
-**The Amazon APK was installed and launched** on the Android emulator (the first run's build of the
-same application code): 2.5.3 (72), the sign-in screen renders the Google mark, Google Sans and
-Amazon's button image. The second run's APK was installed there as well.
+## Launched
+
+On the Android emulator, 2026-10-12:
+- **The Amazon APK**, from the first and second runs: 2.5.3 (72) starts on the sign-in screen with
+  the Google mark, Google Sans and Amazon's button image. Its order then was Amazon, Apple, Google.
+- **The Play build**, as a universal APK made from the AAB with bundletool and signed with the
+  same key: the order reads Google, Apple, Amazon. The owner signed in and used it.
+- The third run's Play and Amazon builds were installed there after this file was written; see
+  the release PR for what was seen.
 
 ## What is not evidenced
 
-- The AAB's versionCode was read from `app.config.js` (72) and the build script's own check, not
-  parsed out of the protobuf manifest.
 - No reproducible-build hash and no SBOM diff. The dependency change since `uc-v2.5.2` is the four
-  packages in #215, plus nothing in `package.json` at the root.
-- The AAB and the IPA were not launched; nobody has completed a real sign-in with Google, Apple or
-  Amazon on any of these binaries, and the buttons changed in this release.
+  packages in #215.
+- The IPA was not launched on a device or simulator.
+- A real sign-in with Apple or Amazon on these binaries; the buttons changed in this release.

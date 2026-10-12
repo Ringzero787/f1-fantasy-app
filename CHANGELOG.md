@@ -18,7 +18,8 @@ here with the round report and the fixes that followed.
 ### Changed
 
 - Sign-in buttons use each provider's own artwork and wording: Google's current G and Google Sans,
-  Apple's system button on iOS, Amazon's own button image.
+  Apple's system button on iOS, Amazon's own button image. On the Amazon build they read Amazon,
+  Google, Apple.
 
 ### Fixed
 

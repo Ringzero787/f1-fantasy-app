@@ -1,6 +1,6 @@
 # Undercut 2.5.3 — release notes
 
-Android versionCode 72 · Amazon versionCode 72 · iOS build 55
+Android versionCode 72 · Amazon versionCode 72 · iOS build 56
 
 The first build to reach players since 2.5.1. 2.5.2 was built and tagged on 2026-10-09 and then
 held by the owner as too small to ship, so everything in it (`release-notes-2.5.2.md`) arrives
@@ -74,6 +74,9 @@ to ace on the Team screen and in the driver sheet (pass holders).
 - The team name is saved once when return is pressed, not twice.
 - Sign-in buttons use each provider's own artwork and wording: Google's current G and Google Sans,
   Apple's system button on iOS, Amazon's own button image.
+- Button order, as the owner set it while testing (#218): Google, Apple, Amazon on Google Play;
+  Apple, Google on iOS; Amazon, Google, Apple on Amazon. Only the Amazon build changed.
+- The weekend recap's button to the round report reads LEAGUE SCORES (#219).
 
 ### Native changes in this build
 - A sixth embedded font, Google Sans Medium (a Latin subset), for the Continue with Google label.
@@ -100,6 +103,7 @@ to ace on the Team screen and in the driver sheet (pass holders).
   uploaded.
 - **Amazon Appstore**: versionCode 72, title stays "Undercut: Fantasy Motorsport" in both title
   fields (`docs/store/amazon-listing.md`).
-- **iOS**: build 55. Builds 53 (2.5.2) and 54 (the first 2.5.3 run, before the dependency
-  patches) are uploaded to App Store Connect and attached to nothing; 55 is the one to submit.
+- **iOS**: build 56. Builds 53 (2.5.2), 54 (the first 2.5.3 run, before the dependency patches)
+  and 55 (before the owner's two notes from testing) are uploaded to App Store Connect and
+  attached to nothing; **56 is the one to submit**.
 - **`config/app.minVersion` is untouched.** Nothing here needs a forced update.
