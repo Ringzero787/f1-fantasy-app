@@ -95,7 +95,7 @@ export function GridWeekendRecap() {
 
           {hasReport ? (
             <>
-              <PillButton label="NEXT · HOW THE LEAGUE DID" variant="inverse" onPress={() => { setReportRaceId(recap.raceId); dismiss(); }} />
+              <PillButton label="LEAGUE SCORES" variant="inverse" onPress={() => { setReportRaceId(recap.raceId); dismiss(); }} />
               <PillButton label="GOT IT" variant="muted" onPress={dismiss} />
             </>
           ) : (
