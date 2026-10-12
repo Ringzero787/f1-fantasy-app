@@ -1,5 +1,39 @@
 # Changelog
 
+## uc-v2.5.3 — 2026-10-12
+
+The first build to reach players since 2.5.1: 2.5.2 was built and held, so its two changes arrive
+here with the round report and the fixes that followed.
+
+### Added
+
+- Round report. After each race, how the whole league did on one screen: your place, the podium,
+  every Moonshot settled on the race with the call of the round set apart, the biggest climb and
+  drop against each manager's own previous round, the top and low score, and the best and least
+  value (race points per $100 of roster, for full lineups). Opens from the League tab and as the
+  next step after the weekend recap.
+- From 2.5.2: with a Pit Wall Pass, Pit Wall says who to ace on the Team screen and in each
+  driver's sheet.
+
+### Changed
+
+- Sign-in buttons use each provider's own artwork and wording: Google's current G and Google Sans,
+  Apple's system button on iOS, Amazon's own button image.
+
+### Fixed
+
+- From 2.5.2: the driver sheet scrolls on iOS.
+- The Moonshot sheet keeps CLOSE on screen and the driver's name full size on iOS.
+- At the largest display size: the team name wraps, Moonshot cards keep their words whole, the
+  sign-in wordmark stays on one line, the season total is not squeezed, and the League feed does
+  not clip its first lines.
+- The team name is saved once when return is pressed, not twice.
+
+### Behind the scenes
+
+- Scoring records each full lineup's roster value on the league's race result (deployed).
+- Patched versions of four tooling and server dependencies with critical advisories.
+
 ## uc-v2.5.2 — 2026-10-09
 
 Two things reported from the field on the driver sheet.
