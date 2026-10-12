@@ -6,7 +6,7 @@
  * An account belongs to the person, not to the store they installed from, so each build offers
  * every provider it can actually run, with the store's own first:
  *
- *   Amazon build   Amazon, Apple, Google — Google through the browser, since Fire OS has no
+ *   Amazon build   Amazon, Google, Apple — Google through the browser, since Fire OS has no
  *                                          Play Services and the native module cannot run
  *   Play build     Google, Apple, Amazon
  *   iOS build      Apple, Google          — no Amazon, by decision rather than capability
@@ -14,6 +14,9 @@
  * The iOS omission is deliberate and is the one place a provider that *would* work is left out:
  * Login with Amazon is a browser flow and runs there fine. The cost is that an account made with
  * Amazon on a Fire tablet cannot be reached from an iPhone — the one gap left in the matrix.
+ *
+ * After the store's own, Google comes before Apple on both Android builds (owner's decision,
+ * 2026-10-12): on an Android device it is the account more people have.
  */
 export type Provider = 'google' | 'apple' | 'amazon';
 
@@ -39,7 +42,7 @@ export interface ProviderContext {
 
 export function providerOrder({ isAmazonBuild, isIOS, canApple, canAmazon, canGoogleWeb }: ProviderContext): Provider[] {
   if (isAmazonBuild) {
-    return [canAmazon ? 'amazon' : null, canApple ? 'apple' : null, canGoogleWeb ? 'google' : null]
+    return [canAmazon ? 'amazon' : null, canGoogleWeb ? 'google' : null, canApple ? 'apple' : null]
       .filter(Boolean) as Provider[];
   }
   if (isIOS) return [...(canApple ? ['apple' as Provider] : []), 'google'];
