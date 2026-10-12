@@ -27,44 +27,29 @@ New: the Round Report. After each race, see how your league did on one screen: t
 
 Pit Wall now says who to ace. Sign-in buttons are tidied up, and every screen reads properly at the largest text size.
 
-### Deutsch — App Store
+### Deutsch — App Store (492 / 500)
 
-Neu: der Rundenbericht. Nach jedem Rennen siehst du auf einem Bildschirm, wie deine Liga
-abgeschnitten hat: das Podium, der größte Sprung nach oben und nach unten, die meisten Punkte pro
-Dollar und jeder Moonshot, der gesessen hat oder danebenging. Du öffnest ihn im Liga-Tab oder
-direkt nach deinem Wochenend-Rückblick.
+Neu: der Rundenbericht. Nach jedem Rennen siehst du, wie deine Liga abgeschnitten hat: das Podium, größter Auf- und Abstieg, die meisten Punkte pro Dollar und jeder Moonshot, der gesessen hat oder danebenging. Du öffnest ihn im Liga-Tab oder direkt nach deinem Wochenend-Rückblick.
 
-Pit Wall sagt jetzt, wer dein Ass sein sollte. Das Fahrerblatt lässt sich auf dem iPhone wieder
-scrollen. Die Anmelde-Tasten sind aufgeräumt, und jeder Bildschirm ist auch in der größten
-Textgröße gut lesbar.
+Pit Wall sagt jetzt, wer dein Ass sein sollte. Das Fahrerblatt lässt sich auf dem iPhone wieder scrollen. Die Anmelde-Buttons sind aufgeräumt, und jeder Bildschirm ist auch in der größten Textgröße gut lesbar.
 
-### Deutsch — Google Play und Amazon
+### Deutsch — Google Play und Amazon (433 / 500)
 
-Neu: der Rundenbericht. Nach jedem Rennen siehst du auf einem Bildschirm, wie deine Liga
-abgeschnitten hat: das Podium, der größte Sprung nach oben und nach unten, die meisten Punkte pro
-Dollar und jeder Moonshot, der gesessen hat oder danebenging. Du öffnest ihn im Liga-Tab oder
-direkt nach deinem Wochenend-Rückblick.
+Neu: der Rundenbericht. Nach jedem Rennen siehst du, wie deine Liga abgeschnitten hat: das Podium, größter Auf- und Abstieg, die meisten Punkte pro Dollar und jeder Moonshot, der gesessen hat oder danebenging. Du öffnest ihn im Liga-Tab oder direkt nach deinem Wochenend-Rückblick.
 
-Pit Wall sagt jetzt, wer dein Ass sein sollte. Die Anmelde-Tasten sind aufgeräumt, und jeder
-Bildschirm ist auch in der größten Textgröße gut lesbar.
+Pit Wall sagt jetzt, wer dein Ass sein sollte. Die Anmelde-Buttons sind aufgeräumt, und jeder Bildschirm ist auch in der größten Textgröße gut lesbar.
 
-### Nederlands — App Store
+### Nederlands — App Store (448 / 500)
 
-Nieuw: het rondeverslag. Na elke race zie je op één scherm hoe je competitie het deed: het podium,
-de grootste stijger en daler, de meeste punten per dollar en elke Moonshot die raak was of miste.
-Je opent het in het tabblad Competitie, of direct na je weekendoverzicht.
+Nieuw: het rondeverslag. Na elke race zie je op één scherm hoe je competitie het deed: het podium, de grootste stijger en daler, de meeste punten per dollar en elke Moonshot die raak was of miste. Je opent het in het tabblad Competitie, of direct na je weekendoverzicht.
 
-Pit Wall zegt nu wie je ace moet zijn. Het coureurblad scrolt weer op de iPhone. De inlogknoppen
-zijn opgeruimd, en elk scherm is ook in de grootste tekstgrootte goed leesbaar.
+Pit Wall zegt nu wie je ace moet zijn. Het coureurblad scrolt weer op de iPhone. De inlogknoppen zijn opgeruimd, en elk scherm is ook in de grootste tekstgrootte goed leesbaar.
 
-### Nederlands — Google Play en Amazon
+### Nederlands — Google Play en Amazon (406 / 500)
 
-Nieuw: het rondeverslag. Na elke race zie je op één scherm hoe je competitie het deed: het podium,
-de grootste stijger en daler, de meeste punten per dollar en elke Moonshot die raak was of miste.
-Je opent het in het tabblad Competitie, of direct na je weekendoverzicht.
+Nieuw: het rondeverslag. Na elke race zie je op één scherm hoe je competitie het deed: het podium, de grootste stijger en daler, de meeste punten per dollar en elke Moonshot die raak was of miste. Je opent het in het tabblad Competitie, of direct na je weekendoverzicht.
 
-Pit Wall zegt nu wie je ace moet zijn. De inlogknoppen zijn opgeruimd, en elk scherm is ook in de
-grootste tekstgrootte goed leesbaar.
+Pit Wall zegt nu wie je ace moet zijn. De inlogknoppen zijn opgeruimd, en elk scherm is ook in de grootste tekstgrootte goed leesbaar.
 
 ---
 
@@ -101,6 +86,14 @@ to ace on the Team screen and in the driver sheet (pass holders).
   are untouched, but nobody has completed one on these binaries.
 - The weekend recap's new second step on a live account (it appears only when a recap is due).
 - Dark theme and a screen reader on the round report.
+
+### Known
+- **The round report is in English in every language.** Its labels (ROUND REPORT, CALL OF THE
+  ROUND, BIGGEST CLIMB and the rest) are not in the i18n catalogs yet, so a player using the app in
+  another language sees them in English, and the localized notes name the feature in words the
+  screen does not show. Localizing it is a follow-up.
+- The Moonshot sheet fix on iPhone (CLOSE clipped, the driver's name tiny on first open) is in the
+  build and the changelog but not in the short store copy.
 
 ## Platform notes
 - **Google Play**: versionCode 72. 70 (2.5.1) is the last one uploaded; 71 (2.5.2) was never

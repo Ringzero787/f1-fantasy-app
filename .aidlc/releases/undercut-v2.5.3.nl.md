@@ -1,6 +1,6 @@
 # uc-v2.5.3 — 2026-10-12
 
-Undercut 2.5.3: het rondeverslag van je competitie, het ace-advies van Pit Wall en een opgeruimde aanmelding.
+Undercut 2.5.3: het rondeverslag van je competitie, het ace-advies van Pit Wall en een opgeruimd inlogscherm.
 
 ## Toegevoegd
 
@@ -15,4 +15,4 @@ Undercut 2.5.3: het rondeverslag van je competitie, het ace-advies van Pit Wall 
 
 - Het coureurblad scrolt op iOS.
 - Elk scherm is goed leesbaar in de grootste weergavegrootte.
-- De teamnaam wordt één keer opgeslagen als je op Return drukt, niet twee keer.
+- De teamnaam wordt één keer opgeslagen als je op Enter drukt, niet twee keer.

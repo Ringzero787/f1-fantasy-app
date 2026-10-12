@@ -15,4 +15,4 @@ Undercut 2.5.3: o relatório da rodada da liga, a recomendação de ás do Pit W
 
 - A ficha do piloto rola no iOS.
 - Todas as telas ficam legíveis no maior tamanho de exibição.
-- O nome da equipe é salvo uma vez ao pressionar Return, não duas.
+- O nome da equipe é salvo uma vez ao pressionar Enter, não duas.

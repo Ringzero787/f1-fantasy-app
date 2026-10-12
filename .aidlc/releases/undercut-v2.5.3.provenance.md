@@ -3,8 +3,9 @@
 Collected by hand on 2026-10-12 from the built artifacts. **G13 records `hold`** for this release,
 twice, on the one thing it has held every Undercut release on since 2.4.3: the artifact list,
 signatures, reproducible-build hash and SBOM diff are not in its evidence package (`syft` is not
-installed and the gate does not gather the rest). Every other gate passed. This file is that
-artifact list; it answers the hold and does not clear it.
+installed and the gate does not gather the rest). No other gate failed: G03 warned (the advisory
+lint), and G14 and G06 have no verdict in this release's record. This file is that artifact list;
+it answers the hold and does not clear it.
 
 ## How this release was run
 
@@ -14,6 +15,8 @@ artifact list; it answers the hold and does not clear it.
 2. PR #215 patched the four packages (proxy-addr, shell-quote, handlebars, tinypool) in the
    lockfiles. No application code.
 3. Second run at `2c42c36`: every target rebuilt, G05 passes, G13 holds on the evidence gap only.
+   G05 passes with no critical finding left, and with about sixty older high and medium
+   advisories still covered by the standing `GHSA-` waiver, which expires on 2026-10-31.
    The iOS build number was moved to 55 by hand because 54 was already on App Store Connect; the
    Android code stayed 72, which no store has seen.
 

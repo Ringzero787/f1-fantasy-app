@@ -1,6 +1,6 @@
 # uc-v2.5.3 — 2026-10-12
 
-Undercut 2.5.3: der Rundenbericht für deine Liga, die Ass-Empfehlung von Pit Wall und eine aufgeräumte Anmeldung.
+Undercut 2.5.3: der Rundenbericht für deine Liga, die Ass-Empfehlung von Pit Wall und ein aufgeräumter Anmeldebildschirm.
 
 ## Neu
 
@@ -9,7 +9,7 @@ Undercut 2.5.3: der Rundenbericht für deine Liga, die Ass-Empfehlung von Pit Wa
 
 ## Geändert
 
-- Die Anmelde-Tasten zeigen das Zeichen und die Wortwahl des jeweiligen Anbieters.
+- Die Anmelde-Buttons zeigen Logo und Beschriftung des jeweiligen Anbieters.
 
 ## Behoben
 
