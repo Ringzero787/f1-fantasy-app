@@ -12,15 +12,21 @@ const ctx = (over: Partial<Parameters<typeof providerOrder>[0]> = {}) =>
 
 describe('providerOrder', () => {
   it('leads with the store the build came from', () => {
-    expect(ctx({ isAmazonBuild: true })).toEqual(['amazon', 'apple', 'google']);
+    expect(ctx({ isAmazonBuild: true })).toEqual(['amazon', 'google', 'apple']);
     expect(ctx({ isIOS: true })).toEqual(['apple', 'google']);
     expect(ctx()).toEqual(['google', 'apple', 'amazon']);
+  });
+
+  it('orders the rest as the owner set it: Google before Apple on both Android builds', () => {
+    expect(ctx()).toEqual(['google', 'apple', 'amazon']);                       // Play
+    expect(ctx({ isIOS: true })).toEqual(['apple', 'google']);                  // App Store
+    expect(ctx({ isAmazonBuild: true })).toEqual(['amazon', 'google', 'apple']); // Amazon
   });
 
   it('offers Google on the Amazon build only through the browser flow', () => {
     // Fire OS has no Play Services, so the native module cannot run; without the browser flow an
     // account made with Google on a phone is unreachable from a Fire tablet (F-093).
-    expect(ctx({ isAmazonBuild: true })).toEqual(['amazon', 'apple', 'google']);
+    expect(ctx({ isAmazonBuild: true })).toEqual(['amazon', 'google', 'apple']);
     expect(ctx({ isAmazonBuild: true, canGoogleWeb: false })).toEqual(['amazon', 'apple']);
     expect(ctx({ isAmazonBuild: true, canApple: false, canGoogleWeb: false })).toEqual(['amazon']);
   });
