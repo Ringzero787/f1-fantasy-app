@@ -85,8 +85,8 @@ to ace on the Team screen and in the driver sheet (pass holders).
 - On iOS the Apple sign-in button is now the system control from `expo-apple-authentication`.
 
 ### Not proven by this release run
-- A real sign-in with Google, Apple or Amazon on a device after the button changes. The handlers
-  are untouched, but nobody has completed one on these binaries.
+- A real sign-in with Apple or Amazon after the button changes, or with any provider on iOS. The
+  owner signed in on the Play build on the Android emulator; the handlers are untouched.
 - The weekend recap's new second step on a live account (it appears only when a recap is due).
 - Dark theme and a screen reader on the round report.
 

@@ -71,13 +71,16 @@ On the Android emulator, 2026-10-12:
 - **The Amazon APK**, from the first and second runs: 2.5.3 (72) starts on the sign-in screen with
   the Google mark, Google Sans and Amazon's button image. Its order then was Amazon, Apple, Google.
 - **The Play build**, as a universal APK made from the AAB with bundletool and signed with the
-  same key: the order reads Google, Apple, Amazon. The owner signed in and used it.
-- The third run's Play and Amazon builds were installed there after this file was written; see
-  the release PR for what was seen.
+  same key (second run's AAB): the order reads Google, Apple, Amazon, and the owner signed in on
+  it with a real account.
+- **The third run's Play build**, made the same way from the final AAB: installed over it, 2.5.3
+  (72), opens on the owner's Team screen still signed in. The third run's Amazon APK was copied
+  to the same machine and not launched.
 
 ## What is not evidenced
 
 - No reproducible-build hash and no SBOM diff. The dependency change since `uc-v2.5.2` is the four
   packages in #215.
 - The IPA was not launched on a device or simulator.
-- A real sign-in with Apple or Amazon on these binaries; the buttons changed in this release.
+- A real sign-in with Apple or Amazon on these binaries, or with any provider on iOS; the buttons
+  changed in this release. Which provider the owner signed in with on the emulator was not recorded.
