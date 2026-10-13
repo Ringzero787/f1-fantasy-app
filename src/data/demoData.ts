@@ -962,9 +962,9 @@ export const demoRaces: Race[] = [
     schedule: {
       fp1: new Date('2026-10-23T17:30:00Z'),
       fp2: new Date('2026-10-23T21:00:00Z'),
-      fp3: new Date('2026-10-24T18:00:00Z'),
-      qualifying: new Date('2026-10-24T22:00:00Z'),
-      race: new Date('2026-10-25T19:00:00Z'),
+      fp3: new Date('2026-10-24T17:30:00Z'),
+      qualifying: new Date('2026-10-24T21:00:00Z'),
+      race: new Date('2026-10-25T20:00:00Z'),
     },
   },
   // Round 21: Mexican Grand Prix - October 30 - November 1, 2026
@@ -1026,11 +1026,11 @@ export const demoRaces: Race[] = [
     hasSprint: false,
     status: 'upcoming',
     schedule: {
-      fp1: new Date('2026-11-20T02:30:00Z'),
-      fp2: new Date('2026-11-20T06:00:00Z'),
-      fp3: new Date('2026-11-21T02:30:00Z'),
-      qualifying: new Date('2026-11-21T06:00:00Z'),
-      race: new Date('2026-11-22T06:00:00Z'),
+      fp1: new Date('2026-11-20T00:30:00Z'),
+      fp2: new Date('2026-11-20T04:00:00Z'),
+      fp3: new Date('2026-11-21T00:30:00Z'),
+      qualifying: new Date('2026-11-21T04:00:00Z'),
+      race: new Date('2026-11-22T04:00:00Z'),
     },
   },
   // Round 24: Qatar Grand Prix - November 27-29, 2026
@@ -1050,9 +1050,9 @@ export const demoRaces: Race[] = [
     schedule: {
       fp1: new Date('2026-11-27T13:30:00Z'),
       fp2: new Date('2026-11-27T17:00:00Z'),
-      fp3: new Date('2026-11-28T14:00:00Z'),
+      fp3: new Date('2026-11-28T14:30:00Z'),
       qualifying: new Date('2026-11-28T18:00:00Z'),
-      race: new Date('2026-11-29T17:00:00Z'),
+      race: new Date('2026-11-29T16:00:00Z'),
     },
   },
   // Round 25: Abu Dhabi Grand Prix - December 4-6, 2026
@@ -1089,7 +1089,7 @@ export const demoSeason = {
   isActive: true,
   startDate: new Date('2026-03-06'),
   endDate: new Date('2026-12-06'),
-  totalRaces: 24,
+  totalRaces: 23,
   currentRound: 1,
   budget: 1000,
   teamSize: 5,

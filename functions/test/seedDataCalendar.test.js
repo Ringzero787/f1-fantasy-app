@@ -69,6 +69,14 @@ test('the seeder would not resurrect the pre-renumber calendar', () => {
   assert.equal(bahrain.schedule.race.toDate().getUTCMonth(), 9, 'the reinstated race runs in October');
 });
 
+test('the 2026 season scores 23 races', () => {
+  // Saudi cancelled, Sakhir vacant, Bahrain reinstated at Sepang. The full-season
+  // lock bonus in scoringCore keys off this count (FULL_SEASON_RACES = 23).
+  const live = races.filter((r) => r.status !== 'cancelled');
+  assert.equal(live.length, 23);
+  assert.equal(season.totalRaces, 23);
+});
+
 test('the seeder agrees with the ingestion round table', () => {
   // The other half of the same question, and the one that decides whether a
   // race weekend's results land on the right document.

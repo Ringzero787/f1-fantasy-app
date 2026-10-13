@@ -16,7 +16,7 @@ import {
 describe('PRICING_CONFIG', () => {
   it('should have correct season structure', () => {
     expect(PRICING_CONFIG.RACES_PER_SEASON).toBe(24);
-    expect(PRICING_CONFIG.SPRINTS_PER_SEASON).toBe(4);
+    expect(PRICING_CONFIG.SPRINTS_PER_SEASON).toBe(6);
   });
 
   it('should have correct price calculation constants', () => {

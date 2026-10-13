@@ -48,12 +48,12 @@ service firebase.storage {
     }
 
     // Ben's model artifacts — uploaded from the Track Limits admin page.
-    // Versioned by upload timestamp in the filename. Authed-user read+write;
-    // the admin page enforces the human allowlist on its end (rules can't
-    // enforce arbitrary email whitelist without custom claims).
+    // Versioned by upload timestamp in the filename. Any signed-in user could
+    // previously overwrite these; writes now need the admin custom claim.
     match /ben/models/{filename} {
       allow read: if request.auth != null;
       allow write: if request.auth != null
+                   && request.auth.token.admin == true
                    && request.resource.size < 50 * 1024 * 1024  // 50MB cap
                    && filename.matches('.*\\.(py|json|csv|md|txt|zip)');
     }

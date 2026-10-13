@@ -1,0 +1,19 @@
+id: OP-168
+title: "F-121: verify the live races calendar before USA"
+kind: uc-script
+status: dry-run
+params:
+  script: checkRaceCalendar.js
+  backup: races
+created_at: 2026-10-13T23:15:48.733Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-13T23:16:02.464Z
+    head_sha: 49e73feace00b74089577e22a8a5188551b1a5bb
+    command: node scripts/ops/run-script.js undercut 'checkRaceCalendar.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-168/dry-run-2026-10-13T23-16-02-464Z.log
+    log_sha256: 6d3e8b0436eab2f7e5d95587dd2cb24510a2ed056875a3ba3381359807bfb7d2
+    lines: 11
+feature: F-121

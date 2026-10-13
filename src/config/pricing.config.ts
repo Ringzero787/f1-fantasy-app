@@ -10,9 +10,11 @@
  */
 
 export const PRICING_CONFIG = {
-  // Season structure
+  // Season structure. RACES_PER_SEASON is the 2025 baseline used to turn last
+  // year's championship points into an opening price (2025 ran 24 races).
+  // 2026 itself scores 23 races and has 6 sprint weekends.
   RACES_PER_SEASON: 24,
-  SPRINTS_PER_SEASON: 4,
+  SPRINTS_PER_SEASON: 6,
 
   // Price calculation
   DOLLARS_PER_POINT: 10, // Dollars per average point per race (reduced from 24 to account for position bonus inflating totals)
