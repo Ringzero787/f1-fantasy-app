@@ -223,10 +223,21 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId) || isAdmin());
         allow create: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId))
-                      && request.resource.data.senderId == request.auth.uid;
+                      && request.resource.data.senderId == request.auth.uid
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() <= 4000;
         allow update: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId))
-                      && (resource.data.senderId == request.auth.uid
-                          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
+                      && (
+                        (
+                          resource.data.senderId == request.auth.uid
+                          && request.resource.data.senderId == resource.data.senderId
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                               .hasOnly(['text', 'editedAt', 'isDeleted', 'reactions'])
+                          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['text'])
+                              || (request.resource.data.text is string && request.resource.data.text.size() <= 4000))
+                        )
+                        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+                      );
         allow delete: if isAuthenticated()
                       && (resource.data.senderId == request.auth.uid || isLeagueOwner(leagueId) || isAdmin());
       }
@@ -540,9 +551,14 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // Error logs — users can create, only admins can read, immutable
+    // Error logs — users can create, only admins can read, immutable.
+    // Cap the payload so a signed-in client cannot fill the collection with
+    // megabyte docs (Undercut and Track Limits both write here).
     match /errorLogs/{logId} {
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.keys().size() <= 20
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() <= 2000;
       allow read: if isAdmin();
       allow update, delete: if false;
     }
@@ -735,11 +751,30 @@ service cloud.firestore {
       );
       allow delete: if isAuthenticated() && isTLLeagueOwner(leagueId);
 
-      // League members — anyone authed can read (for leaderboard); join writes own member doc.
+      // League members — anyone authed can read (for leaderboard). Scoring
+      // fields are server-only: a client that could set totalPoints would
+      // rewrite the in-league table. Join writes a zeroed member doc; after
+      // that a member may only change their display name.
       match /members/{memberId} {
         allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && memberId == request.auth.uid;
-        allow update: if isAuthenticated() && (memberId == request.auth.uid || isTLLeagueOwner(leagueId));
+        allow create: if isAuthenticated()
+                      && memberId == request.auth.uid
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.leagueId == leagueId
+                      && request.resource.data.totalPoints == 0
+                      && request.resource.data.raceWins == 0;
+        allow update: if isAuthenticated() && (
+          (
+            memberId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName'])
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() <= 60
+          ) || (
+            isTLLeagueOwner(leagueId)
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                 .hasAny(['totalPoints', 'raceWins', 'userId', 'leagueId'])
+          )
+        );
         allow delete: if isAuthenticated() && (memberId == request.auth.uid || isTLLeagueOwner(leagueId));
       }
 

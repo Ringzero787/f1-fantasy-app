@@ -429,6 +429,12 @@ export async function convertToQualifyingResults(
  * Only counts meetings that have a Race or Sprint session (excludes pre-season
  * testing, which OpenF1 lists as separate meetings with no Race session).
  * Returns meeting_key → round number map.
+ *
+ * Cancelled meetings KEEP their round slots. OpenF1 still lists the 2026
+ * Sakhir (round 4) and Jeddah (round 5) Race sessions with is_cancelled=true.
+ * Skipping those would collapse Miami onto round 4 and misfile every later
+ * race against ROUND_TO_RACE_ID. The cancelled rounds stay unmapped there,
+ * so their sessions are never written onto a live race doc.
  */
 export function deriveRoundNumbers(
   sessions: OpenF1Session[],

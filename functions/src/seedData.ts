@@ -952,9 +952,9 @@ export const races = [
     schedule: {
       fp1: admin.firestore.Timestamp.fromDate(new Date('2026-10-23T17:30:00Z')),
       fp2: admin.firestore.Timestamp.fromDate(new Date('2026-10-23T21:00:00Z')),
-      fp3: admin.firestore.Timestamp.fromDate(new Date('2026-10-24T18:00:00Z')),
-      qualifying: admin.firestore.Timestamp.fromDate(new Date('2026-10-24T22:00:00Z')),
-      race: admin.firestore.Timestamp.fromDate(new Date('2026-10-25T19:00:00Z')),
+      fp3: admin.firestore.Timestamp.fromDate(new Date('2026-10-24T17:30:00Z')),
+      qualifying: admin.firestore.Timestamp.fromDate(new Date('2026-10-24T21:00:00Z')),
+      race: admin.firestore.Timestamp.fromDate(new Date('2026-10-25T20:00:00Z')),
     },
   },
   {
@@ -1013,11 +1013,11 @@ export const races = [
     hasSprint: false,
     status: 'upcoming',
     schedule: {
-      fp1: admin.firestore.Timestamp.fromDate(new Date('2026-11-20T02:30:00Z')),
-      fp2: admin.firestore.Timestamp.fromDate(new Date('2026-11-20T06:00:00Z')),
-      fp3: admin.firestore.Timestamp.fromDate(new Date('2026-11-21T02:30:00Z')),
-      qualifying: admin.firestore.Timestamp.fromDate(new Date('2026-11-21T06:00:00Z')),
-      race: admin.firestore.Timestamp.fromDate(new Date('2026-11-22T06:00:00Z')),
+      fp1: admin.firestore.Timestamp.fromDate(new Date('2026-11-20T00:30:00Z')),
+      fp2: admin.firestore.Timestamp.fromDate(new Date('2026-11-20T04:00:00Z')),
+      fp3: admin.firestore.Timestamp.fromDate(new Date('2026-11-21T00:30:00Z')),
+      qualifying: admin.firestore.Timestamp.fromDate(new Date('2026-11-21T04:00:00Z')),
+      race: admin.firestore.Timestamp.fromDate(new Date('2026-11-22T04:00:00Z')),
     },
   },
   {
@@ -1036,9 +1036,9 @@ export const races = [
     schedule: {
       fp1: admin.firestore.Timestamp.fromDate(new Date('2026-11-27T13:30:00Z')),
       fp2: admin.firestore.Timestamp.fromDate(new Date('2026-11-27T17:00:00Z')),
-      fp3: admin.firestore.Timestamp.fromDate(new Date('2026-11-28T14:00:00Z')),
+      fp3: admin.firestore.Timestamp.fromDate(new Date('2026-11-28T14:30:00Z')),
       qualifying: admin.firestore.Timestamp.fromDate(new Date('2026-11-28T18:00:00Z')),
-      race: admin.firestore.Timestamp.fromDate(new Date('2026-11-29T17:00:00Z')),
+      race: admin.firestore.Timestamp.fromDate(new Date('2026-11-29T16:00:00Z')),
     },
   },
   {
@@ -1074,9 +1074,10 @@ export const season = {
   isActive: true,
   startDate: admin.firestore.Timestamp.fromDate(new Date('2026-03-06')),
   endDate: admin.firestore.Timestamp.fromDate(new Date('2026-12-06')),
-  // 24 races, though the season runs to round 25: round 4 is vacant after
-  // the Sakhir cancellation, and the reinstated race is round 18 at Sepang.
-  totalRaces: 24,
+  // 23 scored races. The season runs to round 25: round 4 is vacant after
+  // the Sakhir cancellation, Saudi (round 5) is cancelled, and the reinstated
+  // Bahrain race is round 18 at Sepang.
+  totalRaces: 23,
   currentRound: 1,
   budget: 1000,
   teamSize: 5,

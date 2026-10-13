@@ -112,7 +112,10 @@ export const LOCK_BONUS = {
   TIER_2: { maxRaces: 6, bonus: 2 },
   TIER_3: { maxRaces: Infinity, bonus: 3 },
   FULL_SEASON_BONUS: 100,
-  FULL_SEASON_RACES: 24,
+  // 23 scored races in 2026: Saudi cancelled, original Sakhir vacant, Bahrain
+  // reinstated at Sepang. A driver held from round 1 arrives at Abu Dhabi with
+  // held = 22 (pre-increment), so the bonus fires at FULL_SEASON_RACES - 1.
+  FULL_SEASON_RACES: 23,
 };
 
 // ─── Scoring functions ───
@@ -127,7 +130,7 @@ export function calculateLockBonus(racesHeld: number): number {
 
   // held is the count BEFORE the race being scored is added (live scoring
   // evaluates the bonus pre-increment), so a driver held from round 1 arrives at
-  // the final round of a 24-race season with held = 23. Trigger the full-season
+  // the final round of a 23-race season with held = 22. Trigger the full-season
   // bonus at FULL_SEASON_RACES - 1 so it is actually reachable.
   if (held >= LOCK_BONUS.FULL_SEASON_RACES - 1) {
     return LOCK_BONUS.FULL_SEASON_BONUS;

@@ -454,11 +454,11 @@ export const seasonLockTeam = functions.https.onCall(async (data, context) => {
   }
   warnIfNoAppCheck(context, 'seasonLockTeam');
 
-  const { teamId, racesRemaining } = data;
-  if (!teamId || typeof racesRemaining !== 'number') {
+  const { teamId } = data;
+  if (!teamId || typeof teamId !== 'string') {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'teamId and racesRemaining are required'
+      'teamId is required'
     );
   }
 
@@ -498,6 +498,20 @@ export const seasonLockTeam = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError(
       'failed-precondition',
       'Your team is still locked from the last race. Season lock once it unlocks.'
+    );
+  }
+
+  // Remaining races are counted on the server. The client used to pass this
+  // number, so a caller could lock for 1 race or for 999.
+  const racesSnap = await db.collection('races').get();
+  const racesRemaining = racesSnap.docs.filter((d) => {
+    const status = d.data()?.status;
+    return status === 'upcoming' || status === 'in_progress';
+  }).length;
+  if (racesRemaining < 1) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'No remaining races to lock for.'
     );
   }
 

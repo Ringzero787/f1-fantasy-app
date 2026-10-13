@@ -87,7 +87,7 @@ export const LOCK_BONUS = {
   TIER_1: { maxRaces: 3, bonusPerRace: 1 },
   TIER_2: { maxRaces: 6, bonusPerRace: 2 },
   TIER_3: { maxRaces: Infinity, bonusPerRace: 3 },
-  FULL_SEASON_RACES: 24,
+  FULL_SEASON_RACES: 23,
   FULL_SEASON_BONUS: 100,
 } as const;
 
@@ -95,8 +95,8 @@ export const LOCK_BONUS = {
 // Season Lock
 // ============================================
 
-export const SEASON_LOCK_RACES = 24;
-export const EARLY_UNLOCK_FEE = 120; // $120 penalty
+export const SEASON_LOCK_RACES = 23;
+export const EARLY_UNLOCK_FEE = 50; // matches earlyUnlockTeam in functions/src/locks/teamLocks.ts
 
 // ============================================
 // League Settings

@@ -990,3 +990,35 @@ test('F-118 create: a client cannot create a team carrying an ace window', async
     ...withWindow, lockStatus: { isSeasonLocked: false, seasonLockRacesRemaining: 0, nextUnlockTime: null, aceFreezeFrom: null, aceLockTime: null, aceLockUntil: null, aceQualiKey: null, aceSprintKey: null, canModify: true, lockReason: null },
   }));
 });
+
+test('chat: a 4001-char message is refused; the sender cannot rewrite senderId', async () => {
+  await seedLeague(); await seedMember('L1', ALICE);
+  const d = db(ALICE);
+  await assertFails(addDoc(collection(d, 'leagues', 'L1', 'messages'), { senderId: ALICE, text: 'x'.repeat(4001) }));
+  await assertSucceeds(setDoc(doc(d, 'leagues', 'L1', 'messages', 'm1'), { senderId: ALICE, text: 'hi', reactions: {} }));
+  await assertFails(updateDoc(doc(d, 'leagues', 'L1', 'messages', 'm1'), { senderId: BOB }));
+  await assertSucceeds(updateDoc(doc(d, 'leagues', 'L1', 'messages', 'm1'), { isDeleted: true }));
+});
+
+test('errorLogs: a 2001-char message is refused; a normal report still writes', async () => {
+  await assertSucceeds(addDoc(collection(db(ALICE), 'errorLogs'), { message: 'boom', severity: 'error' }));
+  await assertFails(addDoc(collection(db(ALICE), 'errorLogs'), { message: 'x'.repeat(2001) }));
+});
+
+test('TL members cannot mint or rewrite scoring fields', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'tl_leagues', 'TL1'), { ownerId: OWNER, name: 'Paddock', memberCount: 1, maxMembers: 8 });
+    await setDoc(doc(a, 'tl_leagues', 'TL1', 'members', OWNER), {
+      leagueId: 'TL1', userId: OWNER, displayName: 'Owner', totalPoints: 0, raceWins: 0, rank: 1,
+    });
+  });
+  await assertFails(setDoc(doc(db(ALICE), 'tl_leagues', 'TL1', 'members', ALICE), {
+    leagueId: 'TL1', userId: ALICE, displayName: 'Alice', totalPoints: 9999, raceWins: 0, rank: 2,
+  }));
+  await assertSucceeds(setDoc(doc(db(ALICE), 'tl_leagues', 'TL1', 'members', ALICE), {
+    leagueId: 'TL1', userId: ALICE, displayName: 'Alice', totalPoints: 0, raceWins: 0, rank: 2,
+  }));
+  await assertFails(updateDoc(doc(db(ALICE), 'tl_leagues', 'TL1', 'members', ALICE), { totalPoints: 500 }));
+  await assertSucceeds(updateDoc(doc(db(ALICE), 'tl_leagues', 'TL1', 'members', ALICE), { displayName: 'A' }));
+});
