@@ -1,7 +1,7 @@
 id: OP-169
 title: "F-121: deploy Firestore rules (TL members, chat, errorLogs)"
 kind: rules-deploy
-status: dry-run
+status: applied
 params: {}
 created_at: 2026-10-13T23:15:49.015Z
 by: nathan
@@ -14,4 +14,33 @@ steps:
     log: /mnt/smb/f1-app/aidlc-ops/OP-169/dry-run-2026-10-13T23-16-55-162Z.log
     log_sha256: 5238a11d0df281abe03c214995065de5be1cbf75b096db9032b352b23de4279c
     lines: 80
+  - step: dry-run
+    at: 2026-10-13T23:56:32.604Z
+    head_sha: db27a53c13adc6d123d9f8682390b19569616b77
+    command: git --no-pager diff '5d95cc2efaf4217c8998f91fefdc4c70ea5a3173' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-169/dry-run-2026-10-13T23-56-32-604Z.log
+    log_sha256: 5238a11d0df281abe03c214995065de5be1cbf75b096db9032b352b23de4279c
+    lines: 80
+  - step: gates
+    at: 2026-10-13T23:56:44.930Z
+    head_sha: db27a53c13adc6d123d9f8682390b19569616b77
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-13T23:56:44.934Z
+    head_sha: db27a53c13adc6d123d9f8682390b19569616b77
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-169/apply-2026-10-13T23-56-44-934Z.log
+    log_sha256: b14f374b6aa81408a19e175b66a6309c80c0e9f536988d83c7039277c30ee5b2
+    lines: 11
+  - step: gates
+    at: 2026-10-13T23:56:49.116Z
+    head_sha: db27a53c13adc6d123d9f8682390b19569616b77
+    exit: 0
+    gates:
+      G15: skip
 feature: F-121

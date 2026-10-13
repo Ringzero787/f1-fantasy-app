@@ -1,0 +1,49 @@
+id: OP-172
+title: Seed usa_2026 Moonshot model from MODELS_11.md (Ben R20)
+kind: uc-moonshot-model-seed
+status: applied
+params:
+  race: usa_2026
+  doc: /mnt/smb/share/tracklimits/MODELS_11.md
+  source: ben_model_R20
+created_at: 2026-10-13T23:37:23.951Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-13T23:37:31.268Z
+    head_sha: b9fb47e638a1f39610e3030d24b1602b9760e327
+    command: cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_11.md' --race='usa_2026' --source='ben_model_R20'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-172/dry-run-2026-10-13T23-37-31-268Z.log
+    log_sha256: bf0ab2bcfb25eaec3d46c7f792cbeb22624fb80ea492b5a3bde9889295ebef31
+    lines: 26
+  - step: backup
+    at: 2026-10-13T23:37:44.871Z
+    head_sha: b9fb47e638a1f39610e3030d24b1602b9760e327
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-172'/backup.json moonshotModels/'usa_2026'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-172/backup-2026-10-13T23-37-44-871Z.log
+    log_sha256: 238a11c878bd0e89161275385b1a80ad63f75d122a458b455e76609a18946159
+    lines: 1
+  - step: gates
+    at: 2026-10-13T23:37:45.593Z
+    head_sha: b9fb47e638a1f39610e3030d24b1602b9760e327
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-13T23:37:45.595Z
+    head_sha: b9fb47e638a1f39610e3030d24b1602b9760e327
+    command: cd functions && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_11.md' --race='usa_2026' --source='ben_model_R20' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-172/apply-2026-10-13T23-37-45-595Z.log
+    log_sha256: 903651ee5918e6a2dac18fa731d9283a4a167af2843c099c36020d3df8f09b39
+    lines: 26
+  - step: gates
+    at: 2026-10-13T23:37:46.509Z
+    head_sha: b9fb47e638a1f39610e3030d24b1602b9760e327
+    exit: 0
+    gates:
+      G15: skip
+feature: F-106

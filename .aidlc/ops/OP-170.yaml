@@ -1,7 +1,7 @@
 id: OP-170
 title: "F-121: deploy Storage rules (Ben models admin-only)"
 kind: storage-rules-deploy
-status: dry-run
+status: applied
 params: {}
 created_at: 2026-10-13T23:15:49.310Z
 by: nathan
@@ -14,4 +14,33 @@ steps:
     log: /mnt/smb/f1-app/aidlc-ops/OP-170/dry-run-2026-10-13T23-16-55-170Z.log
     log_sha256: 1e56a3c37473bfe473dd3b5df24b20caa93925780a6a501f8915400f616c9eed
     lines: 72
+  - step: dry-run
+    at: 2026-10-13T23:56:32.618Z
+    head_sha: db27a53c13adc6d123d9f8682390b19569616b77
+    command: git --no-pager diff '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- storage.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-170/dry-run-2026-10-13T23-56-32-618Z.log
+    log_sha256: 1e56a3c37473bfe473dd3b5df24b20caa93925780a6a501f8915400f616c9eed
+    lines: 72
+  - step: gates
+    at: 2026-10-13T23:56:54.891Z
+    head_sha: db27a53c13adc6d123d9f8682390b19569616b77
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-13T23:56:54.895Z
+    head_sha: db27a53c13adc6d123d9f8682390b19569616b77
+    command: bash scripts/ops/firebase-deploy.sh --only storage --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-170/apply-2026-10-13T23-56-54-895Z.log
+    log_sha256: 027256f43dfc2ccabeb603a80fae4ed7396850e238fc0809f154eabfcb63e6c4
+    lines: 9
+  - step: gates
+    at: 2026-10-13T23:56:57.599Z
+    head_sha: db27a53c13adc6d123d9f8682390b19569616b77
+    exit: 0
+    gates:
+      G15: skip
 feature: F-121
