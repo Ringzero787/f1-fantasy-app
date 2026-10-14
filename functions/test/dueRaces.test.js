@@ -46,7 +46,8 @@ test('dueRaces still catches a deadline that has already passed', () => {
   // the whole point of the change: one missed sweep must not drop the weekend for ever
   assert.ok(!/ms > nowMs/.test(filter) && !/toMillis\(\) > nowMs/.test(filter),
     'a lower bound on the lock time is what made a single missed sweep permanent');
-  assert.match(filter, /<= oneHourFromNowMs/);
+  assert.match(filter, /isRaceDueForLock/,
+    'F-020: the one-hour lead lives in isRaceDueForLock so createTeamSecure uses the same rule');
 });
 
 test('dueRaces survives a lock time that is not a Timestamp', () => {
@@ -56,6 +57,13 @@ test('dueRaces survives a lock time that is not a Timestamp', () => {
   // order ever locks.
   assert.match(filter, /typeof lockMs !== 'number'/);
   assert.ok(!/effectiveLockTime\(race\)\.toMillis\(\)/.test(filter), 'must not dereference without a guard');
+});
+
+test('when no upcoming race is due the sweep still locks unswept live-weekend teams', () => {
+  assert.match(SRC, /lockUnsweptTeamsForLiveWeekend/,
+    'F-020: autoLockTeams must come back for addDoc teams after the race is in_progress');
+  assert.match(SRC, /Do not auto-fill them/,
+    'a late join is locked empty, not given a free roster for a race they did not pick');
 });
 
 test('one bad leagueId cannot reject the whole sweep', () => {

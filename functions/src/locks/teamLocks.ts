@@ -3,20 +3,20 @@ import * as admin from 'firebase-admin';
 import { warnIfNoAppCheck } from '../utils/appCheck';
 import {
   UNLOCK_FAILSAFE_MS,
+  WEEKEND_WINDOW_MS,
   aceWindowFor,
   aceWindowUpdate,
   effectiveLockTime,
+  isRaceDueForLock,
   lockSessionLabel,
 } from '../utils/lockTime';
+import { liveLockState, lockedTeamStatus, LockState } from './lockState';
 import { FillContext, autoFillTeamTx, isIncomplete, loadFillContext } from '../teams/autoFill';
 import { isUsableLeagueId } from '../utils/leagueId';
 
 const db = admin.firestore();
 
 const BATCH_OP_LIMIT = 499;
-
-/** How long after its scheduled start a race still counts as "this weekend". */
-const WEEKEND_WINDOW_MS = 36 * 60 * 60 * 1000;
 
 /**
  * Is a race weekend running right now?
@@ -57,7 +57,6 @@ export const autoLockTeams = functions.pubsub
   .onRun(async (context) => {
     const now = admin.firestore.Timestamp.now();
     const nowMs = now.toMillis();
-    const oneHourFromNowMs = nowMs + 60 * 60 * 1000;
 
     // Small collection (~24 docs/season): fetch upcoming races and pick the
     // ones whose lock session starts within the next hour. Filtering in code
@@ -115,13 +114,21 @@ export const autoLockTeams = functions.pubsub
             doc.id, Math.round((nowMs - raceAt) / 3600000));
           return false;
         }
-        return lockMs <= oneHourFromNowMs;
+        return isRaceDueForLock(race, nowMs);
       })
       .sort((a, b) => (effectiveLockTime(a.data())?.toMillis?.() ?? 0) - (effectiveLockTime(b.data())?.toMillis?.() ?? 0))
       .slice(0, 1);
 
     if (dueRaces.length === 0) {
-      console.log('No races locking soon');
+      // F-020: the sweep never returns to an `in_progress` weekend, so an unlocked team
+      // created after that flip (old-app addDoc) would sit through the race. Catch those
+      // here. Do not auto-fill them — a late join is locked empty.
+      const live = await liveLockState(db, nowMs);
+      if (!live) {
+        console.log('No races locking soon');
+        return null;
+      }
+      await lockUnsweptTeamsForLiveWeekend(live);
       return null;
     }
 
@@ -338,6 +345,63 @@ export const autoLockTeams = functions.pubsub
 
     return null;
   });
+
+/**
+ * F-020. Stamp every unlocked team for the live weekend. The main sweep only looks at
+ * `upcoming` races, so once the race is `in_progress` an addDoc team would otherwise sit
+ * unlocked until scoring. No auto-fill: a late join is locked empty.
+ */
+async function lockUnsweptTeamsForLiveWeekend(live: LockState): Promise<void> {
+  const teamsSnapshot = await db.collection('fantasyTeams').get();
+  if (teamsSnapshot.empty) return;
+
+  const leagueIds = [...new Set(
+    teamsSnapshot.docs.map((d) => d.data().leagueId).filter(Boolean),
+  )] as string[];
+  const validLeagueIds = leagueIds.filter((id) => isUsableLeagueId(id));
+  const leagueRefs = validLeagueIds.map((id) => db.collection('leagues').doc(id));
+  const leagueDocs = leagueRefs.length > 0 ? await db.getAll(...leagueRefs) : [];
+  const leagueSettings = new Map<string, string>();
+  for (const leagueDoc of leagueDocs) {
+    if (leagueDoc.exists) {
+      leagueSettings.set(leagueDoc.id, leagueDoc.data()?.settings?.lockDeadline || 'qualifying');
+    }
+  }
+
+  const raceSnap = await db.collection('races').doc(live.raceId).get();
+  const raceName = typeof raceSnap.data()?.name === 'string' ? raceSnap.data()!.name : undefined;
+  const status = lockedTeamStatus(live, raceName);
+  const aceWindow = aceWindowUpdate(live);
+
+  let batch = db.batch();
+  let ops = 0;
+  let locked = 0;
+  for (const teamDoc of teamsSnapshot.docs) {
+    const team = teamDoc.data();
+    if (team.isLocked === true) continue;
+    const lockDeadline = leagueSettings.get(team.leagueId) || 'qualifying';
+    if (lockDeadline !== 'qualifying') {
+      batch.update(teamDoc.ref, { ...aceWindow, 'lockStatus.nextUnlockTime': live.aceLockUntil });
+    } else {
+      batch.update(teamDoc.ref, {
+        isLocked: true,
+        'lockStatus.canModify': false,
+        'lockStatus.lockReason': status.lockReason,
+        'lockStatus.nextUnlockTime': live.aceLockUntil,
+        ...aceWindow,
+      });
+      locked++;
+    }
+    ops++;
+    if (ops >= BATCH_OP_LIMIT) {
+      await batch.commit();
+      batch = db.batch();
+      ops = 0;
+    }
+  }
+  if (ops > 0) await batch.commit();
+  if (locked > 0) console.log('F-020: locked %d unswept teams for live weekend %s', locked, live.raceId);
+}
 
 /**
  * Scheduled: unlock teams whose nextUnlockTime has passed.

@@ -2,7 +2,8 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { projectTeam } from './projectTeam';
 import { isUsableLeagueId } from '../utils/leagueId';
-import { LockState, liveLockState, lockedTeamStatus, stampedForWeekend } from '../locks/lockState';
+import { LockState, creationLock, liveLockState, lockedTeamStatus, stampedForWeekend } from '../locks/lockState';
+import { pickDueRace } from '../utils/lockTime';
 
 const db = admin.firestore();
 
@@ -151,16 +152,20 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
     throw new functions.https.HttpsError('already-exists', 'You already have a team in this league');
   }
 
-  // F-118: a weekend already under way means this team is created LOCKED, with the ace window
-  // stamped. autoLockTeams only sweeps races still `upcoming`, and locking a weekend takes this
-  // one out of that set, so nothing would ever come back to lock a team made now: its roster
-  // would stay editable through the sprint and the race, and firestore.rules would see no ace
-  // window and let the ace move too — with the sessions already run. Locking at creation makes
-  // every existing mechanism work unchanged, rather than needing a new one: the roster callables
-  // refuse on isLocked, and aceIsFrozen governs the ace from the stamped window, gap included.
-  const lockState = await liveLockState(db);
-  const lockStatus = lockState
-    ? lockedTeamStatus(lockState)
+  // F-118: a weekend already under way (`config/lockState`) means this team is created LOCKED.
+  // F-020: the same if an upcoming race is already inside the one-hour lock window — the sweep
+  // has not published the marker yet, and a team stored unlocked here would be editable until
+  // the next run. Locking at creation makes the roster callables and aceIsFrozen work unchanged.
+  const nowMs = Date.now();
+  const live = await liveLockState(db, nowMs);
+  let due: { id: string; data: FirebaseFirestore.DocumentData } | null = null;
+  if (!live) {
+    const upcoming = await db.collection('races').where('status', '==', 'upcoming').get();
+    due = pickDueRace(upcoming.docs.map((d) => ({ id: d.id, data: d.data() })), nowMs);
+  }
+  const created = creationLock(live, due);
+  const lockStatus = created
+    ? lockedTeamStatus(created.state, created.raceName)
     : {
         isSeasonLocked: false,
         seasonLockRacesRemaining: 0,
@@ -178,6 +183,7 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
       };
 
   const teamRef = db.collection('fantasyTeams').doc();
+  const stamped = admin.firestore.Timestamp.now();
   const team = {
     userId,
     name: name.trim(),
@@ -188,7 +194,7 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
     totalSpent: 0,
     totalPoints: 0,
     lockedPoints: 0,
-    isLocked: lockState !== null,
+    isLocked: created !== null,
     lockStatus,
     aceDriverId: null,
     aceConstructorId: null,
@@ -198,13 +204,13 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
     joinedAtRace: 0,
     raceWins: 0,
     scoredRaces: [],
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: stamped,
+    updatedAt: stamped,
   };
 
   await teamRef.set(team);
 
-  return { teamId: teamRef.id, ...team, id: teamRef.id };
+  return { teamId: teamRef.id, id: teamRef.id, ...team };
 });
 
 /**

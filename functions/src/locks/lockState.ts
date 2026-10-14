@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { AceWindow } from '../utils/lockTime';
+import { AceWindow, aceWindowFor } from '../utils/lockTime';
 
 /**
  * `config/lockState` — the one fact firestore.rules can see about a live race weekend (F-118).
@@ -78,6 +78,25 @@ export function lockedTeamStatus(state: LockState, raceName?: string) {
  * a payload carrying `aceLockTime: 'x'`, or last month's timestamp, passed it and all five roster
  * callables then accepted edits with the sessions already run. Comparing the instant rejects both.
  */
+/**
+ * F-020. The lock a newly created team must carry.
+ *
+ * Prefer the published live weekend (F-118) when it exists. Otherwise stamp from a due
+ * `upcoming` race so a team created inside the one-hour window, before the next sweep,
+ * is stored locked. Null means create unlocked.
+ */
+export function creationLock(
+  live: LockState | null,
+  due: { id: string; data: FirebaseFirestore.DocumentData } | null,
+): { state: LockState; raceName?: string } | null {
+  if (live) return { state: live };
+  if (!due) return null;
+  const window = aceWindowFor(due.id, due.data);
+  if (!window) return null;
+  const name = typeof due.data.name === 'string' ? due.data.name : undefined;
+  return { state: { raceId: due.id, ...window }, raceName: name };
+}
+
 export function stampedForWeekend(
   team: FirebaseFirestore.DocumentData,
   live: LockState | null,
