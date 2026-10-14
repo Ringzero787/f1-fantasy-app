@@ -1,0 +1,71 @@
+id: OP-177
+title: "F-123: publish Play en-US listing"
+kind: uc-play-listing
+status: failed
+params: {}
+created_at: 2026-10-14T20:18:19.200Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-14T20:18:25.789Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: node scripts/ops/play-publish.js listing
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-177/dry-run-2026-10-14T20-18-25-789Z.log
+    log_sha256: 5d0c075a8e3f104bfb693af5a7771669412369ef20cecf1c0db048f968e812be
+    lines: 9
+  - step: backup
+    at: 2026-10-14T20:22:17.043Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: node scripts/ops/play-publish.js listing --dump=/mnt/smb/f1-app/aidlc-ops/'OP-177'/listing-before.json
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-177/backup-2026-10-14T20-22-17-043Z.log
+    log_sha256: 709bfa46e4937903ae5b1d06117c7aa6c0e335e56f3605ad767f6d96d00a8c83
+    lines: 10
+  - step: gates
+    at: 2026-10-14T20:22:18.860Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-14T20:22:18.862Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: node scripts/ops/play-publish.js listing --apply --confirm=com.undercut.app
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-177/apply-2026-10-14T20-22-18-862Z.log
+    log_sha256: dcd6a98f06c3ccb74785e843070c57ef8ca9935d3aa3c2786784341f0a353258
+    lines: 16
+  - step: dry-run
+    at: 2026-10-14T20:38:11.479Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: node scripts/ops/play-publish.js listing
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-177/dry-run-2026-10-14T20-38-11-479Z.log
+    log_sha256: 5d0c075a8e3f104bfb693af5a7771669412369ef20cecf1c0db048f968e812be
+    lines: 9
+  - step: backup
+    at: 2026-10-14T20:38:15.567Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: node scripts/ops/play-publish.js listing --dump=/mnt/smb/f1-app/aidlc-ops/'OP-177'/listing-before.json
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-177/backup-2026-10-14T20-38-15-567Z.log
+    log_sha256: 709bfa46e4937903ae5b1d06117c7aa6c0e335e56f3605ad767f6d96d00a8c83
+    lines: 10
+  - step: gates
+    at: 2026-10-14T20:38:17.365Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-14T20:38:17.367Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: node scripts/ops/play-publish.js listing --apply --confirm=com.undercut.app
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-177/apply-2026-10-14T20-38-17-367Z.log
+    log_sha256: dcd6a98f06c3ccb74785e843070c57ef8ca9935d3aa3c2786784341f0a353258
+    lines: 16
+feature: F-123

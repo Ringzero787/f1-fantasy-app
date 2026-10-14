@@ -1,0 +1,38 @@
+id: OP-173
+title: "F-123: deploy Undercut marketing site"
+kind: hosting-deploy
+status: applied
+params: {}
+created_at: 2026-10-14T20:18:18.015Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-14T20:18:25.788Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: git --no-pager diff --stat '841b8f853637dfd13b214cfa58b72250adb415e0' HEAD -- public firebase.json && node -e "const h=require('./firebase.json').hosting; console.log('public:', h.public); for (const r of h.rewrites||[]) console.log('rewrite', r.source, '->', r.destination || (r.function && (r.function.functionId+'@'+r.function.region)));" && ls -A public
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-173/dry-run-2026-10-14T20-18-25-788Z.log
+    log_sha256: a0edb603ba8bc3061487386a0baea3b86e99bfe8fe94c0e3c2bd77d297c845cc
+    lines: 26
+  - step: gates
+    at: 2026-10-14T20:22:07.391Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-14T20:22:07.394Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: bash scripts/ops/firebase-deploy.sh --only hosting --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-173/apply-2026-10-14T20-22-07-394Z.log
+    log_sha256: 928e70fa91edde686bfd594791db8f02b383d3e170dd942959bc01ce2b673e01
+    lines: 13
+  - step: gates
+    at: 2026-10-14T20:22:13.105Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G15: skip
+feature: F-123

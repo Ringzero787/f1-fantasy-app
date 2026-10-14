@@ -1,0 +1,39 @@
+id: OP-176
+title: "F-020: deploy createTeamSecure and autoLockTeams"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:createTeamSecure,functions:autoLockTeams
+created_at: 2026-10-14T20:18:18.908Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-14T20:18:25.799Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-176/dry-run-2026-10-14T20-18-25-799Z.log
+    log_sha256: 5945bb567f73ea6796f993a7f62db6c1a3ef67b03a5d17754691f659cb0b300c
+    lines: 73
+  - step: gates
+    at: 2026-10-14T20:22:17.876Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-14T20:22:17.881Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:createTeamSecure,functions:autoLockTeams' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-176/apply-2026-10-14T20-22-17-881Z.log
+    log_sha256: 0dbc90cb487e89403f8149f4074fc8354e8c10c7ca792cdad21c5220bc16cf96
+    lines: 33
+  - step: gates
+    at: 2026-10-14T20:23:58.669Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G15: skip
+feature: F-020
