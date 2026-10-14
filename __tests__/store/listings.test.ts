@@ -47,9 +47,7 @@ describe('marketing site', () => {
     const title = html.match(/<title>([^<]*)<\/title>/)?.[1] ?? '';
     expect(title).toBe('Undercut');
     expect(WATCH.test(title)).toBe(false);
-    const h1 = html.match(/<h1>([\s\S]*?)<\/h1>/)?.[1]?.replace(/<[^>]+>/g, '') ?? '';
-    expect(h1).toMatch(/Undercut/);
-    expect(WATCH.test(h1)).toBe(false);
+    expect(html).toMatch(/<h1>Undercut<em>\.<\/em><\/h1>/);
   });
   it('leads with store badges, not an APK', () => {
     expect(html).not.toMatch(/undercut\.apk/);
