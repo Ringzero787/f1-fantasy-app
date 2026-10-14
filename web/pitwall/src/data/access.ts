@@ -47,7 +47,14 @@ const FREE: ReadonlySet<Feature> = new Set<Feature>([
   'league.standings',
 ]);
 
-export const can = (state: PassState, feature: Feature): boolean => state.access === 'pass' || FREE.has(feature);
+/**
+ * Paid frames are free until 50+ store ratings (F-124). Flip together with
+ * `src/pitwall/gates.ts` and restore `allow read: if hasPass()` on the paid collections.
+ */
+export const PITWALL_CONTENT_OPEN = true;
+
+export const can = (state: PassState, feature: Feature, contentOpen = PITWALL_CONTENT_OPEN): boolean =>
+  contentOpen || state.access === 'pass' || FREE.has(feature);
 
 /** One line of copy per locked frame: what the user would get, in their terms. */
 export const LOCKED_COPY: Partial<Record<Feature, string>> = {
@@ -75,6 +82,7 @@ export const LOCKED_COPY: Partial<Record<Feature, string>> = {
  * would hand out what the rules have already stopped granting. So a mismatch renders nothing and
  * the example set stands in for the moment it takes.
  */
-export function payloadForAccess<T>(held: { access: Access; payload: T } | null | undefined, access: Access): T | null {
+export function payloadForAccess<T>(held: { access: Access; payload: T } | null | undefined, access: Access, contentOpen = PITWALL_CONTENT_OPEN): T | null {
+  if (contentOpen) return held?.payload ?? null;
   return held && held.access === access ? held.payload : null;
 }

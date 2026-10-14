@@ -2,7 +2,7 @@
  * Reads the published page payload (F-070). The worker writes two documents per round with the
  * same shape as `data/types.ts` Payload:
  *
- *   pw_pages/{season}_{round}   the full payload, readable only with the `pw` claim
+ *   pw_pages/{season}_{round}   the full payload (F-124: readable while signed in until ratings)
  *   pw_public/{season}_{round}  the free look: top-ten medians and nothing the pass buys
  *
  * The rules are the real gate, so this asks for the document the caller is entitled to and never

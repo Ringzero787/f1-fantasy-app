@@ -1,6 +1,7 @@
 /**
- * Pit Wall state shared across the app (F-077): the pass on the user's token and, for pass
- * holders, the published projections for the coming round.
+ * Pit Wall state shared across the app (F-077): the pass on the user's token and the published
+ * projections for the coming round. F-124: projections load for every signed-in user while
+ * content is open; the pass is still refreshed so charging can resume without a store rewrite.
  *
  * Not persisted. The pass is an auth claim and the projections change every refresh, so a stale
  * copy restored from disk would mark the wrong picks. Both reload on sign-in and on a pull to
@@ -8,6 +9,7 @@
  */
 import { create } from 'zustand';
 import { loadPass, loadProjections } from '../pitwall/client';
+import { PITWALL_CONTENT_OPEN } from '../pitwall/gates';
 import { NO_PASS, type PassState } from '../pitwall/pass';
 import type { Projection, ProjectionSet } from '../pitwall/projections';
 import { SHOWCASE_ENABLED, showcaseProjections } from '../simple/grid/showcaseData';
@@ -16,10 +18,10 @@ interface PitWallState {
   pass: PassState;
   projections: ProjectionSet | null;
   loading: boolean;
-  /** Read the pass, then the projections if it is active. `force` refreshes the auth token. */
+  /** Read the pass, then the projections (F-124: for every signed-in user while content is open). */
   refresh: (force?: boolean) => Promise<void>;
   clear: () => void;
-  /** The projection for one driver or constructor, or null without a pass. */
+  /** The projection for one driver or constructor, or null when none is loaded. */
   projectionFor: (id: string) => Projection | null;
 }
 
@@ -46,8 +48,8 @@ export const usePitWallStore = create<PitWallState>()((set, get) => ({
         if (ticket === seq) set({ pass: { ...pass, active: true }, projections: showcaseProjections() as ProjectionSet, loading: false });
         return;
       }
-      // No pass, no read: the rules would refuse it anyway, and asking wastes a round trip.
-      const projections = pass.active ? await loadProjections() : null;
+      // F-124: while content is open the rules allow the read for any signed-in user.
+      const projections = (pass.active || PITWALL_CONTENT_OPEN) ? await loadProjections() : null;
       // A slower earlier run must not overwrite a newer answer.
       if (ticket === seq) set({ pass, projections, loading: false });
     } catch {
@@ -59,7 +61,8 @@ export const usePitWallStore = create<PitWallState>()((set, get) => ({
 
   projectionFor: (id: string) => {
     const { pass, projections } = get();
-    if (!pass.active || !projections) return null;
+    if (!projections) return null;
+    if (!PITWALL_CONTENT_OPEN && !pass.active) return null;
     return projections.byId[id] ?? null;
   },
 }));

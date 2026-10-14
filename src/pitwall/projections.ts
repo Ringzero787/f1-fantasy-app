@@ -1,9 +1,9 @@
 /**
  * The projections the app shows to pass holders (F-077, widened by F-084).
  *
- * The worker publishes one document per round to `pw_pages`, readable only with the `pw` claim.
- * The rules are the gate: without a pass this read is refused, and a refusal is not an error worth
- * showing — the app simply has no projections and every Pit Wall mark stays hidden.
+ * The worker publishes one document per round to `pw_pages`. F-124: signed-in users may read it
+ * while content is open; restoring `hasPass()` on the rules is what charges again. A refusal is
+ * not an error worth showing — the app simply has no projections and every Pit Wall mark stays hidden.
  *
  * This used to keep six fields and say "the portal renders the rest". The app was already
  * downloading the whole document and throwing almost all of it away, which is why someone who had

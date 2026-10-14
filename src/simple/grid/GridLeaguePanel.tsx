@@ -232,7 +232,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
         </Pressable>
       ) : null}
       {picking ? <GridRaceSelectSheet options={selectorOptions} value={selectorValue} onPick={onPick} onClose={() => setPicking(false)} /> : null}
-      {reporting && league && reportRaceId ? <GridRoundReportSheet leagueId={league.id} raceId={reportRaceId} resultIds={league.raceResultIds} onClose={() => setReporting(false)} /> : null}
+      {reporting && league && reportRaceId ? <GridRoundReportSheet leagueId={league.id} raceId={reportRaceId} resultIds={league.raceResultIds} leagueName={league.name} inviteCode={league.inviteCode} onClose={() => setReporting(false)} /> : null}
       <FlatList
         ListHeaderComponent={feed}
         data={rows}

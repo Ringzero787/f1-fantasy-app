@@ -43,4 +43,10 @@ describe('round report entry points', () => {
     const src = read('src/simple/grid/GridRoundReport.tsx');
     expect(src).toMatch(/<Pressable style=\{\[StyleSheet\.absoluteFill, \{ backgroundColor: colors\.scrim \}\]\} onPress=\{onClose\}/);
   });
+
+  it('SHARE on the sheet and the recap step goes through shareRoundReport', () => {
+    expect(read('src/simple/grid/GridRoundReport.tsx')).toContain('shareRoundReport');
+    expect(read('src/simple/grid/GridWeekendRecap.tsx')).toContain('shareRoundReport');
+    expect(read('src/simple/grid/GridRoundReport.tsx')).toContain('RoundReportShareCard');
+  });
 });

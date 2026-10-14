@@ -5,6 +5,45 @@ economy are server-authoritative and verified against three live races; this is 
 build on top of that, roughly in priority order. Effort is rough: **S** ≤ half-day,
 **M** ~1–2 days, **L** multi-day.
 
+GTM (2026-10-14): ship Undercut only. Track Limits stays the Ben/Moonshot feed. Closed beta
+through the rest of 2026; public launch is February 2027 preseason. Do not copy official
+chips or a second constructor. Do not charge Pit Wall until the stores have 50+ ratings.
+
+---
+
+## Now — closed-beta product pack (two weeks, F-122)
+
+Product, not ads. The four items that unblock a commissioner sending a code.
+
+- **Picker arithmetic, free (S).** Value (`points ÷ price`) on every row and as a sort;
+  “leaves $X for N slots” plus the cheapest legal completion; two or three pairing hints
+  after the first pick (`LEAVES $X FOR N`, `TEAMMATE — SAME CAR`, `CHEAP + SCORES`). Never
+  writes a roster. Parked shape below; this is that free tier, shipping.
+- **Shareable round-report image (M).** The F-120 report as an image a league can post,
+  with the invite code on it. Text share stays as the fallback.
+- **Marketing site (S).** Store badges, three screenshots, private league / contracts /
+  Ace, join-by-code. Kill the APK hero and the name “The Undercut”. Hosting is `public/`.
+- **Store short description (S).** Drop “Formula 1” from the name line; keep it
+  descriptive in the body. Copy lives in `docs/store/`.
+- **Pit Wall ungated until 50+ ratings (S).** Authenticated reads of paid collections;
+  portal features free; hide checkout. Purchase code stays. Flip `PITWALL_CONTENT_OPEN`
+  and restore `hasPass()` on the rules when charging starts.
+
+## January 2027 — launch prep
+
+Work this after the two-week pack. Not ads. Not a Track Limits consumer GTM.
+
+- **Turn Pit Wall paid back on** once Play/App Store have 50+ ratings. Rules `hasPass()`,
+  restore checkout, IAP in stores (F-060/F-061, F-068). Target: live by 2027-02.
+- **Commissioner kit / League Pro** (F-060–066). Playing and creating leagues stay free.
+- **Richer notifications (M).** Results-ready, price-mover, ace-not-set reminder,
+  lock-in-1-hour nudge. Infra already exists; add per-type opt-outs.
+- **Correctness still open:** F-020 lock-at-creation, F-021 `addedAtRace` scoring gate,
+  F-024 reconciliation alert, delete dead `src/services/scoring.service.ts`.
+- **F-044 value auto-fill at lock** (server). The picker never auto-builds a roster.
+- **First-session coaching** beyond picker arithmetic, once ratings exist.
+- **Global launch F-081** after five languages and all four purchase channels are proven.
+
 ---
 
 ## Now — correctness & safety gaps still open

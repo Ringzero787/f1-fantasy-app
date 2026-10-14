@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, Modal, ScrollView } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, Modal, Pressable, ScrollView } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useWeekendRecap } from '../hooks/useWeekendRecap';
 import { MonoLabel, PillButton } from './GridBits';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { useLeagueStore } from '../../store/league.store';
 import { useRoundReport } from '../hooks/useRoundReport';
-import { RoundReportBody } from './GridRoundReport';
+import { RoundReportBody, RoundReportShareCard } from './GridRoundReport';
+import { captureView, shareRoundReport } from './shareRoundReport';
 
 /**
  * One-time post-weekend recap shown after a race the user's team was scored
@@ -22,20 +23,34 @@ export function GridWeekendRecap() {
   const { team } = useSimpleTeam();
   const leagueId = team?.leagueId ?? null;
   // only narrows which earlier round is compared; the report does not wait for it
-  const resultIds = useLeagueStore((s) => (leagueId ? s.leagues.find((l) => l.id === leagueId)?.raceResultIds : undefined));
+  const league = useLeagueStore((s) => (leagueId ? s.leagues.find((l) => l.id === leagueId) : undefined));
+  const resultIds = league?.raceResultIds;
   const [reportRaceId, setReportRaceId] = useState<string | null>(null);
   const report = useRoundReport(reportRaceId ? leagueId : null, reportRaceId, resultIds);
+  const cardRef = useRef<View>(null);
   if (reportRaceId) {
     const close = () => setReportRaceId(null);
     return (
       <Modal visible transparent animationType="fade" onRequestClose={close}>
         <View style={{ flex: 1, backgroundColor: colors.scrim, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <View style={{ width: '100%', maxWidth: 380, maxHeight: '86%', backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 24, gap: 14 }}>
-            <MonoLabel>{`ROUND REPORT${report.label ? ` · ${report.label}` : ''}`}</MonoLabel>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <MonoLabel style={{ flexShrink: 1 }}>{`ROUND REPORT${report.label ? ` · ${report.label}` : ''}`}</MonoLabel>
+              {report.report ? (
+                <Pressable onPress={() => void shareRoundReport({ report: report.report!, label: report.label, leagueName: league?.name ?? 'League', inviteCode: league?.inviteCode }, () => captureView(cardRef))} hitSlop={12} accessibilityRole="button" accessibilityLabel="Share round report">
+                  <MonoLabel color={colors.primary}>SHARE</MonoLabel>
+                </Pressable>
+              ) : null}
+            </View>
             <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
               <RoundReportBody {...report} />
             </ScrollView>
             <PillButton label="DONE" variant="inverse" onPress={close} />
+            {report.report ? (
+              <View ref={cardRef} collapsable={false} pointerEvents="none" style={{ position: 'absolute', left: -4000, top: 0 }}>
+                <RoundReportShareCard report={report.report} label={report.label} leagueName={league?.name ?? 'League'} inviteCode={league?.inviteCode} />
+              </View>
+            ) : null}
           </View>
         </View>
       </Modal>

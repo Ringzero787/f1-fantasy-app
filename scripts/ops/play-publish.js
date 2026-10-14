@@ -35,7 +35,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
-const { unknownFlag, valueOf, resolveTrack, productionGuard, validVersionCode, releaseFor } = require('./_play');
+const { unknownFlag, valueOf, resolveTrack, productionGuard, validVersionCode, releaseFor, parsePlayListingMd } = require('./_play');
 
 const PKG = 'com.undercut.app';
 const API = 'androidpublisher.googleapis.com';
@@ -107,6 +107,53 @@ async function main() {
   const openEdit = () => request({ pathname: `/androidpublisher/v3/applications/${PKG}/edits`, method: 'POST', headers: J, body: '{}' });
   const discard = (id) => request({ pathname: `/androidpublisher/v3/applications/${PKG}/edits/${id}`, method: 'DELETE', headers: A });
 
+  if (cmd === 'listing') {
+    const proposed = parsePlayListingMd(fs.readFileSync(path.join(ROOT, 'docs/store/play-listing.md'), 'utf8'));
+    const dump = valueOf(argv, 'dump');
+    const edit = await openEdit();
+    let committedListing = false;
+    try {
+      const live = await request({ pathname: `/androidpublisher/v3/applications/${PKG}/edits/${edit.id}/listings/en-US`, headers: A });
+      if (dump) {
+        fs.mkdirSync(path.dirname(dump), { recursive: true });
+        fs.writeFileSync(dump, JSON.stringify(live, null, 2));
+        console.log(`wrote live listing to ${dump}`);
+      }
+      console.log('LIVE');
+      console.log(`  title ${JSON.stringify(live.title ?? '')}`);
+      console.log(`  short ${JSON.stringify(live.shortDescription ?? '')} (${(live.shortDescription ?? '').length})`);
+      console.log('PROPOSED (docs/store/play-listing.md)');
+      console.log(`  title ${JSON.stringify(proposed.title)}`);
+      console.log(`  short ${JSON.stringify(proposed.shortDescription)} (${proposed.shortDescription.length})`);
+      if (!APPLY) {
+        console.log('\nDRY RUN — listing was not written. Pass --apply --confirm=com.undercut.app to publish it.');
+        return;
+      }
+      const guard = productionGuard('production', argv, PKG);
+      if (guard) die(guard);
+      await request({
+        pathname: `/androidpublisher/v3/applications/${PKG}/edits/${edit.id}/listings/en-US`,
+        method: 'PUT',
+        headers: J,
+        body: JSON.stringify({
+          language: 'en-US',
+          title: proposed.title,
+          shortDescription: proposed.shortDescription,
+          fullDescription: proposed.fullDescription,
+          video: live.video || undefined,
+        }),
+      });
+      const done = await request({ pathname: `/androidpublisher/v3/applications/${PKG}/edits/${edit.id}:commit`, method: 'POST', headers: A });
+      console.log(`committed edit ${done.id} — Play listing en-US is live`);
+      committedListing = true;
+    } finally {
+      if (!committedListing) {
+        await discard(edit.id).catch((e) => console.warn(`[play] could not discard edit ${edit.id}: ${e.message}`));
+      }
+    }
+    return;
+  }
+
   if (cmd === 'status') {
     const edit = await openEdit();
     try {
@@ -120,7 +167,7 @@ async function main() {
   }
 
   if (cmd !== 'upload' && cmd !== 'promote') {
-    die('commands: status | upload <file.aab> --track=<t> | promote <versionCode> --track=<t>');
+    die('commands: status | listing | upload <file.aab> --track=<t> | promote <versionCode> --track=<t>');
   }
 
   const { track, error } = resolveTrack(argv);

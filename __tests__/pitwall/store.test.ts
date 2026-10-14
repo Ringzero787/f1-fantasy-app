@@ -20,7 +20,7 @@ beforeEach(() => {
   usePitWallStore.setState({ pass: NO_PASS, projections: null, loading: false });
 });
 
-it('reads the projections only for a pass holder', async () => {
+it('reads the projections for a pass holder', async () => {
   loadPass.mockResolvedValue(PASS);
   loadProjections.mockResolvedValue(SET);
   await usePitWallStore.getState().refresh();
@@ -28,11 +28,12 @@ it('reads the projections only for a pass holder', async () => {
   expect(loadProjections).toHaveBeenCalledTimes(1);
 });
 
-it('does not ask for a document the rules would refuse', async () => {
+it('loads projections without a pass while content is open (F-124)', async () => {
   loadPass.mockResolvedValue(NO_PASS);
+  loadProjections.mockResolvedValue(SET);
   await usePitWallStore.getState().refresh();
-  expect(loadProjections).not.toHaveBeenCalled();
-  expect(usePitWallStore.getState().projectionFor('stone')).toBeNull();
+  expect(loadProjections).toHaveBeenCalledTimes(1);
+  expect(usePitWallStore.getState().projectionFor('stone')?.med).toBe(58);
 });
 
 it('never drops a forced refresh, which is the one that follows a purchase', async () => {

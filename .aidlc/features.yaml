@@ -1,4 +1,4 @@
-next_id: 122
+next_id: 125
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1476,3 +1476,38 @@ features:
       - scoring
       - field
       - rules
+  - id: F-122
+    name: "UC: Picker arithmetic"
+    summary: Value, leftover budget for remaining slots, and pairing hints on the picker; never writes a roster
+    status: planned
+    spec: .aidlc/specs/F-122.md
+    created_at: 2026-10-14
+    unit: undercut
+    keywords:
+      - picker
+      - arithmetic
+  - id: F-123
+    name: "UC: Marketing site and store listings"
+    summary: Replace the APK hero with store badges, three screenshots, private league, contracts, Ace, join-by-code; drop
+      Formula 1 from the store name line
+    status: planned
+    spec: .aidlc/specs/F-123.md
+    created_at: 2026-10-14
+    unit: undercut
+    keywords:
+      - marketing
+      - site
+      - store
+      - listings
+  - id: F-124
+    name: "UC: Pit Wall ungated until ratings"
+    summary: Open paid Pit Wall content to every signed-in user until 50+ store ratings
+    status: planned
+    spec: .aidlc/specs/F-124.md
+    created_at: 2026-10-14
+    unit: undercut
+    keywords:
+      - wall
+      - ungated
+      - until
+      - ratings
