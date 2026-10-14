@@ -9,6 +9,11 @@
 import { shareText } from './shareText';
 import { roundReportText, type RoundReportShareInput } from './roundReportShare';
 
+function isShareCancel(err: unknown): boolean {
+  const reason = err instanceof Error ? err.message : String(err);
+  return /cancel/i.test(reason);
+}
+
 export async function shareRoundReport(
   input: RoundReportShareInput,
   capture?: () => Promise<string | null>,
@@ -27,14 +32,22 @@ export async function shareRoundReport(
             await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: subject });
             return true;
           }
-        } catch { /* Share.share still takes a file URL on iOS */ }
-        const { Share } = require('react-native') as { Share: { share: (c: { url: string; message: string; title: string }) => Promise<unknown> } };
-        await Share.share({ url: uri, message, title: subject });
-        return true;
+        } catch (err) {
+          // Dismissing the sheet is success. Anything else falls through to RN Share with the file.
+          if (isShareCancel(err)) return true;
+        }
+        try {
+          const { Share } = require('react-native') as { Share: { share: (c: { url: string; message: string; title: string }) => Promise<unknown> } };
+          await Share.share({ url: uri, message, title: subject });
+          return true;
+        } catch (err) {
+          if (isShareCancel(err)) return true;
+          console.warn('[share] round-report image failed:', err instanceof Error ? err.message : String(err));
+        }
       }
     } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      if (!/cancel/i.test(reason)) console.warn('[share] round-report image failed:', reason);
+      if (isShareCancel(err)) return true;
+      console.warn('[share] round-report image failed:', err instanceof Error ? err.message : String(err));
     }
   }
   return shareText(message, subject, 'round-report');
