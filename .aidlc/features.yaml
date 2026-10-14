@@ -167,7 +167,8 @@ features:
     name: "UC: Lock teams created inside the quali window"
     status: planned
     created_at: 2026-09-11
-    summary: ROADMAP Now (S)
+    spec: .aidlc/specs/F-020.md
+    summary: Lock at creation when the weekend window is open; client uses createTeamSecure
     keywords:
       - lock
       - quali

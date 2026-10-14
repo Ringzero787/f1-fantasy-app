@@ -11,7 +11,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { aceWindowFor, UNLOCK_FAILSAFE_MS } = require('../lib/utils/lockTime.js');
-const { liveLockState, lockedTeamStatus, stampedForWeekend, LOCK_STATE_PATH } = require('../lib/locks/lockState.js');
+const { liveLockState, lockedTeamStatus, stampedForWeekend, creationLock, LOCK_STATE_PATH } = require('../lib/locks/lockState.js');
 
 const ts = (iso) => ({ toMillis: () => Date.parse(iso), iso });
 const RACE = '2026-10-11T12:00:00Z';
@@ -161,4 +161,24 @@ test('lockedTeamStatus produces a team that passes its own gate', () => {
   // what the roster gate accepts, or a player would be locked out of their own new team.
   const live = weekendState();
   assert.equal(stampedForWeekend({ lockStatus: lockedTeamStatus(live) }, live), true);
+});
+
+test('creationLock: live marker wins over a due upcoming race', () => {
+  const live = weekendState();
+  const due = { id: 'other', data: sprintWeekend };
+  const got = creationLock(live, due);
+  assert.equal(got.state.raceId, live.raceId);
+});
+
+test('creationLock: a due upcoming race with no marker still locks', () => {
+  const due = { id: SING, data: sprintWeekend };
+  const got = creationLock(null, due);
+  assert.ok(got);
+  assert.equal(got.state.raceId, SING);
+  assert.equal(got.raceName, 'Singapore');
+  assert.equal(stampedForWeekend({ lockStatus: lockedTeamStatus(got.state, got.raceName) }, got.state), true);
+});
+
+test('creationLock: neither marker nor due race means unlocked', () => {
+  assert.equal(creationLock(null, null), null);
 });

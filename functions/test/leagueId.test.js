@@ -104,6 +104,8 @@ test('createTeamSecure validates it, because the Admin SDK never runs the rules'
   // and the check must come before the write
   assert.ok(body.indexOf('isUsableLeagueId') < body.indexOf('leagueId: leagueId || null'),
     'validate before writing, or the guard is decoration');
+  assert.match(body, /creationLock/, 'F-020: lock at creation uses the shared predicate, not only liveLockState');
+  assert.match(body, /pickDueRace/, 'F-020: an upcoming race inside the window locks even before lockState exists');
 });
 
 test('every server dereference of a team leagueId goes through the helper', () => {

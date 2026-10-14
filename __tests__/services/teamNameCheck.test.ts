@@ -38,6 +38,7 @@ import { teamService } from '../../src/services/team.service';
 beforeEach(() => {
   jest.clearAllMocks();
   callables.checkTeamNameAvailable = jest.fn();
+  callables.createTeamSecure = jest.fn();
 });
 
 describe('team name availability', () => {
@@ -51,9 +52,13 @@ describe('team name availability', () => {
 
   it('createTeam writes the team when the name is free', async () => {
     callables.checkTeamNameAvailable.mockResolvedValue({ data: { available: true } });
-    addDoc.mockResolvedValue({ id: 'new-team' });
+    callables.createTeamSecure.mockResolvedValue({
+      data: { id: 'new-team', teamId: 'new-team', drivers: [], userId: 'u1', name: 'Apex', leagueId: null },
+    });
     const team = await teamService.createTeam('u1', null, 'Apex');
     expect(team.id).toBe('new-team');
+    expect(callables.createTeamSecure).toHaveBeenCalledWith({ name: 'Apex', leagueId: null });
+    expect(addDoc).not.toHaveBeenCalled();
     expect(getDocs).not.toHaveBeenCalled();
   });
 

@@ -35,6 +35,45 @@ export function effectiveLockTime(
   return race.schedule?.qualifying ?? race.schedule?.race ?? null;
 }
 
+/** How long after its scheduled start a race still counts as "this weekend". */
+export const WEEKEND_WINDOW_MS = 36 * 60 * 60 * 1000;
+
+/** `autoLockTeams` starts locking this far before the lock session. */
+export const LOCK_LEAD_MS = 60 * 60 * 1000;
+
+/**
+ * F-020. Is this race inside the window where new teams must be created locked?
+ *
+ * Same rule `autoLockTeams` uses to pick a due race: a usable lock time, a usable race start,
+ * the weekend not already more than 36h past lights out, and the lock session at most an hour
+ * away (or already past). A second copy of this arithmetic is how a team created inside the
+ * window stayed editable until the next sweep.
+ */
+export function isRaceDueForLock(
+  race: FirebaseFirestore.DocumentData,
+  nowMs: number,
+): boolean {
+  const lockMs = effectiveLockTime(race)?.toMillis?.();
+  if (typeof lockMs !== 'number') return false;
+  const raceAt = race.schedule?.race?.toMillis?.();
+  if (typeof raceAt !== 'number') return false;
+  if (nowMs - raceAt > WEEKEND_WINDOW_MS) return false;
+  return lockMs <= nowMs + LOCK_LEAD_MS;
+}
+
+export function pickDueRace(
+  races: Array<{ id: string; data: FirebaseFirestore.DocumentData }>,
+  nowMs: number,
+): { id: string; data: FirebaseFirestore.DocumentData } | null {
+  const due = races
+    .filter((r) => isRaceDueForLock(r.data, nowMs))
+    .sort(
+      (a, b) =>
+        (effectiveLockTime(a.data)?.toMillis?.() ?? 0) - (effectiveLockTime(b.data)?.toMillis?.() ?? 0),
+    );
+  return due[0] ?? null;
+}
+
 /**
  * Human label for the session that locks the weekend (for messages). It has to agree with
  * `effectiveLockTime` above, including that function's last-resort fallback — a lockReason

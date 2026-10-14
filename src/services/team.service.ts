@@ -67,6 +67,7 @@ const callRemoveConstructor = httpsCallable(functions, 'removeConstructorSecure'
 const callBuildTeam = httpsCallable(functions, 'buildTeamSecure');
 const callQuoteSale = httpsCallable(functions, 'quoteSaleSecure');
 const callCheckTeamName = httpsCallable<{ name: string; excludeTeamId?: string }, { available: boolean }>(functions, 'checkTeamNameAvailable');
+const callCreateTeam = httpsCallable<{ name: string; leagueId: string | null }, Record<string, unknown>>(functions, 'createTeamSecure');
 
 /**
  * Is this team name free? Asked of the server (F-059): the old global
@@ -121,41 +122,15 @@ export const teamService = {
     // Check for duplicate team name globally (server-side)
     await assertTeamNameAvailable(teamName);
 
-    const teamData = {
-      userId,
-      leagueId,
-      name: teamName,
-      drivers: [],
-      constructor: null,
-      budget: BUDGET,
-      totalSpent: 0,
-      totalPoints: 0,
-      isLocked: false,
-      lockStatus: {
-        isSeasonLocked: false,
-        seasonLockRacesRemaining: 0,
-        canModify: true,
-      },
-      // V3: Ace and transfer tracking
-      aceDriverId: null,
-      racesSinceTransfer: 0,
-      // V4: Late joiner support
-      racesPlayed: 0,
-      pointsHistory: [],
-      joinedAtRace: 0,
-      raceWins: 0,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    const teamRef = await addDoc(teamsCollection, teamData);
-
-    return {
-      id: teamRef.id,
-      ...teamData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    } as unknown as FantasyTeam;
+    // F-020: createTeamSecure locks the team when the weekend window is already open.
+    // A client addDoc always stored isLocked: false, so a team born inside the quali
+    // window stayed editable until the next sweep (or through the race, on an old build).
+    const res = await callCreateTeam({ name: teamName, leagueId });
+    const raw = res.data as Record<string, unknown>;
+    const id = typeof raw.id === 'string' ? raw.id : typeof raw.teamId === 'string' ? raw.teamId : '';
+    const team = teamFromCallable({ ...raw, id, userId, leagueId, name: teamName, drivers: raw.drivers ?? [] }, id);
+    if (!team) throw new Error('Failed to create team');
+    return team;
   },
 
   /**
