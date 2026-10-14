@@ -29,14 +29,19 @@ describe('pitWallSurface', () => {
     expect(pitWallSurface({ ...BLOCK, mode: { ios: 'maybe' } }, 'ios', VIEWER)).toBeNull();
   });
 
-  it('limits the surface to the beta list while one is set', () => {
+  it('limits the surface to the beta list while one is set and content is still gated', () => {
     const beta = { ...BLOCK, beta: { uids: ['someone-else'], leagueIds: [] } };
-    expect(pitWallSurface(beta, 'android', VIEWER)).toBeNull();
-    expect(pitWallSurface(beta, 'android', { ...VIEWER, uid: 'someone-else' })).not.toBeNull();
+    expect(pitWallSurface(beta, 'android', VIEWER, false)).toBeNull();
+    expect(pitWallSurface(beta, 'android', { ...VIEWER, uid: 'someone-else' }, false)).not.toBeNull();
     // a member of a listed league gets in too
     const byLeague = { ...BLOCK, beta: { uids: [], leagueIds: ['L1'] } };
-    expect(pitWallSurface(byLeague, 'android', VIEWER)).not.toBeNull();
-    expect(pitWallSurface(byLeague, 'android', { ...VIEWER, leagueId: 'other' })).toBeNull();
+    expect(pitWallSurface(byLeague, 'android', VIEWER, false)).not.toBeNull();
+    expect(pitWallSurface(byLeague, 'android', { ...VIEWER, leagueId: 'other' }, false)).toBeNull();
+  });
+
+  it('ignores the beta list while content is open (F-124)', () => {
+    const beta = { ...BLOCK, beta: { uids: ['someone-else'], leagueIds: [] } };
+    expect(pitWallSurface(beta, 'android', VIEWER, true)).not.toBeNull();
   });
 
   it('hides the surface on a build too old for it', () => {

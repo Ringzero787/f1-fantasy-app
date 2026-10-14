@@ -15,12 +15,17 @@ describe('pass access', () => {
     const free = NO_PASS;
     const paid = { access: 'pass' as const, expiresAt: now + 1, trial: false };
     const freeFeatures: Feature[] = ['briefing.headlines', 'board.top10', 'circuit', 'pace', 'lineup.edit', 'lineup.rateMyTeam', 'wire.headlines', 'entity.present'];
-    for (const f of freeFeatures) expect(can(free, f)).toBe(true);
+    for (const f of freeFeatures) expect(can(free, f, false)).toBe(true);
     const paidFeatures: Feature[] = ['briefing.recommendations', 'briefing.rivals', 'board.full', 'board.probabilities', 'board.movement', 'market', 'season', 'lineup.topPick', 'lineup.whatIf', 'entity.past', 'entity.outlook', 'wire.full'];
     for (const f of paidFeatures) {
-      expect(can(free, f)).toBe(false);
-      expect(can(paid, f)).toBe(true);
+      expect(can(free, f, false)).toBe(false);
+      expect(can(paid, f, false)).toBe(true);
     }
+  });
+
+  it('opens every frame to a signed-in user while content is free (F-124)', () => {
+    expect(can(NO_PASS, 'market')).toBe(true);
+    expect(can(NO_PASS, 'briefing.recommendations')).toBe(true);
   });
 
   it('timing-derived frames are never sold (ADR-001)', () => {
@@ -39,10 +44,15 @@ describe('pass access', () => {
 describe('payloadForAccess', () => {
   it('renders a payload only for the access it was fetched for', () => {
     const paid = { access: 'pass' as const, payload: { drivers: 22 } };
-    expect(payloadForAccess(paid, 'pass')).toEqual({ drivers: 22 });
+    expect(payloadForAccess(paid, 'pass', false)).toEqual({ drivers: 22 });
     // the pass lapsed, was revoked, or the viewer signed out: the paid payload must not linger
-    expect(payloadForAccess(paid, 'free')).toBeNull();
-    expect(payloadForAccess(null, 'free')).toBeNull();
-    expect(payloadForAccess(undefined, 'pass')).toBeNull();
+    expect(payloadForAccess(paid, 'free', false)).toBeNull();
+    expect(payloadForAccess(null, 'free', false)).toBeNull();
+    expect(payloadForAccess(undefined, 'pass', false)).toBeNull();
+  });
+
+  it('keeps the paid payload for a free viewer while content is open (F-124)', () => {
+    const paid = { access: 'pass' as const, payload: { drivers: 22 } };
+    expect(payloadForAccess(paid, 'free')).toEqual({ drivers: 22 });
   });
 });

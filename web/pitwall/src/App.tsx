@@ -5,7 +5,7 @@ import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { bareExamplePayload, examplePayload, EXAMPLE_LINEUP } from './data/example';
 import { EMPTY_ACCOUNT, loadAccount, type Account } from './lib/account';
 import { aceChange, planSave, teamLineup, CONTRACT_LENGTH } from './data/team';
-import { NO_PASS, passFromClaims, payloadForAccess, type PassState } from './data/access';
+import { NO_PASS, PITWALL_CONTENT_OPEN, passFromClaims, payloadForAccess, type PassState } from './data/access';
 import { executePlan, loadMarket, loadTeams, saveErrorText } from './lib/teamApi';
 import { loadPayload } from './lib/payloadApi';
 import { loadLeagueDoc } from './lib/leagueApi';
@@ -197,7 +197,7 @@ export function App() {
     let live = true;
     const access = pass.access;
     setPayloadStatus('loading');
-    void loadPayload(access === 'pass').then((p) => {
+    void loadPayload(PITWALL_CONTENT_OPEN || access === 'pass').then((p) => {
       if (!live) return;
       if (p) { setPublished({ access, payload: p }); setPayloadStatus('ready'); } else setPayloadStatus('empty');
     });

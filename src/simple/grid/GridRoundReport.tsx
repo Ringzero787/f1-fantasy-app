@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
@@ -9,6 +9,7 @@ import { calloutNames, signedPoints, type ReportCallout, type ReportMoonshot, ty
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
 import { chancePct, copyText, multiplierLabel, predictionLabel } from './moonshot';
+import { captureView, shareRoundReport } from './shareRoundReport';
 
 /**
  * League round report (F-120): how everybody in the league did in one race, against each other
@@ -149,11 +150,61 @@ export function RoundReportBody({ report, loading, label }: { report: RoundRepor
   );
 }
 
+/** Compact branded card captured for the share sheet. Dark on purpose so a light theme does not leak. */
+export function RoundReportShareCard({ report, label, leagueName, inviteCode }: {
+  report: RoundReport;
+  label: string | null;
+  leagueName: string;
+  inviteCode?: string | null;
+}) {
+  const { family, mono } = useSimpleTheme();
+  return (
+    <View style={{ width: 360, backgroundColor: '#0E0E0E', padding: 24, gap: 12 }}>
+      <Text style={{ fontFamily: family.ui.black, color: '#FF2E2E', fontSize: 11, letterSpacing: 3 }}>UNDERCUT</Text>
+      <Text style={{ fontFamily: family.ui.black, color: '#F2F2F2', fontSize: 18, textTransform: 'uppercase' }}>{leagueName}</Text>
+      {label ? <Text style={[mono(11), { color: '#7A7A7A' }]}>{label}</Text> : null}
+      {report.me ? (
+        <Text style={{ fontFamily: family.ui.black, color: '#F2F2F2', fontSize: 42, letterSpacing: -1.6 }}>
+          P{report.me.rank}<Text style={{ fontSize: 18, color: '#7A7A7A' }}>/{report.me.of}</Text>
+        </Text>
+      ) : null}
+      {report.me ? <Text style={[mono(14), { color: '#F2F2F2' }]}>{signedPoints(report.me.points)}</Text> : null}
+      {report.podium.map((p) => (
+        <View key={p.userId} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontFamily: family.ui.black, color: p.rank === 1 ? '#FF2E2E' : '#F2F2F2', fontSize: 13, textTransform: 'uppercase' }}>
+            {String(p.rank).padStart(2, '0')}  {p.isMe ? `${p.name} · YOU` : p.name}
+          </Text>
+          <Text style={[mono(12), { color: '#F2F2F2' }]}>{signedPoints(p.points)}</Text>
+        </View>
+      ))}
+      {inviteCode ? (
+        <View style={{ marginTop: 8, gap: 4 }}>
+          <Text style={[mono(10), { color: '#7A7A7A' }]}>JOIN</Text>
+          <Text style={[mono(18), { color: '#F2F2F2', letterSpacing: 4 }]}>{inviteCode}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 /** The report as a bottom sheet, for the League tab. */
-export function GridRoundReportSheet({ leagueId, raceId, resultIds, onClose }: { leagueId: string; raceId: string; resultIds: string[] | null | undefined; onClose: () => void }) {
+export function GridRoundReportSheet({ leagueId, raceId, resultIds, leagueName, inviteCode, onClose }: {
+  leagueId: string;
+  raceId: string;
+  resultIds: string[] | null | undefined;
+  leagueName?: string;
+  inviteCode?: string | null;
+  onClose: () => void;
+}) {
   const { colors, spacing } = useSimpleTheme();
   const insets = useSafeAreaInsets();
   const state = useRoundReport(leagueId, raceId, resultIds);
+  const cardRef = useRef<View>(null);
+  const onShare = useCallback(() => {
+    if (!state.report) return;
+    const input = { report: state.report, label: state.label, leagueName: leagueName ?? 'League', inviteCode };
+    void shareRoundReport(input, () => captureView(cardRef));
+  }, [state.report, state.label, leagueName, inviteCode]);
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       {/* scrim behind the sheet, not around it: nested Pressables stop the sheet scrolling on iOS (F-119) */}
@@ -163,10 +214,18 @@ export function GridRoundReportSheet({ leagueId, raceId, resultIds, onClose }: {
           <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: Math.max(insets.bottom, 12) + 22, gap: 14 }} showsVerticalScrollIndicator={false}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', columnGap: 12, rowGap: 10 }}>
               <MonoLabel style={{ flexShrink: 1 }}>{`ROUND REPORT${state.label ? ` · ${state.label}` : ''}`}</MonoLabel>
-              <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close" style={{ marginLeft: 'auto' }}><MonoLabel color={colors.text.muted}>CLOSE</MonoLabel></Pressable>
+              <View style={{ flexDirection: 'row', gap: 16, marginLeft: 'auto' }}>
+                {state.report ? <Pressable onPress={onShare} hitSlop={12} accessibilityRole="button" accessibilityLabel="Share round report"><MonoLabel color={colors.primary}>SHARE</MonoLabel></Pressable> : null}
+                <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"><MonoLabel color={colors.text.muted}>CLOSE</MonoLabel></Pressable>
+              </View>
             </View>
             <RoundReportBody {...state} />
           </ScrollView>
+          {state.report ? (
+            <View ref={cardRef} collapsable={false} pointerEvents="none" style={{ position: 'absolute', left: -4000, top: 0 }}>
+              <RoundReportShareCard report={state.report} label={state.label} leagueName={leagueName ?? 'League'} inviteCode={inviteCode} />
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>

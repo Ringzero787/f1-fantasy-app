@@ -736,7 +736,7 @@ test('an owner may set the ace, but not smuggle roster, budget, points or lock s
 // ── F-068 Pit Wall Pass: the paywall is in the rules, not only the UI ──
 const withPass = (uid, expiresAtMs) => env.authenticatedContext(uid, { pw: Math.floor(expiresAtMs / 1000) }).firestore();
 
-test('paid payloads need the pass claim; the free look and timing frames need only a sign-in', async () => {
+test('paid payloads need a sign-in; writes stay denied (F-124 ungated until ratings)', async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const a = ctx.firestore();
     for (const c of ['pw_pages', 'pw_entities', 'pw_projections']) await setDoc(doc(a, c, '2026_17'), { round: 17 });
@@ -753,14 +753,14 @@ test('paid payloads need the pass claim; the free look and timing frames need on
   }
   for (const c of ['pw_pages', 'pw_entities', 'pw_projections']) {
     await assertSucceeds(getDoc(doc(paid, c, '2026_17')));
-    await assertFails(getDoc(doc(free, c, '2026_17')));     // signed in, no pass
-    await assertFails(getDoc(doc(expired, c, '2026_17')));  // pass ran out
+    await assertSucceeds(getDoc(doc(free, c, '2026_17')));     // F-124: signed in, no pass
+    await assertSucceeds(getDoc(doc(expired, c, '2026_17')));  // expired claim is still a signed-in user
     await assertFails(getDoc(doc(anon, c, '2026_17')));
     await assertFails(setDoc(doc(paid, c, '2026_17'), { round: 99 }));  // nobody writes payloads
   }
-  // a forged claim shape buys nothing
-  await assertFails(getDoc(doc(env.authenticatedContext(MALLORY, { pw: 'forever' }).firestore(), 'pw_pages', '2026_17')));
-  await assertFails(getDoc(doc(env.authenticatedContext(MALLORY, { pw: true }).firestore(), 'pw_pages', '2026_17')));
+  // a forged claim shape is still just a signed-in user; it cannot write
+  await assertSucceeds(getDoc(doc(env.authenticatedContext(MALLORY, { pw: 'forever' }).firestore(), 'pw_pages', '2026_17')));
+  await assertFails(setDoc(doc(env.authenticatedContext(MALLORY, { pw: true }).firestore(), 'pw_pages', '2026_17'), { round: 1 }));
 });
 
 test('a user cannot write their own pass, trial flag or revocation record', async () => {

@@ -15,6 +15,8 @@
  *
  * Pure, so every gate is tested without a device.
  */
+import { PITWALL_CONTENT_OPEN } from './gates';
+
 export type PitWallMode = 'open' | 'iap' | 'off';
 export type StorePlatform = 'android' | 'ios' | 'amazon';
 
@@ -69,7 +71,7 @@ export function versionBelow(version: string | null, min: string | null): boolea
  * The profile surface to render, or null for none. Only `https` addresses are accepted: the block
  * is admin-written, but it drives an external browser open, so it is not worth trusting blindly.
  */
-export function pitWallSurface(raw: unknown, platform: StorePlatform, viewer: Viewer): PitWallSurface | null {
+export function pitWallSurface(raw: unknown, platform: StorePlatform, viewer: Viewer, contentOpen = PITWALL_CONTENT_OPEN): PitWallSurface | null {
   if (!raw || typeof raw !== 'object') return null;
   const cfg = raw as Record<string, unknown>;
   if (cfg.enabled !== true) return null;
@@ -78,10 +80,11 @@ export function pitWallSurface(raw: unknown, platform: StorePlatform, viewer: Vi
   const surfaces = (cfg.surfaces && typeof cfg.surfaces === 'object' ? cfg.surfaces : {}) as Record<string, unknown>;
   if (surfaces.profile === false) return null;
 
-  // While a beta list is set, only those users and leagues see anything.
+  // While a beta list is set, only those users and leagues see anything. F-124: the list is
+  // ignored while content is open, so a leftover allowlist cannot hide the free surface.
   const beta = (cfg.beta && typeof cfg.beta === 'object' ? cfg.beta : {}) as Record<string, unknown>;
   const uids = list(beta.uids), leagueIds = list(beta.leagueIds);
-  if (uids.length > 0 || leagueIds.length > 0) {
+  if (!contentOpen && (uids.length > 0 || leagueIds.length > 0)) {
     const allowed = (viewer.uid !== null && uids.includes(viewer.uid)) || (viewer.leagueId !== null && leagueIds.includes(viewer.leagueId));
     if (!allowed) return null;
   }

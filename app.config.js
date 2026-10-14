@@ -95,6 +95,7 @@ module.exports = {
       // --clean` wipes from android/app/build.gradle (F-048). Password from
       // UC_KEYSTORE_PASSWORD or the untracked .signing.env, read only at prebuild.
       "./plugins/withReleaseSigning",
+      "expo-sharing",
       ["expo-build-properties", {
         ios: {
           useFrameworks: "static",

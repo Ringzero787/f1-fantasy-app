@@ -2,8 +2,9 @@
  * The two Pit Wall reads the app makes (F-077). Everything that touches Firebase lives here, so
  * the rules in `pass.ts` and the shape handling in `projections.ts` stay testable on their own.
  *
- * Both fail closed and quietly. Without a pass the Firestore rules refuse the page document, which
- * is the expected case for most users, not an error to report.
+ * Both fail closed and quietly. A rules refusal or a missing document is not an error to report
+ * — the app simply has no projections. F-124: while content is open, a signed-in user may read
+ * the page document; the pass is still loaded so charging can resume.
  */
 import { db, firebaseAuth, functions, httpsCallable } from '../config/firebase';
 import { handoffUrl, PORTAL_URL } from './openPortal';
@@ -32,6 +33,7 @@ export async function loadPass(force = false): Promise<PassState> {
 export async function loadProjections(): Promise<ProjectionSet | null> {
   try {
     const { collection, query, orderBy, limit, getDocs } = await import('firebase/firestore');
+    // F-124: pw_pages is readable for any signed-in user while content is open.
     const snap = await getDocs(query(collection(db, 'pw_pages'), orderBy('asOf', 'desc'), limit(1)));
     const first = snap.docs[0];
     return first ? toProjectionSet(first.data() as Record<string, unknown>) : null;

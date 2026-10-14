@@ -279,9 +279,10 @@ service cloud.firestore {
     // whoever is mid-sign-in, so the denial is written out rather than left to the default.
     match /auth_handoff/{id} { allow read, write: if false; }
 
-    // Pit Wall Pass (F-068). The paywall is enforced here, not only in the UI: paid payloads need
-    // the `pw` claim, which functions stamp from users/{uid}.pass and no client can forge. The free
-    // look and every timing-derived frame (never sold, ADR-001) need only a signed-in user.
+    // Pit Wall Pass (F-068). hasPass() stays so charging can resume without a rules rewrite of the
+    // claim check. F-124: until 50+ store ratings, authenticated users read the paid collections;
+    // writes stay denied. Restore `allow read: if hasPass()` on pw_pages / pw_entities /
+    // pw_projections when PITWALL_CONTENT_OPEN flips false.
     function hasPass() {
       return isAuthenticated()
              && request.auth.token.pw is number
@@ -290,9 +291,9 @@ service cloud.firestore {
     match /pw_public/{id} { allow read: if isAuthenticated(); allow write: if false; }
     match /pw_public_timing/{id} { allow read: if isAuthenticated(); allow write: if false; }
     match /pw_news/{id} { allow read: if isAuthenticated(); allow write: if false; }
-    match /pw_pages/{id} { allow read: if hasPass(); allow write: if false; }
-    match /pw_entities/{id} { allow read: if hasPass(); allow write: if false; }
-    match /pw_projections/{id} { allow read: if hasPass(); allow write: if false; }
+    match /pw_pages/{id} { allow read: if isAuthenticated(); allow write: if false; }
+    match /pw_entities/{id} { allow read: if isAuthenticated(); allow write: if false; }
+    match /pw_projections/{id} { allow read: if isAuthenticated(); allow write: if false; }
     // F-072: ownership and lineups per league per round, for that league's members and owner only —
     // the same people the app shows those lineups to. Written by the worker.
     match /pw_leagues/{id} { allow read: if isAuthenticated() && (isLeagueMember(resource.data.leagueId) || isLeagueOwner(resource.data.leagueId)); allow write: if false; }

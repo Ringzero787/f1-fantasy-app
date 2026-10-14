@@ -3,72 +3,175 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Undercut - Fantasy F1</title>
+  <title>Undercut</title>
+  <meta name="description" content="Build a fantasy motorsport team, run a private league with friends, and name an Ace. Contracts, a season-long budget, join by code. On the App Store and Google Play.">
+  <link rel="icon" href="images/icon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,700;125,900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0D1117;
-      --surface: #161B22;
-      --border: #30363D;
-      --text: #E6EDF3;
-      --text-muted: #8B949E;
-      --accent: #14B8A6;
-      --link: #58A6FF;
+      --bg: #050505;
+      --surface: #0E0E0E;
+      --card: #1A1A1A;
+      --border: #232323;
+      --text: #F2F2F2;
+      --muted: #7A7A7A;
+      --red: #FF2E2E;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      font-family: Archivo, "Segoe UI", sans-serif;
+      font-stretch: 125%;
       background: var(--bg);
       color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      text-align: center;
-      padding: 2rem;
+      -webkit-font-smoothing: antialiased;
+    }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.72rem; color: var(--muted); }
+    a { color: var(--text); }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 2rem; border-bottom: 1px solid var(--border);
+    }
+    .brand { display: flex; align-items: center; gap: 0.7rem; text-decoration: none; }
+    .brand img { width: 36px; height: 36px; border-radius: 8px; }
+    .brand span { font-weight: 900; font-size: 1.15rem; letter-spacing: -0.03em; text-transform: uppercase; }
+    nav { display: flex; gap: 1.5rem; align-items: center; }
+    nav a { text-decoration: none; font-size: 0.85rem; color: var(--muted); }
+    nav a:hover { color: var(--text); }
+    .hero {
+      min-height: 72vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 5rem 1.5rem 3rem; gap: 1.25rem;
+      background:
+        linear-gradient(180deg, transparent 0%, var(--bg) 100%),
+        repeating-linear-gradient(90deg, transparent, transparent 79px, #1a1a1a 80px);
     }
     .hero h1 {
-      font-size: 3rem;
-      margin-bottom: 0.5rem;
+      font-weight: 900; font-size: clamp(3.2rem, 9vw, 6.5rem); letter-spacing: -0.05em;
+      text-transform: uppercase; line-height: 0.9;
     }
-    .hero .accent { color: var(--accent); }
-    .hero .tagline {
-      color: var(--text-muted);
-      font-size: 1.2rem;
-      margin-bottom: 2rem;
+    .hero h1 em { font-style: normal; color: var(--red); }
+    .tag {
+      max-width: 34rem; color: var(--muted); font-size: 1.15rem; line-height: 1.45; font-weight: 700;
     }
-    .links a {
-      color: var(--link);
-      text-decoration: none;
-      margin: 0 1.5rem;
-      font-size: 1rem;
+    .badges { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 0.5rem; }
+    .badge {
+      display: flex; align-items: center; gap: 0.7rem;
+      background: var(--text); color: var(--bg); text-decoration: none;
+      padding: 0.65rem 1.1rem; border-radius: 10px; font-weight: 700;
     }
-    .links a:hover { text-decoration: underline; }
-    .download {
-      display: inline-block;
-      background: var(--accent);
-      color: #fff;
-      padding: 0.75rem 2rem;
-      border-radius: 8px;
-      font-size: 1.1rem;
-      font-weight: 600;
-      text-decoration: none;
-      margin-top: 1.5rem;
-      transition: opacity 0.2s;
+    .badge small { display: block; font-family: "JetBrains Mono", monospace; font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.65; }
+    .badge strong { display: block; font-size: 1.05rem; letter-spacing: -0.02em; }
+    .shots {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem;
+      max-width: 980px; margin: 0 auto; padding: 2rem 1.5rem 4rem;
     }
-    .download:hover { opacity: 0.85; text-decoration: none; }
-    .version { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; }
+    .shot { background: var(--card); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+    .shot img { width: 100%; height: auto; display: block; background: #111; }
+    .shot p { padding: 0.85rem 1rem 1.1rem; font-weight: 900; text-transform: uppercase; letter-spacing: -0.02em; }
+    .features { max-width: 980px; margin: 0 auto; padding: 0 1.5rem 4rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.4rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .card h2 { font-size: 1.35rem; font-weight: 900; text-transform: uppercase; letter-spacing: -0.03em; }
+    .card p { color: var(--muted); font-weight: 700; line-height: 1.45; }
+    .join {
+      max-width: 640px; margin: 0 auto 4rem; padding: 2rem 1.5rem; text-align: center;
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+    .join h2 { font-size: 2rem; font-weight: 900; text-transform: uppercase; letter-spacing: -0.04em; margin: 0.4rem 0 0.6rem; }
+    .join p { color: var(--muted); font-weight: 700; }
+    .join a { color: var(--red); }
+    footer {
+      display: flex; flex-wrap: wrap; gap: 1rem 2rem; justify-content: space-between;
+      padding: 1.5rem 2rem 2.5rem; color: var(--muted); font-size: 0.85rem;
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    .legal { max-width: 42rem; line-height: 1.5; }
+    @media (max-width: 800px) {
+      nav .hide { display: none; }
+      .shots, .features { grid-template-columns: 1fr; }
+      header { padding: 1rem; }
+    }
   </style>
 </head>
 <body>
-  <div class="hero">
-    <h1><span class="accent">The Undercut</span></h1>
-    <p class="tagline">Fantasy Formula 1</p>
-    <a class="download" href="/undercut.apk">Download APK</a>
-    <p class="version">v1.1.0 - Android</p>
-    <div class="links">
-      <a href="/privacy.html">Privacy Policy</a>
-      <a href="/terms.html">Terms of Service</a>
+  <header>
+    <a class="brand" href="/">
+      <img src="images/icon.png" width="36" height="36" alt="">
+      <span>Undercut</span>
+    </a>
+    <nav>
+      <a class="hide" href="#app">App</a>
+      <a class="hide" href="#join">Join</a>
+      <a href="/support">Support</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <p class="mono">Season live</p>
+    <h1>Undercut<em>.</em></h1>
+    <p class="tag">Private leagues. Contracts. Ace. A season-long budget and a code you send to friends.</p>
+    <div class="badges">
+      <a class="badge" href="https://apps.apple.com/us/app/undercut/id6759428075">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.1 22C7.79 22.05 6.8 20.68 5.96 19.47C4.25 16.56 2.93 11.3 4.7 7.72C5.57 5.94 7.36 4.86 9.28 4.84C10.56 4.82 11.78 5.72 12.57 5.72C13.36 5.72 14.85 4.62 16.4 4.8C17.07 4.83 18.9 5.08 20.08 6.81C19.97 6.88 17.62 8.24 17.65 11.1C17.68 14.53 20.61 15.69 20.64 15.7C20.61 15.78 20.16 17.35 19.05 18.96L18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z"/></svg>
+        <span><small>Download on the</small><strong>App Store</strong></span>
+      </a>
+      <a class="badge" href="https://play.google.com/store/apps/details?id=com.undercut.app">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.18 2.04C2.87 2.37 2.69 2.88 2.69 3.53V20.47C2.69 21.12 2.87 21.63 3.18 21.96L3.23 22.01L13.39 11.84V11.66L3.23 1.5L3.18 2.04ZM16.78 15.24L13.39 11.84V11.66L16.78 8.26L16.84 8.3L20.83 10.54C21.97 11.18 21.97 12.23 20.83 12.87L16.84 15.2L16.78 15.24ZM16.84 15.2L13.39 11.75L3.18 21.96C3.56 22.37 4.18 22.42 4.89 22.02L16.84 15.2ZM16.84 8.3L4.89 1.48C4.18 1.08 3.56 1.13 3.18 1.54L13.39 11.75L16.84 8.3Z"/></svg>
+        <span><small>Get it on</small><strong>Google Play</strong></span>
+      </a>
     </div>
-  </div>
+  </section>
+
+  <section class="shots" id="app">
+    <figure class="shot">
+      <img src="images/screen-home.png" alt="Home: the next race and your team on one screen" width="360" height="780">
+      <p>Home</p>
+    </figure>
+    <figure class="shot">
+      <img src="images/screen-team.png" alt="My Team: five drivers, a constructor, budget and contracts" width="360" height="780">
+      <p>My Team</p>
+    </figure>
+    <figure class="shot">
+      <img src="images/screen-leagues.png" alt="League standings with an invite code" width="360" height="780">
+      <p>League</p>
+    </figure>
+  </section>
+
+  <section class="features">
+    <article class="card">
+      <p class="mono">Private league</p>
+      <h2>Your table.</h2>
+      <p>Create a league and send a code. Standings, round reports and Moonshots stay in that room.</p>
+    </article>
+    <article class="card">
+      <p class="mono">Contracts</p>
+      <h2>Hold or sell.</h2>
+      <p>Every pick is a contract. Prices move with form. Selling early costs. The bank on Sunday is the one you left yourself.</p>
+    </article>
+    <article class="card">
+      <p class="mono">Ace</p>
+      <h2>Double one pick.</h2>
+      <p>Name an Ace for double points. Move it after qualifying, right up to lights out.</p>
+    </article>
+  </section>
+
+  <section class="join" id="join">
+    <p class="mono">Join by code</p>
+    <h2>Someone sent you a code?</h2>
+    <p>Install the app, then open <a href="/join">undercut.humannpc.com/join</a> or type the code in League. That is the whole invite.</p>
+  </section>
+
+  <footer>
+    <p>Undercut · Human NPC Studio</p>
+    <p>
+      <a href="/privacy">Privacy</a> ·
+      <a href="/terms">Terms</a> ·
+      <a href="/support">Support</a> ·
+      <a href="/delete-account">Delete account</a>
+    </p>
+    <p class="legal">Unofficial fantasy motorsport. Not affiliated with Formula 1, the FIA, or any team. Formula 1 is used here only to describe the season the game scores.</p>
+  </footer>
 </body>
 </html>
