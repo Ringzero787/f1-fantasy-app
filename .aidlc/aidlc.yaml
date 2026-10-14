@@ -178,6 +178,15 @@ overrides:
         paths: [ scripts/ops/play-publish.js, scripts/ops/_play.js ]
         dryrun: "node scripts/ops/play-publish.js upload {aab} --track={track} --notes={notes}"
         apply: "node scripts/ops/play-publish.js upload {aab} --track={track} --notes={notes} --apply --confirm=com.undercut.app"
+      uc-play-listing:
+        deploy: true
+        summary: "Publish the en-US Play listing (title, short description, full description) from docs/store/play-listing.md (F-123). Does not upload a bundle."
+        params: []
+        paths: [ scripts/ops/play-publish.js, scripts/ops/_play.js, docs/store/play-listing.md ]
+        backup: "node scripts/ops/play-publish.js listing --dump=/mnt/smb/f1-app/aidlc-ops/{op}/listing-before.json"
+        dryrun: "node scripts/ops/play-publish.js listing"
+        apply: "node scripts/ops/play-publish.js listing --apply --confirm=com.undercut.app"
+        verify: "node scripts/ops/play-publish.js listing"
       uc-play-promote:
         deploy: true
         # spends no version code: it puts a build that already exists in front of a track's

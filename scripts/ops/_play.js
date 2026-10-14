@@ -7,7 +7,7 @@
  * and nothing defaults to production.
  */
 const TRACKS = ['internal', 'alpha', 'beta', 'production'];
-const FLAGS = ['track', 'notes', 'apply', 'confirm'];
+const FLAGS = ['track', 'notes', 'apply', 'confirm', 'dump'];
 
 /**
  * Flags that are not understood are refused rather than ignored.
@@ -67,4 +67,31 @@ function releaseFor(versionCode, notes) {
   return release;
 }
 
-module.exports = { TRACKS, FLAGS, unknownFlag, valueOf, resolveTrack, productionGuard, validVersionCode, releaseFor };
+const WATCH = /\b(F1|Formula 1|FIA|Grand Prix)\b/i;
+
+/**
+ * Title, short description and full description from docs/store/play-listing.md (F-123).
+ * The name line must not carry a watchlist term; the body may describe a Formula 1 season.
+ */
+function parsePlayListingMd(md) {
+  const fenced = (heading) => {
+    const i = md.indexOf(heading);
+    if (i < 0) throw new Error(`play listing is missing ${heading}`);
+    const rest = md.slice(i);
+    const open = rest.indexOf('```');
+    const close = rest.indexOf('```', open + 3);
+    if (open < 0 || close < 0) throw new Error(`play listing ${heading} has no fenced block`);
+    return rest.slice(open + 3, close).trim();
+  };
+  const title = fenced('## Title');
+  const shortDescription = fenced('## Short description');
+  const fullDescription = fenced('## Full description');
+  if (title.length > 50) throw new Error(`Play title is ${title.length} characters (max 50)`);
+  if (shortDescription.length > 80) throw new Error(`Play short description is ${shortDescription.length} characters (max 80)`);
+  if (WATCH.test(title) || WATCH.test(shortDescription)) {
+    throw new Error('Play title/short description contains a watchlist term (F1, Formula 1, FIA, Grand Prix)');
+  }
+  return { language: 'en-US', title, shortDescription, fullDescription };
+}
+
+module.exports = { TRACKS, FLAGS, unknownFlag, valueOf, resolveTrack, productionGuard, validVersionCode, releaseFor, parsePlayListingMd, WATCH };

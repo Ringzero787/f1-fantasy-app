@@ -18,6 +18,7 @@ test('a flag typed with a space is refused, not dropped', () => {
   assert.equal(unknownFlag(['--trak=internal']), '--trak=internal');
   assert.equal(unknownFlag(['--apply']), null);
   assert.equal(unknownFlag(['upload', 'a.aab', '--track=internal', '--notes=hi', '--apply']), null);
+  assert.equal(unknownFlag(['listing', '--dump=/tmp/listing.json', '--apply']), null);
 });
 
 test('positional arguments are left alone', () => {
@@ -70,4 +71,20 @@ test('the release is shaped the way Play wants it', () => {
 test('a release with no notes carries no empty notes field', () => {
   assert.equal(releaseFor(63, '').releaseNotes, undefined);
   assert.equal(releaseFor('63').releaseNotes, undefined);
+});
+
+const { parsePlayListingMd } = require('./_play');
+const fs = require('fs');
+const path = require('path');
+
+test('parsePlayListingMd reads the committed listing and refuses a watchlist name line', () => {
+  const md = fs.readFileSync(path.join(__dirname, '../../docs/store/play-listing.md'), 'utf8');
+  const listing = parsePlayListingMd(md);
+  assert.equal(listing.title, 'Undercut: Fantasy Motorsport');
+  assert.ok(listing.shortDescription.length <= 80);
+  assert.match(listing.fullDescription, /Formula 1/);
+  assert.throws(
+    () => parsePlayListingMd('## Title\n\n```\nFormula 1 Fantasy\n```\n## Short description\n\n```\nhello\n```\n## Full description\n\n```\nbody\n```\n'),
+    /watchlist/,
+  );
 });
