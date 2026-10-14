@@ -1,0 +1,39 @@
+id: OP-175
+title: "F-124: deploy ungated Pit Wall portal"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-14T20:18:18.612Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-14T20:18:25.815Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-175/dry-run-2026-10-14T20-18-25-815Z.log
+    log_sha256: 8ba8944813ae9c8271ec68382613f74d03928e936a299e3f15b7ab623c90e2e3
+    lines: 77
+  - step: gates
+    at: 2026-10-14T20:22:17.912Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-14T20:22:17.917Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-175/apply-2026-10-14T20-22-17-917Z.log
+    log_sha256: 60f569c21e10d73faeaced5762b01f33ddfc00853a0daa56e2f563177a13e10c
+    lines: 88
+  - step: gates
+    at: 2026-10-14T20:26:11.460Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G15: skip
+feature: F-124

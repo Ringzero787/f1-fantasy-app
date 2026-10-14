@@ -1,0 +1,38 @@
+id: OP-174
+title: "F-124: deploy ungated Pit Wall rules"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-10-14T20:18:18.309Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-14T20:18:25.777Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: git --no-pager diff 'db27a53c13adc6d123d9f8682390b19569616b77' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-174/dry-run-2026-10-14T20-18-25-777Z.log
+    log_sha256: f22ef4e72b93ab2750f48373118eb2c8efb5cdefca6c7819041e6fe0674eb86a
+    lines: 31
+  - step: gates
+    at: 2026-10-14T20:19:04.038Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-14T20:19:04.042Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-174/apply-2026-10-14T20-19-04-042Z.log
+    log_sha256: def96f69cb3e15543bb6c56faf61b14037c874e2b2886f6bd731ef9ab9fa4817
+    lines: 15
+  - step: gates
+    at: 2026-10-14T20:19:08.052Z
+    head_sha: 2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b
+    exit: 0
+    gates:
+      G15: skip
+feature: F-124
