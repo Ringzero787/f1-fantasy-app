@@ -54,8 +54,8 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
   const { colors, family, spacing, scaled, mono } = useSimpleTheme();
   const insets = useSafeAreaInsets();
   const lastRaceScores = useRaceScoresStore((s) => s.lastRaceScores);
-  // Only a pass holder has projections at all: the store leaves them null without the claim, and
-  // the rules refuse the read, so this needs no gate of its own beyond that.
+  // Null until the store has loaded them (every signed-in user since F-124; the store and the
+  // rules decide who may read), so this needs no gate of its own.
   const pw = usePitWallStore((st) => st.projections);
   const prevRaceScores = useRaceScoresStore((s) => s.prevRaceScores);
   const entityHistory = useRaceScoresStore((s) => s.entityHistory);
@@ -89,6 +89,9 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
   if (!target || !d) return null;
 
   const readOnly = !onRemove && !onToggleAce;
+  // the ace action moves up into the call block when the call is to ace this driver; the bottom
+  // pill stays for every other state (clear, locked, over the cap)
+  const aceInCall = !!(aceVerdict?.pick && !target.isAce && onToggleAce && !aceLocked && d.aceEligible && !confirming);
   const trendColor = d.trend.trend === 'up' ? colors.positive : d.trend.trend === 'down' ? colors.primary : colors.text.muted;
   const historyLoading = !entityHistory[target.entry.id];
   const maxForm = Math.max(1, ...d.form.map((f) => Math.abs(f.points)));
@@ -132,8 +135,24 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
               {target.entry.isReservePick ? <MonoLabel size={10} color={colors.primary}>· AUTO-FILLED</MonoLabel> : null}
             </View>
 
-            {/* what the pass bought, above the roster figures: it is the reason to open this sheet */}
-            {pw ? <GridPitWallBlock projection={pw.byId[target.entry.id] ?? null} rounds={pw.rounds} round={pw.round} ace={aceVerdict ?? null} /> : null}
+            {/* F-119: the call is what the sheet is opened to answer, so it comes before everything
+                else — it used to sit inside the Pit Wall block, under the heading, where the owner
+                read past it. When the call is to ace this driver, the action is here as well rather
+                than two screens down. */}
+            {aceVerdict ? (
+              <View
+                style={{ borderWidth: 1, borderColor: aceVerdict.pick ? colors.primary : colors.borderStrong, backgroundColor: aceVerdict.pick ? colors.card : undefined, borderRadius: 14, padding: 14, gap: 8 }}
+              >
+                <MonoLabel size={10} color={colors.primary} style={{ letterSpacing: scaled(10) * 0.14 }}>PIT WALL · ACE CALL</MonoLabel>
+                <Text style={{ fontFamily: family.ui.black, fontSize: scaled(14), lineHeight: scaled(19), letterSpacing: -scaled(14) * 0.02, color: aceVerdict.pick ? colors.primary : colors.text.primary }}>{aceVerdict.text}</Text>
+                {aceInCall ? (
+                  <PillButton label={busy === 'ace' ? 'SAVING…' : 'MAKE ACE · 2× POINTS'} variant="inverse" disabled={!!busy} onPress={() => run('ace', onToggleAce)} style={{ marginTop: 4 }} />
+                ) : null}
+              </View>
+            ) : null}
+
+            {/* the figures behind the call, above the roster figures */}
+            {pw ? <GridPitWallBlock projection={pw.byId[target.entry.id] ?? null} rounds={pw.rounds} round={pw.round} /> : null}
 
             {/* F-108: Moonshot — a teaser before midseason, the call to make (or the one made) after */}
             {moonshot && target.kind === 'driver' ? (
@@ -223,7 +242,7 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
               </View>
             ) : (
               <View style={{ gap: 10, marginTop: 4 }}>
-                {onToggleAce ? (
+                {onToggleAce && !aceInCall ? (
                   <PillButton
                     label={busy === 'ace' ? 'SAVING…' : aceLocked ? 'ACE LOCKED FOR THIS ROUND' : target.isAce ? 'CLEAR ACE' : d.aceEligible ? 'MAKE ACE · 2× POINTS' : `ACE NEEDS A PRICE OF $${PRICING_CONFIG.ACE_MAX_PRICE} OR LESS`}
                     variant={aceLocked || (!target.isAce && !d.aceEligible) ? 'muted' : 'inverse'}
