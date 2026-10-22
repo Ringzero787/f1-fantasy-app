@@ -132,8 +132,25 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
               {target.entry.isReservePick ? <MonoLabel size={10} color={colors.primary}>· AUTO-FILLED</MonoLabel> : null}
             </View>
 
+            {/* F-119: the call is what the sheet is opened to answer, so it comes before everything
+                else — it used to sit inside the Pit Wall block, under the heading, where the owner
+                read past it. When the call is to ace this driver, the action is here as well rather
+                than two screens down. */}
+            {aceVerdict ? (
+              <View
+                accessibilityLabel={`Pit Wall ace call: ${aceVerdict.text}`}
+                style={{ borderWidth: 1, borderColor: aceVerdict.pick ? colors.primary : colors.borderStrong, backgroundColor: aceVerdict.pick ? colors.card : undefined, borderRadius: 14, padding: 14, gap: 8 }}
+              >
+                <MonoLabel size={10} color={colors.primary} style={{ letterSpacing: scaled(10) * 0.14 }}>PIT WALL · ACE CALL</MonoLabel>
+                <Text style={{ fontFamily: family.ui.black, fontSize: scaled(14), lineHeight: scaled(19), letterSpacing: -scaled(14) * 0.02, color: aceVerdict.pick ? colors.primary : colors.text.primary }}>{aceVerdict.text}</Text>
+                {aceVerdict.pick && !target.isAce && onToggleAce && !aceLocked && d.aceEligible ? (
+                  <PillButton label={busy === 'ace' ? 'SAVING…' : 'MAKE ACE · 2× POINTS'} variant="inverse" disabled={!!busy} onPress={() => run('ace', onToggleAce)} style={{ marginTop: 4 }} />
+                ) : null}
+              </View>
+            ) : null}
+
             {/* what the pass bought, above the roster figures: it is the reason to open this sheet */}
-            {pw ? <GridPitWallBlock projection={pw.byId[target.entry.id] ?? null} rounds={pw.rounds} round={pw.round} ace={aceVerdict ?? null} /> : null}
+            {pw ? <GridPitWallBlock projection={pw.byId[target.entry.id] ?? null} rounds={pw.rounds} round={pw.round} /> : null}
 
             {/* F-108: Moonshot — a teaser before midseason, the call to make (or the one made) after */}
             {moonshot && target.kind === 'driver' ? (
