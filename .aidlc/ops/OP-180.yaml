@@ -1,0 +1,56 @@
+id: OP-180
+title: Undercut vc73 (2.6.0) to Play alpha, replacing the pre-API-36 release Play flagged
+kind: uc-play-promote
+status: verified
+params:
+  code: "73"
+  track: alpha
+  notes: "New: the Round Report. After each race, see how your league did on one screen: the podium, the biggest climb and drop, the best value per dollar, and every Moonshot that landed or missed. Share it as a picture from the League tab. Pit Wall is open to every signed-in player and says who to ace. The picker shows value and leftover budget. Sign-in buttons are tidied up, and every screen reads properly at the largest text size."
+created_at: 2026-10-23T13:45:18.287Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-23T13:45:24.658Z
+    head_sha: 83772970098f48980c7ce7c0ccafc2c9c0a8238e
+    command: "node scripts/ops/play-publish.js promote '73' --track='alpha' --notes='New: the Round Report. After each race, see how your league did on one screen: the podium, the biggest climb and drop, the best value per dollar, and every Moonshot that landed or missed. Share it as a picture from the League tab. Pit Wall is open to every signed-in player and says who to ace. The picker shows value and leftover budget. Sign-in buttons are tidied up, and every screen reads properly at the largest text size.'"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-180/dry-run-2026-10-23T13-45-24-658Z.log
+    log_sha256: 30c945cca72b063b9e6a5f671027e9ec90d3e613f71f24066c23f3e755cd109a
+    lines: 3
+  - step: backup
+    at: 2026-10-23T13:50:48.755Z
+    head_sha: 83772970098f48980c7ce7c0ccafc2c9c0a8238e
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-180'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-180/backup-2026-10-23T13-50-48-755Z.log
+    log_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    lines: 0
+  - step: gates
+    at: 2026-10-23T13:50:50.731Z
+    head_sha: 83772970098f48980c7ce7c0ccafc2c9c0a8238e
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-23T13:50:50.733Z
+    head_sha: 83772970098f48980c7ce7c0ccafc2c9c0a8238e
+    command: "node scripts/ops/play-publish.js promote '73' --track='alpha' --notes='New: the Round Report. After each race, see how your league did on one screen: the podium, the biggest climb and drop, the best value per dollar, and every Moonshot that landed or missed. Share it as a picture from the League tab. Pit Wall is open to every signed-in player and says who to ace. The picker shows value and leftover budget. Sign-in buttons are tidied up, and every screen reads properly at the largest text size.' --apply --confirm=com.undercut.app"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-180/apply-2026-10-23T13-50-50-733Z.log
+    log_sha256: 4c9dac91d04ec9db78dbc79e8a7611cc7252003fc03278e2842c9c2208d8832e
+    lines: 5
+  - step: verify
+    at: 2026-10-23T13:50:53.680Z
+    head_sha: 83772970098f48980c7ce7c0ccafc2c9c0a8238e
+    command: node scripts/ops/play-publish.js status
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-180/verify-2026-10-23T13-50-53-680Z.log
+    log_sha256: fd925d8f5c2ab004c6e348f5326eb331fac0c4e2ce2218b09f1ad27c6804fd60
+    lines: 5
+  - step: gates
+    at: 2026-10-23T13:50:55.566Z
+    head_sha: 83772970098f48980c7ce7c0ccafc2c9c0a8238e
+    exit: 0
+    gates:
+      G15: skip

@@ -1,7 +1,10 @@
 # Provenance — undercut 2.6.0 (uc-v2.6.0)
 
-Android-only store cut. Amazon and iOS were not built this round. The AAB is on the share for
-upload by hand; it is **not** promoted to a Play track.
+Android-only store cut. Amazon and iOS were not built this round. At the cut the AAB was on the
+share and on no Play track. **Published since:** OP-178 put vc73 on Google Play production on
+2026-10-22 (the first player build since 2.5.1, so its what's-new carries the 2.5.3 items too);
+OP-179, OP-180 and OP-181 put the same build on beta, alpha and internal on 2026-10-23, replacing
+vc41, vc39 and vc65, which is what cleared Play's target-API-level notice.
 
 ## How this cut was made
 
