@@ -346,6 +346,54 @@ export function settledLine(call: MoonshotCall, driverName: string, cfg?: Pick<M
   return `${head} · ${driverName.toUpperCase()} — ${predictionLabel(call.predictionType, call.predictionTarget)} · ${finish}${adj}`;
 }
 
+// ── the weekend recap (F-127) ───────────────────────────────────────────────
+
+/**
+ * The team's Moonshot on a race as the recap shows it: one that has settled (HIT, MISSED or VOID).
+ * A call still open or locked has nothing to recap yet, a cancelled one never counted, and the
+ * other team's call is the other team's (tokens are per team).
+ */
+export function recapMoonshot(calls: MoonshotCall[], teamId: string | null | undefined, raceId: string | null | undefined): MoonshotCall | null {
+  if (!teamId || !raceId) return null;
+  return calls.find((c) => c.teamId === teamId && c.raceId === raceId && c.status !== 'CANCELLED' && c.result != null) ?? null;
+}
+
+export interface RecapMoonshotLines {
+  outcome: 'HIT' | 'MISSED' | 'VOID';
+  /** "MISSED" — the state word, server-overridable */
+  state: string;
+  /** "VERSTAPPEN — WIN" */
+  call: string;
+  /** "FINISHED P3" / "NOT CLASSIFIED" / the void line with the token returned */
+  finish: string;
+  /** "−200 POINTS" / "+1,000 CASH"; nothing for a void */
+  amount: string | null;
+  /** "ROSTER +283 · MOONSHOT −200 · WEEKEND +83" (points stakes); a cash stake cannot be added to points, so it is named as cash; nothing for a void */
+  total: string | null;
+  /** the whole card in one sentence, for a screen reader */
+  spoken: string;
+}
+
+/** The colour an outcome reads in, as a theme key: a hit is good news, a void is neither, a miss is the game's red. */
+export const outcomeTone = (result: 'HIT' | 'MISSED' | 'VOID' | null | undefined): 'positive' | 'muted' | 'primary' =>
+  result === 'HIT' ? 'positive' : result === 'VOID' ? 'muted' : 'primary';
+
+/** The recap card's words for a settled call, beside the roster's points for the race. */
+export function recapMoonshotLines(call: MoonshotCall, rosterPoints: number, driverName: string, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): RecapMoonshotLines {
+  const outcome: RecapMoonshotLines['outcome'] = call.result === 'HIT' ? 'HIT' : call.result === 'VOID' ? 'VOID' : 'MISSED';
+  const state = copyText(cfg, outcome === 'HIT' ? 'stateHit' : outcome === 'VOID' ? 'stateVoid' : 'stateMissed');
+  const what = `${driverName.toUpperCase()} — ${predictionLabel(call.predictionType, call.predictionTarget)}`;
+  const finish = outcome === 'VOID' ? copyText(cfg, 'resultVoid') : call.officialDriverFinish ? `FINISHED P${call.officialDriverFinish}` : 'NOT CLASSIFIED';
+  const adj = outcome === 'VOID' || call.adjustmentAmount == null ? null : call.adjustmentAmount;
+  const amount = adj == null ? null : `${signed(adj)} ${currencyWord(call.stakeCurrency)}`;
+  const total = adj == null ? null
+    : call.stakeCurrency === 'POINTS' ? `ROSTER ${signed(rosterPoints)} · MOONSHOT ${signed(adj)} · WEEKEND ${signed(rosterPoints + adj)}`
+    : `ROSTER ${signed(rosterPoints)} · MOONSHOT ${signed(adj)} CASH`;
+  const spokenFinish = outcome === 'VOID' ? 'void, token returned' : call.officialDriverFinish ? `finished P${call.officialDriverFinish}` : 'not classified';
+  const spoken = `Moonshot ${state.toLowerCase()}: you called ${driverName} ${predictionLabel(call.predictionType, call.predictionTarget).toLowerCase()}, ${spokenFinish}${adj == null ? '' : `, ${adj >= 0 ? 'plus' : 'minus'} ${Math.abs(adj).toLocaleString()} ${call.stakeCurrency === 'POINTS' ? 'points' : 'of cash'}`}`;
+  return { outcome, state, call: what, finish, amount, total, spoken };
+}
+
 /** The standings column: "+500" / "−100", or nothing when a member never made a call. */
 export const moonshotColumn = (points: number | null | undefined): string | null =>
   typeof points === 'number' && points !== 0 ? signed(points) : null;

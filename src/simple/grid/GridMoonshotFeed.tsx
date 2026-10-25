@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, type StyleProp, type ViewStyle } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { MonoLabel } from './GridBits';
-import { activityLine, declarationLine, type ActivityEntry, type BoardCall, type MoonshotClientConfig } from './moonshot';
+import { activityLine, declarationLine, outcomeTone, type ActivityEntry, type BoardCall, type MoonshotClientConfig } from './moonshot';
 
 /**
  * The league's Moonshot feed (F-108, SPEC §16/§29) on the LEAGUE tab: this race's locked
@@ -20,6 +20,7 @@ export function GridMoonshotFeed({ board, activity, cfg, driverName, nameOf, rac
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors, mono, scaled } = useSimpleTheme();
+  const toneColor = { positive: colors.positive, muted: colors.text.muted, primary: colors.primary } as const;
   if (board.length === 0 && activity.length === 0) return null;
   const line = (text: string, tone: string, key: string) => (
     <Text key={key} style={[mono(11, 'medium'), { color: tone, lineHeight: scaled(16) }]}>{text}</Text>
@@ -35,7 +36,7 @@ export function GridMoonshotFeed({ board, activity, cfg, driverName, nameOf, rac
       {activity.length > 0 ? (
         <View style={{ gap: 6 }}>
           <MonoLabel color={colors.text.muted}>MOONSHOT HISTORY</MonoLabel>
-          {activity.slice(0, 8).map((e) => line(activityLine(e, driverName(e.settledOnDriverId ?? e.driverId), nameOf(e.userId), cfg), e.type === 'MOONSHOT_HIT' ? colors.positive : e.type === 'MOONSHOT_MISSED' ? colors.primary : colors.text.muted, e.id))}
+          {activity.slice(0, 8).map((e) => line(activityLine(e, driverName(e.settledOnDriverId ?? e.driverId), nameOf(e.userId), cfg), toneColor[outcomeTone(e.type === 'MOONSHOT_HIT' ? 'HIT' : e.type === 'MOONSHOT_MISSED' ? 'MISSED' : 'VOID')], e.id))}
         </View>
       ) : null}
     </View>

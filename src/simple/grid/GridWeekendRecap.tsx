@@ -8,6 +8,9 @@ import { useLeagueStore } from '../../store/league.store';
 import { useRoundReport } from '../hooks/useRoundReport';
 import { RoundReportBody, RoundReportShareCard } from './GridRoundReport';
 import { captureView, shareRoundReport } from './shareRoundReport';
+import { useRemoteConfigStore } from '../../store/remoteConfig.store';
+import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
+import { outcomeTone, recapMoonshotLines } from './moonshot';
 
 /**
  * One-time post-weekend recap shown after a race the user's team was scored
@@ -28,6 +31,9 @@ export function GridWeekendRecap() {
   const [reportRaceId, setReportRaceId] = useState<string | null>(null);
   const report = useRoundReport(reportRaceId ? leagueId : null, reportRaceId, resultIds);
   const cardRef = useRef<View>(null);
+  // F-127: the team's own Moonshot on the race, named like the round report names them
+  const drivers = useRemoteConfigStore((s) => s.drivers);
+  const moonshotCfg = useMoonshotConfig();
   if (reportRaceId) {
     const close = () => setReportRaceId(null);
     return (
@@ -63,10 +69,13 @@ export function GridWeekendRecap() {
   // next step, and is asked again next time.
   const hasReport = !!leagueId;
 
-  const { raceName, teamPoints, best, worst, rank, leagueSize, entities } = recap;
+  const { raceName, teamPoints, best, worst, rank, leagueSize, entities, moonshot } = recap;
   const showWorst = worst && best && worst.name !== best.name && worst.points < best.points;
   const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
   const ptsColor = (n: number) => (n > 0 ? colors.positive : n < 0 ? colors.primary : colors.text.muted);
+  const shot = moonshot ? recapMoonshotLines(moonshot, teamPoints, drivers.find((d) => d.id === moonshot.driverId)?.name ?? moonshot.driverId, moonshotCfg) : null;
+  const toneColor = { positive: colors.positive, muted: colors.text.muted, primary: colors.primary } as const;
+  const shotTone = toneColor[outcomeTone(shot?.outcome)];
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
@@ -78,6 +87,21 @@ export function GridWeekendRecap() {
           </View>
           <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{raceName}</Text>
           <Text style={{ fontFamily: family.ui.black, fontSize: scaled(56), lineHeight: scaled(56) * 0.95, letterSpacing: -scaled(56) * 0.05, color: teamPoints < 0 ? colors.primary : colors.text.primary, includeFontPadding: false }}>{sign(teamPoints)}</Text>
+
+          {/* F-127: the Moonshot is the part of the weekend no roster line tells, so it comes before the scorers */}
+          {shot ? (
+            <View accessible accessibilityLabel={shot.spoken} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: shotTone, padding: 14, gap: 6 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <MonoLabel size={10} color={colors.primary}>🚀 MOONSHOT</MonoLabel>
+                <MonoLabel size={10} color={shotTone}>{shot.state}</MonoLabel>
+              </View>
+              <Text style={{ fontFamily: family.ui.black, fontSize: scaled(14), textTransform: 'uppercase', color: colors.text.primary }}>{shot.call}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>{shot.finish}</Text>
+                {shot.amount ? <Text style={[mono(13), { color: shotTone }]}>{shot.amount}</Text> : null}
+              </View>
+            </View>
+          ) : null}
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
             {best ? (
@@ -107,6 +131,7 @@ export function GridWeekendRecap() {
               </View>
             ))}
           </ScrollView>
+          {shot?.total ? <Text style={[mono(11, 'medium'), { color: colors.text.secondary }]}>{shot.total}</Text> : null}
 
           {hasReport ? (
             <>

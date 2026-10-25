@@ -1541,6 +1541,15 @@ features:
       - counts
       - down
       - lock
+  - id: F-127
+    name: "UC: Moonshot in the weekend recap"
+    status: implemented
+    spec: .aidlc/specs/F-127.md
+    created_at: 2026-10-25
+    keywords:
+      - moonshot
+      - weekend
+      - recap
   - id: F-128
     name: "UC: OpenF1 authenticated feed"
     status: implemented
