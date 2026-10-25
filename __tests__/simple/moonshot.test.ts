@@ -2,6 +2,7 @@ import {
   MOONSHOT_COPY, FORBIDDEN_TERMS, callOpen, callSummary, callableMessage, chancePct, copyText, liveState, moonshotAvailability, moonshotColumn, multiplierLabel,
   outcomeLine, parseMoonshotConfig, predictionLabel, predictionSentence, quoteFresh, sameTerms, settledLine, signed, stakeOptions, statusLabel, toCall, usesForbiddenTerm, type MoonshotCall,
   activityLine, declarationLine, latestPositions, liveChip, raceWindow, sessionForRace, toLiveDoc, toMenu, safeLabel,
+  tokenSpent, tokensLeftOf, counterLines,
 } from '../../src/simple/grid/moonshot';
 import { rankStandings } from '../../src/simple/grid/standings';
 import { raceResultRows } from '../../src/simple/grid/raceLeaderboard';
@@ -80,6 +81,51 @@ describe('time', () => {
     expect(callOpen(call(), 2_000)).toBe(false);
     expect(callOpen(call({ status: 'LOCKED' }), 1_000)).toBe(false);
     expect(callOpen(call({ lockAtMs: null }), 1_000)).toBe(true);   // no lock known: the server decides
+  });
+});
+
+describe('the counter (F-126)', () => {
+  it('a token is spent when its call locks, not when it is made; cancelled and void gave theirs back', () => {
+    expect(tokenSpent(call(), 1_000)).toBe(false);                               // open: still cancellable, in play
+    expect(tokenSpent(call(), 2_000)).toBe(true);                                // the lock has passed
+    expect(tokenSpent(call({ status: 'LOCKED' }), 1_000)).toBe(true);
+    expect(tokenSpent(call({ status: 'HIT', result: 'HIT' }), 1_000)).toBe(true);
+    expect(tokenSpent(call({ status: 'MISSED', result: 'MISSED' }), 1_000)).toBe(true);
+    expect(tokenSpent(call({ status: 'CANCELLED' }), 9_000)).toBe(false);
+    expect(tokenSpent(call({ status: 'VOID', result: 'VOID' }), 9_000)).toBe(false);
+    expect(tokenSpent(call({ lockAtMs: null }), 9_000)).toBe(false);             // no lock known: the server decides, so not counted yet
+  });
+  it('3/3 → 2/3 → 1/3 as the weekends lock, never below zero', () => {
+    const season = [call({ id: 'a', raceId: 'r17', lockAtMs: 1_000 }), call({ id: 'b', raceId: 'r18', lockAtMs: 2_000 }), call({ id: 'c', raceId: 'r19', lockAtMs: 3_000 })];
+    expect(tokensLeftOf(3, season, 500)).toBe(3);
+    expect(tokensLeftOf(3, season, 1_000)).toBe(2);
+    expect(tokensLeftOf(3, season, 2_500)).toBe(1);
+    expect(tokensLeftOf(3, season, 3_000)).toBe(0);
+    expect(tokensLeftOf(3, [...season, call({ id: 'd', raceId: 'r20', lockAtMs: 3_500 })], 9_000)).toBe(0);
+    expect(tokensLeftOf(3, [], 0)).toBe(3);
+  });
+  it('the Team screen line: in play before lock, "one used" right after it, silent otherwise, and the season-out line at zero', () => {
+    const open = call({ lockAtMs: 2_000 });
+    expect(counterLines(null, 3, [open], open, 1_000)).toEqual({ main: 'MOONSHOTS 3/3', note: 'ONE IN PLAY · COUNTS WHEN SELECTIONS LOCK' });
+    expect(counterLines(null, 3, [open], open, 2_000)).toEqual({ main: 'MOONSHOTS 2/3', note: 'ONE USED THIS WEEKEND' });
+    const settled = call({ status: 'HIT', result: 'HIT' });
+    expect(counterLines(null, 3, [settled], settled, 9_000)).toEqual({ main: 'MOONSHOTS 2/3', note: null });
+    expect(counterLines(null, 3, [settled], null, 9_000)).toEqual({ main: 'MOONSHOTS 2/3', note: null });
+    expect(counterLines(null, 3, [], null, 0)).toEqual({ main: 'MOONSHOTS 3/3', note: null });
+    const three = [call({ id: 'a', raceId: 'r17', status: 'HIT', result: 'HIT' }), call({ id: 'b', raceId: 'r18', status: 'MISSED', result: 'MISSED' }), call({ id: 'c', raceId: 'r19', status: 'HIT', result: 'HIT' })];
+    expect(counterLines(null, 3, three, null, 9_000)).toEqual({ main: 'MOONSHOTS 0/3', note: 'NO MOONSHOTS LEFT THIS SEASON' });
+    // a void gives the token back, so it is not the one used this weekend
+    const voided = call({ status: 'VOID', result: 'VOID' });
+    expect(counterLines(null, 3, [voided], voided, 9_000)).toEqual({ main: 'MOONSHOTS 3/3', note: null });
+    // precedence: the weekend's own "one used" beats the season-out line while the call is unsettled; a cancelled current call is no call
+    const lastLocked = call({ id: 'c', raceId: 'r19', lockAtMs: 1_000 });
+    const twoDone = [call({ id: 'a', raceId: 'r17', status: 'HIT', result: 'HIT' }), call({ id: 'b', raceId: 'r18', status: 'MISSED', result: 'MISSED' })];
+    expect(counterLines(null, 3, [...twoDone, lastLocked], lastLocked, 2_000)).toEqual({ main: 'MOONSHOTS 0/3', note: 'ONE USED THIS WEEKEND' });
+    const cancelled = call({ status: 'CANCELLED' });
+    expect(counterLines(null, 3, [cancelled], cancelled, 9_000)).toEqual({ main: 'MOONSHOTS 3/3', note: null });
+    // the server's words win here too
+    expect(counterLines(parseMoonshotConfig({ copy: { counter: 'SHOTS {left} OF {total}' } }), 3, [], null, 0).main).toBe('SHOTS 3 OF 3');
+    for (const l of [counterLines(null, 3, [open], open, 1_000), counterLines(null, 3, [open], open, 2_000)]) expect(usesForbiddenTerm(`${l.main} ${l.note}`)).toBeNull();
   });
 });
 

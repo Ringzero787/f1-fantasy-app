@@ -108,6 +108,9 @@ export const MOONSHOT_COPY = {
   callTitle: 'CALL A MOONSHOT',
   tokensLeft: 'YOU HAVE {n} MOONSHOT{s}',
   tokensNone: 'NO MOONSHOTS LEFT THIS SEASON',
+  counter: 'MOONSHOTS {left}/{total}',
+  counterInPlay: 'ONE IN PLAY · COUNTS WHEN SELECTIONS LOCK',
+  counterUsed: 'ONE USED THIS WEEKEND',
   alreadyCalled: 'YOUR MOONSHOT THIS RACE',
   currencyTitle: 'WHAT ARE YOU RISKING?',
   currencyPoints: 'CHAMPIONSHIP POINTS',
@@ -289,6 +292,35 @@ export const quoteFresh = (quote: { expiresAt: number } | null | undefined, nowM
 
 /** Before lock a call can be changed or cancelled; the server is the judge, this only hides the controls. */
 export const callOpen = (call: MoonshotCall, nowMs: number): boolean => call.status === 'CONFIRMED' && (call.lockAtMs == null || call.lockAtMs > nowMs);
+
+// ── the counter (F-126) ─────────────────────────────────────────────────────
+// A token is spent when its call locks, not when it is confirmed: before lock the player can still
+// cancel and the token comes straight back, so the call is in play, not used. CANCELLED and VOID
+// returned theirs. The server counts a confirmed call as spent the moment it exists — that is what
+// stops a second call going out on the same token — but the two never disagree on screen: while a
+// call is open the sheets show the call itself, not the count.
+
+/** Has this call used up its token? */
+export const tokenSpent = (call: MoonshotCall, nowMs: number): boolean =>
+  call.status !== 'CANCELLED' && call.status !== 'VOID' && !callOpen(call, nowMs);
+
+/** Tokens still unspent this season, never below zero. */
+export const tokensLeftOf = (total: number, calls: MoonshotCall[], nowMs: number): number =>
+  Math.max(0, total - calls.filter((c) => tokenSpent(c, nowMs)).length);
+
+/**
+ * The Team screen's counter: "MOONSHOTS 2/3" and the note that says why it just moved. `current` is
+ * this race's call, if any: open, it is in play and the count has not moved yet; locked and not yet
+ * settled, the count moved this weekend and the note says so, so the player knows a shot went.
+ */
+export function counterLines(cfg: Pick<MoonshotClientConfig, 'copy'> | null | undefined, total: number, calls: MoonshotCall[], current: MoonshotCall | null, nowMs: number): { main: string; note: string | null } {
+  const left = tokensLeftOf(total, calls, nowMs);
+  const main = copyText(cfg, 'counter', { left, total });
+  if (current && callOpen(current, nowMs)) return { main, note: copyText(cfg, 'counterInPlay') };
+  if (current && current.result == null && tokenSpent(current, nowMs)) return { main, note: copyText(cfg, 'counterUsed') };
+  if (left === 0) return { main, note: copyText(cfg, 'tokensNone') };
+  return { main, note: null };
+}
 
 export type LiveState = 'IN' | 'OUT' | 'CLOSE' | 'PENDING';
 
