@@ -8,6 +8,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import { fetchSessions, type OpenF1Session } from '../ingestion/openf1Client';
+import { forgetOpenf1Token, openf1Headers, openf1Secrets } from '../ingestion/openf1Auth';
 import { DRIVER_NUMBER_TO_ID, SEASON_YEAR } from '../ingestion/config';
 import { loadMoonshotConfig } from './config';
 
@@ -65,7 +66,14 @@ export function latestByDriver(rows: PositionRow[], numberToId: Record<number, s
 }
 
 async function fetchPositions(sessionKey: number): Promise<PositionRow[]> {
-  const res = await fetch(`${BASE_URL}/position?session_key=${sessionKey}`, { signal: AbortSignal.timeout(15_000) });
+  // F-128: during a live session OpenF1 answers only the paid feed, so this carries its token
+  let headers = await openf1Headers();
+  let res = await fetch(`${BASE_URL}/position?session_key=${sessionKey}`, { headers, signal: AbortSignal.timeout(15_000) });
+  if (res.status === 401 && headers.authorization) {
+    forgetOpenf1Token();
+    headers = await openf1Headers();
+    res = await fetch(`${BASE_URL}/position?session_key=${sessionKey}`, { headers, signal: AbortSignal.timeout(15_000) });
+  }
   if (!res.ok) throw new Error(`OpenF1 /position ${res.status}`);
   return (await res.json()) as PositionRow[];
 }
@@ -98,7 +106,7 @@ export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = 
   return { raceId: race.id, written: true, drivers: Object.keys(byDriver).length };
 }
 
-export const moonshotLiveSweep = onSchedule({ schedule: 'every 1 minutes', timeoutSeconds: 60, memory: '256MiB' }, async () => {
+export const moonshotLiveSweep = onSchedule({ schedule: 'every 1 minutes', timeoutSeconds: 60, memory: '256MiB', secrets: openf1Secrets }, async () => {
   try {
     const r = await sweepLivePositions(admin.firestore());
     if (r.written) console.log(`[live] ${r.raceId}: ${r.drivers} positions written`);

@@ -7,6 +7,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import { SEASON_YEAR, ROUND_TO_RACE_ID } from './config';
 import { fetchSessions, deriveRoundNumbers, type OpenF1Session } from './openf1Client';
+import { openf1Secrets } from './openf1Auth';
 
 const db = admin.firestore();
 
@@ -43,7 +44,7 @@ function buildSchedule(
  * Updates schedule timestamps on race docs if they've changed.
  */
 export const syncRaceSchedules = onSchedule(
-  { schedule: 'every 12 hours', timeoutSeconds: 120 },
+  { schedule: 'every 12 hours', timeoutSeconds: 120, secrets: openf1Secrets },
   async () => {
     console.log('[ScheduleSync] Fetching sessions from OpenF1...');
 

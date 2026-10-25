@@ -30,6 +30,7 @@ import {
   isUnmappedDriverWarning,
 } from './openf1Client';
 import { handleQualifyingScoring, handleSprintScoring } from '../scoring/calculatePoints';
+import { openf1Secrets } from './openf1Auth';
 
 const db = admin.firestore();
 
@@ -37,7 +38,7 @@ const db = admin.firestore();
  * Scheduled: Check OpenF1 for new race results every 30 minutes.
  */
 export const checkOpenF1Results = onSchedule(
-  { schedule: 'every 10 minutes', timeoutSeconds: 300 },
+  { schedule: 'every 10 minutes', timeoutSeconds: 300, secrets: openf1Secrets },
   async () => {
     console.log('[Ingestion] Checking OpenF1 for results...');
 
@@ -382,7 +383,7 @@ export const rejectRaceResults = onCall(
  * Runs every 30 minutes alongside race result checks.
  */
 export const checkQualifyingResults = onSchedule(
-  { schedule: 'every 10 minutes', timeoutSeconds: 120 },
+  { schedule: 'every 10 minutes', timeoutSeconds: 120, secrets: openf1Secrets },
   async () => {
     console.log('[QualiIngestion] Checking for completed qualifying...');
 
@@ -464,7 +465,7 @@ export const checkQualifyingResults = onSchedule(
  * Runs every 30 minutes on sprint weekends (Saturday).
  */
 export const checkSprintResults = onSchedule(
-  { schedule: 'every 10 minutes', timeoutSeconds: 120 },
+  { schedule: 'every 10 minutes', timeoutSeconds: 120, secrets: openf1Secrets },
   async () => {
     console.log('[SprintIngestion] Checking for completed sprints...');
 
