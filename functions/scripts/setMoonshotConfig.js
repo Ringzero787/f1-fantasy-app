@@ -3,7 +3,10 @@
 // DESIRED below is the owner's decision of 2026-10-07: on, priced continuously (fair less the vig,
 // rounded, floored, capped), DNS and DNF both lose ("all drivers race; DNS and DNF mean no
 // points"), the call follows the car when a substitute drives (settlement code, F-110), live
-// timing off until the owner confirms the arrangement covers the app surface (ADR-001 note, F-111). Everything else keeps
+// timing off until the owner has the provider's written confirmation that the arrangement covers the in-app live
+// positions card (ADR-001 notes of 2026-10-07 and 2026-10-25; F-111). Since F-128 (2026-10-25) the sweep carries the
+// paid feed's token, so flipping liveTiming here and raising a uc-script op is all that is left once that confirmation
+// exists — and because the op passes only --apply, leave it false until then or any other config op would turn it on. Everything else keeps
 // the F-106 defaults (functions/src/moonshot/config.ts). Dry run prints the block that would be
 // written beside what is live; `--apply` writes it with merge, so keys this script does not name
 // are left as they are.

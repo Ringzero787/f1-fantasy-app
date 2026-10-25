@@ -46,3 +46,26 @@ what sells the pass.
 ## Note · 2026-10-07 · a second consumer of the timing feed (F-111)
 
 Moonshot's race-day card (F-108) shows each called driver's current position. It does not poll the provider from devices: one scheduled server sweep (`moonshotLiveSweep`) pulls positions once a minute while a race is in its window and writes `races/{raceId}/live/positions`; every client reads that document. Volume: one request a minute for ~3 hours per race, the same class as the existing results ingestion. The surface is free to every signed-in Undercut player and never behind the pass, consistent with decision 3. It is a different surface from the portal the provider's grant described, so the sweep ships behind `config/app.moonshot.liveTiming` (off), and the owner confirms with the provider that the arrangement covers the app surface before switching it on; when the paid feed's credentials exist the sweep moves to them.
+
+## Note · 2026-10-25 · the paid feed is bought; the server authenticates (F-128)
+
+OpenF1 now closes its free tier to everyone while a session is live, which is why every round this
+season scored two to four hours after the flag (United States: 2h34m). The owner bought the paid
+feed on 2026-10-25 under the 2026-09-28 reply above. Facts for whoever checks this later:
+
+- The provider's site labels that tier **"real-time data access (personal use)"**, 6 requests a
+  second and 60 a minute, with a contact form for non-personal use. The licence for Undercut's
+  use is therefore the provider's written reply of 2026-09-28, not the product page. That reply
+  is paraphrased above, not quoted; the owner holds it outside this repo (the permission request
+  asked for it to be pasted verbatim, and it was not — do that when it is found).
+- F-128 puts the feed's bearer token on every server call (results, qualifying, sprint, schedule
+  sync and monitor, live sweep). Volume is unchanged: a handful of calls every ten minutes, one a
+  minute during a live sweep.
+- The 2026-10-07 note's first condition **still stands**: the live sweep's switch
+  (`config/app.moonshot.liveTiming`) goes on only once the owner has the provider's written
+  confirmation that the arrangement covers the in-app live positions card. The permission request
+  of 2026-09-19 told the provider we fetch once per session and do not mirror live timing; the
+  sweep is one `/position` call a minute for about three hours per race, positions only, server
+  side, on a free surface that is never behind the pass. The restatement should say exactly that.
+  `DESIRED.liveTiming` in `setMoonshotConfig.js` is true from F-128 so the op is ready; it is not
+  raised before that confirmation.
