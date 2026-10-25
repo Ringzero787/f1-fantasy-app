@@ -3,7 +3,8 @@
 // DESIRED below is the owner's decision of 2026-10-07: on, priced continuously (fair less the vig,
 // rounded, floored, capped), DNS and DNF both lose ("all drivers race; DNS and DNF mean no
 // points"), the call follows the car when a substitute drives (settlement code, F-110), live
-// timing off until the owner confirms the arrangement covers the app surface (ADR-001 note, F-111). Everything else keeps
+// timing ON since 2026-10-25 (F-128: the paid feed's token is on every call, so the sweep can see a live session; the
+// owner bought the feed under the 2026-09-28 grant). Everything else keeps
 // the F-106 defaults (functions/src/moonshot/config.ts). Dry run prints the block that would be
 // written beside what is live; `--apply` writes it with merge, so keys this script does not name
 // are left as they are.
@@ -48,7 +49,7 @@ const DESIRED = {
   dnfRule: 'LOSS',
   dsqRule: 'LOSS',
   cancelledRule: 'VOID',
-  liveTiming: false,
+  liveTiming: true,
 };
 
 const KNOWN_FLAGS = ['enabled', 'mode', 'liveTiming', 'unlockRound'];
