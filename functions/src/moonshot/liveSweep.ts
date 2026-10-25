@@ -8,7 +8,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import { fetchSessions, type OpenF1Session } from '../ingestion/openf1Client';
-import { forgetOpenf1Token, openf1Headers, openf1Secrets } from '../ingestion/openf1Auth';
+import { openf1Fetch, openf1Secrets } from '../ingestion/openf1Auth';
 import { DRIVER_NUMBER_TO_ID, SEASON_YEAR } from '../ingestion/config';
 import { loadMoonshotConfig } from './config';
 
@@ -67,13 +67,7 @@ export function latestByDriver(rows: PositionRow[], numberToId: Record<number, s
 
 async function fetchPositions(sessionKey: number): Promise<PositionRow[]> {
   // F-128: during a live session OpenF1 answers only the paid feed, so this carries its token
-  let headers = await openf1Headers();
-  let res = await fetch(`${BASE_URL}/position?session_key=${sessionKey}`, { headers, signal: AbortSignal.timeout(15_000) });
-  if (res.status === 401 && headers.authorization) {
-    forgetOpenf1Token();
-    headers = await openf1Headers();
-    res = await fetch(`${BASE_URL}/position?session_key=${sessionKey}`, { headers, signal: AbortSignal.timeout(15_000) });
-  }
+  const res = await openf1Fetch(`${BASE_URL}/position?session_key=${sessionKey}`, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`OpenF1 /position ${res.status}`);
   return (await res.json()) as PositionRow[];
 }

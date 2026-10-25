@@ -148,3 +148,106 @@ test('without the secrets the client calls as before: no authorization header, n
   assert.equal(f.calls[0].init.headers.authorization, undefined);
   assert.equal(f.calls[0].init.headers.accept, 'application/json');
 });
+
+test('a refused exchange is not retried for a minute, then is', async () => {
+  const f = fetchStub([
+    jsonResponse(401, { detail: 'bad credentials' }),
+    jsonResponse(200, { access_token: 'tok-1', expires_in: 3600 }),
+  ]);
+  assert.equal(await auth.openf1Token(CREDS, f, T0), null);
+  assert.equal(await auth.openf1Token(CREDS, f, T0 + 10_000), null, 'ten seconds on: no new attempt');
+  assert.equal(f.calls.length, 1);
+  assert.equal(await auth.openf1Token(CREDS, f, T0 + 61_000), 'tok-1', 'after the minute: tried again');
+  assert.equal(f.calls.length, 2);
+});
+
+test('a token response that is not JSON → null for a minute, body never thrown into a log', async () => {
+  const f = fetchStub([{ ok: true, status: 200, statusText: '200', json: async () => { throw new SyntaxError('Unexpected token < in "<!DOCTYPE html>"'); } }]);
+  assert.equal(await auth.openf1Token(CREDS, f, T0), null);
+  assert.equal(await auth.openf1Token(CREDS, f, T0 + 5_000), null);
+  assert.equal(f.calls.length, 1);
+});
+
+test('a short-lived token renews at half-life, not on every call', async () => {
+  const f = fetchStub([
+    jsonResponse(200, { access_token: 'tok-1', expires_in: 60 }),
+    jsonResponse(200, { access_token: 'tok-2', expires_in: 60 }),
+  ]);
+  assert.equal(await auth.openf1Token(CREDS, f, T0), 'tok-1');
+  assert.equal(await auth.openf1Token(CREDS, f, T0 + 20_000), 'tok-1');
+  assert.equal(await auth.openf1Token(CREDS, f, T0 + 31_000), 'tok-2');
+  assert.equal(f.calls.length, 2);
+});
+
+test('concurrent callers on a cold instance share one exchange', async () => {
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const f = async () => { await gate; return jsonResponse(200, { access_token: 'tok-1', expires_in: 3600 }); };
+  let n = 0;
+  const counting = async (...a) => { n++; return f(...a); };
+  const both = Promise.all([auth.openf1Token(CREDS, counting, T0), auth.openf1Token(CREDS, counting, T0)]);
+  release();
+  assert.deepEqual(await both, ['tok-1', 'tok-1']);
+  assert.equal(n, 1);
+});
+
+test('openf1Fetch: 401 with a token renews and retries once; a second 401 is returned', async () => {
+  const f = fetchStub([
+    jsonResponse(200, { access_token: 'tok-1', expires_in: 3600 }),
+    jsonResponse(401, {}),
+    jsonResponse(200, { access_token: 'tok-2', expires_in: 3600 }),
+    jsonResponse(401, {}),
+  ]);
+  process.env.OPENF1_USERNAME = CREDS.username;
+  process.env.OPENF1_PASSWORD = CREDS.password;
+  const real = global.fetch;
+  global.fetch = f;
+  try {
+    const res = await auth.openf1Fetch('https://api.openf1.org/v1/position?session_key=1', { signal: AbortSignal.timeout(1000) }, f);
+    assert.equal(res.status, 401);
+  } finally {
+    global.fetch = real;
+  }
+  assert.equal(f.calls.length, 4);
+  assert.equal(f.calls[1].init.headers.authorization, 'Bearer tok-1');
+  assert.ok(f.calls[1].init.signal, 'the caller\'s init (timeout) is kept');
+  assert.equal(f.calls[3].init.headers.authorization, 'Bearer tok-2');
+});
+
+test('the 429 retry carries the token, and the renewed one after a 401', async () => {
+  process.env.OPENF1_USERNAME = CREDS.username;
+  process.env.OPENF1_PASSWORD = CREDS.password;
+  const sessions = [{ session_key: 1 }];
+  const f = fetchStub([
+    jsonResponse(200, { access_token: 'tok-1', expires_in: 3600 }),
+    jsonResponse(401, {}),
+    jsonResponse(200, { access_token: 'tok-2', expires_in: 3600 }),
+    jsonResponse(429, {}),
+    jsonResponse(200, sessions),
+  ]);
+  const real = global.fetch;
+  global.fetch = f;
+  try {
+    assert.deepEqual(await client.fetchSessions(2026), sessions);
+  } finally {
+    global.fetch = real;
+  }
+  assert.equal(f.calls.length, 5);
+  assert.equal(f.calls[3].init.headers.authorization, 'Bearer tok-2');
+  assert.equal(f.calls[4].init.headers.authorization, 'Bearer tok-2');
+});
+
+test('every function that reaches OpenF1 binds both secrets', () => {
+  const admin = require('firebase-admin');
+  if (admin.apps.length === 0) admin.initializeApp({ projectId: 'demo-f128' });
+  const bound = {
+    ...require('../lib/ingestion/checkResults.js'),
+    ...require('../lib/ingestion/syncSchedule.js'),
+    ...require('../lib/ingestion/scheduleMonitor.js'),
+    ...require('../lib/moonshot/liveSweep.js'),
+  };
+  for (const name of ['checkOpenF1Results', 'checkQualifyingResults', 'checkSprintResults', 'syncRaceSchedules', 'monitorScheduleChanges', 'moonshotLiveSweep']) {
+    const keys = (bound[name].__endpoint.secretEnvironmentVariables || []).map((s) => s.key).sort();
+    assert.deepEqual(keys, ['OPENF1_PASSWORD', 'OPENF1_USERNAME'], name);
+  }
+});
