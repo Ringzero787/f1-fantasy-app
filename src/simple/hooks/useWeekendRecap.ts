@@ -4,6 +4,10 @@ import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { usePrefsStore } from '../../store/prefs.store';
 import { useLeagueStore } from '../../store/league.store';
 import { useSimpleTeam } from './useSimpleTeam';
+import { useAuthStore } from '../../store/auth.store';
+import { useMoonshotStore } from '../../store/moonshot.store';
+import { useMoonshotConfig } from './useMoonshotConfig';
+import { recapMoonshot, type MoonshotCall } from '../grid/moonshot';
 
 export interface RecapEntity {
   name: string;
@@ -20,6 +24,8 @@ export interface WeekendRecap {
   worst: RecapEntity | null;
   rank: number | null;      // league rank (null if not in a league / not loaded)
   leagueSize: number | null;
+  /** F-127: this team's Moonshot on the race once it has settled; null while open, or when there was none */
+  moonshot: MoonshotCall | null;
 }
 
 /**
@@ -39,9 +45,20 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
   const members = useLeagueStore((s) => s.members);
   const lastSeenRecapRaceId = usePrefsStore((s) => s.lastSeenRecapRaceId);
   const markRecapSeen = usePrefsStore((s) => s.markRecapSeen);
+  // F-127: the team's Moonshot on the race. The recap can show before the Team screen has asked
+  // for the season's calls, so it asks itself; the store answers one read per team and season.
+  const user = useAuthStore((s) => s.user);
+  const moonshotCfg = useMoonshotConfig();
+  const moonshotCalls = useMoonshotStore((s) => s.calls);
+  const loadMoonshotCalls = useMoonshotStore((s) => s.loadCalls);
+  const lastRaceSeason = races.find((r) => r.id === lastRaceId)?.seasonId ?? null;
 
   // Ensure the latest race scores are loaded.
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
+  useEffect(() => {
+    if (!moonshotCfg.enabled || !user?.id || !team?.id || !lastRaceSeason || !lastRaceId || lastSeenRecapRaceId === lastRaceId) return;
+    loadMoonshotCalls(user.id, team.id, lastRaceSeason);
+  }, [moonshotCfg.enabled, user?.id, team?.id, lastRaceSeason, lastRaceId, lastSeenRecapRaceId, loadMoonshotCalls]);
 
   const recap = useMemo<WeekendRecap | null>(() => {
     if (!team || !lastRaceId) return null;
@@ -91,8 +108,9 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
       worst: entities[entities.length - 1] ?? null,
       rank,
       leagueSize,
+      moonshot: moonshotCfg.enabled ? recapMoonshot(moonshotCalls, team.id, lastRaceId) : null,
     };
-  }, [team, teamConstructor, lastRaceId, lastRaceScores, races, members, lastSeenRecapRaceId]);
+  }, [team, teamConstructor, lastRaceId, lastRaceScores, races, members, lastSeenRecapRaceId, moonshotCfg.enabled, moonshotCalls]);
 
   const dismiss = useCallback(() => {
     if (lastRaceId) markRecapSeen(lastRaceId);
