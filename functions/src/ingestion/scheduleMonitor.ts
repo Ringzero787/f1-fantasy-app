@@ -13,11 +13,12 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import { SEASON_YEAR, ROUND_TO_RACE_ID } from './config';
 import { fetchSessions } from './openf1Client';
+import { openf1Secrets } from './openf1Auth';
 
 const db = admin.firestore();
 
 export const monitorScheduleChanges = onSchedule(
-  { schedule: 'every day 06:00', timeoutSeconds: 120 },
+  { schedule: 'every day 06:00', timeoutSeconds: 120, secrets: openf1Secrets },
   async () => {
     console.log('[ScheduleMonitor] Checking for schedule changes...');
 

@@ -4,6 +4,7 @@
  */
 
 import { DRIVER_NUMBER_TO_ID, TEAM_NAME_TO_ID } from './config';
+import { openf1Fetch } from './openf1Auth';
 
 const BASE_URL = 'https://api.openf1.org/v1';
 const REQUEST_DELAY_MS = 400;
@@ -118,13 +119,14 @@ async function fetchApi<T>(endpoint: string, params?: Record<string, string | nu
   }
 
   console.log('[OpenF1] Fetching:', url.toString());
-  const response = await fetch(url.toString());
+  // F-128: the paid feed's bearer token when credentials are bound (renewed once on a 401); the free tier otherwise
+  const response = await openf1Fetch(url.toString());
 
   if (response.status === 429) {
     console.log('[OpenF1] Rate limited, waiting 2s and retrying...');
     await delay(2000);
     lastRequestTime = Date.now();
-    const retry = await fetch(url.toString());
+    const retry = await openf1Fetch(url.toString());
     if (!retry.ok) throw new Error(`OpenF1 API error: ${retry.status}`);
     return retry.json();
   }
