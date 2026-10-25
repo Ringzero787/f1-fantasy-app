@@ -24,7 +24,7 @@ import { GridMoonshotCoach } from './GridMoonshotCoach';
 import { useMoonshotStore } from '../../store/moonshot.store';
 import { useMoonshotLive } from '../hooks/useMoonshotLive';
 import { track } from '../../services/analytics.service';
-import { moonshotAvailability, raceWindow } from './moonshot';
+import { counterLines, moonshotAvailability, raceWindow, tokensLeftOf } from './moonshot';
 import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
 import { useTeamStore } from '../../store/team.store';
 import { runStoreAction } from './storeAction';
@@ -84,7 +84,9 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   // tokens are per team: a player's second team has its own three, so only this team's calls count
   const teamCalls = useMemo(() => moonshotCalls.filter((c) => c.teamId === teamId), [moonshotCalls, teamId]);
   const currentCall = useMemo(() => (nextRace ? teamCalls.find((c) => c.raceId === nextRace.id && c.status !== 'CANCELLED') ?? null : null), [teamCalls, nextRace]);
-  const tokensLeft = moonshotAvail === 'open' ? Math.max(0, moonshotCfg.tokensPerTeam - teamCalls.filter((c) => c.status !== 'CANCELLED' && c.status !== 'VOID').length) : null;
+  // F-126: a token counts as spent when its call locks, not when it is made (an open call can still be cancelled)
+  const tokensLeft = moonshotAvail === 'open' ? tokensLeftOf(moonshotCfg.tokensPerTeam, teamCalls, now.getTime()) : null;
+  const counter = moonshotAvail === 'open' && team ? counterLines(moonshotCfg, moonshotCfg.tokensPerTeam, teamCalls, currentCall, now.getTime()) : null;
   const sheetMoonshot = useMemo<SheetMoonshot | undefined>(() => (moonshotAvail === 'off' || !team || !nextRace ? undefined : {
     availability: moonshotAvail, cfg: moonshotCfg, tokensLeft, current: currentCall,
     onOpen: (t) => { setSheetId(null); track('moonshot_driver_selected', { driverId: t.entry.id, from: 'tile' }); setMoonshotTarget({ teamId: team.id, raceId: nextRace.id, raceName: nextRace.name, driverId: t.entry.id, driverName: t.entry.name }); },
@@ -340,27 +342,42 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
         </View>
       </ScreenHeader>
 
-      {/* Second-team switcher — only when there is (or can be) a second team */}
-      {(teamCount > 1 || canCreateSecondTeam || creatingSecondTeam) && (
-        <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: gutter, marginTop: 10 }}>
-          {Array.from({ length: creatingSecondTeam ? 2 : teamCount }, (_, i) => {
+      {/* Team switcher on the left (only when there is, or can be, a second team) and MARKET → on the
+          right. F-125: the market used to be reachable only through EDIT, which the lock disables, so
+          for a whole race weekend nobody could look at prices, points or projections. This entry
+          stays live through the lock; the picker itself refuses changes. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: gutter, marginTop: 10 }}>
+        {(teamCount > 1 || canCreateSecondTeam || creatingSecondTeam) && (
+          Array.from({ length: creatingSecondTeam ? 2 : teamCount }, (_, i) => {
             const active = creatingSecondTeam ? i === 1 : i === activeTeamIndex;
             return (
               <Pressable key={i} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Team ${i + 1}`} accessibilityState={{ selected: active }} onPress={() => { if (creatingSecondTeam && i === 0) setCreatingSecondTeam(false); else if (!creatingSecondTeam) switchTeam(i); }}>
                 <MonoLabel color={active ? colors.text.primary : colors.text.muted}>{active ? '● ' : '○ '}TEAM {i + 1}</MonoLabel>
               </Pressable>
             );
-          })}
-          {canCreateSecondTeam && !creatingSecondTeam && (
-            <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel="New team" onPress={() => Alert.alert('Create a second team?', 'You can have up to 2 teams — one for each league or solo play.', [
-              { text: 'Not now', style: 'cancel' },
-              { text: 'Create', onPress: () => setCreatingSecondTeam(true) },
-            ])}>
-              <MonoLabel color={colors.primary}>+ NEW TEAM</MonoLabel>
-            </Pressable>
-          )}
-        </View>
-      )}
+          })
+        )}
+        {canCreateSecondTeam && !creatingSecondTeam && (
+          <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel="New team" onPress={() => Alert.alert('Create a second team?', 'You can have up to 2 teams — one for each league or solo play.', [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Create', onPress: () => setCreatingSecondTeam(true) },
+          ])}>
+            <MonoLabel color={colors.primary}>+ NEW TEAM</MonoLabel>
+          </Pressable>
+        )}
+        {!creatingSecondTeam ? (
+          <Pressable
+            onPress={() => goPicker()}
+            hitSlop={{ top: 12, bottom: 12, left: 14, right: 14 }}
+            accessibilityRole="button"
+            accessibilityLabel="Open the market"
+            accessibilityHint={locked ? 'Browse drivers and constructors. Your lineup is locked for this race.' : 'Browse drivers and constructors and change your lineup.'}
+            style={({ pressed }) => ({ marginLeft: 'auto', borderBottomWidth: 1, borderBottomColor: colors.primary, paddingBottom: 2, opacity: pressed ? 0.6 : 1 })}
+          >
+            <MonoLabel color={colors.primary}>MARKET →</MonoLabel>
+          </Pressable>
+        ) : null}
+      </View>
 
       {creatingSecondTeam ? (
         <GridCreateTeam
@@ -477,6 +494,13 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
             <View accessibilityLabel={`Pit Wall: ${aceAdviceLine(pwAce)}`} style={{ marginHorizontal: gutter, marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <MonoLabel size={10} color={colors.primary}>PIT WALL</MonoLabel>
               <Text style={[mono(11, 'medium'), { flex: 1, color: colors.text.primary }]}>{aceAdviceLine(pwAce)}</Text>
+            </View>
+          ) : null}
+          {/* F-126: the season's shots as a count that moves when a call locks, so a player sees the one they just used */}
+          {counter ? (
+            <View accessibilityLabel={`${counter.main}${counter.note ? `. ${counter.note}` : ''}`} style={{ marginHorizontal: gutter, marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <MonoLabel size={10} color={colors.primary}>🚀 {counter.main}</MonoLabel>
+              {counter.note ? <Text style={[mono(11, 'medium'), { flex: 1, color: colors.text.muted }]}>{counter.note}</Text> : null}
             </View>
           ) : null}
           {/* F-108: race day — the live card with the league's calls; otherwise this race's Moonshot with Cancel before lock */}

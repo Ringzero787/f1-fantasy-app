@@ -147,7 +147,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
             kind: 'driver', id: d.id, num: String(d.number ?? '').padStart(2, '0'), name: surname(d.name), fullName: d.name,
             sub: constructorShortName(d.constructorId, d.constructorName), constructorId: d.constructorId,
             pts: d.currentSeasonPoints ?? d.fantasyPoints ?? 0, price: d.price, selected,
-            blocked: locked || (!selected && (driversFull || lockedOut || !affordable)),
+            blocked: !selected && (driversFull || lockedOut || !affordable),
             proj: proj?.byId[d.id]?.med ?? null, mark: null,
             value: valueOf(d.currentSeasonPoints ?? d.fantasyPoints ?? 0, d.price), hint: null,
           };
@@ -159,7 +159,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           return {
             kind: 'constructor', id: c.id, num: c.shortName?.slice(0, 3).toUpperCase() ?? '', name: constructorShortName(c.id, c.name), fullName: c.name,
             sub: c.name, constructorId: c.id, pts: c.currentSeasonPoints ?? c.fantasyPoints ?? 0, price: c.price, selected,
-            blocked: locked || (!selected && !affordable),
+            blocked: !selected && !affordable,
             proj: proj?.byId[c.id]?.med ?? null, mark: null,
             value: valueOf(c.currentSeasonPoints ?? c.fantasyPoints ?? 0, c.price), hint: null,
           };
@@ -180,10 +180,14 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     const by: Sort = sort === 'proj' && !proj ? 'pts' : sort;
     list.sort((a, b) => (by === 'value' ? (b.value ?? -1) - (a.value ?? -1) : by === 'proj' ? (b.proj ?? -1) - (a.proj ?? -1) : by === 'pts' ? b.pts - a.pts : b.price - a.price));
     return list;
-  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, locked, driversFull, ctorSwapBudget, sort, proj]);
+  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, driversFull, ctorSwapBudget, sort, proj]);
 
+  // F-125: while locked the screen is the market to look at, not a picker — every row is readable at
+  // full strength (a dimmed row means "you cannot take this one", which is not the message during a
+  // lock) and none of them responds. The lock is announced in the title, the status strip and the
+  // save bar, not forty times down the list.
   const onRowPress = useCallback((row: Row) => {
-    if (!pending || !current || row.blocked) return;
+    if (locked || !pending || !current || row.blocked) return;
     if (row.kind === 'driver') {
       if (row.selected) {
         setPending({ ...pending, driverIds: pending.driverIds.filter((id) => id !== row.id) });
@@ -199,7 +203,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       setContract(PRICING_CONFIG.CONTRACT_LENGTH);
       setSheet({ kind: 'constructor', entry: { id: row.id, name: row.fullName, price: row.price } });
     }
-  }, [pending, current]);
+  }, [locked, pending, current]);
 
   const confirmSheet = useCallback(() => {
     if (!sheet || !pending) return;
@@ -290,13 +294,14 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const renderRow = useCallback(({ item }: { item: Row }) => {
     const t = trendOf(lastRaceScores[item.id]?.totalPoints, prevRaceScores[item.id]?.totalPoints);
     const trendColor = t.trend === 'up' ? colors.positive : t.trend === 'down' ? colors.primary : colors.text.muted;
-    const moonshotRow = moonshotOpen && item.kind === 'driver' && (!moonshotCurrent || moonshotCurrent.driverId === item.id);
+    // this race's call stays reachable from its row after lock (to look at it); a new one does not, the lock has passed
+    const moonshotRow = moonshotOpen && item.kind === 'driver' && (moonshotCurrent ? moonshotCurrent.driverId === item.id : !lockoutInfo.isLocked);
     return (
       <Pressable
         onPress={() => onRowPress(item)}
-        disabled={item.blocked}
+        disabled={locked || item.blocked}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: item.selected, disabled: item.blocked }}
+        accessibilityState={{ checked: item.selected, disabled: locked || item.blocked }}
         accessibilityLabel={`${item.fullName}, ${item.pts} points, $${item.price}${item.value != null ? `, ${formatValue(item.value)} points per dollar` : ''}${item.proj !== null ? `, Pit Wall projection ${item.proj}` : ''}${item.hint ? `, ${item.hint}` : ''}${item.mark === 'pick' ? ', Pit Wall pick' : item.mark === 'value' ? ', Pit Wall best value' : ''}`}
         style={({ pressed }) => ({
           flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: scaled(14),
@@ -346,7 +351,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         </View>
       </Pressable>
     );
-  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress, compact, moonshotOpen, moonshotCurrent, moonshotRace, team]);
+  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress, compact, locked, lockoutInfo.isLocked, moonshotOpen, moonshotCurrent, moonshotRace, team]);
 
   const sheetBudgetAfter = sheet && plan ? (sheet.kind === 'driver' ? plan.budgetAfter - sheet.entry.price : ctorSwapBudget - sheet.entry.price) : 0;
 
@@ -355,13 +360,13 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <View style={{ paddingTop: 12 }}>
         <ScreenHeader
-          statusLeft="← CANCEL"
+          statusLeft={locked ? '← BACK' : '← CANCEL'}
           onStatusLeftPress={() => router.back()}
           statusRight={lockStatus}
           titleNode={
             <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ flexShrink: 1, fontFamily: family.ui.black, fontSize: scaled(26), lineHeight: scaled(28), letterSpacing: -scaled(26) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>
-                {locked ? 'Locked' : 'Pick Team'}
+                {locked ? 'Market' : 'Pick Team'}
               </Text>
               <Text numberOfLines={1} style={[mono(13), { flexShrink: 0, color: complete ? colors.positive : colors.text.primary }]}>{pickedCount}/{TEAM_SIZE} · {ctorCount}/1</Text>
             </View>
