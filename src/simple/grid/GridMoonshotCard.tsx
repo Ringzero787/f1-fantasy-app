@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, type StyleProp, type ViewStyle } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { MonoLabel } from './GridBits';
-import { callOpen, chancePct, copyText, currencyWord, multiplierLabel, outcomeLine, predictionLabel, settledLine, type MoonshotCall, type MoonshotClientConfig } from './moonshot';
+import { callOpen, chancePct, copyText, currencyWord, multiplierLabel, outcomeLine, outcomeTone, predictionLabel, settledLine, type MoonshotCall, type MoonshotClientConfig } from './moonshot';
 
 /**
  * This race's Moonshot on the Team screen (F-108): driver, prediction, chance, risk, reward in one
@@ -24,7 +24,8 @@ export function GridMoonshotCard({ call, cfg, driverName, onOpen, style }: {
   }, []);
   const open = callOpen(call, now);
   const settled = call.result != null;
-  const tone = settled ? (call.result === 'HIT' ? colors.positive : call.result === 'VOID' ? colors.text.muted : colors.primary) : colors.primary;
+  const toneColor = { positive: colors.positive, muted: colors.text.muted, primary: colors.primary } as const;
+  const tone = settled ? toneColor[outcomeTone(call.result)] : colors.primary;
   return (
     <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`${copyText(cfg, 'yourMoonshot')}, ${driverName}, ${predictionLabel(call.predictionType, call.predictionTarget)}`}
       style={({ pressed }) => [{ borderWidth: 1, borderColor: tone, borderRadius: 14, paddingVertical: scaled(12), paddingHorizontal: scaled(14), gap: 6, opacity: pressed ? 0.75 : 1 }, style]}>

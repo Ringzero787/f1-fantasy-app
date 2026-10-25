@@ -374,6 +374,10 @@ export interface RecapMoonshotLines {
   spoken: string;
 }
 
+/** The colour an outcome reads in, as a theme key: a hit is good news, a void is neither, a miss is the game's red. */
+export const outcomeTone = (result: 'HIT' | 'MISSED' | 'VOID' | null | undefined): 'positive' | 'muted' | 'primary' =>
+  result === 'HIT' ? 'positive' : result === 'VOID' ? 'muted' : 'primary';
+
 /** The recap card's words for a settled call, beside the roster's points for the race. */
 export function recapMoonshotLines(call: MoonshotCall, rosterPoints: number, driverName: string, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): RecapMoonshotLines {
   const outcome: RecapMoonshotLines['outcome'] = call.result === 'HIT' ? 'HIT' : call.result === 'VOID' ? 'VOID' : 'MISSED';

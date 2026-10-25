@@ -1,5 +1,7 @@
 // F-127: the weekend recap's Moonshot card — which call it shows and the words it uses.
-import { recapMoonshot, recapMoonshotLines, usesForbiddenTerm, parseMoonshotConfig, type MoonshotCall } from '../../src/simple/grid/moonshot';
+import fs from 'fs';
+import path from 'path';
+import { recapMoonshot, recapMoonshotLines, outcomeTone, usesForbiddenTerm, parseMoonshotConfig, type MoonshotCall } from '../../src/simple/grid/moonshot';
 
 const call = (over: Partial<MoonshotCall> = {}): MoonshotCall => ({
   id: 'm1', teamId: 'tA', raceId: 'usa_2026', roundNumber: 20, driverId: 'verstappen', predictionType: 'WIN', predictionTarget: null, stakeCurrency: 'POINTS', stakeAmount: 200,
@@ -82,5 +84,39 @@ describe('recapMoonshotLines', () => {
       const l = recapMoonshotLines(c, 283, 'Verstappen');
       for (const text of [l.state, l.call, l.finish, l.amount ?? '', l.total ?? '', l.spoken]) expect(usesForbiddenTerm(text)).toBeNull();
     }
+  });
+});
+
+describe('outcomeTone', () => {
+  it('a hit is positive, a void is muted, anything else is the game’s red', () => {
+    expect([outcomeTone('HIT'), outcomeTone('VOID'), outcomeTone('MISSED'), outcomeTone(null), outcomeTone(undefined)]).toEqual(['positive', 'muted', 'primary', 'primary', 'primary']);
+  });
+});
+
+/**
+ * The hook has no component test (see roundReportWiring.test.ts for the same approach), so the
+ * three decisions that make the card appear are pinned as shapes: it asks the store itself, only
+ * when a recap is due and Moonshot is on; it waits for the answer before showing anything; and the
+ * card is read from the store's answer for this team and season, never a stale list.
+ */
+describe('the recap hook’s wiring', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'src/simple/hooks/useWeekendRecap.ts'), 'utf8');
+  it('asks for the calls only when a recap is due for a scored team and Moonshot is on', () => {
+    expect(src).toContain("const callsKey = moonshotCfg.enabled && uid && teamId && lastRaceSeason ? `${uid}:${teamId}:${lastRaceSeason}` : null;");
+    expect(src).toContain('const recapDue = !!lastRaceId && lastSeenRecapRaceId !== lastRaceId && !!team && (team.scoredRaces || []).includes(lastRaceId);');
+    expect(src).toContain('if (!callsKey || !recapDue || !uid || !teamId || !lastRaceSeason) return;');
+    expect(src).toContain('void loadMoonshotCalls(uid, teamId, lastRaceSeason).finally(() => { if (current) setAskedKey(callsKey); });');
+  });
+  it('holds the recap until the read has answered, and lets it through after a failed read', () => {
+    expect(src).toContain('const callsReady = !callsKey || callsFor === callsKey || askedKey === callsKey;');
+    expect(src).toContain('if (!callsReady) return null;');
+  });
+  it('reads the card from the store’s answer for this team and season only', () => {
+    expect(src).toContain('moonshot: callsKey && callsFor === callsKey ? recapMoonshot(moonshotCalls, team.id, lastRaceId) : null,');
+  });
+  it('the screen shows the card between the hero and the scorers, as one accessible element, and the total under the list', () => {
+    const screen = fs.readFileSync(path.join(__dirname, '..', '..', 'src/simple/grid/GridWeekendRecap.tsx'), 'utf8');
+    expect(screen).toMatch(/\{sign\(teamPoints\)\}<\/Text>\s*\{\/\* F-127[^]*?<View accessible accessibilityLabel=\{shot\.spoken\}[^]*?TOP SCORER/);
+    expect(screen).toContain("{shot?.total ? <Text style={[mono(11, 'medium'), { color: colors.text.secondary }]}>{shot.total}</Text> : null}");
   });
 });

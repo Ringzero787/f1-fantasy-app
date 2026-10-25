@@ -10,7 +10,7 @@ import { RoundReportBody, RoundReportShareCard } from './GridRoundReport';
 import { captureView, shareRoundReport } from './shareRoundReport';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
-import { recapMoonshotLines } from './moonshot';
+import { outcomeTone, recapMoonshotLines } from './moonshot';
 
 /**
  * One-time post-weekend recap shown after a race the user's team was scored
@@ -74,7 +74,8 @@ export function GridWeekendRecap() {
   const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
   const ptsColor = (n: number) => (n > 0 ? colors.positive : n < 0 ? colors.primary : colors.text.muted);
   const shot = moonshot ? recapMoonshotLines(moonshot, teamPoints, drivers.find((d) => d.id === moonshot.driverId)?.name ?? moonshot.driverId, moonshotCfg) : null;
-  const shotTone = shot ? (shot.outcome === 'HIT' ? colors.positive : shot.outcome === 'VOID' ? colors.text.muted : colors.primary) : colors.text.muted;
+  const toneColor = { positive: colors.positive, muted: colors.text.muted, primary: colors.primary } as const;
+  const shotTone = toneColor[outcomeTone(shot?.outcome)];
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
