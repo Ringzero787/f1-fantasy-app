@@ -117,6 +117,12 @@ describe('the counter (F-126)', () => {
     // a void gives the token back, so it is not the one used this weekend
     const voided = call({ status: 'VOID', result: 'VOID' });
     expect(counterLines(null, 3, [voided], voided, 9_000)).toEqual({ main: 'MOONSHOTS 3/3', note: null });
+    // precedence: the weekend's own "one used" beats the season-out line while the call is unsettled; a cancelled current call is no call
+    const lastLocked = call({ id: 'c', raceId: 'r19', lockAtMs: 1_000 });
+    const twoDone = [call({ id: 'a', raceId: 'r17', status: 'HIT', result: 'HIT' }), call({ id: 'b', raceId: 'r18', status: 'MISSED', result: 'MISSED' })];
+    expect(counterLines(null, 3, [...twoDone, lastLocked], lastLocked, 2_000)).toEqual({ main: 'MOONSHOTS 0/3', note: 'ONE USED THIS WEEKEND' });
+    const cancelled = call({ status: 'CANCELLED' });
+    expect(counterLines(null, 3, [cancelled], cancelled, 9_000)).toEqual({ main: 'MOONSHOTS 3/3', note: null });
     // the server's words win here too
     expect(counterLines(parseMoonshotConfig({ copy: { counter: 'SHOTS {left} OF {total}' } }), 3, [], null, 0).main).toBe('SHOTS 3 OF 3');
     for (const l of [counterLines(null, 3, [open], open, 1_000), counterLines(null, 3, [open], open, 2_000)]) expect(usesForbiddenTerm(`${l.main} ${l.note}`)).toBeNull();

@@ -10,7 +10,7 @@ import { create } from 'zustand';
 import { useAuthStore } from './auth.store';
 import { useTeamStore } from './team.store';
 import { moonshotService, callableMessage, type MoonshotMenu, type QuoteRequest } from '../services/moonshot.service';
-import { tokensLeftOf, type ActivityEntry, type BoardCall, type MoonshotCall, type MoonshotQuote } from '../simple/grid/moonshot';
+import type { ActivityEntry, BoardCall, MoonshotCall, MoonshotQuote } from '../simple/grid/moonshot';
 
 interface MoonshotState {
   calls: MoonshotCall[];
@@ -196,7 +196,8 @@ const DEMO: { lastRequest: QuoteRequest | null; [k: string]: unknown } & Record<
   lastRequest: null,
   calls: (teamId: string): MoonshotCall[] => [...demoCalls.values()].filter((c) => c.teamId === teamId),
   menu: (teamId: string, raceId: string, driverId: string, calls: MoonshotCall[]): MoonshotMenu => ({
-    availability: 'open', unlockRound: 13, tokensPerTeam: 3, tokensLeft: tokensLeftOf(3, calls, Date.now()),
+    // the server's rule, not the Team screen's (F-126): a confirmed call has spent its token the moment it exists
+    availability: 'open', unlockRound: 13, tokensPerTeam: 3, tokensLeft: Math.max(0, 3 - calls.filter((c) => c.status !== 'CANCELLED' && c.status !== 'VOID').length),
     lockAtMs: Date.now() + 36 * 60 * 60 * 1000, round: 19,
     current: calls.find((c) => c.raceId === raceId && c.status !== 'CANCELLED') ?? null,
     ownsDriver: !!useTeamStore.getState().currentTeam?.drivers?.some((d) => d.driverId === driverId), modelAvailable: true, driverInModel: true, carriedFrom: null,

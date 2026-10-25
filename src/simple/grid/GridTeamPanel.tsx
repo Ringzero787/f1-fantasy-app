@@ -346,7 +346,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
           right. F-125: the market used to be reachable only through EDIT, which the lock disables, so
           for a whole race weekend nobody could look at prices, points or projections. This entry
           stays live through the lock; the picker itself refuses changes. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: gutter, marginTop: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 16, paddingHorizontal: gutter, marginTop: 10 }}>
         {(teamCount > 1 || canCreateSecondTeam || creatingSecondTeam) && (
           Array.from({ length: creatingSecondTeam ? 2 : teamCount }, (_, i) => {
             const active = creatingSecondTeam ? i === 1 : i === activeTeamIndex;
@@ -498,7 +498,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
           ) : null}
           {/* F-126: the season's shots as a count that moves when a call locks, so a player sees the one they just used */}
           {counter ? (
-            <View accessibilityLabel={`${counter.main}${counter.note ? `. ${counter.note}` : ''}`} style={{ marginHorizontal: gutter, marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View accessible accessibilityLabel={`${counter.main}${counter.note ? `. ${counter.note}` : ''}`} style={{ marginHorizontal: gutter, marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <MonoLabel size={10} color={colors.primary}>🚀 {counter.main}</MonoLabel>
               {counter.note ? <Text style={[mono(11, 'medium'), { flex: 1, color: colors.text.muted }]}>{counter.note}</Text> : null}
             </View>
