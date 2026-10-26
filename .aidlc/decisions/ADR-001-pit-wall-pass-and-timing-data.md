@@ -67,5 +67,22 @@ feed on 2026-10-25 under the 2026-09-28 reply above. Facts for whoever checks th
   of 2026-09-19 told the provider we fetch once per session and do not mirror live timing; the
   sweep is one `/position` call a minute for about three hours per race, positions only, server
   side, on a free surface that is never behind the pass. The restatement should say exactly that.
-  `DESIRED.liveTiming` in `setMoonshotConfig.js` is true from F-128 so the op is ready; it is not
-  raised before that confirmation.
+  `DESIRED.liveTiming` in `setMoonshotConfig.js` stays **false** (F-128's review restored it: a
+  `uc-script` op passes only `--apply`, so an armed default would flip the switch with any other
+  config change); it is set true in the same change that raises the op, after that confirmation.
+
+## Note · 2026-10-26 · the running score widens the in-app surface (F-129)
+
+F-129 makes the same once-a-minute live document carry a running score — what each driver and
+constructor would score for the race session at the current order — shown on the Team screen's
+tiles and stat row for the race's three hours. Facts for the restatement to the provider and for
+whoever checks this later:
+
+- Volume: **two** feed calls a minute during a race (positions, and the laps for the fastest lap)
+  plus three once per race (session list, starting grid, entry list), server side only, inside the
+  tier's 60 a minute. Still one Firestore document, still a free surface never behind the pass.
+- The number is derived (our scoring formula over their positions); no timing data beyond the
+  positions already written is stored or shown. The copy calls it a running score, not a result.
+- The 2026-10-07 condition is unchanged and now covers this too: the switch goes on only once the
+  owner has the provider's written confirmation that the arrangement covers **live positions and a
+  derived running score inside the free app**. The owner's one-line restatement should say so.

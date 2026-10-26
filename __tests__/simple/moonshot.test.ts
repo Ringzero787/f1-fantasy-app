@@ -232,9 +232,13 @@ describe('the league and the race weekend', () => {
 describe('the live document', () => {
   it('keeps only usable positions and reads the stamp', () => {
     const d = toLiveDoc({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, norris: 1, bad: 'x', zero: 0 }, at: { toMillis: () => 5_000 } });
-    expect(d).toEqual({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, norris: 1 }, atMs: 5_000 });
+    expect(d).toEqual({ raceId: 'r', sessionKey: 2, byDriver: { hadjar: 4, norris: 1 }, atMs: 5_000, running: null });   // a document from before F-129 has no running score
     expect(toLiveDoc(undefined)).toBeNull();
     expect(toLiveDoc({})?.byDriver).toEqual({});
+    // F-129: the running score keeps negatives (places lost) and drops anything that is not a finite number
+    const r = toLiveDoc({ raceId: 'r', running: { drivers: { hadjar: -3, norris: 69, bad: 'x', nan: NaN }, constructors: { mclaren: 125 } } })?.running;
+    expect(r).toEqual({ drivers: { hadjar: -3, norris: 69 }, constructors: { mclaren: 125 } });
+    expect(toLiveDoc({ raceId: 'r', running: 'soon' })?.running).toBeNull();
   });
 });
 

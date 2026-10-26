@@ -20,5 +20,6 @@ Expo-web renders (Playwright, headless Chromium, 396×856 @2x, demo mode) taken 
 | `F-058-tile-sheet-dark.png` / `-remove-dark.png` | F-058 | Tile detail sheet: stats + Ace, and the Remove quote |
 | `device-android-release-*.png` | all | Android **release** build on the Pixel 10 Pro XL emulator (embedded fonts, demo lineup): Team, Pick Team, Team at XXL display size |
 | `F-055-picker-xxl-web.png` | F-055 | Pick Team compact layout at XXL display size |
+| `F-129-web-team-live-dark.png` / `-light.png` | F-129 | Team during a live race: every tile's trend corner is `LIVE +N` (Ace doubled: Antonelli 25 → +50), the stat row reads `LIVE · SO FAR +89`, the sum of the tiles. Forced running document and race window (throwaway hook/panel edits, reverted). |
 
 Recipe: see the session notes — `npx expo start --web --clear` on a free port, then `PORT=<port> node shot*.js <outdir> dark|light`.

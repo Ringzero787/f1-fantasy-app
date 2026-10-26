@@ -244,18 +244,36 @@ test('the sweep: off does nothing; on, it finds the live race, looks the session
     'races/singapore_2026': { seasonId: '2026', status: 'in_progress', round: 19, schedule: { race: { toMillis: () => start } } },
     'races/austin_2026': { seasonId: '2026', status: 'upcoming', round: 20, schedule: { race: { toMillis: () => start + 7 * 24 * 3600e3 } } },
   };
-  let sessionCalls = 0;
-  const feed = { sessions: async () => { sessionCalls++; return [{ session_key: 2, session_name: 'Race', date_start: '2026-10-11T12:00:00+00:00' }]; }, positions: async () => [{ driver_number: 6, position: 4, date: '2026-10-11T12:40:00Z' }, { driver_number: 1, position: 1, date: '2026-10-11T12:40:00Z' }] };
+  let sessionCalls = 0, gridCalls = 0, entryCalls = 0, lapCalls = 0;
+  let gridAnswer = {};   // F-129: the grid is published close to the start, so the first minute may not have it
+  const feed = {
+    sessions: async () => { sessionCalls++; return [{ session_key: 2, session_name: 'Race', date_start: '2026-10-11T12:00:00+00:00' }]; },
+    positions: async () => [{ driver_number: 6, position: 4, date: '2026-10-11T12:40:00Z' }, { driver_number: 1, position: 1, date: '2026-10-11T12:40:00Z' }],
+    grid: async () => { gridCalls++; return gridAnswer; },
+    constructorOf: async () => { entryCalls++; return { hadjar: 'racing_bulls' }; },
+    fastestLap: async () => { lapCalls++; if (lapCalls === 2) throw new Error('OpenF1 API error: 500'); return 'hadjar'; },
+  };
   const off = fakeDb({ ...docs, 'config/app': { moonshot: { enabled: true } } });
   assert.deepEqual(await sweepLivePositions(off, start + 60e3, feed), { raceId: null, written: false, drivers: 0, off: true });
   assert.equal(off.writes.length, 0);
   const db = fakeDb(docs);
   const first = await sweepLivePositions(db, start + 60e3, feed);
-  const written = db.store.get('races/singapore_2026/live/positions');
+  let written = db.store.get('races/singapore_2026/live/positions');
   assert.deepEqual([first.raceId, first.written, first.drivers], ['singapore_2026', true, Object.keys(written.byDriver).length]);
   assert.deepEqual([written.raceId, written.sessionKey, written.source, written.byDriver.hadjar], ['singapore_2026', 2, 'openf1', 4]);   // car 6 is Hadjar in the ingestion table; car 1 maps to whoever carries it this season
+  // F-129: no grid yet → no places gained; fastest lap at P4 is a point; the constructor carries the position parts
+  assert.deepEqual([written.grid, written.constructorOf, written.fastestLap], [{}, { hadjar: 'racing_bulls' }, 'hadjar']);
+  assert.equal(written.running.drivers.hadjar, 29 + 1 + 19);
+  assert.equal(written.running.constructors.racing_bulls, 29 + 19);
+  gridAnswer = { hadjar: 9 };
   await sweepLivePositions(db, start + 120e3, feed);
+  written = db.store.get('races/singapore_2026/live/positions');
   assert.equal(sessionCalls, 1);   // the second minute reuses the stored session key
+  assert.deepEqual([gridCalls, entryCalls, lapCalls], [2, 1, 2]);   // the grid is asked again until it answers; the entry list was kept
+  assert.deepEqual([written.grid, written.fastestLap], [{ hadjar: 9 }, null]);   // the laps call failed this minute: positions still written, no fastest-lap point
+  assert.equal(written.running.drivers.hadjar, 29 + 5 + 19);   // P4 from P9: five gained
+  await sweepLivePositions(db, start + 180e3, feed);
+  assert.deepEqual([gridCalls, entryCalls, lapCalls], [2, 1, 3]);   // a known grid is not asked for again: two calls a minute from here
   assert.deepEqual(await sweepLivePositions(db, start + 7 * 3600e3, feed), { raceId: null, written: false, drivers: 0 });   // seven hours on, still marked in progress: the six-hour cap closed the window
 });
 

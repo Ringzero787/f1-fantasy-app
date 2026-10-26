@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, Pressable, Platform } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Pressable, Platform, Animated } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { teamAccent } from '../theme/simpleTheme';
 import { MonoLabel, ColorBar } from './GridBits';
+import { signedScore } from './liveScore';
 import type { GridTile as Tile } from './tileState';
 
 export const TILE_HEIGHT = 132;
@@ -18,10 +19,12 @@ interface Props {
   onOpen?: (tile: Tile) => void;
   /** the team has no Ace yet: the ACE pills turn red to ask for one */
   aceNeeded?: boolean;
+  /** F-129: the pick's running race score while the race is live (Ace already doubled); the trend corner shows it instead of last race */
+  live?: number | null;
 }
 
 // One cell of the Team grid: driver, constructor (red outline) or open slot.
-export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, readOnly, onOpenSlot, onToggleAce, onOpen, aceNeeded }: Props) {
+export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, readOnly, onOpenSlot, onToggleAce, onOpen, aceNeeded, live }: Props) {
   const { colors, family, scaled, mono } = useSimpleTheme();
   const height = scaled(TILE_HEIGHT);
   const pad = scaled(14);
@@ -85,7 +88,7 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
         justifyContent: 'space-between',
         overflow: 'hidden',
       })}
-      accessibilityLabel={`${tile.name}, ${tile.pts} points`}
+      accessibilityLabel={live != null ? `${tile.name}, ${tile.pts} points, live ${signedScore(live)} this race so far` : `${tile.name}, ${tile.pts} points`}
     >
       {/* top row: number / TEAM · AUTO · ACE — season pts */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
@@ -138,14 +141,44 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
               ))}
             </View>
           </View>
-          <Text style={[mono(11), { color: trendColor }]} numberOfLines={1}>
-            {tile.trend.glyph} {tile.trend.last ?? '–'}
-          </Text>
+          {live != null ? (
+            <LiveScore value={live} />
+          ) : (
+            <Text style={[mono(11), { color: trendColor }]} numberOfLines={1}>
+              {tile.trend.glyph} {tile.trend.last ?? '–'}
+            </Text>
+          )}
         </View>
       </View>
     </Pressable>
   );
 });
+
+/**
+ * F-129: the running race score in the trend corner while the race is live, with a slowly pulsing
+ * dot so the number reads as moving rather than settled. Negative when the pick has lost places.
+ */
+function LiveScore({ value }: { value: number }) {
+  const { colors, mono } = useSimpleTheme();
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 0.25, duration: 900, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  const tone = value < 0 ? colors.negative : colors.positive;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Animated.View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tone, opacity: pulse }} />
+      <Text style={[mono(11, 'bold'), { color: tone }]} numberOfLines={1}>
+        LIVE {signedScore(value)}
+      </Text>
+    </View>
+  );
+}
 
 function Pill({ label, fg, bg, border }: { label: string; fg: string; bg: string; border: string }) {
   const { family, scaled } = useSimpleTheme();

@@ -31,6 +31,7 @@ import { runStoreAction } from './storeAction';
 import { teamText } from './shareTeam';
 import { shareText } from './shareText';
 import { computeTiles, lineupStatus, openSlotCount, rosterRacePoints, rosterConstructor, type GridTile as Tile } from './tileState';
+import { rosterLiveScore, signedScore, tileLiveScore } from './liveScore';
 import { formatLockStatus, formatRoundStatus, seasonProgress } from './lockStatus';
 import { serverAceLocked } from '../../utils/lockout';
 import { usePitWallStore } from '../../store/pitwall.store';
@@ -94,7 +95,8 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const reloadMoonshots = useCallback(() => { if (user?.id && teamId && moonshotSeason) loadMoonshotCalls(user.id, teamId, moonshotSeason, true); }, [user?.id, teamId, moonshotSeason, loadMoonshotCalls]);
   // race day (SPEC §17): the live card from the race start until three hours after, with the league's locked calls
   const raceWin = raceWindow(nextRace, now.getTime());
-  const live = useMoonshotLive(moonshotAvail === 'open' ? nextRace : null, raceWin, moonshotCfg.liveTiming);
+  // F-129: the listener runs for the tiles' running score whatever the Moonshot availability; the card below still checks it
+  const live = useMoonshotLive(nextRace, raceWin, moonshotCfg.liveTiming);
   const board = useMoonshotStore((s) => s.board);
   const loadBoard = useMoonshotStore((s) => s.loadBoard);
   const boardTick = Math.floor(now.getTime() / (5 * 60 * 1000));   // while live, the league's board is re-read every five minutes, not every render
@@ -162,6 +164,8 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
 
   const open = openSlotCount(tiles);
   const filledCount = tiles.length - open;
+  // F-129: the roster's running race score while the race is live; null before the sweep has written one, so the stat row keeps LAST RACE
+  const liveTotal = useMemo(() => (raceWin === 'live' ? rosterLiveScore(tiles, live.running) : null), [raceWin, tiles, live.running]);
   const aceTile = tiles.find((t) => t.kind !== 'empty' && t.ace);
   const aceName = aceTile && aceTile.kind !== 'empty' ? aceTile.name : null;
   // No Ace chosen yet, it can still be chosen this round, and at least one pick is allowed to be Ace.
@@ -402,10 +406,22 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
             </View>
             <View style={{ flexDirection: 'row', gap: 18, alignItems: 'flex-end' }}>
               <View style={{ alignItems: stackStats ? 'flex-start' : 'flex-end', gap: 2 }}>
-                <MonoLabel>LAST RACE</MonoLabel>
-                <Text style={{ fontFamily: family.ui.bold, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.02, color: lastPoints != null && lastPoints < 0 ? colors.negative : colors.primary }}>
-                  {lastPoints == null ? '—' : `${lastPoints >= 0 ? '+' : ''}${lastPoints}`}
-                </Text>
+                {/* F-129: while the race is live and the sweep has a running score, this stat is the race so far, not last race */}
+                {liveTotal != null ? (
+                  <>
+                    <MonoLabel color={colors.primary}>LIVE · SO FAR</MonoLabel>
+                    <Text accessibilityLabel={`Live, ${signedScore(liveTotal)} this race so far, running score`} style={{ fontFamily: family.ui.bold, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.02, color: liveTotal < 0 ? colors.negative : colors.primary }}>
+                      {signedScore(liveTotal)}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <MonoLabel>LAST RACE</MonoLabel>
+                    <Text style={{ fontFamily: family.ui.bold, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.02, color: lastPoints != null && lastPoints < 0 ? colors.negative : colors.primary }}>
+                      {lastPoints == null ? '—' : `${lastPoints >= 0 ? '+' : ''}${lastPoints}`}
+                    </Text>
+                  </>
+                )}
               </View>
               <View style={{ alignItems: stackStats ? 'flex-start' : 'flex-end', gap: 2 }}>
                 <MonoLabel>RANK</MonoLabel>
@@ -463,6 +479,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
                   onToggleAce={handleToggleAce}
                   onOpen={(t) => { if (t.kind !== 'empty') setSheetId(t.id); }}
                   aceNeeded={aceNeeded}
+                  live={liveTotal != null ? tileLiveScore(tile, live.running) : null}
                 />
               </View>
             ))}
