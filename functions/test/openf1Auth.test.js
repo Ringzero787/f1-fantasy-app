@@ -114,6 +114,7 @@ test('the client sends the bearer token when the secrets are bound, and renews o
   assert.equal(f.calls[1].init.headers.authorization, 'Bearer tok-1');
   assert.equal(f.calls[3].init.headers.authorization, 'Bearer tok-2');
   assert.match(f.calls[3].url, /\/v1\/sessions\?year=2026$/);
+  assert.ok(f.calls[1].init.signal && f.calls[3].init.signal, 'F-129: every client request carries a timeout');
 });
 
 test('a second 401 with a fresh token is an error, not a loop', async () => {

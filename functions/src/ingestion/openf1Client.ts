@@ -11,6 +11,11 @@ const REQUEST_DELAY_MS = 400;
 let lastRequestTime = 0;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+/** Every feed request is abandoned after this long; a whole-session laps table is the largest answer and lands well inside it. */
+const REQUEST_TIMEOUT_MS = 20_000;
+/** The driver id for a provider-typed car number, or undefined: only whole numbers that are the table's own keys count. */
+const driverIdOf = (n: unknown): string | undefined =>
+  Number.isInteger(n) && Object.prototype.hasOwnProperty.call(DRIVER_NUMBER_TO_ID, n as number) ? DRIVER_NUMBER_TO_ID[n as number] : undefined;
 
 // OpenF1 API types
 export interface OpenF1Session {
@@ -119,14 +124,15 @@ async function fetchApi<T>(endpoint: string, params?: Record<string, string | nu
   }
 
   console.log('[OpenF1] Fetching:', url.toString());
-  // F-128: the paid feed's bearer token when credentials are bound (renewed once on a 401); the free tier otherwise
-  const response = await openf1Fetch(url.toString());
+  // F-128: the paid feed's bearer token when credentials are bound (renewed once on a 401); the free tier otherwise.
+  // F-129: bounded, since the live sweep now runs these every minute and a hung laps call would cost that minute's positions.
+  const response = await openf1Fetch(url.toString(), { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
 
   if (response.status === 429) {
     console.log('[OpenF1] Rate limited, waiting 2s and retrying...');
     await delay(2000);
     lastRequestTime = Date.now();
-    const retry = await openf1Fetch(url.toString());
+    const retry = await openf1Fetch(url.toString(), { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     if (!retry.ok) throw new Error(`OpenF1 API error: ${retry.status}`);
     return retry.json();
   }
@@ -174,7 +180,7 @@ export async function findFastestLap(sessionKey: number): Promise<string | null>
   }
 
   if (!fastest) return null;
-  return DRIVER_NUMBER_TO_ID[fastest.driverNumber] ?? null;
+  return driverIdOf(fastest.driverNumber) ?? null;
 }
 
 /**
@@ -201,7 +207,7 @@ export async function getGridPositions(
       });
       for (const r of gridRows || []) {
         if (r.position == null || r.driver_number == null) continue;
-        const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
+        const driverId = driverIdOf(r.driver_number);
         if (driverId) {
           grid[driverId] = r.position;
         }
@@ -224,7 +230,7 @@ export async function getGridPositions(
   const results = await fetchSessionResults(qualiSession.session_key);
   for (const r of results) {
     if (r.position == null || r.driver_number == null) continue;
-    const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
+    const driverId = driverIdOf(r.driver_number);
     if (driverId) {
       grid[driverId] = r.position;
     }

@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { runningScore, GRID_FALLBACK } = require('../lib/scoring/runningScore.js');
-const { calculateDriverPoints, RACE_POINTS, GRID_SIZE } = require('../lib/scoring/scoringCore.js');
+const { calculateDriverPoints, constructorRacePoints, RACE_POINTS, GRID_SIZE } = require('../lib/scoring/scoringCore.js');
 
 const ctorOf = { norris: 'mclaren', piastri: 'mclaren', verstappen: 'red_bull', hadjar: 'racing_bulls' };
 
@@ -33,6 +33,8 @@ test('a constructor is both cars\' position points and reverse-grid bonus, with 
   const r = runningScore({ norris: 1, piastri: 2, verstappen: 3 }, { norris: 5, piastri: 6, verstappen: 1 }, 'norris', ctorOf);
   assert.equal(r.constructors.mclaren, (45 + 22) + (37 + 21));
   assert.equal(r.constructors.red_bull, 33 + 20);
+  assert.equal(r.constructors.mclaren, constructorRacePoints(1) + constructorRacePoints(2));
+  assert.deepEqual([constructorRacePoints(21), constructorRacePoints(23), constructorRacePoints(0)], [2, 0, 0]);   // P21: reverse grid only; off the grid or unplaced: nothing
   assert.equal(r.constructors.racing_bulls, undefined, 'no car on track, no entry');
 });
 
@@ -43,7 +45,8 @@ test('a driver with no constructor still scores, scores for no constructor; a ba
 });
 
 test('a retired car at the back of the order is scored as a finisher there, not with the DNF penalty', () => {
-  // the honest limit: the feed has no retirement flag, so the number carries the back-marker's points until the classification
+  // the honest limit: the feed has no retirement flag; it drops a stopped car to the back (United States 2026, session 11396:
+  // the three retirements ended P20–P22, no shared positions), so the number carries the back-marker's points until the classification
   const r = runningScore({ hadjar: 20 }, { hadjar: 8 }, null, ctorOf);
   assert.equal(r.drivers.hadjar, 1 - 12 + 3);
 });

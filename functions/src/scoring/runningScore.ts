@@ -8,17 +8,15 @@
  * roster's business and are applied by the app per team; qualifying and sprint points are already
  * banked by the time the race starts, so they are not part of this number.
  *
- * What it cannot know: a retired car. The live positions feed carries no retirement flag, so a car
- * that has stopped sits at the back of the running order and is scored as a finisher there until
- * the official classification applies the real DNF penalty. The app says the number is a running
- * score, never the result.
+ * What it cannot know: a retired car. The live positions feed carries no retirement flag; what it
+ * does (checked on the 2026 United States race, session 11396: all three retirements moved to
+ * P20–P22 within seconds of stopping, no two cars ever shared a final position) is drop the car to
+ * the back of the running order, so it is scored as a back-marker finisher there until the official
+ * classification applies the real DNF penalty. The app says the number is a running score, never
+ * the result.
  */
 
-import {
-  calculateDriverPoints,
-  GRID_SIZE,
-  RACE_POINTS,
-} from './scoringCore';
+import { calculateDriverPoints, constructorRacePoints } from './scoringCore';
 
 export interface RunningScore {
   /** full race-session points per driver id, as `calculateDriverPoints` would score the position */
@@ -60,13 +58,7 @@ export function runningScore(
       0,
       false,
     );
-    if (constructorId) {
-      // mirrors the constructor loop in calculatePoints Phase 1 / 0.5: position points + reverse-grid bonus, no gained, no fastest lap
-      let pts = 0;
-      if (position <= RACE_POINTS.length) pts += RACE_POINTS[position - 1];
-      if (position <= GRID_SIZE) pts += GRID_SIZE + 1 - position;
-      constructors[constructorId] = (constructors[constructorId] ?? 0) + pts;
-    }
+    if (constructorId) constructors[constructorId] = (constructors[constructorId] ?? 0) + constructorRacePoints(position);
   }
   return { drivers, constructors };
 }

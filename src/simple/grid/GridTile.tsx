@@ -88,7 +88,7 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
         justifyContent: 'space-between',
         overflow: 'hidden',
       })}
-      accessibilityLabel={live != null ? `${tile.name}, ${tile.pts} points, live ${signedScore(live)} this race so far` : `${tile.name}, ${tile.pts} points`}
+      accessibilityLabel={live != null ? `${tile.name}, ${tile.pts} points, live ${signedScore(live)} this race so far, running score` : `${tile.name}, ${tile.pts} points`}
     >
       {/* top row: number / TEAM · AUTO · ACE — season pts */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>

@@ -418,7 +418,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
                   <>
                     <MonoLabel>LAST RACE</MonoLabel>
                     <Text style={{ fontFamily: family.ui.bold, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.02, color: lastPoints != null && lastPoints < 0 ? colors.negative : colors.primary }}>
-                      {lastPoints == null ? '—' : `${lastPoints >= 0 ? '+' : ''}${lastPoints}`}
+                      {lastPoints == null ? '—' : signedScore(lastPoints)}
                     </Text>
                   </>
                 )}

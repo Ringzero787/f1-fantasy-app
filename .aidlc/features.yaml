@@ -1571,6 +1571,5 @@ features:
       - race
       - running
       - score
-      - from
       - live
       - positions

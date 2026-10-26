@@ -93,18 +93,24 @@ async function fetchConstructorOf(sessionKey: number): Promise<Record<string, st
 export interface Feed {
   sessions: (year: number) => Promise<OpenF1Session[]>;
   positions: (sessionKey: number) => Promise<PositionRow[]>;
-  /** F-129, once per race: starting grid (driver id → slot) and who drives for whom */
-  grid: (sessions: OpenF1Session[], sessionKey: number) => Promise<Record<string, number>>;
+  /** F-129, once per race: the published starting grid (driver id → slot) and who drives for whom */
+  grid: (sessionKey: number) => Promise<Record<string, number>>;
   constructorOf: (sessionKey: number) => Promise<Record<string, string>>;
   /** F-129, each minute: the driver holding the fastest lap so far */
   fastestLap: (sessionKey: number) => Promise<string | null>;
 }
-const LIVE_FEED: Feed = { sessions: fetchSessions, positions: fetchPositions, grid: getGridPositions, constructorOf: fetchConstructorOf, fastestLap: findFastestLap };
+/**
+ * The grid comes from /starting_grid only (no session list → no qualifying fallback): the official scorer runs after the
+ * race against the real grid with penalties and pit-lane starts, and a qualifying order fetched half an hour early would
+ * be kept for the whole race and give the wrong places gained. Until it is published the sweep asks again each minute.
+ */
+const fetchStartingGrid = (sessionKey: number): Promise<Record<string, number>> => getGridPositions([], sessionKey);
+const LIVE_FEED: Feed = { sessions: fetchSessions, positions: fetchPositions, grid: fetchStartingGrid, constructorOf: fetchConstructorOf, fastestLap: findFastestLap };
 
-/** Pure: a stored id → integer map, or an empty one when the field is anything else (third-party data came through here once). */
+/** Pure: a stored id → grid-slot map, or an empty one when the field is anything else (third-party data came through here once); slots are 1–30 like positions. */
 function intMapOf(v: unknown): Record<string, number> {
   if (!v || typeof v !== 'object') return {};
-  return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, number] => Number.isInteger(e[1]) && (e[1] as number) >= 1));
+  return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, number] => Number.isInteger(e[1]) && (e[1] as number) >= 1 && (e[1] as number) <= 30));
 }
 function stringMapOf(v: unknown): Record<string, string> {
   if (!v || typeof v !== 'object') return {};
@@ -127,25 +133,25 @@ export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = 
   let sessionKey: number | null = same && typeof prior.sessionKey === 'number' ? prior.sessionKey : null;
   let grid = same ? intMapOf(prior.grid) : {};
   let constructorOf = same ? stringMapOf(prior.constructorOf) : {};
-  let sessions: OpenF1Session[] | null = null;
   if (sessionKey === null) {
-    sessions = await feed.sessions(new Date(startMs(race) || nowMs).getUTCFullYear());
-    const session = sessionForRace(sessions, startMs(race));
+    const session = sessionForRace(await feed.sessions(new Date(startMs(race) || nowMs).getUTCFullYear()), startMs(race));
     if (!session || !Number.isInteger(session.session_key)) { console.warn(`[live] ${race.id}: no race session on its day yet`); return { raceId: race.id, written: false, drivers: 0 }; }
     sessionKey = session.session_key;
   }
   // F-129: grid and entry list are fetched until they come back non-empty (the grid is published close to the start), then kept
   if (Object.keys(grid).length === 0) {
-    try { grid = intMapOf(await feed.grid(sessions ?? [], sessionKey)); } catch (e) { console.warn(`[live] ${race.id}: grid unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
+    try { grid = intMapOf(await feed.grid(sessionKey)); } catch (e) { console.warn(`[live] ${race.id}: grid unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
   }
   if (Object.keys(constructorOf).length === 0) {
     try { constructorOf = stringMapOf(await feed.constructorOf(sessionKey)); } catch (e) { console.warn(`[live] ${race.id}: entry list unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
   }
   const byDriver = latestByDriver(await feed.positions(sessionKey));
   if (Object.keys(byDriver).length === 0) { console.log(`[live] ${race.id}: feed has no positions yet`); return { raceId: race.id, written: false, drivers: 0 }; }
-  // the fastest lap is the second call a minute; without it the running score simply has no fastest-lap point this minute
-  let fastestLap: string | null = null;
-  try { fastestLap = await feed.fastestLap(sessionKey); } catch (e) { console.warn(`[live] ${race.id}: laps unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
+  // the fastest lap is the second call a minute; when it fails the last known holder stands (a fastest lap so far can move, never vanish)
+  let fastestLap: string | null = same && typeof prior.fastestLap === 'string' ? prior.fastestLap : null;
+  try { fastestLap = await feed.fastestLap(sessionKey); } catch (e) { console.warn(`[live] ${race.id}: laps unavailable this minute, keeping the last holder:`, e instanceof Error ? e.message : String(e)); }
+  // only a driver the positions feed knows can hold it: anything else from the laps table is dropped before the write
+  if (typeof fastestLap !== 'string' || !Object.prototype.hasOwnProperty.call(byDriver, fastestLap)) fastestLap = null;
   const running = runningScore(byDriver, grid, fastestLap, constructorOf);
   await ref.set({ raceId: race.id, sessionKey, byDriver, grid, constructorOf, fastestLap, running, source: 'openf1', at: admin.firestore.FieldValue.serverTimestamp() });
   return { raceId: race.id, written: true, drivers: Object.keys(byDriver).length };
