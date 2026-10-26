@@ -1,0 +1,61 @@
+id: OP-182
+title: "F-128: OpenF1 calls carry the paid feed's bearer token (six ingestion + live-sweep functions)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:syncRaceSchedules,functions:monitorScheduleChanges,functions:moonshotLiveSweep
+created_at: 2026-10-25T23:10:59.909Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-25T23:11:05.365Z
+    head_sha: 208b052ec8e3add3863584e3ee94c683b03de54e
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-182/dry-run-2026-10-25T23-11-05-365Z.log
+    log_sha256: 97979fa05f3bcc4550623d5d3fce752923786f2a937e03775a5274d726df76f0
+    lines: 74
+  - step: gates
+    at: 2026-10-26T00:11:30.310Z
+    head_sha: 208b052ec8e3add3863584e3ee94c683b03de54e
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-26T00:11:30.315Z
+    head_sha: 208b052ec8e3add3863584e3ee94c683b03de54e
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:syncRaceSchedules,functions:monitorScheduleChanges,functions:moonshotLiveSweep' --project 'f1-app-18077'
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-182/apply-2026-10-26T00-11-30-315Z.log
+    log_sha256: 1828fe5af35bbec290f52507eb258924bdbf354491784fbe16f7be679d91f066
+    lines: 33
+  - step: dry-run
+    at: 2026-10-26T00:14:38.350Z
+    head_sha: 208b052ec8e3add3863584e3ee94c683b03de54e
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-182/dry-run-2026-10-26T00-14-38-350Z.log
+    log_sha256: 97979fa05f3bcc4550623d5d3fce752923786f2a937e03775a5274d726df76f0
+    lines: 74
+  - step: gates
+    at: 2026-10-26T00:16:25.336Z
+    head_sha: 208b052ec8e3add3863584e3ee94c683b03de54e
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-26T00:16:25.341Z
+    head_sha: 208b052ec8e3add3863584e3ee94c683b03de54e
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:syncRaceSchedules,functions:monitorScheduleChanges,functions:moonshotLiveSweep' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-182/apply-2026-10-26T00-16-25-341Z.log
+    log_sha256: 1d237df94233121daa9977831b410184141dae3493c005bbf21bf5840c19c924
+    lines: 47
+  - step: gates
+    at: 2026-10-26T00:17:48.561Z
+    head_sha: 208b052ec8e3add3863584e3ee94c683b03de54e
+    exit: 0
+    gates:
+      G15: skip
