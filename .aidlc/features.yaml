@@ -1522,7 +1522,7 @@ features:
     shipped_at: 2026-10-14
   - id: F-125
     name: "UC: Market reachable while locked"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-125.md
     created_at: 2026-10-25
     keywords:
@@ -1530,9 +1530,11 @@ features:
       - reachable
       - while
       - locked
+    version_shipped: 2.7.0
+    shipped_at: 2026-10-26
   - id: F-126
     name: "UC: Moonshot counter counts down at lock"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-126.md
     created_at: 2026-10-25
     keywords:
@@ -1541,15 +1543,19 @@ features:
       - counts
       - down
       - lock
+    version_shipped: 2.7.0
+    shipped_at: 2026-10-26
   - id: F-127
     name: "UC: Moonshot in the weekend recap"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-127.md
     created_at: 2026-10-25
     keywords:
       - moonshot
       - weekend
       - recap
+    version_shipped: 2.7.0
+    shipped_at: 2026-10-26
   - id: F-128
     name: "UC: OpenF1 authenticated feed"
     status: implemented
@@ -1564,7 +1570,7 @@ features:
       - results
   - id: F-129
     name: "UC: Race-day running score from live positions"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-129.md
     created_at: 2026-10-26
     keywords:
@@ -1573,3 +1579,5 @@ features:
       - score
       - live
       - positions
+    version_shipped: 2.7.0
+    shipped_at: 2026-10-26
