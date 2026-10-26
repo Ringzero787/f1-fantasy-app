@@ -487,13 +487,24 @@ export function liveChip(state: LiveState, cfg?: Pick<MoonshotClientConfig, 'cop
 }
 
 /** `races/{raceId}/live/positions`, as F-111's sweep writes it and the race-day card reads it. */
-export interface LivePositionsDoc { raceId: string; sessionKey: number | null; byDriver: Record<string, number>; atMs: number | null }
+/** F-129: the server's running score for the race session, per driver and per constructor; null until the sweep has written one. */
+export interface LiveRunning { drivers: Record<string, number>; constructors: Record<string, number> }
+export interface LivePositionsDoc { raceId: string; sessionKey: number | null; byDriver: Record<string, number>; atMs: number | null; running: LiveRunning | null }
+
+/** an id → finite number map from a stored field, or an empty one */
+function numberMapOf(v: unknown, min = -Infinity): Record<string, number> {
+  if (!v || typeof v !== 'object') return {};
+  return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, number] => typeof e[1] === 'number' && Number.isFinite(e[1]) && e[1] >= min));
+}
 
 export function toLiveDoc(d: Record<string, unknown> | undefined): LivePositionsDoc | null {
   if (!d) return null;
-  const by = d.byDriver && typeof d.byDriver === 'object' ? Object.fromEntries(Object.entries(d.byDriver as Record<string, unknown>).filter((e): e is [string, number] => typeof e[1] === 'number' && e[1] >= 1)) : {};
+  const by = numberMapOf(d.byDriver, 1);
   const at = d.at && typeof (d.at as { toMillis?: unknown }).toMillis === 'function' ? (d.at as { toMillis: () => number }).toMillis() : null;
-  return { raceId: String(d.raceId ?? ''), sessionKey: typeof d.sessionKey === 'number' ? d.sessionKey : null, byDriver: by, atMs: at };
+  const r = d.running && typeof d.running === 'object' ? (d.running as Record<string, unknown>) : null;
+  // a running score can be negative (places lost), so no floor; a document from before F-129 has none
+  const running = r ? { drivers: numberMapOf(r.drivers), constructors: numberMapOf(r.constructors) } : null;
+  return { raceId: String(d.raceId ?? ''), sessionKey: typeof d.sessionKey === 'number' ? d.sessionKey : null, byDriver: by, atMs: at, running };
 }
 
 /** The menu as the UI reads it: every list an array, every balance a number, so a partial answer cannot throw inside a render. */

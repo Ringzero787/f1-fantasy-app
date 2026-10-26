@@ -2,14 +2,20 @@
  * One live-timing ingest for race day (F-111). Every minute, while a race is in its window, this
  * sweep pulls the field's positions once from the timing feed and writes them to
  * `races/{raceId}/live/positions`; the app and the portal listen to that document instead of
- * asking the provider themselves. One request a minute whatever the audience, which is the
- * arrangement ADR-001 covers. With no race live it does one small query and exits.
+ * asking the provider themselves. Two requests a minute whatever the audience (positions, and the
+ * laps for the fastest lap), plus three once per race for the session, grid and driver list, which
+ * is the arrangement ADR-001 covers. With no race live it does one small query and exits.
+ *
+ * F-129: the same document carries the running score — what each driver and constructor would
+ * score for the race session at the current order — so the team tile can show a live number
+ * without the device computing anything from the feed.
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
-import { fetchSessions, type OpenF1Session } from '../ingestion/openf1Client';
+import { fetchDrivers, fetchSessions, findFastestLap, getGridPositions, type OpenF1Session } from '../ingestion/openf1Client';
 import { openf1Fetch, openf1Secrets } from '../ingestion/openf1Auth';
-import { DRIVER_NUMBER_TO_ID, SEASON_YEAR } from '../ingestion/config';
+import { DRIVER_NUMBER_TO_ID, SEASON_YEAR, TEAM_NAME_TO_ID } from '../ingestion/config';
+import { runningScore } from '../scoring/runningScore';
 import { loadMoonshotConfig } from './config';
 
 const BASE_URL = 'https://api.openf1.org/v1';
@@ -72,9 +78,44 @@ async function fetchPositions(sessionKey: number): Promise<PositionRow[]> {
   return (await res.json()) as PositionRow[];
 }
 
+/** Driver id → constructor id from the session's entry list, through the same team-name table the results ingest uses. */
+async function fetchConstructorOf(sessionKey: number): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const d of await fetchDrivers(sessionKey)) {
+    const driverId = Number.isInteger(d.driver_number) && Object.prototype.hasOwnProperty.call(DRIVER_NUMBER_TO_ID, d.driver_number) ? DRIVER_NUMBER_TO_ID[d.driver_number] : undefined;
+    const constructorId = d.team_name && Object.prototype.hasOwnProperty.call(TEAM_NAME_TO_ID, d.team_name) ? TEAM_NAME_TO_ID[d.team_name] : undefined;
+    if (driverId && constructorId) out[driverId] = constructorId;
+  }
+  return out;
+}
+
 /** The feed calls, injectable so the sweep can be driven by a test without the network. */
-export interface Feed { sessions: (year: number) => Promise<OpenF1Session[]>; positions: (sessionKey: number) => Promise<PositionRow[]> }
-const LIVE_FEED: Feed = { sessions: fetchSessions, positions: fetchPositions };
+export interface Feed {
+  sessions: (year: number) => Promise<OpenF1Session[]>;
+  positions: (sessionKey: number) => Promise<PositionRow[]>;
+  /** F-129, once per race: the published starting grid (driver id → slot) and who drives for whom */
+  grid: (sessionKey: number) => Promise<Record<string, number>>;
+  constructorOf: (sessionKey: number) => Promise<Record<string, string>>;
+  /** F-129, each minute: the driver holding the fastest lap so far */
+  fastestLap: (sessionKey: number) => Promise<string | null>;
+}
+/**
+ * The grid comes from /starting_grid only (no session list → no qualifying fallback): the official scorer runs after the
+ * race against the real grid with penalties and pit-lane starts, and a qualifying order fetched half an hour early would
+ * be kept for the whole race and give the wrong places gained. Until it is published the sweep asks again each minute.
+ */
+const fetchStartingGrid = (sessionKey: number): Promise<Record<string, number>> => getGridPositions([], sessionKey);
+const LIVE_FEED: Feed = { sessions: fetchSessions, positions: fetchPositions, grid: fetchStartingGrid, constructorOf: fetchConstructorOf, fastestLap: findFastestLap };
+
+/** Pure: a stored id → grid-slot map, or an empty one when the field is anything else (third-party data came through here once); slots are 1–30 like positions. */
+function intMapOf(v: unknown): Record<string, number> {
+  if (!v || typeof v !== 'object') return {};
+  return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, number] => Number.isInteger(e[1]) && (e[1] as number) >= 1 && (e[1] as number) <= 30));
+}
+function stringMapOf(v: unknown): Record<string, string> {
+  if (!v || typeof v !== 'object') return {};
+  return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string' && e[1].length > 0));
+}
 
 /** The sweep body, separated so it can be driven from a test or a manual call. */
 export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = Date.now(), feed: Feed = LIVE_FEED): Promise<{ raceId: string | null; written: boolean; drivers: number; off?: boolean }> {
@@ -86,17 +127,33 @@ export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = 
   const race = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<RaceLike, 'id'>) })).find((r) => isLive(r, nowMs));
   if (!race) return { raceId: null, written: false, drivers: 0 };
   const ref = db.doc(`races/${race.id}/live/positions`);
-  // the session is looked up once: the last document carries its key for the rest of the race
+  // the session is looked up once: the last document carries its key, grid and entry list for the rest of the race
   const prior = (await ref.get()).data();
-  let sessionKey: number | null = prior && prior.raceId === race.id && typeof prior.sessionKey === 'number' ? prior.sessionKey : null;
+  const same = !!prior && prior.raceId === race.id;
+  let sessionKey: number | null = same && typeof prior.sessionKey === 'number' ? prior.sessionKey : null;
+  let grid = same ? intMapOf(prior.grid) : {};
+  let constructorOf = same ? stringMapOf(prior.constructorOf) : {};
   if (sessionKey === null) {
     const session = sessionForRace(await feed.sessions(new Date(startMs(race) || nowMs).getUTCFullYear()), startMs(race));
     if (!session || !Number.isInteger(session.session_key)) { console.warn(`[live] ${race.id}: no race session on its day yet`); return { raceId: race.id, written: false, drivers: 0 }; }
     sessionKey = session.session_key;
   }
+  // F-129: grid and entry list are fetched until they come back non-empty (the grid is published close to the start), then kept
+  if (Object.keys(grid).length === 0) {
+    try { grid = intMapOf(await feed.grid(sessionKey)); } catch (e) { console.warn(`[live] ${race.id}: grid unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
+  }
+  if (Object.keys(constructorOf).length === 0) {
+    try { constructorOf = stringMapOf(await feed.constructorOf(sessionKey)); } catch (e) { console.warn(`[live] ${race.id}: entry list unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
+  }
   const byDriver = latestByDriver(await feed.positions(sessionKey));
   if (Object.keys(byDriver).length === 0) { console.log(`[live] ${race.id}: feed has no positions yet`); return { raceId: race.id, written: false, drivers: 0 }; }
-  await ref.set({ raceId: race.id, sessionKey, byDriver, source: 'openf1', at: admin.firestore.FieldValue.serverTimestamp() });
+  // the fastest lap is the second call a minute; when it fails the last known holder stands (a fastest lap so far can move, never vanish)
+  let fastestLap: string | null = same && typeof prior.fastestLap === 'string' ? prior.fastestLap : null;
+  try { fastestLap = await feed.fastestLap(sessionKey); } catch (e) { console.warn(`[live] ${race.id}: laps unavailable this minute, keeping the last holder:`, e instanceof Error ? e.message : String(e)); }
+  // only a driver the positions feed knows can hold it: anything else from the laps table is dropped before the write
+  if (typeof fastestLap !== 'string' || !Object.prototype.hasOwnProperty.call(byDriver, fastestLap)) fastestLap = null;
+  const running = runningScore(byDriver, grid, fastestLap, constructorOf);
+  await ref.set({ raceId: race.id, sessionKey, byDriver, grid, constructorOf, fastestLap, running, source: 'openf1', at: admin.firestore.FieldValue.serverTimestamp() });
   return { raceId: race.id, written: true, drivers: Object.keys(byDriver).length };
 }
 

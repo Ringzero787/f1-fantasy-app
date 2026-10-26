@@ -170,6 +170,20 @@ export function calculateQualifyingPoints(position: number): number {
 }
 
 /**
+ * A constructor's race points for one of its cars at a classified finishing position: position
+ * points plus the reverse-grid bonus, no places gained, no fastest lap (the team scorer's rule).
+ * SINGLE SOURCE OF TRUTH for the constructor race formula; Phase 0.5 and Phase 1 in
+ * calculatePoints.ts spell out the same two lines and should move here when next touched.
+ */
+export function constructorRacePoints(position: number): number {
+  if (!(position >= 1)) return 0;
+  let pts = 0;
+  if (position <= RACE_POINTS.length) pts += RACE_POINTS[position - 1];
+  if (position <= GRID_SIZE) pts += GRID_SIZE + 1 - position;
+  return pts;
+}
+
+/**
  * Per-race context the DNF penalty needs. Optional so existing callers keep the
  * flat penalty until they opt in by passing it.
  */

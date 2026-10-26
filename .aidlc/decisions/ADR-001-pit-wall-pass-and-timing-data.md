@@ -66,6 +66,32 @@ feed on 2026-10-25 under the 2026-09-28 reply above. Facts for whoever checks th
   confirmation that the arrangement covers the in-app live positions card. The permission request
   of 2026-09-19 told the provider we fetch once per session and do not mirror live timing; the
   sweep is one `/position` call a minute for about three hours per race, positions only, server
-  side, on a free surface that is never behind the pass. The restatement should say exactly that.
-  `DESIRED.liveTiming` in `setMoonshotConfig.js` is true from F-128 so the op is ready; it is not
-  raised before that confirmation.
+  side, on a free surface that is never behind the pass. The restatement should say exactly that
+  — **superseded on 2026-10-26 by the note below** (F-129: two calls a minute, a kept grid and
+  entry list, and a derived running score); the restatement must describe that, not this.
+  `DESIRED.liveTiming` in `setMoonshotConfig.js` stays **false** (F-128's review restored it: a
+  `uc-script` op passes only `--apply`, so an armed default would flip the switch with any other
+  config change); it is set true in the same change that raises the op, after that confirmation.
+
+## Note · 2026-10-26 · the running score widens the in-app surface (F-129)
+
+F-129 makes the same once-a-minute live document carry a running score — what each driver and
+constructor would score for the race session at the current order — shown on the Team screen's
+tiles and stat row for the race's three hours. Facts for the restatement to the provider and for
+whoever checks this later:
+
+- Volume: **two** feed calls a minute during a race once the grid is known (positions, and the
+  whole laps table for the fastest-lap holder), three a minute until the grid is published (the
+  grid is asked again each minute), and up to five on the first minute (session list, starting
+  grid, entry list); each call is bounded at 20 s and may retry once on a 429. Server side
+  only, inside the tier's 60 a minute. Still one Firestore document, still a free surface never
+  behind the pass.
+- What is kept, per race, in that document (readable by any signed-in user of the app, like the
+  positions before it): the positions, the starting-grid slot per driver, the entry list (driver →
+  team) and the id of the driver holding the fastest lap. Clients render none of these directly
+  beyond the Moonshot card's positions; they render the derived score, which is our scoring
+  formula over the provider's running order. Nothing else from the laps table is stored. The copy
+  calls it a running score, not a result.
+- The 2026-10-07 condition is unchanged and now covers this too: the switch goes on only once the
+  owner has the provider's written confirmation that the arrangement covers **live positions and a
+  derived running score inside the free app**. The owner's one-line restatement should say so.

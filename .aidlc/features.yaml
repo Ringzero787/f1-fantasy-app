@@ -1,4 +1,4 @@
-next_id: 129
+next_id: 130
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1562,3 +1562,14 @@ features:
       - token
       - live
       - results
+  - id: F-129
+    name: "UC: Race-day running score from live positions"
+    status: implemented
+    spec: .aidlc/specs/F-129.md
+    created_at: 2026-10-26
+    keywords:
+      - race
+      - running
+      - score
+      - live
+      - positions

@@ -7,9 +7,14 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { moonshotService, type LivePositionsDoc } from '../../services/moonshot.service';
-import type { RaceWindow } from '../grid/moonshot';
+import type { LiveRunning, RaceWindow } from '../grid/moonshot';
 
-export function useMoonshotLive(race: { id: string } | null, raceWin: RaceWindow, enabled: boolean): { positions: Map<string, number>; sessionKey: number | null; updatedAt: number | null } {
+/**
+ * F-129: `running` is the server's running score for the race session (per driver and constructor),
+ * null until the sweep has written one. The Team screen's tiles and stat row read it; the Moonshot
+ * card reads `positions`. One listener serves both.
+ */
+export function useMoonshotLive(race: { id: string } | null, raceWin: RaceWindow, enabled: boolean): { positions: Map<string, number>; sessionKey: number | null; updatedAt: number | null; running: LiveRunning | null } {
   const [doc, setDoc] = useState<LivePositionsDoc | null>(null);
   const raceId = race?.id ?? null;
   const live = enabled && raceWin === 'live';
@@ -21,5 +26,5 @@ export function useMoonshotLive(race: { id: string } | null, raceWin: RaceWindow
   }, [raceId, live]);
 
   const positions = useMemo(() => new Map(Object.entries(doc?.byDriver ?? {})), [doc]);
-  return { positions, sessionKey: doc?.sessionKey ?? null, updatedAt: doc?.atMs ?? null };
+  return { positions, sessionKey: doc?.sessionKey ?? null, updatedAt: doc?.atMs ?? null, running: doc?.running ?? null };
 }
