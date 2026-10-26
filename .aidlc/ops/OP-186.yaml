@@ -1,0 +1,106 @@
+id: OP-186
+title: Undercut 2.7.0 (vc74) to Play beta, keeping testing tracks current
+kind: uc-play-promote
+status: verified
+params:
+  code: "74"
+  track: beta
+  notes: "The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections right through the race weekend. Your Moonshot now shows in the weekend recap, with roster, Moonshot and weekend totals added up, and the Moonshot counter counts a token when the call locks, not when you place it. The Pit Wall ace call is the first thing in the driver sheet, with MAKE ACE right there."
+created_at: 2026-10-26T20:32:10.341Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-26T20:32:11.158Z
+    head_sha: 25680396a43ff73572e7391c6097390062cfba3f
+    command: "node scripts/ops/play-publish.js promote '74' --track='beta' --notes='The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections right through the race weekend. Your Moonshot now shows in the weekend recap, with roster, Moonshot and weekend totals added up, and the Moonshot counter counts a token when the call locks, not when you place it. The Pit Wall ace call is the first thing in the driver sheet, with MAKE ACE right there.'"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-186/dry-run-2026-10-26T20-32-11-158Z.log
+    log_sha256: 1a45a248124182381d0951401cdf981cc77e47b89f70180ad41bc12c60d0c4f2
+    lines: 4
+  - step: backup
+    at: 2026-10-26T20:33:02.227Z
+    head_sha: 25680396a43ff73572e7391c6097390062cfba3f
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-186'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-186/backup-2026-10-26T20-33-02-227Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-26T20:33:03.976Z
+    head_sha: 25680396a43ff73572e7391c6097390062cfba3f
+    exit: 1
+    gates:
+      G14: fail
+  - step: backup
+    at: 2026-10-26T20:34:27.532Z
+    head_sha: 4b7ab8916a7162edfcb39baf8ae5c55670848b34
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-186'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-186/backup-2026-10-26T20-34-27-532Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-26T20:34:29.296Z
+    head_sha: 4b7ab8916a7162edfcb39baf8ae5c55670848b34
+    exit: 1
+    gates:
+      G14: fail
+  - step: backup
+    at: 2026-10-26T20:39:59.319Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-186'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-186/backup-2026-10-26T20-39-59-319Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-26T20:40:01.102Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    exit: 1
+    gates:
+      G14: fail
+  - step: dry-run
+    at: 2026-10-26T20:40:26.455Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    command: "node scripts/ops/play-publish.js promote '74' --track='beta' --notes='The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections right through the race weekend. Your Moonshot now shows in the weekend recap, with roster, Moonshot and weekend totals added up, and the Moonshot counter counts a token when the call locks, not when you place it. The Pit Wall ace call is the first thing in the driver sheet, with MAKE ACE right there.'"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-186/dry-run-2026-10-26T20-40-26-455Z.log
+    log_sha256: 1a45a248124182381d0951401cdf981cc77e47b89f70180ad41bc12c60d0c4f2
+    lines: 4
+  - step: backup
+    at: 2026-10-26T20:40:45.015Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-186'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-186/backup-2026-10-26T20-40-45-015Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-26T20:40:46.838Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-26T20:40:46.840Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    command: "node scripts/ops/play-publish.js promote '74' --track='beta' --notes='The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections right through the race weekend. Your Moonshot now shows in the weekend recap, with roster, Moonshot and weekend totals added up, and the Moonshot counter counts a token when the call locks, not when you place it. The Pit Wall ace call is the first thing in the driver sheet, with MAKE ACE right there.' --apply --confirm=com.undercut.app"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-186/apply-2026-10-26T20-40-46-840Z.log
+    log_sha256: e57d49352310e3d6ddc72431973cf2364463b4e5ab733ad39585f31f221af58e
+    lines: 6
+  - step: verify
+    at: 2026-10-26T20:40:49.323Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    command: node scripts/ops/play-publish.js status
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-186/verify-2026-10-26T20-40-49-323Z.log
+    log_sha256: e0e473f92ce5fe169321d849d0b7e1e79f1931105064af92252fbbc5796a6f19
+    lines: 6
+  - step: gates
+    at: 2026-10-26T20:40:51.038Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    exit: 0
+    gates:
+      G15: skip
