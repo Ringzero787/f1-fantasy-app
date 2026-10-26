@@ -1,0 +1,38 @@
+id: OP-184
+title: "F-129: moonshotLiveSweep with the running score (inert while liveTiming is off); OP-183 named the target without the functions: prefix"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:moonshotLiveSweep
+created_at: 2026-10-26T18:49:27.875Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-26T18:49:31.501Z
+    head_sha: 1a5e7cbb7fc0bdfb0214538b8de31ed4e5be6a76
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-184/dry-run-2026-10-26T18-49-31-501Z.log
+    log_sha256: 7cb79de6dd079709ebe96c22fae38e4eca844f5a52115292a95d999fc50f9bb7
+    lines: 75
+  - step: gates
+    at: 2026-10-26T18:49:55.019Z
+    head_sha: 1a5e7cbb7fc0bdfb0214538b8de31ed4e5be6a76
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-26T18:49:55.023Z
+    head_sha: 1a5e7cbb7fc0bdfb0214538b8de31ed4e5be6a76
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:moonshotLiveSweep' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-184/apply-2026-10-26T18-49-55-023Z.log
+    log_sha256: d679f74e093efd050ec6fc60d0cf1a771f8c880069ff0f02f7ee3825442fb09d
+    lines: 31
+  - step: gates
+    at: 2026-10-26T18:51:12.441Z
+    head_sha: 1a5e7cbb7fc0bdfb0214538b8de31ed4e5be6a76
+    exit: 0
+    gates:
+      G15: skip
