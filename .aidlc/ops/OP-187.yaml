@@ -1,0 +1,64 @@
+id: OP-187
+title: Undercut 2.7.0 (vc74) to Play alpha, keeping testing tracks current
+kind: uc-play-promote
+status: verified
+params:
+  code: "74"
+  track: alpha
+  notes: "The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections right through the race weekend. Your Moonshot now shows in the weekend recap, with roster, Moonshot and weekend totals added up, and the Moonshot counter counts a token when the call locks, not when you place it. The Pit Wall ace call is the first thing in the driver sheet, with MAKE ACE right there."
+created_at: 2026-10-26T20:32:10.611Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-26T20:32:11.615Z
+    head_sha: 25680396a43ff73572e7391c6097390062cfba3f
+    command: "node scripts/ops/play-publish.js promote '74' --track='alpha' --notes='The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections right through the race weekend. Your Moonshot now shows in the weekend recap, with roster, Moonshot and weekend totals added up, and the Moonshot counter counts a token when the call locks, not when you place it. The Pit Wall ace call is the first thing in the driver sheet, with MAKE ACE right there.'"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-187/dry-run-2026-10-26T20-32-11-615Z.log
+    log_sha256: 3d83ddea8ba7bf4bfb9aae22050ff868c1c055bd7b60da883e9a7bf9f4f10d13
+    lines: 4
+  - step: dry-run
+    at: 2026-10-26T20:40:26.934Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    command: "node scripts/ops/play-publish.js promote '74' --track='alpha' --notes='The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections right through the race weekend. Your Moonshot now shows in the weekend recap, with roster, Moonshot and weekend totals added up, and the Moonshot counter counts a token when the call locks, not when you place it. The Pit Wall ace call is the first thing in the driver sheet, with MAKE ACE right there.'"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-187/dry-run-2026-10-26T20-40-26-934Z.log
+    log_sha256: 3d83ddea8ba7bf4bfb9aae22050ff868c1c055bd7b60da883e9a7bf9f4f10d13
+    lines: 4
+  - step: backup
+    at: 2026-10-26T20:40:51.318Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-187'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-187/backup-2026-10-26T20-40-51-318Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-26T20:40:53.372Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-26T20:40:53.373Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    command: "node scripts/ops/play-publish.js promote '74' --track='alpha' --notes='The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections right through the race weekend. Your Moonshot now shows in the weekend recap, with roster, Moonshot and weekend totals added up, and the Moonshot counter counts a token when the call locks, not when you place it. The Pit Wall ace call is the first thing in the driver sheet, with MAKE ACE right there.' --apply --confirm=com.undercut.app"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-187/apply-2026-10-26T20-40-53-373Z.log
+    log_sha256: 30106cb05b4536237b48e9b456ff014dd8586931eb65d83ca2bf7e59259f7342
+    lines: 6
+  - step: verify
+    at: 2026-10-26T20:40:55.929Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    command: node scripts/ops/play-publish.js status
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-187/verify-2026-10-26T20-40-55-929Z.log
+    log_sha256: f68644e8562814d9089d259a451b226a2c9a17d62747a317f9eb28c1d8eeb9ba
+    lines: 6
+  - step: gates
+    at: 2026-10-26T20:40:57.942Z
+    head_sha: b46d8d2e9dd8179ef8f93b2cd0ea499128d67bf1
+    exit: 0
+    gates:
+      G15: skip
