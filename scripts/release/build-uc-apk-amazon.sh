@@ -28,6 +28,12 @@ if [ "${EXPO_PUBLIC_ALLOW_DEMO:-}" = 1 ]; then
   echo "EXPO_PUBLIC_ALLOW_DEMO=1 is set — refusing to make a store build with the demo entry enabled" >&2; exit 7
 fi
 
+# The Firebase web config reaches the JS bundle only through the untracked .env (see build-uc-aab.sh:
+# 2.7.0 shipped without it and crashed at launch). Refuse to build without it; the bundle is checked below.
+if [ -z "${EXPO_PUBLIC_FIREBASE_API_KEY:-}" ] && ! grep -qE '^EXPO_PUBLIC_FIREBASE_API_KEY=.+' "$ROOT/.env" 2>/dev/null; then
+  echo ".env with EXPO_PUBLIC_FIREBASE_API_KEY missing at the repo root (untracked; copy it from the main checkout) — the bundle would ship without a Firebase config and crash at launch" >&2; exit 6
+fi
+
 VC=$(node "$ROOT/scripts/release/bump-app-version.js" "$ROOT/app.config.js" "$VERSION")
 
 cd "$ROOT"
@@ -99,6 +105,12 @@ BUNDLE=$(unzip -p "$APK" assets/index.android.bundle | strings || true)
 ROUTES=$(grep -o '\./[A-Za-z()_/.-]*\.tsx' <<<"$BUNDLE" | sort -u || true)
 if ! grep -q '(simple)/index\.tsx' <<<"$ROUTES" || grep -q '(tabs)/garage\.tsx' <<<"$ROUTES"; then
   echo "APK's JS bundle is not Undercut's (expected (simple)/index.tsx, no Track Limits routes) — check metro.config.js" >&2
+  exit 4
+fi
+# Hermes keeps some literals as UTF-16, so both encodings are read. A Firebase web API key starts "AIza".
+KEYS=$(( $(grep -c 'AIza' <<<"$BUNDLE" || true) + $(unzip -p "$APK" assets/index.android.bundle | strings -n 8 -e l | grep -c 'AIza' || true) ))
+if [ "$KEYS" -lt 1 ]; then
+  echo "APK's JS bundle carries no Firebase web API key — .env was not read at bundle time; this build would crash at launch (auth/invalid-api-key)" >&2
   exit 4
 fi
 # What used to be here: `grep signInWithAmazon` on the bundle, as proof the Amazon sign-in path was
