@@ -1,6 +1,6 @@
 # Undercut 2.7.1 — release notes
 
-Android versionCode 76 · Amazon versionCode 76 · iOS build 60
+Android versionCode 77 · Amazon versionCode 77 · iOS build 61
 
 Cut 2026-10-27, the day after 2.7.0. **2.7.0 crashes at launch on every platform**: it was built
 from a worktree that had every untracked input except `.env`, so the Firebase web config was
@@ -13,9 +13,9 @@ Who saw 2.7.0: Google Play players (vc74 went to production and every testing tr
 2026-10-26) **and App Store players: Apple approved and released 2.7.0 (build 58) overnight**, so
 it was READY_FOR_SALE by the morning of 2026-10-27. Amazon's vc74 submission was withdrawn before
 it went live, so Amazon goes from its earlier version straight to 2.7.1. The Play and App Store
-notes therefore both open with the crash fix; Amazon's do not. VersionCode 75 / iOS build 59 were
-a throwaway 2.7.1 cut made before F-130 landed; never published (build 59 sits unused in App
-Store Connect).
+notes therefore both open with the crash fix; Amazon's do not. VersionCodes 75 and 76 / iOS
+builds 59 and 60 were earlier 2.7.1 cuts made before F-130 was finished; never published (59 and
+60 sit unused in App Store Connect).
 
 ## Store copy
 
@@ -92,8 +92,8 @@ string, the 2.7.0 Play, Amazon and iOS bundles contain none. The throwaway vc75 
 the Welcome screen on the same emulator.
 
 ## Platform notes
-- **Google Play**: versionCode 76 to production and every testing track, replacing 74.
-- **Amazon Appstore**: versionCode 76 replaces the withdrawn 74; title unchanged.
-- **iOS**: build 60 on the 2.7.1 version; build 58 removed from review, never released; 59 unused.
+- **Google Play**: versionCode 77 to production and every testing track, replacing 74.
+- **Amazon Appstore**: versionCode 77 replaces the withdrawn 74; title unchanged.
+- **iOS**: build 61 on the 2.7.1 version; build 58 is the released crasher; 59 and 60 unused.
 - **`config/app.minVersion` is untouched** (2.3.2). 2.7.0 cannot reach the config read, so a
   forced-update gate would not help it; players must take the store update.
