@@ -17,6 +17,7 @@ import { AppUpdateGate } from '../src/components/AppUpdateGate';
 import { LaunchReveal } from '../src/simple/grid/LaunchReveal';
 import { useLayout } from '../src/hooks/useLayout';
 import { useRemoteConfigStore } from '../src/store/remoteConfig.store';
+import { useAuthStore } from '../src/store/auth.store';
 import { usePrefsStore } from '../src/store/prefs.store';
 import { usePurchaseStore } from '../src/store/purchase.store';
 import '../src/i18n/bootstrap';
@@ -70,6 +71,10 @@ export default function RootLayout() {
 
   // Load remote config from Firestore on startup
   useEffect(() => { useRemoteConfigStore.getState().initialize(); }, []);
+  // F-130: the startup fetch can run before the session is restored, and `config/app` (Moonshot,
+  // the version gate) is readable only signed in. Once sign-in is known, fetch again if needed.
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  useEffect(() => { if (isAuthenticated) void useRemoteConfigStore.getState().ensureSignedInConfig(); }, [isAuthenticated]);
 
   /**
    * Open the store connection and register the purchase listener.

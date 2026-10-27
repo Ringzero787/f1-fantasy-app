@@ -60,7 +60,8 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
   const races = useRemoteConfigStore((s) => s.races);
   const drivers = useRemoteConfigStore((s) => s.drivers);
   const constructors = useRemoteConfigStore((s) => s.constructors);
-  const configLoaded = useRemoteConfigStore((s) => s.isLoaded);
+  // the config as a signed-in reader gets it: before that, Moonshot reads as off (see ensureSignedInConfig)
+  const configLoaded = useRemoteConfigStore((s) => s.isLoaded && s.fetchedSignedIn);
   const members = useLeagueStore((s) => s.members);
   const seenRecaps = usePrefsStore((s) => s.seenRecaps);
   const markRecapSeen = usePrefsStore((s) => s.markRecapSeen);

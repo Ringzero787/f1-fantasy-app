@@ -3,6 +3,7 @@ import { remoteConfigService, type GameConfig, type RemoteData, type AppVersionC
 import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
 import type { Driver, Constructor, Race } from '../types';
 import { TEAM_COLORS } from '../config/constants';
+import { firebaseAuth } from '../config/firebase';
 
 interface RemoteConfigState {
   // Config
@@ -17,6 +18,9 @@ interface RemoteConfigState {
 
   // State
   isLoaded: boolean;
+  /** F-130: the last fetch ran with a signed-in session, so the signed-in-only documents were readable */
+  fetchedSignedIn: boolean;
+  ensureSignedInConfig: () => Promise<void>;
   isLoading: boolean;
   lastFetched: number | null;
 
@@ -41,12 +45,14 @@ export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
   races: demoRaces,
   teamColors: TEAM_COLORS,
   isLoaded: false,
+  fetchedSignedIn: false,
   isLoading: false,
   lastFetched: null,
 
   initialize: async () => {
     if (get().isLoading) return;
     set({ isLoading: true });
+    const signedIn = !!firebaseAuth.currentUser;
 
     try {
       const data = await remoteConfigService.fetchAll();
@@ -67,6 +73,16 @@ export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
       console.warn('[RemoteConfig] Failed to load, using defaults:', err);
       set({ isLoaded: true, isLoading: false });
     }
+    set({ fetchedSignedIn: signedIn });
+  },
+
+  // F-130: `config/app` and `config/gameRules` are readable only when signed in. The startup fetch
+  // can run before the session has been restored, in which case both fall back to defaults —
+  // Moonshot reads as off, the version gate as open — for the rest of the session. Called once
+  // sign-in is known; a no-op when the last fetch already ran signed in.
+  ensureSignedInConfig: async () => {
+    if (get().fetchedSignedIn) return;
+    await get().initialize();
   },
 
   refresh: async () => {
