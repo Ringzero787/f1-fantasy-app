@@ -105,9 +105,39 @@ export function planLineup(
   };
 }
 
-/** Can this unselected market entry be added on top of the pending plan? */
-export function canAffordAdd(plan: LineupPlan, price: number): boolean {
-  return price <= plan.budgetAfter;
+/**
+ * Can this unselected market entry be added on top of the pending plan?
+ *
+ * `reserve` is the cheapest way to finish the rest of the lineup after this pick (the open
+ * driver seats at the lowest prices, plus the cheapest constructor while none is picked). A pick
+ * that fits the cash but leaves nothing for the slots still open is a dead end: the owner picked
+ * every Pit Wall driver and then could not afford any constructor, because the cheapest one was
+ * never held back. The picker therefore blocks such a row, and Pit Wall — which only ranks what
+ * the picker allows — never recommends it.
+ */
+export function canAffordAdd(plan: LineupPlan, price: number, reserve = 0): boolean {
+  return price + Math.max(0, reserve) <= plan.budgetAfter;
+}
+
+/**
+ * A constructor row is affordable when the swap budget (the pending constructor refunded) covers
+ * it and the cheapest fill of the open driver seats, since picking a constructor fills no seat.
+ */
+export function canAffordConstructor(price: number, swapBudget: number, driverFill: number): boolean {
+  return price + Math.max(0, driverFill) <= swapBudget;
+}
+
+/**
+ * What the lineup still lacks, for the save summary: a partial lineup saves (the seats fill at
+ * lock, F-044), the player is told what is open and what happens to it. Auto-fill only takes what
+ * the bank covers, so when it cannot cover the cheapest fill the line says that instead.
+ */
+export function openSlotsLine(plan: LineupPlan, bankTooLow = false): string | null {
+  const parts: string[] = [];
+  if (plan.missingDrivers > 0) parts.push(`${plan.missingDrivers} DRIVER${plan.missingDrivers > 1 ? 'S' : ''}`);
+  if (plan.missingConstructor) parts.push('CONSTRUCTOR');
+  if (parts.length === 0) return null;
+  return `${parts.join(' + ')} STILL OPEN · ${bankTooLow ? 'BANK TOO LOW TO FILL AT LOCK' : 'AUTO-FILLS AT LOCK'}`;
 }
 
 /**
@@ -132,14 +162,20 @@ export function constructorSwapBudget(plan: LineupPlan, current: CurrentLineup, 
  * constructor was told to pick one more driver — the one thing they could not do, since the driver
  * list was already full. The label now asks for one kind at a time: drivers first, because the
  * constructor is cheap to fit afterwards and the counts beside it (`3/5 · 0/1`) show the rest.
+ *
+ * A changed lineup saves whether or not it is complete. The second version held SAVE back until
+ * all six seats were filled, so a player who had picked four drivers had to pick a constructor
+ * they could not afford before any of the four could be kept; the open seats auto-fill at lock
+ * anyway, and the summary says so. The PICK… labels now only guide an unchanged, incomplete lineup.
  */
 export function saveLabel(plan: LineupPlan, locked: boolean): { label: string; ready: boolean } {
   if (locked) return { label: 'LOCKED · AUTO-FILL ON', ready: false };
+  // a plan the bank cannot cover (stale prices between seeding and save) must not reach the server
+  if (plan.changed) return plan.budgetAfter < 0 ? { label: 'OVER BUDGET', ready: false } : { label: 'SAVE LINEUP', ready: true };
   if (plan.missingDrivers > 0) {
     const n = plan.missingDrivers;
     return { label: `PICK ${n} DRIVER${n > 1 ? 'S' : ''}`, ready: false };
   }
   if (plan.missingConstructor) return { label: 'PICK A CONSTRUCTOR', ready: false };
-  if (!plan.changed) return { label: 'LINEUP SAVED', ready: false };
-  return { label: 'SAVE LINEUP', ready: true };
+  return { label: 'LINEUP SAVED', ready: false };
 }

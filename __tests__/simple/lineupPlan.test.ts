@@ -1,4 +1,4 @@
-import { planLineup, pendingFromCurrent, canAffordAdd, constructorSwapBudget, saveLabel } from '../../src/simple/grid/lineupPlan';
+import { planLineup, pendingFromCurrent, canAffordAdd, canAffordConstructor, constructorSwapBudget, saveLabel, openSlotsLine } from '../../src/simple/grid/lineupPlan';
 
 const market = {
   drivers: {
@@ -49,6 +49,27 @@ describe('planLineup', () => {
     const fourNoCtor = { ...full, drivers: full.drivers.slice(0, 4) };
     expect(saveLabel(planLineup(fourNoCtor, pendingFromCurrent(fourNoCtor), market, opts), false)).toEqual({ label: 'PICK 1 DRIVER', ready: false });
   });
+  it('saves a changed lineup even when seats are still open, and names what auto-fills', () => {
+    // The owner picked four drivers, was told PICK A CONSTRUCTOR, could not afford one, and left
+    // with nothing kept. Open seats auto-fill at lock; the picks must save.
+    const empty = { budget: 1000, drivers: [], constructor: null };
+    const partial = planLineup(empty, { driverIds: ['lindqvist'], constructorId: null, contracts: {} }, market, opts);
+    expect(partial.changed).toBe(true);
+    expect(partial.complete).toBe(false);
+    expect(saveLabel(partial, false)).toEqual({ label: 'SAVE LINEUP', ready: true });
+    expect(saveLabel(partial, true)).toEqual({ label: 'LOCKED · AUTO-FILL ON', ready: false });
+    expect(openSlotsLine(partial)).toBe('4 DRIVERS + CONSTRUCTOR STILL OPEN · AUTO-FILLS AT LOCK');
+    const oneShort = planLineup(empty, { driverIds: ['lindqvist', 'a', 'b', 'c'], constructorId: 'apex', contracts: {} }, { ...market, drivers: { ...market.drivers, a: { id: 'a', name: 'A', price: 1 }, b: { id: 'b', name: 'B', price: 1 }, c: { id: 'c', name: 'C', price: 1 } } }, opts);
+    expect(openSlotsLine(oneShort)).toBe('1 DRIVER STILL OPEN · AUTO-FILLS AT LOCK');
+    const noCtor = planLineup(empty, { driverIds: ['lindqvist', 'a', 'b', 'c', 'varga'], constructorId: null, contracts: {} }, { ...market, drivers: { ...market.drivers, a: { id: 'a', name: 'A', price: 1 }, b: { id: 'b', name: 'B', price: 1 }, c: { id: 'c', name: 'C', price: 1 } } }, opts);
+    expect(openSlotsLine(noCtor)).toBe('CONSTRUCTOR STILL OPEN · AUTO-FILLS AT LOCK');
+    expect(openSlotsLine(noCtor, true)).toBe('CONSTRUCTOR STILL OPEN · BANK TOO LOW TO FILL AT LOCK');
+    expect(openSlotsLine(planLineup(empty, { driverIds: ['lindqvist', 'a', 'b', 'c', 'varga'], constructorId: 'apex', contracts: {} }, { ...market, drivers: { ...market.drivers, a: { id: 'a', name: 'A', price: 1 }, b: { id: 'b', name: 'B', price: 1 }, c: { id: 'c', name: 'C', price: 1 } } }, opts))).toBeNull();
+    // the bank going negative (stale prices) holds the save on the client, before the server would
+    expect(saveLabel({ ...partial, budgetAfter: -1 }, false)).toEqual({ label: 'OVER BUDGET', ready: false });
+    // an unchanged, incomplete lineup still gets the guidance rather than a dead SAVE
+    expect(saveLabel(planLineup(empty, pendingFromCurrent(empty), market, opts), false)).toEqual({ label: 'PICK 5 DRIVERS', ready: false });
+  });
   it('sells with the early-termination fee and buys with the chosen contract', () => {
     const pending = { driverIds: ['lindqvist', 'marchetti'], constructorId: 'apex', contracts: { marchetti: 5 } };
     const plan = planLineup(current, pending, market, opts);
@@ -84,6 +105,17 @@ describe('planLineup', () => {
     const plan = planLineup(current, pendingFromCurrent(current), market, opts);
     expect(canAffordAdd(plan, 90)).toBe(true);
     expect(canAffordAdd(plan, 380)).toBe(false);
+    // the reserve is the cheapest finish for the seats still open: a $65 driver on a $65 budget is
+    // not affordable while the cheapest constructor costs $20
+    expect(canAffordAdd({ ...plan, budgetAfter: 65 }, 65)).toBe(true);
+    expect(canAffordAdd({ ...plan, budgetAfter: 65 }, 65, 20)).toBe(false);
+    expect(canAffordAdd({ ...plan, budgetAfter: 65 }, 45, 20)).toBe(true);
+    expect(canAffordAdd({ ...plan, budgetAfter: 65 }, 65, -5)).toBe(true);
+    // a constructor fills no driver seat: the whole cheapest driver fill is held back
+    expect(canAffordConstructor(29, 65, 36)).toBe(true);
+    expect(canAffordConstructor(30, 65, 36)).toBe(false);
+    expect(canAffordConstructor(65, 65, 0)).toBe(true);
+    expect(canAffordConstructor(65, 65, -4)).toBe(true);
     // keeping McLaren: swapping means selling it (2 of 3 held → fee) first
     const swapBudget = constructorSwapBudget(plan, current, pendingFromCurrent(current), market.constructors);
     expect(swapBudget).toBeGreaterThan(100);

@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, Modal, Alert, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
+import { usePreventRemove, type NavigationAction } from '@react-navigation/native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { useDrivers } from '../../hooks/useDrivers';
@@ -28,11 +29,11 @@ import { ColorBar, MonoLabel, PillButton, ScreenHeader, SegmentPill, ValuePill }
 import { formatLockStatus } from './lockStatus';
 import { trendOf, surnameOf as surname } from './tileState';
 import {
-  planLineup, pendingFromCurrent, canAffordAdd, constructorSwapBudget, saveLabel,
+  planLineup, pendingFromCurrent, canAffordAdd, canAffordConstructor, constructorSwapBudget, saveLabel, openSlotsLine,
   type PendingLineup, type CurrentLineup, type MarketEntry, type LineupPlan, type Kind,
 } from './lineupPlan';
 import {
-  cheapestCompletion, formatValue, leftoverLine, leftoverTight, pairingHints, valueOf,
+  cheapestCompletion, driverReserve, formatValue, leftoverLine, leftoverTight, pairingHints, valueOf,
 } from './pickerArithmetic';
 import type { Driver, Constructor } from '../../types';
 
@@ -135,14 +136,30 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const driversFull = (pending?.driverIds.length ?? 0) >= TEAM_SIZE;
   const ctorSwapBudget = plan && current && pending ? constructorSwapBudget(plan, current, pending, market.constructors) : 0;
 
+  // What the lineup still needs after any one pick, at the cheapest prices on the list: the open
+  // driver seats and, while no constructor is picked, the cheapest constructor. A row that leaves
+  // less than this is a dead end (the owner filled five seats with Pit Wall's drivers and could then
+  // afford no constructor at all), so it is blocked, Pit Wall never marks it, and the leftover line
+  // counts the constructor as a seat.
+  const openDriverPrices = useMemo(() => (allDrivers ?? [])
+    .filter((d) => pending && !pending.driverIds.includes(d.id) && !isDriverLockedOut(team?.driverLockouts, d.id, completedRaceCount))
+    .map((d) => d.price), [allDrivers, pending, team?.driverLockouts, completedRaceCount]);
+  const cheapestCtor = useMemo(() => {
+    const prices = (allConstructors ?? []).map((c) => c.price).filter((p) => p > 0);
+    return prices.length ? Math.min(...prices) : null;
+  }, [allConstructors]);
+  const ctorReserve = plan?.missingConstructor ? cheapestCtor ?? 0 : 0;
+  const missingDrivers = plan?.missingDrivers ?? 0;
+
   const rows = useMemo<Row[]>(() => {
     if (!pending || !plan) return [];
+    const driverFill = cheapestCompletion(openDriverPrices, missingDrivers) ?? 0;
     const list: Row[] = tab === 'drivers'
       ? (allDrivers ?? []).map((d: Driver) => {
           const selected = pending.driverIds.includes(d.id);
           const onRoster = current?.drivers.some((r) => r.id === d.id) ?? false;
           const lockedOut = isDriverLockedOut(team?.driverLockouts, d.id, completedRaceCount);
-          const affordable = onRoster || canAffordAdd(plan, d.price);
+          const affordable = onRoster || canAffordAdd(plan, d.price, driverReserve(d.price, openDriverPrices, missingDrivers, ctorReserve));
           return {
             kind: 'driver', id: d.id, num: String(d.number ?? '').padStart(2, '0'), name: surname(d.name), fullName: d.name,
             sub: constructorShortName(d.constructorId, d.constructorName), constructorId: d.constructorId,
@@ -155,7 +172,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       : (allConstructors ?? []).map((c: Constructor) => {
           const selected = pending.constructorId === c.id;
           const isCurrent = current?.constructor?.id === c.id;
-          const affordable = isCurrent || c.price <= ctorSwapBudget;
+          const affordable = isCurrent || canAffordConstructor(c.price, ctorSwapBudget, driverFill);
           return {
             kind: 'constructor', id: c.id, num: c.shortName?.slice(0, 3).toUpperCase() ?? '', name: constructorShortName(c.id, c.name), fullName: c.name,
             sub: c.name, constructorId: c.id, pts: c.currentSeasonPoints ?? c.fantasyPoints ?? 0, price: c.price, selected,
@@ -171,7 +188,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       for (const row of list) row.mark = marks[row.id] ?? null;
     }
     if (tab === 'drivers' && plan) {
-      const hints = pairingHints(list, plan.budgetAfter, plan.missingDrivers);
+      const hints = pairingHints(list, plan.budgetAfter, plan.missingDrivers, ctorReserve);
       for (const h of hints) {
         const row = list.find((r) => r.id === h.id);
         if (row) row.hint = h.label;
@@ -180,7 +197,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     const by: Sort = sort === 'proj' && !proj ? 'pts' : sort;
     list.sort((a, b) => (by === 'value' ? (b.value ?? -1) - (a.value ?? -1) : by === 'proj' ? (b.proj ?? -1) - (a.proj ?? -1) : by === 'pts' ? b.pts - a.pts : b.price - a.price));
     return list;
-  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, driversFull, ctorSwapBudget, sort, proj]);
+  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, driversFull, ctorSwapBudget, sort, proj, openDriverPrices, missingDrivers, ctorReserve]);
 
   // F-125: while locked the screen is the market to look at, not a picker — every row is readable at
   // full strength (a dimmed row means "you cannot take this one", which is not the message during a
@@ -251,6 +268,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       router.back();
     } catch (e) {
       setSummaryOpen(false);
+      setLeaving(false);
       const reason = e instanceof Error ? e.message : 'Something went wrong.';
       const applied = done.length ? `Already applied: ${done.join(', ')}.\n\n` : '';
       Alert.alert('Lineup partly saved', `${applied}${reason}\n\nYour roster below shows what the server holds.`);
@@ -271,12 +289,34 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const ctorCount = pending?.constructorId ? 1 : 0;
   const complete = pickedCount >= TEAM_SIZE && ctorCount === 1;
   const budgetAfter = plan?.budgetAfter ?? budget;
-  const openDriverPrices = (allDrivers ?? [])
-    .filter((d) => pending && !pending.driverIds.includes(d.id) && !isDriverLockedOut(team?.driverLockouts, d.id, completedRaceCount))
-    .map((d) => d.price);
-  const cheapestFill = cheapestCompletion(openDriverPrices, plan?.missingDrivers ?? 0);
-  const leftover = leftoverLine(budgetAfter, plan?.missingDrivers ?? 0, cheapestFill);
+  const missingCtor = plan?.missingConstructor ?? false;
+  const driverFillCost = cheapestCompletion(openDriverPrices, missingDrivers);
+  const cheapestFill = driverFillCost == null ? null : driverFillCost + ctorReserve;
+  const leftover = leftoverLine(budgetAfter, missingDrivers, cheapestFill, missingCtor);
   const leftoverWarn = leftoverTight(budgetAfter, cheapestFill);
+  const openSlots = plan ? openSlotsLine(plan, leftoverWarn) : null;
+
+  // Leaving with unsaved picks opens the save summary instead of dropping them: the owner picked
+  // four drivers, could not save, and left with nothing kept. `usePreventRemove` catches every way
+  // off the screen — CANCEL, the hardware back, the iOS swipe, a programmatic pop — and hands us
+  // the action to replay once the player chooses LEAVE WITHOUT SAVING. Not armed while a save is
+  // applying (its own `router.back()` must go through) or once the player has chosen to discard.
+  const navigation = useNavigation();
+  const [leaving, setLeaving] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  const blockedPop = useRef<NavigationAction | null>(null);
+  const unsaved = !!plan?.changed && !locked;
+  usePreventRemove(unsaved && !applying && !discarding, ({ data }) => {
+    blockedPop.current = data.action;
+    setLeaving(true);
+    setSummaryOpen(true);
+  });
+  useEffect(() => {
+    if (!discarding) return;
+    const action = blockedPop.current;
+    blockedPop.current = null;
+    if (action) navigation.dispatch(action); else router.back();
+  }, [discarding, navigation]);
   const gutter = spacing.xl;
   // Large display sizes: fewer scaled columns so names keep their room.
   const compact = displayScale > 1.15;
@@ -296,6 +336,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     const trendColor = t.trend === 'up' ? colors.positive : t.trend === 'down' ? colors.primary : colors.text.muted;
     // this race's call stays reachable from its row after lock (to look at it); a new one does not, the lock has passed
     const moonshotRow = moonshotOpen && item.kind === 'driver' && (moonshotCurrent ? moonshotCurrent.driverId === item.id : !lockoutInfo.isLocked);
+    const pick = item.mark === 'pick';
     return (
       <Pressable
         onPress={() => onRowPress(item)}
@@ -307,27 +348,37 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: scaled(14),
           borderBottomWidth: 1, borderBottomColor: colors.borderLight,
           opacity: item.blocked ? 0.35 : pressed ? 0.7 : 1,
+          // the pick row spans the gutter: a tinted band with the accent on the screen edge
+          ...(pick ? { backgroundColor: colors.primaryFaint, marginHorizontal: -gutter, paddingHorizontal: gutter, paddingLeft: gutter - 3, borderLeftWidth: 3, borderLeftColor: colors.primary } : null),
         })}
       >
         <Text style={[mono(12), { width: compact ? 34 : scaled(36), color: colors.text.muted }]}>{item.num}</Text>
         <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
+          {/* Pit Wall's pick is the whole row (tint + edge bar) with its label on a line of its own; the
+              badges used to sit beside the team name and ran under the stats column. Nothing is inline
+              with the name any more: the label pushes the row down, the hints wrap below. */}
+          {pick ? <Text style={[mono(9, 'medium'), { color: colors.primary, letterSpacing: 1 }]}>PIT WALL PICK</Text> : null}
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>
             {item.name}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <ColorBar color={teamAccent(item.constructorId)} width={scaled(20)} />
             <Text numberOfLines={1} style={[mono(10), { color: colors.text.muted, textTransform: 'uppercase', flexShrink: 1 }]}>{item.sub}</Text>
-            {item.hint ? (
-              <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: colors.borderStrong }}>
-                <Text style={[mono(9), { color: colors.text.muted }]}>{item.hint}</Text>
-              </View>
-            ) : null}
-            {item.mark ? (
-              <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: item.mark === 'pick' ? colors.primary : 'transparent', borderWidth: 1, borderColor: item.mark === 'pick' ? colors.primary : colors.borderStrong }}>
-                <Text style={[mono(9), { color: item.mark === 'pick' ? colors.text.inverse : colors.text.muted }]}>{item.mark === 'pick' ? 'PIT WALL PICK' : 'BEST VALUE'}</Text>
-              </View>
-            ) : null}
           </View>
+          {item.hint || item.mark === 'value' ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 1 }}>
+              {item.mark === 'value' ? (
+                <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: colors.borderStrong }}>
+                  <Text style={[mono(9), { color: colors.text.muted }]}>BEST VALUE</Text>
+                </View>
+              ) : null}
+              {item.hint ? (
+                <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: colors.borderStrong }}>
+                  <Text style={[mono(9), { color: colors.text.muted }]}>{item.hint}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </View>
         <View style={{ alignItems: 'flex-end', gap: 4 }}>
           <Text style={mono(15)}>{item.pts}</Text>
@@ -351,7 +402,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         </View>
       </Pressable>
     );
-  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress, compact, locked, lockoutInfo.isLocked, moonshotOpen, moonshotCurrent, moonshotRace, team]);
+  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress, compact, locked, lockoutInfo.isLocked, moonshotOpen, moonshotCurrent, moonshotRace, team, gutter]);
 
   const sheetBudgetAfter = sheet && plan ? (sheet.kind === 'driver' ? plan.budgetAfter - sheet.entry.price : ctorSwapBudget - sheet.entry.price) : 0;
 
@@ -417,7 +468,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           label={applying ? 'SAVING…' : save.label}
           variant={save.ready ? 'primary' : 'muted'}
           disabled={!save.ready || applying}
-          onPress={save.ready ? () => setSummaryOpen(true) : undefined}
+          onPress={save.ready ? () => { setLeaving(false); setSummaryOpen(true); } : undefined}
         />
       </View>
 
@@ -455,8 +506,8 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       </Modal>
 
       {/* Save summary */}
-      <Modal visible={summaryOpen} transparent animationType="fade" onRequestClose={() => !applying && setSummaryOpen(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }} onPress={() => !applying && setSummaryOpen(false)}>
+      <Modal visible={summaryOpen} transparent animationType="fade" onRequestClose={() => { if (!applying) { setSummaryOpen(false); setLeaving(false); } }}>
+        <Pressable style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }} onPress={() => { if (!applying) { setSummaryOpen(false); setLeaving(false); } }}>
           <Pressable onPress={() => {}} style={{ backgroundColor: colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: colors.border, padding: gutter, paddingBottom: Math.max(insets.bottom, 12) + 22, gap: 12 }}>
             <MonoLabel>SAVE LINEUP</MonoLabel>
             {plan?.sells.map((s) => (
@@ -481,8 +532,12 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
               <MonoLabel>BANK AFTER</MonoLabel>
               <Text style={[mono(16), { color: (plan?.budgetAfter ?? 0) < 0 ? colors.primary : colors.text.primary }]}>${plan?.budgetAfter ?? 0}</Text>
             </View>
+            {openSlots ? <MonoLabel size={10} color={colors.warning}>{openSlots}</MonoLabel> : null}
             <PillButton label={applying ? 'SAVING…' : 'CONFIRM'} variant="primary" disabled={applying} onPress={applyPlan} style={{ marginTop: 6 }} />
-            <Pressable disabled={applying} onPress={() => setSummaryOpen(false)} style={{ alignItems: 'center', paddingVertical: 8 }}><MonoLabel color={colors.text.muted}>BACK</MonoLabel></Pressable>
+            {leaving ? (
+              <Pressable disabled={applying} onPress={() => { setSummaryOpen(false); setLeaving(false); setDiscarding(true); }} accessibilityRole="button" style={{ alignItems: 'center', paddingVertical: 8 }}><MonoLabel color={colors.primary}>LEAVE WITHOUT SAVING</MonoLabel></Pressable>
+            ) : null}
+            <Pressable disabled={applying} onPress={() => { setSummaryOpen(false); setLeaving(false); }} style={{ alignItems: 'center', paddingVertical: 8 }}><MonoLabel color={colors.text.muted}>{leaving ? 'KEEP EDITING' : 'BACK'}</MonoLabel></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
