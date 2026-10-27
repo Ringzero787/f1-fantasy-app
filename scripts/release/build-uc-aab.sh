@@ -28,6 +28,14 @@ if [ "${EXPO_PUBLIC_ALLOW_DEMO:-}" = 1 ]; then
   echo "EXPO_PUBLIC_ALLOW_DEMO=1 is set — refusing to make a store build with the demo entry enabled" >&2; exit 7
 fi
 
+# The Firebase web config reaches the JS bundle only through .env (EXPO_PUBLIC_FIREBASE_*), which
+# is untracked. 2.7.0 was cut from a worktree that had every other untracked input but not this
+# one: all three store binaries shipped with an empty apiKey and crashed at launch with
+# auth/invalid-api-key. Refuse to build without it, and prove it landed in the bundle below.
+if [ -z "${EXPO_PUBLIC_FIREBASE_API_KEY:-}" ] && ! grep -qE '^EXPO_PUBLIC_FIREBASE_API_KEY=.+' "$ROOT/.env" 2>/dev/null; then
+  echo ".env with EXPO_PUBLIC_FIREBASE_API_KEY missing at the repo root (untracked; copy it from the main checkout) — the bundle would ship without a Firebase config and crash at launch" >&2; exit 6
+fi
+
 VC=$(node "$ROOT/scripts/release/bump-app-version.js" "$ROOT/app.config.js" "$VERSION")
 
 cd "$ROOT"
@@ -67,6 +75,12 @@ fi
 ROUTES=$(unzip -p "$AAB" base/assets/index.android.bundle | strings | grep -o '\./[A-Za-z()_/.-]*\.tsx' | sort -u || true)
 if ! grep -q '(simple)/index\.tsx' <<<"$ROUTES" || grep -q '(tabs)/garage\.tsx' <<<"$ROUTES"; then
   echo "AAB's JS bundle is not Undercut's (expected (simple)/index.tsx, no Track Limits routes) — check metro.config.js" >&2
+  exit 4
+fi
+# Hermes keeps some literals as UTF-16, so both encodings are read. A Firebase web API key starts "AIza".
+KEYS=$(( $(unzip -p "$AAB" base/assets/index.android.bundle | strings -n 8 | grep -c 'AIza' || true) + $(unzip -p "$AAB" base/assets/index.android.bundle | strings -n 8 -e l | grep -c 'AIza' || true) ))
+if [ "$KEYS" -lt 1 ]; then
+  echo "AAB's JS bundle carries no Firebase web API key — .env was not read at bundle time; this build would crash at launch (auth/invalid-api-key)" >&2
   exit 4
 fi
 

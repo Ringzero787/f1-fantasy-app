@@ -103,7 +103,8 @@ describe('the recap hook’s wiring', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', '..', 'src/simple/hooks/useWeekendRecap.ts'), 'utf8');
   it('asks for the calls only when a recap is due for a scored team and Moonshot is on', () => {
     expect(src).toContain("const callsKey = moonshotCfg.enabled && uid && teamId && lastRaceSeason ? `${uid}:${teamId}:${lastRaceSeason}` : null;");
-    expect(src).toContain('const recapDue = !!lastRaceId && lastSeenRecapRaceId !== lastRaceId && !!team && (team.scoredRaces || []).includes(lastRaceId);');
+    // F-130: seen is per team
+    expect(src).toContain('const recapDue = !!lastRaceId && seenForTeam !== lastRaceId && !!team && (team.scoredRaces || []).includes(lastRaceId);');
     expect(src).toContain('if (!callsKey || !recapDue || !uid || !teamId || !lastRaceSeason) return;');
     expect(src).toContain('void loadMoonshotCalls(uid, teamId, lastRaceSeason).finally(() => { if (current) setAskedKey(callsKey); });');
   });

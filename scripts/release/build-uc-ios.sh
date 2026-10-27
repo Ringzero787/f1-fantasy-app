@@ -28,6 +28,12 @@ if [ "${EXPO_PUBLIC_ALLOW_DEMO:-}" = 1 ]; then
   echo "EXPO_PUBLIC_ALLOW_DEMO=1 is set — refusing to make a store build with the demo entry enabled" >&2; exit 7
 fi
 
+# The Firebase web config reaches the JS bundle only through the untracked .env, which the rsync
+# below carries to the Mac (see build-uc-aab.sh: 2.7.0 shipped without it and crashed at launch).
+if ! grep -qE '^EXPO_PUBLIC_FIREBASE_API_KEY=.+' "$ROOT/.env" 2>/dev/null; then
+  echo ".env with EXPO_PUBLIC_FIREBASE_API_KEY missing at the repo root (untracked; copy it from the main checkout) — the bundle would ship without a Firebase config and crash at launch" >&2; exit 6
+fi
+
 BUILD=$(node "$ROOT/scripts/release/bump-app-version.js" "$ROOT/app.config.js" "$VERSION" --ios)
 
 cd "$ROOT"
@@ -55,5 +61,13 @@ mkdir -p "$ROOT/.aidlc/tmp/undercut-ios"
 # and a leftover from the previous version doubled the measured iOS size.
 find "$ROOT/.aidlc/tmp/undercut-ios" -maxdepth 1 -name '*.ipa' ! -name "$NAME" -delete 2>/dev/null || true
 scp -q -o BatchMode=yes "$MAC:$MAC_DIR/build/export/Undercut.ipa" "$ROOT/.aidlc/tmp/undercut-ios/$NAME"
+# Same bundle check as the Android targets: a Firebase web API key ("AIza…") must be in main.jsbundle.
+# The upload has already happened by now; a failure here is a loud stop before anything is submitted.
+JSB=$(unzip -Z1 "$ROOT/.aidlc/tmp/undercut-ios/$NAME" | grep -m1 '\.app/main\.jsbundle$' || true)
+KEYS=$(( $(unzip -p "$ROOT/.aidlc/tmp/undercut-ios/$NAME" "$JSB" | strings -n 8 | grep -c 'AIza' || true) + $(unzip -p "$ROOT/.aidlc/tmp/undercut-ios/$NAME" "$JSB" | strings -n 8 -e l | grep -c 'AIza' || true) ))
+if [ "$KEYS" -lt 1 ]; then
+  echo "IPA's main.jsbundle carries no Firebase web API key — this build would crash at launch (auth/invalid-api-key); do not submit it" >&2
+  exit 4
+fi
 cp "$ROOT/.aidlc/tmp/undercut-ios/$NAME" "/mnt/smb/share/undercut/$NAME"
 echo "uploaded $NAME to App Store Connect (submit it for review there); copy on the share"
