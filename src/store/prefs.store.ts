@@ -30,7 +30,9 @@ interface PrefsState {
 
   // Weekend recap — last race the user has seen the post-weekend summary for
   lastSeenRecapRaceId: string | null;
-  markRecapSeen: (raceId: string) => void;
+  /** F-130: per team (a two-team player gets one recap per team), teamId → last race seen */
+  seenRecaps: Record<string, string>;
+  markRecapSeen: (raceId: string, teamId?: string | null) => void;
 }
 
 export const usePrefsStore = create<PrefsState>()(
@@ -57,7 +59,8 @@ export const usePrefsStore = create<PrefsState>()(
       markReviewPrompted: () => set({ hasPromptedReview: true, lastReviewPromptDate: Date.now() }),
 
       lastSeenRecapRaceId: null,
-      markRecapSeen: (raceId: string) => set({ lastSeenRecapRaceId: raceId }),
+      seenRecaps: {},
+      markRecapSeen: (raceId: string, teamId?: string | null) => set((s) => ({ lastSeenRecapRaceId: raceId, seenRecaps: teamId ? { ...s.seenRecaps, [teamId]: raceId } : s.seenRecaps })),
     }),
     {
       name: 'prefs-storage',

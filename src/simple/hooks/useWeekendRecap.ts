@@ -20,6 +20,12 @@ export interface WeekendRecap {
   /** "UNITED STATES": the race name without the series' own words */
   title: string;
   round: number | null;
+  /** F-130: the team this recap is about, so a two-team player knows which one they are reading */
+  teamName: string;
+  teamIndex: number;
+  teamCount: number;
+  /** F-130: the player's other team, when it has a recap of its own for this race still to see */
+  nextTeam: { index: number; name: string } | null;
   /** points from this team's roster for the race: the server's record when there is one */
   teamPoints: number;
   /** F-130: the weekend pick by pick as it was scored, with what was fielded and what was not */
@@ -34,24 +40,29 @@ export interface WeekendRecap {
   moonshot: MoonshotCall | null;
 }
 
+/** How long to wait for a leaderboard that scoring writes a moment after the team's snapshot. */
+const RESULT_RETRY_MS = 4000;
+
 /**
- * Post-weekend recap shown once per completed race on sign-in.
+ * Post-weekend recap shown once per completed race on sign-in — once per team (F-130): a
+ * two-team player gets each team's own weekend, and the card names the team.
  *
  * Returns null unless: the latest completed race has scored, the user's team
  * was actually scored for it (team.scoredRaces includes it — so late joiners
  * aren't shown points they didn't earn), and they haven't already dismissed
- * this race's recap (persisted in prefs). Fail-silent: any missing data → null.
+ * this race's recap for this team (persisted in prefs). Fail-silent: any missing data → null.
  */
-export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => void } {
-  const { team, teamConstructor } = useSimpleTeam();
+export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => void; showTeam: (index: number) => void } {
+  const { team, teamConstructor, teamCount, activeTeamIndex, switchTeam, leagueTeams: userTeams } = useSimpleTeam();
   const lastRaceScores = useRaceScoresStore((s) => s.lastRaceScores);
   const lastRaceId = useRaceScoresStore((s) => s.lastRaceId);
   const fetchLastRaceScores = useRaceScoresStore((s) => s.fetchLastRaceScores);
   const races = useRemoteConfigStore((s) => s.races);
   const drivers = useRemoteConfigStore((s) => s.drivers);
   const constructors = useRemoteConfigStore((s) => s.constructors);
+  const configLoaded = useRemoteConfigStore((s) => s.isLoaded);
   const members = useLeagueStore((s) => s.members);
-  const lastSeenRecapRaceId = usePrefsStore((s) => s.lastSeenRecapRaceId);
+  const seenRecaps = usePrefsStore((s) => s.seenRecaps);
   const markRecapSeen = usePrefsStore((s) => s.markRecapSeen);
   // F-127: the team's Moonshot on the race. The recap can show before the Team screen has asked
   // for the season's calls, so it asks itself; the store answers one read per team and season.
@@ -67,7 +78,9 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
   const uid = user?.id ?? null;
   const teamId = team?.id ?? null;
   const leagueId = team?.leagueId ?? null;
-  const recapDue = !!lastRaceId && lastSeenRecapRaceId !== lastRaceId && !!team && (team.scoredRaces || []).includes(lastRaceId);
+  // F-130: seen is per team, so the second team's recap is not lost when the first is dismissed
+  const seenForTeam = teamId ? seenRecaps[teamId] ?? null : null;
+  const recapDue = !!lastRaceId && seenForTeam !== lastRaceId && !!team && (team.scoredRaces || []).includes(lastRaceId);
   const callsKey = moonshotCfg.enabled && uid && teamId && lastRaceSeason ? `${uid}:${teamId}:${lastRaceSeason}` : null;
   // the key this hook has asked for and been answered on, whether or not the read succeeded
   const [askedKey, setAskedKey] = useState<string | null>(null);
@@ -87,13 +100,25 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
   useEffect(() => {
     if (!recordKey || !teamId || !lastRaceId) return;
     let current = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     // A failed read is not a reason to hide the weekend: the card falls back to the roster as it
     // is now and says so. Both reads are small (one document each) and cached per session.
-    Promise.all([
+    const read = () => Promise.all([
       getRaceSnapshot(teamId, lastRaceId).catch(() => null),
       leagueId ? readLeagueRaceResult(leagueId, lastRaceId) : Promise.resolve(null),
-    ]).then(([snapshot, result]) => { if (current) setRecord({ key: recordKey, snapshot, result }); });
-    return () => { current = false; };
+    ]);
+    read().then(([snapshot, result]) => {
+      if (!current) return;
+      // Scoring writes the team's snapshot first and the league's leaderboard a moment later. A
+      // player with the app open at that moment would get a card with no round line and never see
+      // it again, so a missing leaderboard is asked for once more before the card is shown.
+      if (leagueId && snapshot && !result) {
+        timer = setTimeout(() => { read().then(([s2, r2]) => { if (current) setRecord({ key: recordKey, snapshot: s2 ?? snapshot, result: r2 }); }); }, RESULT_RETRY_MS);
+        return;
+      }
+      setRecord({ key: recordKey, snapshot, result });
+    });
+    return () => { current = false; if (timer) clearTimeout(timer); };
   }, [recordKey, teamId, lastRaceId, leagueId]);
   // Shown before the calls land, the recap could be dismissed with the Moonshot still on its way,
   // and a dismissed recap never comes back. So it waits for the answer; a failed read (the store
@@ -103,15 +128,18 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
 
   const recap = useMemo<WeekendRecap | null>(() => {
     if (!team || !lastRaceId) return null;
-    if (lastSeenRecapRaceId === lastRaceId) return null;            // already seen
+    if (seenForTeam === lastRaceId) return null;                       // already seen, for this team
     if (!(team.scoredRaces || []).includes(lastRaceId)) return null; // team wasn't scored for it
+    // F-130: the Moonshot config decides whether the calls are asked for at all. Before it has
+    // loaded, Moonshot reads as off and the card would show without the Moonshot the player made.
+    if (!configLoaded && !isDemoMode) return null;
     if (!callsReady) return null;                                     // F-127: the Moonshot read is still out
     if (!recordReady) return null;                                    // F-130: the record is still out
 
     const surname = (name: string | undefined, id: string) => (name ? name.trim().split(/\s+/).slice(-1)[0] : id);
     const names = {
       driver: (id: string) => { const d = drivers.find((x) => x.id === id); return surname(d?.name, d?.shortName || id); },
-      constructor: (id: string) => { const c = constructors.find((x) => x.id === id); return c?.name?.split(' ')[0] || c?.shortName || id; },
+      constructor: (id: string) => { const c = constructors.find((x) => x.id === id); return c?.name || c?.shortName || id; },
     };
     const snapshot = record?.key === recordKey ? record.snapshot : null;
     const roster = snapshot ? rosterFromSnapshot(snapshot, names) : rosterFromTeam(team, teamConstructor, lastRaceScores);
@@ -133,14 +161,23 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
       }
     }
 
+    const callsKnown = callsKey && callsFor === callsKey ? moonshotCalls : null;
     const nextRace = lockout.nextRace;
-    const next = nextRoundLines(nextRace ? { id: nextRace.id, round: nextRace.round, name: nextRace.name, city: nextRace.city } : null, lockout.lockTime, lockout.isLocked, Date.now(), callsKey && callsFor === callsKey ? moonshotCalls : [], team.id, moonshotCfg, names.driver);
+    const next = nextRoundLines(nextRace ? { id: nextRace.id, round: nextRace.round, name: nextRace.name, city: nextRace.city } : null, lockout.lockTime, lockout.isLocked, Date.now(), callsKnown, team.id, moonshotCfg, names.driver);
+
+    // F-130: the other team, when it was scored for this race and its recap is still unseen
+    const other = userTeams.find((t, i) => i !== activeTeamIndex && t.id !== team.id && (t.scoredRaces || []).includes(lastRaceId) && seenRecaps[t.id] !== lastRaceId);
+    const otherIndex = other ? userTeams.findIndex((t) => t.id === other.id) : -1;
 
     return {
       raceId: lastRaceId,
       raceName,
       title: recapTitle(raceName),
       round: lastRace?.round ?? snapshot?.round ?? null,
+      teamName: team.name || `Team ${activeTeamIndex + 1}`,
+      teamIndex: activeTeamIndex,
+      teamCount,
+      nextTeam: other && otherIndex >= 0 ? { index: otherIndex, name: other.name || `Team ${otherIndex + 1}` } : null,
       teamPoints: roster.total,
       roster,
       standing,
@@ -149,11 +186,16 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
       leagueSize,
       moonshot: callsKey && callsFor === callsKey ? recapMoonshot(moonshotCalls, team.id, lastRaceId) : null,
     };
-  }, [team, teamConstructor, lastRaceId, lastRaceScores, lastRace, members, lastSeenRecapRaceId, callsReady, callsKey, callsFor, moonshotCalls, recordReady, record, recordKey, drivers, constructors, lockout, moonshotCfg]);
+  }, [team, teamConstructor, lastRaceId, lastRaceScores, lastRace, members, seenForTeam, seenRecaps, callsReady, callsKey, callsFor, moonshotCalls, recordReady, record, recordKey, drivers, constructors, lockout, moonshotCfg, configLoaded, isDemoMode, userTeams, activeTeamIndex, teamCount]);
 
   const dismiss = useCallback(() => {
-    if (lastRaceId) markRecapSeen(lastRaceId);
-  }, [lastRaceId, markRecapSeen]);
+    if (lastRaceId) markRecapSeen(lastRaceId, teamId);
+  }, [lastRaceId, teamId, markRecapSeen]);
+  // F-130: dismiss this team's recap and switch to the other team, whose own recap then shows
+  const showTeam = useCallback((index: number) => {
+    if (lastRaceId) markRecapSeen(lastRaceId, teamId);
+    switchTeam(index);
+  }, [lastRaceId, teamId, markRecapSeen, switchTeam]);
 
-  return { recap, dismiss };
+  return { recap, dismiss, showTeam };
 }

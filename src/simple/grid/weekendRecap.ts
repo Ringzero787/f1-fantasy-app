@@ -237,13 +237,14 @@ interface NextRaceLike { id: string; round: number; name: string; city?: string 
  * What is coming, so the card ends looking forward: the next round, its lock, and the team's
  * Moonshot on it. A call in play is named; none yet says how many shots are left.
  */
-export function nextRoundLines(next: NextRaceLike | null | undefined, lockTime: Date | null, isLocked: boolean, nowMs: number, calls: MoonshotCall[], teamId: string | null, cfg: MoonshotClientConfig, driverName: (id: string) => string): NextRound | null {
+export function nextRoundLines(next: NextRaceLike | null | undefined, lockTime: Date | null, isLocked: boolean, nowMs: number, calls: MoonshotCall[] | null, teamId: string | null, cfg: MoonshotClientConfig, driverName: (id: string) => string): NextRound | null {
   if (!next) return null;
   const place = (next.city || shortRaceName(next.name)).trim().toUpperCase();
   const label = `NEXT · RD ${next.round} · ${place}`;
   const lock = isLocked ? 'LOCKED' : lockTime ? `LOCKS IN ${formatCountdown(lockTime.getTime() - nowMs)}` : 'OPEN';
   let moonshot: string | null = null;
-  if (teamId && moonshotAvailability(cfg, next.round) === 'open') {
+  // `calls` null: the season's calls are not known (the read failed), so nothing is claimed about them
+  if (teamId && calls && moonshotAvailability(cfg, next.round) === 'open') {
     const mine = calls.filter((c) => c.teamId === teamId);
     const call = mine.find((c) => c.raceId === next.id && c.status !== 'CANCELLED') ?? null;
     if (call) {

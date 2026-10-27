@@ -24,7 +24,7 @@ import { FALLBACK_NOTE, adjustmentLine, fieldedLine, roundLine, seasonLine, spli
  */
 export function GridWeekendRecap() {
   const { colors, family, scaled, mono } = useSimpleTheme();
-  const { recap, dismiss } = useWeekendRecap();
+  const { recap, dismiss, showTeam } = useWeekendRecap();
   // F-120: after "how did I do" comes "how did everyone do". The recap marks itself seen when it is
   // left, so the race the report is for is held here; the report is the same card's second step,
   // not a second modal, because iOS will not present one while the first is still going away.
@@ -74,7 +74,7 @@ export function GridWeekendRecap() {
   // next step, and is asked again next time.
   const hasReport = !!leagueId;
 
-  const { title, round, teamPoints, roster, standing, next, moonshot } = recap;
+  const { title, round, teamPoints, roster, standing, next, moonshot, teamName, teamIndex, teamCount, nextTeam } = recap;
   const { scored, zeros } = splitZeroPicks(roster.picks);
   const best = scored[0] ?? null;
   const worst = scored.length >= 2 ? scored[scored.length - 1] : null;
@@ -85,7 +85,8 @@ export function GridWeekendRecap() {
   const toneColor = { positive: colors.positive, muted: colors.text.muted, primary: colors.primary } as const;
   const shotTone = toneColor[outcomeTone(shot?.outcome)];
   const roundText = roundLine(standing);
-  const seasonText = seasonLine(standing, team?.totalPoints);
+  // the Team screen's SEASON PTS: banked and active points together
+  const seasonText = seasonLine(standing, team ? (team.totalPoints ?? 0) + (team.lockedPoints ?? 0) : null);
   const notes = [zeroLine(zeros), adjustmentLine(roster), fieldedLine(roster), roster.fromRecord ? null : FALLBACK_NOTE].filter((n): n is string => !!n);
   const badges = (p: RecapPick) => [p.isConstructor ? 'TEAM' : null, p.isAce ? 'ACE ×2' : null, p.isReserve ? 'AUTO' : null].filter((b): b is string => !!b);
   const spokenPick = (p: RecapPick) => `${p.name}${p.isConstructor ? ', constructor' : ''}${p.isAce ? ', your Ace, doubled' : ''}${p.isReserve ? ', auto-filled' : ''}: ${sign(p.points)} points`;
@@ -94,9 +95,14 @@ export function GridWeekendRecap() {
     <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
       <View style={{ flex: 1, backgroundColor: colors.scrim, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <View style={{ width: '100%', maxWidth: 380, maxHeight: '86%', backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 24, gap: 14 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <MonoLabel>WEEKEND RECAP</MonoLabel>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+            <MonoLabel style={{ flexShrink: 1 }} numberOfLines={1}>WEEKEND RECAP</MonoLabel>
             {round != null ? <MonoLabel color={colors.primary}>{`RD ${round}`}</MonoLabel> : null}
+          </View>
+          {/* F-130: which team this is about — a two-team player reads one recap per team */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <MonoLabel style={{ flexShrink: 1 }} numberOfLines={1} color={colors.text.primary}>{teamName.toUpperCase()}</MonoLabel>
+            {teamCount > 1 ? <MonoLabel size={10} color={colors.text.muted}>{`TEAM ${teamIndex + 1} / ${teamCount}`}</MonoLabel> : null}
           </View>
           <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{title}</Text>
           <Text accessibilityLabel={`${sign(teamPoints)} points this weekend`} style={{ fontFamily: family.ui.black, fontSize: scaled(56), lineHeight: scaled(56) * 0.95, letterSpacing: -scaled(56) * 0.05, color: teamPoints < 0 ? colors.primary : colors.text.primary, includeFontPadding: false }}>{sign(teamPoints)}</Text>
@@ -170,8 +176,12 @@ export function GridWeekendRecap() {
           {hasReport ? (
             <>
               <PillButton label="LEAGUE SCORES" variant="inverse" onPress={() => { setReportRaceId(recap.raceId); dismiss(); }} />
-              <PillButton label="GOT IT" variant="muted" onPress={dismiss} />
+              {nextTeam
+                ? <PillButton label={`NEXT · ${nextTeam.name.toUpperCase()}`} variant="muted" onPress={() => showTeam(nextTeam.index)} />
+                : <PillButton label="GOT IT" variant="muted" onPress={dismiss} />}
             </>
+          ) : nextTeam ? (
+            <PillButton label={`NEXT · ${nextTeam.name.toUpperCase()}`} variant="inverse" onPress={() => showTeam(nextTeam.index)} />
           ) : (
             <PillButton label="GOT IT" variant="inverse" onPress={dismiss} />
           )}

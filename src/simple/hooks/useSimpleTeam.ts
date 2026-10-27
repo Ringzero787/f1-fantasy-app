@@ -74,6 +74,8 @@ export function useSimpleTeam() {
   return {
     team,
     teamConstructor,
+    /** the switcher's teams in order (one per league, two at most) */
+    leagueTeams,
     driversCount,
     isFull,
     budget,

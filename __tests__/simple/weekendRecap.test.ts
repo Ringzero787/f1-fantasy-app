@@ -165,6 +165,11 @@ describe('nextRoundLines', () => {
     expect(nextRoundLines(mexico, null, false, 0, [call({ teamId: 't2' })], 't1', cfg, names.driver)!.moonshot).toBe('🚀 NO MOONSHOT CALLED YET · 3 LEFT');
     expect(nextRoundLines(mexico, null, false, 0, [call({ status: 'CANCELLED' })], 't1', cfg, names.driver)!.moonshot).toBe('🚀 NO MOONSHOT CALLED YET · 3 LEFT');
   });
+  it('claims nothing about the calls when they could not be read', () => {
+    const n = nextRoundLines(mexico, null, false, 0, null, 't1', cfg, names.driver)!;
+    expect(n.label).toBe('NEXT · RD 21 · MEXICO CITY');
+    expect(n.moonshot).toBeNull();
+  });
   it('says nothing about Moonshot before it unlocks or when it is off, and nothing at all after the season', () => {
     expect(nextRoundLines({ ...mexico, round: 5 }, null, false, 0, [], 't1', cfg, names.driver)!.moonshot).toBeNull();
     expect(nextRoundLines(mexico, null, false, 0, [], 't1', parseMoonshotConfig({ enabled: false }), names.driver)!.moonshot).toBeNull();
