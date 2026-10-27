@@ -4,6 +4,7 @@ import { demoDrivers, demoConstructors, demoRaces } from '../data/demoData';
 import type { Driver, Constructor, Race } from '../types';
 import { TEAM_COLORS } from '../config/constants';
 import { firebaseAuth } from '../config/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface RemoteConfigState {
   // Config
@@ -49,8 +50,54 @@ export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
   isLoading: false,
   lastFetched: null,
 
-  initialize: async () => {
-    if (get().isLoading) return;
+  initialize: () => {
+    // One fetch at a time; a second caller waits for the one in flight rather than being dropped
+    // (ensureSignedInConfig relies on this: it must see the first fetch finish before deciding).
+    if (inflight) return inflight;
+    inflight = runInitialize(set, get).finally(() => { inflight = null; });
+    return inflight;
+  },
+
+  // F-130: `config/app` and `config/gameRules` are readable only when signed in. The startup fetch
+  // can run before the session has been restored, in which case both fall back to defaults —
+  // Moonshot reads as off, the version gate as open — for the rest of the session. Called once
+  // sign-in is known: waits for any fetch in flight, then for the Firebase session itself (the
+  // persisted sign-in flag is true before Firebase has restored the user), then fetches again.
+  // A no-op when the last fetch already ran signed in.
+  refresh: async () => {
+    // Only refresh if it's been more than 5 minutes
+    const last = get().lastFetched;
+    if (last && Date.now() - last < 5 * 60 * 1000) return;
+    await get().initialize();
+  },
+
+  getDriver: (id: string) => get().drivers.find(d => d.id === id),
+  getConstructor: (id: string) => get().constructors.find(c => c.id === id),
+  getRace: (id: string) => get().races.find(r => r.id === id),
+  getActiveDrivers: () => get().drivers.filter(d => d.isActive),
+  getActiveConstructors: () => get().constructors.filter(c => c.isActive),
+  getUpcomingRaces: () => get().races.filter(r => r.status === 'upcoming'),
+
+  ensureSignedInConfig: async () => {
+    if (get().fetchedSignedIn) return;
+    if (inflight) await inflight;
+    if (get().fetchedSignedIn) return;
+    if (!firebaseAuth.currentUser) await firebaseUser();
+    if (get().fetchedSignedIn) return;
+    await get().initialize();
+  },
+}));
+
+let inflight: Promise<void> | null = null;
+
+/** Resolves once Firebase has a signed-in user; never resolves while there is none (nothing to fetch for). */
+function firebaseUser(): Promise<void> {
+  return new Promise((resolve) => {
+    const off = onAuthStateChanged(firebaseAuth, (u) => { if (u) { off(); resolve(); } });
+  });
+}
+
+async function runInitialize(set: (p: Partial<RemoteConfigState>) => void, get: () => RemoteConfigState): Promise<void> {
     set({ isLoading: true });
     const signedIn = !!firebaseAuth.currentUser;
 
@@ -73,29 +120,6 @@ export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
       console.warn('[RemoteConfig] Failed to load, using defaults:', err);
       set({ isLoaded: true, isLoading: false });
     }
-    set({ fetchedSignedIn: signedIn });
-  },
-
-  // F-130: `config/app` and `config/gameRules` are readable only when signed in. The startup fetch
-  // can run before the session has been restored, in which case both fall back to defaults —
-  // Moonshot reads as off, the version gate as open — for the rest of the session. Called once
-  // sign-in is known; a no-op when the last fetch already ran signed in.
-  ensureSignedInConfig: async () => {
-    if (get().fetchedSignedIn) return;
-    await get().initialize();
-  },
-
-  refresh: async () => {
-    // Only refresh if it's been more than 5 minutes
-    const last = get().lastFetched;
-    if (last && Date.now() - last < 5 * 60 * 1000) return;
-    await get().initialize();
-  },
-
-  getDriver: (id: string) => get().drivers.find(d => d.id === id),
-  getConstructor: (id: string) => get().constructors.find(c => c.id === id),
-  getRace: (id: string) => get().races.find(r => r.id === id),
-  getActiveDrivers: () => get().drivers.filter(d => d.isActive),
-  getActiveConstructors: () => get().constructors.filter(c => c.isActive),
-  getUpcomingRaces: () => get().races.filter(r => r.status === 'upcoming'),
-}));
+    // a signed-in fetch that failed still counts: the recap must not wait forever offline
+    set({ fetchedSignedIn: signedIn || get().fetchedSignedIn });
+}

@@ -194,10 +194,12 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
   const dismiss = useCallback(() => {
     if (lastRaceId) markRecapSeen(lastRaceId, teamId);
   }, [lastRaceId, teamId, markRecapSeen]);
-  // F-130: dismiss this team's recap and switch to the other team, whose own recap then shows
+  // F-130: dismiss this team's recap and switch to the other team, whose own recap then shows.
+  // The switch waits for this card's fade-out: iOS will not present a modal while the previous
+  // one is still going away, and the other team's record can be back well inside that time.
   const showTeam = useCallback((index: number) => {
     if (lastRaceId) markRecapSeen(lastRaceId, teamId);
-    switchTeam(index);
+    setTimeout(() => switchTeam(index), 400);
   }, [lastRaceId, teamId, markRecapSeen, switchTeam]);
 
   return { recap, dismiss, showTeam };
