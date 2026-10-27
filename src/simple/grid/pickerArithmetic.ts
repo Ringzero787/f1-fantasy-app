@@ -80,6 +80,16 @@ export function completionReserve(price: number, prices: number[], restSlots: nu
 }
 
 /**
+ * What a driver row must leave in the bank: the other open seats (`missingDrivers` less the one
+ * this row fills) at the lowest prices plus the constructor reserve. When the grid cannot fill
+ * the seats at any price (lockouts), only the constructor reserve applies, so the rule loosens
+ * rather than blocking the whole list.
+ */
+export function driverReserve(price: number, openPrices: number[], missingDrivers: number, ctorReserve: number): number {
+  return completionReserve(price, openPrices, missingDrivers - 1, ctorReserve) ?? Math.max(0, ctorReserve);
+}
+
+/**
  * At most three badges, only after the first pick, only on unselected unblocked rows, gone
  * once the list is full. Order is stable (teammate, leftover, cheap+scores) so a sort change
  * does not shuffle which rows carry a reason.

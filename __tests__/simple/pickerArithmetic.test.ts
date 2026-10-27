@@ -1,5 +1,5 @@
 import {
-  cheapestCompletion, completionReserve, formatValue, leftoverCopy, leftoverLine, leftoverTight, pairingHints, valueOf,
+  cheapestCompletion, completionReserve, driverReserve, formatValue, leftoverCopy, leftoverLine, leftoverTight, pairingHints, valueOf,
 } from '../../src/simple/grid/pickerArithmetic';
 
 const row = (id: string, extra: Partial<{ constructorId: string; pts: number; price: number; selected: boolean; blocked: boolean }> = {}) => ({
@@ -42,6 +42,14 @@ describe('leftover', () => {
     expect(completionReserve(5, open, 1, 0)).toBe(10);            // removes one instance of its own price
     expect(completionReserve(65, [65], 1, 20)).toBeNull();        // nobody left to fill the seat
     expect(completionReserve(65, open, -1, -3)).toBe(0);
+  });
+  it('driverReserve fills the seats this row does not, and falls back to the constructor alone when the grid cannot', () => {
+    const open = [65, 40, 5, 10, 20];
+    expect(driverReserve(65, open, 1, 20)).toBe(20);       // the last seat: constructor only
+    expect(driverReserve(65, open, 2, 20)).toBe(25);       // one more seat at $5
+    expect(driverReserve(65, open, 3, 0)).toBe(15);
+    expect(driverReserve(65, [65], 3, 20)).toBe(20);       // nobody left to fill the seats: loosen, never block the list
+    expect(driverReserve(65, [65], 3, -1)).toBe(0);
   });
   it('sums the cheapest N prices, and is null when there are not enough', () => {
     expect(cheapestCompletion([90, 10, 40, 20], 3)).toBe(70);

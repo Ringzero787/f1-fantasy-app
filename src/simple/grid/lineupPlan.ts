@@ -120,15 +120,24 @@ export function canAffordAdd(plan: LineupPlan, price: number, reserve = 0): bool
 }
 
 /**
- * What the lineup still lacks, for the save summary: a partial lineup saves (the seats fill at
- * lock, F-044), the player is told what is open and what happens to it.
+ * A constructor row is affordable when the swap budget (the pending constructor refunded) covers
+ * it and the cheapest fill of the open driver seats, since picking a constructor fills no seat.
  */
-export function openSlotsLine(plan: LineupPlan): string | null {
+export function canAffordConstructor(price: number, swapBudget: number, driverFill: number): boolean {
+  return price + Math.max(0, driverFill) <= swapBudget;
+}
+
+/**
+ * What the lineup still lacks, for the save summary: a partial lineup saves (the seats fill at
+ * lock, F-044), the player is told what is open and what happens to it. Auto-fill only takes what
+ * the bank covers, so when it cannot cover the cheapest fill the line says that instead.
+ */
+export function openSlotsLine(plan: LineupPlan, bankTooLow = false): string | null {
   const parts: string[] = [];
   if (plan.missingDrivers > 0) parts.push(`${plan.missingDrivers} DRIVER${plan.missingDrivers > 1 ? 'S' : ''}`);
   if (plan.missingConstructor) parts.push('CONSTRUCTOR');
   if (parts.length === 0) return null;
-  return `${parts.join(' + ')} STILL OPEN · AUTO-FILLS AT LOCK`;
+  return `${parts.join(' + ')} STILL OPEN · ${bankTooLow ? 'BANK TOO LOW TO FILL AT LOCK' : 'AUTO-FILLS AT LOCK'}`;
 }
 
 /**
@@ -161,7 +170,8 @@ export function constructorSwapBudget(plan: LineupPlan, current: CurrentLineup, 
  */
 export function saveLabel(plan: LineupPlan, locked: boolean): { label: string; ready: boolean } {
   if (locked) return { label: 'LOCKED · AUTO-FILL ON', ready: false };
-  if (plan.changed) return { label: 'SAVE LINEUP', ready: true };
+  // a plan the bank cannot cover (stale prices between seeding and save) must not reach the server
+  if (plan.changed) return plan.budgetAfter < 0 ? { label: 'OVER BUDGET', ready: false } : { label: 'SAVE LINEUP', ready: true };
   if (plan.missingDrivers > 0) {
     const n = plan.missingDrivers;
     return { label: `PICK ${n} DRIVER${n > 1 ? 'S' : ''}`, ready: false };

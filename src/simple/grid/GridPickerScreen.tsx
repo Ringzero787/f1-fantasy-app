@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, FlatList, Pressable, Modal, Alert, ActivityIndicator, StatusBar, BackHandler } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, FlatList, Pressable, Modal, Alert, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
+import { usePreventRemove, type NavigationAction } from '@react-navigation/native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { useDrivers } from '../../hooks/useDrivers';
@@ -28,11 +29,11 @@ import { ColorBar, MonoLabel, PillButton, ScreenHeader, SegmentPill, ValuePill }
 import { formatLockStatus } from './lockStatus';
 import { trendOf, surnameOf as surname } from './tileState';
 import {
-  planLineup, pendingFromCurrent, canAffordAdd, constructorSwapBudget, saveLabel, openSlotsLine,
+  planLineup, pendingFromCurrent, canAffordAdd, canAffordConstructor, constructorSwapBudget, saveLabel, openSlotsLine,
   type PendingLineup, type CurrentLineup, type MarketEntry, type LineupPlan, type Kind,
 } from './lineupPlan';
 import {
-  cheapestCompletion, completionReserve, formatValue, leftoverLine, leftoverTight, pairingHints, valueOf,
+  cheapestCompletion, driverReserve, formatValue, leftoverLine, leftoverTight, pairingHints, valueOf,
 } from './pickerArithmetic';
 import type { Driver, Constructor } from '../../types';
 
@@ -158,8 +159,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           const selected = pending.driverIds.includes(d.id);
           const onRoster = current?.drivers.some((r) => r.id === d.id) ?? false;
           const lockedOut = isDriverLockedOut(team?.driverLockouts, d.id, completedRaceCount);
-          const reserve = completionReserve(d.price, openDriverPrices, missingDrivers - 1, ctorReserve) ?? ctorReserve;
-          const affordable = onRoster || canAffordAdd(plan, d.price, reserve);
+          const affordable = onRoster || canAffordAdd(plan, d.price, driverReserve(d.price, openDriverPrices, missingDrivers, ctorReserve));
           return {
             kind: 'driver', id: d.id, num: String(d.number ?? '').padStart(2, '0'), name: surname(d.name), fullName: d.name,
             sub: constructorShortName(d.constructorId, d.constructorName), constructorId: d.constructorId,
@@ -172,7 +172,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       : (allConstructors ?? []).map((c: Constructor) => {
           const selected = pending.constructorId === c.id;
           const isCurrent = current?.constructor?.id === c.id;
-          const affordable = isCurrent || c.price + driverFill <= ctorSwapBudget;
+          const affordable = isCurrent || canAffordConstructor(c.price, ctorSwapBudget, driverFill);
           return {
             kind: 'constructor', id: c.id, num: c.shortName?.slice(0, 3).toUpperCase() ?? '', name: constructorShortName(c.id, c.name), fullName: c.name,
             sub: c.name, constructorId: c.id, pts: c.currentSeasonPoints ?? c.fantasyPoints ?? 0, price: c.price, selected,
@@ -268,6 +268,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       router.back();
     } catch (e) {
       setSummaryOpen(false);
+      setLeaving(false);
       const reason = e instanceof Error ? e.message : 'Something went wrong.';
       const applied = done.length ? `Already applied: ${done.join(', ')}.\n\n` : '';
       Alert.alert('Lineup partly saved', `${applied}${reason}\n\nYour roster below shows what the server holds.`);
@@ -293,25 +294,29 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const cheapestFill = driverFillCost == null ? null : driverFillCost + ctorReserve;
   const leftover = leftoverLine(budgetAfter, missingDrivers, cheapestFill, missingCtor);
   const leftoverWarn = leftoverTight(budgetAfter, cheapestFill);
-  const openSlots = plan ? openSlotsLine(plan) : null;
+  const openSlots = plan ? openSlotsLine(plan, leftoverWarn) : null;
 
-  // Leaving with unsaved picks (CANCEL or the hardware back) opens the save summary instead of
-  // dropping them: the owner picked four drivers, could not save, and left with nothing kept.
+  // Leaving with unsaved picks opens the save summary instead of dropping them: the owner picked
+  // four drivers, could not save, and left with nothing kept. `usePreventRemove` catches every way
+  // off the screen — CANCEL, the hardware back, the iOS swipe, a programmatic pop — and hands us
+  // the action to replay once the player chooses LEAVE WITHOUT SAVING. Not armed while a save is
+  // applying (its own `router.back()` must go through) or once the player has chosen to discard.
+  const navigation = useNavigation();
   const [leaving, setLeaving] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  const blockedPop = useRef<NavigationAction | null>(null);
   const unsaved = !!plan?.changed && !locked;
-  const leave = useCallback(() => {
-    if (unsaved && !applying) { setLeaving(true); setSummaryOpen(true); return; }
-    router.back();
-  }, [unsaved, applying]);
+  usePreventRemove(unsaved && !applying && !discarding, ({ data }) => {
+    blockedPop.current = data.action;
+    setLeaving(true);
+    setSummaryOpen(true);
+  });
   useEffect(() => {
-    if (!unsaved) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (summaryOpen || sheet) return false;
-      leave();
-      return true;
-    });
-    return () => sub.remove();
-  }, [unsaved, summaryOpen, sheet, leave]);
+    if (!discarding) return;
+    const action = blockedPop.current;
+    blockedPop.current = null;
+    if (action) navigation.dispatch(action); else router.back();
+  }, [discarding, navigation]);
   const gutter = spacing.xl;
   // Large display sizes: fewer scaled columns so names keep their room.
   const compact = displayScale > 1.15;
@@ -407,7 +412,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       <View style={{ paddingTop: 12 }}>
         <ScreenHeader
           statusLeft={locked ? '← BACK' : '← CANCEL'}
-          onStatusLeftPress={leave}
+          onStatusLeftPress={() => router.back()}
           statusRight={lockStatus}
           titleNode={
             <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
@@ -530,7 +535,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
             {openSlots ? <MonoLabel size={10} color={colors.warning}>{openSlots}</MonoLabel> : null}
             <PillButton label={applying ? 'SAVING…' : 'CONFIRM'} variant="primary" disabled={applying} onPress={applyPlan} style={{ marginTop: 6 }} />
             {leaving ? (
-              <Pressable disabled={applying} onPress={() => { setSummaryOpen(false); setLeaving(false); router.back(); }} accessibilityRole="button" style={{ alignItems: 'center', paddingVertical: 8 }}><MonoLabel color={colors.primary}>LEAVE WITHOUT SAVING</MonoLabel></Pressable>
+              <Pressable disabled={applying} onPress={() => { setSummaryOpen(false); setLeaving(false); setDiscarding(true); }} accessibilityRole="button" style={{ alignItems: 'center', paddingVertical: 8 }}><MonoLabel color={colors.primary}>LEAVE WITHOUT SAVING</MonoLabel></Pressable>
             ) : null}
             <Pressable disabled={applying} onPress={() => { setSummaryOpen(false); setLeaving(false); }} style={{ alignItems: 'center', paddingVertical: 8 }}><MonoLabel color={colors.text.muted}>{leaving ? 'KEEP EDITING' : 'BACK'}</MonoLabel></Pressable>
           </Pressable>
