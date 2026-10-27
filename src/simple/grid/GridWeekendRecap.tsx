@@ -11,11 +11,16 @@ import { captureView, shareRoundReport } from './shareRoundReport';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
 import { outcomeTone, recapMoonshotLines } from './moonshot';
+import { FALLBACK_NOTE, adjustmentLine, fieldedLine, roundLine, seasonLine, splitZeroPicks, zeroLine, type RecapPick } from './weekendRecap';
 
 /**
  * One-time post-weekend recap shown after a race the user's team was scored
  * for. Self-gating via useWeekendRecap — renders null when there's nothing new
  * to show, so it's safe to mount unconditionally.
+ *
+ * F-130: the numbers are the server's record of the weekend (the roster as fielded, pick by pick),
+ * the round and season standing come from the league's leaderboards, and the card ends with the
+ * next round and the team's Moonshot on it.
  */
 export function GridWeekendRecap() {
   const { colors, family, scaled, mono } = useSimpleTheme();
@@ -69,13 +74,21 @@ export function GridWeekendRecap() {
   // next step, and is asked again next time.
   const hasReport = !!leagueId;
 
-  const { raceName, teamPoints, best, worst, rank, leagueSize, entities, moonshot } = recap;
-  const showWorst = worst && best && worst.name !== best.name && worst.points < best.points;
+  const { title, round, teamPoints, roster, standing, next, moonshot } = recap;
+  const { scored, zeros } = splitZeroPicks(roster.picks);
+  const best = scored[0] ?? null;
+  const worst = scored.length >= 2 ? scored[scored.length - 1] : null;
+  const showWorst = !!worst && !!best && worst.id !== best.id && worst.points < best.points;
   const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
   const ptsColor = (n: number) => (n > 0 ? colors.positive : n < 0 ? colors.primary : colors.text.muted);
   const shot = moonshot ? recapMoonshotLines(moonshot, teamPoints, drivers.find((d) => d.id === moonshot.driverId)?.name ?? moonshot.driverId, moonshotCfg) : null;
   const toneColor = { positive: colors.positive, muted: colors.text.muted, primary: colors.primary } as const;
   const shotTone = toneColor[outcomeTone(shot?.outcome)];
+  const roundText = roundLine(standing);
+  const seasonText = seasonLine(standing, team?.totalPoints);
+  const notes = [zeroLine(zeros), adjustmentLine(roster), fieldedLine(roster), roster.fromRecord ? null : FALLBACK_NOTE].filter((n): n is string => !!n);
+  const badges = (p: RecapPick) => [p.isConstructor ? 'TEAM' : null, p.isAce ? 'ACE ×2' : null, p.isReserve ? 'AUTO' : null].filter((b): b is string => !!b);
+  const spokenPick = (p: RecapPick) => `${p.name}${p.isConstructor ? ', constructor' : ''}${p.isAce ? ', your Ace, doubled' : ''}${p.isReserve ? ', auto-filled' : ''}: ${sign(p.points)} points`;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
@@ -83,11 +96,10 @@ export function GridWeekendRecap() {
         <View style={{ width: '100%', maxWidth: 380, maxHeight: '86%', backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 24, gap: 14 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <MonoLabel>WEEKEND RECAP</MonoLabel>
-            {rank != null ? <MonoLabel color={colors.primary}>{`SEASON P${rank}${leagueSize ? ` / ${leagueSize}` : ''}`}</MonoLabel> : null}
+            {round != null ? <MonoLabel color={colors.primary}>{`RD ${round}`}</MonoLabel> : null}
           </View>
-          <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{raceName}</Text>
-          <Text style={{ fontFamily: family.ui.black, fontSize: scaled(56), lineHeight: scaled(56) * 0.95, letterSpacing: -scaled(56) * 0.05, color: teamPoints < 0 ? colors.primary : colors.text.primary, includeFontPadding: false }}>{sign(teamPoints)}</Text>
-
+          <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{title}</Text>
+          <Text accessibilityLabel={`${sign(teamPoints)} points this weekend`} style={{ fontFamily: family.ui.black, fontSize: scaled(56), lineHeight: scaled(56) * 0.95, letterSpacing: -scaled(56) * 0.05, color: teamPoints < 0 ? colors.primary : colors.text.primary, includeFontPadding: false }}>{sign(teamPoints)}</Text>
           {/* F-127: the Moonshot is the part of the weekend no roster line tells, so it comes before the scorers */}
           {shot ? (
             <View accessible accessibilityLabel={shot.spoken} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: shotTone, padding: 14, gap: 6 }}>
@@ -103,35 +115,57 @@ export function GridWeekendRecap() {
             </View>
           ) : null}
 
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {best ? (
+          {/* F-130: where the weekend left you — in the round, and in the season table after it */}
+          {roundText || seasonText ? (
+            <View style={{ gap: 4 }}>
+              {roundText ? <MonoLabel size={10} color={standing.wonRound ? colors.positive : colors.text.primary}>{roundText}</MonoLabel> : null}
+              {seasonText ? <MonoLabel size={10} color={colors.text.muted}>{seasonText}</MonoLabel> : null}
+            </View>
+          ) : null}
+
+          {best && (showWorst || scored.length >= 2) ? (
+            <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 6 }}>
                 <MonoLabel size={10}>TOP SCORER</MonoLabel>
                 <Text numberOfLines={1} style={{ fontFamily: family.ui.black, fontSize: scaled(14), textTransform: 'uppercase', color: colors.text.primary }}>{best.name}</Text>
                 <Text style={[mono(13), { color: ptsColor(best.points) }]}>{sign(best.points)}</Text>
               </View>
-            ) : null}
-            {showWorst ? (
-              <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 6 }}>
-                <MonoLabel size={10}>LOWEST</MonoLabel>
-                <Text numberOfLines={1} style={{ fontFamily: family.ui.black, fontSize: scaled(14), textTransform: 'uppercase', color: colors.text.primary }}>{worst!.name}</Text>
-                <Text style={[mono(13), { color: ptsColor(worst!.points) }]}>{sign(worst!.points)}</Text>
-              </View>
-            ) : null}
-          </View>
+              {showWorst ? (
+                <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 6 }}>
+                  <MonoLabel size={10}>LOWEST</MonoLabel>
+                  <Text numberOfLines={1} style={{ fontFamily: family.ui.black, fontSize: scaled(14), textTransform: 'uppercase', color: colors.text.primary }}>{worst!.name}</Text>
+                  <Text style={[mono(13), { color: ptsColor(worst!.points) }]}>{sign(worst!.points)}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
 
           <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
-            {entities.map((e) => (
-              <View key={e.name + (e.isConstructor ? '_c' : '')} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight, gap: 8 }}>
+            {scored.map((e) => (
+              <View key={e.id + (e.isConstructor ? '_c' : '')} accessible accessibilityLabel={spokenPick(e)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight, gap: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                  {e.isConstructor ? <MonoLabel size={10} color={colors.primary}>TEAM</MonoLabel> : null}
                   <Text numberOfLines={1} style={{ fontFamily: family.ui.bold, fontSize: scaled(12), textTransform: 'uppercase', color: colors.text.primary, flexShrink: 1 }}>{e.name}</Text>
+                  {badges(e).map((b) => <MonoLabel key={b} size={9} color={b === 'ACE ×2' ? colors.primary : colors.text.muted}>{b}</MonoLabel>)}
                 </View>
                 <Text style={[mono(13), { color: ptsColor(e.points) }]}>{sign(e.points)}</Text>
               </View>
             ))}
+            {notes.map((n) => (
+              <Text key={n} style={[mono(10, 'medium'), { color: colors.text.muted, paddingTop: 8 }]}>{n}</Text>
+            ))}
           </ScrollView>
           {shot?.total ? <Text style={[mono(11, 'medium'), { color: colors.text.secondary }]}>{shot.total}</Text> : null}
+
+          {/* F-130: the card ends looking forward: the next round, its lock and the Moonshot on it */}
+          {next ? (
+            <View accessible accessibilityLabel={`${next.label}. ${next.lock}.${next.moonshot ? ` ${next.moonshot.replace('🚀 ', '')}.` : ''}`} style={{ backgroundColor: colors.card, borderRadius: 14, padding: 14, gap: 6 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <MonoLabel size={10}>{next.label}</MonoLabel>
+                <MonoLabel size={10} color={colors.primary}>{next.lock}</MonoLabel>
+              </View>
+              {next.moonshot ? <Text style={[mono(11, 'medium'), { color: colors.text.primary }]}>{next.moonshot}</Text> : null}
+            </View>
+          ) : null}
 
           {hasReport ? (
             <>

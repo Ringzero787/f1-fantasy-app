@@ -34,8 +34,10 @@ describe('round report entry points', () => {
     // the race is captured before the recap marks itself seen, and the old ending stays available
     expect(src).toMatch(/onPress=\{\(\) => \{ setReportRaceId\(recap\.raceId\); dismiss\(\); \}\}/);
     expect((src.match(/label="GOT IT"/g) ?? []).length).toBe(2);
-    // the recap's place is the season's; the report's is the round's
-    expect(src).toContain('`SEASON P${rank}');
+    // the recap's places are the round's and the season's (F-130); the report's is the round's
+    expect(src).toContain('const roundText = roundLine(standing);');
+    expect(src).toContain('const seasonText = seasonLine(standing, team?.totalPoints);');
+    expect(read('src/simple/grid/weekendRecap.ts')).toContain('`SEASON P${s.seasonRank}');
     expect(read('src/simple/grid/GridRoundReport.tsx')).toContain('YOUR ROUND');
   });
 
