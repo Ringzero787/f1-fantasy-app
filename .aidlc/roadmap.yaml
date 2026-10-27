@@ -111,8 +111,8 @@ milestones:
       - F-074
     notes: one premium product, Pit Wall Pass $14.99 per season, includes League Pro (M-08). Timing-derived frames are free
       only (ADR-001). Owner 2026-10-14 — content is free until 50+ store ratings (F-124); do not charge before that.
-      Beta during the rest of 2026, paid launch February 2027 after ratings. Build order F-069, F-070, F-075, F-072, F-073,
-      then F-071, F-074, F-068.
+      Beta during the rest of 2026, paid launch February 2027 after ratings. Build order F-069, F-070, F-075, F-072,
+      F-073, then F-071, F-074, F-068.
   - id: M-10
     name: Undercut global launch
     status: planned
@@ -123,8 +123,8 @@ milestones:
       - F-060
       - F-068
     notes: two steps — localised listings live for SEO once the five languages and all four purchase channels are proven;
-      countries opened afterwards on the owner's word (2026-09-25). GTM 2026-10-14 — closed beta through the rest of 2026;
-      public launch February 2027 preseason. Undercut only; Track Limits stays the content engine.
+      countries opened afterwards on the owner's word (2026-09-25). GTM 2026-10-14 — closed beta through the rest of
+      2026; public launch February 2027 preseason. Undercut only; Track Limits stays the content engine.
   - id: M-12
     name: Undercut closed-beta product pack
     version: 2.6.0
@@ -135,9 +135,10 @@ milestones:
       - F-123
       - F-124
       - F-120
-    notes: "Owner 2026-10-14. Two weeks, product not marketing — picker arithmetic (F-122), shareable round-report image
+    notes: Owner 2026-10-14. Two weeks, product not marketing — picker arithmetic (F-122), shareable round-report image
       (F-120 follow-up), marketing site and store name-line copy (F-123), Pit Wall ungated until 50+ ratings (F-124).
-      Charge Pit Wall only after 50+ ratings. January 2027 is League Pro / IAP / notifications / F-020 F-021 F-024 / F-044."
+      Charge Pit Wall only after 50+ ratings. January 2027 is League Pro / IAP / notifications / F-020 F-021 F-024 /
+      F-044.
   - id: M-11
     name: Undercut Moonshot
     version: 2.6.0
