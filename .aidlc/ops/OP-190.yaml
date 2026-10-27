@@ -1,0 +1,56 @@
+id: OP-190
+title: Undercut vc77 to Play beta
+kind: uc-play-promote
+status: verified
+params:
+  code: "77"
+  track: beta
+  notes: "Fixes the crash at launch in 2.7.0. The weekend recap now shows your points as scored, pick by pick, your place in the round and the season, and the next round with your Moonshot on it. The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections through the race weekend. The Moonshot counter counts a token when the call locks, and the Pit Wall ace call is first in the driver sheet, with MAKE ACE right there."
+created_at: 2026-10-27T17:48:00.031Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-27T17:48:06.841Z
+    head_sha: 023d656d4df4bc032e69afe6898d7a3ecf6401ae
+    command: "node scripts/ops/play-publish.js promote '77' --track='beta' --notes='Fixes the crash at launch in 2.7.0. The weekend recap now shows your points as scored, pick by pick, your place in the round and the season, and the next round with your Moonshot on it. The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections through the race weekend. The Moonshot counter counts a token when the call locks, and the Pit Wall ace call is first in the driver sheet, with MAKE ACE right there.'"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-190/dry-run-2026-10-27T17-48-06-841Z.log
+    log_sha256: 1a45a248124182381d0951401cdf981cc77e47b89f70180ad41bc12c60d0c4f2
+    lines: 4
+  - step: backup
+    at: 2026-10-27T18:08:05.334Z
+    head_sha: 023d656d4df4bc032e69afe6898d7a3ecf6401ae
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-190'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-190/backup-2026-10-27T18-08-05-334Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-27T18:08:07.309Z
+    head_sha: 023d656d4df4bc032e69afe6898d7a3ecf6401ae
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-27T18:08:07.311Z
+    head_sha: 023d656d4df4bc032e69afe6898d7a3ecf6401ae
+    command: "node scripts/ops/play-publish.js promote '77' --track='beta' --notes='Fixes the crash at launch in 2.7.0. The weekend recap now shows your points as scored, pick by pick, your place in the round and the season, and the next round with your Moonshot on it. The market stays open while your lineup is locked: open MARKET from the team row to read prices, points and projections through the race weekend. The Moonshot counter counts a token when the call locks, and the Pit Wall ace call is first in the driver sheet, with MAKE ACE right there.' --apply --confirm=com.undercut.app"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-190/apply-2026-10-27T18-08-07-311Z.log
+    log_sha256: 924583427a0d1f09c5ffb94247d9891d5171fa55a7230eff3352089f9603d8b6
+    lines: 6
+  - step: verify
+    at: 2026-10-27T18:08:09.772Z
+    head_sha: 023d656d4df4bc032e69afe6898d7a3ecf6401ae
+    command: node scripts/ops/play-publish.js status
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-190/verify-2026-10-27T18-08-09-772Z.log
+    log_sha256: 1aabd3835c6d0472f54e582feb64d3a9821fd6b377e0d387e2f46b3732dec760
+    lines: 6
+  - step: gates
+    at: 2026-10-27T18:08:11.313Z
+    head_sha: 023d656d4df4bc032e69afe6898d7a3ecf6401ae
+    exit: 0
+    gates:
+      G15: skip
