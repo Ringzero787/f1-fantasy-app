@@ -11,6 +11,7 @@ import { useLockoutStatus } from '../../hooks/useLockoutStatus';
 import { recapMoonshot, type MoonshotCall } from '../grid/moonshot';
 import { getRaceSnapshot } from '../../services/raceSnapshots.service';
 import { readLeagueRaceResult } from './useRoundReport';
+import { constructorShortName } from '../grid/entityNames';
 import type { LeagueRaceResultDoc } from '../grid/raceLeaderboard';
 import { nextRoundLines, recapStanding, recapTitle, rosterFromSnapshot, rosterFromTeam, type NextRound, type RaceSnapshot, type RecapRoster, type RecapStanding } from '../grid/weekendRecap';
 
@@ -140,7 +141,8 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
     const surname = (name: string | undefined, id: string) => (name ? name.trim().split(/\s+/).slice(-1)[0] : id);
     const names = {
       driver: (id: string) => { const d = drivers.find((x) => x.id === id); return surname(d?.name, d?.shortName || id); },
-      constructor: (id: string) => { const c = constructors.find((x) => x.id === id); return c?.name || c?.shortName || id; },
+      // the grid's short constructor names (entityNames), never the series' own words from the data
+      constructor: (id: string) => constructorShortName(id, constructors.find((x) => x.id === id)?.name || id),
     };
     const snapshot = record?.key === recordKey ? record.snapshot : null;
     const roster = snapshot ? rosterFromSnapshot(snapshot, names) : rosterFromTeam(team, teamConstructor, lastRaceScores);
