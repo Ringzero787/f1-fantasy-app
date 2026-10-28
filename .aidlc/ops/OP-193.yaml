@@ -1,0 +1,56 @@
+id: OP-193
+title: Undercut 2.7.2 (vc78) to Play production
+kind: uc-play-publish
+status: verified
+params:
+  aab: /mnt/smb/share/undercut/undercut-2.7.2-vc78.aab
+  track: production
+  notes: "Pick Team now keeps the constructor in mind: a driver you could not finish the lineup after is held back, the budget line counts the constructor as a seat, and Pit Wall's pick is a highlighted row with its label on its own line. Your picks save as you go, even before the lineup is complete, with the open seats named in the summary; leaving with unsaved picks asks first. Also in 2.7.x: the crash-at-launch fix, the weekend recap from your scored record, and the market open through the lock."
+created_at: 2026-10-27T21:43:34.812Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-27T21:43:35.098Z
+    head_sha: 6b209caf96b71b757b8ac0749b2b0b507568c413
+    command: "node scripts/ops/play-publish.js upload '/mnt/smb/share/undercut/undercut-2.7.2-vc78.aab' --track='production' --notes='Pick Team now keeps the constructor in mind: a driver you could not finish the lineup after is held back, the budget line counts the constructor as a seat, and Pit Wall'\\''s pick is a highlighted row with its label on its own line. Your picks save as you go, even before the lineup is complete, with the open seats named in the summary; leaving with unsaved picks asks first. Also in 2.7.x: the crash-at-launch fix, the weekend recap from your scored record, and the market open through the lock.'"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-193/dry-run-2026-10-27T21-43-35-098Z.log
+    log_sha256: ab406e505cee50a8eeb405573b49163141929c9636896d7b4e1fe3a4c7e7bfd1
+    lines: 8
+  - step: backup
+    at: 2026-10-28T02:18:25.576Z
+    head_sha: 6b209caf96b71b757b8ac0749b2b0b507568c413
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-193'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-193/backup-2026-10-28T02-18-25-576Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-28T02:18:27.469Z
+    head_sha: 6b209caf96b71b757b8ac0749b2b0b507568c413
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-28T02:18:27.470Z
+    head_sha: 6b209caf96b71b757b8ac0749b2b0b507568c413
+    command: "node scripts/ops/play-publish.js upload '/mnt/smb/share/undercut/undercut-2.7.2-vc78.aab' --track='production' --notes='Pick Team now keeps the constructor in mind: a driver you could not finish the lineup after is held back, the budget line counts the constructor as a seat, and Pit Wall'\\''s pick is a highlighted row with its label on its own line. Your picks save as you go, even before the lineup is complete, with the open seats named in the summary; leaving with unsaved picks asks first. Also in 2.7.x: the crash-at-launch fix, the weekend recap from your scored record, and the market open through the lock.' --apply --confirm=com.undercut.app"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-193/apply-2026-10-28T02-18-27-470Z.log
+    log_sha256: 6096058e330571d3e7ffde97affd0df0064ee70be84ff70453e7370d1b94bb3c
+    lines: 10
+  - step: verify
+    at: 2026-10-28T02:19:19.207Z
+    head_sha: 6b209caf96b71b757b8ac0749b2b0b507568c413
+    command: node scripts/ops/play-publish.js status
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-193/verify-2026-10-28T02-19-19-207Z.log
+    log_sha256: 5fb8261b42e491f9b4496ec2de1d7f08cf2a5c14ffe0f3517e8f6284c7df24a5
+    lines: 6
+  - step: gates
+    at: 2026-10-28T02:19:20.951Z
+    head_sha: 6b209caf96b71b757b8ac0749b2b0b507568c413
+    exit: 0
+    gates:
+      G15: skip
