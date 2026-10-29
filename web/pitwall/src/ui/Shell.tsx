@@ -24,9 +24,9 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
   return (
     <header className="ctx">
       <div className="ctxrow">
-        <div className="brand"><h1>Pit Wall</h1><span className="lbl only-wide">Undercut · analytics</span>{p.example ? <Pill red>Example data</Pill> : null}</div>
+        <div className="brand"><h1>Pit Wall</h1><span className="lbl only-wide">Undercut · analytics</span>{p.example ? <Pill gold>Example data</Pill> : null}</div>
         <div className="grp">
-          <span className={`only-wide ${isStale(p.asOf, new Date()) ? 'red' : 'mut'}`} title={isStale(p.asOf, new Date()) ? 'The worker has not published for more than a day' : undefined}>Data as of {asOfLabel(p.asOf)}{isStale(p.asOf, new Date()) ? ' · stale' : ''}</span>
+          <span className={`only-wide ${isStale(p.asOf, new Date()) ? 'warn' : 'mut'}`} title={isStale(p.asOf, new Date()) ? 'The worker has not published for more than a day' : undefined}>Data as of {asOfLabel(p.asOf)}{isStale(p.asOf, new Date()) ? ' · stale' : ''}</span>
           <button className="ghost" type="button" onClick={() => toggleTheme()}>Light / dark</button>
           {onSignOut ? <button className="ghost" type="button" onClick={onSignOut}>Sign out</button> : null}
         </div>
@@ -41,7 +41,7 @@ export function ContextBar({ page, account, onSignOut }: { page: PageName; accou
             const l = account?.locksIn ?? p.round.locksIn;
             const past = account?.locksAtMs != null && Date.now() >= account.locksAtMs;
             const shut = account?.lineupLocked === true || past || l === 'LOCKED';
-            return <span className="red">{shut ? 'Lineups locked' : `Locks in ${l}`}</span>;
+            return <span className="gold">{shut ? 'Lineups locked' : `Locks in ${l}`}</span>;
           })()}
           {/* F-098/F-102: on a sprint weekend the lineup locks on Friday and the ace survives
               until Saturday's sprint, so "Lineups locked" on its own reads as though everything is
@@ -81,7 +81,7 @@ export function Footer({ page }: { page: PageName }) {
   }, [page]);
   return (
     <footer className="foot">
-      <span data-scroll-ratio={ratio.toFixed(2)}>Scroll budget · {ratio.toFixed(1)} / 3.0 screens {ratio <= 3 ? <span className="pos">✓ within</span> : <span className="red">over</span>}</span>
+      <span data-scroll-ratio={ratio.toFixed(2)}>Scroll budget · {ratio.toFixed(1)} / 3.0 screens {ratio <= 3 ? <span className="pos">✓ within</span> : <span className="neg">over</span>}</span>
       <span>{DISCLAIMER}</span>
     </footer>
   );

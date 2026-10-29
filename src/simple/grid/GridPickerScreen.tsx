@@ -349,7 +349,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           borderBottomWidth: 1, borderBottomColor: colors.borderLight,
           opacity: item.blocked ? 0.35 : pressed ? 0.7 : 1,
           // the pick row spans the gutter: a tinted band with the accent on the screen edge
-          ...(pick ? { backgroundColor: colors.primaryFaint, marginHorizontal: -gutter, paddingHorizontal: gutter, paddingLeft: gutter - 3, borderLeftWidth: 3, borderLeftColor: colors.primary } : null),
+          ...(pick ? { backgroundColor: colors.goldFaint, marginHorizontal: -gutter, paddingHorizontal: gutter, paddingLeft: gutter - 3, borderLeftWidth: 3, borderLeftColor: colors.gold } : null),
         })}
       >
         <Text style={[mono(12), { width: compact ? 34 : scaled(36), color: colors.text.muted }]}>{item.num}</Text>
@@ -357,7 +357,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           {/* Pit Wall's pick is the whole row (tint + edge bar) with its label on a line of its own; the
               badges used to sit beside the team name and ran under the stats column. Nothing is inline
               with the name any more: the label pushes the row down, the hints wrap below. */}
-          {pick ? <Text style={[mono(9, 'medium'), { color: colors.primary, letterSpacing: 1 }]}>PIT WALL PICK</Text> : null}
+          {pick ? <Text style={[mono(9, 'medium'), { color: colors.gold, letterSpacing: 1 }]}>PIT WALL PICK</Text> : null}
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>
             {item.name}
           </Text>

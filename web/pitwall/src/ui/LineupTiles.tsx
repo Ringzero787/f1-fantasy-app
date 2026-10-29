@@ -26,7 +26,7 @@ export function LineupTiles() {
         <h2 className="h2 calls-h">Lineup</h2>
         <span className="srow">
           {real?.team.isLocked ? <span className="lbl">Locked</span> : null}
-          <button type="button" className="linkish lbl red" onClick={() => go('LINEUP LAB')}>Edit →</button>
+          <button type="button" className="linkish lbl gold" onClick={() => go('LINEUP LAB')}>Edit →</button>
         </span>
       </div>
       <div className="ltiles">
@@ -38,16 +38,16 @@ export function LineupTiles() {
           return (
             <button key={id} type="button" className={`ltile ${ctor ? 'ctor' : ''}`} onClick={() => open(id)} aria-label={`${e.name}, projected ${e.med} points. Open detail`}>
               <span className="ltile-top">
-                <span className={`num ${ctor ? 'red' : 'mut'}`}>{ctor ? 'TEAM' : e.num}{!ctor && id === ui.lineup.ace ? <> <Pill red>Ace</Pill></> : null}{ui.done.some((d) => d.in === id) ? <> <Pill red>In</Pill></> : null}{!ctor && id === moonshotDriver ? <> <Pill red>🚀</Pill></> : null}</span>
+                <span className={`num ${ctor ? 'gold' : 'mut'}`}>{ctor ? 'TEAM' : e.num}{!ctor && id === ui.lineup.ace ? <> <Pill gold>Ace</Pill></> : null}{ui.done.some((d) => d.in === id) ? <> <Pill gold>In</Pill></> : null}{!ctor && id === moonshotDriver ? <> <Pill gold>🚀</Pill></> : null}</span>
                 <span className="num"><b>{e.med}</b></span>
               </span>
-              <span className={`ltile-name ${ui.done.some((d) => d.in === id) ? 'red' : ''}`}>{ctor ? shortTeamName(e.name, e.id) : shortName(e.name)}</span>
+              <span className={`ltile-name ${ui.done.some((d) => d.in === id) ? 'gold' : ''}`}>{ctor ? shortTeamName(e.name, e.id) : shortName(e.name)}</span>
               <span className="ltile-foot"><TeamBar p={p} team={e.team} />{has.priceModel && !ctor ? <span className="num"><Arrow n={e.dprice} /></span> : <span className="mut">—</span>}</span>
             </button>
           );
         })}
       </div>
-      {ace ? <div className="srow"><Pill red>Ace</Pill><span className="ltile-ace">{ace.name} · 2× points</span></div> : null}
+      {ace ? <div className="srow"><Pill gold>Ace</Pill><span className="ltile-ace">{ace.name} · 2× points</span></div> : null}
       <span className="mut" style={{ fontSize: 11 }}>Projected points this round; the arrow is the predicted price move.</span>
     </section>
   );

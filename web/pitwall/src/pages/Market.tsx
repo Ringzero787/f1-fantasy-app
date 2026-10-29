@@ -49,7 +49,7 @@ export function Market() {
           <tbody>{[...p.drivers].sort((a, b) => b.own - a.own).slice(0, 14).map((d) => { const me = ui.lineup.drivers.includes(d.id); return (
             <Tr key={d.id} onClick={() => open(d.id)} me={me} focus={ui.focus === d.id} label={`${d.name} ownership`}>
               <td><TeamBar p={p} team={d.team} /><b>{d.name}</b></td><td>{d.own}%</td><td>{Math.round(d.own * 1.25)}%</td><td>{me ? '✓' : '—'}</td>
-              <td>{!me && d.own > 55 ? <span className="red">THREAT</span> : me && d.own < 30 ? <span className="pos">DIFFERENTIAL</span> : <span className="mut">TEMPLATE</span>}</td>
+              <td>{!me && d.own > 55 ? <span className="neg">THREAT</span> : me && d.own < 30 ? <span className="pos">DIFFERENTIAL</span> : <span className="mut">TEMPLATE</span>}</td>
             </Tr>
           ); })}</tbody>
         </table></div>

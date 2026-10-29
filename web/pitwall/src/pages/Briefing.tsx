@@ -36,7 +36,7 @@ export function Briefing() {
           tip={`${v.name} · ${v.activity < 0.35 ? 'rarely edits their lineup' : 'edits most weeks'}\nBank ${money(v.bank)} · best affordable gain +${v.gain} pts`}>
           <span><b>{v.name}</b> <span className="mut">P{v.rank} · {v.gap > 0 ? `+${v.gap} ahead` : `${-v.gap} behind`}</span><br />
             <span className="mut">{v.out.name} →</span> <TeamBar p={p} team={v.in.team} />{v.in.name} <span className="mut">{v.likely}% likely</span></span>
-          <span><Pill red={v.tag === 'THREAT'}>{v.tag}</Pill></span>
+          <span><Pill neg={v.tag === 'THREAT'}>{v.tag}</Pill></span>
         </Row>
       ))}
       <span className="mut">{has.league ? `${p.league.name} · you are P${p.league.myRank}. ` : ''}Based on each rival's bank, best swap and how often they edit.</span>
@@ -64,7 +64,7 @@ export function Briefing() {
         <Row key={w.key} cols="1fr auto auto" dense label={`${w.label}: ${w.sky ?? ''}${w.tempC !== null ? `, ${w.tempC} degrees` : ''}${w.rainMm !== null ? `, ${w.rainMm} millimetres of rain` : ''}`}>
           <span>{w.label} <span className="mut">· {day(w.at)}{w.sky ? ` · ${w.sky}` : ''}</span></span>
           <span className="num">{w.tempC !== null ? `${w.tempC}°` : '—'}</span>
-          <span className={`num ${w.rainMm !== null && w.rainMm >= 1 ? 'red' : ''}`}>{w.rainMm !== null ? `${w.rainMm} mm` : '—'}</span>
+          <span className={`num ${w.rainMm !== null && w.rainMm >= 1 ? 'warn' : ''}`}>{w.rainMm !== null ? `${w.rainMm} mm` : '—'}</span>
         </Row>
       ))}
       </div>

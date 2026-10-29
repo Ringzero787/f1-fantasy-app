@@ -27,7 +27,7 @@ export function Locked({ feature, children }: { feature: Feature; children: Reac
     <div className="locked">
       <div className="locked-body" aria-hidden="true" inert>{children}</div>
       <div className="locked-veil">
-        <span className="pill r">Pit Wall Pass</span>
+        <span className="pill g">Pit Wall Pass</span>
         <p>{LOCKED_COPY[feature] ?? 'Included with the Pit Wall Pass.'}</p>
         <PassCta />
       </div>
@@ -42,7 +42,7 @@ export function LockedPage({ feature, title, children }: { feature: Feature; tit
   return (
     <div className="page">
       <section className="tile c12">
-        <div className="th"><span className="lbl">{title}</span><span className="pill r">Pit Wall Pass</span></div>
+        <div className="th"><span className="lbl">{title}</span><span className="pill g">Pit Wall Pass</span></div>
         <Locked feature={feature}>{children}</Locked>
       </section>
     </div>

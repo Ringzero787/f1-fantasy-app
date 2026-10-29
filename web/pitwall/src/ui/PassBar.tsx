@@ -15,7 +15,7 @@ export function PassBar({ feature, what }: { feature: Feature; what: string }) {
   if (can(pass, feature)) return null;
   return (
     <div className="passbar c12" role="note">
-      <span className="pill r">Pit Wall Pass</span>
+      <span className="pill g">Pit Wall Pass</span>
       <span className="passbar-what">{what}</span>
       <PassCta short />
     </div>

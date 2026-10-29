@@ -141,10 +141,10 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
                 than two screens down. */}
             {aceVerdict ? (
               <View
-                style={{ borderWidth: 1, borderColor: aceVerdict.pick ? colors.primary : colors.borderStrong, backgroundColor: aceVerdict.pick ? colors.card : undefined, borderRadius: 14, padding: 14, gap: 8 }}
+                style={{ borderWidth: 1, borderColor: aceVerdict.pick ? colors.gold : colors.borderStrong, backgroundColor: aceVerdict.pick ? colors.card : undefined, borderRadius: 14, padding: 14, gap: 8 }}
               >
-                <MonoLabel size={10} color={colors.primary} style={{ letterSpacing: scaled(10) * 0.14 }}>PIT WALL · ACE CALL</MonoLabel>
-                <Text style={{ fontFamily: family.ui.black, fontSize: scaled(14), lineHeight: scaled(19), letterSpacing: -scaled(14) * 0.02, color: aceVerdict.pick ? colors.primary : colors.text.primary }}>{aceVerdict.text}</Text>
+                <MonoLabel size={10} color={colors.gold} style={{ letterSpacing: scaled(10) * 0.14 }}>PIT WALL · ACE CALL</MonoLabel>
+                <Text style={{ fontFamily: family.ui.black, fontSize: scaled(14), lineHeight: scaled(19), letterSpacing: -scaled(14) * 0.02, color: aceVerdict.pick ? colors.gold : colors.text.primary }}>{aceVerdict.text}</Text>
                 {aceInCall ? (
                   <PillButton label={busy === 'ace' ? 'SAVING…' : 'MAKE ACE · 2× POINTS'} variant="inverse" disabled={!!busy} onPress={() => run('ace', onToggleAce)} style={{ marginTop: 4 }} />
                 ) : null}

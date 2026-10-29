@@ -24,7 +24,7 @@ export function Tabs<T extends string>({ value, options, onChange, small = true,
 export const Chip = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) => (
   <button type="button" className="chip" aria-pressed={on} onClick={onClick}>{children}</button>
 );
-export const Pill = ({ red, children }: { red?: boolean; children: ReactNode }) => <span className={`pill ${red ? 'r' : ''}`}>{children}</span>;
+export const Pill = ({ gold, neg, children }: { gold?: boolean; neg?: boolean; children: ReactNode }) => <span className={`pill ${gold ? 'g' : ''} ${neg ? 'n' : ''}`}>{children}</span>;
 
 /**
  * A frame with nothing to show yet. Says so in a sentence rather than rendering an empty table or,
@@ -40,7 +40,7 @@ export const TeamBar = ({ p, team }: { p: Payload; team: string }) => <span clas
 /** Direction is carried by the glyph and the sign, never by colour alone. */
 export function Arrow({ n }: { n: number }) {
   if (n > 0) return <span className="pos">▲ {n}</span>;
-  if (n < 0) return <span className="red">▼ {-n}</span>;
+  if (n < 0) return <span className="neg">▼ {-n}</span>;
   return <span className="mut">• 0</span>;
 }
 
@@ -70,8 +70,8 @@ export const FitCell = ({ v, label }: { v: number; label: string }) => (
   <span className="cell" style={{ background: `color-mix(in srgb,var(--fg) ${v * 17}%,transparent)`, color: v >= 4 ? 'var(--inv)' : 'var(--fg)' }} data-tip={`${label}: circuit fit ${v}/5`}>{v}</span>
 );
 
-export const Meter = ({ pct, red, style }: { pct: number; red?: boolean; style?: CSSProperties }) => (
-  <span className={`meter ${red ? 'r' : ''}`} style={style} aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></span>
+export const Meter = ({ pct, neg, style }: { pct: number; neg?: boolean; style?: CSSProperties }) => (
+  <span className={`meter ${neg ? 'n' : ''}`} style={style} aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></span>
 );
 
 const onKey = (fn: () => void) => (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };

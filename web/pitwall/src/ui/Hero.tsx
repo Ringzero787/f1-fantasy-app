@@ -53,13 +53,13 @@ export function Hero() {
         </div>
         <div className="hero-stats">
           <div className="hero-stat lead"><Lbl>Season pts</Lbl><span className="hero-num num">{season === null ? dash : fmt(season)}</span></div>
-          <div className="hero-stat"><Lbl>Last race</Lbl><span className="hero-num sm num red">{lastRace === null ? dash : `+${fmt(lastRace)}`}</span></div>
+          <div className="hero-stat"><Lbl>Last race</Lbl><span className="hero-num sm num gold">{lastRace === null ? dash : `+${fmt(lastRace)}`}</span></div>
           <div className="hero-stat"><Lbl>Rank</Lbl><span className="hero-num sm num">{rank ? <>{rank.n}<span className="mut hero-of">/{rank.of}</span></> : dash}</span></div>
           <div className="hero-stat"><Lbl>Bank</Lbl><span className="hero-num sm num">{purse === null ? dash : money(purse)}</span></div>
         </div>
       </div>
       <div className="weekend" role="group" aria-label="This weekend">
-        <div className="th"><span className="lbl red">This weekend</span><Lbl>Projected</Lbl></div>
+        <div className="th"><span className="lbl gold">This weekend</span><Lbl>Projected</Lbl></div>
         {proj.complete ? (
           <>
             <div className="weekend-proj"><span className="hero-num num">{proj.points}</span><span className="mut">PTS{marker !== null ? ` · RANGE ${low}–${high}` : ''}</span></div>
@@ -74,7 +74,7 @@ export function Hero() {
         )}
         <div className="list">
           <div className="row two" style={{ gridTemplateColumns: '1fr auto' }}><span className="fg2">Rate my team</span><span className="num"><b>{proj.complete ? `${rateMyTeam(p, ui.lineup)} / 100` : '—'}</b></span></div>
-          <div className="row two" style={{ gridTemplateColumns: '1fr auto' }}><span className="fg2">Flags</span><span className={flags || proj.open ? 'red' : 'mut'}>{flags} penalty risk · {proj.open} open slot{proj.open === 1 ? '' : 's'}</span></div>
+          <div className="row two" style={{ gridTemplateColumns: '1fr auto' }}><span className="fg2">Flags</span><span className={flags || proj.open ? 'warn' : 'mut'}>{flags} penalty risk · {proj.open} open slot{proj.open === 1 ? '' : 's'}</span></div>
         </div>
         <button className="cta lg" type="button" onClick={() => go('LINEUP LAB')}>Open lineup lab →</button>
       </div>

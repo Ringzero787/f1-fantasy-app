@@ -74,10 +74,10 @@ export function Board() {
         <div className="scroll"><svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ minWidth: 560 }} role="img" aria-label="Projection movement across the weekend">
           {[20, 40, 60].map((v) => <g key={v}><line x1="50" x2={w - 40} y1={h - 30 - v * 2.6} y2={h - 30 - v * 2.6} stroke="var(--borderL)" /><text x="18" y={h - 27 - v * 2.6}>{v}</text></g>)}
           {SESSIONS.map((s, i) => <text key={s} x={50 + (i * (w - 90)) / 4} y={h - 8} textAnchor="middle">{s}</text>)}
-          {shown.map((d) => { const P = pts(d), red = d.id === pick; return (
+          {shown.map((d) => { const P = pts(d), mine = d.id === pick; return (
             <g key={d.id} className="click" onClick={() => open(d.id)} data-tip={`${d.name}\n${SESSIONS.map((s, i) => `${s} ${Math.round((h - 30 - P[i][1]) / 2.6)}`).join(' · ')}`}>
-              <polyline points={P.map((x) => x.join(',')).join(' ')} fill="none" stroke={red ? 'var(--red)' : 'var(--borderS)'} strokeWidth={red ? 3 : 2} strokeDasharray={red ? undefined : '0'} />
-              {red ? <text x={P[4][0] + 6} y={P[4][1] + 3} style={{ fill: 'var(--fg)' }}>{d.name}</text> : null}
+              <polyline points={P.map((x) => x.join(',')).join(' ')} fill="none" stroke={mine ? 'var(--gold)' : 'var(--borderS)'} strokeWidth={mine ? 3 : 2} strokeDasharray={mine ? undefined : '0'} />
+              {mine ? <text x={P[4][0] + 6} y={P[4][1] + 3} style={{ fill: 'var(--fg)' }}>{d.name}</text> : null}
             </g>
           ); })}
         </svg></div>

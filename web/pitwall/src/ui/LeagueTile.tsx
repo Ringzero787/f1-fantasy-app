@@ -61,7 +61,7 @@ export function LeagueTile() {
       <div className="th">
         <Lbl>{shown.name}</Lbl>
         <span className="srow">
-          {me ? <Pill red={me.rank === 1}>{`P${me.rank} of ${shown.size}`}{me.move != null ? ` · ${moveLabel(me.move)}` : ''}</Pill> : <span className="mut">{shown.size} team{shown.size === 1 ? '' : 's'}</span>}
+          {me ? <Pill gold={me.rank === 1}>{`P${me.rank} of ${shown.size}`}{me.move != null ? ` · ${moveLabel(me.move)}` : ''}</Pill> : <span className="mut">{shown.size} team{shown.size === 1 ? '' : 's'}</span>}
           {shown.max ? <span className="mut only-wide">{shown.size} of {shown.max} seats</span> : null}
         </span>
       </div>
@@ -72,7 +72,7 @@ export function LeagueTile() {
         <tbody>
           {rows.map((r) => (
             <tr key={r.userId} className={r.me ? 'me' : ''}>
-              <td className="num">{r.rank}{r.move != null ? <span className={r.move > 0 ? 'red' : 'mut'}> {moveLabel(r.move)}</span> : null}</td>
+              <td className="num">{r.rank}{r.move != null ? <span className={r.move > 0 ? 'gold' : 'mut'}> {moveLabel(r.move)}</span> : null}</td>
               <td style={{ textAlign: 'left' }}><b>{r.team}</b> <span className="mut">{r.manager}{r.wins ? ` · ${r.wins} win${r.wins === 1 ? '' : 's'}` : ''}</span>{r.me ? <span className="visually-hidden"> (you)</span> : null}</td>
               <td className="num">{r.points.toLocaleString()}</td>
               <td className="num only-wide">{r.lastRace == null ? '—' : r.lastRace}</td>
