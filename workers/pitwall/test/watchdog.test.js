@@ -23,8 +23,8 @@ test('afterTick resets the count on success and exits only after the limit', () 
   assert.deepEqual(afterTick(false, 2, 3), { failures: 3, action: 'exit' });
 });
 
-test('the defaults notice a hang within one tick period and give up after about fifteen minutes', () => {
-  assert.ok(TICK_DEADLINE_MS < 5 * 60 * 1000, 'deadline is shorter than the tick period');
-  assert.ok(TICK_DEADLINE_MS < 10 * 60 * 1000, 'deadline is shorter than the job lease');
+test('the deadline outlasts the longest legitimate job (a 20-min outlooks run plus one 3-min CLI call) and gives up after three failures', () => {
+  assert.ok(TICK_DEADLINE_MS >= 23 * 60 * 1000, 'deadline is longer than an outlooks run plus one in-flight call');
+  assert.ok(TICK_DEADLINE_MS <= 60 * 60 * 1000, 'a hang is still noticed within the hour');
   assert.equal(MAX_TICK_FAILURES, 3);
 });

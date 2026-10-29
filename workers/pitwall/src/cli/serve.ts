@@ -101,13 +101,22 @@ async function tick(): Promise<void> {
     return;
   }
   log(`worker ${OWNER} starting (season ${SEASON}, tick ${TICK_MS} ms, commit ${commit ?? '?'})`);
-  // F-132: a tick has a deadline, and three failed ticks in a row end the process so systemd
-  // restarts it with a fresh Firestore client. The loop ran eighteen days inside one stuck call
-  // before this; the alert is best-effort and gets its own deadline so it cannot hang the exit.
+  // F-132: a tick has a deadline (watchdog.ts says why 25 min), and three failed ticks in a row
+  // end the process so systemd restarts it with a fresh Firestore client. The loop ran eighteen
+  // days inside one stuck call before this; the alert is best-effort and gets its own deadline so
+  // it cannot hang the exit.
   let failures = 0;
+  let inFlight: Promise<void> | null = null;
   for (;;) {
     let ok = true;
-    try { await withDeadline(tick(), TICK_DEADLINE_MS, 'tick'); } catch (e) {
+    try {
+      // a tick that outlived its deadline is still running: do not start a second one beside it
+      if (inFlight) throw new Error('previous tick still running');
+      const current = tick();
+      inFlight = current;
+      current.finally(() => { if (inFlight === current) inFlight = null; }).catch(() => undefined);
+      await withDeadline(current, TICK_DEADLINE_MS, 'tick');
+    } catch (e) {
       ok = false;
       log(`tick failed: ${e instanceof Error ? e.message : e}`);
       await withDeadline(alert('worker tick failed', e instanceof Error ? e.stack ?? e.message : String(e)), 30 * 1000, 'alert').catch((err: Error) => log(`alert failed: ${err.message}`));

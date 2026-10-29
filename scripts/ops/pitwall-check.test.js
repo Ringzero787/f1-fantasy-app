@@ -67,10 +67,10 @@ test('a moved session is a warn under an hour and a fail at an hour or more', ()
 
 test('a cancelled round has no meeting (fail); an added meeting has no race (warn)', () => {
   const s = healthy();
-  s.meetings = [s.meetings[0], s.meetings[1], meeting(1399, 'Somewhere Grand Prix', '2026-11-15T15:00:00+00:00')];
+  s.meetings = [s.meetings[0], s.meetings[1], meeting(1399, 'Somewhere Meeting', '2026-11-15T15:00:00+00:00')];
   const r = evaluate(s, NOW);
   assert.ok(r.findings.some((f) => f.check === 'calendar' && f.level === 'fail' && /brazil_2026 .*no provider meeting/.test(f.text)));
-  assert.ok(r.findings.some((f) => f.check === 'calendar' && f.level === 'warn' && /Somewhere Grand Prix .*added round/.test(f.text)));
+  assert.ok(r.findings.some((f) => f.check === 'calendar' && f.level === 'warn' && /Somewhere Meeting .*added round/.test(f.text)));
 });
 
 test('a cancelled round is settled: no scoring failure, no calendar pairing, past meetings ignored', () => {

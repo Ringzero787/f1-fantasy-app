@@ -35,7 +35,7 @@ async function collect() {
     db.collection('pw_status').doc('worker').get(),
     db.collection('races').where('seasonId', '==', SEASON).get(),
     db.collection('pw_public').orderBy('asOf', 'desc').limit(1).get(),
-    db.collection('pw_projections').get(),
+    db.collection('pw_projections').where('season', '==', SEASON).select('round').get(),
     db.collection('pw_alerts').where('at', '>', Date.now() - 7 * 24 * 3600 * 1000).get(),
   ]);
   const races = racesSnap.docs.map((d) => {
