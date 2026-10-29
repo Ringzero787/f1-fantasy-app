@@ -3,6 +3,7 @@
  * The same loop runs on forge (systemd) and in the GCP backup (Cloud Run Job).
  */
 import type { Job, JobKind, JobStore, RunRecord } from './types';
+import { isStale } from './lease';
 
 export type Handler = (job: Job, report: (key: string, n: number) => void) => Promise<void>;
 
@@ -14,6 +15,8 @@ export interface RunnerOptions {
   commit: string | null;
   now?: () => number;
   kinds?: JobKind[];
+  /** A job claimed more than this long after its time is skipped, not run (F-133; lease.STALE_AFTER_MS). Unset: run everything. */
+  staleAfterMs?: number;
 }
 
 /** @returns the run record, or null when no job was due. */
@@ -21,6 +24,16 @@ export async function runOnce(store: JobStore, handlers: Partial<Record<JobKind,
   const now = opts.now ?? Date.now;
   const job = await store.claim(opts.owner, now(), opts.leaseMs, opts.kinds ?? (Object.keys(handlers) as JobKind[]));
   if (!job) return null;
+
+  // F-133: work the schedule asked for during an outage is put aside, not run late onto the portal.
+  if (opts.staleAfterMs !== undefined && isStale(job, now(), opts.staleAfterMs)) {
+    const startedAt = now();
+    const late = Math.round((startedAt - job.notBefore) / 3600000);
+    const put = await store.skip(job.id, opts.owner, `skipped: due ${late} h ago, past the ${Math.round(opts.staleAfterMs / 3600000)} h stale limit`, now());
+    const run: RunRecord = { jobId: job.id, kind: job.kind, runner: opts.owner, startedAt, finishedAt: now(), ok: put, error: put ? null : 'lease lost before skip', counts: { skipped: 1, lateHours: late }, commit: opts.commit };
+    await store.writeRun(run);
+    return run;
+  }
 
   const counts: Record<string, number> = {};
   const report = (key: string, n: number) => { counts[key] = (counts[key] ?? 0) + n; };

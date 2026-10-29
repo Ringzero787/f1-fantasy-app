@@ -4,7 +4,8 @@
  * SDK touches them.
  */
 export type JobKind = 'daily' | 'session' | 'projections' | 'backtest' | 'news' | 'briefing';
-export type JobStatus = 'queued' | 'leased' | 'done' | 'failed';
+/** `skipped` (F-133): claimed so long after its time that running it would publish stale work; never retried. */
+export type JobStatus = 'queued' | 'leased' | 'done' | 'failed' | 'skipped';
 
 export interface Job {
   id: string;
@@ -45,6 +46,8 @@ export interface JobStore {
   renew(jobId: string, owner: string, now: number, leaseMs: number): Promise<boolean>;
   /** Finish a job this owner still holds; false if the lease was lost (the result is then discarded). */
   complete(jobId: string, owner: string, ok: boolean, error: string | null, now: number): Promise<boolean>;
+  /** Put a job this owner holds aside as `skipped` with a reason; false if the lease was lost. */
+  skip(jobId: string, owner: string, reason: string, now: number): Promise<boolean>;
   /** Idempotent on the job id. */
   enqueue(job: Job): Promise<'created' | 'exists'>;
   writeRun(run: RunRecord): Promise<void>;

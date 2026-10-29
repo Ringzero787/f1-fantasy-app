@@ -127,7 +127,16 @@ function evaluate(state, now = new Date()) {
     }
   }
 
-  // 5. alerts the worker raised this week
+  // 5. the open queue (F-133): a live worker that claims nothing looks healthy on every check above.
+  //    A job still queued an hour past its time, or whose lease ran out, or that gave up, is the tell.
+  for (const j of state.jobs || []) {
+    const late = t - j.notBefore;
+    if (j.status === 'queued' && late > 60 * 60 * 1000) add('fail', 'queue', `${j.id} has been due for ${fmtAge(late)} and was never claimed: the worker is not picking up jobs`);
+    else if (j.status === 'leased' && j.leaseUntil && j.leaseUntil < t - 60 * 60 * 1000) add('fail', 'queue', `${j.id} lease expired ${fmtAge(t - j.leaseUntil)} ago and nobody re-claimed it`);
+    else if (j.status === 'failed' && j.attempts >= 5 && late < 7 * 24 * HOUR) add('warn', 'queue', `${j.id} gave up after ${j.attempts} attempts${j.lastError ? `: ${j.lastError}` : ''}`);
+  }
+
+  // 6. alerts the worker raised this week
   for (const a of state.alerts || []) add('warn', 'alerts', `${iso(a.at)} ${a.subject}`);
 
   const worst = findings.some((f) => f.level === 'fail') ? 'fail' : findings.some((f) => f.level === 'warn') ? 'warn' : 'ok';

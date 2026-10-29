@@ -17,6 +17,7 @@ import { dueJobs } from '../jobs/schedule';
 import { runOutlooks } from '../jobs/outlooks';
 import { outlookSettings } from '../jobs/outlookSettings';
 import { withDeadline, afterTick, TICK_DEADLINE_MS, MAX_TICK_FAILURES } from '../jobs/watchdog';
+import { STALE_AFTER_MS } from '../jobs/lease';
 import type { Job } from '../jobs/types';
 
 const args = process.argv.slice(2);
@@ -75,7 +76,8 @@ async function tick(): Promise<void> {
   if (round) {
     for (const job of dueJobs(now, round)) if ((await store.enqueue(job)) === 'created') { enqueued += 1; log(`queued ${job.id} not before ${new Date(job.notBefore).toISOString()}`); }
   }
-  const run = await runOnce(store, handlers, { owner: OWNER, leaseMs: 10 * 60 * 1000, renewEveryMs: 60 * 1000, commit });
+  const run = await runOnce(store, handlers, { owner: OWNER, leaseMs: 10 * 60 * 1000, renewEveryMs: 60 * 1000, commit, staleAfterMs: STALE_AFTER_MS });
+  if (run && run.counts.skipped) log(`skipped ${run.jobId}: due ${run.counts.lateHours} h ago (F-133 stale limit)`);
   if (run && !run.ok) await alert(`job ${run.jobId} failed`, `${run.error ?? 'unknown error'}\nrunner ${OWNER}, commit ${commit ?? '?'}, ${new Date(run.finishedAt).toISOString()}`);
   // Self-check: if the newest published payload is more than 30 hours old, say so once a day, whatever the queue thinks.
   try {

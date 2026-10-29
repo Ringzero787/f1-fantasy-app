@@ -100,3 +100,29 @@ test('currentRound prefers an in-progress race over an earlier upcoming one', ()
   assert.equal(currentRound([race('u', 3, 'upcoming', '2026-11-08T17:00:00Z'), race('p', 4, 'in_progress', '2026-11-15T17:00:00Z')]).id, 'p');
   assert.equal(currentRound([race('d', 3, 'completed', '2026-11-08T17:00:00Z')]), null);
 });
+
+test('F-133: a due job still queued an hour later fails the queue check; a fresh one does not', () => {
+  const s = healthy();
+  s.jobs = [
+    { id: 'projections__2026__21__daily-20261029', status: 'queued', notBefore: NOW.getTime() - min(93), attempts: 0 },
+    { id: 'briefing__2026__21__daily-20261029', status: 'queued', notBefore: NOW.getTime() - min(20), attempts: 0 },
+    { id: 'projections__2026__21__race', status: 'queued', notBefore: NOW.getTime() + min(600), attempts: 0 },
+  ];
+  const r = evaluate(s, NOW);
+  assert.deepEqual(levels(r, 'queue'), ['fail']);
+  assert.match(r.findings.find((f) => f.check === 'queue').text, /projections__2026__21__daily-20261029 has been due for 1\.6 h and was never claimed/);
+});
+
+test('F-133: an expired lease nobody re-claimed fails; a job that gave up warns; the healthy fixture has no queue line', () => {
+  const s = healthy();
+  s.jobs = [
+    { id: 'projections__2026__21__fp1', status: 'leased', notBefore: NOW.getTime() - min(200), attempts: 1, leaseUntil: NOW.getTime() - min(90) },
+    { id: 'briefing__2026__20__daily-20261025', status: 'failed', notBefore: NOW.getTime() - min(5000), attempts: 5, lastError: 'no outlook written' },
+    { id: 'briefing__2026__18__daily-20260929', status: 'failed', notBefore: NOW.getTime() - 30 * 24 * 3600 * 1000, attempts: 5, lastError: 'old news' }, // a month old: not worth a line every week
+    { id: 'briefing__2026__21__daily-20261029', status: 'failed', notBefore: NOW.getTime() + min(2), attempts: 1, lastError: 'rate limit' },
+  ];
+  const r = evaluate(s, NOW);
+  assert.deepEqual(levels(r, 'queue'), ['fail', 'warn']);
+  assert.match(r.findings[r.findings.findIndex((f) => f.check === 'queue') + 1].text, /gave up after 5 attempts: no outlook written/);
+  assert.deepEqual(levels(evaluate(healthy(), NOW), 'queue'), []);
+});

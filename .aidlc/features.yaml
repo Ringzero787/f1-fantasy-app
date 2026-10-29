@@ -1,4 +1,4 @@
-next_id: 133
+next_id: 134
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1614,3 +1614,16 @@ features:
       - watchdog
       - calendar
       - check
+  - id: F-133
+    name: "UC: Pit Wall worker claim query starved by finished jobs (F-133)"
+    status: planned
+    spec: .aidlc/specs/F-133.md
+    created_at: 2026-10-29
+    keywords:
+      - wall
+      - worker
+      - claim
+      - query
+      - starved
+      - finished
+      - jobs

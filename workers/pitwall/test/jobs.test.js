@@ -277,3 +277,95 @@ test('the CLI door sends the prompt on stdin and reads the answer back, and says
   await assert.rejects(generateText({ system: 's', user: 'u' }, { kind: 'cli' }, { run: async () => ({ code: 1, stdout: '', stderr: 'not logged in' }) }), /claude exited 1 — not logged in/);
   await assert.rejects(generateText({ system: 's', user: 'u' }, { kind: 'cli' }, { run: async () => ({ code: 0, stdout: '{"is_error":true,"result":"rate limit"}', stderr: '' }) }), /rate limit/);
 });
+
+// ---- the Firestore store's claim query (F-133)
+const { FirestoreJobStore } = require('../dist/workers/pitwall/src/jobs/firestoreStore.js');
+
+/** A fake of the Admin SDK slice firestoreStore.ts uses, recording the query it is asked for. */
+function fakeDb(docs) {
+  const asked = [];
+  const snap = (id) => ({ id, exists: docs.has(id), data: () => docs.get(id), ref: { id } });
+  const query = (filters) => ({
+    where: (f, op, v) => query([...filters, [f, op, v]]),
+    orderBy: () => { throw new Error('orderBy with an inequality needs a composite index; the claim query must not use one'); },
+    limit: () => { throw new Error('the claim query must not cap the candidates'); },
+    get: async () => {
+      asked.push(filters);
+      const keep = [...docs.keys()].filter((id) => filters.every(([f, op, v]) => (op === 'in' ? v.includes(docs.get(id)[f]) : op === '<=' ? docs.get(id)[f] <= v : docs.get(id)[f] === v)));
+      return { docs: keep.map(snap) };
+    },
+    doc: (id) => ({ id }),
+  });
+  return {
+    asked,
+    collection: () => query([]),
+    runTransaction: async (fn) => fn({ get: async (ref) => snap(ref.id), set: (ref, data) => docs.set(ref.id, { ...(docs.get(ref.id) ?? {}), ...data }), create: (ref, data) => docs.set(ref.id, data) }),
+  };
+}
+
+test('F-133: claim sees a due queued job behind thirty finished ones, and only reads open jobs', async () => {
+  const docs = new Map();
+  for (let i = 0; i < 30; i += 1) { const { id: _id, ...j } = J({ id: `projections__2026__18__daily-${i}`, status: i % 7 === 6 ? 'failed' : 'done', attempts: i % 7 === 6 ? MAX_ATTEMPTS : 1, notBefore: 1000 + i }); docs.set(`projections__2026__18__daily-${i}`, j); }
+  const { id: lateId, ...late } = J({ id: 'projections__2026__21__daily-20261029', round: 21, sessionKey: 'daily-20261029', notBefore: 6000 });
+  docs.set(lateId, late);
+  const { id: earlyId, ...early } = J({ id: 'briefing__2026__21__daily-20261029', kind: 'briefing', round: 21, notBefore: 5000 });
+  docs.set(earlyId, early);
+  const db = fakeDb(docs);
+  const store = new FirestoreJobStore(db);
+  // kinds filter: only projections handlers → the due projections job, not the earlier briefing
+  const got = await store.claim('forge', 10000, 60000, ['projections']);
+  assert.equal(got.id, lateId);
+  assert.equal(got.status, 'leased');
+  assert.equal(docs.get(lateId).leaseOwner, 'forge');
+  assert.deepEqual(db.asked[0], [['status', 'in', ['queued', 'leased', 'failed']]]);
+  // earliest first when both kinds are allowed
+  const next = await store.claim('forge', 10000, 60000);
+  assert.equal(next.id, earlyId);
+  // nothing claimable: the exhausted failed jobs and the live leases are refused, null comes back
+  assert.equal(await store.claim('gcp-backup', 10000, 60000), null);
+  // a job not yet due is read but not taken
+  const { id: futureId, ...future } = J({ id: 'projections__2026__21__race', sessionKey: 'race', notBefore: 99999 });
+  docs.set(futureId, future);
+  assert.equal(await store.claim('gcp-backup', 10000, 60000), null);
+});
+
+const { isStale, STALE_AFTER_MS, skipped } = require('../dist/workers/pitwall/src/jobs/lease.js');
+
+test('F-133: a job claimed more than a day after its time is skipped, not run; a job hours late still runs', async () => {
+  assert.equal(STALE_AFTER_MS, 24 * 3600 * 1000);
+  assert.equal(skipped(J({ status: 'leased', leaseOwner: 'forge', leaseUntil: 5 }), 'why').status, 'skipped');
+  assert.equal(canClaim(skipped(J(), 'why'), 10 ** 9), false);
+  const store = new MemoryJobStore();
+  const day = 24 * 3600 * 1000;
+  const t = 10 * day;
+  await store.enqueue(J({ id: 'projections__2026__19__race', sessionKey: 'race', notBefore: t - 2 * day }));
+  await store.enqueue(J({ id: 'projections__2026__21__fp1', notBefore: t - 3 * 3600 * 1000 }));
+  let ran = 0;
+  const opts = { owner: 'forge', leaseMs: 60000, renewEveryMs: 10 ** 9, commit: null, now: () => t, staleAfterMs: STALE_AFTER_MS };
+  const first = await runOnce(store, { projections: async () => { ran += 1; } }, opts);
+  assert.deepEqual([first.jobId, first.ok, first.counts.skipped, first.counts.lateHours, ran], ['projections__2026__19__race', true, 1, 48, 0]);
+  assert.equal(store.jobs.get('projections__2026__19__race').status, 'skipped');
+  assert.match(store.jobs.get('projections__2026__19__race').lastError, /due 48 h ago, past the 24 h stale limit/);
+  const second = await runOnce(store, { projections: async () => { ran += 1; } }, opts);
+  assert.deepEqual([second.jobId, second.ok, second.counts.skipped, ran], ['projections__2026__21__fp1', true, undefined, 1]);
+  assert.equal(await runOnce(store, { projections: async () => { ran += 1; } }, opts), null);
+  // without the option the runner behaves as before and runs everything
+  const loose = new MemoryJobStore();
+  await loose.enqueue(J({ notBefore: 0 }));
+  assert.equal((await runOnce(loose, { projections: async () => { ran += 1; } }, { ...opts, staleAfterMs: undefined })).counts.skipped, undefined);
+  assert.equal(isStale(J({ notBefore: 0 }), STALE_AFTER_MS), false);
+  assert.equal(isStale(J({ notBefore: 0 }), STALE_AFTER_MS + 1), true);
+});
+
+test('F-133: the Firestore store skips only a job the owner still holds', async () => {
+  const docs = new Map();
+  const { id, ...j } = J({ notBefore: 0 });
+  docs.set(id, j);
+  const store = new FirestoreJobStore(fakeDb(docs));
+  const got = await store.claim('forge', 1000, 60000);
+  assert.equal(await store.skip(id, 'gcp-backup', 'not mine', 1000), false);
+  assert.equal(await store.skip(id, 'forge', 'stale', 1000), true);
+  assert.deepEqual([docs.get(id).status, docs.get(id).lastError, docs.get(id).leaseOwner], ['skipped', 'stale', null]);
+  assert.equal(await store.claim('forge', 2000, 60000), null);
+  assert.equal(got.id, id);
+});
