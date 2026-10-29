@@ -1,0 +1,38 @@
+id: OP-197
+title: "Pit Wall portal: gold accent (F-131)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-29T01:25:22.358Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-29T01:25:22.666Z
+    head_sha: aad66585c0a3295378925378481745c23bb5614d
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-197/dry-run-2026-10-29T01-25-22-666Z.log
+    log_sha256: e82010e6250e14955f69722c1b1fc5fde7abcc804aba034f1db585c75888033d
+    lines: 77
+  - step: gates
+    at: 2026-10-29T01:38:48.365Z
+    head_sha: aad66585c0a3295378925378481745c23bb5614d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-29T01:38:48.370Z
+    head_sha: aad66585c0a3295378925378481745c23bb5614d
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-197/apply-2026-10-29T01-38-48-370Z.log
+    log_sha256: c88542680952cee09718d789ab4d2267813e9780103ee16c333f5adc2447f2a8
+    lines: 88
+  - step: gates
+    at: 2026-10-29T01:42:36.492Z
+    head_sha: aad66585c0a3295378925378481745c23bb5614d
+    exit: 0
+    gates:
+      G15: skip
