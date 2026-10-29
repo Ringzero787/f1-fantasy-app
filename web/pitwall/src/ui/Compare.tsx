@@ -65,7 +65,7 @@ export function Compare({ rec, instant = false }: { rec: Rec; instant?: boolean 
   );
   return (
     <div className="cmp">
-      <div className="cmph"><span><Lbl>In your lineup</Lbl></span><Pill red={rec.bad}>{rec.kind}</Pill><span><Lbl>{rec.good ? 'Recommended' : 'Alternative'}</Lbl></span></div>
+      <div className="cmph"><span><Lbl>In your lineup</Lbl></span><Pill neg={rec.bad}>{rec.kind}</Pill><span><Lbl>{rec.good ? 'Recommended' : 'Alternative'}</Lbl></span></div>
       <div className="cmph">{head(a)}<span className="mut">vs</span>{head(b)}</div>
       <div className="cmpr"><span><Range e={a} /></span><span className="mut">Range</span><span><Range e={b} /></span></div>
       {/* Two columns. Ten stacked rows made this panel taller than the recommendation list it sits

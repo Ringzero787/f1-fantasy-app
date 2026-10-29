@@ -28,8 +28,8 @@ export function PaceLab() {
           {rows.map(({ r, e }) => { const me = ui.lineup.drivers.includes(r.id); return (
             <g key={r.id} className="click" onClick={() => open(r.id)} data-tip={`${e.name}${me ? ' · in your lineup' : ''}\nStarts P${r.avgGrid} · finishes P${r.avgFinish} · ${r.gained >= 0 ? '+' : ''}${r.gained} places · ${r.starts} starts`}>
               <circle cx={X(r.avgGrid)} cy={Y(r.avgFinish)} r="12" fill="transparent" />
-              {/* your drivers are red AND larger AND labelled: colour is never the only cue */}
-              <circle cx={X(r.avgGrid)} cy={Y(r.avgFinish)} r={me ? 7 : 5} fill={me ? 'var(--red)' : 'var(--fg2)'} stroke="var(--card)" strokeWidth="2" />
+              {/* your drivers are gold AND larger AND labelled: colour is never the only cue */}
+              <circle cx={X(r.avgGrid)} cy={Y(r.avgFinish)} r={me ? 7 : 5} fill={me ? 'var(--gold)' : 'var(--fg2)'} stroke="var(--card)" strokeWidth="2" />
               {me ? <text x={X(r.avgGrid) + 10} y={Y(r.avgFinish) + 3} style={{ fill: 'var(--fg)' }}>{e.name.slice(0, 3).toUpperCase()}</text> : null}
             </g>
           ); })}
@@ -46,7 +46,7 @@ export function PaceLab() {
           <tbody>{rows.map(({ r, e }) => (
             <Tr key={r.id} onClick={() => open(r.id)} me={ui.lineup.drivers.includes(r.id)} focus={ui.focus === r.id} label={`${e.name} starts and finishes`}>
               <td><TeamBar p={p} team={e.team} /><b>{e.name}</b></td><td>{r.starts}</td><td>P{r.avgGrid}</td><td>P{r.avgFinish}</td>
-              <td className={r.gained > 0 ? 'pos' : r.gained < 0 ? 'red' : 'mut'}>{r.gained > 0 ? `+${r.gained}` : r.gained}</td><td>{r.finishRate}%</td><td className={r.dnfs ? 'red' : 'mut'}>{r.dnfs}</td>
+              <td className={r.gained > 0 ? 'pos' : r.gained < 0 ? 'neg' : 'mut'}>{r.gained > 0 ? `+${r.gained}` : r.gained}</td><td>{r.finishRate}%</td><td className={r.dnfs ? 'neg' : 'mut'}>{r.dnfs}</td>
             </Tr>
           ))}</tbody>
         </table></div>

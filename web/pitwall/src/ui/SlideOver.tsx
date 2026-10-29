@@ -34,10 +34,10 @@ function Present({ d }: { d: Entity }) {
       <div><Lbl>Projection · RD {p.round.number}</Lbl>
         <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', marginTop: 8 }}><div className="big num">{d.med}</div><div><Range e={d} /><br /><span className="mut">floor {d.floor} · ceiling {d.ceil}</span></div></div></div>
       {drv && has.splits && mixTotal > 0 ? <div><Lbl>Where the points came from · this season</Lbl>{mix.filter(([, v]) => v !== 0).map(([l, v]) => (
-        <Row key={l} cols="1fr 90px 40px" dense><span>{l}</span><Meter pct={(Math.abs(v) / mixTotal) * 100} red={v < 0} /><span className="num">{v < 0 ? '−' : ''}{Math.abs(v)}</span></Row>
+        <Row key={l} cols="1fr 90px 40px" dense><span>{l}</span><Meter pct={(Math.abs(v) / mixTotal) * 100} neg={v < 0} /><span className="num">{v < 0 ? '−' : ''}{Math.abs(v)}</span></Row>
       ))}</div> : null}
       <div>
-        <div className="th"><Lbl>Hit rate · scored {ui.thr}+</Lbl><span className={`h2 num ${rate !== null && rate >= 0.65 ? 'pos' : rate !== null && rate < 0.45 ? 'red' : ''}`}>{rate === null ? '—' : `${hits}/${h.length}`}</span></div>
+        <div className="th"><Lbl>Hit rate · scored {ui.thr}+</Lbl><span className={`h2 num ${rate !== null && rate >= 0.65 ? 'pos' : rate !== null && rate < 0.45 ? 'neg' : ''}`}>{rate === null ? '—' : `${hits}/${h.length}`}</span></div>
         <div className="th" style={{ margin: '8px 0' }}>
           <Tabs value={ui.win} options={['L5', 'L10', 'SEASON'] as const} onChange={(v) => set('win', v)} label="Hit rate window" />
           <span className="srow">{[15, 25, 35, 45].map((t) => <Chip key={t} on={ui.thr === t} onClick={() => set('thr', t)}>{t}+</Chip>)}</span>
@@ -123,7 +123,7 @@ function Outlook({ d }: { d: Entity }) {
         <p className="est">{d.name} goes to {p.round.name} as {d.val > 12 ? 'one of the best values on the board' : 'a premium pick priced near expectation'}{showFit ? `. Long straights ${fit[0] >= 4 ? 'suit the car' : 'expose a straight-line deficit'}` : ''}{drv ? `, and a ${drv.dnf}% retirement risk keeps the floor at ${d.floor}` : ''}. {drv && drv.ptsRise > 0 ? `The price rises above ${drv.ptsRise} points and falls hard below ${drv.ptsHold}; the model puts the rise at ${drv.pRise}%.` : ''}{showFit ? ` The next two rounds are ${fit[1] >= 3 ? 'friendly' : 'harder'}.` : ''}</p>
         <span className="mut">Built only from: the projection model{showFit ? ', circuit fit' : ''}{drv && drv.ptsRise > 0 ? ', the price model' : ''}, {news.length} tagged stories.</span></div>
       )}
-      <div><Lbl>Tagged news</Lbl>{news.length ? news.map((n) => <Row key={n.text} cols="90px 1fr"><Pill red={n.tone === '-'}>{n.kind}</Pill><span>{n.text}</span></Row>) : <Empty>{NOT_PUBLISHED.news}</Empty>}</div>
+      <div><Lbl>Tagged news</Lbl>{news.length ? news.map((n) => <Row key={n.text} cols="90px 1fr"><Pill neg={n.tone === '-'}>{n.kind}</Pill><span>{n.text}</span></Row>) : <Empty>{NOT_PUBLISHED.news}</Empty>}</div>
     </>
   );
 }
@@ -170,7 +170,7 @@ export function SlideOver() {
     title = d.name; sub = isCtor(d) ? 'CONSTRUCTOR' : `#${d.num} · ${p.teams[d.team]?.name ?? ''}`;
     body = (
       <>
-        <div style={{ marginTop: -6 }}><TeamBar p={p} team={d.team} /><span className="num">{money(d.price)}</span>{!isCtor(d) ? <> · next <Arrow n={d.dprice} /></> : null} · {mine ? <span className="red">IN YOUR LINEUP</span> : <span className="mut">not owned</span>}</div>
+        <div style={{ marginTop: -6 }}><TeamBar p={p} team={d.team} /><span className="num">{money(d.price)}</span>{!isCtor(d) ? <> · next <Arrow n={d.dprice} /></> : null} · {mine ? <span className="gold">IN YOUR LINEUP</span> : <span className="mut">not owned</span>}</div>
         <div className="srow"><Tabs value={ui.overTab === 'COMPARE' || (isCtor(d) && ui.overTab === 'MOONSHOT') ? 'PRESENT' : ui.overTab} options={(isCtor(d) ? ['PAST', 'PRESENT', 'OUTLOOK'] : ['PAST', 'PRESENT', 'OUTLOOK', 'MOONSHOT']) as readonly ('PAST' | 'PRESENT' | 'OUTLOOK' | 'MOONSHOT')[]} onChange={(v) => set('overTab', v)} small={false} label="Detail views" /></div>
         <div className="srow">
           <button type="button" className="ghost" onClick={() => togglePin(d.id)} aria-pressed={ui.tray.includes(d.id)}>{ui.tray.includes(d.id) ? 'Pinned to compare ✓' : 'Pin to compare'}</button>

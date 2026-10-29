@@ -102,10 +102,10 @@ export function Calls({ recs }: { recs: Rec[] }) {
               <button type="button" className={`call ${r.kind === 'ACE' ? 'ace' : ''} ${r.bad ? 'risk' : ''}`} aria-pressed={locked} aria-expanded={locked && expanded}
                 onClick={() => pin(i)} onFocus={enter(i)} onBlur={() => setHover(null)} aria-label={`${r.kind}: ${r.title}, ${r.tag}`}>
                 <span className="call-top">
-                  <Pill red={r.bad || r.kind === 'ACE'}>{r.kind}</Pill>
+                  <Pill gold={r.kind === 'ACE'} neg={r.bad && r.kind !== 'ACE'}>{r.kind}</Pill>
                   <span className="call-title">{r.title}</span>
-                  <span className={`call-meta num ${r.tag.startsWith('−') ? 'fg2' : r.good ? 'pos' : r.bad ? 'red' : 'fg2'}`}>{r.tag}</span>
-                  {locked ? <span className="call-lock red" aria-hidden="true">🔒</span> : null}
+                  <span className={`call-meta num ${r.tag.startsWith('−') ? 'fg2' : r.good ? 'pos' : r.bad ? 'neg' : 'fg2'}`}>{r.tag}</span>
+                  {locked ? <span className="call-lock gold" aria-hidden="true">🔒</span> : null}
                 </span>
                 <span className="call-note">{note(r)}</span>
               </button>
@@ -114,7 +114,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
                   <div className="th">
                     {locked ? (
                       <>
-                        <span className="lbl red">🔒 Locked</span>
+                        <span className="lbl gold">🔒 Locked</span>
                         <button type="button" className="ghost" aria-label="Unlock and close" onClick={unlock}>✕</button>
                       </>
                     ) : <span className="lbl">Peek · click the tile to lock</span>}
@@ -126,7 +126,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
                   </div>
                   <div className="peek-cells">
                     <div className="cell3"><span className="lbl">Proj</span><span className="num"><b className="peek-big">{a.med}</b> <span className="mut">/ {b.med}</span></span>
-                      <span className={`peek-sub ${a.med >= b.med ? 'pos' : 'red'}`}>{a.med >= b.med ? '+' : ''}{a.med - b.med}{r.kind === 'ACE' ? ` · 2× = ${a.med * 2}` : ''}</span></div>
+                      <span className={`peek-sub ${a.med >= b.med ? 'pos' : 'neg'}`}>{a.med >= b.med ? '+' : ''}{a.med - b.med}{r.kind === 'ACE' ? ` · 2× = ${a.med * 2}` : ''}</span></div>
                     <div className="cell3"><span className="lbl">Range</span><Range e={a} /><Range e={b} /><span className="peek-sub fg2">{a.floor}–{a.ceil} <span className="mut">/ {b.floor}–{b.ceil}</span></span></div>
                     <div className="cell3"><span className="lbl">DNF risk</span><span className="num"><b className="peek-big">{(a as { dnf?: number }).dnf ?? '—'}{typeof (a as { dnf?: number }).dnf === 'number' ? '%' : ''}</b> <span className="mut">/ {(b as { dnf?: number }).dnf ?? '—'}{typeof (b as { dnf?: number }).dnf === 'number' ? '%' : ''}</span></span></div>
                   </div>
@@ -148,7 +148,7 @@ export function Calls({ recs }: { recs: Rec[] }) {
       {expanded && recs[pinned] && comparable(recs[pinned]) ? (
         <div className="callx">
           <div className="th">
-            <span className="lbl red">🔒 Locked · {recs[pinned].title}</span>
+            <span className="lbl gold">🔒 Locked · {recs[pinned].title}</span>
             <span className="srow">
               <button type="button" className="ghost" onClick={() => set('recExpanded', false)}>Collapse</button>
               <button type="button" className="ghost" aria-label="Unlock and close" onClick={unlock}>✕</button>

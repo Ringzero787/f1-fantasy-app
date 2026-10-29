@@ -196,7 +196,7 @@ export function GridProfileScreen() {
     setOpeningPortal(true);
     try {
       const url = await portalUrl('profile', pwSurface?.url);
-      await WebBrowser.openBrowserAsync(url, { controlsColor: colors.primary, toolbarColor: colors.surface });
+      await WebBrowser.openBrowserAsync(url, { controlsColor: colors.gold, toolbarColor: colors.surface });
       // A pass may have been bought while the browser was open; the claim needs a forced refresh.
       await refreshPitWall(true);
     } catch {
@@ -204,7 +204,7 @@ export function GridProfileScreen() {
     } finally {
       setOpeningPortal(false);
     }
-  }, [openingPortal, colors.primary, colors.surface, refreshPitWall, pwSurface?.url]);
+  }, [openingPortal, colors.gold, colors.surface, refreshPitWall, pwSurface?.url]);
 
   // With mode 'iap' the pass is sold through the store; everywhere else it is bought on the web and
   // the portal link is all there is. Selling adds a second row rather than replacing the first:
@@ -227,11 +227,12 @@ export function GridProfileScreen() {
 
   const buyValue = buying ? 'Opening store…' : passPrice ?? 'Get the pass';
 
-  const LinkRow = ({ label, valueText, onPress, danger, accent }: { label: string; valueText?: string; onPress: () => void; danger?: boolean; accent?: boolean }) => (
+  // `accentColor` is the colour an accented value takes; the Pit Wall rows pass gold (F-131)
+  const LinkRow = ({ label, valueText, onPress, danger, accent, accentColor }: { label: string; valueText?: string; onPress: () => void; danger?: boolean; accent?: boolean; accentColor?: string }) => (
     <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [row, { opacity: pressed ? 0.7 : 1 }]}>
       <MonoLabel color={danger ? colors.primary : undefined}>{label}</MonoLabel>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 }}>
-        {valueText ? <Text numberOfLines={1} style={[value, { flexShrink: 1, color: accent ? colors.primary : danger ? colors.primary : colors.text.primary }]}>{valueText}</Text> : null}
+        {valueText ? <Text numberOfLines={1} style={[value, { flexShrink: 1, color: accent ? accentColor ?? colors.primary : danger ? colors.primary : colors.text.primary }]}>{valueText}</Text> : null}
         {chevron}
       </View>
     </Pressable>
@@ -266,8 +267,8 @@ export function GridProfileScreen() {
           </View>
           <LinkRow label="AVATAR" valueText={user?.photoURL ? 'Change' : 'Add'} onPress={() => setAvatarOpen(true)} />
           <LinkRow label="LEAGUE" valueText={league ? league.name : 'Join or create'} accent={!league} onPress={() => router.push('/(simple)/league-manager' as never)} />
-          {pwSurface ? <LinkRow label={pwSurface.label} valueText={passValue} accent={pwPass.active} onPress={openPitWall} /> : null}
-          {pwSurface && sellsInApp ? <LinkRow label={`${pwSurface.label} ${(pwSurface.pass ?? 'Pass').toUpperCase()}`} valueText={buyValue} accent onPress={() => void buyPass()} /> : null}
+          {pwSurface ? <LinkRow label={pwSurface.label} valueText={passValue} accent={pwPass.active} accentColor={colors.gold} onPress={openPitWall} /> : null}
+          {pwSurface && sellsInApp ? <LinkRow label={`${pwSurface.label} ${(pwSurface.pass ?? 'Pass').toUpperCase()}`} valueText={buyValue} accent accentColor={colors.gold} onPress={() => void buyPass()} /> : null}
           {/* At large display sizes the pills stack under their labels so every segment stays on screen */}
           <View style={[row, stackPills && { flexDirection: 'column', alignItems: 'stretch' }]}>
             <MonoLabel>APPEARANCE</MonoLabel>

@@ -39,7 +39,7 @@ export function LineupLab() {
     return (
       <button key={key} type="button" className={`dt ${ctor ? 'ctor' : ''}`} aria-pressed={slot === key} aria-label={`${e.name}, ${money(e.price)}, projected ${e.med * (ace ? 2 : 1)}${ace ? ', ace' : ''}. Show swaps`} onClick={() => toggleSlot(key)}>
         <span style={{ display: 'flex', justifyContent: 'space-between' }} className="mut">
-          <span>{ctor ? <span className="red">TEAM</span> : isCtor(e) ? '' : e.num}{ace ? <> <Pill red>ACE 2×</Pill></> : null}</span><span className="num">{money(e.price)}</span>
+          <span>{ctor ? <span className="gold">TEAM</span> : isCtor(e) ? '' : e.num}{ace ? <> <Pill gold>ACE 2×</Pill></> : null}</span><span className="num">{money(e.price)}</span>
         </span>
         <span><span className="nm">{e.name}</span>
           <span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={e.team} /></span><span className="num">{e.med * (ace ? 2 : 1)} proj</span></span></span>
@@ -65,7 +65,7 @@ export function LineupLab() {
                   ))}
                 </span>
               ) : <>Lineup · {real ? real.team.name : 'example'}</>}
-              {' · '}{real?.team.isLocked ? <span className="red">locked this weekend</span> : dirty ? <span className="red">unsaved changes</span> : 'saved'}
+              {' · '}{real?.team.isLocked ? <span className="gold">locked this weekend</span> : dirty ? <span className="gold">unsaved changes</span> : 'saved'}
             </span>
             <span className="mut">Tap a tile to see swaps</span>
           </div>
@@ -130,8 +130,8 @@ export function LineupLab() {
                   {cur ? <tr className="me"><td><TeamBar p={p} team={cur.team} /><b>{cur.name}</b> <span className="mut">now</span></td>{curated ? <td className="mut">—</td> : null}{stat(cur)}{!isC && moonshotOn ? <td /> : null}</tr> : null}
                   {pool.map(({ e, gain }, n) => (
                     <Tr key={e.id} onClick={() => swapInSlot(e.id)} label={`Swap in ${e.name}, ${gain > 0 ? 'plus' : 'minus'} ${Math.abs(gain).toFixed(0)} points`}>
-                      <td><TeamBar p={p} team={e.team} /><b>{e.name}</b>{curated && n === 0 && gain > 0 ? <> <Pill red>TOP</Pill></> : null}</td>
-                      {curated ? <td className={gain > 0 ? 'pos' : 'red'}><b>{gain > 0 ? '+' : ''}{gain.toFixed(0)}</b></td> : null}{stat(e)}
+                      <td><TeamBar p={p} team={e.team} /><b>{e.name}</b>{curated && n === 0 && gain > 0 ? <> <Pill gold>TOP</Pill></> : null}</td>
+                      {curated ? <td className={gain > 0 ? 'pos' : 'neg'}><b>{gain > 0 ? '+' : ''}{gain.toFixed(0)}</b></td> : null}{stat(e)}
                       {/* a call on this driver, without swapping him in: the row's own click is the swap, so this stops the event */}
                       {!isC && moonshotOn ? <td><button type="button" className="ghost" style={{ padding: '4px 8px' }} aria-label={`Moonshot on ${e.name}`} onClick={(ev) => { ev.stopPropagation(); moonshotOn(e.id); }} onKeyDown={(ev) => ev.stopPropagation()}><span aria-hidden="true">🚀</span></button></td> : null}
                     </Tr>

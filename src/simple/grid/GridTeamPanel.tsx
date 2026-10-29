@@ -509,7 +509,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
           {/* F-119: the ace Pit Wall would choose, said where the ace is decided */}
           {filledCount > 0 && pwAce ? (
             <View accessibilityLabel={`Pit Wall: ${aceAdviceLine(pwAce)}`} style={{ marginHorizontal: gutter, marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <MonoLabel size={10} color={colors.primary}>PIT WALL</MonoLabel>
+              <MonoLabel size={10} color={colors.gold}>PIT WALL</MonoLabel>
               <Text style={[mono(11, 'medium'), { flex: 1, color: colors.text.primary }]}>{aceAdviceLine(pwAce)}</Text>
             </View>
           ) : null}

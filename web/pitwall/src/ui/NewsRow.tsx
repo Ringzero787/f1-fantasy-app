@@ -32,9 +32,9 @@ export function NewsRow({ n, full = false }: { n: NewsItem; full?: boolean }) {
     // column would leave the headline a third of the width and four lines tall.
     <div className="newsrow">
     <Row cols="96px 1fr auto auto" dense={!full} onClick={e ? () => open(e.id) : undefined} label={`${n.kind}: ${n.text}`}>
-      <span className="only-wide"><Pill red={n.tone === '-'}>{n.kind}</Pill></span>
+      <span className="only-wide"><Pill neg={n.tone === '-'}>{n.kind}</Pill></span>
       <span style={{ opacity: read ? 0.55 : 1 }}>
-        <span className="only-narrow"><Pill red={n.tone === '-'}>{n.kind}</Pill> </span>
+        <span className="only-narrow"><Pill neg={n.tone === '-'}>{n.kind}</Pill> </span>
         {e ? <TeamBar p={p} team={e.team} /> : null}{n.text}
         {full && n.detail ? <><br /><span className="mut">{n.detail}</span></> : null}
         <span className="only-narrow"><br />{meta}</span>

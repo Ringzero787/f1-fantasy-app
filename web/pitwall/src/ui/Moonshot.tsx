@@ -85,7 +85,7 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
     try { await ms.cancel(menu.current.id); setDone('cancelled'); } catch (e) { setError(moonshotErrorText(e)); } finally { setBusy(false); }
   };
   const back = (to: Step) => <button type="button" className="ghost" onClick={() => { setStep(to); setStake(null); setQuote(null); setTermsChanged(false); setError(null); }}>Back</button>;
-  const refusal = error ? <span className="red">{error}</span> : null;
+  const refusal = error ? <span className="neg">{error}</span> : null;
 
   // the depth view: the distribution the multipliers are read from (pass)
   const dist = ms.model?.drivers[driverId] ?? null;
@@ -98,7 +98,7 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
         {bars.length ? (
           <>
             <div className="bars" aria-label={`${driverName}: chance of each finishing position`} role="img">
-              {bars.map((b) => <span key={b.position} className={covered.has(b.position) ? 'hit' : undefined} style={{ height: `${b.height}%`, outline: b.predicted ? '1px dashed var(--red)' : undefined }} title={`P${b.position} · ${chancePct(b.share)}`} />)}
+              {bars.map((b) => <span key={b.position} className={covered.has(b.position) ? 'hit' : undefined} style={{ height: `${b.height}%`, outline: b.predicted ? '1px dashed var(--gold)' : undefined }} title={`P${b.position} · ${chancePct(b.share)}`} />)}
             </div>
             <span className="mut">Bars are the model's chance of each finish, P1 on the left; the dashed one is its predicted finish{menu.model ? ` (P${menu.model.predicted.toFixed(1)}, expected P${menu.model.expectedFinish.toFixed(1)}, likely P${menu.model.likelyLo}–P${menu.model.likelyHi})` : ''}. The chosen prediction's positions are filled. The multiplier follows the chance: the less likely, the bigger the reward.</span>
             <AsTable caption={`${driverName} finishing-position distribution`} head={['Position', 'Chance']} rows={bars.map((b) => [`P${b.position}`, chancePct(b.share)])} />
@@ -108,7 +108,7 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
     </div>
   );
 
-  if (done === 'confirmed') return <><div className="th"><Lbl>Moonshot called</Lbl>{ms.tokens ? <Pill red>{ms.tokens.left} left</Pill> : null}</div><p className="est">{driverName} — {predictionLabel(prediction ?? 'WIN', target)} · {(stake ?? 0).toLocaleString()} {currencyWord(currency)} at risk. This Moonshot locks when race selections lock.</p>{depth}</>;
+  if (done === 'confirmed') return <><div className="th"><Lbl>Moonshot called</Lbl>{ms.tokens ? <Pill gold>{ms.tokens.left} left</Pill> : null}</div><p className="est">{driverName} — {predictionLabel(prediction ?? 'WIN', target)} · {(stake ?? 0).toLocaleString()} {currencyWord(currency)} at risk. This Moonshot locks when race selections lock.</p>{depth}</>;
   if (done === 'cancelled') return <><div className="th"><Lbl>Moonshot cancelled</Lbl></div><p className="est">The token is back. Call again when you are ready.</p></>;
 
   if (menu.current) {
@@ -116,12 +116,12 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
     const open = callOpen(cur, Date.now()) && (menu.lockAtMs == null || menu.lockAtMs > Date.now());
     return (
       <>
-        <div className="th"><Lbl>Your Moonshot this round</Lbl>{cur.result ? <Pill red={cur.result === 'HIT'}>{cur.result}</Pill> : <Pill>{open ? 'Open until lock' : 'Locked'}</Pill>}</div>
+        <div className="th"><Lbl>Your Moonshot this round</Lbl>{cur.result ? <Pill gold={cur.result === 'HIT'}>{cur.result}</Pill> : <Pill>{open ? 'Open until lock' : 'Locked'}</Pill>}</div>
         <Row cols="1fr auto"><span>Prediction</span><b>{predictionLabel(cur.predictionType, cur.predictionTarget)}</b></Row>
         <Row cols="1fr auto"><span>Model chance</span><span className="num">{chancePct(cur.modelProbability)}</span></Row>
         <Row cols="1fr auto"><span>Reward</span><span className="num">{cur.rewardBand} {multiplierLabel(cur.multiplier)}</span></Row>
         <Row cols="1fr auto"><span>At risk</span><span className="num">{cur.stakeAmount.toLocaleString()} {currencyWord(cur.stakeCurrency)}</span></Row>
-        <Row cols="1fr auto"><span>Hit · Miss</span><span className="num"><span className="red">{signed(cur.potentialReward)}</span> · {signed(-cur.stakeAmount)}</span></Row>
+        <Row cols="1fr auto"><span>Hit · Miss</span><span className="num"><span className="gold">{signed(cur.potentialReward)}</span> · {signed(-cur.stakeAmount)}</span></Row>
         {cur.result ? <p className="est">{settledLine(cur, driverName)}</p> : null}
         {!cur.result && open ? <div className="srow"><button type="button" className="ghost" onClick={doCancel} disabled={busy}>{busy ? 'Cancelling…' : 'Cancel Moonshot'}</button><span className="mut">To change it, cancel and call again; the token comes back.</span></div> : null}
         {!cur.result && !open ? <span className="mut">Locked · no changes this weekend.</span> : null}
@@ -134,9 +134,9 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
   if (!menu.modelAvailable || !menu.driverInModel) return <Empty>{menu.modelAvailable ? 'No model for this driver this round.' : 'No model is published for this round yet.'}</Empty>;
 
   const head = (
-    <div className="th"><Lbl>Call a Moonshot</Lbl><Pill red>{menu.tokensLeft} left</Pill></div>
+    <div className="th"><Lbl>Call a Moonshot</Lbl><Pill gold>{menu.tokensLeft} left</Pill></div>
   );
-  const doubleDown = menu.ownsDriver ? <p className="est"><b className="red">Double down.</b> {driverName} is already on your roster: a poor race already hurts your score.</p> : null;
+  const doubleDown = menu.ownsDriver ? <p className="est"><b className="warn">Double down.</b> {driverName} is already on your roster: a poor race already hurts your score.</p> : null;
 
   if (step === 'currency') return (
     <>
@@ -154,7 +154,7 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
       {[...menu.predictions].sort((a, b) => b.probability - a.probability).map((x) => (
         <Row key={x.type} cols="1fr auto" onClick={() => { setPrediction(x.type); setTarget(null); setStep('stake'); }} label={`${predictionLabel(x.type)}, model chance ${chancePct(x.probability)}, ${x.band} ${multiplierLabel(x.multiplier)}`}>
           <span><b>{predictionLabel(x.type)}</b><br /><span className="mut">{predictionSentence(x.type, driverName)} · model chance {chancePct(x.probability)}</span></span>
-          <span className="num red">{x.band} {multiplierLabel(x.multiplier)}</span>
+          <span className="num gold">{x.band} {multiplierLabel(x.multiplier)}</span>
         </Row>
       ))}
       {menu.exactFinishEnabled && menu.positionsCount ? (
@@ -192,8 +192,8 @@ export function MoonshotPanel({ driverId, driverName }: { driverId: string; driv
         <Row cols="1fr auto"><span>Model chance</span><span className="num">{chancePct(quote.modelProbability)}</span></Row>
         <Row cols="1fr auto"><span>Reward</span><span className="num">{quote.rewardBand} {multiplierLabel(quote.multiplier)}</span></Row>
         <Row cols="1fr auto"><span>At risk</span><span className="num">{quote.stakeAmount.toLocaleString()} {currencyWord(currency)}</span></Row>
-        <Row cols="1fr auto"><span>Hit · Miss</span><span className="num"><span className="red">{signed(quote.potentialReward)}</span> · {signed(-quote.stakeAmount)}</span></Row>
-        <span className={termsChanged ? 'red' : 'mut'}>{termsChanged ? 'The terms changed · check them and confirm again.' : 'This Moonshot locks when race selections lock.'}</span>
+        <Row cols="1fr auto"><span>Hit · Miss</span><span className="num"><span className="gold">{signed(quote.potentialReward)}</span> · {signed(-quote.stakeAmount)}</span></Row>
+        <span className={termsChanged ? 'warn' : 'mut'}>{termsChanged ? 'The terms changed · check them and confirm again.' : 'This Moonshot locks when race selections lock.'}</span>
         {refusal}
         <div className="srow">
           <button type="button" className="cta" onClick={doConfirm} disabled={busy}>{busy ? 'Confirming…' : `Confirm Moonshot · ${outcomeLine(quote.stakeAmount, quote.potentialReward)}`}</button>
@@ -229,10 +229,10 @@ export function MoonshotTile() {
   const state = fresh ? liveState(cur, pos) : null;
   return (
     <section className="tile only-wide you" aria-label="Your Moonshot">
-      <div className="th"><Lbl>🚀 Your Moonshot</Lbl>{cur.result ? <Pill red={cur.result === 'HIT'}>{cur.result}</Pill> : state ? <Pill red={state === 'IN' || state === 'CLOSE'}>{pos ? `P${pos} · ` : ''}{liveChip(state)}</Pill> : <Pill>{open_ ? 'Open until lock' : 'Locked'}</Pill>}</div>
+      <div className="th"><Lbl>🚀 Your Moonshot</Lbl>{cur.result ? <Pill gold={cur.result === 'HIT'}>{cur.result}</Pill> : state ? <Pill gold={state === 'IN' || state === 'CLOSE'}>{pos ? `P${pos} · ` : ''}{liveChip(state)}</Pill> : <Pill>{open_ ? 'Open until lock' : 'Locked'}</Pill>}</div>
       <Row cols="1fr auto" onClick={() => openOn(cur.driverId)} label={`${name(cur.driverId)} ${predictionLabel(cur.predictionType, cur.predictionTarget)}, open detail`}>
         <span><b>{name(cur.driverId)} — {predictionLabel(cur.predictionType, cur.predictionTarget)}</b><br /><span className="mut">{cur.result ? settledLine(cur, name(cur.driverId)) : `${chancePct(cur.modelProbability)} · ${cur.rewardBand} ${multiplierLabel(cur.multiplier)} · ${cur.stakeAmount.toLocaleString()} ${currencyWord(cur.stakeCurrency)} at risk`}</span></span>
-        <span className="num"><span className="red">{signed(cur.potentialReward)}</span> · {signed(-cur.stakeAmount)}</span>
+        <span className="num"><span className="gold">{signed(cur.potentialReward)}</span> · {signed(-cur.stakeAmount)}</span>
       </Row>
       <span className="mut">{open_ ? 'Cancel from the driver’s MOONSHOT tab before lock; the token comes back.' : cur.result ? '' : 'Locked · no changes this weekend.'}</span>
     </section>
@@ -250,7 +250,7 @@ export function MoonshotRivals() {
   return (
     <div style={{ marginTop: 8 }}>
       <Lbl>🚀 Moonshots called</Lbl>
-      {rivals.map((b) => <div key={b.id}><span>{declarationLine(b, name(b.driverId))}</span>{b.result ? <> <Pill red={b.result === 'HIT'}>{b.result}</Pill></> : null}</div>)}
+      {rivals.map((b) => <div key={b.id}><span>{declarationLine(b, name(b.driverId))}</span>{b.result ? <> <Pill gold={b.result === 'HIT'}>{b.result}</Pill></> : null}</div>)}
     </div>
   );
 }
@@ -262,7 +262,7 @@ export function MoonshotSeason() {
   if (!real || p.example) return null;
   return (
     <section className="tile c4" aria-label="Your Moonshots this season">
-      <div className="th"><Lbl>🚀 Moonshots · this season</Lbl>{typeof real.team.moonshotPoints === 'number' && real.team.moonshotPoints !== 0 ? <Pill red={real.team.moonshotPoints > 0}>{signed(real.team.moonshotPoints)} pts</Pill> : null}</div>
+      <div className="th"><Lbl>🚀 Moonshots · this season</Lbl>{typeof real.team.moonshotPoints === 'number' && real.team.moonshotPoints !== 0 ? <Pill gold={real.team.moonshotPoints > 0}>{signed(real.team.moonshotPoints)} pts</Pill> : null}</div>
       {lines.length === 0 ? <Empty>No Moonshot called yet. From midseason, every driver carries three predictions priced by the model.</Empty> : (
         <div className="list">{lines.map(([k, v]) => <Row key={k} cols="1fr auto"><span>{k}</span><span className="num">{v}</span></Row>)}</div>
       )}

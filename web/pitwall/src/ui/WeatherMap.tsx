@@ -93,7 +93,7 @@ export function WeatherMap({ map }: { map: WeatherMapData }) {
           const pos = { N: [centre, 11], E: [SIZE - 8, centre + 4], S: [centre, SIZE - 5], W: [8, centre + 4] }[d];
           return <text key={d} x={pos[0]} y={pos[1]} textAnchor="middle" style={{ fill: 'var(--fg)', fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 700 }}>{d}</text>;
         })}
-        <circle cx={centre} cy={centre} r="5" fill="var(--red)" stroke="var(--card)" strokeWidth="2"><title>The circuit</title></circle>
+        <circle cx={centre} cy={centre} r="5" fill="var(--gold)" stroke="var(--card)" strokeWidth="2"><title>The circuit</title></circle>
         {frame.windFromDeg !== null ? (
           <g transform={`translate(${SIZE - 34} 34) rotate(${frame.windFromDeg})`}>
             <title>{`Wind from the ${compass(frame.windFromDeg)}${frame.windKph !== null ? `, ${frame.windKph} kph` : ''}`}</title>

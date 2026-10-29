@@ -53,7 +53,7 @@ export function Season() {
             <thead><tr><th scope="col">Driver</th><th scope="col">Starts</th><th scope="col">Retired</th><th scope="col">Points so far</th></tr></thead>
             <tbody>{retired.slice(0, 12).map(({ r, e }) => (
               <Tr key={r.id} onClick={() => open(r.id)} me={ui.lineup.drivers.includes(r.id)} focus={ui.focus === r.id} label={`${e.name}: ${r.dnfs} retirements in ${r.starts} starts`}>
-                <td><TeamBar p={p} team={e.team} /><b>{e.name}</b></td><td>{r.starts}</td><td className={r.dnfs >= 3 ? 'red' : r.dnfs ? '' : 'mut'}>{r.dnfs}</td><td>{r.points}</td>
+                <td><TeamBar p={p} team={e.team} /><b>{e.name}</b></td><td>{r.starts}</td><td className={r.dnfs >= 3 ? 'neg' : r.dnfs ? '' : 'mut'}>{r.dnfs}</td><td>{r.points}</td>
               </Tr>
             ))}</tbody>
           </table></div>

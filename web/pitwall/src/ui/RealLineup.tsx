@@ -32,7 +32,7 @@ export function RealRoster() {
           <span key={id} className="dtw">
           <button type="button" className="dt" aria-pressed={ui.slot === id} aria-label={`${name}, ${money(price)}${ace ? ', ace' : ''}${own ? '' : ', new'}. Show swaps`} onClick={() => toggleSlot(id)}>
             <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', paddingLeft: ace || canAce ? 62 : 0, paddingRight: moonshotOn ? 40 : 0 }} className="mut">
-              <span>{own ? '' : <Pill red>NEW</Pill>}</span><span className="num">{money(price)}</span>
+              <span>{own ? '' : <Pill gold>NEW</Pill>}</span><span className="num">{money(price)}</span>
             </span>
             <span><span className="nm">{name}</span>
               <span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(own?.constructorId ?? '')} /></span>
@@ -50,11 +50,11 @@ export function RealRoster() {
       })}
       {(() => {
         const cid = ui.lineup.ctor; const own = team.constructor && team.constructor.constructorId === cid ? team.constructor : null; const m = market.constructors[cid];
-        if (!cid) return <button type="button" className="dt ctor" style={{ borderStyle: 'dashed', borderColor: 'var(--borderS)' }} aria-pressed={ui.slot === 'CTOR'} aria-label="No constructor. Show who could fill the seat" onClick={() => toggleSlot('CTOR')}><span className="red">TEAM</span><span className="mut">No constructor · tap to fill</span></button>;
+        if (!cid) return <button type="button" className="dt ctor" style={{ borderStyle: 'dashed', borderColor: 'var(--borderS)' }} aria-pressed={ui.slot === 'CTOR'} aria-label="No constructor. Show who could fill the seat" onClick={() => toggleSlot('CTOR')}><span className="gold">TEAM</span><span className="mut">No constructor · tap to fill</span></button>;
         const left = own ? Math.max(0, (own.contractLength ?? 3) - (own.racesHeld ?? 0)) : null;
         return (
           <button type="button" className="dt ctor" aria-pressed={ui.slot === 'CTOR'} aria-label={`${m?.name ?? cid}, constructor. Show swaps`} onClick={() => toggleSlot('CTOR')}>
-            <span style={{ display: 'flex', justifyContent: 'space-between' }} className="mut"><span><span className="red">TEAM</span>{own ? '' : <> <Pill red>NEW</Pill></>}</span><span className="num">{money(m?.price ?? own?.currentPrice ?? 0)}</span></span>
+            <span style={{ display: 'flex', justifyContent: 'space-between' }} className="mut"><span><span className="gold">TEAM</span>{own ? '' : <> <Pill gold>NEW</Pill></>}</span><span className="num">{money(m?.price ?? own?.currentPrice ?? 0)}</span></span>
             <span><span className="nm">{shortTeamName(m?.name ?? own?.name ?? cid, cid)}</span><span style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}><span><TeamBar p={p} team={teamOf(cid)} /></span><span className="num mut">{left === null ? 'new contract' : `${left} race${left === 1 ? '' : 's'} left`}</span></span></span>
           </button>
         );
@@ -73,7 +73,7 @@ export function SavePreview({ plan, aceTo, onCancel, onConfirm }: { plan: Plan; 
       {plan.steps.map((s, i) => (
         <div key={i} className="cmpr" style={{ gridTemplateColumns: '1fr auto' }}>
           <span><b>{s.op === 'sellDriver' ? `Sell ${s.name}` : s.op === 'removeConstructor' ? `Drop ${s.name}` : s.op === 'setConstructor' ? `Add ${s.name} (team)` : `Add ${s.name}`}</b>
-            {'fee' in s && s.fee > 0 ? <><br /><span className="red">Early termination −{money(s.fee)}</span></> : null}
+            {'fee' in s && s.fee > 0 ? <><br /><span className="neg">Early termination −{money(s.fee)}</span></> : null}
             {'contractLength' in s ? <><br /><span className="mut">{s.contractLength} race contract</span></> : null}</span>
           <span className={`num ${'returns' in s ? 'pos' : ''}`}>{'returns' in s ? `+${money(s.returns)}` : `−${money(s.cost)}`}</span>
         </div>

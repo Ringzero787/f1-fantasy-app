@@ -1,6 +1,6 @@
 # Pitwall Briefing — design handoff
 
-Redesign of the Pitwall web **Briefing** tab to match the Undercut mobile app (edgy, wide black display type, mono labels, single red accent).
+Redesign of the Pitwall web **Briefing** tab to match the Undercut mobile app (edgy, wide black display type, mono labels, single accent). The accent was red when this was written; since F-131 (2026-10-29) Pit Wall's accent is **gold** everywhere, in the portal and on the Pit Wall surfaces in the app, and red is kept for genuinely bad numbers (`--neg`: DNFs, losses, fees, errors). The `.dc.html` mocks still show red.
 
 ## Files
 - `Main.dc.html` — dark theme (reference for layout + behavior)
@@ -19,7 +19,9 @@ The `.dc.html` files are design-tool components: markup inside `<x-dc>` with `{{
 | Secondary text | `#BDBDBD` | `#3F3F3C` |
 | Muted text / labels | `#8C8C8C` | `#6A6A66` |
 | Dividers | `#262626` | `#D6D6D2` |
-| Accent (red) | `#FF2B2B`, ink on it `#0A0A0A` | `#E5161C`, ink on it `#FFFFFF` |
+| Accent (gold, `--gold`; was red `#FF2B2B` / `#E5161C`) | `#F0B90B`, ink on it `#0A0A0A`, faint `#2A2208` | `#7D5B00`, ink on it `#FFFFFF`, faint `#FBF0CC` |
+| Negative (`--neg`: DNFs, losses, fees, errors) | `#FF2B2B` | `#E5161C` |
+| Caution (`--warn`) | `#FF8A1F` | `#96450A` |
 | Up / positive | `#3DDC84` | `#138A3E` |
 
 Type: **Archivo** at `font-stretch: 125%`, weight 800–900, uppercase, tight negative tracking for display; **JetBrains Mono** for body/labels (labels uppercase, 0.16–0.24em tracking). Radii: 28px panels, 20–22px tiles, 14–18px stat cells, pills fully round. Touch targets ≥ 44px.
@@ -29,7 +31,7 @@ Team colors (lines only): Ferrari `#E8002D`, Red Bull `#3671C6`, Racing Bulls `#
 ## Page structure (top → bottom)
 1. Top bar: PITWALL wordmark, data timestamp, theme toggle (sun/moon), sign out, avatar.
 2. Round strip + season progress bar (18/24).
-3. Hero: team name, season pts, last race, rank, bank · red-outlined "This weekend" card (projected 264, range, rate, flags, Open Lineup Lab CTA).
+3. Hero: team name, season pts, last race, rank, bank · accent-outlined "This weekend" card (projected 264, range, rate, flags, Open Lineup Lab CTA).
 4. Section nav as a pill segmented control (scrolls horizontally on narrow screens).
 5. **The calls** — compact strip of 4 call tiles (see behavior).
 6. The wire (news feed with tag, team color, source link, vote/read buttons) + Lineup tiles (2×3, mirrors mobile) + Price movers.

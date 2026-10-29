@@ -34,11 +34,11 @@ export function GridPitWallBlock({ projection, rounds, round }: { projection: Pr
 
   return (
     <View
-      style={{ gap: 14, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.primary }}
+      style={{ gap: 14, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.gold }}
       accessibilityLabel={`Pit Wall analysis${round ? ` for round ${round}` : ''}`}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <MonoLabel color={colors.primary}>PIT WALL</MonoLabel>
+        <MonoLabel color={colors.gold}>PIT WALL</MonoLabel>
         {round ? <MonoLabel size={10} color={colors.text.muted}>{`RD ${round}`}</MonoLabel> : null}
       </View>
 
@@ -54,7 +54,7 @@ export function GridPitWallBlock({ projection, rounds, round }: { projection: Pr
             accessibilityLabel={`Floor ${Math.round(d.range.floor)}, median ${Math.round(d.range.med)}, ceiling ${Math.round(d.range.ceil)}`}
             style={{ height: scaled(6), borderRadius: 3, backgroundColor: colors.borderLight, justifyContent: 'center' }}
           >
-            <View style={{ position: 'absolute', left: `${d.range.at * 100}%`, width: scaled(3), height: scaled(12), borderRadius: 2, backgroundColor: colors.primary, marginLeft: -scaled(1.5) }} />
+            <View style={{ position: 'absolute', left: `${d.range.at * 100}%`, width: scaled(3), height: scaled(12), borderRadius: 2, backgroundColor: colors.gold, marginLeft: -scaled(1.5) }} />
           </View>
           <Text style={[mono(9), { color: colors.text.muted }]}>MIDDLE 70% OF THE SIMULATION</Text>
         </View>
@@ -81,7 +81,7 @@ export function GridPitWallBlock({ projection, rounds, round }: { projection: Pr
                 <Text style={[mono(9), { color: colors.text.muted }]} numberOfLines={1}>{f.round.toUpperCase()}</Text>
                 <View style={{ flexDirection: 'row', gap: 2 }} accessibilityLabel={`${f.round}: ${f.score} out of 5`}>
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <View key={n} style={{ width: scaled(5), height: scaled(5), borderRadius: 1, backgroundColor: n <= f.score ? colors.primary : colors.borderStrong }} />
+                    <View key={n} style={{ width: scaled(5), height: scaled(5), borderRadius: 1, backgroundColor: n <= f.score ? colors.gold : colors.borderStrong }} />
                   ))}
                 </View>
               </View>
@@ -107,7 +107,7 @@ export function GridPitWallBlock({ projection, rounds, round }: { projection: Pr
           {head('WHERE THE POINTS CAME FROM')}
           <View style={{ flexDirection: 'row', height: scaled(6), borderRadius: 3, overflow: 'hidden', gap: 2 }}>
             {d.mix.map((m, i) => (
-              <View key={m.label} style={{ flex: m.pct, backgroundColor: i === 0 ? colors.primary : colors.borderStrong }} />
+              <View key={m.label} style={{ flex: m.pct, backgroundColor: i === 0 ? colors.gold : colors.borderStrong }} />
             ))}
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 4 }}>
