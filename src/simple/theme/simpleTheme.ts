@@ -27,9 +27,9 @@ export const S_COLORS_DARK = {
 
   // Pit Wall's own colour (F-131): everything the portal says in the app — the pick band, the
   // ace call, the analysis block, the Pass row — is gold, never the red the rest of the app
-  // uses for its accent and for bad numbers. 10.7:1 on `surface`, 9.7:1 on `card`.
-  gold: '#F2BA12',
-  goldFaint: '#2A2208',
+  // uses for its accent and for bad numbers. 10.7:1 on `surface`, 9.4:1 on `card`.
+  gold: '#D3BC8D',
+  goldFaint: '#27221A',
 
   text: {
     primary: '#F2F2F2',
@@ -61,8 +61,8 @@ export const S_COLORS_LIGHT = {
   primaryLight: '#FF5A5A',
   primaryFaint: '#FFE4E4',
 
-  gold: '#7D5B00',         // dark enough for text: 5.0:1 on `card`, 5.6:1 on `surface`
-  goldFaint: '#FBF0CC',
+  gold: '#73602F',         // dark enough for text: 5.0:1 on `card`, 5.5:1 on `surface`
+  goldFaint: '#F3EBD8',
 
   text: {
     primary: '#0A0A0A',
