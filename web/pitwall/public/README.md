@@ -7,7 +7,7 @@ transport security header and the single-page-app fallback.
 
 `icon-512.png`, `icon-192.png`, `apple-touch-icon.png` and `favicon-32.png` are scaled copies of
 `assets/icon.png` in this repository, the Undercut app icon drawn for this project under F-067, with
-the red sweep of the mark hue-shifted to Pit Wall's gold (`#D3BC8D`, the Saints-style old gold, F-131). No third-party artwork,
+the red sweep of the mark hue-shifted to Pit Wall's gold (`#D3BC8D`, a warm old gold, F-131). No third-party artwork,
 font or trademark is used in them, and they carry no watchlist term. Regenerate them from the same
 source if the app icon ever changes, so the portal and the app stay one product:
 
