@@ -4,7 +4,8 @@
 #
 # Runs scripts/ops/pitwall-check.js (reads only), files the report on the share, and when the
 # Claude Code CLI is on the box asks it for a short triage of anything not OK — text only, no
-# tools, so the scheduled run can never change production. Exit code is the check's.
+# tools, so the scheduled run can never change production. Exit code is the check's. The CLI
+# runs on the login, not on an API key the environment may carry (env -u), so it is not billed.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT_DIR="${PW_CHECK_DIR:-/mnt/smb/share/undercut/pitwall-checks}"
@@ -28,7 +29,7 @@ if [ "$CODE" -ne 0 ] && [ -x "$CLAUDE" ] && [ "${PW_CHECK_TRIAGE:-1}" = "1" ]; t
     echo
     # the prompt goes on stdin: --tools is variadic and would swallow a trailing argument
     printf '%s' "You are reading a Pit Wall health report for the Undercut fantasy app (repo Ringzero787/f1-fantasy-app). Pit Wall is the analytics portal fed by a worker (systemd unit pitwall-worker on this box) that publishes pw_public/pw_pages/pw_projections per round from the races registry in Firestore. In at most eight short lines, say what is wrong, the likely cause, and the first thing the owner should do (for example: restart the worker with 'sudo systemctl restart pitwall-worker'; re-run 'aidlc op new pitwall-job -p job=projections -p session=daily'; fix the races document's schedule). Do not invent facts beyond the report. Report:
-$(cat "$REPORT")" | "$CLAUDE" -p --output-format text --max-turns 1 --tools "" 2>&1 | head -40
+$(cat "$REPORT")" | env -u ANTHROPIC_API_KEY "$CLAUDE" -p --output-format text --max-turns 1 --tools "" 2>&1 | grep -v 'claude.ai connectors are disabled' | head -40
   } >> "$REPORT"
   echo "== triage appended"
 fi
