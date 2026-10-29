@@ -35,6 +35,23 @@ export function completed(job: Job, ok: boolean, error: string | null): Job {
   return { ...job, status: ok ? 'done' : 'failed', leaseOwner: null, leaseUntil: null, lastError: ok ? null : error };
 }
 
+/**
+ * A job claimed more than this long after `notBefore` is skipped, not run (F-133). After an outage
+ * the queue holds every job the schedule asked for while the worker was away; a projections run for
+ * a session days past, or a briefing for a round already raced, would spend model tokens and write
+ * payloads a reader must not see. The next daily job carries the current state anyway. A job a few
+ * hours late (a restart during a race weekend) is still worth running.
+ */
+export const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+export function isStale(job: Job, now: number, staleAfterMs: number = STALE_AFTER_MS): boolean {
+  return now - job.notBefore > staleAfterMs;
+}
+
+export function skipped(job: Job, reason: string): Job {
+  return { ...job, status: 'skipped', leaseOwner: null, leaseUntil: null, lastError: reason };
+}
+
 /** Retry delay after a failure: 1, 2, 4, 8 minutes. */
 export function backoffMs(attempts: number): number {
   return 60_000 * 2 ** Math.max(0, Math.min(attempts, 4) - 1);

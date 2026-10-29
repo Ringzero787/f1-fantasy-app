@@ -127,7 +127,19 @@ function evaluate(state, now = new Date()) {
     }
   }
 
-  // 5. alerts the worker raised this week
+  // 5. the open queue (F-133): a live worker that claims nothing looks healthy on every check above.
+  //    A job still queued an hour past its time, or whose lease ran out, or that gave up, is the tell.
+  //    A failed job below the attempt limit is re-queued with a backoff of minutes, so one still waiting an hour later is the same symptom.
+  const MAX_ATTEMPTS = 5; // workers/pitwall/src/jobs/lease.ts (the check cannot import the worker's dist)
+  for (const j of state.jobs || []) {
+    const late = t - j.notBefore;
+    const waiting = j.status === 'queued' || (j.status === 'failed' && j.attempts < MAX_ATTEMPTS);
+    if (waiting && late > HOUR) add('fail', 'queue', `${j.id} has been due for ${fmtAge(late)} and was never claimed: the worker is not picking up jobs`);
+    else if (j.status === 'leased' && j.leaseUntil && j.leaseUntil < t - HOUR) add('fail', 'queue', `${j.id} lease expired ${fmtAge(t - j.leaseUntil)} ago and nobody re-claimed it (attempt ${j.attempts} of ${MAX_ATTEMPTS}${j.attempts >= MAX_ATTEMPTS ? ', so nobody can' : ''})`);
+    else if (j.status === 'failed' && j.attempts >= MAX_ATTEMPTS && late < 7 * 24 * HOUR) add('warn', 'queue', `${j.id} gave up after ${j.attempts} attempts${j.lastError ? `: ${j.lastError}` : ''}`);
+  }
+
+  // 6. alerts the worker raised this week
   for (const a of state.alerts || []) add('warn', 'alerts', `${iso(a.at)} ${a.subject}`);
 
   const worst = findings.some((f) => f.level === 'fail') ? 'fail' : findings.some((f) => f.level === 'warn') ? 'warn' : 'ok';

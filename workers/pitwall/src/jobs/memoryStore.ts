@@ -1,5 +1,5 @@
 import type { Job, JobKind, JobStore, RunRecord } from './types';
-import { backoffMs, canClaim, claimed, completed, holds } from './lease';
+import { backoffMs, canClaim, claimed, completed, holds, skipped } from './lease';
 
 /** In-memory JobStore for tests and dry runs. Single-threaded JS makes each method atomic. */
 export class MemoryJobStore implements JobStore {
@@ -34,6 +34,13 @@ export class MemoryJobStore implements JobStore {
     if (!j || !holds(j, owner, now)) return false;
     const done = completed(j, ok, error);
     this.jobs.set(jobId, ok ? done : { ...done, notBefore: now + backoffMs(j.attempts) });
+    return true;
+  }
+
+  async skip(jobId: string, owner: string, reason: string, now: number): Promise<boolean> {
+    const j = this.jobs.get(jobId);
+    if (!j || !holds(j, owner, now)) return false;
+    this.jobs.set(jobId, skipped(j, reason));
     return true;
   }
 

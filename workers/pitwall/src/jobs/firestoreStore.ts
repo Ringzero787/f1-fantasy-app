@@ -3,13 +3,12 @@
  * in lease.ts, applied inside a transaction so forge and the GCP backup can
  * never both claim a job.
  *
- * NOT YET EXERCISED against Firestore or the emulator: nothing in this
- * repository constructs it until the owner has set up the worker's service
- * account (ADR-002). The types below are the small slice of the Admin SDK it
- * uses, so the package needs no firebase-admin dependency to build and test.
+ * serve.ts constructs it with the Admin SDK on forge; the tests drive it with a
+ * fake of the small slice below (jobs.test.js), so the package needs no
+ * firebase-admin dependency to build and test.
  */
 import type { Job, JobKind, JobStore, RunRecord } from './types';
-import { backoffMs, canClaim, claimed, completed, holds } from './lease';
+import { backoffMs, canClaim, claimed, completed, holds, skipped } from './lease';
 
 interface DocSnap { exists: boolean; id: string; data(): Record<string, unknown> | undefined }
 interface DocRef { id: string; set(data: Record<string, unknown>, opts?: { merge: boolean }): Promise<unknown> }
@@ -37,10 +36,18 @@ export class FirestoreJobStore implements JobStore {
 
   async claim(owner: string, now: number, leaseMs: number, kinds?: JobKind[]): Promise<Job | null> {
     // Candidates are read outside the transaction; the transaction re-reads the one it takes.
-    const due = await this.db.collection('pw_jobs').where('notBefore', '<=', now).orderBy('notBefore').limit(25).get();
-    for (const cand of due.docs) {
-      const seen = toJob(cand);
-      if ((kinds && !kinds.includes(seen.kind)) || !canClaim(seen, now)) continue;
+    // F-133: the query asks for jobs that are not done, not for jobs whose time has come. The
+    // earlier form (`notBefore <= now`, oldest first, limit 25) filled its window with finished
+    // jobs once twenty-five of them lay in the past, and from then on nothing due was ever seen —
+    // the worker ticked and claimed nothing from 2026-10-07. Open jobs are few (one round's
+    // sessions plus the day's pair), so they are read whole and ordered here, as the memory store
+    // does; a status filter alone needs no composite index.
+    const open = await this.db.collection('pw_jobs').where('status', 'in', ['queued', 'leased', 'failed']).get();
+    const due = open.docs
+      .map((d) => ({ ref: d.ref, job: toJob(d) }))
+      .filter(({ job }) => (!kinds || kinds.includes(job.kind)) && canClaim(job, now))
+      .sort((a, b) => a.job.notBefore - b.job.notBefore || (a.job.id < b.job.id ? -1 : 1));
+    for (const cand of due) {
       const got = await this.db.runTransaction(async (tx) => {
         const fresh = await tx.get(cand.ref);
         if (!fresh.exists) return null;
@@ -75,6 +82,19 @@ export class FirestoreJobStore implements JobStore {
       if (!holds(job, owner, now)) return false;
       const { id: _id, ...data } = completed(job, ok, error);
       tx.set(ref, ok ? data : { ...data, notBefore: now + backoffMs(job.attempts) }, { merge: true });
+      return true;
+    });
+  }
+
+  async skip(jobId: string, owner: string, reason: string, now: number): Promise<boolean> {
+    const ref = this.db.collection('pw_jobs').doc(jobId);
+    return this.db.runTransaction(async (tx) => {
+      const s = await tx.get(ref);
+      if (!s.exists) return false;
+      const job = toJob(s);
+      if (!holds(job, owner, now)) return false;
+      const { id: _id, ...data } = skipped(job, reason);
+      tx.set(ref, data, { merge: true });
       return true;
     });
   }
