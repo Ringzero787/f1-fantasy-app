@@ -65,7 +65,7 @@ export function LineupLab() {
                   ))}
                 </span>
               ) : <>Lineup · {real ? real.team.name : 'example'}</>}
-              {' · '}{real?.team.isLocked ? <span className="gold">locked this weekend</span> : dirty ? <span className="gold">unsaved changes</span> : 'saved'}
+              {' · '}{real?.team.isLocked ? <span className="gold">locked this weekend</span> : dirty ? <span className="warn">unsaved changes</span> : 'saved'}
             </span>
             <span className="mut">Tap a tile to see swaps</span>
           </div>

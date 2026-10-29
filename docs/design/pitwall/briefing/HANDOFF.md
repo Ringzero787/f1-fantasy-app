@@ -19,8 +19,8 @@ The `.dc.html` files are design-tool components: markup inside `<x-dc>` with `{{
 | Secondary text | `#BDBDBD` | `#3F3F3C` |
 | Muted text / labels | `#8C8C8C` | `#6A6A66` |
 | Dividers | `#262626` | `#D6D6D2` |
-| Accent (gold, `--gold`; was red `#FF2B2B` / `#E5161C`) | `#F0B90B`, ink on it `#0A0A0A`, faint `#2A2208` | `#7D5B00`, ink on it `#FFFFFF`, faint `#FBF0CC` |
-| Negative (`--neg`: DNFs, losses, fees, errors) | `#FF2B2B` | `#E5161C` |
+| Accent (gold, `--gold`; was red `#FF2B2B` / `#E5161C`) | `#F2BA12`, ink on it `#0A0A0A`, faint `#2A2208` | `#7D5B00`, ink on it `#FFFFFF`, faint `#FBF0CC` |
+| Negative (`--neg`: DNFs, losses, fees, errors) | `#FF2B2B` | `#C40F15` (the old `#E5161C` was 3.8:1 on cards) |
 | Caution (`--warn`) | `#FF8A1F` | `#96450A` |
 | Up / positive | `#3DDC84` | `#138A3E` |
 
