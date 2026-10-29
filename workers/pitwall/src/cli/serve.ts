@@ -16,6 +16,7 @@ import { FirestoreJobStore } from '../jobs/firestoreStore';
 import { dueJobs } from '../jobs/schedule';
 import { runOutlooks } from '../jobs/outlooks';
 import { outlookSettings } from '../jobs/outlookSettings';
+import { withDeadline, afterTick, TICK_DEADLINE_MS, MAX_TICK_FAILURES } from '../jobs/watchdog';
 import type { Job } from '../jobs/types';
 
 const args = process.argv.slice(2);
@@ -100,8 +101,20 @@ async function tick(): Promise<void> {
     return;
   }
   log(`worker ${OWNER} starting (season ${SEASON}, tick ${TICK_MS} ms, commit ${commit ?? '?'})`);
+  // F-132: a tick has a deadline, and three failed ticks in a row end the process so systemd
+  // restarts it with a fresh Firestore client. The loop ran eighteen days inside one stuck call
+  // before this; the alert is best-effort and gets its own deadline so it cannot hang the exit.
+  let failures = 0;
   for (;;) {
-    try { await tick(); } catch (e) { log(`tick failed: ${e instanceof Error ? e.message : e}`); await alert('worker tick failed', e instanceof Error ? e.stack ?? e.message : String(e)); }
+    let ok = true;
+    try { await withDeadline(tick(), TICK_DEADLINE_MS, 'tick'); } catch (e) {
+      ok = false;
+      log(`tick failed: ${e instanceof Error ? e.message : e}`);
+      await withDeadline(alert('worker tick failed', e instanceof Error ? e.stack ?? e.message : String(e)), 30 * 1000, 'alert').catch((err: Error) => log(`alert failed: ${err.message}`));
+    }
+    const next = afterTick(ok, failures, MAX_TICK_FAILURES);
+    failures = next.failures;
+    if (next.action === 'exit') { log(`${failures} ticks failed in a row — exiting for systemd to restart the worker`); process.exit(1); }
     if (once) break;
     await new Promise((r) => setTimeout(r, TICK_MS));
   }
