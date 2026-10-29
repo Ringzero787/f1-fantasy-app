@@ -64,7 +64,7 @@ async function collect() {
     newestPublic: pubSnap.docs[0] ? pubSnap.docs[0].data() : null,
     projectionRounds,
     alerts: alertsSnap.docs.map((d) => d.data()).sort((a, b) => b.at - a.at),
-    jobs: jobsSnap.docs.map((d) => { const j = d.data(); return { id: d.id, status: j.status, notBefore: j.notBefore, attempts: j.attempts, leaseUntil: j.leaseUntil, lastError: j.lastError }; }),
+    jobs: jobsSnap.docs.map((d) => { const j = d.data(); return { id: d.id, status: j.status, notBefore: j.notBefore, attempts: j.attempts, leaseUntil: j.leaseUntil, lastError: j.lastError ? String(j.lastError).replace(/\s+/g, ' ').slice(0, 200) : null }; }), // one line, bounded: it lands inside the triage fence
     meetings,
   };
 }

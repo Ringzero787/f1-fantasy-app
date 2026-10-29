@@ -74,10 +74,21 @@ async function tick(): Promise<void> {
   const round = await loadRound(db, SEASON);
   let enqueued = 0;
   if (round) {
-    for (const job of dueJobs(now, round)) if ((await store.enqueue(job)) === 'created') { enqueued += 1; log(`queued ${job.id} not before ${new Date(job.notBefore).toISOString()}`); }
+    for (const job of dueJobs(now, round)) {
+      // F-133: the schedule looks back 36 h; a job that would be skipped the moment it is claimed is not worth a row
+      if (job.notBefore < now.getTime() - STALE_AFTER_MS) continue;
+      if ((await store.enqueue(job)) === 'created') { enqueued += 1; log(`queued ${job.id} not before ${new Date(job.notBefore).toISOString()}`); }
+    }
   }
-  const run = await runOnce(store, handlers, { owner: OWNER, leaseMs: 10 * 60 * 1000, renewEveryMs: 60 * 1000, commit, staleAfterMs: STALE_AFTER_MS });
-  if (run && run.counts.skipped) log(`skipped ${run.jobId}: due ${run.counts.lateHours} h ago (F-133 stale limit)`);
+  // One real job per tick, but a stale job is one transaction, not model spend: after an outage the
+  // backlog is set aside in this tick so today's work is not behind it for the next two hours.
+  // `skipped` is terminal (canClaim refuses it), so the loop ends; the cap is belt and braces.
+  let run: Awaited<ReturnType<typeof runOnce>> = null;
+  for (let i = 0; i < 50; i += 1) {
+    run = await runOnce(store, handlers, { owner: OWNER, leaseMs: 10 * 60 * 1000, renewEveryMs: 60 * 1000, commit, staleAfterMs: STALE_AFTER_MS });
+    if (!run || !run.counts.stale) break;
+    log(`skipped ${run.jobId}: due ${run.counts.lateHours} h ago (F-133 stale limit)`);
+  }
   if (run && !run.ok) await alert(`job ${run.jobId} failed`, `${run.error ?? 'unknown error'}\nrunner ${OWNER}, commit ${commit ?? '?'}, ${new Date(run.finishedAt).toISOString()}`);
   // Self-check: if the newest published payload is more than 30 hours old, say so once a day, whatever the queue thinks.
   try {

@@ -287,7 +287,7 @@ function fakeDb(docs) {
   const snap = (id) => ({ id, exists: docs.has(id), data: () => docs.get(id), ref: { id } });
   const query = (filters) => ({
     where: (f, op, v) => query([...filters, [f, op, v]]),
-    orderBy: () => { throw new Error('orderBy with an inequality needs a composite index; the claim query must not use one'); },
+    orderBy: () => { throw new Error('the claim query must read by status, not by time (F-133)'); },
     limit: () => { throw new Error('the claim query must not cap the candidates'); },
     get: async () => {
       asked.push(filters);
@@ -343,18 +343,19 @@ test('F-133: a job claimed more than a day after its time is skipped, not run; a
   let ran = 0;
   const opts = { owner: 'forge', leaseMs: 60000, renewEveryMs: 10 ** 9, commit: null, now: () => t, staleAfterMs: STALE_AFTER_MS };
   const first = await runOnce(store, { projections: async () => { ran += 1; } }, opts);
-  assert.deepEqual([first.jobId, first.ok, first.counts.skipped, first.counts.lateHours, ran], ['projections__2026__19__race', true, 1, 48, 0]);
+  assert.deepEqual([first.jobId, first.ok, first.counts.stale, first.counts.lateHours, ran], ['projections__2026__19__race', true, 1, 48, 0]);
   assert.equal(store.jobs.get('projections__2026__19__race').status, 'skipped');
   assert.match(store.jobs.get('projections__2026__19__race').lastError, /due 48 h ago, past the 24 h stale limit/);
   const second = await runOnce(store, { projections: async () => { ran += 1; } }, opts);
-  assert.deepEqual([second.jobId, second.ok, second.counts.skipped, ran], ['projections__2026__21__fp1', true, undefined, 1]);
+  assert.deepEqual([second.jobId, second.ok, second.counts.stale, ran], ['projections__2026__21__fp1', true, undefined, 1]);
   assert.equal(await runOnce(store, { projections: async () => { ran += 1; } }, opts), null);
   // without the option the runner behaves as before and runs everything
   const loose = new MemoryJobStore();
   await loose.enqueue(J({ notBefore: 0 }));
-  assert.equal((await runOnce(loose, { projections: async () => { ran += 1; } }, { ...opts, staleAfterMs: undefined })).counts.skipped, undefined);
-  assert.equal(isStale(J({ notBefore: 0 }), STALE_AFTER_MS), false);
-  assert.equal(isStale(J({ notBefore: 0 }), STALE_AFTER_MS + 1), true);
+  assert.equal((await runOnce(loose, { projections: async () => { ran += 1; } }, { ...opts, staleAfterMs: undefined })).counts.stale, undefined);
+  assert.equal(isStale(J({ notBefore: 0 }), STALE_AFTER_MS, STALE_AFTER_MS), false);
+  assert.equal(isStale(J({ notBefore: 0 }), STALE_AFTER_MS + 1, STALE_AFTER_MS), true);
+  assert.equal(isStale(J({ notBefore: 0 }), 2 * 3600 * 1000, 3600 * 1000), true);
 });
 
 test('F-133: the Firestore store skips only a job the owner still holds', async () => {

@@ -119,10 +119,11 @@ test('F-133: an expired lease nobody re-claimed fails; a job that gave up warns;
     { id: 'projections__2026__21__fp1', status: 'leased', notBefore: NOW.getTime() - min(200), attempts: 1, leaseUntil: NOW.getTime() - min(90) },
     { id: 'briefing__2026__20__daily-20261025', status: 'failed', notBefore: NOW.getTime() - min(5000), attempts: 5, lastError: 'no outlook written' },
     { id: 'briefing__2026__18__daily-20260929', status: 'failed', notBefore: NOW.getTime() - 30 * 24 * 3600 * 1000, attempts: 5, lastError: 'old news' }, // a month old: not worth a line every week
-    { id: 'briefing__2026__21__daily-20261029', status: 'failed', notBefore: NOW.getTime() + min(2), attempts: 1, lastError: 'rate limit' },
+    { id: 'briefing__2026__21__daily-20261029', status: 'failed', notBefore: NOW.getTime() + min(2), attempts: 1, lastError: 'rate limit' }, // backing off, retry in two minutes: fine
+    { id: 'projections__2026__21__fp2', status: 'failed', notBefore: NOW.getTime() - min(100), attempts: 2, lastError: 'source down' }, // backoff over an hour ago and nobody re-claimed it
   ];
   const r = evaluate(s, NOW);
-  assert.deepEqual(levels(r, 'queue'), ['fail', 'warn']);
+  assert.deepEqual(levels(r, 'queue'), ['fail', 'warn', 'fail']);
   assert.match(r.findings[r.findings.findIndex((f) => f.check === 'queue') + 1].text, /gave up after 5 attempts: no outlook written/);
   assert.deepEqual(levels(evaluate(healthy(), NOW), 'queue'), []);
 });

@@ -28,9 +28,10 @@ export async function runOnce(store: JobStore, handlers: Partial<Record<JobKind,
   // F-133: work the schedule asked for during an outage is put aside, not run late onto the portal.
   if (opts.staleAfterMs !== undefined && isStale(job, now(), opts.staleAfterMs)) {
     const startedAt = now();
-    const late = Math.round((startedAt - job.notBefore) / 3600000);
+    const late = Math.ceil((startedAt - job.notBefore) / 3600000);
     const put = await store.skip(job.id, opts.owner, `skipped: due ${late} h ago, past the ${Math.round(opts.staleAfterMs / 3600000)} h stale limit`, now());
-    const run: RunRecord = { jobId: job.id, kind: job.kind, runner: opts.owner, startedAt, finishedAt: now(), ok: put, error: put ? null : 'lease lost before skip', counts: { skipped: 1, lateHours: late }, commit: opts.commit };
+    // `stale`, not `skipped`: the briefing handler already reports `skipped` drivers on a normal run
+    const run: RunRecord = { jobId: job.id, kind: job.kind, runner: opts.owner, startedAt, finishedAt: now(), ok: put, error: put ? null : 'lease lost before skip', counts: { stale: 1, lateHours: late }, commit: opts.commit };
     await store.writeRun(run);
     return run;
   }
