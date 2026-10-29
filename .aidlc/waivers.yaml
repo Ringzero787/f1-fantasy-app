@@ -4,9 +4,12 @@ waivers:
     reason: Pre-existing dependency advisories (F-027 dependency bump pass) in the
       functions lockfile, which this PR does not change; CI reports absolute
       paths so the waiver is by title. Expires so the bump is revisited.
+      Extended 2026-10-29 by owner decision to clear the rest of the 2026
+      season (Abu Dhabi R25 is 2026-12-06), so a race-weekend hotfix build is
+      not blocked; the bump pass is due before the next expiry.
     by: nathan
     date: 2026-09-18
-    expires: 2026-10-31
+    expires: 2026-12-15
   - gate: G14
     finding: Destructive operation OP-033
     reason: 1st to 2nd Gen migration of the same two function names, which firebase
