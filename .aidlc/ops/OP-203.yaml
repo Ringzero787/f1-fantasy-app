@@ -1,0 +1,38 @@
+id: OP-203
+title: "Pit Wall portal: bright gold (F-131), re-cut after #247"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-29T13:08:31.100Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-29T13:08:35.944Z
+    head_sha: 0bf6972d8d66d7bbc2100a40994f2cdbf78e809f
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-203/dry-run-2026-10-29T13-08-35-944Z.log
+    log_sha256: a4b71bb717b8425bff458f8b50c19bb518c7c25f871b36b1ddbdb6d1184d6934
+    lines: 77
+  - step: gates
+    at: 2026-10-29T13:12:34.502Z
+    head_sha: 0bf6972d8d66d7bbc2100a40994f2cdbf78e809f
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-29T13:12:34.506Z
+    head_sha: 0bf6972d8d66d7bbc2100a40994f2cdbf78e809f
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-203/apply-2026-10-29T13-12-34-506Z.log
+    log_sha256: 09e13b5228cb5b8fe63b5734e260bb58f1defea6817f8a3e5996e18fc094c024
+    lines: 88
+  - step: gates
+    at: 2026-10-29T13:16:22.214Z
+    head_sha: 0bf6972d8d66d7bbc2100a40994f2cdbf78e809f
+    exit: 0
+    gates:
+      G15: skip

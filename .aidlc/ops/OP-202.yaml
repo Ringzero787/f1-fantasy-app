@@ -1,0 +1,37 @@
+id: OP-202
+title: "Pit Wall worker: claim past finished history, skip stale jobs (F-133)"
+kind: pitwall-worker-deploy
+status: applied
+params: {}
+created_at: 2026-10-29T07:51:44.106Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-29T07:51:49.304Z
+    head_sha: 0bf6972d8d66d7bbc2100a40994f2cdbf78e809f
+    command: bash scripts/ops/pitwall-worker-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-202/dry-run-2026-10-29T07-51-49-304Z.log
+    log_sha256: 8c25db971eb2f95c133be01d0f26c4c2c40f52f4e838e8f094660a08248de7b7
+    lines: 54
+  - step: gates
+    at: 2026-10-29T13:07:52.123Z
+    head_sha: 0bf6972d8d66d7bbc2100a40994f2cdbf78e809f
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-29T13:07:52.127Z
+    head_sha: 0bf6972d8d66d7bbc2100a40994f2cdbf78e809f
+    command: bash scripts/ops/pitwall-worker-deploy.sh apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-202/apply-2026-10-29T13-07-52-127Z.log
+    log_sha256: 846900390e4c37747848875ff9ca6f94dad2e050459e1f1c427c7d8abf168a1f
+    lines: 72
+  - step: gates
+    at: 2026-10-29T13:08:05.535Z
+    head_sha: 0bf6972d8d66d7bbc2100a40994f2cdbf78e809f
+    exit: 0
+    gates:
+      G15: skip

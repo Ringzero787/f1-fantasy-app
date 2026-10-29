@@ -1,0 +1,23 @@
+id: OP-201
+title: "Pit Wall portal: bright gold (F-131)"
+kind: pitwall-pages-deploy
+status: dry-run
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-29T03:08:25.119Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-29T03:08:25.396Z
+    head_sha: 38e2c7d151c91ff2932352d2e175018a48d79171
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-201/dry-run-2026-10-29T03-08-25-396Z.log
+    log_sha256: 1ca529d6a66cc2d67ae763270ff461c664e42fced66873abd28d9e061f45173c
+    lines: 77
+  - step: gates
+    at: 2026-10-29T13:08:20.070Z
+    head_sha: 0bf6972d8d66d7bbc2100a40994f2cdbf78e809f
+    exit: 1
+    gates:
+      G14: fail
