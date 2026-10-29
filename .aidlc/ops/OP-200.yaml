@@ -1,0 +1,37 @@
+id: OP-200
+title: Pit Wall worker with the tick watchdog (F-132)
+kind: pitwall-worker-deploy
+status: applied
+params: {}
+created_at: 2026-10-29T02:47:43.491Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-29T02:47:43.788Z
+    head_sha: dfa9d5007dc83001e9645c45ed7abbd6dcb2f132
+    command: bash scripts/ops/pitwall-worker-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-200/dry-run-2026-10-29T02-47-43-788Z.log
+    log_sha256: 7ee361852d11c88fbabbf9517d147a9c47599ed79748326220867755f925e525
+    lines: 54
+  - step: gates
+    at: 2026-10-29T02:48:07.118Z
+    head_sha: dfa9d5007dc83001e9645c45ed7abbd6dcb2f132
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-29T02:48:07.122Z
+    head_sha: dfa9d5007dc83001e9645c45ed7abbd6dcb2f132
+    command: bash scripts/ops/pitwall-worker-deploy.sh apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-200/apply-2026-10-29T02-48-07-122Z.log
+    log_sha256: 48a1050a90878b7efe915cee6ae4dde1ece4a59baadc8a9ea3347e7d019f418e
+    lines: 66
+  - step: gates
+    at: 2026-10-29T02:48:21.221Z
+    head_sha: dfa9d5007dc83001e9645c45ed7abbd6dcb2f132
+    exit: 0
+    gates:
+      G15: skip
