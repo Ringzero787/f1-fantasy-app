@@ -19,7 +19,7 @@ The `.dc.html` files are design-tool components: markup inside `<x-dc>` with `{{
 | Secondary text | `#BDBDBD` | `#3F3F3C` |
 | Muted text / labels | `#8C8C8C` | `#6A6A66` |
 | Dividers | `#262626` | `#D6D6D2` |
-| Accent (gold, `--gold`; was red `#FF2B2B` / `#E5161C`) | `#D3BC8D`, ink on it `#0A0A0A`, faint `#27221A` | `#73602F`, ink on it `#FFFFFF`, faint `#F3EBD8` |
+| Accent (gold, `--gold`; was red `#FF2B2B` / `#E5161C`) | `#F0C64A`, ink on it `#0A0A0A`, faint `#2E2810` | `#A07E0F` for text and borders, faint `#F6EEC9`; fills (`--goldFill`: the CTA, the ace pill) stay `#F0C64A` with `#0A0A0A` ink in both themes (3.1:1 as text on cards — the owner chose a gold that reads as gold over an AA-safe brown) |
 | Negative (`--neg`: DNFs, losses, fees, errors) | `#FF2B2B` | `#C40F15` (the old `#E5161C` was 3.8:1 on cards) |
 | Caution (`--warn`) | `#FF8A1F` | `#96450A` |
 | Up / positive | `#3DDC84` | `#138A3E` |
