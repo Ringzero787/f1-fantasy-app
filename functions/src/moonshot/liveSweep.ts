@@ -12,9 +12,9 @@
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
-import { fetchDrivers, fetchSessions, findFastestLap, getGridPositions, type OpenF1Session } from '../ingestion/openf1Client';
+import { fetchDrivers, fetchSessions, findFastestLap, getGridPositions, teamsForSession, type OpenF1Session } from '../ingestion/openf1Client';
 import { openf1Fetch, openf1Secrets } from '../ingestion/openf1Auth';
-import { DRIVER_NUMBER_TO_ID, SEASON_YEAR, TEAM_NAME_TO_ID } from '../ingestion/config';
+import { DRIVER_NUMBER_TO_ID, SEASON_YEAR } from '../ingestion/config';
 import { runningScore } from '../scoring/runningScore';
 import { loadMoonshotConfig } from './config';
 
@@ -78,12 +78,18 @@ async function fetchPositions(sessionKey: number): Promise<PositionRow[]> {
   return (await res.json()) as PositionRow[];
 }
 
-/** Driver id → constructor id from the session's entry list, through the same team-name table the results ingest uses. */
+/**
+ * Driver id → constructor id from the session's entry list, through the same team table the results
+ * ingest uses — including its fill from the meeting for a car the provider lists with no team in
+ * this session (F-134: the Mexico City stand-in), so the seat rule can follow the car live too.
+ */
 async function fetchConstructorOf(sessionKey: number): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  for (const d of await fetchDrivers(sessionKey)) {
+  const drivers = await fetchDrivers(sessionKey);
+  const teams = await teamsForSession(drivers, []);
+  for (const d of drivers) {
     const driverId = Number.isInteger(d.driver_number) && Object.prototype.hasOwnProperty.call(DRIVER_NUMBER_TO_ID, d.driver_number) ? DRIVER_NUMBER_TO_ID[d.driver_number] : undefined;
-    const constructorId = d.team_name && Object.prototype.hasOwnProperty.call(TEAM_NAME_TO_ID, d.team_name) ? TEAM_NAME_TO_ID[d.team_name] : undefined;
+    const constructorId = teams[d.driver_number];
     if (driverId && constructorId) out[driverId] = constructorId;
   }
   return out;
