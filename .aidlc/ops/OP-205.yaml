@@ -1,0 +1,38 @@
+id: OP-205
+title: "Results ingestion: Mexico stand-in mapping + team fill from meeting (F-134)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:moonshotLiveSweep
+created_at: 2026-11-02T01:47:59.056Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-02T01:47:59.509Z
+    head_sha: ae82039b6e9009294c75b4c8c1f705b5b90dda1f
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-205/dry-run-2026-11-02T01-47-59-509Z.log
+    log_sha256: ba407b7142ca06a17431ad3fe0236b3ed422856cb782cb72f23d765cc1ddff21
+    lines: 75
+  - step: gates
+    at: 2026-11-02T01:54:01.317Z
+    head_sha: ae82039b6e9009294c75b4c8c1f705b5b90dda1f
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-02T01:54:01.370Z
+    head_sha: ae82039b6e9009294c75b4c8c1f705b5b90dda1f
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:moonshotLiveSweep' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-205/apply-2026-11-02T01-54-01-370Z.log
+    log_sha256: d5e746697abf60f5c6b6ef9d440628ae516a1147996247c1890799ce480a349f
+    lines: 37
+  - step: gates
+    at: 2026-11-02T01:55:29.934Z
+    head_sha: ae82039b6e9009294c75b4c8c1f705b5b90dda1f
+    exit: 0
+    gates:
+      G15: skip
