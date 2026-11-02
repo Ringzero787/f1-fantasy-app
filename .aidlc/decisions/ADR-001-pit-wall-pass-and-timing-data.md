@@ -95,3 +95,18 @@ whoever checks this later:
 - The 2026-10-07 condition is unchanged and now covers this too: the switch goes on only once the
   owner has the provider's written confirmation that the arrangement covers **live positions and a
   derived running score inside the free app**. The owner's one-line restatement should say so.
+
+## Note · 2026-11-02 · the live sweep is switched on for Brazil (F-111, F-129)
+
+- The owner decided on 2026-11-02 to turn live timing on from round 22 (Brazil, 2026-11-08)
+  without the provider's written confirmation that the 2026-10-07 and 2026-10-26 notes asked for.
+  The feed is the paid one bought on 2026-10-25 (F-128); the surface is unchanged from the
+  2026-10-26 note: one position call and one grid call a minute during the race window, one
+  Firestore document, the derived running score and the Moonshot card's positions in the free app.
+- What changes: `DESIRED.liveTiming` in `functions/scripts/setMoonshotConfig.js` is `true`, written
+  to `config/app.moonshot.liveTiming` by a `uc-script` op. No build; the app half shipped in 2.7.x.
+- What this does not change: the basis for the use is the 2026-09-28 reply above as paraphrased,
+  not a quote. If the provider later objects, the switch is one op back to `false` and the sweep
+  stops at the next minute; nothing is stored beyond the live document.
+- Mexico (2026-11-01) ran with the switch off and proved the feed's timing: results fetched at
+  session end. The Haas stand-in case (F-134) is handled in the sweep's team lookup as well.
