@@ -127,3 +127,40 @@ test('F-133: an expired lease nobody re-claimed fails; a job that gave up warns;
   assert.match(r.findings[r.findings.findIndex((f) => f.check === 'queue') + 1].text, /gave up after 5 attempts: no outlook written/);
   assert.deepEqual(levels(evaluate(healthy(), NOW), 'queue'), []);
 });
+
+test('F-135: a race held by the ingestion fails with the reason; one awaiting admin approval warns', () => {
+  const s = healthy();
+  s.races[1].status = 'in_progress';
+  s.races[1].schedule.race = new Date(NOW.getTime() - 5 * 3600 * 1000).toISOString();
+  s.held = [{ raceId: 'mexico_2026', round: 21, fetchedAt: new Date(NOW.getTime() - 3 * 3600 * 1000).toISOString(), blockedReason: 'Unmapped driver number(s) — grid is incomplete: Unknown driver number: 50' }];
+  const r = evaluate(s, NOW);
+  assert.deepEqual(levels(r, 'scoring'), ['fail']);
+  assert.match(r.findings.find((f) => f.check === 'scoring').text, /mexico_2026 \(round 21\) results fetched 3\.0 h ago are held: Unmapped driver number.*requeueBlockedResults/);
+  s.held[0].blockedReason = null;
+  assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), ['warn']);
+});
+
+test('F-135: a race three hours past with nothing fetched warns, twelve hours past fails, and a fresh race is quiet', () => {
+  const s = healthy();
+  s.races[1].status = 'in_progress';
+  s.races[1].schedule.race = new Date(NOW.getTime() - 4 * 3600 * 1000).toISOString();
+  assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), ['warn']);
+  s.races[1].schedule.race = new Date(NOW.getTime() - 13 * 3600 * 1000).toISOString();
+  assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), ['fail']);
+  s.races[1].schedule.race = new Date(NOW.getTime() - 2 * 3600 * 1000).toISOString();
+  assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), []);
+  assert.deepEqual(levels(evaluate(healthy(), NOW), 'scoring'), []);
+});
+
+test('F-135: the day after a race is scored, a portal one round behind is a turnover WARN, not a FAIL; later it fails', () => {
+  const s = healthy();
+  s.races[1].status = 'completed';
+  s.races[1].schedule.race = new Date(NOW.getTime() - 6 * 3600 * 1000).toISOString();
+  // calendar is now on brazil_2026 (22); the portal still shows Mexico (21)
+  const r = evaluate(s, NOW);
+  assert.equal(r.round, 22);
+  assert.deepEqual(levels(r, 'payload'), ['warn']);
+  assert.match(r.findings.find((f) => f.check === 'payload').text, /portal still shows round 21 \(Mexico City\); round 22 brazil_2026 is published at the next 06:00Z job/);
+  s.races[1].schedule.race = new Date(NOW.getTime() - 40 * 3600 * 1000).toISOString();
+  assert.deepEqual(levels(evaluate(s, NOW), 'payload'), ['fail']);
+});

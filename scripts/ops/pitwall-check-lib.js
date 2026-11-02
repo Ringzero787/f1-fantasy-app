@@ -94,7 +94,13 @@ function evaluate(state, now = new Date()) {
     else {
       const pubRound = pub.round && typeof pub.round === 'object' ? pub.round.number : pub.round;
       const age = t - ms(pub.asOf);
-      if (Number(pubRound) !== Number(cur.round)) add('fail', 'payload', `portal shows round ${pubRound} (${pub.round && pub.round.name ? pub.round.name : '?'}), the calendar is on round ${cur.round} ${cur.id}`);
+      // F-135: in the day after a race is scored the calendar is already on the next round while the
+      // worker publishes it at its next 06:00Z job; that turnover is a WARN, not the hang it looks like
+      const prev = state.races.find((r) => Number(r.round) === Number(cur.round) - 1);
+      const prevRaceAt = prev ? ms(prev.schedule && prev.schedule.race) : null;
+      const turningOver = Number(pubRound) === Number(cur.round) - 1 && prev && prev.status === 'completed' && prevRaceAt && t - prevRaceAt < 36 * HOUR;
+      if (turningOver) add('warn', 'payload', `portal still shows round ${pubRound} (${pub.round && pub.round.name ? pub.round.name : '?'}); round ${cur.round} ${cur.id} is published at the next 06:00Z job (last race ${fmtAge(t - prevRaceAt)} ago)`);
+      else if (Number(pubRound) !== Number(cur.round)) add('fail', 'payload', `portal shows round ${pubRound} (${pub.round && pub.round.name ? pub.round.name : '?'}), the calendar is on round ${cur.round} ${cur.id}`);
       else if (age > 30 * HOUR) add('fail', 'payload', `round ${pubRound} payload is ${fmtAge(age)} old (over 30 h)`);
       else add('ok', 'payload', `round ${pubRound} ${pub.round && pub.round.name ? pub.round.name : ''} published ${fmtAge(age)} ago`);
     }
@@ -104,9 +110,22 @@ function evaluate(state, now = new Date()) {
   }
 
   // 3. a race whose sessions have passed but is still 'upcoming' / 'in_progress' (scoring did not run)
+  //    F-135: the ingestion parks a race in pendingResults when the provider's grid has a car it cannot
+  //    map (or when auto-approval is off), and the scheduler then skips it in silence — Mexico 2026
+  //    sat unscored overnight that way. A held race is a FAIL with the reason; a race three hours
+  //    past with nothing fetched is a WARN before the twelve-hour FAIL.
+  const held = state.held || [];
+  for (const h of held) {
+    const age = h.fetchedAt ? fmtAge(t - ms(h.fetchedAt)) : 'unknown time';
+    if (h.blockedReason) add('fail', 'scoring', `${h.raceId} (round ${h.round}) results fetched ${age} ago are held: ${h.blockedReason} — add the driver mapping, deploy the result checkers, then run the requeueBlockedResults op`);
+    else add('warn', 'scoring', `${h.raceId} (round ${h.round}) results fetched ${age} ago await admin approval`);
+  }
+  const heldIds = new Set(held.map((h) => h.raceId));
   for (const r of state.races) {
     const raceAt = ms(r.schedule && r.schedule.race);
-    if (raceAt && raceAt < t - 12 * HOUR && live(r)) add('fail', 'scoring', `${r.id} (round ${r.round}) raced ${fmtAge(t - raceAt)} ago and is still '${r.status}'`);
+    if (!raceAt || !live(r)) continue;
+    if (raceAt < t - 12 * HOUR) add('fail', 'scoring', `${r.id} (round ${r.round}) raced ${fmtAge(t - raceAt)} ago and is still '${r.status}'`);
+    else if (raceAt < t - 3 * HOUR && !heldIds.has(r.id)) add('warn', 'scoring', `${r.id} (round ${r.round}) raced ${fmtAge(t - raceAt)} ago, nothing fetched yet (the checker runs every 10 min from session end)`);
   }
 
   // 4. the calendar against the provider: cancelled, added, moved
