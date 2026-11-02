@@ -127,3 +127,59 @@ test('F-133: an expired lease nobody re-claimed fails; a job that gave up warns;
   assert.match(r.findings[r.findings.findIndex((f) => f.check === 'queue') + 1].text, /gave up after 5 attempts: no outlook written/);
   assert.deepEqual(levels(evaluate(healthy(), NOW), 'queue'), []);
 });
+
+test('F-135: a race held by the ingestion fails with the reason; one awaiting admin approval warns', () => {
+  const s = healthy();
+  s.races[1].status = 'in_progress';
+  s.races[1].schedule.race = new Date(NOW.getTime() - 5 * 3600 * 1000).toISOString();
+  s.held = [{ raceId: 'mexico_2026', round: 21, fetchedAt: new Date(NOW.getTime() - 3 * 3600 * 1000).toISOString(), blockedReason: 'Unmapped driver number(s) — grid is incomplete: Unknown driver number: 50' }];
+  const r = evaluate(s, NOW);
+  assert.deepEqual(levels(r, 'scoring'), ['fail']);
+  assert.match(r.findings.find((f) => f.check === 'scoring').text, /mexico_2026 \(round 21, registry status 'in_progress'\) results fetched .+ ago are held: "Unmapped driver number.*"\. Fix: .*requeueBlockedResults/);
+  s.held[0].blockedReason = null;
+  assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), ['warn']);
+});
+
+test('F-135: a race three hours past with nothing fetched warns, twelve hours past fails, and a fresh race is quiet', () => {
+  const s = healthy();
+  s.races[1].status = 'in_progress';
+  s.races[1].schedule.race = new Date(NOW.getTime() - 4 * 3600 * 1000).toISOString();
+  assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), ['warn']);
+  s.races[1].schedule.race = new Date(NOW.getTime() - 13 * 3600 * 1000).toISOString();
+  assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), ['fail']);
+  s.races[1].schedule.race = new Date(NOW.getTime() - 2 * 3600 * 1000).toISOString();
+  assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), []);
+  assert.deepEqual(levels(evaluate(healthy(), NOW), 'scoring'), []);
+});
+
+test('F-135: the day after a race is scored, a portal one round behind is a turnover WARN, not a FAIL; later it fails', () => {
+  const s = healthy();
+  s.races[1].status = 'completed';
+  s.races[1].schedule.race = new Date(NOW.getTime() - 6 * 3600 * 1000).toISOString();
+  // calendar is now on brazil_2026 (22); the portal still shows Mexico (21)
+  const r = evaluate(s, NOW);
+  assert.equal(r.round, 22);
+  assert.deepEqual(levels(r, 'payload'), ['warn']);
+  assert.match(r.findings.find((f) => f.check === 'payload').text, /portal still shows round 21 \(Mexico City\); the worker publishes round 22 brazil_2026 at its 06:00Z daily job .* a FAIL from 2026-10-30T08:00:00/);
+  // a Sunday 20:00Z race scored by 23:00Z: the daily job is Monday 06:00Z, so Monday 07:03Z (the cron) is still inside the grace, 08:01Z is not
+  s.races[1].schedule.race = '2026-10-25T20:00:00.000Z';
+  assert.deepEqual(levels(evaluate(s, new Date('2026-10-26T07:03:00Z')), 'payload'), ['warn']);
+  assert.deepEqual(levels(evaluate(s, new Date('2026-10-26T08:01:00Z')), 'payload'), ['fail']);
+  // a cancelled round between the completed race and the current one does not break the grace
+  s.races.push(race('phantom_2026', 20, 'cancelled', '2026-10-18T20:00:00.000Z'));
+  s.races[0].round = 19; s.races[1].round = 21; s.races[2].round = 22;
+  s.newestPublic.round = { number: 21, name: 'Mexico City' };
+  assert.deepEqual(levels(evaluate(s, new Date('2026-10-26T07:03:00Z')), 'payload'), ['warn']);
+});
+
+test('F-135: a held result whose race is not in this season\'s registry is a stale-document WARN, and the held text carries the registry status', () => {
+  const s = healthy();
+  s.held = [{ raceId: 'abu_dhabi_2025', round: 24, fetchedAt: '2025-12-07T16:00:00.000Z', blockedReason: 'Unknown driver number: 99' }];
+  const r = evaluate(s, NOW);
+  assert.deepEqual(levels(r, 'scoring'), ['warn']);
+  assert.match(r.findings.find((f) => f.check === 'scoring').text, /abu_dhabi_2025 .* not in this season's registry: stale document/);
+  s.held = [{ raceId: 'usa_2026', round: 20, fetchedAt: new Date(NOW.getTime() - 3600 * 1000).toISOString(), blockedReason: 'Unknown driver number: 99' }];
+  const r2 = evaluate(s, NOW);
+  assert.deepEqual(levels(r2, 'scoring'), ['fail']);
+  assert.match(r2.findings.find((f) => f.check === 'scoring').text, /usa_2026 \(round 20, registry status 'completed'\)/);
+});

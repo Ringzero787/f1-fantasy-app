@@ -31,7 +31,7 @@ async function collect() {
   const db = admin.firestore();
   const toIso = (v) => (v && typeof v.toDate === 'function' ? v.toDate().toISOString() : v);
 
-  const [worker, racesSnap, pubSnap, projSnap, alertsSnap, jobsSnap] = await Promise.all([
+  const [worker, racesSnap, pubSnap, projSnap, alertsSnap, jobsSnap, heldSnap] = await Promise.all([
     db.collection('pw_status').doc('worker').get(),
     db.collection('races').where('seasonId', '==', SEASON).get(),
     db.collection('pw_public').orderBy('asOf', 'desc').limit(1).get(),
@@ -39,6 +39,8 @@ async function collect() {
     db.collection('pw_alerts').where('at', '>', Date.now() - 7 * 24 * 3600 * 1000).get(),
     // the open queue (F-133): a due job still queued an hour later means the worker is not claiming
     db.collection('pw_jobs').where('status', 'in', ['queued', 'leased', 'failed']).get(),
+    // results the ingestion is holding (F-135): a parked race is silent — Mexico 2026 sat unscored overnight
+    db.collection('pendingResults').where('status', '==', 'pending').get(),
   ]);
   const races = racesSnap.docs.map((d) => {
     const r = d.data();
@@ -65,6 +67,7 @@ async function collect() {
     projectionRounds,
     alerts: alertsSnap.docs.map((d) => d.data()).sort((a, b) => b.at - a.at),
     jobs: jobsSnap.docs.map((d) => { const j = d.data(); return { id: d.id, status: j.status, notBefore: j.notBefore, attempts: j.attempts, leaseUntil: j.leaseUntil, lastError: j.lastError ? String(j.lastError).replace(/\s+/g, ' ').slice(0, 200) : null }; }), // one line, bounded: it lands inside the triage fence
+    held: heldSnap.docs.map((d) => { const p = d.data(); return { raceId: d.id, round: p.round, fetchedAt: toIso(p.fetchedAt), blockedReason: p.blockedReason ? String(p.blockedReason).replace(/\s+/g, ' ').slice(0, 200) : null }; }),
     meetings,
   };
 }
