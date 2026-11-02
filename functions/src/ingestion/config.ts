@@ -91,6 +91,10 @@ export const DRIVER_NUMBER_TO_ID: Record<number, string> = {
   27: 'hulkenberg',
   30: 'lawson',
   31: 'ocon',
+  // Mexico City 2026 (round 21) stand-in: Hirakawa drove the Haas in Ocon's place (F-134). Like
+  // Tsunoda above he has no drivers/ doc, so he cannot be bought; the mapping exists so the Haas
+  // aggregate and the Moonshot seat rule (the call follows the car) see his result.
+  50: 'hirakawa',
   41: 'lindblad',
   43: 'colapinto',
   44: 'hamilton',

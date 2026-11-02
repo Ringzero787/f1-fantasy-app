@@ -1,4 +1,4 @@
-next_id: 134
+next_id: 135
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1627,3 +1627,20 @@ features:
       - starved
       - finished
       - jobs
+  - id: F-134
+    name: "UC: Results ingestion: stand-in driver with no team in the provider's race session (Mexico, Hirakawa)"
+    status: planned
+    spec: .aidlc/specs/F-134.md
+    created_at: 2026-11-02
+    keywords:
+      - results
+      - ingestion
+      - stand
+      - driver
+      - with
+      - team
+      - provider
+      - race
+      - session
+      - mexico
+      - hirakawa

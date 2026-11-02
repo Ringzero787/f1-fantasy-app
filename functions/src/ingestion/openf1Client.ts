@@ -45,10 +45,12 @@ export interface OpenF1SessionResult {
 
 export interface OpenF1Driver {
   driver_number: number;
-  team_name: string;
+  /** null for a stand-in the provider has not attached to a team in this session (Mexico 2026 Race: Hirakawa) */
+  team_name: string | null;
   full_name: string;
   name_acronym: string;
   session_key: number;
+  meeting_key?: number;
 }
 
 export interface OpenF1Lap {
@@ -156,6 +158,67 @@ export async function fetchDrivers(sessionKey: number): Promise<OpenF1Driver[]> 
   return fetchApi<OpenF1Driver>('/drivers', { session_key: sessionKey });
 }
 
+export async function fetchMeetingDrivers(meetingKey: number): Promise<OpenF1Driver[]> {
+  return fetchApi<OpenF1Driver>('/drivers', { meeting_key: meetingKey });
+}
+
+/**
+ * driver_number → constructor id from one session's driver records (F-134). A record with no
+ * team_name, or a team name this map does not know, leaves the number out; the converters then
+ * drop that car with a "No team mapping" warning, which is what happened to the Haas stand-in at
+ * Mexico City 2026: the provider's Race-session record for car 50 carried team null while its
+ * practice and qualifying records said "Haas F1 Team". `fillTeamsFromMeeting` closes that gap.
+ */
+export function teamsFromDrivers(drivers: OpenF1Driver[]): Record<number, string> {
+  const driverTeams: Record<number, string> = {};
+  for (const d of drivers) {
+    if (d.team_name) {
+      const teamId = TEAM_NAME_TO_ID[d.team_name];
+      if (teamId) driverTeams[d.driver_number] = teamId;
+    }
+  }
+  return driverTeams;
+}
+
+/**
+ * Pure. For every driver of the session that `teams` has no constructor for, take the team the
+ * same car carried in another session of the meeting (the latest session that names one). Each
+ * fill is reported as a warning so the admin panel shows where the grid came from. A number the
+ * meeting never attaches to a known team stays unresolved and keeps its existing warning.
+ */
+export function fillTeamsFromMeeting(
+  teams: Record<number, string>,
+  sessionDrivers: OpenF1Driver[],
+  meetingDrivers: OpenF1Driver[],
+  warnings: string[],
+): Record<number, string> {
+  const out = { ...teams };
+  for (const d of sessionDrivers) {
+    if (out[d.driver_number]) continue;
+    const elsewhere = meetingDrivers
+      .filter((m) => m.driver_number === d.driver_number && m.session_key !== d.session_key && m.team_name && TEAM_NAME_TO_ID[m.team_name])
+      .sort((a, b) => b.session_key - a.session_key)[0];
+    if (!elsewhere) continue;
+    out[d.driver_number] = TEAM_NAME_TO_ID[elsewhere.team_name as string];
+    warnings.push(`Team for driver ${d.driver_number} taken from session ${elsewhere.session_key} of the meeting (${elsewhere.team_name}); the provider lists no team for the car in this session`);
+  }
+  return out;
+}
+
+/** The session's teams, filled from the meeting where a car has none here (one extra call, only when needed). */
+export async function teamsForSession(drivers: OpenF1Driver[], warnings: string[]): Promise<Record<number, string>> {
+  const teams = teamsFromDrivers(drivers);
+  const missing = drivers.filter((d) => !teams[d.driver_number]);
+  const meetingKey = missing.find((d) => typeof d.meeting_key === 'number')?.meeting_key;
+  if (missing.length === 0 || meetingKey === undefined) return teams;
+  try {
+    return fillTeamsFromMeeting(teams, drivers, await fetchMeetingDrivers(meetingKey), warnings);
+  } catch (e) {
+    warnings.push(`Could not fetch the meeting's drivers to fill ${missing.length} missing team(s): ${e instanceof Error ? e.message : String(e)}`);
+    return teams;
+  }
+}
+
 export async function fetchLaps(sessionKey: number): Promise<OpenF1Lap[]> {
   return fetchApi<OpenF1Lap>('/laps', { session_key: sessionKey });
 }
@@ -257,16 +320,8 @@ export async function convertToRaceResults(
     return { results: [], totalLaps: 0, warnings: ['No session results returned from OpenF1'] };
   }
 
-  // Build driver → team mapping
-  const driverTeams: Record<number, string> = {};
-  for (const d of drivers) {
-    if (d.team_name) {
-      const teamId = TEAM_NAME_TO_ID[d.team_name];
-      if (teamId) {
-        driverTeams[d.driver_number] = teamId;
-      }
-    }
-  }
+  // Build driver → team mapping; a car with no team in this session takes its team from the meeting (F-134)
+  const driverTeams = await teamsForSession(drivers, warnings);
 
   let maxLaps = 0;
   const results: RaceResult[] = [];
@@ -397,16 +452,8 @@ export async function convertToQualifyingResults(
     return { results: [], warnings: ['No qualifying results returned from OpenF1'] };
   }
 
-  // Build driver → team mapping
-  const driverTeams: Record<number, string> = {};
-  for (const d of drivers) {
-    if (d.team_name) {
-      const teamId = TEAM_NAME_TO_ID[d.team_name];
-      if (teamId) {
-        driverTeams[d.driver_number] = teamId;
-      }
-    }
-  }
+  // Build driver → team mapping; a car with no team in this session takes its team from the meeting (F-134)
+  const driverTeams = await teamsForSession(drivers, warnings);
 
   const results: QualifyingResult[] = [];
 
