@@ -15,7 +15,7 @@
 //   node scripts/setMoonshotConfig.js --apply               # write DESIRED
 //   node scripts/setMoonshotConfig.js --enabled=false --apply   # switch it off, keep the rest
 //   node scripts/setMoonshotConfig.js --mode=banded --apply     # change the pricing mode
-//   node scripts/setMoonshotConfig.js --liveTiming=true --apply # start the live-positions sweep and show the race-day card
+//   node scripts/setMoonshotConfig.js --liveTiming=false --apply # stop the live sweep and the race-day card (DESIRED is on)
 //
 // The uc-script op kind passes only --apply, so through `aidlc op` the flags are not reachable:
 // to change a switch in production, edit DESIRED here, commit, and raise a new uc-script op.
