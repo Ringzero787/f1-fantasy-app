@@ -1,0 +1,47 @@
+id: OP-206
+title: Re-queue the held Mexico result so the scheduler scores it (F-134)
+kind: uc-script
+status: applied
+params:
+  script: requeueBlockedResults.js
+  backup: pendingResults/mexico_2026
+created_at: 2026-11-02T01:48:07.980Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-02T01:48:08.564Z
+    head_sha: ae82039b6e9009294c75b4c8c1f705b5b90dda1f
+    command: node scripts/ops/run-script.js undercut 'requeueBlockedResults.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-206/dry-run-2026-11-02T01-48-08-564Z.log
+    log_sha256: 304d4ad68c44073d76624e1850567341fe561cd67113c57303ce1b846a734ec5
+    lines: 5
+  - step: backup
+    at: 2026-11-02T01:55:46.747Z
+    head_sha: ae82039b6e9009294c75b4c8c1f705b5b90dda1f
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-206'/backup.json 'pendingResults/mexico_2026'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-206/backup-2026-11-02T01-55-46-747Z.log
+    log_sha256: fd1bc7effcbe143c6689fd92540269acc8440ad62c9afe0790e43723704ee36d
+    lines: 1
+  - step: gates
+    at: 2026-11-02T01:55:47.731Z
+    head_sha: ae82039b6e9009294c75b4c8c1f705b5b90dda1f
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-02T01:55:47.732Z
+    head_sha: ae82039b6e9009294c75b4c8c1f705b5b90dda1f
+    command: node scripts/ops/run-script.js undercut 'requeueBlockedResults.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-206/apply-2026-11-02T01-55-47-732Z.log
+    log_sha256: 9ddc73c5a9a0d20a1a8463c72ac58ef19a6c63abb8798d979e528a8a6eef0408
+    lines: 6
+  - step: gates
+    at: 2026-11-02T01:55:48.633Z
+    head_sha: ae82039b6e9009294c75b4c8c1f705b5b90dda1f
+    exit: 0
+    gates:
+      G15: skip
