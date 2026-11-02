@@ -106,6 +106,15 @@ export interface QualifyingResult {
  */
 export const UNMAPPED_DRIVER_WARNING_PREFIX = 'Unknown driver number';
 
+/**
+ * The warning for a mapped driver whose car has no team even after the meeting fill (F-134). It
+ * carries the unmapped prefix on purpose: the converter drops the car either way, so the grid is
+ * short either way, and auto-approval must refuse it exactly as it refuses an unknown number.
+ */
+export function noTeamWarning(driverNumber: number, driverId: string, where: 'race' | 'qualifying'): string {
+  return `${UNMAPPED_DRIVER_WARNING_PREFIX} team: no team for ${where} driver ${driverNumber} (${driverId}) in this session or the meeting`;
+}
+
 export function isUnmappedDriverWarning(warning: string): boolean {
   return warning.startsWith(UNMAPPED_DRIVER_WARNING_PREFIX);
 }
@@ -195,24 +204,28 @@ export function fillTeamsFromMeeting(
   const out = { ...teams };
   for (const d of sessionDrivers) {
     if (out[d.driver_number]) continue;
-    const elsewhere = meetingDrivers
-      .filter((m) => m.driver_number === d.driver_number && m.session_key !== d.session_key && m.team_name && TEAM_NAME_TO_ID[m.team_name])
-      .sort((a, b) => b.session_key - a.session_key)[0];
+    const named = (m: OpenF1Driver): m is OpenF1Driver & { team_name: string } =>
+      m.driver_number === d.driver_number && m.session_key !== d.session_key && !!m.team_name && !!TEAM_NAME_TO_ID[m.team_name];
+    const elsewhere = meetingDrivers.filter(named).sort((a, b) => b.session_key - a.session_key)[0];
     if (!elsewhere) continue;
-    out[d.driver_number] = TEAM_NAME_TO_ID[elsewhere.team_name as string];
+    out[d.driver_number] = TEAM_NAME_TO_ID[elsewhere.team_name];
     warnings.push(`Team for driver ${d.driver_number} taken from session ${elsewhere.session_key} of the meeting (${elsewhere.team_name}); the provider lists no team for the car in this session`);
   }
   return out;
 }
 
 /** The session's teams, filled from the meeting where a car has none here (one extra call, only when needed). */
-export async function teamsForSession(drivers: OpenF1Driver[], warnings: string[]): Promise<Record<number, string>> {
+export async function teamsForSession(drivers: OpenF1Driver[], warnings: string[], fetchMeeting: (meetingKey: number) => Promise<OpenF1Driver[]> = fetchMeetingDrivers): Promise<Record<number, string>> {
   const teams = teamsFromDrivers(drivers);
   const missing = drivers.filter((d) => !teams[d.driver_number]);
   const meetingKey = missing.find((d) => typeof d.meeting_key === 'number')?.meeting_key;
-  if (missing.length === 0 || meetingKey === undefined) return teams;
+  if (missing.length === 0) return teams;
+  if (meetingKey === undefined) {
+    warnings.push(`${missing.length} car(s) have no team in this session and its driver records carry no meeting_key; team fill skipped`);
+    return teams;
+  }
   try {
-    return fillTeamsFromMeeting(teams, drivers, await fetchMeetingDrivers(meetingKey), warnings);
+    return fillTeamsFromMeeting(teams, drivers, await fetchMeeting(meetingKey), warnings);
   } catch (e) {
     warnings.push(`Could not fetch the meeting's drivers to fill ${missing.length} missing team(s): ${e instanceof Error ? e.message : String(e)}`);
     return teams;
@@ -337,7 +350,7 @@ export async function convertToRaceResults(
 
     const constructorId = driverTeams[r.driver_number];
     if (!constructorId) {
-      warnings.push(`No team mapping for driver ${r.driver_number} (${driverId})`);
+      warnings.push(noTeamWarning(r.driver_number, driverId, 'race'));
       continue;
     }
 
@@ -468,7 +481,7 @@ export async function convertToQualifyingResults(
 
     const constructorId = driverTeams[r.driver_number];
     if (!constructorId) {
-      warnings.push(`No team mapping for qualifying driver ${r.driver_number} (${driverId})`);
+      warnings.push(noTeamWarning(r.driver_number, driverId, 'qualifying'));
       continue;
     }
 

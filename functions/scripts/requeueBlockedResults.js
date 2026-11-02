@@ -6,7 +6,9 @@
  * that race on every tick. Once the mapping is deployed, the way back is to set the document to
  * 'rejected': the next tick re-fetches the race with the new code, settles it and auto-approves,
  * and the write to races/{raceId} runs onRaceCompleted. This script does exactly that for every
- * blocked pending result whose race is not completed; nothing else is touched.
+ * blocked pending result whose race is not completed; nothing else is touched. The two audit
+ * fields it adds last only until that re-fetch replaces the document; the durable record of what
+ * was held is the op's backup under /mnt/smb/f1-app/aidlc-ops/<op>/.
  *
  * Usage:
  *   node scripts/requeueBlockedResults.js            # dry run, writes nothing
@@ -45,9 +47,17 @@ async function main() {
     const p = doc.data();
     if (!p.blockedReason) continue;
     const race = await db.collection('races').doc(doc.id).get();
-    const status = race.exists ? race.data().status : 'missing';
+    if (!race.exists) { console.log(`skipping ${doc.id}: no races/ document (the scheduler would not process it either)`); continue; }
+    const status = race.data().status;
     if (status === 'completed') continue;
-    rows.push({ id: doc.id, round: p.round, status, blockedReason: String(p.blockedReason), fetchedAt: p.fetchedAt && p.fetchedAt.toDate ? p.fetchedAt.toDate().toISOString() : null, drivers: p.results && p.results.raceResults ? p.results.raceResults.length : 0 });
+    rows.push({
+      id: doc.id,
+      round: p.round,
+      status,
+      blockedReason: String(p.blockedReason),
+      fetchedAt: p.fetchedAt && p.fetchedAt.toDate ? p.fetchedAt.toDate().toISOString() : null,
+      drivers: p.results && p.results.raceResults ? p.results.raceResults.length : 0,
+    });
   }
 
   console.log(`\n=== requeueBlockedResults (${APPLY ? 'APPLY' : 'DRY RUN'}) — ${new Date().toISOString()} ===\n`);
