@@ -2,11 +2,10 @@
 //
 // DESIRED below is the owner's decision of 2026-10-07: on, priced continuously (fair less the vig,
 // rounded, floored, capped), DNS and DNF both lose ("all drivers race; DNS and DNF mean no
-// points"), the call follows the car when a substitute drives (settlement code, F-110), live
-// timing off until the owner has the provider's written confirmation that the arrangement covers the in-app live
-// positions card (ADR-001 notes of 2026-10-07 and 2026-10-25; F-111). Since F-128 (2026-10-25) the sweep carries the
-// paid feed's token, so flipping liveTiming here and raising a uc-script op is all that is left once that confirmation
-// exists — and because the op passes only --apply, leave it false until then or any other config op would turn it on. Everything else keeps
+// points"), the call follows the car when a substitute drives (settlement code, F-110), and live
+// timing ON from Brazil 2026 (round 22) by the owner's decision of 2026-11-02 (ADR-001 note of that
+// date; F-111/F-129): the sweep carries the paid feed's token since F-128, and the written
+// confirmation the 2026-10-07 note asked for was set aside by the owner. Everything else keeps
 // the F-106 defaults (functions/src/moonshot/config.ts). Dry run prints the block that would be
 // written beside what is live; `--apply` writes it with merge, so keys this script does not name
 // are left as they are.
@@ -16,7 +15,7 @@
 //   node scripts/setMoonshotConfig.js --apply               # write DESIRED
 //   node scripts/setMoonshotConfig.js --enabled=false --apply   # switch it off, keep the rest
 //   node scripts/setMoonshotConfig.js --mode=banded --apply     # change the pricing mode
-//   node scripts/setMoonshotConfig.js --liveTiming=true --apply # start the live-positions sweep and show the race-day card
+//   node scripts/setMoonshotConfig.js --liveTiming=false --apply # stop the live sweep and the race-day card (DESIRED is on)
 //
 // The uc-script op kind passes only --apply, so through `aidlc op` the flags are not reachable:
 // to change a switch in production, edit DESIRED here, commit, and raise a new uc-script op.
@@ -51,7 +50,7 @@ const DESIRED = {
   dnfRule: 'LOSS',
   dsqRule: 'LOSS',
   cancelledRule: 'VOID',
-  liveTiming: false,
+  liveTiming: true,
 };
 
 const KNOWN_FLAGS = ['enabled', 'mode', 'liveTiming', 'unlockRound'];

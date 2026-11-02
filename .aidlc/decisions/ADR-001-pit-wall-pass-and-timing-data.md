@@ -61,7 +61,7 @@ feed on 2026-10-25 under the 2026-09-28 reply above. Facts for whoever checks th
 - F-128 puts the feed's bearer token on every server call (results, qualifying, sprint, schedule
   sync and monitor, live sweep). Volume is unchanged: a handful of calls every ten minutes, one a
   minute during a live sweep.
-- The 2026-10-07 note's first condition **still stands**: the live sweep's switch
+- The 2026-10-07 note's first condition **still stands** — superseded on 2026-11-02 by the note below (owner decision) —: the live sweep's switch
   (`config/app.moonshot.liveTiming`) goes on only once the owner has the provider's written
   confirmation that the arrangement covers the in-app live positions card. The permission request
   of 2026-09-19 told the provider we fetch once per session and do not mirror live timing; the
@@ -92,6 +92,24 @@ whoever checks this later:
   beyond the Moonshot card's positions; they render the derived score, which is our scoring
   formula over the provider's running order. Nothing else from the laps table is stored. The copy
   calls it a running score, not a result.
-- The 2026-10-07 condition is unchanged and now covers this too: the switch goes on only once the
+- The 2026-10-07 condition is unchanged and now covers this too — superseded on 2026-11-02 by the note below (owner decision) —: the switch goes on only once the
   owner has the provider's written confirmation that the arrangement covers **live positions and a
   derived running score inside the free app**. The owner's one-line restatement should say so.
+
+## Note · 2026-11-02 · the live sweep is switched on for Brazil (F-111, F-129)
+
+- The owner decided on 2026-11-02 to turn live timing on from round 22 (Brazil, 2026-11-08)
+  without the provider's written confirmation that the 2026-10-07, 2026-10-25 and 2026-10-26 notes
+  asked for. The feed is the paid one bought on 2026-10-25 (F-128); the surface is unchanged from
+  the 2026-10-26 note: two feed calls a minute during the race window (positions, laps for the
+  fastest lap), three until the grid is published, up to five on the first minute; one Firestore
+  document; the derived running score and the Moonshot card's positions in the free app.
+- What changes: `DESIRED.liveTiming` in `functions/scripts/setMoonshotConfig.js` is `true`, written
+  to `config/app.moonshot.liveTiming` by a `uc-script` op. No build; the app half shipped in 2.7.x.
+- What this does not change: the basis for the use is the 2026-09-28 reply above as paraphrased,
+  not a quote. If the provider later objects, the switch is one op back to `false` and the sweep
+  stops at the next minute; nothing is stored beyond the live document. The app reads the flag once
+  per launch, so devices already open keep showing the last live document until restart — apply
+  the switch, either way, before race day rather than inside the window.
+- Mexico (2026-11-01) ran with the switch off and proved the feed's timing: results fetched at
+  session end. The Haas stand-in case (F-134) is handled in the sweep's team lookup as well.
