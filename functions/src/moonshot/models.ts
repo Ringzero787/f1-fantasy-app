@@ -20,6 +20,12 @@ export interface MoonshotModel {
   modelVersion: string;
   drivers: Record<string, DistributedDriver>;
   positionsCount: number;
+  /**
+   * F-137: seats the document models under a stand-in's name, keyed by the game's driver id
+   * (`{ ocon: 'hirakawa' }`: the row Ben wrote for Hirakawa prices the seat the game calls Ocon).
+   * Settlement already follows the car (F-110), so the model follows it too.
+   */
+  seats?: Record<string, string>;
   createdAt?: admin.firestore.Timestamp | admin.firestore.FieldValue;
 }
 
@@ -70,12 +76,74 @@ export function parseRaceTable(markdown: string): RaceRow[] {
   return rows;
 }
 
-/** Build the model document from parsed rows. `knownDrivers` (the game's driver ids) catches a renamed or missing driver early. */
-export function buildModel(rows: RaceRow[], meta: { raceId: string; season: string; round: number; source: string; modelVersion: string }, knownDrivers?: Set<string>): { model: MoonshotModel; unknown: string[]; missing: string[] } {
-  const unknown = knownDrivers ? rows.map((r) => r.driverId).filter((id) => !knownDrivers.has(id)) : [];
-  const missing = knownDrivers ? [...knownDrivers].filter((id) => !rows.some((r) => r.driverId === id)) : [];
+/**
+ * F-137: which team each driver in the document drives for, from the "Constructor predictions"
+ * table (`| rank | team | driver + driver | …`). Empty when the document has no such table.
+ */
+export function parseConstructorTable(markdown: string): Record<string, string> {
+  const lines = markdown.split('\n');
+  const start = lines.findIndex((l) => /^#{2,3} Constructor predictions/.test(l));
+  const teams: Record<string, string> = {};
+  if (start < 0) return teams;
+  let inTable = false;
+  for (let i = start + 1; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.startsWith('|')) {
+      inTable = true;
+      const cells = l.split('|').map((c) => c.replace(/\*/g, '').trim()).filter((c) => c.length);
+      if (/^-|^:|^Rank$/i.test(cells[0])) continue;
+      const team = cells[1]?.toLowerCase();
+      if (!team || !/^[a-z_]+$/.test(team)) continue;
+      for (const d of (cells[2] ?? '').toLowerCase().split('+').map((s) => s.trim())) if (/^[a-z_]+$/.test(d)) teams[d] = team;
+    } else if (inTable) break;
+  }
+  return teams;
+}
+
+/**
+ * F-137: driver → constructorId from a scored race's classification (`races/{id}.results.raceResults`).
+ * The game's own record of who drove which car last time out; a stand-in the document names but
+ * the constructor table does not place (it lists only the top teams) is placed by this.
+ */
+export function teamsFromResults(rows: ReadonlyArray<{ driverId?: unknown; constructorId?: unknown }> | null | undefined): Record<string, string> {
+  const teams: Record<string, string> = {};
+  for (const r of rows ?? []) if (typeof r.driverId === 'string' && typeof r.constructorId === 'string' && r.constructorId) teams[r.driverId] = r.constructorId;
+  return teams;
+}
+
+/**
+ * F-137: a stand-in the game has no record of, driving a seat whose regular driver is missing
+ * from the document, is modelled as that seat. Pure: `standInTeams` places the document's
+ * drivers by team (the constructor table, and the last scored race's classification); `gameTeams`
+ * is the game's driver → constructorId, active drivers only (a retired driver's document left on
+ * the same team must not make the seat ambiguous). A stand-in whose team has no single missing
+ * regular is left unknown, so the seeder still refuses rather than guess.
+ */
+export function seatAliases(unknown: string[], missing: string[], standInTeams: Record<string, string>, gameTeams: Record<string, string | null | undefined>): Record<string, string> {
+  const aliases: Record<string, string> = {};
+  for (const standIn of unknown) {
+    const team = standInTeams[standIn];
+    if (!team) continue;
+    const seats = missing.filter((id) => gameTeams[id] === team && !Object.values(aliases).includes(id));
+    if (seats.length === 1) aliases[standIn] = seats[0];
+  }
+  return aliases;
+}
+
+/**
+ * Build the model document from parsed rows. `knownDrivers` (the game's driver ids) catches a
+ * renamed or missing driver early; `aliases` (table id → game id, from `seatAliases`) re-keys a
+ * stand-in's row onto the seat before anything is checked, and the model records the seat.
+ */
+export function buildModel(rows: RaceRow[], meta: { raceId: string; season: string; round: number; source: string; modelVersion: string }, knownDrivers?: Set<string>, aliases: Record<string, string> = {}): { model: MoonshotModel; unknown: string[]; missing: string[] } {
+  // an alias onto a seat the table also names would merge two rows into one and break the column sums
+  for (const [standIn, seat] of Object.entries(aliases)) if (rows.some((r) => r.driverId === seat)) throw new Error(`seat ${seat} is in the table as well as aliased from ${standIn}`);
+  const seated = rows.map((r) => (aliases[r.driverId] ? { ...r, driverId: aliases[r.driverId] } : r));
+  const unknown = knownDrivers ? seated.map((r) => r.driverId).filter((id) => !knownDrivers.has(id)) : [];
+  const missing = knownDrivers ? [...knownDrivers].filter((id) => !seated.some((r) => r.driverId === id)) : [];
   const base: Record<string, { predicted: number; sigma: number }> = {};
-  for (const r of rows) base[r.driverId] = { predicted: r.predicted, sigma: zoneSigma(r.predicted) };
+  for (const r of seated) base[r.driverId] = { predicted: r.predicted, sigma: zoneSigma(r.predicted) };
   const drivers = distribute(base);
-  return { model: { ...meta, drivers, positionsCount: rows.length }, unknown, missing };
+  const seats = Object.fromEntries(Object.entries(aliases).map(([standIn, seat]) => [seat, standIn]));
+  return { model: { ...meta, drivers, positionsCount: seated.length, ...(Object.keys(seats).length ? { seats } : {}) }, unknown, missing };
 }

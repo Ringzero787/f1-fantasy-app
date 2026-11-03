@@ -15,7 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const admin = require('firebase-admin');
-const { parseRaceTable, buildModel } = require('../lib/moonshot/models.js');
+const { parseRaceTable, parseConstructorTable, buildModel, seatAliases, teamsFromResults } = require('../lib/moonshot/models.js');
 const { predictionProbability } = require('../lib/moonshot/distribution.js');
 const { price } = require('../lib/moonshot/pricing.js');
 const { mergeConfig } = require('../lib/moonshot/config.js');
@@ -55,10 +55,26 @@ async function main(args) {
   const r = race.data();
   if (!Number.isInteger(r.round)) throw new Error(`races/${args.race} has no round number; the model cannot be carried forward from it`);
   const season = String(r.seasonId ?? '2026');
-  const known = new Set((await db.collection('drivers').get()).docs.map((d) => d.id));
+  const driverDocs = (await db.collection('drivers').get()).docs;
+  const known = new Set(driverDocs.map((d) => d.id));
   const source = typeof args.source === 'string' ? args.source : `ben_model_R${r.round}`;
   const modelVersion = `${source}:${path.basename(args.doc)}`;
-  const { model, unknown, missing } = buildModel(rows, { raceId: args.race, season, round: r.round, source, modelVersion }, known);
+  // F-137: a stand-in the game has no record of is modelled as the seat he drives (the game's
+  // driver for that team who is missing from the table), the way settlement follows the car.
+  // His team comes from the document's constructor table when it places him, else from the
+  // last scored race's classification (the document's table lists only the top teams).
+  const first = buildModel(rows, { raceId: args.race, season, round: r.round, source, modelVersion }, known);
+  // active drivers only, the way seatOf reads regulars: a retired document on the same team is not a seat
+  const gameTeams = Object.fromEntries(driverDocs.map((d) => [d.id, d.data().isActive === false ? null : (d.data().constructorId ?? null)]));
+  let standInTeams = parseConstructorTable(md);
+  if (first.unknown.some((id) => !standInTeams[id])) {
+    const scored = (await db.collection('races').where('seasonId', '==', season).where('status', '==', 'completed').get()).docs
+      .map((d) => d.data()).filter((x) => Number.isInteger(x.round) && x.round < r.round).sort((a, b) => b.round - a.round)[0];
+    if (scored) standInTeams = { ...teamsFromResults(scored.results?.raceResults), ...standInTeams };
+  }
+  const aliases = seatAliases(first.unknown, first.missing, standInTeams, gameTeams);
+  const { model, unknown, missing } = buildModel(rows, { raceId: args.race, season, round: r.round, source, modelVersion }, known, aliases);
+  for (const [standIn, seat] of Object.entries(aliases)) console.log(`== stand-in: ${standIn} drives the ${gameTeams[seat]} seat the game calls ${seat}; modelled as ${seat} (model.seats.${seat} = ${standIn})`);
   const cfg = mergeConfig((await db.doc('config/app').get()).data()?.moonshot);
 
   console.log(`== ${args.race} (round ${r.round}) from ${path.basename(args.doc)} — ${rows.length} drivers, pricing ${cfg.pricing.mode}`);
