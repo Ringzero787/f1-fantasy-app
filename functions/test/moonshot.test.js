@@ -7,7 +7,7 @@ const { mergeConfig, DEFAULT_CONFIG } = require('../lib/moonshot/config.js');
 const { discretise, balance, distribute, predictionProbability, summarise, zoneSigma } = require('../lib/moonshot/distribution.js');
 const { bandFor, price, potentialReward, expectedValue } = require('../lib/moonshot/pricing.js');
 const { eligibility, quoteRefusal } = require('../lib/moonshot/eligibility.js');
-const { pickModel, parseRaceTable, buildModel } = require('../lib/moonshot/models.js');
+const { pickModel, parseRaceTable, parseConstructorTable, buildModel, seatAliases, teamsFromResults } = require('../lib/moonshot/models.js');
 const index = require('../lib/index.js');
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
@@ -138,6 +138,53 @@ test('the Race O/U table parses into driver predictions and builds a model the g
   assert.deepEqual(unknown, []); assert.deepEqual(missing, ['stroll']);
   assert.ok(predictionProbability(model.drivers.antonelli.positions, 'WIN') > predictionProbability(model.drivers.lawson.positions, 'WIN'));
   assert.throws(() => parseRaceTable('# nothing here'), /not found/);
+});
+
+// F-137: Hirakawa drove Ocon's Haas from Mexico; Ben's table names him, the game still calls the seat ocon
+test('a stand-in in the table is modelled as the seat he drives, and the model says so', () => {
+  const ctor = ['### Constructor predictions', '| Rank | Team | Drivers | Avg | Both-10 | **Total** | Price |', '|---:|---|---|---:|---:|---:|---:|',
+    '| 🥇 | mercedes | antonelli + russell | 39.7 | +10 | **49.7** | $50 |', '| 9 | haas | **hirakawa** + bearman | 9.0 | — | **9.0** | $8 |', ''];
+  const md = ['# doc', ...ctor, '## Race O/U Table (Over/Under finishing position)',
+    '| Rk | Driver | Pred | O/U Line | Under % | Under $ | Over % | Over $ | Upper | Lower |', '|---:|---|---:|---:|---:|---:|---:|---:|:---:|:---:|',
+    ...['antonelli 2.58', 'verstappen 2.81', 'russell 3.67', 'leclerc 4.33', 'norris 5.1', 'piastri 5.9', 'hamilton 7.2', 'hadjar 8.1', 'sainz 9.4', 'albon 10.2', 'hirakawa 12.0', 'bearman 13.1'].map((s, i) => { const [d, p] = s.split(' '); return `| ${i + 1} | ${d} | ${p} | ${Math.round(+p)}.5 | — | — | — | **—** | P1 | P4 |`; }),
+    '', '## Next section'].join('\n');
+  const teams = parseConstructorTable(md);
+  assert.deepEqual(teams, { antonelli: 'mercedes', russell: 'mercedes', hirakawa: 'haas', bearman: 'haas' });
+  assert.deepEqual(parseConstructorTable('# no table'), {});
+
+  const rows = parseRaceTable(md);
+  const game = { antonelli: 'mercedes', verstappen: 'red_bull', russell: 'mercedes', leclerc: 'ferrari', norris: 'mclaren', piastri: 'mclaren', hamilton: 'ferrari', hadjar: 'red_bull', sainz: 'williams', albon: 'williams', ocon: 'haas', bearman: 'haas' };
+  const known = new Set(Object.keys(game));
+  const meta = { raceId: 'x', season: '2026', round: 22, source: 's', modelVersion: 'v' };
+  const plain = buildModel(rows, meta, known);
+  assert.deepEqual(plain.unknown, ['hirakawa']); assert.deepEqual(plain.missing, ['ocon']);
+
+  const aliases = seatAliases(plain.unknown, plain.missing, teams, game);
+  assert.deepEqual(aliases, { hirakawa: 'ocon' });
+  const { model, unknown, missing } = buildModel(rows, meta, known, aliases);
+  assert.deepEqual(unknown, []); assert.deepEqual(missing, []);
+  assert.deepEqual(model.seats, { ocon: 'hirakawa' });
+  assert.equal(model.drivers.hirakawa, undefined);
+  assert.equal(model.drivers.ocon.predicted, 12.0);
+  assert.equal(model.positionsCount, 12);
+  // without aliases the document is the old shape exactly
+  assert.deepEqual(Object.keys(plain.model).sort(), ['drivers', 'modelVersion', 'positionsCount', 'raceId', 'round', 'season', 'source']);
+  assert.throws(() => buildModel(rows, meta, known, { hirakawa: 'bearman' }), /bearman is in the table/);
+
+  // no guess when the seat is ambiguous or the stand-in's team is unknown
+  assert.deepEqual(seatAliases(['hirakawa'], ['ocon', 'magnussen'], teams, { ...game, magnussen: 'haas' }), {});
+  assert.deepEqual(seatAliases(['hirakawa'], ['ocon'], {}, game), {});
+  assert.deepEqual(seatAliases(['hirakawa'], ['stroll'], teams, { ...game, stroll: 'aston_martin' }), {});
+  // two stand-ins at one team: which seat is whose cannot be known, so neither is guessed
+  assert.deepEqual(seatAliases(['a', 'b'], ['ocon', 'bearman'], { a: 'haas', b: 'haas' }, game), {});
+
+  // the real document's constructor table lists only the top teams: the last scored race places him
+  const mexico = [{ position: 13, driverId: 'hirakawa', constructorId: 'haas' }, { position: 1, driverId: 'verstappen', constructorId: 'red_bull' }, { driverId: 'x' }, { driverId: 'y', constructorId: '' }];
+  assert.deepEqual(teamsFromResults(mexico), { hirakawa: 'haas', verstappen: 'red_bull' });
+  assert.deepEqual(teamsFromResults(undefined), {});
+  const topOnly = { antonelli: 'mercedes', russell: 'mercedes' };
+  assert.deepEqual(seatAliases(['hirakawa'], ['ocon'], topOnly, game), {});
+  assert.deepEqual(seatAliases(['hirakawa'], ['ocon'], { ...teamsFromResults(mexico), ...topOnly }, game), { hirakawa: 'ocon' });
 });
 
 test('the callables are exported', () => {
