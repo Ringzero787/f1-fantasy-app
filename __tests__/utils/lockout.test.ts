@@ -7,6 +7,7 @@ import {
   getLockoutTime,
   computeLockoutStatus,
   serverAceLocked,
+  serverRosterLock,
 } from '../../src/utils/lockout';
 import type { Race } from '../../src/types';
 
@@ -367,5 +368,40 @@ describe('serverAceLocked (F-095 / F-098)', () => {
 
   it('ignores a scoredRaces that is not a list, rather than throwing', () => {
     expect(serverAceLocked({ ...team(), scoredRaces: 'quali_bahrain_2026' as unknown as string[] }, at(-2 * HOUR))).toBe(true);
+  });
+});
+
+// F-136: the server's roster hold, in the shape the Grid status line takes
+describe('serverRosterLock', () => {
+  const now = new Date('2026-11-02T03:00:00Z');
+  const open = { serverLocked: false, serverUnlockAt: null, seasonLocked: false, resultsPending: false };
+  it('is not held without a lockStatus block or while canModify is true', () => {
+    expect(serverRosterLock(null, now)).toEqual(open);
+    expect(serverRosterLock({}, now)).toEqual(open);
+    expect(serverRosterLock({ lockStatus: { canModify: true, nextUnlockTime: new Date('2026-11-02T05:00:00Z') } }, now)).toEqual(open);
+  });
+  it('carries a future unlock stamp in the shapes it arrives in', () => {
+    const want = new Date('2026-11-02T04:00:00Z');
+    const held = { serverLocked: true, serverUnlockAt: want, seasonLocked: false, resultsPending: false };
+    expect(serverRosterLock({ lockStatus: { canModify: false, nextUnlockTime: want } }, now)).toEqual(held);
+    expect(serverRosterLock({ lockStatus: { canModify: false, nextUnlockTime: { seconds: want.getTime() / 1000, nanoseconds: 0 } } }, now)).toEqual(held);
+    expect(serverRosterLock({ lockStatus: { canModify: false, nextUnlockTime: want.toISOString() } }, now)).toEqual(held);
+    expect(serverRosterLock({ lockStatus: { canModify: false, nextUnlockTime: { toMillis: () => want.getTime() } } }, now)).toEqual(held); // Firestore Timestamp
+  });
+  it('drops a stamp that has passed, so the line says the sweep is due', () => {
+    const due = { serverLocked: true, serverUnlockAt: null, seasonLocked: false, resultsPending: false };
+    expect(serverRosterLock({ lockStatus: { canModify: false, nextUnlockTime: new Date('2026-11-02T02:00:00Z') } }, now)).toEqual(due);
+    expect(serverRosterLock({ lockStatus: { canModify: false, nextUnlockTime: null } }, now)).toEqual(due);
+  });
+  it('treats a stamp beyond the scoring buffer as the pre-scoring failsafe, not a reopen time', () => {
+    // the lock sweep stamps race + 24 h until scoring overwrites it with completion + 1 h
+    const failsafe = new Date('2026-11-02T20:00:00Z');
+    expect(serverRosterLock({ lockStatus: { canModify: false, nextUnlockTime: failsafe } }, now)).toEqual({ serverLocked: true, serverUnlockAt: null, seasonLocked: false, resultsPending: true });
+    // right at the edge: completion + 1 h stamped a moment ago, plus the 30-minute sweep, stays a countdown
+    const edge = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    expect(serverRosterLock({ lockStatus: { canModify: false, nextUnlockTime: edge } }, now).resultsPending).toBe(false);
+  });
+  it('reports a season lock', () => {
+    expect(serverRosterLock({ lockStatus: { canModify: false, isSeasonLocked: true } }, now).seasonLocked).toBe(true);
   });
 });

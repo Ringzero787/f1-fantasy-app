@@ -196,6 +196,39 @@ export function serverAceLocked(
 }
 
 
+/**
+ * F-136: the roster lock the server holds on a team, in the shape `formatLockStatus` takes.
+ *
+ * `canModify` is the flag the Grid screens already disable their rows on; this hands the
+ * status line the same flag plus the stamped unlock time, so a team held after results says
+ * when it reopens instead of sitting under a "LOCKS IN 5D" header with dead rows. A team
+ * without a lockStatus block (a brand-new or demo team) is not held.
+ *
+ * `nextUnlockTime` carries two different things over a weekend. Until the race is scored it
+ * is the lock sweep's cancelled-race failsafe (race + 24 h); scoring then overwrites it with
+ * completion + 1 h. Quoting the failsafe would promise a reopen the best part of a day late,
+ * so a stamp further out than the scoring buffer plus the unlock sweep could ever produce is
+ * reported as `resultsPending` instead and the countdown is withheld.
+ */
+const RESULTS_STAMP_MAX_MS = 2 * 60 * 60 * 1000;
+
+export function serverRosterLock(
+  team: { lockStatus?: unknown } | null | undefined,
+  now: Date,
+): { serverLocked: boolean; serverUnlockAt: Date | null; seasonLocked: boolean; resultsPending: boolean } {
+  const ls = team?.lockStatus as { canModify?: unknown; nextUnlockTime?: unknown; isSeasonLocked?: unknown } | null | undefined;
+  const serverLocked = ls?.canModify === false;
+  const at = toMillis(ls?.nextUnlockTime);
+  const left = serverLocked && at !== null ? at - now.getTime() : null;
+  const resultsPending = left !== null && left > RESULTS_STAMP_MAX_MS;
+  return {
+    serverLocked,
+    serverUnlockAt: left !== null && left > 0 && !resultsPending ? new Date(at!) : null,
+    seasonLocked: serverLocked && ls?.isSeasonLocked === true,
+    resultsPending,
+  };
+}
+
 /** Date, Firestore Timestamp, a rehydrated `{seconds}` plain object, ISO string or epoch ms. */
 function toMillis(value: unknown): number | null {
   if (value == null) return null;

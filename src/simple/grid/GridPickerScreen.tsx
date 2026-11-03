@@ -8,6 +8,7 @@ import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { useDrivers } from '../../hooks/useDrivers';
 import { useConstructors } from '../../hooks/useConstructors';
 import { useLockoutStatus } from '../../hooks/useLockoutStatus';
+import { serverRosterLock } from '../../utils/lockout';
 import { useTeamStore, isDriverLockedOut } from '../../store/team.store';
 import { useAdminStore } from '../../store/admin.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
@@ -284,6 +285,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     isLocked: lockoutInfo.isLocked, lockTime: lockoutInfo.lockTime,
     qualifyingTime: lockoutInfo.nextRace ? new Date(lockoutInfo.nextRace.schedule.qualifying) : null,
     raceStartTime: lockoutInfo.raceStartTime, hasNextRace: !!lockoutInfo.nextRace || races.length === 0, now,
+    ...serverRosterLock(team, now), // F-136: say when a team held after results reopens
   });
   const pickedCount = pending?.driverIds.length ?? 0;
   const ctorCount = pending?.constructorId ? 1 : 0;

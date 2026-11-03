@@ -231,6 +231,15 @@ interface TeamState {
   // Sync actions
   syncToFirebase: () => Promise<void>;
   fullSyncToFirebase: () => Promise<void>;
+  /**
+   * F-136: re-read the current team from the server when the stored copy says it is locked.
+   * The store is local-first and `loadUserTeams` is skipped on focus once teams exist, so a
+   * copy taken during a race weekend kept `canModify: false` until a cold start, a
+   * pull-to-refresh or a roster write — none of which a player with dead rows can do. One
+   * read, only while locked, and never through `isLoading` (My Team renders that as a
+   * full-screen spinner). Resolves without a write when the team is open or in demo mode.
+   */
+  refreshTeamIfLocked: () => Promise<void>;
   startPeriodicSync: () => void;
   stopPeriodicSync: () => void;
 
@@ -421,6 +430,20 @@ export const useTeamStore = create<TeamState>()(
   setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
   // Periodic sync — writes metadata only (name, avatar, ace). Safe for background use.
+  refreshTeamIfLocked: async () => {
+    const { currentTeam } = get();
+    if (!currentTeam) return;
+    if (!currentTeam.isLocked && currentTeam.lockStatus?.canModify !== false) return;
+    // a season lock is the player's own and no sweep lifts it, so there is nothing to re-read
+    if (currentTeam.lockStatus?.isSeasonLocked) return;
+    if (useAuthStore.getState().isDemoMode) return;
+    try {
+      await refreshTeamFromServer(get, set, currentTeam.id);
+    } catch (error) {
+      errorLogService.logError('refreshTeamIfLocked', error, { teamId: currentTeam.id });
+    }
+  },
+
   syncToFirebase: async () => {
     const isDemoMode = useAuthStore.getState().isDemoMode;
     if (isDemoMode) return;

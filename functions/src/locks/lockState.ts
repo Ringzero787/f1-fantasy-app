@@ -55,7 +55,7 @@ export function lockedTeamStatus(state: LockState, raceName?: string) {
     isSeasonLocked: false,
     seasonLockRacesRemaining: 0,
     // The cancelled-race failsafe, the same ceiling the sweep uses. The real unlock arrives from
-    // Phase 5 of onRaceCompleted, three hours after the race is scored, like every other team.
+    // Phase 5 of onRaceCompleted, one hour after the race is scored, like every other team.
     nextUnlockTime: state.aceLockUntil,
     aceFreezeFrom: state.aceFreezeFrom,
     aceLockTime: state.aceLockTime,

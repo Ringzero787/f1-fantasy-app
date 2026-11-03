@@ -124,7 +124,7 @@ export function aceFreezeStart(
 }
 
 /**
- * Failsafe unlock ceiling. Phase 5 of `onRaceCompleted` schedules the real unlock (3h after the
+ * Failsafe unlock ceiling. Phase 5 of `onRaceCompleted` schedules the real unlock (1h after the
  * race is scored); this exists only so a cancelled race, or results that never arrive, cannot
  * leave teams locked for the rest of the season. It also bounds the ace freeze, for the same
  * reason — F-095's second rejected shape was a deadline with no end.
