@@ -290,7 +290,7 @@ export const autoLockTeams = functions.pubsub
             // NOT race start: seeding nextUnlockTime with schedule.race let
             // autoUnlockTeams free teams AT race start, hours before scoring —
             // rosters were editable during and after the race. Phase 5 of
-            // onRaceCompleted sets the real unlock (completion + 3h); this is
+            // onRaceCompleted sets the real unlock (completion + 1h); this is
             // only a cancelled-race failsafe.
             'lockStatus.nextUnlockTime': admin.firestore.Timestamp.fromMillis(
               race.schedule.race.toMillis() + UNLOCK_FAILSAFE_MS
@@ -406,7 +406,7 @@ async function lockUnsweptTeamsForLiveWeekend(live: LockState): Promise<void> {
 /**
  * Scheduled: unlock teams whose nextUnlockTime has passed.
  * Runs every 30 minutes. Phase 5 of onRaceCompleted sets nextUnlockTime
- * to 3 hours after race completion to buffer for delays/corrections.
+ * to 1 hour after race completion (F-136; was 3) to buffer for corrections.
  */
 export const autoUnlockTeams = functions.pubsub
   .schedule('every 30 minutes')

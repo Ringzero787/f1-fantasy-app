@@ -1548,8 +1548,12 @@ export const onRaceCompleted = functions
 
     console.log(`[Phase 4] Synced rankings for ${affectedLeagues.length} leagues`);
 
-    // ─── PHASE 5: Schedule delayed unlock (3 hours after race completion) ───
-    const UNLOCK_DELAY_MS = 3 * 60 * 60 * 1000; // 3 hours
+    // ─── PHASE 5: Schedule delayed unlock (1 hour after race completion) ───
+    // F-136: was 3 hours. The buffer exists for result corrections, and since F-121/F-134 the
+    // ingestion holds a race it cannot map rather than approving it, so the extra two hours
+    // only kept players out of the picker on a Sunday night (autoUnlockTeams sweeps every
+    // 30 minutes, so the real reopen is up to 30 minutes after this stamp).
+    const UNLOCK_DELAY_MS = 60 * 60 * 1000; // 1 hour
     const unlockTime = admin.firestore.Timestamp.fromMillis(Date.now() + UNLOCK_DELAY_MS);
     console.log(`[Phase 5] Scheduling team unlock for ${unlockTime.toDate().toISOString()}`);
 
@@ -1572,7 +1576,7 @@ export const onRaceCompleted = functions
         // the real lockStatus.nextUnlockTime keeps autoLockTeams' race+24h
         // failsafe, so autoUnlockTeams (which queries the nested path) never
         // sees the real unlock time. That left every team locked ~18h past the
-        // intended completion+3h. merge:true deep-merges maps, so canModify and
+        // intended completion+1h. merge:true deep-merges maps, so canModify and
         // isSeasonLocked survive this write untouched.
         data: {
           lockStatus: {
@@ -1594,7 +1598,7 @@ export const onRaceCompleted = functions
     // own aceLockUntil (race + 24h) and so expires on its own; clearing it here is what makes it
     // stop mattering at scoring time instead, which is hours earlier. Without this, a team created
     // between now and race + 24h would be created locked and then wait for the failsafe rather
-    // than the completion + 3h unlock every other team just received.
+    // than the completion + 1h unlock every other team just received.
     //
     // Only this race's marker: a document from another weekend is not ours to delete, and deleting
     // the wrong one would unfreeze a live weekend's aces.

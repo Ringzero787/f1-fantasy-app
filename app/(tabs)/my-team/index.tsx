@@ -188,12 +188,16 @@ export default function MyTeamScreen() {
       if (user) {
         loadUserLeagues(user.id);
         // Read fresh state from store to avoid stale closure issues
-        const { userTeams: freshTeams, currentTeam: freshCurrent } = useTeamStore.getState();
+        const { userTeams: freshTeams, currentTeam: freshCurrent, refreshTeamIfLocked } = useTeamStore.getState();
         if (freshTeams.length === 0) {
           loadUserTeams(user.id);
         } else if (!freshCurrent) {
           // Teams exist but no team selected (e.g. auto-created by league flow) — select first
           selectTeam(freshTeams[0].id);
+        } else {
+          // F-136: a copy stored while the weekend was locked stays locked here until something
+          // re-reads it; the server unlocks after results, so ask it whenever we still say locked.
+          void refreshTeamIfLocked();
         }
       }
     }, [user])

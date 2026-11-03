@@ -27,6 +27,30 @@ describe('lock status', () => {
   it('reports the season over with no next race', () => {
     expect(formatLockStatus({ isLocked: true, lockTime: null, qualifyingTime: null, raceStartTime: null, hasNextRace: false, now })).toBe('SEASON OVER');
   });
+  // F-136: results in, calendar already on the next round, server still holding the roster
+  describe('held by the server after results', () => {
+    const open = { isLocked: false, lockTime: new Date(now.getTime() + 5 * 24 * H), qualifyingTime: null, raceStartTime: null, hasNextRace: true, now };
+    it('counts down to the stamped unlock instead of the next lock', () => {
+      expect(formatLockStatus({ ...open, serverLocked: true, serverUnlockAt: new Date(now.getTime() + 45 * 60000) })).toBe('REOPENS IN 45M');
+    });
+    it('says the sweep is due once the stamp has passed or is missing', () => {
+      expect(formatLockStatus({ ...open, serverLocked: true, serverUnlockAt: new Date(now.getTime() - 60000) })).toBe('REOPENING SOON');
+      expect(formatLockStatus({ ...open, serverLocked: true, serverUnlockAt: null })).toBe('REOPENING SOON');
+      expect(formatLockStatus({ ...open, serverLocked: true })).toBe('REOPENING SOON');
+    });
+    it('withholds the countdown while the stamp is still the pre-scoring failsafe', () => {
+      expect(formatLockStatus({ ...open, serverLocked: true, resultsPending: true, serverUnlockAt: null })).toBe('RESULTS PENDING');
+    });
+    it('names a season lock rather than promising a reopen', () => {
+      expect(formatLockStatus({ ...open, serverLocked: true, seasonLocked: true, serverUnlockAt: new Date(now.getTime() + H) })).toBe('SEASON LOCKED');
+    });
+    it('defers to the calendar while the weekend is actually locked', () => {
+      expect(formatLockStatus({ ...open, isLocked: true, qualifyingTime: new Date(now.getTime() - H), raceStartTime: new Date(now.getTime() + 2 * H), serverLocked: true })).toBe('LOCKED · RACE IN 2H');
+    });
+    it('leaves an open team alone', () => {
+      expect(formatLockStatus({ ...open, serverLocked: false, serverUnlockAt: new Date(now.getTime() + H) })).toBe('LOCKS IN 5D 0H');
+    });
+  });
   it('formats the round line and progress', () => {
     expect(formatRoundStatus(17, 24, 'Baku')).toBe('RD 17 / 24 · BAKU');
     expect(formatRoundStatus(17, 24, '')).toBe('RD 17 / 24');

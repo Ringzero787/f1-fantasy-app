@@ -34,6 +34,7 @@ import { computeTiles, lineupStatus, openSlotCount, rosterRacePoints, rosterCons
 import { rosterLiveScore, signedScore, tileLiveScore } from './liveScore';
 import { formatLockStatus, formatRoundStatus, seasonProgress } from './lockStatus';
 import { serverAceLocked } from '../../utils/lockout';
+import { serverRosterLock } from '../../utils/lockout'; // own line: aceGateShape.test pins the one above
 import { usePitWallStore } from '../../store/pitwall.store';
 import { aceAdvice, aceAdviceLine, aceVerdictFor, projectionsAreForRound } from '../../pitwall/aceAdvice';
 import { SHOWCASE_ENABLED } from './showcaseData';
@@ -203,6 +204,8 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
     raceStartTime: lockoutInfo.raceStartTime,
     hasNextRace: !!lockoutInfo.nextRace,
     now,
+    // F-136: after results the calendar has moved on while the server still holds the team
+    ...serverRosterLock(team, now),
   });
 
   const lastPoints = useMemo(() => {
