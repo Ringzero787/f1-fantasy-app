@@ -1,0 +1,38 @@
+id: OP-208
+title: "F-136: onRaceCompleted unlock buffer 3 h → 1 h"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:onRaceCompleted
+created_at: 2026-11-03T02:16:48.951Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-03T02:16:52.627Z
+    head_sha: adb6cae696c9b4d25813f9016e2ca2a216aa3dee
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-208/dry-run-2026-11-03T02-16-52-627Z.log
+    log_sha256: 67480d8f8c91a3fa28af3c33ec7890d11e899c63dfe9c242dd5069af9a3dad93
+    lines: 75
+  - step: gates
+    at: 2026-11-03T02:17:09.280Z
+    head_sha: adb6cae696c9b4d25813f9016e2ca2a216aa3dee
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-03T02:17:09.284Z
+    head_sha: adb6cae696c9b4d25813f9016e2ca2a216aa3dee
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:onRaceCompleted' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-208/apply-2026-11-03T02-17-09-284Z.log
+    log_sha256: ebaf1d52ebfc50ad0a57fcf6eea672b1c561f370f2320a96f136d64cc2cb9140
+    lines: 31
+  - step: gates
+    at: 2026-11-03T02:18:55.988Z
+    head_sha: adb6cae696c9b4d25813f9016e2ca2a216aa3dee
+    exit: 0
+    gates:
+      G15: skip
