@@ -1,0 +1,48 @@
+id: OP-210
+title: "Moonshot model: Brazil R22 from MODELS_13 (seat-aware seeder, replaces OP-209)"
+kind: uc-moonshot-model-seed
+status: applied
+params:
+  race: brazil_2026
+  doc: /mnt/smb/share/tracklimits/MODELS_13.md
+  source: ben_model_R22
+created_at: 2026-11-03T18:08:49.116Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-03T18:08:52.661Z
+    head_sha: 110d4ccdecf14700dc216d0d2a2f029a4fc61fa2
+    command: cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_13.md' --race='brazil_2026' --source='ben_model_R22'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-210/dry-run-2026-11-03T18-08-52-661Z.log
+    log_sha256: c077f3659cac02f3afeb29d9344dcb991a6e0c6f69220576d10b895af0220997
+    lines: 27
+  - step: backup
+    at: 2026-11-04T02:01:49.385Z
+    head_sha: 110d4ccdecf14700dc216d0d2a2f029a4fc61fa2
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-210'/backup.json moonshotModels/'brazil_2026'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-210/backup-2026-11-04T02-01-49-385Z.log
+    log_sha256: ac05d3e7a1008fd7bbf4294ef34690fb6f023f5ed326c00b7351d29e1ba39fc0
+    lines: 1
+  - step: gates
+    at: 2026-11-04T02:01:50.224Z
+    head_sha: 110d4ccdecf14700dc216d0d2a2f029a4fc61fa2
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-04T02:01:50.226Z
+    head_sha: 110d4ccdecf14700dc216d0d2a2f029a4fc61fa2
+    command: cd functions && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_13.md' --race='brazil_2026' --source='ben_model_R22' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-210/apply-2026-11-04T02-01-50-226Z.log
+    log_sha256: bfbc7620440070fd6afccab4ae102c6f393d1a399bb788c533ac307feefdf6f9
+    lines: 27
+  - step: gates
+    at: 2026-11-04T02:01:51.343Z
+    head_sha: 110d4ccdecf14700dc216d0d2a2f029a4fc61fa2
+    exit: 0
+    gates:
+      G15: skip

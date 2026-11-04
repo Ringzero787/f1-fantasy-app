@@ -1,0 +1,51 @@
+id: OP-209
+title: "Moonshot model: Brazil R22 from MODELS_13"
+kind: uc-moonshot-model-seed
+status: dry-run
+params:
+  race: brazil_2026
+  doc: /mnt/smb/share/tracklimits/MODELS_13.md
+  source: ben_model_R22
+created_at: 2026-11-03T17:55:01.398Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-03T17:55:05.229Z
+    head_sha: 950c1a4edbbec686f11519019707bea68a68335b
+    command: cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_13.md' --race='brazil_2026' --source='ben_model_R22'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-209/dry-run-2026-11-03T17-55-05-229Z.log
+    log_sha256: 5c15bb510083c4858454cc437aafe5b26ff6643b9f0f8b1beb2db1cf0733a97c
+    lines: 28
+  - step: dry-run
+    at: 2026-11-03T17:58:59.643Z
+    head_sha: 950c1a4edbbec686f11519019707bea68a68335b
+    command: cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_13.md' --race='brazil_2026' --source='ben_model_R22'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-209/dry-run-2026-11-03T17-58-59-643Z.log
+    log_sha256: 5c15bb510083c4858454cc437aafe5b26ff6643b9f0f8b1beb2db1cf0733a97c
+    lines: 28
+  - step: dry-run
+    at: 2026-11-03T18:00:37.968Z
+    head_sha: 950c1a4edbbec686f11519019707bea68a68335b
+    command: cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_13.md' --race='brazil_2026' --source='ben_model_R22'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-209/dry-run-2026-11-03T18-00-37-968Z.log
+    log_sha256: c077f3659cac02f3afeb29d9344dcb991a6e0c6f69220576d10b895af0220997
+    lines: 27
+  - step: dry-run
+    at: 2026-11-03T18:01:42.034Z
+    head_sha: 950c1a4edbbec686f11519019707bea68a68335b
+    command: cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_13.md' --race='brazil_2026' --source='ben_model_R22'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-209/dry-run-2026-11-03T18-01-42-034Z.log
+    log_sha256: c077f3659cac02f3afeb29d9344dcb991a6e0c6f69220576d10b895af0220997
+    lines: 27
+  - step: dry-run
+    at: 2026-11-03T18:02:01.959Z
+    head_sha: 950c1a4edbbec686f11519019707bea68a68335b
+    command: cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_13.md' --race='brazil_2026' --source='ben_model_R22'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-209/dry-run-2026-11-03T18-02-01-959Z.log
+    log_sha256: c077f3659cac02f3afeb29d9344dcb991a6e0c6f69220576d10b895af0220997
+    lines: 27
