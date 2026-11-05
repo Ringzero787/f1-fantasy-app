@@ -1,4 +1,4 @@
-next_id: 138
+next_id: 139
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1682,3 +1682,15 @@ features:
       - stand
       - onto
       - seat
+  - id: F-138
+    name: "UC: Haas seat change at Brazil (Câmara in, Ocon out)"
+    status: planned
+    spec: .aidlc/specs/F-138.md
+    created_at: 2026-11-05
+    keywords:
+      - haas
+      - seat
+      - change
+      - brazil
+      - mara
+      - ocon

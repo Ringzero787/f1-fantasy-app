@@ -250,7 +250,7 @@ test('the sweep: off does nothing; on, it finds the live race, looks the session
     sessions: async () => { sessionCalls++; return [{ session_key: 2, session_name: 'Race', date_start: '2026-10-11T12:00:00+00:00' }]; },
     positions: async () => [{ driver_number: 6, position: 4, date: '2026-10-11T12:40:00Z' }, { driver_number: 1, position: 1, date: '2026-10-11T12:40:00Z' }],
     grid: async () => { gridCalls++; if (gridCalls === 1) throw new Error('OpenF1 API error: 500'); return gridAnswer; },
-    constructorOf: async () => { entryCalls++; if (entryCalls === 1) throw new Error('OpenF1 API error: 500'); return { hadjar: 'racing_bulls' }; },
+    entries: async () => { entryCalls++; if (entryCalls === 1) throw new Error('OpenF1 API error: 500'); return { constructorOf: { hadjar: 'racing_bulls' }, numberToId: {} }; },
     fastestLap: async () => { lapCalls++; if (lapCalls === 2) throw new Error('OpenF1 API error: 500'); if (lapCalls === 3) return 'ghost'; return 'hadjar'; },
   };
   const off = fakeDb({ ...docs, 'config/app': { moonshot: { enabled: true } } });

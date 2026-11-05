@@ -14,7 +14,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import { fetchDrivers, fetchSessions, findFastestLap, getGridPositions, teamsForSession, type OpenF1Session } from '../ingestion/openf1Client';
 import { openf1Fetch, openf1Secrets } from '../ingestion/openf1Auth';
-import { DRIVER_NUMBER_TO_ID, SEASON_YEAR } from '../ingestion/config';
+import { DRIVER_NUMBER_TO_ID, SEASON_YEAR, driverIdFor, numberToIdFor } from '../ingestion/config';
 import { runningScore } from '../scoring/runningScore';
 import { loadMoonshotConfig } from './config';
 
@@ -83,16 +83,25 @@ async function fetchPositions(sessionKey: number): Promise<PositionRow[]> {
  * ingest uses — including its fill from the meeting for a car the provider lists with no team in
  * this session (F-134: the Mexico City stand-in), so the seat rule can follow the car live too.
  */
-async function fetchConstructorOf(sessionKey: number): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
+async function fetchEntries(sessionKey: number): Promise<Entries> {
+  const constructorOf: Record<string, string> = {};
   const drivers = await fetchDrivers(sessionKey);
   const teams = await teamsForSession(drivers, []);
   for (const d of drivers) {
-    const driverId = Number.isInteger(d.driver_number) && Object.prototype.hasOwnProperty.call(DRIVER_NUMBER_TO_ID, d.driver_number) ? DRIVER_NUMBER_TO_ID[d.driver_number] : undefined;
+    // F-138: a car number that changed hands resolves to whoever this session names in it
+    const driverId = driverIdFor(d.driver_number, d.name_acronym);
     const constructorId = teams[d.driver_number];
-    if (driverId && constructorId) out[driverId] = constructorId;
+    if (driverId && constructorId) constructorOf[driverId] = constructorId;
   }
-  return out;
+  return { constructorOf, numberToId: numberToIdFor(drivers) };
+}
+
+/** The session's entry list, fetched once per race (F-129) and kept on the live document. */
+export interface Entries {
+  /** driver id → constructor id, for the running constructor score */
+  constructorOf: Record<string, string>;
+  /** F-138: car number → driver id as this session names them; the positions feed carries only numbers */
+  numberToId: Record<number, string>;
 }
 
 /** The feed calls, injectable so the sweep can be driven by a test without the network. */
@@ -101,7 +110,7 @@ export interface Feed {
   positions: (sessionKey: number) => Promise<PositionRow[]>;
   /** F-129, once per race: the published starting grid (driver id → slot) and who drives for whom */
   grid: (sessionKey: number) => Promise<Record<string, number>>;
-  constructorOf: (sessionKey: number) => Promise<Record<string, string>>;
+  entries: (sessionKey: number) => Promise<Entries>;
   /** F-129, each minute: the driver holding the fastest lap so far */
   fastestLap: (sessionKey: number) => Promise<string | null>;
 }
@@ -111,7 +120,7 @@ export interface Feed {
  * be kept for the whole race and give the wrong places gained. Until it is published the sweep asks again each minute.
  */
 const fetchStartingGrid = (sessionKey: number): Promise<Record<string, number>> => getGridPositions([], sessionKey);
-const LIVE_FEED: Feed = { sessions: fetchSessions, positions: fetchPositions, grid: fetchStartingGrid, constructorOf: fetchConstructorOf, fastestLap: findFastestLap };
+const LIVE_FEED: Feed = { sessions: fetchSessions, positions: fetchPositions, grid: fetchStartingGrid, entries: fetchEntries, fastestLap: findFastestLap };
 
 /** Pure: a stored id → grid-slot map, or an empty one when the field is anything else (third-party data came through here once); slots are 1–30 like positions. */
 function intMapOf(v: unknown): Record<string, number> {
@@ -139,6 +148,7 @@ export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = 
   let sessionKey: number | null = same && typeof prior.sessionKey === 'number' ? prior.sessionKey : null;
   let grid = same ? intMapOf(prior.grid) : {};
   let constructorOf = same ? stringMapOf(prior.constructorOf) : {};
+  let numberToId = same ? stringMapOf(prior.numberToId) : {};
   if (sessionKey === null) {
     const session = sessionForRace(await feed.sessions(new Date(startMs(race) || nowMs).getUTCFullYear()), startMs(race));
     if (!session || !Number.isInteger(session.session_key)) { console.warn(`[live] ${race.id}: no race session on its day yet`); return { raceId: race.id, written: false, drivers: 0 }; }
@@ -149,9 +159,10 @@ export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = 
     try { grid = intMapOf(await feed.grid(sessionKey)); } catch (e) { console.warn(`[live] ${race.id}: grid unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
   }
   if (Object.keys(constructorOf).length === 0) {
-    try { constructorOf = stringMapOf(await feed.constructorOf(sessionKey)); } catch (e) { console.warn(`[live] ${race.id}: entry list unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
+    try { const entries = await feed.entries(sessionKey); constructorOf = stringMapOf(entries.constructorOf); numberToId = stringMapOf(entries.numberToId); } catch (e) { console.warn(`[live] ${race.id}: entry list unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
   }
-  const byDriver = latestByDriver(await feed.positions(sessionKey));
+  // the positions feed carries car numbers only: the session's own entry list says who is in a shared number (F-138)
+  const byDriver = latestByDriver(await feed.positions(sessionKey), { ...DRIVER_NUMBER_TO_ID, ...numberToId });
   if (Object.keys(byDriver).length === 0) { console.log(`[live] ${race.id}: feed has no positions yet`); return { raceId: race.id, written: false, drivers: 0 }; }
   // the fastest lap is the second call a minute; when it fails the last known holder stands (a fastest lap so far can move, never vanish)
   let fastestLap: string | null = same && typeof prior.fastestLap === 'string' ? prior.fastestLap : null;
@@ -159,7 +170,7 @@ export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = 
   // only a driver the positions feed knows can hold it: anything else from the laps table is dropped before the write
   if (typeof fastestLap !== 'string' || !Object.prototype.hasOwnProperty.call(byDriver, fastestLap)) fastestLap = null;
   const running = runningScore(byDriver, grid, fastestLap, constructorOf);
-  await ref.set({ raceId: race.id, sessionKey, byDriver, grid, constructorOf, fastestLap, running, source: 'openf1', at: admin.firestore.FieldValue.serverTimestamp() });
+  await ref.set({ raceId: race.id, sessionKey, byDriver, grid, constructorOf, numberToId, fastestLap, running, source: 'openf1', at: admin.firestore.FieldValue.serverTimestamp() });
   return { raceId: race.id, written: true, drivers: Object.keys(byDriver).length };
 }
 
