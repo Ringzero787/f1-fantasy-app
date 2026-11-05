@@ -1,0 +1,38 @@
+id: OP-211
+title: "F-138: car 50 resolves by name (ingestion + live sweep)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:moonshotLiveSweep
+created_at: 2026-11-05T19:45:12.648Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-05T19:45:14.425Z
+    head_sha: 1f5180a834f4cd7cc50e19cec80342f3730c7cb7
+    command: git --no-pager diff --stat 'ae82039b6e9009294c75b4c8c1f705b5b90dda1f' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-211/dry-run-2026-11-05T19-45-14-425Z.log
+    log_sha256: f72d485dc426c77c250ac5bfc63ea11c3c2b71d31f4bfba03da1e15e5ac52d88
+    lines: 11
+  - step: gates
+    at: 2026-11-05T19:53:21.796Z
+    head_sha: 1f5180a834f4cd7cc50e19cec80342f3730c7cb7
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-05T19:53:21.799Z
+    head_sha: 1f5180a834f4cd7cc50e19cec80342f3730c7cb7
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:moonshotLiveSweep' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-211/apply-2026-11-05T19-53-21-799Z.log
+    log_sha256: d5338c52548c262d227e29362a4db9674c05d3b4c6b4f2a8d5183d3ed4909803
+    lines: 37
+  - step: gates
+    at: 2026-11-05T19:54:49.623Z
+    head_sha: 1f5180a834f4cd7cc50e19cec80342f3730c7cb7
+    exit: 0
+    gates:
+      G15: skip
