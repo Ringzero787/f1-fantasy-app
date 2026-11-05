@@ -158,7 +158,7 @@ export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = 
   if (Object.keys(grid).length === 0) {
     try { grid = intMapOf(await feed.grid(sessionKey)); } catch (e) { console.warn(`[live] ${race.id}: grid unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
   }
-  if (Object.keys(constructorOf).length === 0) {
+  if (Object.keys(constructorOf).length === 0 || Object.keys(numberToId).length === 0) {
     try { const entries = await feed.entries(sessionKey); constructorOf = stringMapOf(entries.constructorOf); numberToId = stringMapOf(entries.numberToId); } catch (e) { console.warn(`[live] ${race.id}: entry list unavailable this minute:`, e instanceof Error ? e.message : String(e)); }
   }
   // the positions feed carries car numbers only: the session's own entry list says who is in a shared number (F-138)

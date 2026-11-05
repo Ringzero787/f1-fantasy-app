@@ -75,7 +75,8 @@ async function holdersOf(driverId) {
     if (d.aceDriverId === driverId) ace.push(t.id);
   }
   const calls = await db.collection('moonshots').where('driverId', '==', driverId).get();
-  const open = calls.docs.filter((c) => ['PENDING', 'CONFIRMED', 'LOCKED'].includes(c.data().status)).map((c) => c.id);
+  // the open set the eligibility rules use (functions/src/moonshot/eligibility.ts OPEN_STATUSES): a call goes LIVE at lights-out
+  const open = calls.docs.filter((c) => ['CONFIRMED', 'LOCKED', 'LIVE'].includes(c.data().status)).map((c) => c.id);
   return { roster, ace, open };
 }
 

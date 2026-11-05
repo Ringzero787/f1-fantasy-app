@@ -43,6 +43,25 @@ test('a session entry list resolves the shared number to whoever it names, other
   assert.equal(numberToIdFor(brazil)[3], 'verstappen');   // the rest of the table rides along
 });
 
+test('a result row on a shared number is credited by name; an occupant the table does not list is credited to the current one with a warning', () => {
+  const { driverIdForRow } = require('../lib/ingestion/openf1Client.js');
+  const { unlistedOccupant } = require('../lib/ingestion/config.js');
+  const warnings = [];
+  assert.equal(driverIdForRow(50, new Map([[50, 'HIR']]), warnings, 'race'), 'hirakawa');
+  assert.equal(driverIdForRow(50, new Map([[50, 'CAM']]), warnings, 'race'), 'camara');
+  assert.equal(driverIdForRow(50, new Map(), warnings, 'race'), 'camara');   // no entry list: the current occupant, no warning
+  assert.equal(driverIdForRow(87, new Map([[87, 'XYZ']]), warnings, 'race'), 'bearman');   // an unshared number ignores the name
+  assert.equal(driverIdForRow(99, new Map([[99, 'CAM']]), warnings, 'race'), undefined);   // an unknown number is still unmapped
+  assert.deepEqual(warnings, []);
+  assert.equal(driverIdForRow(50, new Map([[50, 'XYZ']]), warnings, 'sprint'), 'camara');
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Car 50 has changed hands this season and the sprint session names XYZ in it.*credited to camara/);
+  assert.equal(unlistedOccupant(50, 'xyz'), true);
+  assert.equal(unlistedOccupant(50, 'hir'), false);
+  assert.equal(unlistedOccupant(87, 'XYZ'), false);
+  assert.equal(unlistedOccupant(50, undefined), false);
+});
+
 test('the live sweep maps positions through the session map, so car 50 is whoever the session names', () => {
   const rows = [{ driver_number: 50, position: 13, date: '2026-10-25T20:40:00Z' }, { driver_number: 87, position: 9, date: '2026-10-25T20:40:00Z' }];
   assert.deepEqual(latestByDriver(rows, numberToIdFor([{ driver_number: 50, name_acronym: 'HIR' }])), { hirakawa: 13, bearman: 9 });

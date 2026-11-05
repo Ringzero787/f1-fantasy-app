@@ -136,6 +136,16 @@ export function driverIdFor(n: unknown, acronym?: unknown): string | undefined {
 }
 
 /**
+ * True when a shared number's session names an occupant the table does not list: the row is
+ * still credited to the current occupant, and the result converters say so in a warning (a
+ * fourth driver in car 50 must show up in the pending result, not quietly become the third).
+ */
+export function unlistedOccupant(n: unknown, acronym: unknown): boolean {
+  if (!Number.isInteger(n) || !own(SHARED_NUMBERS, n as number) || typeof acronym !== 'string') return false;
+  return !own(SHARED_NUMBERS[n as number], acronym.trim().toUpperCase());
+}
+
+/**
  * Car number → driver id for one session, from its driver records: the table, with each shared
  * number resolved to whoever the session names in the car. Records with an unknown number are left out.
  */
