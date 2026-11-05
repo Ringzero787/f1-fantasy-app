@@ -220,6 +220,9 @@ const DRIVER_NAMES: Record<string, string> = {
   lindblad: 'Arvid Lindblad',
   bottas: 'Valtteri Bottas',
   perez: 'Sergio Perez',
+  // Haas seat, 2026: Hirakawa stood in at Mexico City; Câmara drives from São Paulo (F-138)
+  hirakawa: 'Ryo Hirakawa',
+  camara: 'Rafael Câmara',
 };
 
 /**

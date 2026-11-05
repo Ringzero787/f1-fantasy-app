@@ -3,7 +3,7 @@
  * Uses Node 22 built-in fetch with rate limiting.
  */
 
-import { DRIVER_NUMBER_TO_ID, TEAM_NAME_TO_ID } from './config';
+import { TEAM_NAME_TO_ID, driverIdFor, unlistedOccupant } from './config';
 import { openf1Fetch } from './openf1Auth';
 
 const BASE_URL = 'https://api.openf1.org/v1';
@@ -13,9 +13,26 @@ let lastRequestTime = 0;
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 /** Every feed request is abandoned after this long; a whole-session laps table is the largest answer and lands well inside it. */
 const REQUEST_TIMEOUT_MS = 20_000;
-/** The driver id for a provider-typed car number, or undefined: only whole numbers that are the table's own keys count. */
-const driverIdOf = (n: unknown): string | undefined =>
-  Number.isInteger(n) && Object.prototype.hasOwnProperty.call(DRIVER_NUMBER_TO_ID, n as number) ? DRIVER_NUMBER_TO_ID[n as number] : undefined;
+/** The driver id for a provider-typed car number in a row that does not name its driver (grid, laps), or undefined. */
+const driverIdOf = (n: unknown): string | undefined => driverIdFor(n);
+/**
+ * F-138: who the session says was in each car, so a number that changed hands during the season
+ * (car 50: Hirakawa at Mexico City, Câmara from São Paulo) resolves to the right driver.
+ */
+const acronymsOf = (drivers: ReadonlyArray<OpenF1Driver>): Map<number, string> => new Map(drivers.map((d) => [d.driver_number, d.name_acronym]));
+/**
+ * The driver id for a result row, by the name the session gives its car. A shared number whose
+ * named occupant the table does not list is credited to the current occupant with a warning,
+ * not a hold: a provider typo must not delay the scoring run, but a new occupant must be seen.
+ */
+export function driverIdForRow(driverNumber: number, names: ReadonlyMap<number, string>, warnings: string[], where: string): string | undefined {
+  const acronym = names.get(driverNumber);
+  const id = driverIdFor(driverNumber, acronym);
+  if (id && unlistedOccupant(driverNumber, acronym)) {
+    warnings.push(`Car ${driverNumber} has changed hands this season and the ${where} session names ${acronym} in it, which SHARED_NUMBERS does not list; credited to ${id} (the current occupant)`);
+  }
+  return id;
+}
 
 // OpenF1 API types
 export interface OpenF1Session {
@@ -336,13 +353,15 @@ export async function convertToRaceResults(
   // Build driver → team mapping; a car with no team in this session takes its team from the meeting (F-134)
   const driverTeams = await teamsForSession(drivers, warnings);
 
+  const names = acronymsOf(drivers);
+
   let maxLaps = 0;
   const results: RaceResult[] = [];
 
   for (const r of sessionResults) {
     if (r.driver_number == null) continue;
 
-    const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
+    const driverId = driverIdForRow(r.driver_number, names, warnings, 'race');
     if (!driverId) {
       warnings.push(`${UNMAPPED_DRIVER_WARNING_PREFIX}: ${r.driver_number}`);
       continue;
@@ -413,7 +432,12 @@ export async function convertToSprintResults(
   sessionKey: number,
 ): Promise<{ results: SprintResult[]; warnings: string[] }> {
   const warnings: string[] = [];
-  const sessionResults = await fetchSessionResults(sessionKey);
+  const [sessionResults, drivers] = await Promise.all([
+    fetchSessionResults(sessionKey),
+    // the entry list only names the cars (F-138); a sprint result is still a result without it
+    fetchDrivers(sessionKey).catch((e: unknown): OpenF1Driver[] => { warnings.push(`Could not fetch the sprint entry list; shared car numbers resolve to their current occupant: ${e instanceof Error ? e.message : String(e)}`); return []; }),
+  ]);
+  const names = acronymsOf(drivers);
 
   if (!sessionResults || sessionResults.length === 0) {
     return { results: [], warnings: ['No sprint results returned from OpenF1'] };
@@ -424,7 +448,7 @@ export async function convertToSprintResults(
   for (const r of sessionResults) {
     if (r.driver_number == null) continue;
 
-    const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
+    const driverId = driverIdForRow(r.driver_number, names, warnings, 'sprint');
     if (!driverId) {
       warnings.push(`${UNMAPPED_DRIVER_WARNING_PREFIX} in sprint: ${r.driver_number}`);
       continue;
@@ -468,12 +492,14 @@ export async function convertToQualifyingResults(
   // Build driver → team mapping; a car with no team in this session takes its team from the meeting (F-134)
   const driverTeams = await teamsForSession(drivers, warnings);
 
+  const names = acronymsOf(drivers);
+
   const results: QualifyingResult[] = [];
 
   for (const r of sessionResults) {
     if (r.driver_number == null || r.position == null || r.position <= 0) continue;
 
-    const driverId = DRIVER_NUMBER_TO_ID[r.driver_number];
+    const driverId = driverIdForRow(r.driver_number, names, warnings, 'qualifying');
     if (!driverId) {
       warnings.push(`${UNMAPPED_DRIVER_WARNING_PREFIX} in qualifying: ${r.driver_number}`);
       continue;

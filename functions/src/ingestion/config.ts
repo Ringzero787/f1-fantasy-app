@@ -94,16 +94,69 @@ export const DRIVER_NUMBER_TO_ID: Record<number, string> = {
   41: 'lindblad',
   43: 'colapinto',
   44: 'hamilton',
-  // Mexico City 2026 (round 21) stand-in: Hirakawa drove the Haas in Ocon's place (F-134). Like
-  // Tsunoda above he has no drivers/ doc, so he cannot be bought; the mapping exists so the Haas
-  // aggregate and the Moonshot seat rule (the call follows the car) see his result.
-  50: 'hirakawa',
+  // Car 50 has had two occupants (F-138): Hirakawa stood in for Ocon at Mexico City 2026 (round 21,
+  // F-134; no drivers/ doc, so he could not be bought), then Câmara took the Haas seat from São
+  // Paulo 2026 (round 22) when Ocon left the team. A row that names its driver is resolved through
+  // SHARED_NUMBERS below; this entry is the current occupant, for rows that carry only the number.
+  // Ocon's 31 stays: his earlier results are stored under it and a number is not reused in-season.
+  50: 'camara',
   55: 'sainz',
   63: 'russell',
   77: 'bottas',
   81: 'piastri',
   87: 'bearman',
 };
+
+/**
+ * F-138: car numbers that changed hands during the season, occupant by the provider's
+ * `name_acronym`. The provider's driver record for a session names who was in the car, so a
+ * session that carries one of these numbers is resolved by the name; `DRIVER_NUMBER_TO_ID`
+ * keeps the current occupant for rows without one (grid, positions, a fastest lap).
+ */
+export const SHARED_NUMBERS: Record<number, Record<string, string>> = {
+  50: { HIR: 'hirakawa', CAM: 'camara' },
+};
+
+const own = (o: object, k: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(o, k);
+
+/**
+ * The driver id for a provider-typed car number, or undefined for a number the table does not
+ * know: only whole numbers that are the table's own keys count. On a shared number the named
+ * occupant wins when the acronym is one the table lists; otherwise the current occupant.
+ */
+export function driverIdFor(n: unknown, acronym?: unknown): string | undefined {
+  if (!Number.isInteger(n)) return undefined;
+  const num = n as number;
+  if (own(SHARED_NUMBERS, num) && typeof acronym === 'string') {
+    const byName = SHARED_NUMBERS[num];
+    const key = acronym.trim().toUpperCase();
+    if (own(byName, key)) return byName[key];
+  }
+  return own(DRIVER_NUMBER_TO_ID, num) ? DRIVER_NUMBER_TO_ID[num] : undefined;
+}
+
+/**
+ * True when a shared number's session names an occupant the table does not list: the row is
+ * still credited to the current occupant, and the result converters say so in a warning (a
+ * fourth driver in car 50 must show up in the pending result, not quietly become the third).
+ */
+export function unlistedOccupant(n: unknown, acronym: unknown): boolean {
+  if (!Number.isInteger(n) || !own(SHARED_NUMBERS, n as number) || typeof acronym !== 'string') return false;
+  return !own(SHARED_NUMBERS[n as number], acronym.trim().toUpperCase());
+}
+
+/**
+ * Car number → driver id for one session, from its driver records: the table, with each shared
+ * number resolved to whoever the session names in the car. Records with an unknown number are left out.
+ */
+export function numberToIdFor(drivers: ReadonlyArray<{ driver_number?: unknown; name_acronym?: unknown }>): Record<number, string> {
+  const out: Record<number, string> = { ...DRIVER_NUMBER_TO_ID };
+  for (const d of drivers) {
+    const id = driverIdFor(d.driver_number, d.name_acronym);
+    if (id) out[d.driver_number as number] = id;
+  }
+  return out;
+}
 
 /**
  * Maps OpenF1 team names (multiple variants) to our constructor IDs.

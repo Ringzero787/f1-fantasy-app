@@ -56,7 +56,8 @@ async function main(args) {
   if (!Number.isInteger(r.round)) throw new Error(`races/${args.race} has no round number; the model cannot be carried forward from it`);
   const season = String(r.seasonId ?? '2026');
   const driverDocs = (await db.collection('drivers').get()).docs;
-  const known = new Set(driverDocs.map((d) => d.id));
+  // active drivers only (F-138): a retired driver is neither priced nor "missing from the table"
+  const known = new Set(driverDocs.filter((d) => d.data().isActive !== false).map((d) => d.id));
   const source = typeof args.source === 'string' ? args.source : `ben_model_R${r.round}`;
   const modelVersion = `${source}:${path.basename(args.doc)}`;
   // F-137: a stand-in the game has no record of is modelled as the seat he drives (the game's

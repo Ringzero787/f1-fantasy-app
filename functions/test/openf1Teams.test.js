@@ -44,8 +44,9 @@ test('the same session is never used as its own fallback', () => {
   assert.deepEqual(warnings, []);
 });
 
-test('car 50 maps to the Haas stand-in and every regular 2026 number still maps', () => {
-  assert.equal(DRIVER_NUMBER_TO_ID[50], 'hirakawa');
+test('car 50 maps to its current Haas occupant (F-138: the Mexico stand-in resolves by name) and every regular 2026 number still maps', () => {
+  assert.equal(DRIVER_NUMBER_TO_ID[50], 'camara');
+  assert.equal(require('../lib/ingestion/config.js').driverIdFor(50, 'HIR'), 'hirakawa');
   assert.equal(DRIVER_NUMBER_TO_ID[31], 'ocon');
   assert.equal(DRIVER_NUMBER_TO_ID[87], 'bearman');
   assert.equal(DRIVER_NUMBER_TO_ID[22], 'tsunoda');

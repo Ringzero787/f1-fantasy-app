@@ -250,7 +250,7 @@ test('the sweep: off does nothing; on, it finds the live race, looks the session
     sessions: async () => { sessionCalls++; return [{ session_key: 2, session_name: 'Race', date_start: '2026-10-11T12:00:00+00:00' }]; },
     positions: async () => [{ driver_number: 6, position: 4, date: '2026-10-11T12:40:00Z' }, { driver_number: 1, position: 1, date: '2026-10-11T12:40:00Z' }],
     grid: async () => { gridCalls++; if (gridCalls === 1) throw new Error('OpenF1 API error: 500'); return gridAnswer; },
-    constructorOf: async () => { entryCalls++; if (entryCalls === 1) throw new Error('OpenF1 API error: 500'); return { hadjar: 'racing_bulls' }; },
+    entries: async () => { entryCalls++; if (entryCalls === 1) throw new Error('OpenF1 API error: 500'); return { constructorOf: { hadjar: 'racing_bulls' }, numberToId: { 6: 'hadjar' } }; },
     fastestLap: async () => { lapCalls++; if (lapCalls === 2) throw new Error('OpenF1 API error: 500'); if (lapCalls === 3) return 'ghost'; return 'hadjar'; },
   };
   const off = fakeDb({ ...docs, 'config/app': { moonshot: { enabled: true } } });
@@ -280,6 +280,36 @@ test('the sweep: off does nothing; on, it finds the live race, looks the session
   await sweepLivePositions(db, start + 240e3, feed);
   assert.deepEqual([gridCalls, entryCalls, lapCalls], [3, 2, 4]);   // a known grid is not asked for again: two calls a minute from here
   assert.deepEqual(await sweepLivePositions(db, start + 7 * 3600e3, feed), { raceId: null, written: false, drivers: 0 });   // seven hours on, still marked in progress: the six-hour cap closed the window
+});
+
+test('the sweep reuses the stored session map (F-138): car 50 stays whoever the entry list named even when the feed is down this minute', async () => {
+  const start = Date.UTC(2026, 9, 25, 20);
+  const db = fakeDb({
+    'config/app': { moonshot: { enabled: true, liveTiming: true } },
+    'races/mexico_2026': { seasonId: '2026', status: 'in_progress', round: 21, schedule: { race: { toMillis: () => start } } },
+    // written by an earlier minute: Firestore hands the map back with string keys
+    'races/mexico_2026/live/positions': { raceId: 'mexico_2026', sessionKey: 7, grid: { hirakawa: 18 }, constructorOf: { hirakawa: 'haas' }, numberToId: { '50': 'hirakawa', '87': 'bearman' }, fastestLap: null },
+  });
+  const feed = {
+    sessions: async () => { throw new Error('not asked: the stored document carries the session'); },
+    positions: async () => [{ driver_number: 50, position: 13, date: '2026-10-25T20:40:00Z' }, { driver_number: 87, position: 9, date: '2026-10-25T20:40:00Z' }],
+    grid: async () => { throw new Error('not asked: the grid is stored'); },
+    entries: async () => { throw new Error('OpenF1 API error: 500'); },
+    fastestLap: async () => null,
+  };
+  const out = await sweepLivePositions(db, start + 40 * 60e3, feed);
+  const written = db.store.get('races/mexico_2026/live/positions');
+  assert.deepEqual([out.written, written.byDriver, written.numberToId], [true, { hirakawa: 13, bearman: 9 }, { '50': 'hirakawa', '87': 'bearman' }]);
+  // a document from before the map existed asks the entry list again (and falls back to the table meanwhile: car 50 is its current occupant)
+  const older = fakeDb({
+    'config/app': { moonshot: { enabled: true, liveTiming: true } },
+    'races/mexico_2026': { seasonId: '2026', status: 'in_progress', round: 21, schedule: { race: { toMillis: () => start } } },
+    'races/mexico_2026/live/positions': { raceId: 'mexico_2026', sessionKey: 7, grid: {}, constructorOf: { hirakawa: 'haas' }, fastestLap: null },
+  });
+  let entryCalls = 0;
+  await sweepLivePositions(older, start + 40 * 60e3, { ...feed, grid: async () => ({}), entries: async () => { entryCalls++; throw new Error('OpenF1 API error: 500'); } });
+  assert.equal(entryCalls, 1);
+  assert.deepEqual(older.store.get('races/mexico_2026/live/positions').byDriver, { camara: 13, bearman: 9 });
 });
 
 test('settlement needs a classification: a completed race with empty results settles nothing, a cancelled one still voids', async () => {
