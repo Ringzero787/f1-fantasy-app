@@ -1,0 +1,47 @@
+id: OP-212
+title: "F-138: retire Ocon, add Câmara (Haas seat from São Paulo)"
+kind: uc-script
+status: applied
+params:
+  script: setDriverSeat.js
+  backup: drivers/ocon,drivers/camara
+created_at: 2026-11-05T19:45:12.940Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-05T19:45:13.254Z
+    head_sha: 1f5180a834f4cd7cc50e19cec80342f3730c7cb7
+    command: node scripts/ops/run-script.js undercut 'setDriverSeat.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-212/dry-run-2026-11-05T19-45-13-254Z.log
+    log_sha256: b7d2161ddd6f946ac525e3efdb9c225c67bf550c14e1a3a0f221db4085a497e3
+    lines: 19
+  - step: backup
+    at: 2026-11-05T19:53:18.682Z
+    head_sha: 1f5180a834f4cd7cc50e19cec80342f3730c7cb7
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-212'/backup.json 'drivers/ocon,drivers/camara'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-212/backup-2026-11-05T19-53-18-682Z.log
+    log_sha256: 6976f876dc2313d5921c4fa39939c09f735ec4068b7e0804ea47a15755580e8e
+    lines: 1
+  - step: gates
+    at: 2026-11-05T19:53:19.529Z
+    head_sha: 1f5180a834f4cd7cc50e19cec80342f3730c7cb7
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-05T19:53:19.530Z
+    head_sha: 1f5180a834f4cd7cc50e19cec80342f3730c7cb7
+    command: node scripts/ops/run-script.js undercut 'setDriverSeat.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-212/apply-2026-11-05T19-53-19-530Z.log
+    log_sha256: 8e59b05bf2140e279a107eb40bde43e9c57ba09957d591e126423ce90a0b1c35
+    lines: 19
+  - step: gates
+    at: 2026-11-05T19:53:20.599Z
+    head_sha: 1f5180a834f4cd7cc50e19cec80342f3730c7cb7
+    exit: 0
+    gates:
+      G15: skip
