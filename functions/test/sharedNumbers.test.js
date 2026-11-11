@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const { DRIVER_NUMBER_TO_ID, SHARED_NUMBERS, driverIdFor, numberToIdFor } = require('../lib/ingestion/config.js');
 const { latestByDriver } = require('../lib/moonshot/liveSweep.js');
 
-test('the table holds the current occupant of a shared number and names both', () => {
+test('car 50 is Hirakawa, Câmara is 51 (F-139), and the shared entry names both', () => {
   assert.equal(DRIVER_NUMBER_TO_ID[50], 'hirakawa');
   assert.equal(DRIVER_NUMBER_TO_ID[51], 'camara');   // F-139: his São Paulo car
   assert.deepEqual(SHARED_NUMBERS[50], { HIR: 'hirakawa', CAM: 'camara' });
@@ -75,7 +75,8 @@ test('the live sweep maps positions through the session map, so car 50 is whoeve
 });
 
 test('F-139: every car number in the São Paulo 2026 race and qualifying entry lists maps (Câmara is 51)', () => {
-  // the provider's driver records for sessions 11408 (Qualifying) and 11412 (Race), meeting 1299
+  // the provider's driver records for sessions 11408 (Qualifying) and 11412 (Race), meeting 1299:
+  // both lists are exactly these numbers (api.openf1.org/v1/drivers?session_key=…, read 2026-11-11)
   const saoPaulo = [1, 3, 5, 6, 10, 11, 12, 14, 16, 18, 23, 27, 30, 41, 43, 44, 51, 55, 63, 77, 81, 87];
   const map = numberToIdFor(saoPaulo.map((n) => ({ driver_number: n, name_acronym: n === 51 ? 'CAM' : undefined })));
   for (const n of saoPaulo) assert.ok(map[n], `car ${n} is unmapped`);

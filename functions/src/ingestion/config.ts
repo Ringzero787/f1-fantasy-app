@@ -108,13 +108,14 @@ export const DRIVER_NUMBER_TO_ID: Record<number, string> = {
 };
 
 /**
- * F-138: car numbers that changed hands during the season, occupant by the provider's
- * `name_acronym`. The provider's driver record for a session names who was in the car, so a
- * session that carries one of these numbers is resolved by the name; `DRIVER_NUMBER_TO_ID`
- * keeps the current occupant for rows without one (grid, positions, a fastest lap).
+ * F-138: car numbers whose occupant is resolved by the provider's `name_acronym`. The provider's
+ * driver record for a session names who was in the car, so a session that carries one of these
+ * numbers is resolved by the name; `DRIVER_NUMBER_TO_ID` is the fallback for rows without one
+ * (grid, positions, a fastest lap) and for a name the entry does not list.
+ *
+ * F-139: Câmara races 51, not 50, so 50 has only ever been Hirakawa's. The entry stays as a
+ * guard: a session that ever names him in car 50 still resolves to him rather than to Hirakawa.
  */
-// F-139: Câmara races 51, not 50, so 50 has had one occupant. The entry stays as a guard: a
-// session that ever names him in car 50 still resolves to him rather than to Hirakawa.
 export const SHARED_NUMBERS: Record<number, Record<string, string>> = {
   50: { HIR: 'hirakawa', CAM: 'camara' },
 };
@@ -124,7 +125,7 @@ const own = (o: object, k: PropertyKey): boolean => Object.prototype.hasOwnPrope
 /**
  * The driver id for a provider-typed car number, or undefined for a number the table does not
  * know: only whole numbers that are the table's own keys count. On a shared number the named
- * occupant wins when the acronym is one the table lists; otherwise the current occupant.
+ * occupant wins when the acronym is one the table lists; otherwise the `DRIVER_NUMBER_TO_ID` entry.
  */
 export function driverIdFor(n: unknown, acronym?: unknown): string | undefined {
   if (!Number.isInteger(n)) return undefined;
