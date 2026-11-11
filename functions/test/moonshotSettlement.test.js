@@ -300,7 +300,7 @@ test('the sweep reuses the stored session map (F-138): car 50 stays whoever the 
   const out = await sweepLivePositions(db, start + 40 * 60e3, feed);
   const written = db.store.get('races/mexico_2026/live/positions');
   assert.deepEqual([out.written, written.byDriver, written.numberToId], [true, { hirakawa: 13, bearman: 9 }, { '50': 'hirakawa', '87': 'bearman' }]);
-  // a document from before the map existed asks the entry list again (and falls back to the table meanwhile: car 50 is its current occupant)
+  // a document from before the map existed asks the entry list again (and falls back to the table meanwhile: car 50 is Hirakawa's in it)
   const older = fakeDb({
     'config/app': { moonshot: { enabled: true, liveTiming: true } },
     'races/mexico_2026': { seasonId: '2026', status: 'in_progress', round: 21, schedule: { race: { toMillis: () => start } } },
@@ -309,7 +309,7 @@ test('the sweep reuses the stored session map (F-138): car 50 stays whoever the 
   let entryCalls = 0;
   await sweepLivePositions(older, start + 40 * 60e3, { ...feed, grid: async () => ({}), entries: async () => { entryCalls++; throw new Error('OpenF1 API error: 500'); } });
   assert.equal(entryCalls, 1);
-  assert.deepEqual(older.store.get('races/mexico_2026/live/positions').byDriver, { camara: 13, bearman: 9 });
+  assert.deepEqual(older.store.get('races/mexico_2026/live/positions').byDriver, { hirakawa: 13, bearman: 9 });
 });
 
 test('settlement needs a classification: a completed race with empty results settles nothing, a cancelled one still voids', async () => {

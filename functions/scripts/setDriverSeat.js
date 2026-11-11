@@ -1,6 +1,6 @@
 // Change who holds a seat in the game's driver list (F-138): retire one driver, add the one who
 // replaces him. São Paulo 2026: Haas dropped Ocon after Mexico City and put Rafael Câmara in the
-// car (number 50) for the rest of the season.
+// car (number 51 — F-139; F-138 first wrote 50, Hirakawa's Mexico City number) for the rest of the season.
 //
 // A retired driver keeps his document (results and price history stay readable) with
 // `isActive: false`: the app lists active drivers only, the buy callable refuses an inactive one,
@@ -44,7 +44,7 @@ const DESIRED = {
     id: 'camara',
     name: 'Rafael Câmara',
     shortName: 'CAM',
-    number: 50,
+    number: 51,
     constructorId: 'haas',
     constructorName: 'MoneyGram Haas F1 Team',
     nationality: 'Brazilian',
