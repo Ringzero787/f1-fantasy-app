@@ -1,4 +1,4 @@
-next_id: 140
+next_id: 141
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1706,3 +1706,17 @@ features:
       - mara
       - ingestion
       - mapping
+  - id: F-140
+    name: "UC: Pit Wall check emails the owner on FAIL"
+    summary: The twice-weekly ops check flagged the held São Paulo result as FAIL within 30 minutes but only wrote a file
+      and a log, so nobody knew for 3 days. Email the owner when a check FAILs (deduped, daily reminder, all-clear), and
+      run it hourly with quiet OK runs.
+    status: building
+    spec: .aidlc/specs/F-140.md
+    created_at: 2026-11-12
+    keywords:
+      - wall
+      - check
+      - emails
+      - owner
+      - fail

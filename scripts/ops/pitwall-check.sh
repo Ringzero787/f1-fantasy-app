@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# The twice-weekly Pit Wall check (F-132), meant for cron:
-#   3 7 * * 1,4  /data/f1-app/scripts/ops/pitwall-check.sh >> /data/scripts/pitwall-check.log 2>&1
+# The Pit Wall check (F-132), meant for cron. F-140: it runs hourly and emails the owner on a FAIL
+# (scripts/ops/pitwall-alert.js: once, a daily reminder while it lasts, an all-clear after), with
+# the model triage kept to the twice-weekly runs:
+#   33 * * * *   PW_CHECK_QUIET=1 PW_CHECK_TRIAGE=0 <checkout>/scripts/ops/pitwall-check.sh >> /data/scripts/pitwall-check.log 2>&1
+#   3 7 * * 1,4  <checkout>/scripts/ops/pitwall-check.sh >> /data/scripts/pitwall-check.log 2>&1
+# PW_CHECK_QUIET=1 files no report and logs one line when the check is OK.
 #
 # Runs scripts/ops/pitwall-check.js (reads only), files the report on the share, and when the
 # Claude Code CLI is on the box asks it for a short triage of anything not OK — text only, no
@@ -21,6 +25,13 @@ STAMP="$(date -u +%Y-%m-%d-%H%M)"
 REPORT="$OUT_DIR/$STAMP.md"
 node "$ROOT/scripts/ops/pitwall-check.js" > "$REPORT"
 CODE=$?
+if [ "$CODE" -eq 0 ] && [ "${PW_CHECK_QUIET:-0}" = "1" ]; then
+  # an all-clear after an alert is still sent; the quiet run only skips filing the OK report
+  node "$ROOT/scripts/ops/pitwall-alert.js" "$REPORT" >/dev/null || echo "== pitwall-check $STAMP alert step exit $?"
+  rm -f "$REPORT"
+  echo "== pitwall-check $STAMP OK (quiet)"
+  exit 0
+fi
 echo "== pitwall-check $STAMP exit $CODE → $REPORT"
 cat "$REPORT"
 # exit 3 is a collection error (its message went to stderr, the report is empty): nothing to triage
@@ -40,4 +51,8 @@ $(cat "$REPORT")
   } >> "$REPORT"
   echo "== triage appended"
 fi
+# F-140: the report is only on the share and in this log; the owner hears about a FAIL by email.
+# Its own failures (no login file, a refused send) go to stderr and syslog and never change the
+# check's exit code.
+node "$ROOT/scripts/ops/pitwall-alert.js" "$REPORT" || echo "== pitwall-alert exit $? (see above / journalctl -t pitwall-alert)"
 exit "$CODE"
