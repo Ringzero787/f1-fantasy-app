@@ -128,7 +128,8 @@ const DRIVER_NUMBER_TO_ID: Record<number, string> = {
   41: 'lindblad',     // Racing Bulls
   43: 'colapinto',    // Alpine
   44: 'hamilton',     // Ferrari
-  50: 'camara',       // Haas, from São Paulo 2026 (F-138; the server resolves this number by name)
+  50: 'hirakawa',     // Haas stand-in, Mexico City 2026 only (F-134)
+  51: 'camara',       // Haas, from São Paulo 2026 (F-139)
   55: 'sainz',        // Williams
   63: 'russell',      // Mercedes
   77: 'bottas',       // Cadillac

@@ -17,7 +17,7 @@ const REQUEST_TIMEOUT_MS = 20_000;
 const driverIdOf = (n: unknown): string | undefined => driverIdFor(n);
 /**
  * F-138: who the session says was in each car, so a number that changed hands during the season
- * (car 50: Hirakawa at Mexico City, Câmara from São Paulo) resolves to the right driver.
+ * resolves to the right driver (car 50 is Hirakawa's Mexico City number; Câmara races 51, F-139).
  */
 const acronymsOf = (drivers: ReadonlyArray<OpenF1Driver>): Map<number, string> => new Map(drivers.map((d) => [d.driver_number, d.name_acronym]));
 /**

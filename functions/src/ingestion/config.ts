@@ -94,12 +94,12 @@ export const DRIVER_NUMBER_TO_ID: Record<number, string> = {
   41: 'lindblad',
   43: 'colapinto',
   44: 'hamilton',
-  // Car 50 has had two occupants (F-138): Hirakawa stood in for Ocon at Mexico City 2026 (round 21,
-  // F-134; no drivers/ doc, so he could not be bought), then Câmara took the Haas seat from São
-  // Paulo 2026 (round 22) when Ocon left the team. A row that names its driver is resolved through
-  // SHARED_NUMBERS below; this entry is the current occupant, for rows that carry only the number.
-  // Ocon's 31 stays: his earlier results are stored under it and a number is not reused in-season.
-  50: 'camara',
+  // Car 50: Hirakawa's one-off stand-in for Ocon at Mexico City 2026 (round 21, F-134; no drivers/
+  // doc, so he could not be bought). Ocon's 31 stays: his earlier results are stored under it.
+  50: 'hirakawa',
+  // Câmara took the Haas seat from São Paulo 2026 (round 22) in car 51 (F-139). F-138 had him in
+  // car 50, so the São Paulo race and qualifying were held on "Unknown driver number: 51".
+  51: 'camara',
   55: 'sainz',
   63: 'russell',
   77: 'bottas',
@@ -108,10 +108,13 @@ export const DRIVER_NUMBER_TO_ID: Record<number, string> = {
 };
 
 /**
- * F-138: car numbers that changed hands during the season, occupant by the provider's
- * `name_acronym`. The provider's driver record for a session names who was in the car, so a
- * session that carries one of these numbers is resolved by the name; `DRIVER_NUMBER_TO_ID`
- * keeps the current occupant for rows without one (grid, positions, a fastest lap).
+ * F-138: car numbers whose occupant is resolved by the provider's `name_acronym`. The provider's
+ * driver record for a session names who was in the car, so a session that carries one of these
+ * numbers is resolved by the name; `DRIVER_NUMBER_TO_ID` is the fallback for rows without one
+ * (grid, positions, a fastest lap) and for a name the entry does not list.
+ *
+ * F-139: Câmara races 51, not 50, so 50 has only ever been Hirakawa's. The entry stays as a
+ * guard: a session that ever names him in car 50 still resolves to him rather than to Hirakawa.
  */
 export const SHARED_NUMBERS: Record<number, Record<string, string>> = {
   50: { HIR: 'hirakawa', CAM: 'camara' },
@@ -122,7 +125,7 @@ const own = (o: object, k: PropertyKey): boolean => Object.prototype.hasOwnPrope
 /**
  * The driver id for a provider-typed car number, or undefined for a number the table does not
  * know: only whole numbers that are the table's own keys count. On a shared number the named
- * occupant wins when the acronym is one the table lists; otherwise the current occupant.
+ * occupant wins when the acronym is one the table lists; otherwise the `DRIVER_NUMBER_TO_ID` entry.
  */
 export function driverIdFor(n: unknown, acronym?: unknown): string | undefined {
   if (!Number.isInteger(n)) return undefined;
