@@ -4,7 +4,7 @@
 // Why: the check flagged the held São Paulo result (F-139) as FAIL within 30 minutes of the hold,
 // then again 12 h and 3.5 d later, but only into a log and a file on the share. Nobody looked for
 // three days. Now a FAIL seen on two runs in a row emails once, reminds once a day while it lasts,
-// and an OK/WARN run after it sends an all-clear.
+// and two OK/WARN runs in a row after it send an all-clear.
 
 const REMIND_MS = 24 * 3600 * 1000;
 // a failure must be seen on this many consecutive runs before it is sent: an hourly check would
@@ -53,8 +53,9 @@ function headerSafe(text) {
 }
 
 /**
- * state: { fingerprint, firstSentAt, lastSentAt } for the failure last emailed, plus
- * { candidate, seen } for a failure seen but not yet confirmed. {} when nothing is outstanding.
+ * state: { fingerprint, firstSentAt, lastSentAt, lines } for the failure last emailed, plus
+ * { candidate, seen } for a failure seen but not yet confirmed and { okSeen } for an all-clear
+ * not yet confirmed. {} when nothing is outstanding.
  * confirmRuns: consecutive sightings before a new or changed failure is sent.
  * Returns { send: null | { kind, subject, body }, state }. The caller stores the state only when
  * `send` is null or the send succeeded, so a refused send is retried on the next run.
@@ -68,14 +69,21 @@ function decide(report, state, now, { confirmRuns = CONFIRM_RUNS } = {}) {
   // nothing readable: not a failure and never an all-clear
   if (v === null) return { send: null, state: st };
 
+  // the alert being tracked, without the per-run counters
+  const outstanding = st.fingerprint ? { fingerprint: st.fingerprint, firstSentAt: st.firstSentAt, lastSentAt: st.lastSentAt, lines: st.lines } : {};
+
   if (v !== 'FAIL') {
     // an unconfirmed candidate is forgotten: a blip that cleared on the next run is never mailed
     if (!st.fingerprint) return { send: null, state: {} };
+    // and an all-clear is confirmed the same way, so a check flapping between FAIL and WARN is
+    // one alert with reminders, not a new/cleared pair every few hours
+    const okSeen = (st.okSeen || 0) + 1;
+    if (okSeen < confirmRuns) return { send: null, state: { ...outstanding, okSeen } };
     return {
       send: {
         kind: 'cleared',
         subject: 'Undercut ops check: cleared',
-        body: `The Undercut ops check is back to ${v} as of ${at}.\n\nIt had been failing since ${new Date(st.firstSentAt).toISOString()}:\n\n${st.fingerprint}\n`,
+        body: `The Undercut ops check is back to ${v} as of ${at} (${okSeen} runs in a row).\n\nIt had been failing since ${new Date(st.firstSentAt).toISOString()}:\n\n${st.lines || st.fingerprint}\n`,
       },
       state: {},
     };
@@ -87,7 +95,7 @@ function decide(report, state, now, { confirmRuns = CONFIRM_RUNS } = {}) {
   const list = effective.map((l) => `- ${l}`).join('\n');
 
   if (st.fingerprint === fp) {
-    if (now - (st.lastSentAt || 0) < REMIND_MS) return { send: null, state: { fingerprint: st.fingerprint, firstSentAt: st.firstSentAt, lastSentAt: st.lastSentAt } };
+    if (now - (st.lastSentAt || 0) < REMIND_MS) return { send: null, state: outstanding };
     const days = ((now - st.firstSentAt) / REMIND_MS).toFixed(1);
     return {
       send: {
@@ -95,13 +103,13 @@ function decide(report, state, now, { confirmRuns = CONFIRM_RUNS } = {}) {
         subject: headerSafe(`Undercut ops check STILL FAILING (${days} d)`),
         body: `Still failing at ${at}, first reported ${new Date(st.firstSentAt).toISOString()}.\n\n${list}\n`,
       },
-      state: { fingerprint: st.fingerprint, firstSentAt: st.firstSentAt, lastSentAt: now },
+      state: { ...outstanding, lastSentAt: now, lines: list },
     };
   }
 
   // a new or different failure: confirm it on consecutive runs first
   const seen = st.candidate === fp ? (st.seen || 1) + 1 : 1;
-  if (seen < confirmRuns) return { send: null, state: { ...st, candidate: fp, seen } };
+  if (seen < confirmRuns) return { send: null, state: { ...outstanding, candidate: fp, seen } };
 
   const name = effective.length === 1 ? (effective[0].match(/^\*\*(\w+)\*\*/) || [])[1] : null;
   return {
@@ -110,7 +118,7 @@ function decide(report, state, now, { confirmRuns = CONFIRM_RUNS } = {}) {
       subject: headerSafe(`Undercut ops check FAILED: ${name || `${effective.length} checks`}`),
       body: `The Undercut ops check failed at ${at} (seen on ${seen} runs in a row).\n\n${list}\n`,
     },
-    state: { fingerprint: fp, firstSentAt: st.fingerprint ? st.firstSentAt : now, lastSentAt: now },
+    state: { fingerprint: fp, firstSentAt: st.fingerprint ? st.firstSentAt : now, lastSentAt: now, lines: list },
   };
 }
 

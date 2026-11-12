@@ -83,13 +83,16 @@ test('a different failure while one is outstanding is confirmed, then sent as ch
   assert.equal(d.state.firstSentAt, b.state.firstSentAt);
 });
 
-test('OK or WARN after an alert sends one all-clear; a FAIL title never does', () => {
+test('two OK or WARN runs after an alert send one all-clear with the original text; a FAIL title never does', () => {
   const b = sent();
-  const ok = decide(report('OK', []), b.state, T0 + 3 * 24 * H);
+  const ok1 = decide(report('OK', []), b.state, T0 + 3 * 24 * H);
+  assert.equal(ok1.send, null);
+  const ok = decide(report('WARN', []), ok1.state, T0 + 3 * 24 * H + H);
   assert.equal(ok.send.kind, 'cleared');
+  assert.match(ok.send.body, /fetched 30 min ago are held/);   // what was sent, not the fingerprint
+  assert.doesNotMatch(ok.send.body, /<age>|<status>/);
   assert.deepEqual(ok.state, {});
   assert.equal(decide(report('OK', []), ok.state, T0 + 4 * 24 * H).send, null);
-  assert.equal(decide(report('WARN', []), b.state, T0 + 2 * H).send.kind, 'cleared');
   // FAIL with every check line lost (a truncated report): still failing, never cleared
   const lost = decide(report('FAIL', []), b.state, T0 + 2 * H);
   assert.notEqual(lost.send && lost.send.kind, 'cleared');
@@ -164,6 +167,7 @@ test('the sender: no Resend settings → exit 5 and no state; a refused send →
   fs.writeFileSync(rep, FAIL1());
   process.env.PW_ALERT_STATE = s.state;
   process.env.PW_ALERT_ENV = s.env;
+  process.env.PW_ALERT_SYSLOG = '0';
   // first run only records the candidate (nothing to send, nothing read from the env file)
   delete require.cache[require.resolve('./pitwall-alert.js')];
   const run = (fetchImpl) => require('./pitwall-alert.js').main([rep], fetchImpl);
@@ -186,9 +190,16 @@ test('the sender: no Resend settings → exit 5 and no state; a refused send →
     assert.match(calls[0][1].text, /Full report: .*r\.md/);
     assert.ok(JSON.parse(fs.readFileSync(s.state, 'utf8')).fingerprint);
     assert.equal(await run(async () => { throw new Error('must not send'); }), 0);   // quiet within the day
+    // a quiet run's report is deleted after the alert step: the email must not point at it
+    fs.writeFileSync(rep, report('OK', []));
+    assert.equal(await run(), 0);                       // first good run: not yet cleared
+    const gone = [];
+    assert.equal(await require('./pitwall-alert.js').main([rep, '--report-gone'], async (u, init) => { gone.push(JSON.parse(init.body)); return { ok: true, status: 200 }; }), 0);
+    assert.equal(gone[0].subject, 'Undercut ops check: cleared');
+    assert.doesNotMatch(gone[0].text, /Full report:/);
   } finally {
     console.log = quiet; console.error = loud;
-    delete process.env.PW_ALERT_STATE; delete process.env.PW_ALERT_ENV;
+    delete process.env.PW_ALERT_STATE; delete process.env.PW_ALERT_ENV; delete process.env.PW_ALERT_SYSLOG;
   }
 });
 
@@ -197,7 +208,7 @@ function wrapper(s, stubBody, extraEnv = {}) {
   fs.writeFileSync(stub, stubBody);
   const out = path.join(s.dir, 'reports');
   const r = spawnSync('bash', [path.join(__dirname, 'pitwall-check.sh')], {
-    env: { PATH: process.env.PATH, HOME: s.dir, SA_KEY: '/nonexistent', PW_CHECK_JS: stub, PW_CHECK_DIR: out, PW_CHECK_TRIAGE: '0', PW_ALERT_ENV: s.env, PW_ALERT_STATE: s.state, ...extraEnv },
+    env: { PATH: process.env.PATH, HOME: s.dir, SA_KEY: '/nonexistent', PW_CHECK_JS: stub, PW_CHECK_DIR: out, PW_CHECK_TRIAGE: '0', PW_ALERT_ENV: s.env, PW_ALERT_STATE: s.state, PW_ALERT_SYSLOG: '0', ...extraEnv },
     encoding: 'utf8',
   });
   return { ...r, reports: fs.existsSync(out) ? fs.readdirSync(out) : [] };
@@ -247,4 +258,44 @@ test('no service-account key and an unwritable share are "could not run" too, wi
   const r2 = wrapper(t, FAIL_STUB, { PW_CHECK_DIR: path.join(blocked, 'sub') });
   assert.equal(r2.status, 4);
   assert.match(JSON.parse(fs.readFileSync(t.state, 'utf8')).candidate, /cannot write to/);
+});
+
+test('a check flapping between FAIL and WARN stays one alert (no new/cleared pairs)', () => {
+  let st = sent().state;
+  const kinds = [];
+  for (let i = 2; i < 12; i++) {
+    const r = decide(i % 2 ? report('WARN', []) : FAIL1(`${i} h`), st, T0 + i * H);
+    kinds.push(r.send ? r.send.kind : '-');
+    st = r.state;
+  }
+  assert.deepEqual(kinds.filter((k) => k !== '-'), []);
+  assert.ok(st.fingerprint);
+});
+
+test('a broken run between real failures resets the count, each with its own threshold', () => {
+  const brk = (at) => decide(brokenReport(at, 'collection error (exit 3): pitwall-check: down'), st, at, { confirmRuns: BROKEN_CONFIRM_RUNS });
+  let st = decide(FAIL1(), {}, T0).state;            // real failure, seen once
+  let r = brk(T0 + H); st = r.state;                  // broken: a different candidate, count 1
+  assert.equal(r.send, null);
+  assert.equal(st.seen, 1);
+  r = decide(FAIL1('2 h'), st, T0 + 2 * H); st = r.state;   // real again: restarts at 1
+  assert.equal(r.send, null);
+  r = decide(FAIL1('3 h'), st, T0 + 3 * H);           // second in a row: sent
+  assert.equal(r.send.kind, 'new');
+});
+
+test('an empty report is a failed run even with exit 0, and node warnings stay out of the reason', () => {
+  const s = scratch();
+  const r = wrapper(s, `process.emitWarning('x', 'DeprecationWarning'); console.error('pitwall-check: Firestore deadline'); process.exit(0);`, { PW_CHECK_QUIET: '1' });
+  assert.equal(r.status, 3);
+  const st = JSON.parse(fs.readFileSync(s.state, 'utf8'));
+  assert.match(st.candidate, /collection error \(exit 3\): pitwall-check: Firestore deadline/);
+  assert.doesNotMatch(st.candidate, /node:|DeprecationWarning/);
+});
+
+test('a hung check is cut off and counted as "could not run"', () => {
+  const s = scratch();
+  const r = wrapper(s, 'setTimeout(() => {}, 60000);', { PW_CHECK_QUIET: '1', PW_CHECK_TIMEOUT: '1' });
+  assert.equal(r.status, 3);
+  assert.match(JSON.parse(fs.readFileSync(s.state, "utf8")).candidate, /could not run: timed out after/);   // the duration is stripped like an age
 });

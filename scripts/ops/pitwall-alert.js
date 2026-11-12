@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // F-140. Emails the owner when the Pit Wall check fails (pitwall-alert-lib.js decides).
-//   node scripts/ops/pitwall-alert.js <report.md> [--report-gone]
+//   node scripts/ops/pitwall-alert.js <report.md> [--report-gone] [--quiet]
 //   node scripts/ops/pitwall-alert.js --broken "<why the check could not run>"
 //
 // Same transport and settings as the Pit Wall worker's own alerts (workers/pitwall/src/cli/serve.ts):
@@ -23,6 +23,7 @@ const STATE_FILE = process.env.PW_ALERT_STATE || path.join(os.homedir(), '.local
 const DEFAULT_FROM = 'Undercut ops <noreply@humannpc.com>';
 
 function syslog(msg) {
+  if (process.env.PW_ALERT_SYSLOG === '0') return;   // the tests: keep their lines out of the real journal
   try { execFileSync('logger', ['-t', 'pitwall-alert', '-p', 'user.warning', msg]); } catch { /* no logger: stderr has it */ }
 }
 
@@ -62,7 +63,7 @@ async function main(argv, fetchImpl = globalThis.fetch) {
   }
 
   const { send, state } = decide(report, readState(), Date.now(), brokenAt !== -1 ? { confirmRuns: BROKEN_CONFIRM_RUNS } : {});
-  if (!send) { writeState(state); console.log('pitwall-alert: nothing to send'); return 0; }
+  if (!send) { writeState(state); if (!argv.includes('--quiet')) console.log('pitwall-alert: nothing to send'); return 0; }
 
   const { apiKey, to, from } = readSettings();
   if (!apiKey || !to) {

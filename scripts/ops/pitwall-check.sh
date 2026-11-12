@@ -39,17 +39,23 @@ if ! mkdir -p "$OUT_DIR" 2>/dev/null || [ ! -w "$OUT_DIR" ]; then broken 4 "cann
 REPORT="$OUT_DIR/$STAMP.md"
 ERRF="$(mktemp)"
 trap 'rm -f "$ERRF"' EXIT
-node "$CHECK_JS" > "$REPORT" 2> "$ERRF"
+# a hung check (no deadline on its Firestore reads) must end as a "could not run", not stack up
+timeout "${PW_CHECK_TIMEOUT:-600}" node "$CHECK_JS" > "$REPORT" 2> "$ERRF"
 CODE=$?
 cat "$ERRF" >&2
 # exit 3 is a collection error: its message went to stderr and the report is empty
 if [ ! -s "$REPORT" ]; then
   rm -f "$REPORT"
-  broken "$CODE" "collection error (exit $CODE): $(tr '\n' ' ' < "$ERRF" | cut -c1-300)"
+  [ "$CODE" -eq 124 ] && broken 3 "timed out after ${PW_CHECK_TIMEOUT:-600} s"
+  # node's own warnings ("(node:<pid>) …") change every run and would never let the count complete
+  WHY="$(grep -v '^(node:' "$ERRF" | grep -v '^(Use `node' | tr '\n' ' ' | cut -c1-300)"
+  # an empty report is a failed run whatever the code says
+  case "$CODE" in 0|2) CODE=3 ;; esac
+  broken "$CODE" "collection error (exit $CODE): ${WHY:-no message}"
 fi
 if [ "$CODE" -ne 1 ] && [ "${PW_CHECK_QUIET:-0}" = "1" ]; then
-  # an all-clear after an alert is still sent; a quiet run files no OK or WARN report
-  node "$ALERT_JS" "$REPORT" --report-gone >/dev/null || echo "== pitwall-check $STAMP alert step exit $?"
+  # an all-clear after an alert is still sent (and logged); a quiet run files no OK or WARN report
+  node "$ALERT_JS" "$REPORT" --report-gone --quiet || echo "== pitwall-check $STAMP alert step exit $?"
   rm -f "$REPORT"
   echo "== pitwall-check $STAMP exit $CODE (quiet)"
   exit "$CODE"
