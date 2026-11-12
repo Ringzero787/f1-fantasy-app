@@ -3,9 +3,14 @@
 //
 // Why: the check flagged the held São Paulo result (F-139) as FAIL within 30 minutes of the hold,
 // then again 12 h and 3.5 d later, but only into a log and a file on the share. Nobody looked for
-// three days. A FAIL now emails once, reminds once a day while it lasts, and says when it clears.
+// three days. Now a FAIL seen on two runs in a row emails once, reminds once a day while it lasts,
+// and an OK/WARN run after it sends an all-clear.
 
 const REMIND_MS = 24 * 3600 * 1000;
+// a failure must be seen on this many consecutive runs before it is sent: an hourly check would
+// otherwise mail a blip (a queue job claimed a minute late, a worker restart) and its all-clear
+const CONFIRM_RUNS = 2;
+const SUBJECT_MAX = 120;
 
 /**
  * The ✗ lines of a report: the failing checks. Only the check list counts — the report stops at
@@ -27,68 +32,99 @@ function verdict(report) {
 }
 
 /**
- * A failure line without the parts that change from run to run ("30 min ago", "12.0 h ago",
- * "3.5 d ago", "62 min"), so the same held race is one alert, not a new one every hour.
+ * A failure line without the parts that change from run to run while it is the same failure:
+ * ages ("30 min ago", "12.0 h ago", "-2 min"), and the registry status a held race reports
+ * (it can flip from in_progress while the result is still held).
  */
 function normalise(line) {
-  return line.replace(/\b\d+(?:\.\d+)?\s*(?:s|sec|min|h|d)\b(?:\s+ago)?/g, '<age>');
+  return line
+    .replace(/-?\b\d+(?:\.\d+)?\s*(?:s|sec|min|h|d)\b(?:\s+ago)?/g, '<age>')
+    .replace(/registry status '[^']*'/g, "registry status '<status>'");
 }
 
 function fingerprint(lines) {
   return lines.map(normalise).sort().join('\n');
 }
 
+/** One header-safe line: no control characters, capped. */
+function headerSafe(text) {
+  const s = String(text).replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim();
+  return s.length > SUBJECT_MAX ? `${s.slice(0, SUBJECT_MAX - 1)}…` : s;
+}
+
 /**
- * state: { fingerprint, firstSentAt, lastSentAt } (ms) or {} when nothing is outstanding.
- * Returns { send: null | { kind, subject, body }, state } — the state to store whether or not
- * the send succeeds is the caller's call (it only stores it after a successful send).
+ * state: { fingerprint, firstSentAt, lastSentAt } for the failure last emailed, plus
+ * { candidate, seen } for a failure seen but not yet confirmed. {} when nothing is outstanding.
+ * confirmRuns: consecutive sightings before a new or changed failure is sent.
+ * Returns { send: null | { kind, subject, body }, state }. The caller stores the state only when
+ * `send` is null or the send succeeded, so a refused send is retried on the next run.
  */
-function decide(report, state, now) {
-  const st = state && typeof state === 'object' ? state : {};
+function decide(report, state, now, { confirmRuns = CONFIRM_RUNS } = {}) {
+  const st = state && typeof state === 'object' && !Array.isArray(state) ? state : {};
   const v = verdict(report);
   const lines = failures(report);
   const at = new Date(now).toISOString();
 
-  if (v !== 'FAIL' || lines.length === 0) {
-    // a report we cannot read is not an all-clear
-    if (v === null) return { send: null, state: st };
-    if (st.fingerprint) {
-      return {
-        send: {
-          kind: 'cleared',
-          subject: 'Undercut ops check: cleared',
-          body: `The Undercut ops check is back to ${v} as of ${at}.\n\nIt had been failing since ${new Date(st.firstSentAt).toISOString()}:\n\n${st.fingerprint}\n`,
-        },
-        state: {},
-      };
-    }
-    return { send: null, state: st };
-  }
+  // nothing readable: not a failure and never an all-clear
+  if (v === null) return { send: null, state: st };
 
-  const fp = fingerprint(lines);
-  const list = lines.map((l) => `- ${l}`).join('\n');
-  if (st.fingerprint !== fp) {
+  if (v !== 'FAIL') {
+    // an unconfirmed candidate is forgotten: a blip that cleared on the next run is never mailed
+    if (!st.fingerprint) return { send: null, state: {} };
     return {
       send: {
-        kind: st.fingerprint ? 'changed' : 'new',
-        subject: `Undercut ops check FAILED: ${lines.length === 1 ? lines[0].replace(/^\*\*(\w+)\*\*.*$/, '$1') : `${lines.length} checks`}`,
-        body: `The Undercut ops check failed at ${at}.\n\n${list}\n`,
+        kind: 'cleared',
+        subject: 'Undercut ops check: cleared',
+        body: `The Undercut ops check is back to ${v} as of ${at}.\n\nIt had been failing since ${new Date(st.firstSentAt).toISOString()}:\n\n${st.fingerprint}\n`,
       },
-      state: { fingerprint: fp, firstSentAt: st.fingerprint ? st.firstSentAt : now, lastSentAt: now },
+      state: {},
     };
   }
-  if (now - (st.lastSentAt || 0) >= REMIND_MS) {
+
+  // a FAIL title whose check lines cannot be read is still a failure, never an all-clear
+  const effective = lines.length ? lines : ['**check** the report says FAIL but no failing check line could be read'];
+  const fp = fingerprint(effective);
+  const list = effective.map((l) => `- ${l}`).join('\n');
+
+  if (st.fingerprint === fp) {
+    if (now - (st.lastSentAt || 0) < REMIND_MS) return { send: null, state: { fingerprint: st.fingerprint, firstSentAt: st.firstSentAt, lastSentAt: st.lastSentAt } };
     const days = ((now - st.firstSentAt) / REMIND_MS).toFixed(1);
     return {
       send: {
         kind: 'reminder',
-        subject: `Undercut ops check STILL FAILING (${days} d)`,
+        subject: headerSafe(`Undercut ops check STILL FAILING (${days} d)`),
         body: `Still failing at ${at}, first reported ${new Date(st.firstSentAt).toISOString()}.\n\n${list}\n`,
       },
-      state: { ...st, lastSentAt: now },
+      state: { fingerprint: st.fingerprint, firstSentAt: st.firstSentAt, lastSentAt: now },
     };
   }
-  return { send: null, state: st };
+
+  // a new or different failure: confirm it on consecutive runs first
+  const seen = st.candidate === fp ? (st.seen || 1) + 1 : 1;
+  if (seen < confirmRuns) return { send: null, state: { ...st, candidate: fp, seen } };
+
+  const name = effective.length === 1 ? (effective[0].match(/^\*\*(\w+)\*\*/) || [])[1] : null;
+  return {
+    send: {
+      kind: st.fingerprint ? 'changed' : 'new',
+      subject: headerSafe(`Undercut ops check FAILED: ${name || `${effective.length} checks`}`),
+      body: `The Undercut ops check failed at ${at} (seen on ${seen} runs in a row).\n\n${list}\n`,
+    },
+    state: { fingerprint: fp, firstSentAt: st.fingerprint ? st.firstSentAt : now, lastSentAt: now },
+  };
+}
+
+// A check that cannot run at all waits longer: pitwall-check.js reads OpenF1 anonymously, and the
+// provider refuses anonymous callers for the length of a live session (F-128), so two or three
+// hourly collection errors on a race day are expected. Four in a row is not.
+const BROKEN_CONFIRM_RUNS = 4;
+
+/**
+ * A FAIL report for a run that could not produce one (collection error, share not writable, no
+ * key), so a check that is broken is mailed like a check that fails.
+ */
+function brokenReport(now, reason) {
+  return `# Pit Wall check · ${new Date(now).toISOString()} · FAIL\n\n- ✗ **check** could not run: ${headerSafe(reason).replace(/\d+(?:\.\d+)?\s*(?:s|sec|min|h|d)\b/g, '')}\n`;
 }
 
 /** KEY=value lines (optionally quoted); comments and blanks ignored. */
@@ -103,4 +139,4 @@ function parseEnv(text) {
   return out;
 }
 
-module.exports = { decide, failures, verdict, normalise, fingerprint, parseEnv, REMIND_MS };
+module.exports = { decide, failures, verdict, normalise, fingerprint, headerSafe, brokenReport, parseEnv, REMIND_MS, CONFIRM_RUNS, BROKEN_CONFIRM_RUNS };
