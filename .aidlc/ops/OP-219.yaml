@@ -1,0 +1,46 @@
+id: OP-219
+title: "Pit Wall portal: follows the live team (F-144)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-11-13T20:53:21.830Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-13T20:53:25.327Z
+    head_sha: bb8177aa5157c6fe4402de5b4fb40aedb9375a98
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-219/dry-run-2026-11-13T20-53-25-327Z.log
+    log_sha256: 02f0084e78b703e66ea77b42f98f169a4897905749aa0797d706767ffda2cc0d
+    lines: 1
+  - step: dry-run
+    at: 2026-11-13T20:53:30.491Z
+    head_sha: bb8177aa5157c6fe4402de5b4fb40aedb9375a98
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-219/dry-run-2026-11-13T20-53-30-491Z.log
+    log_sha256: 3e7841ee54ef34883864e02223bb7d58269ee405d67f6df9ba69bd4c7c952d68
+    lines: 90
+  - step: gates
+    at: 2026-11-13T20:58:40.476Z
+    head_sha: bb8177aa5157c6fe4402de5b4fb40aedb9375a98
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-13T20:58:40.481Z
+    head_sha: bb8177aa5157c6fe4402de5b4fb40aedb9375a98
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-219/apply-2026-11-13T20-58-40-481Z.log
+    log_sha256: d087f945f7498ad9ccc251dc1e85631d4b3ad6ede092c7705ac37e0c55e50dc6
+    lines: 100
+  - step: gates
+    at: 2026-11-13T21:02:34.552Z
+    head_sha: bb8177aa5157c6fe4402de5b4fb40aedb9375a98
+    exit: 0
+    gates:
+      G15: skip
