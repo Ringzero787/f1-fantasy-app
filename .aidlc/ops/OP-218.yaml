@@ -1,0 +1,38 @@
+id: OP-218
+title: Deploy F-141 auto-fill write fix (autoLockTeams)
+kind: functions-deploy
+status: applied
+params:
+  only: functions:autoLockTeams
+created_at: 2026-11-13T14:22:21.818Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-13T14:22:24.486Z
+    head_sha: bc9515a0d93c52c97a33ea23426095ff4b1dce49
+    command: git --no-pager diff --stat 'fd445c988a8770318d727b327419cbbd655d01f7' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-218/dry-run-2026-11-13T14-22-24-486Z.log
+    log_sha256: 0cd06f6b9891f760c8fe7e8564446048a622afb381d426368a77d35db447ab1a
+    lines: 60
+  - step: gates
+    at: 2026-11-13T14:45:02.149Z
+    head_sha: bc9515a0d93c52c97a33ea23426095ff4b1dce49
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-13T14:45:02.153Z
+    head_sha: bc9515a0d93c52c97a33ea23426095ff4b1dce49
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:autoLockTeams' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-218/apply-2026-11-13T14-45-02-153Z.log
+    log_sha256: 6af191cf97f492b0376dc7efd99e87463497ee4788ae163bf07c0725b46b3e6d
+    lines: 31
+  - step: gates
+    at: 2026-11-13T14:46:33.162Z
+    head_sha: bc9515a0d93c52c97a33ea23426095ff4b1dce49
+    exit: 0
+    gates:
+      G15: skip

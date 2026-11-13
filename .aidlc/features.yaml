@@ -1722,7 +1722,7 @@ features:
       - fail
   - id: F-141
     name: "UC: lock-time auto-fill never writes (constructor update assertion)"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-141.md
     created_at: 2026-11-13
     keywords:
@@ -1737,7 +1737,7 @@ features:
       - assertion
   - id: F-142
     name: "UC: Owner playtest fixes — market buy and details, team-first names, Moonshot feed, suffix surnames, car numbers"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-142.md
     created_at: 2026-11-13
     keywords:
@@ -1756,7 +1756,7 @@ features:
       - numbers
   - id: F-143
     name: "UC: Pit Wall ace call right after confirming a lineup"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-143.md
     created_at: 2026-11-13
     keywords:
@@ -1768,7 +1768,7 @@ features:
       - lineup
   - id: F-144
     name: "UC: Pit Wall portal follows the live team so recommendations re-rank after an app sale"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-144.md
     created_at: 2026-11-13
     keywords:
@@ -1783,7 +1783,7 @@ features:
       - sale
   - id: F-145
     name: "UC: Pit Wall strategies (stars and scrubs, balanced, value) read from the first picks"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-145.md
     created_at: 2026-11-13
     keywords:
