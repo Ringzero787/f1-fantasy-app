@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { applySwap, sameLineup, entity, purseOf, undoApplies, undoOf, type Purse, type Rec } from './data/logic';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { applySwap, rebaseLineup, sameLineup, entity, purseOf, undoApplies, undoOf, type Purse, type Rec } from './data/logic';
 import type { Lineup, Payload } from './data/types';
 import type { MarketPrices, RealTeam } from './data/team';
 import { NO_PASS, type PassState } from './data/access';
@@ -104,7 +104,7 @@ export const useStore = (): Store => {
   return s;
 };
 
-export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutFn, selectTeam, saver, wire: wireIn, onWire, go, displayName = null, renameTeam, renameUser, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; pass?: PassState; checkoutFn?: () => Promise<string>; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void, expect?: { bankAfter: number }) => Promise<Lineup>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; go: (p: PageName) => void; displayName?: string | null; renameTeam?: (name: string) => Promise<void>; renameUser?: (name: string) => Promise<void>; children: ReactNode }) {
+export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutFn, selectTeam, saver: saverIn, wire: wireIn, onWire, go, displayName = null, renameTeam, renameUser, children }: { payload: Payload; lineup: Lineup; real: RealContext | null; pass?: PassState; checkoutFn?: () => Promise<string>; selectTeam?: (id: string) => void; saver?: (lineup: Lineup, onStatus: (s: string | null) => void, expect?: { bankAfter: number }) => Promise<Lineup>; wire?: WirePrefs; onWire?: (prefs: WirePrefs) => void; go: (p: PageName) => void; displayName?: string | null; renameTeam?: (name: string) => Promise<void>; renameUser?: (name: string) => Promise<void>; children: ReactNode }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<string | null>(null);
   const [ui, setUi] = useState<UIState>(() => ({
@@ -112,6 +112,17 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     lineup, saved: lineup, slot: null, over: null, overTab: 'PRESENT', focus: null, thr: 25, win: 'L10', wire: 'ALL', rec: -1, recExpanded: false, recOver: null, tray: [], done: [], toast: null,
   }));
   const patch = useCallback((fn: (u: UIState) => Partial<UIState>) => setUi((u) => ({ ...u, ...fn(u) })), []);
+  // A write from this portal is in flight: the team listener echoes each of its steps, and the
+  // save itself sets the board when it lands, so those echoes must not be read as the app moving.
+  // When it ends (a failure included) the board is reconciled once more against the team as it now is.
+  const writing = useRef(0);
+  const [settled, setSettled] = useState(0);
+  const saver = useMemo(() => (saverIn ? async (...args: Parameters<typeof saverIn>) => {
+    writing.current++;
+    try { return await saverIn(...args); } finally { writing.current--; setSettled((n) => n + 1); }
+  } : undefined), [saverIn]);
+  const uiRef = useRef(ui);
+  uiRef.current = ui;
   const toast = useCallback((text: string) => {
     patch(() => ({ toast: text }));
     window.setTimeout(() => patch((u) => (u.toast === text ? { toast: null } : {})), 2400);
@@ -137,12 +148,22 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
   // Seeded from the server (and emptied on sign-out, so the next reader never inherits a history).
   const [wire, setWire] = useState<WirePrefs>(wireIn ?? EMPTY_PREFS);
   useEffect(() => { setWire(wireIn ?? EMPTY_PREFS); }, [wireIn]);
-  // The real team is the truth. When it reloads (after any write, including one that failed
-  // partway) and nothing is pending on the board, the board takes it; done calls whose undo no
-  // longer fits that lineup drop out.
+  // The real team is the truth, and it now follows the server live (a sale in the app arrives
+  // here without a reload). When nothing is pending on the board, the board takes it. When a plan
+  // IS pending and the roster moved underneath it, the reader's edits are replayed on top of the
+  // new roster (`rebaseLineup`) and the new roster becomes the saved baseline, so Reset goes to
+  // what the game holds now and Save never re-buys a driver the app just sold. The plan, the bank
+  // and every recommendation re-derive from that. Done calls whose undo no longer fits drop out.
   useEffect(() => {
-    patch((u) => (sameLineup(u.lineup, u.saved) ? { lineup, saved: lineup, done: u.done.filter((d) => undoApplies(d, lineup)) } : { done: u.done.filter((d) => undoApplies(d, lineup)) }));
-  }, [lineup, patch]);
+    const u = uiRef.current;
+    const done = u.done.filter((d) => undoApplies(d, lineup));
+    if (sameLineup(u.saved, lineup)) { patch(() => ({ done })); return; }
+    if (sameLineup(u.lineup, u.saved)) { patch(() => ({ lineup, saved: lineup, done })); return; }
+    if (writing.current > 0) { patch(() => ({ done })); return; }
+    const next = rebaseLineup(u.saved, u.lineup, lineup);
+    patch(() => ({ lineup: next, saved: lineup, done, rec: -1, recExpanded: false }));
+    if (!sameLineup(next, lineup)) toast('Your team changed in the app. Your unsaved changes are kept on top of it.');
+  }, [lineup, settled, patch, toast]);
   // Functional updates: two marks in one tick both land, rather than the second overwriting the
   // first from a stale closure. The save is a whole-document write, so running it twice is harmless.
   const changeWire = useCallback((fn: (w: WirePrefs) => WirePrefs) => setWire((w) => { const next = fn(w); onWire?.(next); return next; }), [onWire]);

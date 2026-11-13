@@ -172,3 +172,16 @@ export interface MoonshotStats {
   pointsRisked: number; pointsWon: number; cashRisked: number; cashWon: number;
   biggestHit: { moonshotId: string; adjustmentAmount: number; driverId: string; predictionType: string; raceId: string } | null;
 }
+
+/**
+ * A live team update folded into what the portal already holds. Prices and the race count stay as
+ * they were (they move on their own, slower clock); the chosen team is kept when it still exists.
+ * Returns the SAME object when nothing the portal reads has changed, so a listener's echo of the
+ * first load (or a write to a field nobody shows) does not churn every page below it.
+ */
+export function withTeams<C extends { team: RealTeam; teams: RealTeam[] }>(cur: C, teams: RealTeam[], chosenId: string | null): C | null {
+  if (teams.length === 0) return null;
+  const team = teams.find((t) => t.id === chosenId) ?? teams[0];
+  if (team.id === cur.team.id && JSON.stringify(teams) === JSON.stringify(cur.teams)) return cur;
+  return { ...cur, team, teams };
+}
