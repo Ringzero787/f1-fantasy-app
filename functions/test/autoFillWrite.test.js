@@ -24,9 +24,20 @@ const CTX = {
 const EMPTY_TEAM = { drivers: [], constructor: null, budget: 1000, totalSpent: 0, scoredRaces: ['mexico_2026', 'brazil_2026'], isLocked: false };
 
 // An unreachable emulator host: nothing can be written, and a payload the SDK accepts fails
-// later with a connection error instead of the assertion.
+// later with a connection error instead of the assertion. Emulator mode also skips the Google
+// credential lookup, which otherwise fails first on a machine with no credentials (CI).
+// node --test runs each file in its own process, so this does not leak into other files.
+// Emulator mode alone still looks up Google credentials on the REST transport, which fails
+// first on a machine that has none (CI), so the client also gets a fixed, offline token.
+process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:9';
+function offlineAuth() {
+  const { OAuth2Client } = require('google-auth-library');
+  const auth = new OAuth2Client();
+  auth.setCredentials({ access_token: 'owner', expiry_date: Date.now() + 3600e3 });
+  return auth;
+}
 function offlineDb() {
-  return new admin.firestore.Firestore({ projectId: 'f141-offline', host: '127.0.0.1:9', ssl: false, preferRest: true });
+  return new admin.firestore.Firestore({ projectId: 'f141-offline', preferRest: true, auth: offlineAuth() });
 }
 
 // 'assertion: …' when the SDK refuses the payload, 'network' when it got as far as sending it
