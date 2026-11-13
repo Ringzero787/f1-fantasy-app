@@ -148,12 +148,19 @@ export function App() {
   const uid = session.state === 'in' ? session.user.uid : null;
   uidRef.current = uid;
   const loadedRef = useRef(false);
+  // The listener's newest answer, and a count of answers. A one-shot read that a snapshot overtook
+  // while it was in flight must not put the older roster back (F-144 review): it keeps its prices
+  // and takes the listener's teams.
+  const snapTeamsRef = useRef<RealContext['teams'] | null>(null);
+  const snapGenRef = useRef(0);
   const reloadReal = useCallback(async (): Promise<RealContext | null> => {
     if (!uid) return null;
+    const gen = snapGenRef.current;
     try {
-      const [teams, market] = await Promise.all([loadTeams(uid), loadMarket()]);
+      const [fetched, market] = await Promise.all([loadTeams(uid), loadMarket()]);
       // A sign-out and sign-in while this was in flight must not show one account another's team.
       if (uidRef.current !== uid) return null;
+      const teams = snapGenRef.current !== gen && snapTeamsRef.current ? snapTeamsRef.current : fetched;
       if (teams.length === 0) { setReal(null); loadedRef.current = true; return null; }
       // Keep the chosen team across a reload; fall back to the first when it is gone.
       const next: RealContext = { team: teams.find((t) => t.id === teamIdRef.current) ?? teams[0], teams, market, completedRaces: market.completedRaces };
@@ -242,22 +249,33 @@ export function App() {
   // at most once a minute. The listener's own failure is covered by that same refresh.
   useEffect(() => {
     loadedRef.current = false;
+    snapTeamsRef.current = null;
     if (!uid) return;
+    let inFlight = false;
+    const reload = () => {
+      if (inFlight) return;
+      inFlight = true;
+      void reloadReal().finally(() => { inFlight = false; });
+    };
     const stop = watchTeams(uid, (teams) => {
-      if (uidRef.current !== uid || !loadedRef.current) return;   // the first load is still in flight and brings prices with it
-      if (!realRef.current) { if (teams.length) void reloadReal(); return; }   // a first team created in the app
-      setReal((cur) => {
-        if (!cur) return cur;
-        const next = withTeams(cur, teams, teamIdRef.current);
-        if (next) teamIdRef.current = next.team.id;
-        return next;
-      });
+      if (uidRef.current !== uid) return;
+      snapTeamsRef.current = teams;
+      snapGenRef.current += 1;
+      // Not loaded yet: the first load is in flight (it takes these teams when it lands) or it
+      // failed (load again, rather than leave the listener deaf). No team shown yet but one exists:
+      // a first team created in the app. Either way a full load, one at a time.
+      if (!loadedRef.current || (!realRef.current && teams.length)) { reload(); return; }
+      const cur = realRef.current;
+      if (!cur) return;
+      const next = withTeams(cur, teams, teamIdRef.current);
+      if (next) teamIdRef.current = next.team.id;
+      setReal(next);
     }, (e) => console.warn('[pitwall] team listener:', e));
-    let last = Date.now(), inFlight = false;
+    let last = Date.now();
     const onVisible = () => {
       if (document.visibilityState !== 'visible' || inFlight || Date.now() - last < 60_000) return;
-      inFlight = true; last = Date.now();
-      void reloadReal().finally(() => { inFlight = false; });
+      last = Date.now();
+      reload();
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);

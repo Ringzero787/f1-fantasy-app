@@ -158,8 +158,8 @@ export function StoreProvider({ payload, lineup, real, pass = NO_PASS, checkoutF
     const u = uiRef.current;
     const done = u.done.filter((d) => undoApplies(d, lineup));
     if (sameLineup(u.saved, lineup)) { patch(() => ({ done })); return; }
+    if (writing.current > 0) { patch(() => ({ done })); return; }   // echoes of this portal's own save
     if (sameLineup(u.lineup, u.saved)) { patch(() => ({ lineup, saved: lineup, done })); return; }
-    if (writing.current > 0) { patch(() => ({ done })); return; }
     const next = rebaseLineup(u.saved, u.lineup, lineup);
     patch(() => ({ lineup: next, saved: lineup, done, rec: -1, recExpanded: false }));
     if (!sameLineup(next, lineup)) toast('Your team changed in the app. Your unsaved changes are kept on top of it.');
