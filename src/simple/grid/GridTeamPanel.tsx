@@ -20,6 +20,8 @@ import { GridTileSheet, sheetTargetFor, type SheetTarget, type SheetMoonshot } f
 import { GridMoonshotSheet, type MoonshotTarget } from './GridMoonshotSheet';
 import { GridMoonshotCard } from './GridMoonshotCard';
 import { GridMoonshotLive } from './GridMoonshotLive';
+import { useAceCallPrompt, aceCallWorthOpening } from './aceCallPrompt';
+import { useIsFocused } from '@react-navigation/native';
 import { GridMoonshotCoach } from './GridMoonshotCoach';
 import { useMoonshotStore } from '../../store/moonshot.store';
 import { useMoonshotLive } from '../hooks/useMoonshotLive';
@@ -186,6 +188,19 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
     const ace = holder && holder.kind !== 'empty' ? { id: holder.id, eligible: holder.aceEligible } : null;
     return aceAdvice(drivers, ace, pwProjections.byId);
   }, [pwProjections, pwRound, team, tiles, aceLocked]);
+  // F-143: a lineup just confirmed in the picker → open Pit Wall's ace call on it, once. This screen
+  // stays mounted under the picker, so it waits until it is in front again (the picker has closed)
+  // and for the advice (projections, the new roster) rather than dropping the request; it lapses
+  // on its own. Opens only on a driver the roster holds, so the sheet has something to show.
+  const focused = useIsFocused();
+  const aceCallRequestedAt = useAceCallPrompt((s) => s.requestedAt);
+  useEffect(() => {
+    if (aceCallRequestedAt == null || !focused || !pwAce) return;
+    if (!useAceCallPrompt.getState().consume() || !aceCallWorthOpening(pwAce)) return;
+    if (!(team?.drivers ?? []).some((d) => d.driverId === pwAce.id)) return;
+    track('pitwall_ace_call_after_save', { kind: pwAce.kind });
+    setSheetId(pwAce.id);
+  }, [aceCallRequestedAt, focused, pwAce, team?.drivers]);
   const isFull = hasTeam && open === 0;
   const reviewed = React.useRef(false);
   useEffect(() => {
