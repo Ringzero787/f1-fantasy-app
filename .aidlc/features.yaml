@@ -1,4 +1,4 @@
-next_id: 141
+next_id: 142
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1720,3 +1720,18 @@ features:
       - emails
       - owner
       - fail
+  - id: F-141
+    name: "UC: lock-time auto-fill never writes (constructor update assertion)"
+    status: building
+    spec: .aidlc/specs/F-141.md
+    created_at: 2026-11-13
+    keywords:
+      - lock
+      - time
+      - auto
+      - fill
+      - never
+      - writes
+      - constructor
+      - update
+      - assertion
