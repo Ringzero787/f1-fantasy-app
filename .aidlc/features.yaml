@@ -1,4 +1,4 @@
-next_id: 143
+next_id: 144
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1754,3 +1754,15 @@ features:
       - suffix
       - surnames
       - numbers
+  - id: F-143
+    name: "UC: Pit Wall ace call right after confirming a lineup"
+    status: building
+    spec: .aidlc/specs/F-143.md
+    created_at: 2026-11-13
+    keywords:
+      - wall
+      - call
+      - right
+      - after
+      - confirming
+      - lineup

@@ -22,6 +22,7 @@ import { PRICING_CONFIG } from '../../config/pricing.config';
 import { constructorShortName } from './entityNames';
 import { GridMoonshotSheet, type MoonshotTarget } from './GridMoonshotSheet';
 import { GridTileSheet, type SheetTarget } from './GridTileSheet';
+import { useAceCallPrompt } from './aceCallPrompt';
 import { GridMoonshotCoach } from './GridMoonshotCoach';
 import { track } from '../../services/analytics.service';
 import { useMoonshotStore } from '../../store/moonshot.store';
@@ -296,6 +297,8 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         await step(`Add ${b.name}`, () => store.addDriver(b.id, b.contract, d ? { id: d.id, name: d.name, shortName: d.shortName, constructorId: d.constructorId, price: d.price } : undefined));
       }
       setSummaryOpen(false);
+      // F-143: the Team screen opens Pit Wall's ace call on the new lineup
+      if (done.length > 0) useAceCallPrompt.getState().request();
       router.back();
     } catch (e) {
       setSummaryOpen(false);

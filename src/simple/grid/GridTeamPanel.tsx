@@ -20,6 +20,7 @@ import { GridTileSheet, sheetTargetFor, type SheetTarget, type SheetMoonshot } f
 import { GridMoonshotSheet, type MoonshotTarget } from './GridMoonshotSheet';
 import { GridMoonshotCard } from './GridMoonshotCard';
 import { GridMoonshotLive } from './GridMoonshotLive';
+import { useAceCallPrompt, aceCallWorthOpening } from './aceCallPrompt';
 import { GridMoonshotCoach } from './GridMoonshotCoach';
 import { useMoonshotStore } from '../../store/moonshot.store';
 import { useMoonshotLive } from '../hooks/useMoonshotLive';
@@ -186,6 +187,16 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
     const ace = holder && holder.kind !== 'empty' ? { id: holder.id, eligible: holder.aceEligible } : null;
     return aceAdvice(drivers, ace, pwProjections.byId);
   }, [pwProjections, pwRound, team, tiles, aceLocked]);
+  // F-143: a lineup just confirmed in the picker → open Pit Wall's ace call on it, once. Waits for
+  // the advice (projections, the new roster) rather than dropping the request; it lapses on its own.
+  const aceCallRequestedAt = useAceCallPrompt((s) => s.requestedAt);
+  useEffect(() => {
+    if (aceCallRequestedAt == null || !pwAce) return;
+    if (useAceCallPrompt.getState().consume() && aceCallWorthOpening(pwAce)) {
+      track('pitwall_ace_call_after_save', { kind: pwAce.kind });
+      setSheetId(pwAce.id);
+    }
+  }, [aceCallRequestedAt, pwAce]);
   const isFull = hasTeam && open === 0;
   const reviewed = React.useRef(false);
   useEffect(() => {
