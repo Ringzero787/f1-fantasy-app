@@ -170,7 +170,9 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     .filter((id) => !current.drivers.some((r) => r.id === id))
     .map((id) => market.drivers[id]?.price ?? 0) : []), [pending, current, market]);
   const detectedStrategy = useMemo(() => detectStrategy(addedPrices, (allDrivers ?? []).map((d) => d.price)), [addedPrices, allDrivers]);
-  const activeStrategy = strategyChoice ?? detectedStrategy;
+  // No picks added (all removed again) → no strategy, and the player's earlier choice is forgotten.
+  const activeStrategy = detectedStrategy ? strategyChoice ?? detectedStrategy : null;
+  useEffect(() => { if (!detectedStrategy) setStrategyChoice(null); }, [detectedStrategy]);
   const strategyPlan = useMemo(() => {
     if (!proj || !pending || !plan || !activeStrategy || locked || missingDrivers <= 0) return null;
     const candidates = (allDrivers ?? [])
@@ -178,12 +180,12 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       .map((d) => ({ id: d.id, price: d.price }));
     return planStrategy(activeStrategy, candidates, proj.byId, missingDrivers, plan.budgetAfter - ctorReserve);
   }, [proj, pending, plan, activeStrategy, locked, missingDrivers, allDrivers, team?.driverLockouts, completedRaceCount, ctorReserve]);
-  const strategyTracked = useRef<string | null>(null);
+  const strategyTracked = useRef(new Set<string>());
   useEffect(() => {
     if (!activeStrategy || !strategyPlan) return;
     const key = `${activeStrategy}:${strategyChoice ? 'chosen' : 'read'}`;
-    if (strategyTracked.current === key) return;
-    strategyTracked.current = key;
+    if (strategyTracked.current.has(key)) return;
+    strategyTracked.current.add(key);
     track('pitwall_strategy_shown', { strategy: activeStrategy, chosen: !!strategyChoice });
   }, [activeStrategy, strategyChoice, strategyPlan]);
 

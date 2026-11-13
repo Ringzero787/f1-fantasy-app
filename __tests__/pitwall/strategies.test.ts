@@ -61,10 +61,16 @@ describe('planStrategy', () => {
       expect(p!.ids).not.toContain('star1');
     }
   });
-  it('balanced with a lopsided bank falls back to the most points', () => {
-    const p = planStrategy('BALANCED', MARKET, BY, 2, 600)!;
+  it('balanced with no set inside the band falls back to the most points', () => {
+    // 2 seats, bank 600 → band 150..450: only star1 is inside it, so no balanced pair exists
+    const two = [{ id: 'star1', price: 300 }, { id: 'cheap3', price: 20 }, { id: 'cheap2', price: 30 }];
+    const p = planStrategy('BALANCED', two, BY, 2, 600)!;
     expect(p.strategy).toBe('BALANCED');
-    expect(p.ids.sort()).toEqual(['star1', 'star2']);
+    expect(p.ids.sort()).toEqual(['cheap2', 'star1']);
+  });
+  it('an unpriced pick is ignored when reading the strategy', () => {
+    expect(detectStrategy([0], PRICES)).toBeNull();
+    expect(detectStrategy([0, 300], PRICES)).toBe('STARS');
   });
   it('nothing fits, or nothing to fill: null', () => {
     expect(planStrategy('STARS', MARKET, BY, 3, 50)).toBeNull();

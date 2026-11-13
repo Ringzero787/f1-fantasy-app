@@ -15,7 +15,7 @@ import type { Projection } from './projections';
 export type StrategyId = 'STARS' | 'BALANCED' | 'VALUE';
 
 export const STRATEGIES: { id: StrategyId; label: string; blurb: string }[] = [
-  { id: 'STARS', label: 'STARS & SCRUBS', blurb: 'ONE BIG NAME, THE REST CHEAP' },
+  { id: 'STARS', label: 'STARS', blurb: 'STARS & SCRUBS · ONE BIG NAME, THE REST CHEAP' },
   { id: 'BALANCED', label: 'BALANCED', blurb: 'MID-PRICED ACROSS THE BOARD' },
   { id: 'VALUE', label: 'VALUE', blurb: 'MOST POINTS PER DOLLAR' },
 ];
@@ -35,6 +35,8 @@ export function priceTier(price: number, marketPrices: number[]): 'star' | 'mid'
 
 /** The strategy the first taps point to; null before any. */
 export function detectStrategy(addedPrices: number[], marketPrices: number[]): StrategyId | null {
+  // an unpriced pick says nothing about the build (and would read as budget)
+  addedPrices = addedPrices.filter((p) => p > 0);
   if (addedPrices.length === 0) return null;
   const tiers = addedPrices.map((p) => priceTier(p, marketPrices));
   if (tiers.includes('star')) return 'STARS';
@@ -49,12 +51,12 @@ export interface StrategyPlan {
   med: number;
 }
 
-const MAX_COMBOS = 200_000;
 
 /**
  * The drivers that fill `seats` under `bank` for the strategy, or null when nothing fits (or there
  * is nothing to fill). Candidates must have a positive projection. Exhaustive over combinations —
- * at most four open seats once a first driver is picked, about 7,000 sets on a 22-car grid.
+ * at most four open seats once a first driver is picked, about 7,000 sets on a 22-car grid (and
+ * 26,000 for five). Pruned only by the bank; no cap, so a plan is never cut short and biased cheap.
  */
 export function planStrategy(
   strategy: StrategyId,
@@ -87,7 +89,6 @@ function search(
   const band = bank / seats;
   type Best = { ids: string[]; cost: number; med: number; key: number[] };
   let best: Best | null = null;
-  let seen = 0;
   const pick: number[] = [];
 
   const score = (cost: number, med: number, prices: number[], meds: number[]): number[] | null => {
@@ -104,9 +105,7 @@ function search(
   };
 
   const walk = (start: number, cost: number) => {
-    if (seen > MAX_COMBOS) return;
     if (pick.length === seats) {
-      seen++;
       const chosen = pick.map((i) => pool[i]);
       const med = chosen.reduce((s, c) => s + c.med, 0);
       const key = score(cost, med, chosen.map((c) => c.price), chosen.map((c) => c.med));
