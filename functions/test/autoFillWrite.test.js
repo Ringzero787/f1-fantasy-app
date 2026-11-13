@@ -10,7 +10,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
-const { planAutoFill, autoFillWrite } = require('../lib/teams/autoFill.js');
+const { planAutoFill, autoFillWrite, autoFillTeamTx } = require('../lib/teams/autoFill.js');
 
 const C = (id, price, form, constructorId = 'x') => ({ id, name: id, shortName: id.slice(0, 3).toUpperCase(), constructorId, price, form });
 const CTX = {
@@ -29,14 +29,27 @@ function offlineDb() {
   return new admin.firestore.Firestore({ projectId: 'f141-offline', host: '127.0.0.1:9', ssl: false, preferRest: true });
 }
 
-async function commitOutcome(db, apply) {
-  const batch = db.batch();
-  apply(batch, db.doc('fantasyTeams/t1'));
+// 'assertion: …' when the SDK refuses the payload, 'network' when it got as far as sending it
+// (connection refused, or still trying when the timer fires), and the error itself otherwise —
+// so a payload rejected for some other reason does not pass as accepted.
+async function commitOutcome(apply) {
+  const db = offlineDb();
+  let timer;
   try {
-    await Promise.race([batch.commit(), new Promise((_, reject) => setTimeout(() => reject(new Error('reached the network')), 3000))]);
+    const batch = db.batch();
+    apply(batch, db.doc('fantasyTeams/t1'));
+    await Promise.race([
+      batch.commit(),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(Object.assign(new Error('still sending'), { offlineTimeout: true })), 3000); }),
+    ]);
     return 'committed';
   } catch (e) {
-    return e && e.code === 'ERR_ASSERTION' ? `assertion: ${e.message}` : 'accepted by the SDK';
+    if (e && e.code === 'ERR_ASSERTION') return `assertion: ${e.message}`;
+    if (e && (e.offlineTimeout || /ECONNREFUSED|fetch failed|UNAVAILABLE|connect/i.test(`${e.message} ${e.cause && e.cause.code}`) || e.code === 14)) return 'network';
+    return `other: ${e && e.message}`;
+  } finally {
+    clearTimeout(timer);
+    await db.terminate().catch(() => {});
   }
 }
 
@@ -48,22 +61,58 @@ test('a team that needs a constructor gets one in the plan (the case that always
 });
 
 test('the auto-fill write passes the real SDK write path with a constructor in it', async () => {
-  const db = offlineDb();
   const plan = planAutoFill(EMPTY_TEAM, CTX);
   const { data, options } = autoFillWrite(EMPTY_TEAM, plan, 'las_vegas_2026');
   assert.ok('constructor' in data, 'the payload under test must carry the constructor');
-  const outcome = await commitOutcome(db, (b, ref) => b.set(ref, data, options));
-  await db.terminate();
-  assert.notEqual(outcome.slice(0, 9), 'assertion', `the SDK rejected the auto-fill write: ${outcome}`);
+  const outcome = await commitOutcome((b, ref) => b.set(ref, data, options));
+  assert.equal(outcome, 'network', `the SDK did not accept the auto-fill write: ${outcome}`);
 });
 
 test('control: the old update() shape is still rejected, so the test above can tell them apart', async () => {
-  const db = offlineDb();
   const plan = planAutoFill(EMPTY_TEAM, CTX);
   const { data } = autoFillWrite(EMPTY_TEAM, plan, 'las_vegas_2026');
-  const outcome = await commitOutcome(db, (b, ref) => b.update(ref, data));
-  await db.terminate();
+  const outcome = await commitOutcome((b, ref) => b.update(ref, data));
   assert.match(outcome, /^assertion: Can't merge current value into a nested object/);
+});
+
+// A stand-in for db.runTransaction that serves one team document and records the writes.
+function recordingDb(teamData) {
+  const calls = [];
+  const ref = { path: 'fantasyTeams/t1' };
+  const db = {
+    runTransaction: async (fn) => fn({
+      get: async (r) => ({ exists: teamData !== null, data: () => teamData, ref: r }),
+      set: (r, data, options) => calls.push({ op: 'set', r, data, options }),
+      update: (r, data) => calls.push({ op: 'update', r, data }),
+    }),
+  };
+  return { db, ref, calls };
+}
+
+test('autoFillTeamTx sets the planned payload with mergeFields on the team it read', async () => {
+  const { db, ref, calls } = recordingDb(EMPTY_TEAM);
+  const plan = await autoFillTeamTx(db, ref, CTX, 'las_vegas_2026');
+  assert.ok(plan && plan.constructor, 'the fill must buy a constructor for this team');
+  assert.equal(calls.length, 1);
+  const [call] = calls;
+  assert.equal(call.op, 'set', 'update() with a `constructor` key throws inside the SDK (F-141)');
+  assert.equal(call.r, ref);
+  assert.deepEqual([...call.options.mergeFields].sort(), Object.keys(call.data).sort());
+  assert.deepEqual(call.data.constructor, plan.constructor);
+  assert.deepEqual(call.data.drivers, plan.drivers);
+  assert.equal(call.data.lastAutoFill.raceId, 'las_vegas_2026');
+});
+
+test('autoFillTeamTx writes nothing for a missing, locked or complete team', async () => {
+  for (const team of [null, { ...EMPTY_TEAM, isLocked: true }]) {
+    const { db, ref, calls } = recordingDb(team);
+    assert.equal(await autoFillTeamTx(db, ref, CTX, 'las_vegas_2026'), null);
+    assert.equal(calls.length, 0);
+  }
+  const full = { ...EMPTY_TEAM, drivers: CTX.drivers.slice(0, 5).map((d) => ({ driverId: d.id })), constructor: { constructorId: 'red_bull' } };
+  const { db, ref, calls } = recordingDb(full);
+  assert.equal(await autoFillTeamTx(db, ref, CTX, 'las_vegas_2026'), null);
+  assert.equal(calls.length, 0);
 });
 
 test('the write replaces each field whole and names every field it writes', () => {
@@ -87,9 +136,12 @@ test('a team that already has a constructor keeps it: written back unchanged, no
   assert.equal(data.lastAutoFill.constructorId, null);
 });
 
-test('autoFillTeamTx writes through autoFillWrite with set(), never update()', () => {
+test('source guard: autoFillTeamTx writes through autoFillWrite, never tx.update()', () => {
   const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src', 'teams', 'autoFill.ts'), 'utf8');
-  const body = src.slice(src.indexOf('export async function autoFillTeamTx'));
+  const start = src.indexOf('export async function autoFillTeamTx');
+  assert.notEqual(start, -1, 'autoFillTeamTx moved: rewrite this guard with it');
+  const next = src.indexOf('\nexport ', start + 1);
+  const body = src.slice(start, next === -1 ? undefined : next);
   assert.match(body, /autoFillWrite\(/);
   assert.doesNotMatch(body, /tx\.update\(/, 'tx.update() with a `constructor` key throws inside the SDK (F-141)');
 });
