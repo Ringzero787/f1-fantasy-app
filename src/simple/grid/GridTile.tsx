@@ -93,7 +93,12 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
       {/* top row: number / TEAM · AUTO · ACE — season pts */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
-          <MonoLabel color={isCtor ? colors.primary : colors.text.muted} style={{ letterSpacing: scaled(11) * 0.14 }}>
+          {/* the car number in the team's colour, a step up from the label size, so it reads at a glance */}
+          <MonoLabel
+            color={isCtor ? colors.primary : accent}
+            size={isCtor ? undefined : 13}
+            style={isCtor ? { letterSpacing: scaled(11) * 0.14 } : { letterSpacing: scaled(13) * 0.1, fontFamily: family.mono.bold }}
+          >
             {isCtor ? 'TEAM' : tile.tag}
           </MonoLabel>
           {tile.auto ? <Pill label="AUTO" fg={colors.primary} bg="transparent" border={colors.primary} /> : null}

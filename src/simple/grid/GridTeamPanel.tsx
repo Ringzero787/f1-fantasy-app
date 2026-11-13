@@ -115,7 +115,8 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   useEffect(() => { if (moonshotAvail === 'open' && moonshotCfg.tutorialEnabled && user?.id) checkTutorial(user.id); }, [moonshotAvail, moonshotCfg.tutorialEnabled, user?.id, checkTutorial]);
   useEffect(() => { if (moonshotAvail === 'open' && moonshotCfg.tutorialEnabled && tutorialSeen === false && !tutorialOpen) { openTutorial(); track('moonshot_tutorial_viewed', { from: 'unlock' }); } }, [moonshotAvail, moonshotCfg.tutorialEnabled, tutorialSeen]); // eslint-disable-line react-hooks/exhaustive-deps
   const driverNameOf = useCallback((id: string) => remoteDrivers.find((d) => d.id === id)?.name ?? id, [remoteDrivers]);
-  const memberNameOf = useCallback((uid: string) => leagueMembers.find((m) => m.userId === uid)?.displayName ?? 'Player', [leagueMembers]);
+  // F-142: the race-day Moonshot list names teams, like the league feed
+  const memberNameOf = useCallback((uid: string) => { const m = leagueMembers.find((x) => x.userId === uid); return m?.teamName || m?.displayName || 'Player'; }, [leagueMembers]);
 
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
   useEffect(() => {

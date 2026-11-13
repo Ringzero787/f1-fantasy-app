@@ -429,6 +429,24 @@ export function declarationLine(call: MoonshotCall, driverName: string, who: str
   return `🚀 ${who.toUpperCase()} CALLED A MOONSHOT · ${driverName.toUpperCase()} — ${predictionLabel(call.predictionType, call.predictionTarget)} · ${call.stakeAmount.toLocaleString()} ${currencyWord(call.stakeCurrency)} ${copyText(cfg, 'atRisk')} · ${copyText(cfg, 'modelChance')} ${chancePct(call.modelProbability)} · ${copyText(cfg, 'reward')} ${multiplierLabel(call.multiplier)} · ${copyText(cfg, 'hit')} ${signed(call.potentialReward)}`;
 }
 
+/**
+ * F-142: the league feed's one-liners — the call's points and the team, nothing else. The owner
+ * found the full declaration (stake, risk, model chance, reward) too much for a list, and it named
+ * the player rather than the team. The full lines above stay for the sheets.
+ *   board:   "🚀 MOONSHOT +1,000 POINTS · BOX BOX BOYS"   (what it pays if it hits)
+ *   history: "🔥 MOONSHOT +1,000 POINTS · BOX BOX BOYS" / "💥 MOONSHOT −200 POINTS · …" / "↩ MOONSHOT VOID · …"
+ */
+export function boardShortLine(call: Pick<MoonshotCall, 'potentialReward' | 'stakeCurrency'>, team: string, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
+  return `🚀 ${copyText(cfg, 'tabTitle')} ${signed(call.potentialReward)} ${currencyWord(call.stakeCurrency)} · ${team.toUpperCase()}`;
+}
+
+export function activityShortLine(e: Pick<ActivityEntry, 'type' | 'adjustmentAmount' | 'stakeCurrency'>, team: string, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
+  const title = copyText(cfg, 'tabTitle');
+  if (e.type === 'MOONSHOT_VOID') return `↩ ${title} VOID · ${team.toUpperCase()}`;
+  const glyph = e.type === 'MOONSHOT_HIT' ? '🔥' : e.type === 'MOONSHOT_MISSED' ? '💥' : '🚀';
+  return `${glyph} ${title} ${signed(e.adjustmentAmount)} ${currencyWord(e.stakeCurrency)} · ${team.toUpperCase()}`;
+}
+
 /** "🔥 MOONSHOT HIT · Nathan called Hadjar Podium. Hadjar finished P3. +1,000 Points" (SPEC §29). An entry of a kind this build does not know reads as a plain Moonshot line. */
 export function activityLine(e: ActivityEntry, driverName: string, who: string, cfg?: Pick<MoonshotClientConfig, 'copy'> | null): string {
   const known = e.type === 'MOONSHOT_HIT' || e.type === 'MOONSHOT_MISSED' || e.type === 'MOONSHOT_VOID';

@@ -71,7 +71,7 @@ export function GridMoonshotLive({ call, board, positions, cfg, driverName, name
               <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
                 <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                   <Text numberOfLines={1} style={{ fontFamily: family.ui.black, fontSize: scaled(12), letterSpacing: scaled(12) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>
-                    {(b.displayName ?? nameOf(b.userId)).toUpperCase()} · {driverName(b.driverId)} — {predictionLabel(b.predictionType, b.predictionTarget)}
+                    {(b.teamName || nameOf(b.userId)).toUpperCase()} · {driverName(b.driverId)} — {predictionLabel(b.predictionType, b.predictionTarget)}
                   </Text>
                   <Text style={[mono(10, 'medium'), { color: colors.text.muted }]}>
                     {b.stakeAmount.toLocaleString()} {currencyWord(b.stakeCurrency)} · {chancePct(b.modelProbability)} · {multiplierLabel(b.multiplier)} · {copyText(cfg, 'hit')} {signed(b.potentialReward)}{pos ? ` · P${pos}` : ''}

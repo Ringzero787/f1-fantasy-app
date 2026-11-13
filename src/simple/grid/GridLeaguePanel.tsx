@@ -45,7 +45,6 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const activity = useMoonshotStore((s) => s.activity);
   const loadBoard = useMoonshotStore((s) => s.loadBoard);
   const loadActivity = useMoonshotStore((s) => s.loadActivity);
-  const remoteDrivers = useRemoteConfigStore((s) => s.drivers);
   useEffect(() => {
     if (moonshotAvail !== 'open' || !leagueId) return;
     loadActivity(leagueId);
@@ -53,8 +52,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   }, [moonshotAvail, leagueId, lockout.nextRace?.id, loadActivity, loadBoard]); // eslint-disable-line react-hooks/exhaustive-deps
   const feed = moonshotAvail === 'open' && leagueId ? (
     <GridMoonshotFeed board={board.filter((b) => !lockout.nextRace || b.raceId === lockout.nextRace.id)} activity={activity} cfg={moonshotCfg}
-      driverName={(id) => remoteDrivers.find((d) => d.id === id)?.name ?? id}
-      nameOf={(uid) => members.find((m) => m.userId === uid)?.displayName ?? 'Player'}
+      teamOf={(uid) => { const m = members.find((x) => x.userId === uid); return m?.teamName || m?.displayName || 'Team'; }}
       raceLabel={lockout.nextRace ? `RD ${lockout.nextRace.round} · ${shortRaceName(lockout.nextRace.name).toUpperCase()}` : null} />
   ) : null;
   const [refreshing, setRefreshing] = useState(false);
@@ -111,10 +109,12 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
     if (!league) return [];
     if (raceId) return raceResultRows(raceResult, userId);
     const mine = members.filter((m) => m.leagueId === league.id);
-    const winsByUser = new Map(mine.map((m) => [m.userId, m.raceWins]));
-    // Race wins ride on the team line of the season table.
-    return rankStandings(mine, sort, userId).map((r) => (sort === 'season' ? { ...r, team: teamLineWithWins(r.team, winsByUser.get(r.userId)) } : r));
+    return rankStandings(mine, sort, userId);
   }, [members, league, sort, userId, raceId, raceResult]);
+  // Race wins ride on the small line of the season table. F-142: that line is the player's name now
+  // (the team is the headline), and the wins stay out of the rows so the shared text is unchanged.
+  const winsByUser = useMemo(() => new Map(members.filter((m) => m.leagueId === league?.id).map((m) => [m.userId, m.raceWins])), [members, league?.id]);
+  const showWins = !raceId && sort === 'season';
 
   const selectorValue = raceId ?? sort;
   const reportRaceId = raceId ?? options[0]?.raceId ?? null;
@@ -245,7 +245,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
           <Pressable
             onPress={() => router.push({ pathname: '/(simple)/member/[userId]', params: { userId: item.userId, leagueId: league.id } } as never)}
             accessibilityRole="button"
-            accessibilityLabel={`${item.rank}, ${item.name}, ${item.shown}`}
+            accessibilityLabel={`${item.rank}, ${item.team || item.name}${item.team ? `, ${item.name}` : ''}, ${item.shown}`}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: scaled(18), borderBottomWidth: 1, borderBottomColor: colors.borderLight, opacity: pressed ? 0.7 : 1 })}
           >
             <View style={{ width: scaled(44), gap: 3 }}>
@@ -253,8 +253,13 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
               <Text style={[mono(10), { color: item.movementDir === 'up' ? colors.positive : item.movementDir === 'down' ? colors.primary : colors.text.muted }]}>{item.movement}</Text>
             </View>
             <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>{item.name}</Text>
-              <Text numberOfLines={1} style={[mono(11, 'medium'), { color: colors.text.muted, textTransform: 'uppercase' }]}>{item.team}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>{item.team || item.name}</Text>
+              {/* F-142: the team is the headline, the player's name the small line */}
+              {item.team || (showWins && winsByUser.get(item.userId)) ? (
+                <Text numberOfLines={1} style={[mono(11, 'medium'), { color: colors.text.muted, textTransform: 'uppercase' }]}>
+                  {item.team ? teamLineWithWins(item.name, showWins ? winsByUser.get(item.userId) : 0) : teamLineWithWins('', winsByUser.get(item.userId))}
+                </Text>
+              ) : null}
             </View>
             <View style={{ alignItems: 'flex-end', gap: 4 }}>
               <Text style={[mono(18), { letterSpacing: -scaled(18) * 0.02 }]}>{item.shown}</Text>

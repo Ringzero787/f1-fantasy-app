@@ -5,7 +5,7 @@ import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { usePrefsStore } from '../../store/prefs.store';
 import { useRoundReport } from '../hooks/useRoundReport';
 import { MonoLabel } from './GridBits';
-import { calloutNames, signedPoints, type ReportCallout, type ReportMoonshot, type RoundReport } from './roundReport';
+import { calloutNames, headlineOf, sublineOf, signedPoints, type ReportCallout, type ReportMoonshot, type RoundReport } from './roundReport';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useMoonshotConfig } from '../hooks/useMoonshotConfig';
 import { chancePct, copyText, multiplierLabel, predictionLabel } from './moonshot';
@@ -80,12 +80,12 @@ export function RoundReportBody({ report, loading, label }: { report: RoundRepor
         <View style={{ gap: 2 }}>
           <MonoLabel color={colors.primary}>PODIUM</MonoLabel>
           {report.podium.map((p) => (
-            <View key={p.userId} accessible accessibilityLabel={`Place ${p.rank}: ${p.isMe ? 'you' : p.name}, ${p.points} points`}
+            <View key={p.userId} accessible accessibilityLabel={`Place ${p.rank}: ${p.isMe ? 'you' : headlineOf(p)}, ${p.points} points`}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: scaled(10), borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
               <Text style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(24), letterSpacing: -scaled(22) * 0.04, color: p.rank === 1 ? colors.primary : colors.text.primary, minWidth: scaled(34) }}>{String(p.rank).padStart(2, '0')}</Text>
               <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(14), textTransform: 'uppercase', color: colors.text.primary }}>{p.isMe ? `${p.name} · YOU` : p.name}</Text>
-                {p.team ? <Text numberOfLines={1} style={[mono(10, 'medium'), { color: colors.text.muted, textTransform: 'uppercase' }]}>{p.team}</Text> : null}
+                <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(14), textTransform: 'uppercase', color: colors.text.primary }}>{p.isMe ? `${headlineOf(p)} · YOU` : headlineOf(p)}</Text>
+                {sublineOf(p) ? <Text numberOfLines={1} style={[mono(10, 'medium'), { color: colors.text.muted, textTransform: 'uppercase' }]}>{sublineOf(p)}</Text> : null}
               </View>
               <Text style={[mono(14), { color: colors.text.primary }]}>{signedPoints(p.points)}</Text>
             </View>
@@ -98,10 +98,10 @@ export function RoundReportBody({ report, loading, label }: { report: RoundRepor
         <View style={{ gap: 8 }}>
           <MonoLabel color={colors.primary}>{`🚀 MOONSHOTS · ${report.moonshots.length} CALLED · ${hits} HIT`}</MonoLabel>
           {best ? (
-            <View accessible accessibilityLabel={`Call of the round: ${best.who.isMe ? 'you' : best.who.name} called ${driverName(best.driverId)} ${predictionLabel(best.predictionType, best.predictionTarget).toLowerCase()} and it landed, ${pts(best.amount)}${best.currency === 'POINTS' ? '' : ' of cash'}`}
+            <View accessible accessibilityLabel={`Call of the round: ${best.who.isMe ? 'you' : headlineOf(best.who)} called ${driverName(best.driverId)} ${predictionLabel(best.predictionType, best.predictionTarget).toLowerCase()} and it landed, ${pts(best.amount)}${best.currency === 'POINTS' ? '' : ' of cash'}`}
               style={{ borderWidth: 1, borderColor: colors.primary, borderRadius: 14, padding: 14, gap: 6 }}>
               <MonoLabel size={10} color={colors.primary}>CALL OF THE ROUND</MonoLabel>
-              <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(18), textTransform: 'uppercase', color: colors.text.primary }}>{best.who.isMe ? `${best.who.name} · YOU` : best.who.name}</Text>
+              <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(18), textTransform: 'uppercase', color: colors.text.primary }}>{best.who.isMe ? `${headlineOf(best.who)} · YOU` : headlineOf(best.who)}</Text>
               <Text style={[mono(12), { color: colors.text.primary }]}>{called(best)}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', columnGap: 12, rowGap: 4 }}>
                 <Text style={[mono(10, 'medium'), { color: colors.text.muted }]}>{terms(best)}</Text>
@@ -110,11 +110,11 @@ export function RoundReportBody({ report, loading, label }: { report: RoundRepor
             </View>
           ) : null}
           {report.moonshots.filter((m) => m !== best).map((m) => (
-            <View key={m.id} accessible accessibilityLabel={`${m.who.isMe ? 'You' : m.who.name} called ${driverName(m.driverId)} ${predictionLabel(m.predictionType, m.predictionTarget).toLowerCase()}: ${m.outcome === 'HIT' ? 'hit' : m.outcome === 'MISSED' ? 'missed' : 'void'}${m.outcome === 'VOID' ? '' : `, ${m.amount >= 0 ? 'plus' : 'minus'} ${pts(m.amount)}${m.currency === 'POINTS' ? '' : ' of cash'}`}`}
+            <View key={m.id} accessible accessibilityLabel={`${m.who.isMe ? 'You' : headlineOf(m.who)} called ${driverName(m.driverId)} ${predictionLabel(m.predictionType, m.predictionTarget).toLowerCase()}: ${m.outcome === 'HIT' ? 'hit' : m.outcome === 'MISSED' ? 'missed' : 'void'}${m.outcome === 'VOID' ? '' : `, ${m.amount >= 0 ? 'plus' : 'minus'} ${pts(m.amount)}${m.currency === 'POINTS' ? '' : ' of cash'}`}`}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: scaled(8), borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
               <Text style={{ fontSize: scaled(13) }}>{m.outcome === 'HIT' ? '🔥' : m.outcome === 'MISSED' ? '💥' : '↩'}</Text>
               <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(12), textTransform: 'uppercase', color: colors.text.primary }}>{m.who.isMe ? `${m.who.name} · YOU` : m.who.name}</Text>
+                <Text numberOfLines={2} style={{ fontFamily: family.ui.black, fontSize: scaled(12), textTransform: 'uppercase', color: colors.text.primary }}>{m.who.isMe ? `${headlineOf(m.who)} · YOU` : headlineOf(m.who)}</Text>
                 <Text numberOfLines={2} style={[mono(10, 'medium'), { color: colors.text.muted }]}>{[called(m), terms(m)].filter(Boolean).join(' · ')}</Text>
               </View>
               <Text style={[mono(12), { color: m.outcome === 'HIT' ? colors.positive : m.outcome === 'MISSED' ? colors.negative : colors.text.muted }]}>{paid(m)}</Text>
@@ -172,7 +172,7 @@ export function RoundReportShareCard({ report, label, leagueName, inviteCode }: 
       {report.podium.map((p) => (
         <View key={p.userId} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text style={{ fontFamily: family.ui.black, color: p.rank === 1 ? '#FF2E2E' : '#F2F2F2', fontSize: 13, textTransform: 'uppercase' }}>
-            {String(p.rank).padStart(2, '0')}  {p.isMe ? `${p.name} · YOU` : p.name}
+            {String(p.rank).padStart(2, '0')}  {p.isMe ? `${headlineOf(p)} · YOU` : headlineOf(p)}
           </Text>
           <Text style={[mono(12), { color: '#F2F2F2' }]}>{signedPoints(p.points)}</Text>
         </View>

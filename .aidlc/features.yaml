@@ -1,4 +1,4 @@
-next_id: 142
+next_id: 143
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1735,3 +1735,22 @@ features:
       - constructor
       - update
       - assertion
+  - id: F-142
+    name: "UC: Owner playtest fixes — market buy and details, team-first names, Moonshot feed, suffix surnames, car numbers"
+    status: building
+    spec: .aidlc/specs/F-142.md
+    created_at: 2026-11-13
+    keywords:
+      - owner
+      - playtest
+      - fixes
+      - market
+      - details
+      - team
+      - first
+      - names
+      - moonshot
+      - feed
+      - suffix
+      - surnames
+      - numbers

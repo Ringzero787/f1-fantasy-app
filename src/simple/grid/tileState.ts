@@ -18,9 +18,13 @@ export function trendOf(last: number | null | undefined, prev: number | null | u
   return { trend: 'flat', glyph: '•', last };
 }
 
-/** Last token of a full name ("Lando Norris" → "Norris"); the name itself when single-word. */
+const NAME_SUFFIX = /^(jr|sr|ii|iii|iv)\.?$/i;
+
+/** Last token of a full name ("Lando Norris" → "Norris"); the name itself when single-word. A
+ *  generational suffix is skipped: "Carlos Sainz Jr." → "Sainz", not "Jr.". */
 export function surnameOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  while (parts.length > 1 && NAME_SUFFIX.test(parts[parts.length - 1])) parts.pop();
   return parts[parts.length - 1] || name;
 }
 
