@@ -189,11 +189,19 @@ function fmtAge(msAge) {
   return `${(msAge / (24 * HOUR)).toFixed(1)} d`;
 }
 
+/** Control characters (newlines included) become spaces; runs of whitespace collapse. */
+function oneLine(text) {
+  return String(text ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').replace(/ {2,}/g, ' ').trim();
+}
+
 function render(result, now = new Date()) {
   const mark = { ok: '✓', warn: '!', fail: '✗' };
   const lines = [`# Pit Wall check · ${now.toISOString()} · ${result.worst.toUpperCase()}`, ''];
-  for (const f of result.findings) lines.push(`- ${mark[f.level]} **${f.check}** ${f.text}`);
+  // F-140: finding text carries provider and Firestore strings (a held result's blockedReason, a
+  // worker error); one finding is one line, so a newline in them cannot forge a ✗ line or a
+  // `## ` section that the alert step reads.
+  for (const f of result.findings) lines.push(`- ${mark[f.level]} **${f.check}** ${oneLine(f.text)}`);
   return lines.join('\n') + '\n';
 }
 
-module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, evaluate, render, fmtAge };
+module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, evaluate, render, fmtAge, oneLine };
