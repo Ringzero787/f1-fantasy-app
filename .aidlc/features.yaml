@@ -1,4 +1,4 @@
-next_id: 145
+next_id: 146
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1781,3 +1781,19 @@ features:
       - rank
       - after
       - sale
+  - id: F-145
+    name: "UC: Pit Wall strategies (stars and scrubs, balanced, value) read from the first picks"
+    status: building
+    spec: .aidlc/specs/F-145.md
+    created_at: 2026-11-13
+    keywords:
+      - wall
+      - strategies
+      - stars
+      - scrubs
+      - balanced
+      - value
+      - read
+      - from
+      - first
+      - picks
