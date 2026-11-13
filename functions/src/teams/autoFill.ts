@@ -339,6 +339,41 @@ export function planAutoFill(team: Record<string, any>, ctx: FillContext): AutoF
 }
 
 /**
+ * The write that applies a plan, as set() with mergeFields — NOT update().
+ *
+ * F-141: update() expands its top-level keys as field paths into a plain object, and the key
+ * `constructor` lands on Object.prototype.constructor, so the SDK throws "AssertionError: Can't
+ * merge current value into a nested object" before anything is sent — for any value, null
+ * included. Every fill that needed a constructor failed that way from F-044 (2026-09-17) to
+ * F-141, caught and logged per team, so teams were locked empty and scored -25 a race.
+ * teamOperations.ts and the scoring pipeline already write `constructor` with set(merge).
+ * mergeFields (not merge: true) so each named field is replaced whole, as update() would have:
+ * a deep merge would keep stale keys inside lastAutoFill.
+ */
+export function autoFillWrite(
+  team: Record<string, any>,
+  plan: AutoFillPlan,
+  raceId: string,
+): { data: Record<string, any>; options: { mergeFields: string[] } } {
+  const totalSpent = typeof team.totalSpent === 'number' && Number.isFinite(team.totalSpent) ? team.totalSpent : 0;
+  const data: Record<string, any> = {
+    drivers: plan.drivers,
+    ...(plan.constructor ? { constructor: plan.constructor } : {}),
+    budget: plan.budget,
+    totalSpent: Math.round(totalSpent + plan.cost),
+    lastAutoFill: {
+      raceId,
+      driverIds: plan.filledDriverIds,
+      constructorId: plan.filledConstructorId,
+      cost: plan.cost,
+      at: admin.firestore.Timestamp.now(),
+    },
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  return { data, options: { mergeFields: Object.keys(data) } };
+}
+
+/**
  * Fill one team inside a transaction: re-read the doc so a last-minute edit
  * between the lock query and this write is honoured, write budget and
  * totalSpent as absolutes from that same read, and stamp lastAutoFill. Returns
@@ -357,21 +392,8 @@ export async function autoFillTeamTx(
     if (team.isLocked) return null;
     const plan = planAutoFill(team, ctx);
     if (!plan) return null;
-    const totalSpent = typeof team.totalSpent === 'number' && Number.isFinite(team.totalSpent) ? team.totalSpent : 0;
-    tx.update(ref, {
-      drivers: plan.drivers,
-      ...(plan.constructor ? { constructor: plan.constructor } : {}),
-      budget: plan.budget,
-      totalSpent: Math.round(totalSpent + plan.cost),
-      lastAutoFill: {
-        raceId,
-        driverIds: plan.filledDriverIds,
-        constructorId: plan.filledConstructorId,
-        cost: plan.cost,
-        at: admin.firestore.Timestamp.now(),
-      },
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    const write = autoFillWrite(team, plan, raceId);
+    tx.set(ref, write.data, write.options);
     return plan;
   });
 }
