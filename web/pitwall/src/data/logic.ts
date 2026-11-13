@@ -118,6 +118,33 @@ export const purseOf = (p: Payload, l: Lineup): Purse => ({ room: bank(p, l), un
 export const rateMyTeam = (p: Payload, l: Lineup): number => Math.min(99, Math.round(projected(p, l) / 3.6));
 export const sameLineup = (a: Lineup, b: Lineup): boolean => a.ctor === b.ctor && a.ace === b.ace && a.drivers.join('|') === b.drivers.join('|');
 
+/**
+ * The team changed on the server (a sale or buy in the app) while a plan was pending here. Replays
+ * the reader's own edits — what they took out and put in relative to the lineup the plan started
+ * from — on top of the server's lineup, so their work survives and nothing the app just did is
+ * silently undone. A driver they swapped out that the app already sold frees its partner to fill a
+ * seat if there is one; anything that no longer fits is dropped.
+ */
+export function rebaseLineup(base: Lineup, mine: Lineup, theirs: Lineup, seats = 5): Lineup {
+  if (sameLineup(mine, base)) return theirs;
+  const b = base.drivers.filter(Boolean), m = mine.drivers.filter(Boolean);
+  const removed = b.filter((id) => !m.includes(id));
+  const added = m.filter((id) => !b.includes(id));
+  const drivers = [...theirs.drivers];
+  const free: string[] = [];
+  removed.forEach((r, i) => {
+    const a = added[i];
+    const at = drivers.indexOf(r);
+    if (at >= 0) { if (a && !drivers.includes(a)) drivers[at] = a; else drivers.splice(at, 1); }
+    else if (a) free.push(a);
+  });
+  for (const a of [...free, ...added.slice(removed.length)]) if (drivers.filter(Boolean).length < seats && !drivers.includes(a)) drivers.push(a);
+  const ctor = mine.ctor !== base.ctor ? mine.ctor : theirs.ctor;
+  const wantAce = mine.ace !== base.ace ? mine.ace : theirs.ace;
+  const ace = wantAce === '' || drivers.includes(wantAce) ? wantAce : (drivers.includes(theirs.ace) ? theirs.ace : '');
+  return { drivers, ctor, ace };
+}
+
 export interface SwapRec {
   out: string; in: string; gain: number; cost: number;
   /** the gain discounted by how reliably the incoming pick delivers it — what the order is by */

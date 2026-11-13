@@ -12,16 +12,19 @@ import type { Plan } from '../data/team';
  *    refused. A blanket branch in `saveErrorText` would have reported a revoked session on
  *    any other step as a race-start lock.
  */
+let emit: ((snap: { docs: { id: string; data: () => Record<string, unknown> }[] }) => void) | null = null;
+const unsub = vi.fn();
+const onSnapshot = vi.fn((_q: unknown, next: typeof emit) => { emit = next; return unsub; });
 const updateDoc = vi.fn(async (..._args: unknown[]) => undefined);
 vi.mock('./firebase', () => ({
   callable: vi.fn(async () => async () => ({ data: {} })),
   firestore: async () => ({
     db: {},
-    m: { updateDoc, doc: (...a: unknown[]) => a, serverTimestamp: () => 'TS' },
+    m: { updateDoc, doc: (...a: unknown[]) => a, serverTimestamp: () => 'TS', collection: (...a: unknown[]) => a, where: (...a: unknown[]) => a, limit: (n: number) => n, query: (...a: unknown[]) => a, onSnapshot },
   }),
 }));
 
-const { executePlan, saveErrorText } = await import('./teamApi');
+const { executePlan, saveErrorText, watchTeams } = await import('./teamApi');
 const emptyPlan: Plan = { steps: [], bankAfter: 0, blocked: null, changed: false };
 
 beforeEach(() => { updateDoc.mockReset(); updateDoc.mockResolvedValue(undefined); });
@@ -51,5 +54,27 @@ describe('the portal ace write (F-095)', () => {
       .toMatch(/your ace is set for this round/);
     expect(saveErrorText(Object.assign(new Error('Not your team'), { code: 'permission-denied' })))
       .not.toMatch(/race has started/);
+  });
+});
+
+describe('the live team listener', () => {
+  it('maps every snapshot like a load, filtered to the owner, and stops on unsubscribe', async () => {
+    const got: unknown[] = [];
+    const stop = watchTeams('u1', (teams) => got.push(teams));
+    await vi.waitFor(() => expect(onSnapshot).toHaveBeenCalledTimes(1));
+    expect(JSON.stringify(onSnapshot.mock.calls[0][0])).toContain('"userId","==","u1"');
+    emit!({ docs: [{ id: 'T1', data: () => ({ name: 'Mine', budget: 420, drivers: [{ driverId: 'a' }, null] }) }] });
+    expect(got[0]).toMatchObject([{ id: 'T1', name: 'Mine', budget: 420, drivers: [{ driverId: 'a' }] }]);
+    stop();
+    expect(unsub).toHaveBeenCalledTimes(1);
+    emit!({ docs: [] });
+    expect(got).toHaveLength(1);
+  });
+
+  it('never subscribes when cancelled before Firestore loads', async () => {
+    onSnapshot.mockClear();
+    watchTeams('u1', () => undefined)();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(onSnapshot).not.toHaveBeenCalled();
   });
 });

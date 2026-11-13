@@ -27,20 +27,40 @@ const stampMs = (lockStatus: unknown, field: 'aceFreezeFrom' | 'aceLockTime' | '
 export async function loadTeams(uid: string): Promise<RealTeam[]> {
   const { m, db } = await firestore();
   const snap = await m.getDocs(m.query(m.collection(db, 'fantasyTeams'), m.where('userId', '==', uid), m.limit(3)));
-  return snap.docs.map((d) => {
-    const t = d.data();
-    const ctor = Object.prototype.hasOwnProperty.call(t, 'constructor') && t.constructor && typeof t.constructor === 'object' ? (t.constructor as RosterConstructor) : null;
-    return {
-      id: d.id, name: typeof t.name === 'string' ? t.name : 'Team', leagueId: typeof t.leagueId === 'string' ? t.leagueId : null,
-      drivers: Array.isArray(t.drivers) ? (t.drivers as RosterDriver[]).filter((x) => x && typeof x.driverId === 'string') : [],
-      constructor: ctor && typeof ctor.constructorId === 'string' ? ctor : null,
-      budget: num(t.budget, 0), isLocked: t.isLocked === true, aceFreezeFrom: stampMs(t.lockStatus, 'aceFreezeFrom'), aceLockTime: stampMs(t.lockStatus, 'aceLockTime'),
-      aceLockUntil: stampMs(t.lockStatus, 'aceLockUntil'), aceQualiKey: aceMarkerOf(t.lockStatus, 'aceQualiKey'), aceSprintKey: aceMarkerOf(t.lockStatus, 'aceSprintKey'),
-      scoredRaces: Array.isArray(t.scoredRaces) ? (t.scoredRaces as unknown[]).filter((x): x is string => typeof x === 'string') : [], aceDriverId: typeof t.aceDriverId === 'string' ? t.aceDriverId : null,
-      totalPoints: num(t.totalPoints), lockedPoints: num(t.lockedPoints),
-      moonshotPoints: num(t.moonshotPoints), moonshotStats: t.moonshotStats && typeof t.moonshotStats === 'object' ? (t.moonshotStats as RealTeam['moonshotStats']) : null, driverLockouts: (t.driverLockouts && typeof t.driverLockouts === 'object' ? t.driverLockouts : {}) as Record<string, number>,
-    };
-  });
+  return snap.docs.map((d) => teamFromDoc(d.id, d.data()));
+}
+
+/**
+ * The owner's teams, live. A sale or buy made in the app lands here within a second or two, so the
+ * bank the recommendations rank against follows the server instead of the first load. Same query
+ * as `loadTeams`, which the rules' owner-list branch already allows. Returns the unsubscribe.
+ */
+export function watchTeams(uid: string, onTeams: (teams: RealTeam[]) => void, onError?: (e: unknown) => void): () => void {
+  let stop: (() => void) | null = null;
+  let cancelled = false;
+  void firestore().then(({ m, db }) => {
+    if (cancelled) return;
+    stop = m.onSnapshot(
+      m.query(m.collection(db, 'fantasyTeams'), m.where('userId', '==', uid), m.limit(3)),
+      (snap) => { if (!cancelled) onTeams(snap.docs.map((d) => teamFromDoc(d.id, d.data()))); },
+      (e) => { if (!cancelled) onError?.(e); },
+    );
+  }).catch((e) => { if (!cancelled) onError?.(e); });
+  return () => { cancelled = true; stop?.(); };
+}
+
+export function teamFromDoc(id: string, t: Record<string, unknown>): RealTeam {
+  const ctor = Object.prototype.hasOwnProperty.call(t, 'constructor') && t.constructor && typeof t.constructor === 'object' ? (t.constructor as RosterConstructor) : null;
+  return {
+    id, name: typeof t.name === 'string' ? t.name : 'Team', leagueId: typeof t.leagueId === 'string' ? t.leagueId : null,
+    drivers: Array.isArray(t.drivers) ? (t.drivers as RosterDriver[]).filter((x) => x && typeof x.driverId === 'string') : [],
+    constructor: ctor && typeof ctor.constructorId === 'string' ? ctor : null,
+    budget: num(t.budget, 0), isLocked: t.isLocked === true, aceFreezeFrom: stampMs(t.lockStatus, 'aceFreezeFrom'), aceLockTime: stampMs(t.lockStatus, 'aceLockTime'),
+    aceLockUntil: stampMs(t.lockStatus, 'aceLockUntil'), aceQualiKey: aceMarkerOf(t.lockStatus, 'aceQualiKey'), aceSprintKey: aceMarkerOf(t.lockStatus, 'aceSprintKey'),
+    scoredRaces: Array.isArray(t.scoredRaces) ? (t.scoredRaces as unknown[]).filter((x): x is string => typeof x === 'string') : [], aceDriverId: typeof t.aceDriverId === 'string' ? t.aceDriverId : null,
+    totalPoints: num(t.totalPoints), lockedPoints: num(t.lockedPoints),
+    moonshotPoints: num(t.moonshotPoints), moonshotStats: t.moonshotStats && typeof t.moonshotStats === 'object' ? (t.moonshotStats as RealTeam['moonshotStats']) : null, driverLockouts: (t.driverLockouts && typeof t.driverLockouts === 'object' ? t.driverLockouts : {}) as Record<string, number>,
+  };
 }
 
 export async function loadMarket(): Promise<MarketPrices & { completedRaces: number }> {

@@ -4,9 +4,9 @@ import type { Lineup, Payload } from './data/types';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { bareExamplePayload, examplePayload, EXAMPLE_LINEUP } from './data/example';
 import { EMPTY_ACCOUNT, loadAccount, type Account } from './lib/account';
-import { aceChange, planSave, teamLineup, CONTRACT_LENGTH } from './data/team';
+import { aceChange, planSave, teamLineup, withTeams, CONTRACT_LENGTH } from './data/team';
 import { NO_PASS, PITWALL_CONTENT_OPEN, passFromClaims, payloadForAccess, type PassState } from './data/access';
-import { executePlan, loadMarket, loadTeams, saveErrorText } from './lib/teamApi';
+import { executePlan, loadMarket, loadTeams, saveErrorText, watchTeams } from './lib/teamApi';
 import { loadPayload } from './lib/payloadApi';
 import { loadLeagueDoc } from './lib/leagueApi';
 import { renameErrorText, renameTeam as renameTeamApi, renameUser as renameUserApi } from './lib/profileApi';
@@ -116,6 +116,8 @@ export function App() {
   const [account, setAccount] = useState<Account>(EMPTY_ACCOUNT);
   const [real, setReal] = useState<RealContext | null>(null);
   const teamIdRef = useRef<string | null>(null);
+  const realRef = useRef(real);
+  realRef.current = real;
   const uidRef = useRef<string | null>(null);
   const [pass, setPass] = useState<PassState>(NO_PASS);
   // Tagged with the access it was fetched for: a pass that lapses or a sign-out must not leave a
@@ -145,17 +147,27 @@ export function App() {
 
   const uid = session.state === 'in' ? session.user.uid : null;
   uidRef.current = uid;
+  const loadedRef = useRef(false);
+  // The listener's newest answer, and a count of answers. A one-shot read that a snapshot overtook
+  // while it was in flight must not put the older roster back (F-144 review): it keeps its prices
+  // and takes the listener's teams.
+  const snapTeamsRef = useRef<RealContext['teams'] | null>(null);
+  const snapGenRef = useRef(0);
   const reloadReal = useCallback(async (): Promise<RealContext | null> => {
     if (!uid) return null;
+    const gen = snapGenRef.current;
     try {
-      const [teams, market] = await Promise.all([loadTeams(uid), loadMarket()]);
+      const [fetched, market] = await Promise.all([loadTeams(uid), loadMarket()]);
       // A sign-out and sign-in while this was in flight must not show one account another's team.
       if (uidRef.current !== uid) return null;
-      if (teams.length === 0) { setReal(null); return null; }
+      const teams = snapGenRef.current !== gen && snapTeamsRef.current ? snapTeamsRef.current : fetched;
+      if (teams.length === 0) { setReal(null); loadedRef.current = true; return null; }
       // Keep the chosen team across a reload; fall back to the first when it is gone.
       const next: RealContext = { team: teams.find((t) => t.id === teamIdRef.current) ?? teams[0], teams, market, completedRaces: market.completedRaces };
       teamIdRef.current = next.team.id;
-      setReal(next);
+      // An unchanged reload keeps the object, so a refresh on focus does not churn every page.
+      setReal((cur) => (cur && JSON.stringify(cur) === JSON.stringify(next) ? cur : next));
+      loadedRef.current = true;
       return next;
     } catch { return null; }
   }, [uid]);
@@ -229,6 +241,45 @@ export function App() {
     loadAccount(uid).then((a) => { if (live) { setAccount(a); if (a.displayName) setDisplayName(a.displayName); } }).catch(() => { if (live) setAccount(EMPTY_ACCOUNT); });
     void reloadReal();
     return () => { live = false; };
+  }, [uid, reloadReal]);
+
+  // The team follows the server. A sale or buy made in the app reaches the portal through a live
+  // listener on the owner's teams (the bank the recommendations rank against moves with it); prices
+  // and the race count, which move on a slower clock, re-read when the tab comes back into view,
+  // at most once a minute. The listener's own failure is covered by that same refresh.
+  useEffect(() => {
+    loadedRef.current = false;
+    snapTeamsRef.current = null;
+    if (!uid) return;
+    let inFlight = false;
+    const reload = () => {
+      if (inFlight) return;
+      inFlight = true;
+      void reloadReal().finally(() => { inFlight = false; });
+    };
+    const stop = watchTeams(uid, (teams) => {
+      if (uidRef.current !== uid) return;
+      snapTeamsRef.current = teams;
+      snapGenRef.current += 1;
+      // Not loaded yet: the first load is in flight (it takes these teams when it lands) or it
+      // failed (load again, rather than leave the listener deaf). No team shown yet but one exists:
+      // a first team created in the app. Either way a full load, one at a time.
+      if (!loadedRef.current || (!realRef.current && teams.length)) { reload(); return; }
+      const cur = realRef.current;
+      if (!cur) return;
+      const next = withTeams(cur, teams, teamIdRef.current);
+      if (next) teamIdRef.current = next.team.id;
+      setReal(next);
+    }, (e) => console.warn('[pitwall] team listener:', e));
+    let last = Date.now();
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || inFlight || Date.now() - last < 60_000) return;
+      last = Date.now();
+      reload();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); };
   }, [uid, reloadReal]);
 
   // The preview build (scroll budget, design review) renders as a pass holder: locked frames keep
