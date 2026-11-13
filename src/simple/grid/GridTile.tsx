@@ -97,7 +97,7 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
           <MonoLabel
             color={isCtor ? colors.primary : accent}
             size={isCtor ? undefined : 13}
-            style={isCtor ? { letterSpacing: scaled(11) * 0.14 } : { letterSpacing: scaled(13) * 0.1, fontWeight: '800' }}
+            style={isCtor ? { letterSpacing: scaled(11) * 0.14 } : { letterSpacing: scaled(13) * 0.1, fontFamily: family.mono.bold }}
           >
             {isCtor ? 'TEAM' : tile.tag}
           </MonoLabel>

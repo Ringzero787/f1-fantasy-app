@@ -47,3 +47,27 @@ describe('team first, player second', () => {
     expect(calloutNames({ people: [p('me', 'Mine', true), p('Sam', 'Grid Rats')], value: 1, includesMe: true })).toBe('YOU & GRID RATS');
   });
 });
+
+import { rowAvailability } from '../../src/simple/grid/pickerArithmetic';
+
+describe('rowAvailability (F-142 picker blocking)', () => {
+  it("the owner's case: a $5 constructor with $18 is selectable, only tight", () => {
+    // three drivers picked, two seats open at $5 + $10 → the cheapest finish is $15
+    const a = rowAvailability({ kind: 'constructor', price: 5, bank: 18, reserve: 15, selected: false, owned: false });
+    expect(a).toEqual({ blocked: false, tight: true, reason: null });
+  });
+  it('a row that leaves enough is neither blocked nor tight', () => {
+    expect(rowAvailability({ kind: 'driver', price: 10, bank: 100, reserve: 20, selected: false, owned: false })).toEqual({ blocked: false, tight: false, reason: null });
+  });
+  it('over the bank blocks, and says by how much', () => {
+    expect(rowAvailability({ kind: 'driver', price: 30, bank: 18, reserve: 0, selected: false, owned: false })).toEqual({ blocked: true, tight: false, reason: '$12 OVER YOUR BANK' });
+  });
+  it('a full driver line-up and a lock-out block drivers with their reason', () => {
+    expect(rowAvailability({ kind: 'driver', price: 1, bank: 100, reserve: 0, selected: false, owned: false, driversFull: true }).reason).toMatch(/5 OF 5 DRIVERS PICKED/);
+    expect(rowAvailability({ kind: 'driver', price: 1, bank: 100, reserve: 0, selected: false, owned: false, lockedOut: true }).reason).toMatch(/LOCKED OUT/);
+  });
+  it('a selected or owned row is never blocked by price', () => {
+    expect(rowAvailability({ kind: 'driver', price: 300, bank: 0, reserve: 50, selected: true, owned: false }).blocked).toBe(false);
+    expect(rowAvailability({ kind: 'constructor', price: 300, bank: 0, reserve: 50, selected: false, owned: true })).toEqual({ blocked: false, tight: false, reason: null });
+  });
+});

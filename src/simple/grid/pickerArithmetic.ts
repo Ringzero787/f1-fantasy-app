@@ -144,3 +144,37 @@ export function pairingHints(rows: HintRow[], budgetAfter: number, missingSlots:
 
   return out.slice(0, 3);
 }
+
+/**
+ * F-142: whether a market row can be taken, and why not. Only the bank, a full driver line-up or a
+ * sell lock-out blocks a row. A row the bank covers but that leaves less than the cheapest finish
+ * of the lineup is `tight`: selectable (open seats fill at lock, F-044), never Pit Wall's mark.
+ * The reserve used to block outright, which stopped a $5 constructor with $18 in the bank.
+ */
+export interface RowAvailability { blocked: boolean; tight: boolean; reason: string | null }
+
+export function rowAvailability(o: {
+  kind: 'driver' | 'constructor';
+  price: number;
+  /** what the bank holds for this row: the plan's bank after (driver) or the swap budget (constructor) */
+  bank: number;
+  /** the cheapest finish of the rest of the lineup once this row is taken */
+  reserve: number;
+  selected: boolean;
+  /** already on the server roster: never blocked by price */
+  owned: boolean;
+  driversFull?: boolean;
+  lockedOut?: boolean;
+  teamSize?: number;
+}): RowAvailability {
+  if (o.selected) return { blocked: false, tight: false, reason: null };
+  const affordable = o.owned || o.price <= o.bank;
+  const fits = o.owned || o.price + Math.max(0, o.reserve) <= o.bank;
+  const n = o.teamSize ?? 5;
+  let reason: string | null = null;
+  if (o.kind === 'driver' && o.lockedOut) reason = 'SOLD RECENTLY · LOCKED OUT OF YOUR TEAM FOR NOW';
+  else if (o.kind === 'driver' && o.driversFull) reason = `${n} OF ${n} DRIVERS PICKED · UNTICK ONE TO ADD ANOTHER`;
+  else if (!affordable) reason = `$${o.price - o.bank} OVER YOUR BANK`;
+  const blocked = reason != null;
+  return { blocked, tight: !blocked && !fits, reason };
+}

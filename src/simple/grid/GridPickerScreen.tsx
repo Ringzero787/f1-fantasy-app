@@ -31,11 +31,11 @@ import { ColorBar, MonoLabel, PillButton, ScreenHeader, SegmentPill, ValuePill }
 import { formatLockStatus } from './lockStatus';
 import { trendOf, surnameOf as surname } from './tileState';
 import {
-  planLineup, pendingFromCurrent, canAffordAdd, canAffordConstructor, constructorSwapBudget, saveLabel, openSlotsLine,
+  planLineup, pendingFromCurrent, constructorSwapBudget, saveLabel, openSlotsLine,
   type PendingLineup, type CurrentLineup, type MarketEntry, type LineupPlan, type Kind,
 } from './lineupPlan';
 import {
-  cheapestCompletion, driverReserve, formatValue, leftoverLine, leftoverTight, pairingHints, valueOf,
+  cheapestCompletion, driverReserve, formatValue, leftoverLine, leftoverTight, pairingHints, rowAvailability, valueOf,
 } from './pickerArithmetic';
 import type { Driver, Constructor } from '../../types';
 
@@ -166,19 +166,16 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           const selected = pending.driverIds.includes(d.id);
           const onRoster = current?.drivers.some((r) => r.id === d.id) ?? false;
           const lockedOut = isDriverLockedOut(team?.driverLockouts, d.id, completedRaceCount);
-          // F-142: only the bank blocks a row. The reserve for the cheapest finish used to block too,
-          // which stopped a $5 constructor with $18 in the bank; now it only marks the row tight.
-          const affordable = onRoster || canAffordAdd(plan, d.price);
-          const fits = onRoster || canAffordAdd(plan, d.price, driverReserve(d.price, openDriverPrices, missingDrivers, ctorReserve));
-          const blocked = !selected && (driversFull || lockedOut || !affordable);
+          // F-142: only the bank, a full line-up or a lock-out blocks a row; the reserve marks it tight
+          const avail = rowAvailability({
+            kind: 'driver', price: d.price, bank: plan.budgetAfter, reserve: driverReserve(d.price, openDriverPrices, missingDrivers, ctorReserve),
+            selected, owned: onRoster, driversFull, lockedOut, teamSize: TEAM_SIZE,
+          });
           return {
             kind: 'driver', id: d.id, num: String(d.number ?? '').padStart(2, '0'), name: surname(d.name), fullName: d.name,
             sub: constructorShortName(d.constructorId, d.constructorName), constructorId: d.constructorId,
             pts: d.currentSeasonPoints ?? d.fantasyPoints ?? 0, price: d.price, selected,
-            blocked, tight: !selected && !blocked && !fits,
-            reason: selected ? null : lockedOut ? 'SOLD RECENTLY · LOCKED OUT OF YOUR TEAM FOR NOW'
-              : driversFull ? `${TEAM_SIZE} OF ${TEAM_SIZE} DRIVERS PICKED · UNTICK ONE TO ADD ANOTHER`
-              : !affordable ? `$${d.price - plan.budgetAfter} OVER YOUR BANK` : null,
+            ...avail,
             proj: proj?.byId[d.id]?.med ?? null, mark: null,
             value: valueOf(d.currentSeasonPoints ?? d.fantasyPoints ?? 0, d.price), hint: null,
           };
@@ -186,14 +183,11 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       : (allConstructors ?? []).map((c: Constructor) => {
           const selected = pending.constructorId === c.id;
           const isCurrent = current?.constructor?.id === c.id;
-          const affordable = isCurrent || canAffordConstructor(c.price, ctorSwapBudget, 0);
-          const fits = isCurrent || canAffordConstructor(c.price, ctorSwapBudget, driverFill);
-          const blocked = !selected && !affordable;
+          const avail = rowAvailability({ kind: 'constructor', price: c.price, bank: ctorSwapBudget, reserve: driverFill, selected, owned: isCurrent });
           return {
             kind: 'constructor', id: c.id, num: c.shortName?.slice(0, 3).toUpperCase() ?? '', name: constructorShortName(c.id, c.name), fullName: c.name,
             sub: c.name, constructorId: c.id, pts: c.currentSeasonPoints ?? c.fantasyPoints ?? 0, price: c.price, selected,
-            blocked, tight: !selected && !blocked && !fits,
-            reason: blocked ? `$${c.price - ctorSwapBudget} OVER YOUR BANK` : null,
+            ...avail,
             proj: proj?.byId[c.id]?.med ?? null, mark: null,
             value: valueOf(c.currentSeasonPoints ?? c.fantasyPoints ?? 0, c.price), hint: null,
           };
@@ -382,7 +376,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         accessibilityRole="checkbox"
         accessibilityState={{ checked: item.selected }}
         accessibilityHint={locked || item.blocked ? "Opens details" : "Long press for details"}
-        accessibilityLabel={`${item.fullName}, ${item.pts} points, $${item.price}${item.value != null ? `, ${formatValue(item.value)} points per dollar` : ''}${item.proj !== null ? `, Pit Wall projection ${item.proj}` : ''}${item.hint ? `, ${item.hint}` : ''}${item.mark === 'pick' ? ', Pit Wall pick' : item.mark === 'value' ? ', Pit Wall best value' : ''}`}
+        accessibilityLabel={`${item.fullName}, ${item.pts} points, $${item.price}${item.value != null ? `, ${formatValue(item.value)} points per dollar` : ''}${item.proj !== null ? `, Pit Wall projection ${item.proj}` : ''}${item.hint ? `, ${item.hint}` : ''}${item.mark === 'pick' ? ', Pit Wall pick' : item.mark === 'value' ? ', Pit Wall best value' : ''}${!locked && item.blocked ? `, unavailable${item.reason ? `: ${item.reason.toLowerCase()}` : ''}` : ''}`}
         style={({ pressed }) => ({
           flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: scaled(14),
           borderBottomWidth: 1, borderBottomColor: colors.borderLight,
