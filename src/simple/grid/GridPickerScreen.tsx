@@ -16,6 +16,7 @@ import { useRaceScoresStore } from '../../store/raceScores.store';
 import { usePrefsStore } from '../../store/prefs.store';
 import { usePitWallStore } from '../../store/pitwall.store';
 import { marksFor } from '../../pitwall/recommend';
+import { STRATEGIES, detectStrategy, planStrategy, type StrategyId } from '../../pitwall/strategies';
 import { teamAccent } from '../theme/simpleTheme';
 import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
@@ -63,7 +64,8 @@ interface Row {
   /** Pit Wall projection for the coming round; null before it publishes */
   proj: number | null;
   /** the one row Pit Wall would take, and the best value when that is a different row */
-  mark: 'pick' | 'value' | null;
+  /** F-145: 'plan' = one of the drivers the active strategy would add */
+  mark: 'pick' | 'value' | 'plan' | null;
   /** season points per dollar; null when price is not positive */
   value: number | null;
   /** pairing hint after the first pick; never reorders the list */
@@ -159,6 +161,34 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const ctorReserve = plan?.missingConstructor ? cheapestCtor ?? 0 : 0;
   const missingDrivers = plan?.missingDrivers ?? 0;
 
+  // F-145: Pit Wall strategies. The first drivers added this session say which way the lineup is
+  // being built (a star → stars and scrubs, all budget → value, else balanced); the player can
+  // switch. The plan fills the open driver seats from what the bank allows after the constructor
+  // the lineup still needs.
+  const [strategyChoice, setStrategyChoice] = useState<StrategyId | null>(null);
+  const addedPrices = useMemo(() => (pending && current ? pending.driverIds
+    .filter((id) => !current.drivers.some((r) => r.id === id))
+    .map((id) => market.drivers[id]?.price ?? 0) : []), [pending, current, market]);
+  const detectedStrategy = useMemo(() => detectStrategy(addedPrices, (allDrivers ?? []).map((d) => d.price)), [addedPrices, allDrivers]);
+  // No picks added (all removed again) → no strategy, and the player's earlier choice is forgotten.
+  const activeStrategy = detectedStrategy ? strategyChoice ?? detectedStrategy : null;
+  useEffect(() => { if (!detectedStrategy) setStrategyChoice(null); }, [detectedStrategy]);
+  const strategyPlan = useMemo(() => {
+    if (!proj || !pending || !plan || !activeStrategy || locked || missingDrivers <= 0) return null;
+    const candidates = (allDrivers ?? [])
+      .filter((d) => !pending.driverIds.includes(d.id) && !isDriverLockedOut(team?.driverLockouts, d.id, completedRaceCount))
+      .map((d) => ({ id: d.id, price: d.price }));
+    return planStrategy(activeStrategy, candidates, proj.byId, missingDrivers, plan.budgetAfter - ctorReserve);
+  }, [proj, pending, plan, activeStrategy, locked, missingDrivers, allDrivers, team?.driverLockouts, completedRaceCount, ctorReserve]);
+  const strategyTracked = useRef(new Set<string>());
+  useEffect(() => {
+    if (!activeStrategy || !strategyPlan) return;
+    const key = `${activeStrategy}:${strategyChoice ? 'chosen' : 'read'}`;
+    if (strategyTracked.current.has(key)) return;
+    strategyTracked.current.add(key);
+    track('pitwall_strategy_shown', { strategy: activeStrategy, chosen: !!strategyChoice });
+  }, [activeStrategy, strategyChoice, strategyPlan]);
+
   const rows = useMemo<Row[]>(() => {
     if (!pending || !plan) return [];
     const driverFill = cheapestCompletion(openDriverPrices, missingDrivers) ?? 0;
@@ -209,10 +239,14 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       }
     }
     for (const row of list) if (row.tight && !row.hint) row.hint = 'TIGHT · LEAVES TOO LITTLE FOR THE REST';
+    // F-145: with a strategy running, its plan replaces the single pick and best-value marks
+    if (tab === 'drivers' && strategyPlan) {
+      for (const row of list) row.mark = strategyPlan.ids.includes(row.id) ? 'plan' : null;
+    }
     const by: Sort = sort === 'proj' && !proj ? 'pts' : sort;
     list.sort((a, b) => (by === 'value' ? (b.value ?? -1) - (a.value ?? -1) : by === 'proj' ? (b.proj ?? -1) - (a.proj ?? -1) : by === 'pts' ? b.pts - a.pts : b.price - a.price));
     return list;
-  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, driversFull, ctorSwapBudget, sort, proj, openDriverPrices, missingDrivers, ctorReserve]);
+  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, driversFull, ctorSwapBudget, sort, proj, openDriverPrices, missingDrivers, ctorReserve, strategyPlan]);
 
   // F-125: while locked the screen is the market to look at, not a picker — every row is readable at
   // full strength (a dimmed row means "you cannot take this one", which is not the message during a
@@ -371,7 +405,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     const trendColor = t.trend === 'up' ? colors.positive : t.trend === 'down' ? colors.primary : colors.text.muted;
     // this race's call stays reachable from its row after lock (to look at it); a new one does not, the lock has passed
     const moonshotRow = moonshotOpen && item.kind === 'driver' && (moonshotCurrent ? moonshotCurrent.driverId === item.id : !lockoutInfo.isLocked);
-    const pick = item.mark === 'pick';
+    const pick = item.mark === 'pick' || item.mark === 'plan';
     return (
       <Pressable
         onPress={() => onRowPress(item)}
@@ -379,7 +413,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         accessibilityRole="checkbox"
         accessibilityState={{ checked: item.selected }}
         accessibilityHint={locked || item.blocked ? "Opens details" : "Long press for details"}
-        accessibilityLabel={`${item.fullName}, ${item.pts} points, $${item.price}${item.value != null ? `, ${formatValue(item.value)} points per dollar` : ''}${item.proj !== null ? `, Pit Wall projection ${item.proj}` : ''}${item.hint ? `, ${item.hint}` : ''}${item.mark === 'pick' ? ', Pit Wall pick' : item.mark === 'value' ? ', Pit Wall best value' : ''}${!locked && item.blocked ? `, unavailable${item.reason ? `: ${item.reason.toLowerCase()}` : ''}` : ''}`}
+        accessibilityLabel={`${item.fullName}, ${item.pts} points, $${item.price}${item.value != null ? `, ${formatValue(item.value)} points per dollar` : ''}${item.proj !== null ? `, Pit Wall projection ${item.proj}` : ''}${item.hint ? `, ${item.hint}` : ''}${item.mark === 'pick' ? ', Pit Wall pick' : item.mark === 'plan' ? ', in the Pit Wall plan' : item.mark === 'value' ? ', Pit Wall best value' : ''}${!locked && item.blocked ? `, unavailable${item.reason ? `: ${item.reason.toLowerCase()}` : ''}` : ''}`}
         style={({ pressed }) => ({
           flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: scaled(14),
           borderBottomWidth: 1, borderBottomColor: colors.borderLight,
@@ -393,7 +427,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           {/* Pit Wall's pick is the whole row (tint + edge bar) with its label on a line of its own; the
               badges used to sit beside the team name and ran under the stats column. Nothing is inline
               with the name any more: the label pushes the row down, the hints wrap below. */}
-          {pick ? <Text style={[mono(9, 'medium'), { color: colors.gold, letterSpacing: 1 }]}>PIT WALL PICK</Text> : null}
+          {pick ? <Text style={[mono(9, 'medium'), { color: colors.gold, letterSpacing: 1 }]}>{item.mark === 'plan' ? 'PIT WALL PLAN' : 'PIT WALL PICK'}</Text> : null}
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: family.ui.black, fontSize: scaled(16), lineHeight: scaled(17), letterSpacing: -scaled(16) * 0.02, textTransform: 'uppercase', color: colors.text.primary }}>
             {item.name}
           </Text>
@@ -487,6 +521,27 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
             : [{ key: 'pts', label: 'PTS' }, { key: 'value', label: 'VAL' }, { key: 'price', label: '$' }]}
         />
       </View>
+
+      {/* F-145: the strategy Pit Wall reads from the first picks, and its plan for the open seats */}
+      {tab === 'drivers' && activeStrategy && proj && !locked && missingDrivers > 0 ? (
+        <View style={{ marginHorizontal: gutter, marginTop: 12, gap: 8, borderWidth: 1, borderColor: colors.gold, borderRadius: 14, padding: 12 }}>
+          <MonoLabel size={10} color={colors.gold} style={{ letterSpacing: scaled(10) * 0.14 }}>
+            {`PIT WALL STRATEGY${strategyChoice ? '' : ' · READ FROM YOUR PICKS'}`}
+          </MonoLabel>
+          <SegmentPill<StrategyId>
+            value={activeStrategy}
+            onChange={(k) => setStrategyChoice(k)}
+            size={9}
+            padY={10}
+            segments={STRATEGIES.map((st) => ({ key: st.id, label: st.label }))}
+          />
+          <Text style={[mono(10, 'medium'), { color: colors.text.muted }]}>
+            {strategyPlan
+              ? `${STRATEGIES.find((st) => st.id === activeStrategy)?.blurb} · PLAN FOR ${missingDrivers} SEAT${missingDrivers === 1 ? '' : 'S'}: $${strategyPlan.cost} · PROJ ${strategyPlan.med}`
+              : 'NO PLAN FITS THE BANK FOR THIS STRATEGY'}
+          </Text>
+        </View>
+      ) : null}
 
       <FlatList
         data={rows}
