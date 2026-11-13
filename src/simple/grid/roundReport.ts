@@ -219,13 +219,18 @@ export function buildRoundReport(current: LeagueRaceResultDoc | null, previous: 
   };
 }
 
-/** "SAM OKAFOR", "YOU & SAM OKAFOR", "SAM OKAFOR & 3 OTHERS": who a callout names, in the label case the screen uses. */
+/** F-142: a person's headline is their team; the player's own name is the small line under it. */
+export const headlineOf = (p: Pick<ReportPerson, 'name' | 'team'>): string => p.team || p.name;
+/** The small line: the player's name, when the headline is the team. */
+export const sublineOf = (p: Pick<ReportPerson, 'name' | 'team'>): string | null => (p.team ? p.name : null);
+
+/** "BOX BOX BOYS", "YOU & BOX BOX BOYS", "BOX BOX BOYS & 3 OTHERS": who a callout names (by team), in the label case the screen uses. */
 export function calloutNames(c: ReportCallout): string {
   const first = c.people[0];
   if (!first) return '';
-  const lead = (first.isMe ? 'You' : first.name).toUpperCase();
+  const lead = (first.isMe ? 'You' : headlineOf(first)).toUpperCase();
   if (c.people.length === 1) return lead;
-  if (c.people.length === 2) return `${lead} & ${c.people[1].name.toUpperCase()}`;
+  if (c.people.length === 2) return `${lead} & ${headlineOf(c.people[1]).toUpperCase()}`;
   return `${lead} & ${c.people.length - 1} OTHERS`;
 }
 

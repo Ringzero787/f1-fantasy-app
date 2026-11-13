@@ -47,10 +47,14 @@ interface Props {
   moonshot?: SheetMoonshot;
   /** F-119: what Pit Wall says about acing this driver; the owner's view only */
   aceVerdict?: AceVerdict | null;
+  /** F-142: opened from the market, not a roster: season figures, no contract or purchase price */
+  marketView?: boolean;
+  /** F-142: one line on why the row cannot be picked right now (market view) */
+  note?: string | null;
 }
 
 // Tap a tile → stats, Ace and Remove without leaving the Team screen.
-export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce, onRemove, moonshot, aceVerdict }: Props) {
+export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce, onRemove, moonshot, aceVerdict, marketView, note }: Props) {
   const { colors, family, spacing, scaled, mono } = useSimpleTheme();
   const insets = useSafeAreaInsets();
   const lastRaceScores = useRaceScoresStore((s) => s.lastRaceScores);
@@ -134,6 +138,7 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
               {target.isAce ? <MonoLabel size={10} color={colors.primary}>· ACE 2×</MonoLabel> : null}
               {target.entry.isReservePick ? <MonoLabel size={10} color={colors.primary}>· AUTO-FILLED</MonoLabel> : null}
             </View>
+            {note ? <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>{note}</Text> : null}
 
             {/* F-119: the call is what the sheet is opened to answer, so it comes before everything
                 else — it used to sit inside the Pit Wall block, under the heading, where the owner
@@ -180,13 +185,17 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
 
             {/* stats */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-              {stat('FOR YOUR TEAM', String(d.seasonPoints), d.perRace != null ? `${d.perRace} / RACE` : 'NOT RACED YET')}
+              {marketView
+                ? stat('SEASON', String(d.seasonPoints), 'POINTS')
+                : stat('FOR YOUR TEAM', String(d.seasonPoints), d.perRace != null ? `${d.perRace} / RACE` : 'NOT RACED YET')}
               {stat('LAST RACE', d.lastRace ? `${d.lastRace.total >= 0 ? '+' : ''}${d.lastRace.total}` : '—', `${d.trend.glyph} VS RACE BEFORE`, trendColor)}
-              {stat('PRICE', `$${d.price}`, d.priceDelta === 0 ? `PAID $${d.paid}` : `${d.priceDelta > 0 ? '▲' : '▼'} $${Math.abs(d.priceDelta)} · PAID $${d.paid}`, d.priceDelta > 0 ? colors.positive : d.priceDelta < 0 ? colors.primary : undefined)}
+              {marketView
+                ? stat('PRICE', `$${d.price}`, 'MARKET')
+                : stat('PRICE', `$${d.price}`, d.priceDelta === 0 ? `PAID $${d.paid}` : `${d.priceDelta > 0 ? '▲' : '▼'} $${Math.abs(d.priceDelta)} · PAID $${d.paid}`, d.priceDelta > 0 ? colors.positive : d.priceDelta < 0 ? colors.primary : undefined)}
             </View>
 
-            {/* contract */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.borderLight }}>
+            {/* contract (a roster pick only) */}
+            {marketView ? null : <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.borderLight }}>
               <MonoLabel>CONTRACT</MonoLabel>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <View style={{ flexDirection: 'row', gap: 4 }}>
@@ -194,7 +203,7 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
                 </View>
                 <Text style={[mono(11), { color: d.contract.critical ? colors.primary : colors.text.primary }]}>{d.contract.left} OF {d.contract.length} RACES LEFT</Text>
               </View>
-            </View>
+            </View>}
 
             {/* last race breakdown */}
             {d.lastRace && d.lastRace.parts.length > 0 ? (

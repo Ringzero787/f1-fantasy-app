@@ -21,6 +21,7 @@ import { TEAM_SIZE } from '../../config/constants';
 import { PRICING_CONFIG } from '../../config/pricing.config';
 import { constructorShortName } from './entityNames';
 import { GridMoonshotSheet, type MoonshotTarget } from './GridMoonshotSheet';
+import { GridTileSheet, type SheetTarget } from './GridTileSheet';
 import { GridMoonshotCoach } from './GridMoonshotCoach';
 import { track } from '../../services/analytics.service';
 import { useMoonshotStore } from '../../store/moonshot.store';
@@ -52,7 +53,12 @@ interface Row {
   price: number;
   fullName: string;
   selected: boolean;
-  blocked: boolean;     // 35% opacity, no tap
+  blocked: boolean;     // 35% opacity; a tap opens the details, not the buy
+  /** F-142: affordable, but leaves less than the cheapest finish of the lineup. Selectable (the
+   *  open seats fill at lock, F-044); Pit Wall never marks it and the row says so. */
+  tight: boolean;
+  /** why a blocked row cannot be taken, shown in its details */
+  reason: string | null;
   /** Pit Wall projection for the coming round; null before it publishes */
   proj: number | null;
   /** the one row Pit Wall would take, and the best value when that is a different row */
@@ -160,12 +166,19 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           const selected = pending.driverIds.includes(d.id);
           const onRoster = current?.drivers.some((r) => r.id === d.id) ?? false;
           const lockedOut = isDriverLockedOut(team?.driverLockouts, d.id, completedRaceCount);
-          const affordable = onRoster || canAffordAdd(plan, d.price, driverReserve(d.price, openDriverPrices, missingDrivers, ctorReserve));
+          // F-142: only the bank blocks a row. The reserve for the cheapest finish used to block too,
+          // which stopped a $5 constructor with $18 in the bank; now it only marks the row tight.
+          const affordable = onRoster || canAffordAdd(plan, d.price);
+          const fits = onRoster || canAffordAdd(plan, d.price, driverReserve(d.price, openDriverPrices, missingDrivers, ctorReserve));
+          const blocked = !selected && (driversFull || lockedOut || !affordable);
           return {
             kind: 'driver', id: d.id, num: String(d.number ?? '').padStart(2, '0'), name: surname(d.name), fullName: d.name,
             sub: constructorShortName(d.constructorId, d.constructorName), constructorId: d.constructorId,
             pts: d.currentSeasonPoints ?? d.fantasyPoints ?? 0, price: d.price, selected,
-            blocked: !selected && (driversFull || lockedOut || !affordable),
+            blocked, tight: !selected && !blocked && !fits,
+            reason: selected ? null : lockedOut ? 'SOLD RECENTLY · LOCKED OUT OF YOUR TEAM FOR NOW'
+              : driversFull ? `${TEAM_SIZE} OF ${TEAM_SIZE} DRIVERS PICKED · UNTICK ONE TO ADD ANOTHER`
+              : !affordable ? `$${d.price - plan.budgetAfter} OVER YOUR BANK` : null,
             proj: proj?.byId[d.id]?.med ?? null, mark: null,
             value: valueOf(d.currentSeasonPoints ?? d.fantasyPoints ?? 0, d.price), hint: null,
           };
@@ -173,28 +186,34 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       : (allConstructors ?? []).map((c: Constructor) => {
           const selected = pending.constructorId === c.id;
           const isCurrent = current?.constructor?.id === c.id;
-          const affordable = isCurrent || canAffordConstructor(c.price, ctorSwapBudget, driverFill);
+          const affordable = isCurrent || canAffordConstructor(c.price, ctorSwapBudget, 0);
+          const fits = isCurrent || canAffordConstructor(c.price, ctorSwapBudget, driverFill);
+          const blocked = !selected && !affordable;
           return {
             kind: 'constructor', id: c.id, num: c.shortName?.slice(0, 3).toUpperCase() ?? '', name: constructorShortName(c.id, c.name), fullName: c.name,
             sub: c.name, constructorId: c.id, pts: c.currentSeasonPoints ?? c.fantasyPoints ?? 0, price: c.price, selected,
-            blocked: !selected && !affordable,
+            blocked, tight: !selected && !blocked && !fits,
+            reason: blocked ? `$${c.price - ctorSwapBudget} OVER YOUR BANK` : null,
             proj: proj?.byId[c.id]?.med ?? null, mark: null,
             value: valueOf(c.currentSeasonPoints ?? c.fantasyPoints ?? 0, c.price), hint: null,
           };
         });
     // Pit Wall marks the row it would take and, when different, the best points per dollar. The
     // picker has already decided what the team may take, so a mark can never suggest a blocked move.
+    // A tight row is the player's call to make, never Pit Wall's suggestion.
+    const markable = list.map((r) => (r.tight ? { ...r, blocked: true } : r));
     if (proj) {
-      const marks = marksFor(list, proj.byId);
+      const marks = marksFor(markable, proj.byId);
       for (const row of list) row.mark = marks[row.id] ?? null;
     }
     if (tab === 'drivers' && plan) {
-      const hints = pairingHints(list, plan.budgetAfter, plan.missingDrivers, ctorReserve);
+      const hints = pairingHints(markable, plan.budgetAfter, plan.missingDrivers, ctorReserve);
       for (const h of hints) {
         const row = list.find((r) => r.id === h.id);
         if (row) row.hint = h.label;
       }
     }
+    for (const row of list) if (row.tight && !row.hint) row.hint = 'TIGHT · LEAVES TOO LITTLE FOR THE REST';
     const by: Sort = sort === 'proj' && !proj ? 'pts' : sort;
     list.sort((a, b) => (by === 'value' ? (b.value ?? -1) - (a.value ?? -1) : by === 'proj' ? (b.proj ?? -1) - (a.proj ?? -1) : by === 'pts' ? b.pts - a.pts : b.price - a.price));
     return list;
@@ -202,10 +221,27 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
 
   // F-125: while locked the screen is the market to look at, not a picker — every row is readable at
   // full strength (a dimmed row means "you cannot take this one", which is not the message during a
-  // lock) and none of them responds. The lock is announced in the title, the status strip and the
+  // lock) and a tap opens the details only. The lock is announced in the title, the status strip and the
   // save bar, not forty times down the list.
+  // F-142: a row that cannot be taken right now (locked, or blocked) still opens its details.
+  const [detail, setDetail] = useState<{ target: SheetTarget; note: string | null } | null>(null);
+  const openDetail = useCallback((row: Row) => {
+    setDetail({
+      target: {
+        kind: row.kind,
+        entry: { id: row.id, name: row.kind === 'driver' ? row.fullName : row.name, purchasePrice: row.price, currentPrice: row.price, pointsScored: row.pts },
+        constructorId: row.constructorId,
+        teamLabel: row.kind === 'constructor' ? 'CONSTRUCTOR' : row.sub,
+        number: row.kind === 'driver' ? row.num : undefined,
+        isAce: false,
+      },
+      note: locked ? null : row.reason,
+    });
+  }, [locked]);
+
   const onRowPress = useCallback((row: Row) => {
-    if (locked || !pending || !current || row.blocked) return;
+    if (locked || row.blocked) { openDetail(row); return; }
+    if (!pending || !current) return;
     if (row.kind === 'driver') {
       if (row.selected) {
         setPending({ ...pending, driverIds: pending.driverIds.filter((id) => id !== row.id) });
@@ -221,7 +257,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       setContract(PRICING_CONFIG.CONTRACT_LENGTH);
       setSheet({ kind: 'constructor', entry: { id: row.id, name: row.fullName, price: row.price } });
     }
-  }, [locked, pending, current]);
+  }, [locked, pending, current, openDetail]);
 
   const confirmSheet = useCallback(() => {
     if (!sheet || !pending) return;
@@ -342,9 +378,10 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     return (
       <Pressable
         onPress={() => onRowPress(item)}
-        disabled={locked || item.blocked}
+        onLongPress={() => openDetail(item)}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: item.selected, disabled: locked || item.blocked }}
+        accessibilityState={{ checked: item.selected }}
+        accessibilityHint={locked || item.blocked ? "Opens details" : "Long press for details"}
         accessibilityLabel={`${item.fullName}, ${item.pts} points, $${item.price}${item.value != null ? `, ${formatValue(item.value)} points per dollar` : ''}${item.proj !== null ? `, Pit Wall projection ${item.proj}` : ''}${item.hint ? `, ${item.hint}` : ''}${item.mark === 'pick' ? ', Pit Wall pick' : item.mark === 'value' ? ', Pit Wall best value' : ''}`}
         style={({ pressed }) => ({
           flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: scaled(14),
@@ -354,7 +391,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           ...(pick ? { backgroundColor: colors.goldFaint, marginHorizontal: -gutter, paddingHorizontal: gutter, paddingLeft: gutter - 3, borderLeftWidth: 3, borderLeftColor: colors.gold } : null),
         })}
       >
-        <Text style={[mono(12), { width: compact ? 34 : scaled(36), color: colors.text.muted }]}>{item.num}</Text>
+        <Text style={[mono(13, 'bold'), { width: compact ? 34 : scaled(36), color: item.constructorId ? teamAccent(item.constructorId) : colors.text.muted }]}>{item.num}</Text>
         <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
           {/* Pit Wall's pick is the whole row (tint + edge bar) with its label on a line of its own; the
               badges used to sit beside the team name and ran under the stats column. Nothing is inline
@@ -404,7 +441,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         </View>
       </Pressable>
     );
-  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress, compact, locked, lockoutInfo.isLocked, moonshotOpen, moonshotCurrent, moonshotRace, team, gutter]);
+  }, [lastRaceScores, prevRaceScores, colors, family, scaled, mono, onRowPress, openDetail, compact, locked, lockoutInfo.isLocked, moonshotOpen, moonshotCurrent, moonshotRace, team, gutter]);
 
   const sheetBudgetAfter = sheet && plan ? (sheet.kind === 'driver' ? plan.budgetAfter - sheet.entry.price : ctorSwapBudget - sheet.entry.price) : 0;
 
@@ -475,6 +512,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       </View>
 
       {/* F-108: a Moonshot on any driver on the entry list */}
+      <GridTileSheet target={detail?.target ?? null} note={detail?.note} marketView onClose={() => setDetail(null)} />
       <GridMoonshotSheet target={moonshotTarget} cfg={moonshotCfg} onClose={() => setMoonshotTarget(null)} onChanged={() => { if (team && moonshotRace) useMoonshotStore.getState().loadCalls(team.userId, team.id, moonshotRace.seasonId, true); }} />
       {moonshotTarget ? <GridMoonshotCoach visible={tutorialOpen} cfg={moonshotCfg} tokens={moonshotCfg.tokensPerTeam} onDone={() => { if (team) finishTutorial(team.userId); }} /> : null}
       {/* Contract sheet */}

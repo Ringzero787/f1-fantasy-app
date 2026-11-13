@@ -12,6 +12,7 @@ import { recapMoonshot, type MoonshotCall } from '../grid/moonshot';
 import { getRaceSnapshot } from '../../services/raceSnapshots.service';
 import { readLeagueRaceResult } from './useRoundReport';
 import { constructorShortName } from '../grid/entityNames';
+import { surnameOf } from '../grid/tileState';
 import type { LeagueRaceResultDoc } from '../grid/raceLeaderboard';
 import { nextRoundLines, recapStanding, recapTitle, rosterFromSnapshot, rosterFromTeam, type NextRound, type RaceSnapshot, type RecapRoster, type RecapStanding } from '../grid/weekendRecap';
 
@@ -138,7 +139,7 @@ export function useWeekendRecap(): { recap: WeekendRecap | null; dismiss: () => 
     if (!callsReady) return null;                                     // F-127: the Moonshot read is still out
     if (!recordReady) return null;                                    // F-130: the record is still out
 
-    const surname = (name: string | undefined, id: string) => (name ? name.trim().split(/\s+/).slice(-1)[0] : id);
+    const surname = (name: string | undefined, id: string) => (name ? surnameOf(name) : id);
     const names = {
       driver: (id: string) => { const d = drivers.find((x) => x.id === id); return surname(d?.name, d?.shortName || id); },
       // the grid's short constructor names (entityNames), never the series' own words from the data
