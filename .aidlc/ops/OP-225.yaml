@@ -1,0 +1,38 @@
+id: OP-225
+title: "F-148: every Undercut function on the patched dependencies (body-parser, busboy, node-forge)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions
+created_at: 2026-11-14T20:34:15.509Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-14T20:34:23.536Z
+    head_sha: d9a8614c58609c6c225999e36ddec35fd28e6c3b
+    command: git --no-pager diff --stat '678898db92ad8bc5c9dc916896cb3af0c236c995' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-225/dry-run-2026-11-14T20-34-23-536Z.log
+    log_sha256: f48513d03a0a110b75d2cec0d242f5ebb9139ccb21fb84d3de4b7dbca00aa1e8
+    lines: 53
+  - step: gates
+    at: 2026-11-14T22:25:24.886Z
+    head_sha: d9a8614c58609c6c225999e36ddec35fd28e6c3b
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-14T22:25:24.890Z
+    head_sha: d9a8614c58609c6c225999e36ddec35fd28e6c3b
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-225/apply-2026-11-14T22-25-24-890Z.log
+    log_sha256: 2fafdb560ac4796f21668204b7d6b8d91564437edf730a7c9f658e6f3d2037b8
+    lines: 180
+  - step: gates
+    at: 2026-11-14T22:44:14.430Z
+    head_sha: d9a8614c58609c6c225999e36ddec35fd28e6c3b
+    exit: 0
+    gates:
+      G15: skip

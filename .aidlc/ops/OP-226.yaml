@@ -1,0 +1,38 @@
+id: OP-226
+title: "F-148: Pit Wall portal on the patched lockfile"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-11-14T20:34:15.793Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-14T20:34:26.017Z
+    head_sha: d9a8614c58609c6c225999e36ddec35fd28e6c3b
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-226/dry-run-2026-11-14T20-34-26-017Z.log
+    log_sha256: 79e8f17bcdcf834a59cb47cddfc57a2d3b681f072dab5e4a4dc88e65945edb56
+    lines: 90
+  - step: gates
+    at: 2026-11-14T22:44:28.980Z
+    head_sha: d9a8614c58609c6c225999e36ddec35fd28e6c3b
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-14T22:44:28.984Z
+    head_sha: d9a8614c58609c6c225999e36ddec35fd28e6c3b
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-226/apply-2026-11-14T22-44-28-984Z.log
+    log_sha256: bdbb48a092b48bff6e3775fea6cf8d90d269f310235744999a1373a15306e411
+    lines: 101
+  - step: gates
+    at: 2026-11-14T22:48:13.154Z
+    head_sha: d9a8614c58609c6c225999e36ddec35fd28e6c3b
+    exit: 0
+    gates:
+      G15: skip

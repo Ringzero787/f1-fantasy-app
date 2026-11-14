@@ -1836,7 +1836,8 @@ features:
       - mode
   - id: F-148
     name: "UC: dependency security pass retires the blanket GHSA waiver"
-    status: implemented
+    status: shipped
+    shipped_at: 2026-11-14
     spec: .aidlc/specs/F-148.md
     created_at: 2026-11-14
     keywords:
