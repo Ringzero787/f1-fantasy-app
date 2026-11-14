@@ -1,0 +1,56 @@
+id: OP-221
+title: Undercut 2.8.0 (vc79) to Play beta
+kind: uc-play-promote
+status: verified
+params:
+  code: "79"
+  track: beta
+  notes: Pit Wall now plans with you. Tap your first drivers and it reads your strategy (Stars, Balanced or Value), then marks a plan for the open seats. Switch any time. After you confirm a lineup, Pit Wall suggests your ace. A driver you can afford is never blocked, only flagged when the rest gets tight. Locked market drivers open their details with a tap, any driver with a long press. Team names lead, car numbers wear team colours, and a held roster says when it reopens.
+created_at: 2026-11-14T01:56:38.760Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-14T01:57:06.325Z
+    head_sha: b2a4c0d1b612c720e9c3fa940a0311bec49edf58
+    command: node scripts/ops/play-publish.js promote '79' --track='beta' --notes='Pit Wall now plans with you. Tap your first drivers and it reads your strategy (Stars, Balanced or Value), then marks a plan for the open seats. Switch any time. After you confirm a lineup, Pit Wall suggests your ace. A driver you can afford is never blocked, only flagged when the rest gets tight. Locked market drivers open their details with a tap, any driver with a long press. Team names lead, car numbers wear team colours, and a held roster says when it reopens.'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-221/dry-run-2026-11-14T01-57-06-325Z.log
+    log_sha256: 1a45a248124182381d0951401cdf981cc77e47b89f70180ad41bc12c60d0c4f2
+    lines: 4
+  - step: backup
+    at: 2026-11-14T01:57:06.796Z
+    head_sha: b2a4c0d1b612c720e9c3fa940a0311bec49edf58
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-221'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-221/backup-2026-11-14T01-57-06-796Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-11-14T01:57:08.570Z
+    head_sha: b2a4c0d1b612c720e9c3fa940a0311bec49edf58
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-14T01:57:08.571Z
+    head_sha: b2a4c0d1b612c720e9c3fa940a0311bec49edf58
+    command: node scripts/ops/play-publish.js promote '79' --track='beta' --notes='Pit Wall now plans with you. Tap your first drivers and it reads your strategy (Stars, Balanced or Value), then marks a plan for the open seats. Switch any time. After you confirm a lineup, Pit Wall suggests your ace. A driver you can afford is never blocked, only flagged when the rest gets tight. Locked market drivers open their details with a tap, any driver with a long press. Team names lead, car numbers wear team colours, and a held roster says when it reopens.' --apply --confirm=com.undercut.app
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-221/apply-2026-11-14T01-57-08-571Z.log
+    log_sha256: 8e98d740daa248308ca67d1777f672d9832dd635ecabe48f51f76946302eb05f
+    lines: 6
+  - step: verify
+    at: 2026-11-14T01:57:10.977Z
+    head_sha: b2a4c0d1b612c720e9c3fa940a0311bec49edf58
+    command: node scripts/ops/play-publish.js status
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-221/verify-2026-11-14T01-57-10-977Z.log
+    log_sha256: 5064e5fff0d759b88a5017e6a308566453e64b3ea2375454fff9c46811d7fd53
+    lines: 6
+  - step: gates
+    at: 2026-11-14T01:57:12.012Z
+    head_sha: b2a4c0d1b612c720e9c3fa940a0311bec49edf58
+    exit: 0
+    gates:
+      G15: skip
