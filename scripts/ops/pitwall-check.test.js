@@ -183,3 +183,52 @@ test('F-135: a held result whose race is not in this season\'s registry is a sta
   assert.deepEqual(levels(r2, 'scoring'), ['fail']);
   assert.match(r2.findings.find((f) => f.check === 'scoring').text, /usa_2026 \(round 20, registry status 'completed'\)/);
 });
+
+// F-147: after Abu Dhabi nothing is upcoming. Every hourly run used to FAIL ("no upcoming race")
+// and, with the F-140 alert on, would have emailed the owner every hour until the 2027 calendar.
+const offSeason = () => {
+  const s = healthy();
+  const DEC = new Date('2026-12-20T12:00:00Z');
+  s.worker = { lastTickAt: DEC.getTime() - min(3), round: null, lastRun: { jobId: 'x', ok: true } };
+  s.races = [race('las_vegas_2026', 23, 'completed', '2026-11-22T04:00:00.000Z'), race('abu_dhabi_2026', 24, 'completed', '2026-12-06T13:00:00.000Z')];
+  s.newestPublic = { round: { number: 24, name: 'Abu Dhabi' }, asOf: '2026-12-07T06:01:00.000Z' };
+  s.projectionRounds = [24];
+  s.meetings = [];
+  return { s, DEC };
+};
+
+test('off-season: the last round scored and the portal on it is OK, however old the payload', () => {
+  const { s, DEC } = offSeason();
+  const r = evaluate(s, DEC);
+  assert.equal(r.worst, 'ok', JSON.stringify(r.findings));
+  assert.match(r.findings.find((f) => f.check === 'round').text, /off-season: the last round 24 abu_dhabi_2026 is scored/);
+});
+
+test('off-season: a hung worker still FAILs, a portal on an older round WARNs', () => {
+  const { s, DEC } = offSeason();
+  s.worker.lastTickAt = DEC.getTime() - 3 * 3600 * 1000;
+  s.newestPublic = { round: { number: 23, name: 'Las Vegas' }, asOf: '2026-11-23T06:01:00.000Z' };
+  const r = evaluate(s, DEC);
+  assert.equal(r.worst, 'fail');
+  assert.deepEqual(levels(r, 'worker'), ['fail']);
+  assert.deepEqual(levels(r, 'payload'), ['warn']);
+});
+
+test('off-season does not hide an unscored final round or an empty registry', () => {
+  const { s, DEC } = offSeason();
+  s.races[1].status = 'upcoming'; // Abu Dhabi raced two weeks ago and was never scored
+  assert.equal(evaluate(s, DEC).worst, 'fail');
+  s.races = [];
+  const r = evaluate(s, DEC);
+  assert.equal(r.worst, 'fail');
+  assert.match(r.findings.find((f) => f.check === 'round').text, /no upcoming race/);
+});
+
+test('off-season: a calendar still unseeded 75 days after the final round WARNs, never FAILs', () => {
+  const { s } = offSeason();
+  const LATE = new Date('2027-02-25T12:00:00Z');
+  s.worker.lastTickAt = LATE.getTime() - min(3);
+  const r = evaluate(s, LATE);
+  assert.equal(r.worst, 'warn');
+  assert.match(r.findings.find((f) => f.check === 'round').text, /seed the new calendar/);
+});

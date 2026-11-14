@@ -47,6 +47,34 @@ test('the season of a date: January still belongs to the season that just ended'
 // ── Stripe ──
 const sign = (body, secret, t) => `t=${t},v1=${createHmac('sha256', secret).update(`${t}.${body}`, 'utf8').digest('hex')}`;
 
+test('F-146: from December a pass is sold for next season, so a December or January buyer gets the whole of it', () => {
+  assert.equal(p.saleSeason(Date.UTC(2026, 10, 30, 23, 59)), '2026');
+  assert.equal(p.saleSeason(Date.UTC(2026, 11, 1)), '2027');
+  assert.equal(p.saleSeason(Date.UTC(2026, 11, 6, 13)), '2027'); // Abu Dhabi weekend: the pass still covers it
+  assert.equal(p.saleSeason(Date.UTC(2027, 0, 15)), '2027');
+  assert.equal(p.saleSeason(Date.UTC(2027, 5, 1)), '2027');
+  // the bug: a pass bought on 10 December was stamped 2026 and ran out seven weeks later
+  const bought = Date.UTC(2026, 11, 10);
+  assert.equal(new Date(p.newPass(p.saleSeason(bought), 'play', bought).expiresAt).toISOString(), '2028-01-31T23:59:59.999Z');
+});
+
+test('F-146: the year boundary, the January trial, and every purchase path stamps the sale season', () => {
+  assert.equal(p.saleSeason(Date.UTC(2026, 11, 31, 23, 59, 59)), '2027');
+  assert.equal(p.saleSeason(Date.UTC(2027, 0, 1, 0, 0, 0)), '2027');
+  // a trial on 28 January gets its full seven days (it was cut to the 31st on the old season)
+  const jan28 = Date.UTC(2027, 0, 28);
+  assert.equal(p.trialPass(p.saleSeason(jan28), jan28).expiresAt, jan28 + 7 * 86400000);
+  // wiring: the compiled grant paths use saleSeason, not currentSeason
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const idx = fs.readFileSync(path.join(__dirname, '../lib/pitwall/index.js'), 'utf8');
+  const vp = fs.readFileSync(path.join(__dirname, '../lib/purchases/validatePurchase.js'), 'utf8');
+  assert.doesNotMatch(idx, /currentSeason/);
+  assert.match(idx, /season = \(0, pass_1\.saleSeason\)\(now\)/);
+  assert.match(idx, /grantTrial\)\(db, uid, \(0, pass_1\.saleSeason\)/);
+  assert.match(vp, /grantPass\)\(db, userId, \(0, pass_1\.saleSeason\)\(Date\.now\(\)\)/);
+});
+
 test('a webhook signature is accepted only when it matches, is fresh, and carries valid JSON', () => {
   const secret = 'whsec_test', body = JSON.stringify({ id: 'evt_1', type: 'ping' }), t = 1_800_000_000;
   assert.deepEqual(s.verifyStripeSignature(body, sign(body, secret, t), secret, t), { ok: true, event: { id: 'evt_1', type: 'ping' } });

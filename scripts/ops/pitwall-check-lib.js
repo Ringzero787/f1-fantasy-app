@@ -86,8 +86,23 @@ function evaluate(state, now = new Date()) {
 
   // 2. the published payload is for the current round and fresh
   const cur = currentRound(state.races);
-  if (!cur) add('fail', 'round', 'no upcoming race in the registry: the season is over or the registry is empty');
-  else {
+  // F-147: after the last round nothing is upcoming. That is the off-season, not a fault: the
+  // portal keeps the final round and the worker has no new round to publish, so the payload is
+  // allowed to age. Only an empty registry (or one with nothing scored) is still the FAIL.
+  const last = state.races.filter((r) => r.status === 'completed').sort((a, b) => Number(b.round) - Number(a.round))[0];
+  if (!cur && !last) add('fail', 'round', 'no upcoming race in the registry: the season is over or the registry is empty');
+  else if (!cur) {
+    const lastAt = ms(last.schedule && last.schedule.race);
+    // ...but not for ever: the 2027 opener is in early March, and a calendar still unseeded 75 days
+    // after the final round (late February) is a WARN in the twice-weekly report (no email).
+    const stale = lastAt && t - lastAt > 75 * 24 * HOUR;
+    add(stale ? 'warn' : 'ok', 'round', `off-season: the last round ${last.round} ${last.id} is scored${lastAt ? ` (${fmtAge(t - lastAt)} ago)` : ''}; next season is not in the registry yet${stale ? ' — seed the new calendar (and set PW_SEASON) before the opener' : ''}`);
+    const pub = state.newestPublic;
+    const pubRound = pub ? (pub.round && typeof pub.round === 'object' ? pub.round.number : pub.round) : null;
+    if (!pub) add('warn', 'payload', 'nothing published in pw_public');
+    else if (Number(pubRound) !== Number(last.round)) add('warn', 'payload', `off-season portal shows round ${pubRound}, the last scored round is ${last.round} ${last.id}`);
+    else add('ok', 'payload', `off-season: portal keeps round ${pubRound}, published ${fmtAge(t - ms(pub.asOf))} ago`);
+  } else {
     add('ok', 'round', `current round ${cur.round} ${cur.id} (${cur.status})`);
     const pub = state.newestPublic;
     if (!pub) add('fail', 'payload', 'nothing published in pw_public');

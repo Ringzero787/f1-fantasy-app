@@ -4,7 +4,7 @@ import { GoogleAuth } from 'google-auth-library';
 import { defineSecret } from 'firebase-functions/params';
 import { warnIfNoAppCheck } from '../utils/appCheck';
 import { verifyAppleTransaction } from './appleTransaction';
-import { PASS_PRODUCT, currentSeason } from '../pitwall/pass';
+import { PASS_PRODUCT, saleSeason } from '../pitwall/pass';
 import { grantPass } from '../pitwall/passStore';
 import { isAmazonReceiptId, isKnownProduct, isPlayToken } from './productGuards';
 import { createHash } from 'crypto';
@@ -372,7 +372,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
   // custom auth claim the Firestore rules read, stamped from users/{uid}.pass by a trigger. The
   // grant is keyed on the purchase record, so a replayed receipt cannot extend a pass twice.
   if (productId === PASS_PRODUCT) {
-    const pass = await grantPass(db, userId, currentSeason(Date.now()), isIOS ? 'apple' : isAmazon ? 'amazon' : 'play', purchaseRef.id);
+    const pass = await grantPass(db, userId, saleSeason(Date.now()), isIOS ? 'apple' : isAmazon ? 'amazon' : 'play', purchaseRef.id);
     console.log(`[pw] pass granted from ${platform} for ${userId} until ${new Date(pass.expiresAt).toISOString()}`);
   }
 
