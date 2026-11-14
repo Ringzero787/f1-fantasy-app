@@ -1596,13 +1596,15 @@ features:
     shipped_at: 2026-10-27
   - id: F-131
     name: "UC: Pit Wall gold accent"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-131.md
     created_at: 2026-10-29
     keywords:
       - wall
       - gold
       - accent
+    version_shipped: 2.8.0
+    shipped_at: 2026-11-14
   - id: F-132
     name: "UC: Pit Wall worker watchdog and calendar check"
     status: planned
@@ -1629,7 +1631,7 @@ features:
       - jobs
   - id: F-134
     name: "UC: Results ingestion: stand-in driver with no team in the provider's race session (Mexico, Hirakawa)"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-134.md
     created_at: 2026-11-02
     keywords:
@@ -1659,7 +1661,7 @@ features:
       - ingestion
   - id: F-136
     name: "UC: post-results unlock visibility and shorter buffer"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-136.md
     created_at: 2026-11-03
     keywords:
@@ -1669,9 +1671,11 @@ features:
       - visibility
       - shorter
       - buffer
+    version_shipped: 2.8.0
+    shipped_at: 2026-11-14
   - id: F-137
     name: "UC: Moonshot model seed maps a stand-in onto the seat"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-137.md
     created_at: 2026-11-03
     keywords:
@@ -1684,7 +1688,7 @@ features:
       - seat
   - id: F-138
     name: "UC: Haas seat change at Brazil (Câmara in, Ocon out)"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-138.md
     created_at: 2026-11-05
     keywords:
@@ -1699,7 +1703,7 @@ features:
     name: "UC: Câmara car 51 ingestion mapping"
     summary: Map car 51 to Câmara and give car 50 back to Hirakawa so the held Brazil R22 results can be scored (F-138
       assumed car 50)
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-139.md
     created_at: 2026-11-11
     keywords:
@@ -1711,7 +1715,7 @@ features:
     summary: The twice-weekly ops check flagged the held São Paulo result as FAIL within 30 minutes but only wrote a file
       and a log, so nobody knew for 3 days. Email the owner when a check FAILs (deduped, daily reminder, all-clear), and
       run it hourly with quiet OK runs.
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-140.md
     created_at: 2026-11-12
     keywords:
@@ -1737,7 +1741,7 @@ features:
       - assertion
   - id: F-142
     name: "UC: Owner playtest fixes — market buy and details, team-first names, Moonshot feed, suffix surnames, car numbers"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-142.md
     created_at: 2026-11-13
     keywords:
@@ -1754,9 +1758,11 @@ features:
       - suffix
       - surnames
       - numbers
+    version_shipped: 2.8.0
+    shipped_at: 2026-11-14
   - id: F-143
     name: "UC: Pit Wall ace call right after confirming a lineup"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-143.md
     created_at: 2026-11-13
     keywords:
@@ -1766,6 +1772,8 @@ features:
       - after
       - confirming
       - lineup
+    version_shipped: 2.8.0
+    shipped_at: 2026-11-14
   - id: F-144
     name: "UC: Pit Wall portal follows the live team so recommendations re-rank after an app sale"
     status: shipped
@@ -1783,7 +1791,7 @@ features:
       - sale
   - id: F-145
     name: "UC: Pit Wall strategies (stars and scrubs, balanced, value) read from the first picks"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-145.md
     created_at: 2026-11-13
     keywords:
@@ -1797,3 +1805,5 @@ features:
       - from
       - first
       - picks
+    version_shipped: 2.8.0
+    shipped_at: 2026-11-14
