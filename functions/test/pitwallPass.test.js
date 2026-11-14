@@ -47,6 +47,33 @@ test('the season of a date: January still belongs to the season that just ended'
 // ── Stripe ──
 const sign = (body, secret, t) => `t=${t},v1=${createHmac('sha256', secret).update(`${t}.${body}`, 'utf8').digest('hex')}`;
 
+test('F-146: from December a pass is sold for next season, so a December or January buyer gets the whole of it', () => {
+  assert.equal(p.saleSeason(Date.UTC(2026, 10, 30, 23, 59)), '2026');
+  assert.equal(p.saleSeason(Date.UTC(2026, 11, 1)), '2027');
+  assert.equal(p.saleSeason(Date.UTC(2026, 11, 6, 13)), '2027'); // Abu Dhabi weekend: the pass still covers it
+  assert.equal(p.saleSeason(Date.UTC(2027, 0, 15)), '2027');
+  assert.equal(p.saleSeason(Date.UTC(2027, 5, 1)), '2027');
+  // the bug: a pass bought on 10 December was stamped 2026 and ran out seven weeks later
+  const bought = Date.UTC(2026, 11, 10);
+  assert.equal(new Date(p.newPass(p.saleSeason(bought), 'play', bought).expiresAt).toISOString(), '2028-01-31T23:59:59.999Z');
+});
+
+test('F-146: only a pass that already reaches the end of the season being sold blocks a new checkout', () => {
+  const dec = Date.UTC(2026, 11, 10);
+  const pass2026 = p.newPass('2026', 'stripe', Date.UTC(2026, 5, 1));
+  const pass2027 = p.newPass('2027', 'stripe', dec);
+  assert.equal(p.passCoversSeason(pass2026, '2026', dec), true);
+  assert.equal(p.passCoversSeason(pass2026, '2027', dec), false); // a 2026 holder may renew for 2027
+  assert.equal(p.passCoversSeason(pass2027, '2027', dec), true);
+  assert.equal(p.passCoversSeason(p.trialPass('2027', dec), '2027', dec), false); // a trial never blocks buying
+  assert.equal(p.passCoversSeason(undefined, '2027', dec), false);
+  assert.equal(p.passCoversSeason(pass2027, '2027', p.seasonExpiry('2027')), false); // expired
+  // renewing keeps the longer expiry and the new season
+  const renewed = p.mergePass(pass2026, p.newPass('2027', 'stripe', dec, 'evt_2'));
+  assert.equal(renewed.season, '2027');
+  assert.equal(renewed.expiresAt, p.seasonExpiry('2027'));
+});
+
 test('a webhook signature is accepted only when it matches, is fresh, and carries valid JSON', () => {
   const secret = 'whsec_test', body = JSON.stringify({ id: 'evt_1', type: 'ping' }), t = 1_800_000_000;
   assert.deepEqual(s.verifyStripeSignature(body, sign(body, secret, t), secret, t), { ok: true, event: { id: 'evt_1', type: 'ping' } });

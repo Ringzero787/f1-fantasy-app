@@ -1,4 +1,4 @@
-next_id: 146
+next_id: 148
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1811,3 +1811,24 @@ features:
       - picks
     version_shipped: 2.8.0
     shipped_at: 2026-11-14
+  - id: F-146
+    name: "UC: off-season Pit Wall Pass sells next season"
+    status: implemented
+    spec: .aidlc/specs/F-146.md
+    created_at: 2026-11-14
+    keywords:
+      - season
+      - wall
+      - pass
+      - sells
+      - next
+      - season
+  - id: F-147
+    name: "UC: ops check off-season mode"
+    status: implemented
+    spec: .aidlc/specs/F-147.md
+    created_at: 2026-11-14
+    keywords:
+      - check
+      - season
+      - mode

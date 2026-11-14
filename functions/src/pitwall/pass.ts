@@ -68,3 +68,20 @@ export function currentSeason(now: number): string {
   const d = new Date(now);
   return String(d.getUTCMonth() === 0 ? d.getUTCFullYear() - 1 : d.getUTCFullYear());
 }
+
+/**
+ * The season a pass bought now is for (F-146). From December the season being sold is the next
+ * one: the last round runs in early December, and a pass stamped with the ending season expired
+ * on 31 January, so a buyer in December or January paid $14.99 for a few weeks. A December buyer
+ * of next season's pass still has the last round, since access runs until the expiry, not per
+ * round. January is the new season too (currentSeason keeps it on the old one for display).
+ */
+export function saleSeason(now: number): string {
+  const d = new Date(now);
+  return String(d.getUTCMonth() === 11 ? d.getUTCFullYear() + 1 : d.getUTCFullYear());
+}
+
+/** A pass already reaches the end of `season`: buying that season again would add nothing. */
+export function passCoversSeason(pass: Partial<Pass> | undefined | null, season: string, now: number): boolean {
+  return passActive(pass, now) && pass!.expiresAt! >= seasonExpiry(season);
+}
