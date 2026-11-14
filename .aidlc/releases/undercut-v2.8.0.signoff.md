@@ -9,7 +9,7 @@ Decision: **approve** — No blocking gate failed, every applied waiver carries 
 **Notes:** `.aidlc/releases/undercut-v2.8.0.md`, `CHANGELOG.md` · translated 9/9 languages
 
 ## What shipped
-App changes in this build: F-131, F-136, F-142, F-143, F-145. (Corrected by hand: the generated list also named F-111 and F-129, which shipped in 2.5.0 and 2.7.0, and server-only features already live — F-134, F-137, F-138, F-139, F-141 — which no build carries.)
+App changes in this build: F-131, F-136, F-138 and F-139 (app halves: car-number map and display names for Hirakawa and Câmara), F-142, F-143, F-145. (Corrected by hand: the generated list also named F-111 and F-129, which shipped in 2.5.0 and 2.7.0, and the server-only F-134, F-137 and F-141, which no build carries.)
 
 ## Gates run and depth
 | Gate | Verdict | Depth / notes |

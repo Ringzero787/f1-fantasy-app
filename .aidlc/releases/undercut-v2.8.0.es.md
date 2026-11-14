@@ -11,11 +11,12 @@ Undercut 2.8.0: Pit Wall planifica el resto de tu alineación a partir de tus pr
 
 - **Primero el nombre del equipo.** El nombre de tu equipo va en grande y el del jugador en pequeño debajo, en el Grid, en las ligas y en el informe de la ronda. El feed de Moonshot de la liga es una línea: MOONSHOT +N POINTS · TEAM.
 - **Los números de coche** son más grandes, en negrita y con los colores del equipo en las fichas de equipo y de liga.
-- **Pit Wall es dorado.** Su franja de elección, la propuesta de as, el análisis y las filas del Pass usan dorado en lugar de rojo; el rojo ahora indica un mal número y los avisos son naranjas.
+- **Pit Wall es dorado.** Su franja de elección, la propuesta de as, el análisis y las filas del Pass usan dorado en lugar de rojo, y los avisos de Pit Wall son naranjas.
 - **Un equipo retenido dice cuándo se reabre.** Tras una carrera la cabecera muestra RESULTS PENDING, REOPENS IN … o REOPENING SOON en lugar de una cuenta atrás sobre filas bloqueadas, y tu equipo se vuelve a leer al regresar a él.
 
 ## Correcciones
 
 - **Un piloto asequible que no podías comprar.** La 2.7.2 bloqueaba cualquier piloto que dejaba demasiado poco para el cierre más barato, así que con $18 no se compraba un piloto de $5. Ahora un piloto que puedes pagar siempre se puede comprar; el que deja demasiado poco se marca TIGHT · LEAVES TOO LITTLE FOR THE REST.
-- **Detalles del mercado fuera del modo de edición.** Las filas bloqueadas o no disponibles abren una hoja de detalles de solo lectura, y una pulsación larga la abre en cualquier fila.
+- **Detalles del mercado fuera del modo de edición.** Tocar una fila bloqueada o no disponible abre una hoja de detalles de solo lectura, y una pulsación larga la abre en cualquier fila.
 - **«JR» como apellido.** Los nombres con Jr., Sr. o un numeral muestran el apellido real.
+- **Hirakawa y Câmara por su nombre.** Los coches 50 y 51 muestran el nombre de su piloto en el tiempo en vivo y en las vistas de carrera desde el cambio de asiento en Haas.

@@ -11,11 +11,12 @@ Undercut 2.8.0: Pit Wall plant den Rest deines Teams aus deinen ersten Picks und
 
 - **Teamnamen zuerst.** Dein Teamname steht groß vorn, der Spielername klein darunter, im Grid, in Ligen und im Rundenbericht. Der Moonshot-Feed der Liga ist eine Zeile: MOONSHOT +N POINTS · TEAM.
 - **Startnummern** sind größer, fett und in Teamfarben auf den Team- und Ligakacheln.
-- **Pit Wall ist gold.** Tipp-Zeile, Ass-Tipp, Analyse und Pass-Zeilen sind gold statt rot; Rot steht jetzt für schlechte Zahlen, Warnungen sind orange.
+- **Pit Wall ist gold.** Tipp-Zeile, Ass-Tipp, Analyse und Pass-Zeilen sind gold statt rot, und Pit-Wall-Warnungen sind orange.
 - **Ein gesperrtes Team sagt, wann es wieder öffnet.** Nach einem Rennen zeigt die Kopfzeile RESULTS PENDING, REOPENS IN … oder REOPENING SOON statt eines Countdowns über gesperrten Zeilen, und dein Team wird neu gelesen, wenn du zurückkommst.
 
 ## Behoben
 
 - **Ein bezahlbarer Fahrer, den du nicht kaufen konntest.** 2.7.2 sperrte jeden Fahrer, der zu wenig für den günstigsten Abschluss übrig ließ, also kaufte $18 Guthaben keinen $5-Fahrer. Ein bezahlbarer Fahrer lässt sich jetzt immer kaufen; einer, der zu wenig übrig lässt, wird als TIGHT · LEAVES TOO LITTLE FOR THE REST markiert.
-- **Marktdetails außerhalb des Bearbeitens.** Gesperrte oder nicht verfügbare Marktzeilen öffnen ein Detailblatt zum Lesen, und langes Drücken öffnet es auf jeder Zeile.
+- **Marktdetails außerhalb des Bearbeitens.** Ein Tippen auf eine gesperrte oder nicht verfügbare Marktzeile öffnet ein Detailblatt zum Lesen, und langes Drücken öffnet es auf jeder Zeile.
 - **„JR“ als Nachname.** Namen mit Jr., Sr. oder einer Ziffer zeigen den echten Nachnamen.
+- **Hirakawa und Câmara mit Namen.** Die Startnummern 50 und 51 zeigen seit dem Fahrerwechsel bei Haas die richtigen Namen in Live-Timing und Rennansichten.

@@ -1,7 +1,8 @@
 # Provenance — undercut 2.8.0 (uc-v2.8.0)
 
 The owner's 2026-11-13 playtest list (F-142 #266, F-143 #267, F-145 #269) and the unreleased app
-halves of F-131 (Pit Wall gold, #241/#243/#246) and F-136 (held roster reopen line, #256), on
+halves of F-131 (Pit Wall gold, #241/#243/#246), F-136 (held roster reopen line, #256) and
+F-138/F-139 (Hirakawa and Câmara by car number and name, #260/#262), on
 top of 2.7.2, cut 2026-11-14 for the Las Vegas round (lock ~2026-11-21 03:00Z). Built from
 `cc06fdc` (origin/master) on the branch `release/uc-2.8.0` in the worktree
 `/data/f1-app-openf1`; the only difference from `cc06fdc` is the version stamp (2.8.0 /
@@ -25,8 +26,9 @@ versionCode 79 / buildNumber 63) and the release records.
    approved.
 4. Release records fixed by hand after the retry:
    - `.aidlc/features.yaml`: the run re-stamped F-111 (2.5.0) and F-129 (2.7.0) as 2.8.0 —
-     restored. Server-only features already live (F-134, F-137..F-141) keep `shipped` without a
-     `version_shipped`, since no build carried them.
+     restored. It also flipped the server-only F-134, F-137 and F-140 to `shipped`; they are back
+     to their earlier status (F-140's email is not switched on yet). F-138 and F-139 keep 2.8.0:
+     their app halves (car-number map, display names) are in this build.
    - Notes (10 languages) and `CHANGELOG.md` rewritten: the generated text led on 2.7.0's
      running score, described the ace call as a notification and auto-fill as saving partial
      lineups, listed 2.7.2's cheapest-finish block as new (2.8.0 relaxes it), and the retry left
