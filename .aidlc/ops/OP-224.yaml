@@ -1,0 +1,38 @@
+id: OP-224
+title: "F-146: Pit Wall Pass sells next season from December (checkout, trial, store purchase)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:pw-createCheckout,functions:pw-startLeagueTrial,functions:validatePurchase
+created_at: 2026-11-14T20:00:13.422Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-14T20:00:15.743Z
+    head_sha: 9f1f6541649e0669776a5b8d033ac3319ff7fbc0
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-224/dry-run-2026-11-14T20-00-15-743Z.log
+    log_sha256: 8073417d17d2ff284464f1875bf2d0a2644794207076e1eec1ea287613cfa6e7
+    lines: 75
+  - step: gates
+    at: 2026-11-14T20:01:11.416Z
+    head_sha: 9f1f6541649e0669776a5b8d033ac3319ff7fbc0
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-14T20:01:11.419Z
+    head_sha: 9f1f6541649e0669776a5b8d033ac3319ff7fbc0
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:pw-createCheckout,functions:pw-startLeagueTrial,functions:validatePurchase' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-224/apply-2026-11-14T20-01-11-419Z.log
+    log_sha256: 82bb5607435ac1a7d1e281b91a94e8fc70ac80c8b8d744c7706f3774f97c3b18
+    lines: 35
+  - step: gates
+    at: 2026-11-14T20:02:47.864Z
+    head_sha: 9f1f6541649e0669776a5b8d033ac3319ff7fbc0
+    exit: 0
+    gates:
+      G15: skip
