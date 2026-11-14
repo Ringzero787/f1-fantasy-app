@@ -1,14 +1,21 @@
 waivers:
   # F-148 (2026-11-14): the blanket "GHSA-" waiver (2026-09-18, ~200 advisories) is retired. The
-  # dependency pass took the repo from 175 osv findings to 44 with no HIGH left in a runtime package;
+  # dependency pass took the repo from 175 osv findings to 45 with no HIGH left in a runtime package;
   # the three below need a major upgrade their only consumer cannot take yet. Each is pinned to
   # the vulnerable version, so any bump resurfaces it, and expires before the 2027 season.
   - gate: G05
-    finding: "image-size@1.2.1:"
+    finding: "image-size@1.2.1: GHSA-5p2g-fcmc-qvqq"
     reason: DoS via an infinite loop parsing a crafted JXL, HEIF or ICNS file. Its only
       consumer is metro, at build time, reading this repo's own image assets; nothing
       user-supplied reaches it and it is not in the app bundle. The fix is image-size
       2.x, which drops the file-path API metro calls. Goes with the Expo SDK upgrade.
+    by: nathan
+    date: 2026-11-14
+    expires: 2027-03-01
+  - gate: G05
+    finding: "image-size@1.2.1: GHSA-w3rx-r6r6-pgpr"
+    reason: The second image-size advisory (ICNS parser loop); same consumer and reason
+      as GHSA-5p2g-fcmc-qvqq above.
     by: nathan
     date: 2026-11-14
     expires: 2027-03-01
@@ -23,9 +30,11 @@ waivers:
     expires: 2027-03-01
   - gate: G05
     finding: "decode-uri-component@0.2.2: GHSA-qr28-fpjm-wq7f"
-    reason: Exponential decoding of a malformed percent-encoded string. expo-router's
-      query-string parses deep-link URLs with it in the app, so a crafted link can hang
-      the app of the user who opens it; no server or other user is affected. The fix
+    reason: Quadratic replacement over runs of percent-encoded input. Its only consumer is
+      query-string 7, a dependency of expo-router, and expo-router 55 only calls
+      query-string's stringify (the parse call in getStateFromPath is commented out), so
+      a deep link is not expected to reach the decoder; worst case it hangs the app of
+      the user who opens a crafted link, never a server or another user. The fix
       (0.5.x) is ESM-only and query-string 7 loads it with require, so it needs
       expo-router's next major. Goes with the Expo SDK upgrade.
     by: nathan
