@@ -1,15 +1,45 @@
 waivers:
+  # F-148 (2026-11-14): the blanket "GHSA-" waiver (2026-09-18, ~200 advisories) is retired. The
+  # dependency pass took the repo from 175 osv findings to 45 with no HIGH left in a runtime package;
+  # the three below need a major upgrade their only consumer cannot take yet. Each is pinned to
+  # the vulnerable version, so any bump resurfaces it, and expires before the 2027 season.
   - gate: G05
-    finding: GHSA-
-    reason: Pre-existing dependency advisories (F-027 dependency bump pass) in the
-      functions lockfile, which this PR does not change; CI reports absolute
-      paths so the waiver is by title. Expires so the bump is revisited.
-      Extended 2026-10-29 by owner decision to clear the rest of the 2026
-      season (Abu Dhabi R25 is 2026-12-06), so a race-weekend hotfix build is
-      not blocked; the bump pass is due before the next expiry.
+    finding: "image-size@1.2.1: GHSA-5p2g-fcmc-qvqq"
+    reason: DoS via an infinite loop parsing a crafted JXL, HEIF or ICNS file. Its only
+      consumer is metro, at build time, reading this repo's own image assets; nothing
+      user-supplied reaches it and it is not in the app bundle. The fix is image-size
+      2.x, which drops the file-path API metro calls. Goes with the Expo SDK upgrade.
     by: nathan
-    date: 2026-09-18
-    expires: 2026-12-15
+    date: 2026-11-14
+    expires: 2027-03-01
+  - gate: G05
+    finding: "image-size@1.2.1: GHSA-w3rx-r6r6-pgpr"
+    reason: The second image-size advisory (ICNS parser loop); same consumer and reason
+      as GHSA-5p2g-fcmc-qvqq above.
+    by: nathan
+    date: 2026-11-14
+    expires: 2027-03-01
+  - gate: G05
+    finding: "zod@3.25.76: GHSA-mrhx-c7xc-m3w5"
+    reason: Memory exhaustion validating an oversized constrained collection. Only
+      @expo/cli uses this copy, on the developer box and the build box, to validate this
+      repo's own config. The fix is zod 4, a major the Expo CLI does not support. Goes
+      with the Expo SDK upgrade.
+    by: nathan
+    date: 2026-11-14
+    expires: 2027-03-01
+  - gate: G05
+    finding: "decode-uri-component@0.2.2: GHSA-qr28-fpjm-wq7f"
+    reason: Quadratic replacement over runs of percent-encoded input. Its only consumer is
+      query-string 7, a dependency of expo-router, and expo-router 55 only calls
+      query-string's stringify (the parse call in getStateFromPath is commented out), so
+      a deep link is not expected to reach the decoder; worst case it hangs the app of
+      the user who opens a crafted link, never a server or another user. The fix
+      (0.5.x) is ESM-only and query-string 7 loads it with require, so it needs
+      expo-router's next major. Goes with the Expo SDK upgrade.
+    by: nathan
+    date: 2026-11-14
+    expires: 2027-03-01
   - gate: G14
     finding: Destructive operation OP-033
     reason: 1st to 2nd Gen migration of the same two function names, which firebase

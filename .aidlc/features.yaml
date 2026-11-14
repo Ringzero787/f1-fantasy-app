@@ -1,4 +1,4 @@
-next_id: 148
+next_id: 149
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1834,3 +1834,16 @@ features:
       - check
       - season
       - mode
+  - id: F-148
+    name: "UC: dependency security pass retires the blanket GHSA waiver"
+    status: implemented
+    spec: .aidlc/specs/F-148.md
+    created_at: 2026-11-14
+    keywords:
+      - dependency
+      - security
+      - pass
+      - retires
+      - blanket
+      - ghsa
+      - waiver
