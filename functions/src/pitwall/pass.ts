@@ -80,8 +80,3 @@ export function saleSeason(now: number): string {
   const d = new Date(now);
   return String(d.getUTCMonth() === 11 ? d.getUTCFullYear() + 1 : d.getUTCFullYear());
 }
-
-/** A pass already reaches the end of `season`: buying that season again would add nothing. */
-export function passCoversSeason(pass: Partial<Pass> | undefined | null, season: string, now: number): boolean {
-  return passActive(pass, now) && pass!.expiresAt! >= seasonExpiry(season);
-}

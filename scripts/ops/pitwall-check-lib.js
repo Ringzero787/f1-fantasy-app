@@ -93,7 +93,10 @@ function evaluate(state, now = new Date()) {
   if (!cur && !last) add('fail', 'round', 'no upcoming race in the registry: the season is over or the registry is empty');
   else if (!cur) {
     const lastAt = ms(last.schedule && last.schedule.race);
-    add('ok', 'round', `off-season: the last round ${last.round} ${last.id} is scored${lastAt ? ` (${fmtAge(t - lastAt)} ago)` : ''}; next season is not in the registry yet`);
+    // ...but not for ever: the 2027 opener is in early March, and a calendar still unseeded 75 days
+    // after the final round (late February) is a WARN in the twice-weekly report (no email).
+    const stale = lastAt && t - lastAt > 75 * 24 * HOUR;
+    add(stale ? 'warn' : 'ok', 'round', `off-season: the last round ${last.round} ${last.id} is scored${lastAt ? ` (${fmtAge(t - lastAt)} ago)` : ''}; next season is not in the registry yet${stale ? ' — seed the new calendar (and set PW_SEASON) before the opener' : ''}`);
     const pub = state.newestPublic;
     const pubRound = pub ? (pub.round && typeof pub.round === 'object' ? pub.round.number : pub.round) : null;
     if (!pub) add('warn', 'payload', 'nothing published in pw_public');

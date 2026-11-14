@@ -13,7 +13,7 @@ import * as admin from 'firebase-admin';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { CREATE_LIMIT, REDEEM_LIMIT, cleanSource, clientIpOf, ipKey, isWellFormedCode, HANDOFF_TTL_MS } from './handoffCore';
 import { createHandoff, deleteOldHandoffs, redeemHandoff, takeRateSlot } from './handoffStore';
-import { currentSeason, passCoversSeason, PASS_PRICE_USD, saleSeason, type Pass } from './pass';
+import { passActive, PASS_PRICE_USD, saleSeason, type Pass } from './pass';
 import { expirePasses, grantPass, grantTrial, revokePass, stampClaim } from './passStore';
 import { checkoutSessionParams, verifyStripeSignature, webhookAction } from './stripe';
 
@@ -67,10 +67,9 @@ export const createCheckout = onCall({ region: 'us-central1', secrets: [stripeSe
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const now = Date.now();
   const user = (await db.doc(`users/${uid}`).get()).data() ?? {};
-  // F-146: a December or January buyer is buying next season, and a holder whose pass ends before
-  // that season does may renew; only a pass that already covers it is turned away.
+  if (passActive(user.pass as Partial<Pass> | undefined, now)) throw new HttpsError('already-exists', 'You already have a Pit Wall Pass.');
+  // F-146: from December the pass being sold is next season's
   const season = saleSeason(now);
-  if (passCoversSeason(user.pass as Partial<Pass> | undefined, season, now)) throw new HttpsError('already-exists', 'You already have a Pit Wall Pass.');
   const params = checkoutSessionParams(
     { uid, season, email: typeof user.email === 'string' ? user.email : request.auth?.token?.email ?? null },
     `${PORTAL_URL}/?paid=1`, `${PORTAL_URL}/?checkout=cancelled`,
@@ -129,7 +128,7 @@ export const startLeagueTrial = onCall({ region: 'us-central1' }, async (request
   const [league, member] = await Promise.all([db.doc(`leagues/${leagueId}`).get(), db.doc(`leagues/${leagueId}/members/${uid}`).get()]);
   if (!league.exists || !member.exists || member.data()?.status === 'pending') throw new HttpsError('permission-denied', 'You are not in that league.');
   if (league.data()?.pro !== true) throw new HttpsError('failed-precondition', 'That league is not a Pro league.');
-  const pass = await grantTrial(db, uid, currentSeason(Date.now()));
+  const pass = await grantTrial(db, uid, saleSeason(Date.now()));
   if (!pass) throw new HttpsError('already-exists', 'You have already used your trial.');
   return { expiresAt: pass.expiresAt };
 });

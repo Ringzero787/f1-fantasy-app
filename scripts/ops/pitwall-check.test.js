@@ -223,3 +223,12 @@ test('off-season does not hide an unscored final round or an empty registry', ()
   assert.equal(r.worst, 'fail');
   assert.match(r.findings.find((f) => f.check === 'round').text, /no upcoming race/);
 });
+
+test('off-season: a calendar still unseeded 75 days after the final round WARNs, never FAILs', () => {
+  const { s } = offSeason();
+  const LATE = new Date('2027-02-25T12:00:00Z');
+  s.worker.lastTickAt = LATE.getTime() - min(3);
+  const r = evaluate(s, LATE);
+  assert.equal(r.worst, 'warn');
+  assert.match(r.findings.find((f) => f.check === 'round').text, /seed the new calendar/);
+});

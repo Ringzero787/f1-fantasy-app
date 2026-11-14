@@ -58,20 +58,21 @@ test('F-146: from December a pass is sold for next season, so a December or Janu
   assert.equal(new Date(p.newPass(p.saleSeason(bought), 'play', bought).expiresAt).toISOString(), '2028-01-31T23:59:59.999Z');
 });
 
-test('F-146: only a pass that already reaches the end of the season being sold blocks a new checkout', () => {
-  const dec = Date.UTC(2026, 11, 10);
-  const pass2026 = p.newPass('2026', 'stripe', Date.UTC(2026, 5, 1));
-  const pass2027 = p.newPass('2027', 'stripe', dec);
-  assert.equal(p.passCoversSeason(pass2026, '2026', dec), true);
-  assert.equal(p.passCoversSeason(pass2026, '2027', dec), false); // a 2026 holder may renew for 2027
-  assert.equal(p.passCoversSeason(pass2027, '2027', dec), true);
-  assert.equal(p.passCoversSeason(p.trialPass('2027', dec), '2027', dec), false); // a trial never blocks buying
-  assert.equal(p.passCoversSeason(undefined, '2027', dec), false);
-  assert.equal(p.passCoversSeason(pass2027, '2027', p.seasonExpiry('2027')), false); // expired
-  // renewing keeps the longer expiry and the new season
-  const renewed = p.mergePass(pass2026, p.newPass('2027', 'stripe', dec, 'evt_2'));
-  assert.equal(renewed.season, '2027');
-  assert.equal(renewed.expiresAt, p.seasonExpiry('2027'));
+test('F-146: the year boundary, the January trial, and every purchase path stamps the sale season', () => {
+  assert.equal(p.saleSeason(Date.UTC(2026, 11, 31, 23, 59, 59)), '2027');
+  assert.equal(p.saleSeason(Date.UTC(2027, 0, 1, 0, 0, 0)), '2027');
+  // a trial on 28 January gets its full seven days (it was cut to the 31st on the old season)
+  const jan28 = Date.UTC(2027, 0, 28);
+  assert.equal(p.trialPass(p.saleSeason(jan28), jan28).expiresAt, jan28 + 7 * 86400000);
+  // wiring: the compiled grant paths use saleSeason, not currentSeason
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const idx = fs.readFileSync(path.join(__dirname, '../lib/pitwall/index.js'), 'utf8');
+  const vp = fs.readFileSync(path.join(__dirname, '../lib/purchases/validatePurchase.js'), 'utf8');
+  assert.doesNotMatch(idx, /currentSeason/);
+  assert.match(idx, /season = \(0, pass_1\.saleSeason\)\(now\)/);
+  assert.match(idx, /grantTrial\)\(db, uid, \(0, pass_1\.saleSeason\)/);
+  assert.match(vp, /grantPass\)\(db, userId, \(0, pass_1\.saleSeason\)\(Date\.now\(\)\)/);
 });
 
 test('a webhook signature is accepted only when it matches, is fresh, and carries valid JSON', () => {
