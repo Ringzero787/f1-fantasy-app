@@ -5,6 +5,7 @@
 
 import { TEAM_NAME_TO_ID, driverIdFor, unlistedOccupant } from './config';
 import { openf1Fetch } from './openf1Auth';
+import { resolveUnknownCars, type KnownDriver } from './resolveCars';
 
 const BASE_URL = 'https://api.openf1.org/v1';
 const REQUEST_DELAY_MS = 400;
@@ -13,8 +14,19 @@ let lastRequestTime = 0;
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 /** Every feed request is abandoned after this long; a whole-session laps table is the largest answer and lands well inside it. */
 const REQUEST_TIMEOUT_MS = 20_000;
-/** The driver id for a provider-typed car number in a row that does not name its driver (grid, laps), or undefined. */
-const driverIdOf = (n: unknown): string | undefined => driverIdFor(n);
+/**
+ * The driver id for a provider-typed car number in a row that does not name its driver (grid, laps),
+ * or undefined. `extras` are the cars the race session's entry list resolved by name (F-152).
+ */
+const driverIdOf = (n: unknown, extras?: Readonly<Record<number, string>>): string | undefined =>
+  driverIdFor(n) ?? (extras && Number.isInteger(n) ? extras[n as number] : undefined);
+/**
+ * F-152: the cars of one session's entry list the table does not know, resolved by name against
+ * the roster. No roster (a caller that has not loaded one), no resolution: the car stays unknown.
+ */
+export function extrasFor(drivers: ReadonlyArray<OpenF1Driver>, roster: ReadonlyArray<KnownDriver> | undefined, warnings: string[]): Record<number, string> {
+  return roster ? resolveUnknownCars(drivers, roster, warnings) : {};
+}
 /**
  * F-138: who the session says was in each car, so a number that changed hands during the season
  * resolves to the right driver (car 50 is Hirakawa's Mexico City number; Câmara races 51, F-139).
@@ -25,9 +37,10 @@ const acronymsOf = (drivers: ReadonlyArray<OpenF1Driver>): Map<number, string> =
  * named occupant the table does not list is credited to the current occupant with a warning,
  * not a hold: a provider typo must not delay the scoring run, but a new occupant must be seen.
  */
-export function driverIdForRow(driverNumber: number, names: ReadonlyMap<number, string>, warnings: string[], where: string): string | undefined {
+export function driverIdForRow(driverNumber: number, names: ReadonlyMap<number, string>, warnings: string[], where: string, extras: Readonly<Record<number, string>> = {}): string | undefined {
   const acronym = names.get(driverNumber);
   const id = driverIdFor(driverNumber, acronym);
+  if (!id) return extras[driverNumber];
   if (id && unlistedOccupant(driverNumber, acronym)) {
     warnings.push(`Car ${driverNumber} has changed hands this season and the ${where} session names ${acronym} in it, which SHARED_NUMBERS does not list; credited to ${id} (the current occupant)`);
   }
@@ -67,6 +80,8 @@ export interface OpenF1Driver {
   /** null for a stand-in the provider has not attached to a team in this session (Mexico 2026 Race: Hirakawa) */
   team_name: string | null;
   full_name: string;
+  /** F-152: resolution reads the surname from here, else the last word of full_name */
+  last_name?: string;
   name_acronym: string;
   session_key: number;
   meeting_key?: number;
@@ -132,6 +147,17 @@ export const UNMAPPED_DRIVER_WARNING_PREFIX = 'Unknown driver number';
  */
 export function noTeamWarning(driverNumber: number, driverId: string, where: 'race' | 'qualifying'): string {
   return `${UNMAPPED_DRIVER_WARNING_PREFIX} team: no team for ${where} driver ${driverNumber} (${driverId}) in this session or the meeting`;
+}
+
+/**
+ * F-152: one driver credited in two cars of a session. The table never does that, but a car
+ * resolved by name could if the entry list leaves out the car the table already gives him. It
+ * carries the unmapped prefix so the result is held, never published with a driver scored twice.
+ */
+export function duplicateDriverWarnings(rows: ReadonlyArray<{ driverId: string }>, where: string): string[] {
+  const seen = new Map<string, number>();
+  for (const r of rows) seen.set(r.driverId, (seen.get(r.driverId) ?? 0) + 1);
+  return [...seen].filter(([, k]) => k > 1).map(([id, k]) => `${UNMAPPED_DRIVER_WARNING_PREFIX} clash: ${id} is credited in ${k} cars of the ${where} session`);
 }
 
 export function isUnmappedDriverWarning(warning: string): boolean {
@@ -259,7 +285,7 @@ export async function fetchLaps(sessionKey: number): Promise<OpenF1Lap[]> {
  * Find the driver with the fastest lap in a race session.
  * Excludes pit-out laps and null durations.
  */
-export async function findFastestLap(sessionKey: number): Promise<string | null> {
+export async function findFastestLap(sessionKey: number, extras?: Readonly<Record<number, string>>): Promise<string | null> {
   const laps = await fetchLaps(sessionKey);
   if (!laps || laps.length === 0) return null;
 
@@ -275,7 +301,7 @@ export async function findFastestLap(sessionKey: number): Promise<string | null>
   }
 
   if (!fastest) return null;
-  return driverIdOf(fastest.driverNumber) ?? null;
+  return driverIdOf(fastest.driverNumber, extras) ?? null;
 }
 
 /**
@@ -292,6 +318,7 @@ export async function findFastestLap(sessionKey: number): Promise<string | null>
 export async function getGridPositions(
   sessions: OpenF1Session[],
   raceSessionKey?: number,
+  extras?: Readonly<Record<number, string>>,
 ): Promise<Record<string, number>> {
   const grid: Record<string, number> = {};
 
@@ -302,7 +329,7 @@ export async function getGridPositions(
       });
       for (const r of gridRows || []) {
         if (r.position == null || r.driver_number == null) continue;
-        const driverId = driverIdOf(r.driver_number);
+        const driverId = driverIdOf(r.driver_number, extras);
         if (driverId) {
           grid[driverId] = r.position;
         }
@@ -325,7 +352,7 @@ export async function getGridPositions(
   const results = await fetchSessionResults(qualiSession.session_key);
   for (const r of results) {
     if (r.position == null || r.driver_number == null) continue;
-    const driverId = driverIdOf(r.driver_number);
+    const driverId = driverIdOf(r.driver_number, extras);
     if (driverId) {
       grid[driverId] = r.position;
     }
@@ -341,6 +368,7 @@ export async function convertToRaceResults(
   sessionKey: number,
   gridPositions: Record<string, number>,
   fastestLapDriverId: string | null,
+  roster?: ReadonlyArray<KnownDriver>,
 ): Promise<{ results: RaceResult[]; totalLaps: number; warnings: string[] }> {
   const warnings: string[] = [];
   const [sessionResults, drivers] = await Promise.all([
@@ -356,6 +384,7 @@ export async function convertToRaceResults(
   const driverTeams = await teamsForSession(drivers, warnings);
 
   const names = acronymsOf(drivers);
+  const extras = extrasFor(drivers, roster, warnings);
 
   let maxLaps = 0;
   const results: RaceResult[] = [];
@@ -363,7 +392,7 @@ export async function convertToRaceResults(
   for (const r of sessionResults) {
     if (r.driver_number == null) continue;
 
-    const driverId = driverIdForRow(r.driver_number, names, warnings, 'race');
+    const driverId = driverIdForRow(r.driver_number, names, warnings, 'race', extras);
     if (!driverId) {
       warnings.push(`${UNMAPPED_DRIVER_WARNING_PREFIX}: ${r.driver_number}`);
       continue;
@@ -392,7 +421,7 @@ export async function convertToRaceResults(
 
     // Use grid position from starting_grid/qualifying; for drivers without
     // data (e.g. crashed in Q1, stewards' permission), place them at the back
-    const grid = gridPositions[driverId] ?? 22;
+    const grid = Object.prototype.hasOwnProperty.call(gridPositions, driverId) ? gridPositions[driverId] : 22;
 
     if (r.number_of_laps > maxLaps) {
       maxLaps = r.number_of_laps;
@@ -416,6 +445,8 @@ export async function convertToRaceResults(
     return a.position - b.position;
   });
 
+  warnings.push(...duplicateDriverWarnings(results, 'race'));
+
   if (Object.keys(gridPositions).length === 0) {
     warnings.push('No starting-grid or qualifying data found — grid positions defaulted to back of grid (P22)');
   }
@@ -432,6 +463,7 @@ export async function convertToRaceResults(
  */
 export async function convertToSprintResults(
   sessionKey: number,
+  roster?: ReadonlyArray<KnownDriver>,
 ): Promise<{ results: SprintResult[]; warnings: string[] }> {
   const warnings: string[] = [];
   const [sessionResults, drivers] = await Promise.all([
@@ -440,6 +472,7 @@ export async function convertToSprintResults(
     fetchDrivers(sessionKey).catch((e: unknown): OpenF1Driver[] => { warnings.push(`Could not fetch the sprint entry list; shared car numbers resolve to their current occupant: ${e instanceof Error ? e.message : String(e)}`); return []; }),
   ]);
   const names = acronymsOf(drivers);
+  const extras = extrasFor(drivers, roster, warnings);
 
   if (!sessionResults || sessionResults.length === 0) {
     return { results: [], warnings: ['No sprint results returned from OpenF1'] };
@@ -450,7 +483,7 @@ export async function convertToSprintResults(
   for (const r of sessionResults) {
     if (r.driver_number == null) continue;
 
-    const driverId = driverIdForRow(r.driver_number, names, warnings, 'sprint');
+    const driverId = driverIdForRow(r.driver_number, names, warnings, 'sprint', extras);
     if (!driverId) {
       warnings.push(`${UNMAPPED_DRIVER_WARNING_PREFIX} in sprint: ${r.driver_number}`);
       continue;
@@ -465,6 +498,7 @@ export async function convertToSprintResults(
 
     results.push({ position, driverId, status });
   }
+  warnings.push(...duplicateDriverWarnings(results, 'sprint'));
 
   results.sort((a, b) => {
     if (a.status !== 'finished' && b.status === 'finished') return 1;
@@ -480,6 +514,7 @@ export async function convertToSprintResults(
  */
 export async function convertToQualifyingResults(
   sessionKey: number,
+  roster?: ReadonlyArray<KnownDriver>,
 ): Promise<{ results: QualifyingResult[]; warnings: string[] }> {
   const warnings: string[] = [];
   const [sessionResults, drivers] = await Promise.all([
@@ -495,13 +530,14 @@ export async function convertToQualifyingResults(
   const driverTeams = await teamsForSession(drivers, warnings);
 
   const names = acronymsOf(drivers);
+  const extras = extrasFor(drivers, roster, warnings);
 
   const results: QualifyingResult[] = [];
 
   for (const r of sessionResults) {
     if (r.driver_number == null || r.position == null || r.position <= 0) continue;
 
-    const driverId = driverIdForRow(r.driver_number, names, warnings, 'qualifying');
+    const driverId = driverIdForRow(r.driver_number, names, warnings, 'qualifying', extras);
     if (!driverId) {
       warnings.push(`${UNMAPPED_DRIVER_WARNING_PREFIX} in qualifying: ${r.driver_number}`);
       continue;
@@ -517,5 +553,6 @@ export async function convertToQualifyingResults(
   }
 
   results.sort((a, b) => a.position - b.position);
+  warnings.push(...duplicateDriverWarnings(results, 'qualifying'));
   return { results, warnings };
 }

@@ -141,8 +141,18 @@ function evaluate(state, now = new Date()) {
     const reg = state.races.find((r) => r.id === h.raceId);
     if (!reg) { add('warn', 'scoring', `pendingResults/${h.raceId} (round ${h.round}) is held but the race is not in this season's registry: stale document, not an unscored race`); continue; }
     const where = `registry status '${reg.status}'`;
-    if (h.blockedReason) add('fail', 'scoring', `${h.raceId} (round ${h.round}, ${where}) results fetched ${age} ago are held: "${h.blockedReason}". Fix: add the driver mapping, deploy the result checkers, then run the requeueBlockedResults op`);
+    // F-152: the checker re-fetches a held race every 30 min for 14 days after it, unless it is completed
+    const regAt = ms(reg.schedule && reg.schedule.race);
+    const retrying = reg.status !== 'completed' && (!regAt || t - regAt <= 14 * 24 * HOUR);
+    if (h.blockedReason && retrying) add('fail', 'scoring', `${h.raceId} (round ${h.round}, ${where}) results fetched ${age} ago are held: "${h.blockedReason}". The checker fetches it again every 30 min (F-152) and it scores once every car resolves; if the entry list cannot name the driver, add the driver mapping and deploy the result checkers`);
+    else if (h.blockedReason) add('fail', 'scoring', `${h.raceId} (round ${h.round}, ${where}) results fetched ${age} ago are held: "${h.blockedReason}". Past the 14-day retry: add the driver mapping, deploy the result checkers, then run the requeueBlockedResults op`);
     else add('warn', 'scoring', `${h.raceId} (round ${h.round}, ${where}) results fetched ${age} ago await admin approval`);
+  }
+  // F-152: a race that scored with a car the table does not know (resolved by name): fine for the
+  //    score, but the table should learn the number before the next race. A week, then it drops off.
+  for (const r of state.resolved || []) {
+    if (!r.fetchedAt || t - ms(r.fetchedAt) > 7 * 24 * HOUR) continue;
+    add('warn', 'scoring', `${r.raceId} (round ${r.round}) scored with ${r.lines.length} car(s) resolved by name: ${r.lines.join(' | ')}`);
   }
   const heldIds = new Set(held.map((h) => h.raceId));
   for (const r of state.races) {
