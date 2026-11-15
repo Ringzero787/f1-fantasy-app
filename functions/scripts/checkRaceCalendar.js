@@ -9,9 +9,11 @@
  * 24h reminder window and sent players 1,273 notifications.
  *
  * Three copies of the calendar are pinned to each other by tests:
- * functions/test/fixtures/races2026.json is checked against ROUND_TO_RACE_ID by
- * functions/test/roundMapping.test.js, and against the app's bundled fallback
- * by __tests__/data/demoCalendar.test.ts. Nothing checks the fourth copy — the
+ * functions/test/fixtures/races2026.json is checked against the seeder by
+ * functions/test/seedDataCalendar.test.js, and against the app's bundled fallback
+ * by __tests__/data/demoCalendar.test.ts. (F-149 retired ROUND_TO_RACE_ID:
+ * ingestion now matches each race document to its OpenF1 meeting by the
+ * document's season and race time, so this script checks those instead.) Nothing checks the fourth copy — the
  * live Firestore documents — because no test can reach them. This script is
  * that check, run by hand through `aidlc op`.
  *
@@ -44,7 +46,7 @@ const SEASON = '2026';
 // problem. require() and JSON.parse throw, and an uncaught throw exits 1, so
 // the setup has to be inside a handler rather than relying on the existsSync
 // guards alone — a present-but-corrupt key, fixture or build all land here.
-let cred, fixtureRaces, ROUND_TO_RACE_ID, SPRINT_ROUNDS, db;
+let cred, fixtureRaces, seasonOfRace, db;
 // Nothing happens on import, including the key read. This file is run by
 // `aidlc op` through scripts/ops/run-script.js, which spawns it directly,
 // so require.main holds there. Requiring it — which is how its own guard
@@ -62,9 +64,9 @@ function setup() {
     fixtureRaces = Array.isArray(parsedFixture) ? parsedFixture : parsedFixture.races;
     if (!Array.isArray(fixtureRaces) || fixtureRaces.length === 0) throw new Error('fixture parsed but holds no races');
 
-    const configPath = path.join(__dirname, '..', 'lib', 'ingestion', 'config.js');
-    if (!fs.existsSync(configPath)) throw new Error('functions/lib is not built. Run: npm --prefix functions run build');
-    ({ ROUND_TO_RACE_ID, SPRINT_ROUNDS } = require(configPath));
+    const seasonPath = path.join(__dirname, '..', 'lib', 'ingestion', 'season.js');
+    if (!fs.existsSync(seasonPath)) throw new Error('functions/lib is not built. Run: npm --prefix functions run build');
+    ({ seasonOfRace } = require(seasonPath));
 
     admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
     db = admin.firestore();
@@ -114,18 +116,11 @@ async function main() {
     if (!fixtureRaces.some((r) => r.id === id)) problems.push(`${id}: present in Firestore but not in the pinned calendar`);
   }
 
-  // The mapping the ingestion actually uses, against what is live.
-  for (const [roundStr, raceId] of Object.entries(ROUND_TO_RACE_ID)) {
-    const round = Number(roundStr);
-    const got = live.get(raceId);
-    if (!got) { problems.push(`ROUND_TO_RACE_ID[${round}] = ${raceId}, which has no live document`); continue; }
-    if (got.round !== round) problems.push(`ROUND_TO_RACE_ID[${round}] = ${raceId}, but that document says round ${got.round} — ingestion would file this weekend's data on the wrong race`);
-  }
-  for (const round of SPRINT_ROUNDS) {
-    const raceId = ROUND_TO_RACE_ID[round];
-    if (!raceId) { problems.push(`round ${round} is in SPRINT_ROUNDS but ROUND_TO_RACE_ID has no entry for it — its sprint results would never be ingested`); continue; }
-    const got = live.get(raceId);
-    if (got && !got.hasSprint) problems.push(`round ${round} (${raceId}) is in SPRINT_ROUNDS but the live document has hasSprint ${!!got.hasSprint}`);
+  // F-149: what the ingestion actually keys on — each document's season, which
+  // must agree across seasonId, the id's year and the race time, or the race is
+  // never ingested.
+  for (const [id, got] of live) {
+    if (seasonOfRace(id, got) !== Number(SEASON)) problems.push(`${id}: seasonId, id year and race time do not agree on ${SEASON} — ingestion would skip this race`);
   }
 
   // Session times. The fixture deliberately carries none, and pinning them
@@ -243,7 +238,7 @@ async function main() {
   }
 
   if (problems.length === 0) {
-    console.log('OK — the live calendar matches the pinned one on round, status and sprint flag, and ROUND_TO_RACE_ID resolves correctly for every mapped round.');
+    console.log('OK — the live calendar matches the pinned one on round, status and sprint flag, and every race season agrees across seasonId, id and race time (F-149).');
     process.exit(0);
   }
   console.log(`${problems.length} PROBLEM(S):`);

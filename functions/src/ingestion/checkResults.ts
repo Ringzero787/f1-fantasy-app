@@ -40,8 +40,25 @@ interface Candidate {
   raceMs: number;
 }
 
+/**
+ * The races the results check fetches: not completed (the query), not cancelled, race time passed,
+ * and a season ingestion can read (F-149; a season it cannot is logged by candidateOf).
+ */
+export function dueCandidates(docs: admin.firestore.QueryDocumentSnapshot[], nowMs: number): Candidate[] {
+  const out: Candidate[] = [];
+  for (const doc of docs) {
+    const data = doc.data();
+    if (data.status === 'cancelled' || data.status === 'completed') continue;
+    const raceMs = toMs(data.schedule?.race);
+    if (!Number.isFinite(raceMs) || raceMs > nowMs) continue; // only races in the past
+    const candidate = candidateOf(doc, 'Ingestion');
+    if (candidate) out.push(candidate);
+  }
+  return out;
+}
+
 /** The candidate for a race document, or null (logged) when its season cannot be ingested from the feed. */
-function candidateOf(doc: admin.firestore.QueryDocumentSnapshot, tag: string): Candidate | null {
+export function candidateOf(doc: admin.firestore.QueryDocumentSnapshot, tag: string): Candidate | null {
   const data = doc.data();
   const season = seasonOfRace(doc.id, data);
   const blocker = ingestBlocker(doc.id, season);
@@ -75,25 +92,8 @@ export const checkOpenF1Results = onSchedule(
         .where('status', '!=', 'completed')
         .get();
 
-      const candidateRaces: Candidate[] = [];
+      const candidateRaces = dueCandidates(racesSnapshot.docs, now.toMillis());
       const sessionsFor = sessionsBySeason(fetchSessions);
-
-      for (const doc of racesSnapshot.docs) {
-        const data = doc.data();
-        if (data.status === 'cancelled') continue; // skip cancelled races
-        const raceTime = data.schedule?.race;
-        if (!raceTime) continue;
-
-        // Only consider races in the past
-        const raceTimestamp = raceTime instanceof admin.firestore.Timestamp
-          ? raceTime
-          : admin.firestore.Timestamp.fromDate(new Date(raceTime));
-
-        if (raceTimestamp.toMillis() > now.toMillis()) continue;
-
-        const candidate = candidateOf(doc, 'Ingestion');
-        if (candidate) candidateRaces.push(candidate);
-      }
 
       if (candidateRaces.length === 0) {
         console.log('[Ingestion] No candidate races found.');
@@ -131,12 +131,8 @@ export const checkOpenF1Results = onSchedule(
       const CORRECTION_WINDOW_HOURS = 6;
       const completedSnap = await db.collection('races').where('status', '==', 'completed').get();
       for (const doc of completedSnap.docs) {
-        const data = doc.data();
-        const raceTime = data.schedule?.race;
-        if (!raceTime) continue;
-        const raceMs = (raceTime instanceof admin.firestore.Timestamp
-          ? raceTime
-          : admin.firestore.Timestamp.fromDate(new Date(raceTime))).toMillis();
+        const raceMs = toMs(doc.data().schedule?.race);
+        if (!Number.isFinite(raceMs)) continue;
         const ageMs = now.toMillis() - raceMs;
         if (ageMs < 0 || ageMs > CORRECTION_WINDOW_HOURS * 3600 * 1000) continue; // only recently completed
         const candidate = candidateOf(doc, 'Ingestion');
@@ -502,16 +498,20 @@ export const checkSprintResults = onSchedule(
  * within three days or already past — each with its season's OpenF1 meeting. A race further out
  * has no finished session yet, so it is not fetched and its season is not judged.
  */
-async function openRaceMeetings(tag: string): Promise<Array<{
+export async function openRaceMeetings(
+  tag: string,
+  store: admin.firestore.Firestore = db,
+  fetch: (year: number) => Promise<OpenF1Session[]> = fetchSessions,
+  nowMs: number = Date.now(),
+): Promise<Array<{
   raceDoc: admin.firestore.QueryDocumentSnapshot;
   raceId: string;
   raceData: admin.firestore.DocumentData;
   round: number;
   meeting: MatchedMeeting;
 }>> {
-  const snap = await db.collection('races').where('status', '!=', 'completed').get();
-  const sessionsFor = sessionsBySeason(fetchSessions);
-  const nowMs = Date.now();
+  const snap = await store.collection('races').where('status', '!=', 'completed').get();
+  const sessionsFor = sessionsBySeason(fetch);
   const out = [];
   for (const raceDoc of snap.docs) {
     const raceData = raceDoc.data();

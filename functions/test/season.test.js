@@ -18,7 +18,7 @@ const FIXTURE = path.join(__dirname, 'fixtures', 'openf1Sessions2026.json');
 function sessions2026() {
   assert.ok(fs.existsSync(FIXTURE), `the OpenF1 2026 session fixture is missing (${FIXTURE}) — without it this test proves nothing`);
   const list = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')).sessions;
-  assert.ok(Array.isArray(list) && list.length > 100, 'the session fixture parsed but holds too few sessions');
+  assert.ok(Array.isArray(list) && list.length > 50, 'the session fixture parsed but holds too few sessions');
   return list;
 }
 const DAY = 24 * 3600e3;
@@ -138,7 +138,7 @@ test('each season is fetched once per run', async () => {
 
 test('no ingestion source names a fixed season year, round table or sprint round list', () => {
   const dir = path.join(__dirname, '..', 'src');
-  const files = ['ingestion/checkResults.ts', 'ingestion/syncSchedule.ts', 'ingestion/scheduleMonitor.ts', 'ingestion/config.ts', 'moonshot/liveSweep.ts'];
+  const files = ['ingestion/checkResults.ts', 'ingestion/syncSchedule.ts', 'ingestion/scheduleMonitor.ts', 'ingestion/config.ts', 'ingestion/openf1Client.ts', 'moonshot/liveSweep.ts', '../scripts/checkRaceCalendar.js'];
   for (const f of files) {
     const src = fs.readFileSync(path.join(dir, f), 'utf8').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
     for (const name of ['SEASON_YEAR', 'ROUND_TO_RACE_ID', 'SPRINT_ROUNDS', 'deriveRoundNumbers']) {

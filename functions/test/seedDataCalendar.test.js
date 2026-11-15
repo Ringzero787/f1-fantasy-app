@@ -4,7 +4,7 @@
 // the 2026 calendar that nothing pinned, and it was wrong: Bahrain at round 4
 // at Sakhir in April, Saudi still 'upcoming' rather than cancelled, and the
 // season tail each one round low. Running it would have written
-// singapore_2026.round = 18 while ROUND_TO_RACE_ID[18] is bahrain_2026 — the
+// singapore_2026.round = 18 while the round table (retired in F-149) mapped 18 to bahrain_2026 — the
 // 2026-10-01 misfiling, recreated, with real money settling against it.
 //
 // It could not be pinned before, because the module called seedDatabase() at

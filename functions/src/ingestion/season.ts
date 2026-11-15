@@ -18,6 +18,13 @@ import type { OpenF1Session } from './openf1Client';
 export const MATCH_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 
 /**
+ * The largest race-time change the schedule sync follows on its own. The match window is centred on
+ * the stored race time, so following every move would let the feed walk a race (and its lock times)
+ * a few days at a time; a bigger move is flagged by the schedule monitor and corrected by op.
+ */
+export const MOVE_FLAG_MS = 24 * 60 * 60 * 1000;
+
+/**
  * The season whose car numbers DRIVER_NUMBER_TO_ID lists. Car numbers change between seasons (the
  * champion takes 1, drivers move), so a race from any other season is never resolved through it.
  * Its results are held, loudly, until the table is updated for the new season and this is bumped.
@@ -70,8 +77,8 @@ export function meetingForRace(sessions: ReadonlyArray<OpenF1Session>, season: n
     const start = new Date(s.date_start).getTime();
     return Number.isFinite(start) && Math.abs(start - raceMs) <= MATCH_WINDOW_MS;
   });
-  const keys = new Set(races.map((s) => s.meeting_key));
-  if (keys.size !== 1) return null;
+  // one meeting with one Race: two meetings in the window, or a meeting listing two Races, is not guessed at
+  if (races.length !== 1) return null;
   const race = races[0];
   return { meetingKey: race.meeting_key, sessions: inSeason.filter((s) => s.meeting_key === race.meeting_key), race };
 }
