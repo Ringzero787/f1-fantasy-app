@@ -1,4 +1,4 @@
-next_id: 150
+next_id: 151
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1858,3 +1858,19 @@ features:
       - aware
       - results
       - ingestion
+  - id: F-150
+    name: "UC: season rollover - archive 2026, reset teams and standings, 2027 prices and calendar"
+    status: implemented
+    spec: .aidlc/specs/F-150.md
+    created_at: 2026-11-15
+    keywords:
+      - season
+      - rollover
+      - archive
+      - "2026"
+      - reset
+      - teams
+      - standings
+      - "2027"
+      - prices
+      - calendar

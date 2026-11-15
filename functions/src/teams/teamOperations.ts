@@ -4,10 +4,12 @@ import { projectTeam } from './projectTeam';
 import { isUsableLeagueId } from '../utils/leagueId';
 import { LockState, creationLock, liveLockState, lockedTeamStatus, stampedForWeekend } from '../locks/lockState';
 import { pickDueRace } from '../utils/lockTime';
+import { START_BUDGET, UNLOCKED_LOCK_STATUS } from '../season/rollover';
+
 
 const db = admin.firestore();
 
-const BUDGET = 1000;
+const BUDGET = START_BUDGET;
 const TEAM_SIZE = 5;
 const MAX_TEAMS_PER_USER = 2;
 
@@ -166,21 +168,8 @@ export const createTeamSecure = functions.https.onCall(async (data, context) => 
   const created = creationLock(live, due);
   const lockStatus = created
     ? lockedTeamStatus(created.state, created.raceName)
-    : {
-        isSeasonLocked: false,
-        seasonLockRacesRemaining: 0,
-        nextUnlockTime: null,
-        // F-095/F-098: the window in which the ace is frozen — the first session it scores
-        // in to the failsafe ceiling, with a gap once qualifying is scored — stamped when
-        // the weekend locks, consulted by firestore.rules.
-        aceFreezeFrom: null,
-        aceLockTime: null,
-        aceLockUntil: null,
-        aceQualiKey: null,
-        aceSprintKey: null,
-        canModify: true,
-        lockReason: null,
-      };
+    // F-150: the same object the season rollover resets teams to
+    : { ...UNLOCKED_LOCK_STATUS };
 
   const teamRef = db.collection('fantasyTeams').doc();
   const stamped = admin.firestore.Timestamp.now();
