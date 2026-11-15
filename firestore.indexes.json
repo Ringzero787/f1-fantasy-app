@@ -262,6 +262,14 @@
         { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
         { "order": "ASCENDING", "queryScope": "COLLECTION" }
       ]
+    },
+    {
+      "collectionGroup": "seasons",
+      "fieldPath": "memberUserIds",
+      "indexes": [
+        { "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" },
+        { "arrayConfig": "CONTAINS", "queryScope": "COLLECTION_GROUP" }
+      ]
     }
   ]
 }

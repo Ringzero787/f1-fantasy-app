@@ -4,9 +4,10 @@
 //
 // The owner's decisions (2026-11-15) are in functions/src/season/rollover.ts. Run it once, after the
 // final race of FROM is scored and its correction window has closed: the script refuses to write
-// before that. It is safe to re-run after a partial failure — every document it resets is stamped
-// with the new season (teams and leagues `seasonId`, drivers and constructors `pricedFor`) and is
-// skipped once stamped; race documents are only created, never overwritten.
+// before that. Every write belongs to an atomic group (one team with its archive, one league with its
+// members and archive, all prices, the calendar, the season switch), committed in order, so a failure
+// leaves whole groups behind and a re-run finishes the rest: a team or league whose archive exists is
+// done, a priced entity is stamped `pricedFor`, races are only created (rollover.ts planRollover).
 //
 // Dry run by default: prints the preconditions, every price, every league's champion and the new
 // calendar, plus the backup path list for the op. `--apply` writes. The uc-script op kind passes
@@ -55,19 +56,17 @@ async function openf1(pathAndQuery) {
   return res.json();
 }
 
-/** Replaces the DELETE sentinel with FieldValue.delete() for the write. */
-function forWrite(patch, DELETE) {
-  return Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === DELETE ? admin.firestore.FieldValue.delete() : v]));
+/** A plan op as a batch write: sentinels become server values. */
+function toBatch(batch, op, R) {
+  const data = Object.fromEntries(Object.entries(op.data).map(([k, v]) => [k, v === R.DELETE ? admin.firestore.FieldValue.delete() : v === R.NOW ? admin.firestore.FieldValue.serverTimestamp() : v]));
+  const ref = db.doc(op.path);
+  if (op.kind === 'create') batch.create(ref, data);
+  else if (op.kind === 'update') batch.update(ref, data);
+  else batch.set(ref, data, { merge: true });
 }
 
-/** Batched writes, committed 400 at a time. */
-function writer() {
-  let batch = db.batch(), n = 0, total = 0;
-  return {
-    async add(fn) { fn(batch); n++; total++; if (n >= 400) { await batch.commit(); batch = db.batch(); n = 0; } },
-    async done() { if (n) await batch.commit(); return total; },
-  };
-}
+/** ISO strings in a race or season document become Timestamps on write. */
+const SCHEDULE_TO_TS = (r) => ({ ...r, schedule: Object.fromEntries(Object.entries(r.schedule).map(([k, v]) => [k, admin.firestore.Timestamp.fromDate(new Date(v))])) });
 
 async function main(apply) {
   const R = lib('rollover.js');
@@ -83,41 +82,31 @@ async function main(apply) {
     blockers.push(`config/app.currentSeason is ${JSON.stringify(appCfg.currentSeason)}, expected ${FROM}`);
   }
   const fromRaces = (await db.collection('races').where('seasonId', '==', FROM).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const completed = fromRaces.filter((r) => r.status === 'completed');
+  // an empty list must not pass as "nothing open, all settled"
+  if (completed.length === 0) blockers.push(`no completed ${FROM} race found (${fromRaces.length} race documents with seasonId ${FROM})`);
   const open = fromRaces.filter((r) => r.status !== 'completed' && r.status !== 'cancelled');
   if (open.length) blockers.push(`${open.length} ${FROM} race(s) not completed: ${open.map((r) => `${r.id} (${r.status})`).join(', ')}`);
-  const lastMs = Math.max(...fromRaces.filter((r) => r.status === 'completed').map((r) => toMs(r.schedule && r.schedule.race)).filter(Number.isFinite));
-  const settledH = (Date.now() - lastMs) / 3600e3;
-  if (!(settledH >= SETTLE_HOURS)) blockers.push(`last ${FROM} race was ${settledH.toFixed(1)} h ago; wait ${SETTLE_HOURS} h for corrections`);
+  const raceTimes = completed.map((r) => toMs(r.schedule && r.schedule.race)).filter(Number.isFinite);
+  const settledH = raceTimes.length ? (Date.now() - Math.max(...raceTimes)) / 3600e3 : NaN;
+  if (!(settledH >= SETTLE_HOURS)) blockers.push(`last ${FROM} race was ${Number.isFinite(settledH) ? settledH.toFixed(1) : '?'} h ago; wait ${SETTLE_HOURS} h for corrections`);
   const pending = (await db.collection('pendingResults').where('status', '==', 'pending').get()).docs.map((d) => d.id).filter((id) => id.endsWith(`_${FROM}`));
   if (pending.length) blockers.push(`results still held for review: ${pending.join(', ')}`);
-  console.log(`\n== preconditions: ${blockers.length ? 'NOT MET' : 'met'}`);
-  for (const b of blockers) console.log(`  ✗ ${b}`);
 
-  // ── teams ──────────────────────────────────────────────────────────────────────────────────
-  const teams = (await db.collection('fantasyTeams').get()).docs;
-  const teamPlan = teams.filter((d) => d.data().seasonId !== TO).map((d) => ({ ref: d.ref, archive: R.teamArchive(d.data(), FROM), patch: { ...R.teamResetPatch(d.data()), seasonId: TO } }));
-  console.log(`\n== teams: ${teams.length} (${teamPlan.length} to reset, ${teams.length - teamPlan.length} already on ${TO})`);
-  const top = [...teamPlan].sort((a, b) => b.archive.seasonTotal - a.archive.seasonTotal).slice(0, 5);
-  for (const t of top) console.log(`  ${String(t.archive.seasonTotal).padStart(6)}  ${t.archive.name}  (${t.archive.scoredRaces.length} races)`);
-  const deleted = new Set(teamPlan.flatMap((t) => Object.entries(t.patch).filter(([, v]) => v === R.DELETE).map(([k]) => k)));
-  console.log(`  fields removed where present: ${[...deleted].sort().join(', ') || '(none)'}`);
-
-  // ── leagues ────────────────────────────────────────────────────────────────────────────────
-  const leagues = (await db.collection('leagues').get()).docs;
-  const leaguePlan = [];
-  for (const l of leagues) {
-    if (l.data().seasonId === TO) continue;
-    const members = (await l.ref.collection('members').get()).docs.map((m) => ({ id: m.id, ref: m.ref, ...m.data() }));
-    leaguePlan.push({ ref: l.ref, archive: R.leagueArchive(l.data(), members, FROM), patch: R.leagueResetPatch(TO), members: R.memberResetPatches(members).map((p) => ({ ...p, ref: members.find((m) => m.id === p.id).ref })) });
+  // ── read ───────────────────────────────────────────────────────────────────────────────────
+  const archived = async (ref) => (await ref.collection('seasons').doc(FROM).get()).exists;
+  const teams = [];
+  for (const d of (await db.collection('fantasyTeams').get()).docs) teams.push({ id: d.id, data: d.data(), archived: await archived(d.ref) });
+  const leagues = [];
+  for (const l of (await db.collection('leagues').get()).docs) {
+    const members = (await l.ref.collection('members').get()).docs.map((m) => ({ id: m.id, ...m.data() }));
+    leagues.push({ id: l.id, data: l.data(), archived: await archived(l.ref), members });
   }
-  console.log(`\n== leagues: ${leagues.length} (${leaguePlan.length} to reset); members: ${leaguePlan.reduce((n, l) => n + l.members.length, 0)}`);
-  for (const l of leaguePlan) {
-    const champ = l.archive.champions.map((c) => c.displayName).join(' & ') || '(no points)';
-    console.log(`  ${String(l.archive.memberCount).padStart(3)} members  ${l.archive.name}  — champion: ${champ}`);
+  const entities = [];
+  for (const coll of ['drivers', 'constructors']) {
+    for (const d of (await db.collection(coll).get()).docs) entities.push({ coll, id: d.id, data: d.data() });
   }
-
-  // ── prices ─────────────────────────────────────────────────────────────────────────────────
-  const fromIds = new Set(fromRaces.filter((r) => r.status === 'completed').map((r) => r.id));
+  const fromIds = new Set(completed.map((r) => r.id));
   const scores = {};
   for (const d of (await db.collection('raceScores').get()).docs) {
     const s = d.data();
@@ -126,80 +115,58 @@ async function main(apply) {
     e.races++;
     e.points += typeof s.totalPoints === 'number' ? s.totalPoints : 0;
   }
-  const pricePlan = [];
-  const activePrices = {};
-  for (const coll of ['drivers', 'constructors']) {
-    console.log(`\n== ${coll}: ${FROM} price → ${TO} opening price`);
-    const docs = (await db.collection(coll).get()).docs.sort((a, b) => a.id.localeCompare(b.id));
-    const rows = [];
-    for (const d of docs) {
-      const x = d.data();
-      const s = scores[d.id] || { races: 0, points: 0 };
-      const out = R.openingPrice({ id: d.id, scoredRaces: s.races, scorePoints: s.points, currentPrice: x.price }, { dollarsPerPoint: coll === 'constructors' ? R.CONSTRUCTOR_DOLLARS_PER_POINT : R.DOLLARS_PER_POINT });
-      rows.push({ d, x, out });
-      if (x.pricedFor !== TO) pricePlan.push({ ref: d.ref, patch: { ...R.entityPricePatch(x, out), pricedFor: TO } });
-    }
-    rows.sort((a, b) => b.out.price - a.out.price);
-    for (const { d, x, out } of rows) {
-      console.log(`  ${d.id.padEnd(14)} ${String(x.price).padStart(4)} → ${String(out.price).padStart(4)} ${out.tier}  ${out.basis}${x.isActive === false ? '  (inactive)' : ''}${x.pricedFor === TO ? '  (already priced)' : ''}`);
-    }
-    const active = rows.filter((r) => r.x.isActive !== false).map((r) => r.out.price).sort((a, b) => a - b);
-    activePrices[coll] = active;
-    const avg = (a) => Math.round(a.reduce((n, v) => n + v, 0) / Math.max(1, a.length));
-    const nowActive = rows.filter((r) => r.x.isActive !== false).map((r) => r.x.price);
-    console.log(`  active ${coll}: average opening $${avg(active)} (today's ${FROM} prices average $${avg(nowActive)}); top 5 $${active.slice(-5).reduce((n, v) => n + v, 0)}`);
-  }
-  const dr = activePrices.drivers, co = activePrices.constructors;
-  const sum = (a) => a.reduce((n, v) => n + v, 0);
-  console.log(`\n  budget ${R.START_BUDGET}: cheapest lineup (5 drivers + 1 constructor) $${sum(dr.slice(0, 5)) + co[0]}; dearest $${sum(dr.slice(-5)) + co[co.length - 1]}`);
-
-  // ── calendar ───────────────────────────────────────────────────────────────────────────────
   const [meetings, sessions] = await Promise.all([openf1(`meetings?year=${TO}`), openf1(`sessions?year=${TO}`)]);
   const calendar = buildCalendar(Number(TO), meetings, sessions);
-  const existing = new Set((await db.collection('races').where('seasonId', '==', TO).get()).docs.map((d) => d.id));
-  console.log(`\n== ${TO} calendar from OpenF1: ${calendar.length} races (${calendar.filter((r) => r.hasSprint).length} sprint weekends)`);
-  for (const r of calendar) console.log(`  R${String(r.round).padStart(2)} ${r.schedule.race.slice(0, 16)}Z  ${r.id.padEnd(16)} ${r.name}${r.hasSprint ? '  [sprint]' : ''}${existing.has(r.id) ? '  (exists, kept)' : ''}`);
   if (calendar.length === 0) blockers.push(`OpenF1 lists no ${TO} races`);
+  const existingRaces = (await db.collection('races').where('seasonId', '==', TO).get()).docs.map((d) => d.id);
 
-  // ── backup list for the op ─────────────────────────────────────────────────────────────────
-  const backup = ['fantasyTeams', 'leagues', ...leagues.map((l) => `leagues/${l.id}/members`), 'drivers', 'constructors', 'seasons', 'config/app'];
-  console.log(`\n== op backup paths:\n${backup.join(',')}`);
+  const plan = R.planRollover({ from: FROM, to: TO, teams, leagues, entities, scores, calendar, existingRaces });
+
+  // ── report ─────────────────────────────────────────────────────────────────────────────────
+  console.log(`\n== preconditions: ${blockers.length ? 'NOT MET' : 'met'}`);
+  for (const b of blockers) console.log(`  ✗ ${b}`);
+  console.log(`\n== teams: ${plan.teams.total} (${plan.teams.reset} to archive and reset, ${plan.teams.total - plan.teams.reset} already archived)`);
+  for (const a of [...plan.teams.archives].sort((x, y) => y.seasonTotal - x.seasonTotal).slice(0, 5)) console.log(`  ${String(a.seasonTotal).padStart(6)}  ${a.name}`);
+  console.log(`\n== leagues: ${plan.leagues.total} (${plan.leagues.reset} to archive and reset); members: ${plan.leagues.members}`);
+  for (const a of plan.leagues.archives) console.log(`  ${String(a.memberCount).padStart(3)} members  ${a.name}  — champion: ${a.champions.map((c) => c.displayName).join(' & ') || '(no points)'}`);
+  for (const coll of ['drivers', 'constructors']) {
+    const rows = plan.prices.filter((p) => p.coll === coll).sort((a, b) => b.out.price - a.out.price);
+    console.log(`\n== ${coll}: ${FROM} price → ${TO} opening price`);
+    for (const p of rows) console.log(`  ${p.id.padEnd(14)} ${String(p.from).padStart(4)} → ${String(p.out.price).padStart(4)} ${p.out.tier}  ${p.out.basis}${p.inactive ? '  (inactive)' : ''}${p.stamped ? '  (already priced)' : ''}`);
+    const avg = (a) => Math.round(a.reduce((n, v) => n + v, 0) / Math.max(1, a.length));
+    const active = rows.filter((p) => !p.inactive);
+    console.log(`  active ${coll}: average opening $${avg(active.map((p) => p.out.price))} (today's ${FROM} prices average $${avg(active.map((p) => p.from))})`);
+  }
+  const act = (coll) => plan.prices.filter((p) => p.coll === coll && !p.inactive).map((p) => p.out.price).sort((a, b) => a - b);
+  const dr = act('drivers'), co = act('constructors'), sum = (a) => a.reduce((n, v) => n + v, 0);
+  console.log(`\n  budget ${R.START_BUDGET}: cheapest lineup (5 drivers + 1 constructor) $${sum(dr.slice(0, 5)) + co[0]}; dearest $${sum(dr.slice(-5)) + co[co.length - 1]}`);
+  console.log(`\n== ${TO} calendar from OpenF1: ${calendar.length} races (${calendar.filter((r) => r.hasSprint).length} sprint weekends), ${plan.newRaces.length} to create`);
+  for (const r of calendar) console.log(`  R${String(r.round).padStart(2)} ${r.schedule.race.slice(0, 16)}Z  ${r.id.padEnd(16)} ${r.name}${r.hasSprint ? '  [sprint]' : ''}${plan.newRaces.includes(r.id) ? '' : '  (exists, kept)'}`);
+  console.log(`\n== ${plan.groups.length} atomic write groups, ${plan.groups.reduce((n, g) => n + g.ops.length, 0)} writes`);
+  console.log(`\n== op backup paths (a restore deletes the documents listed here that do not exist yet):\n${plan.backupPaths.join(',')}`);
 
   if (!apply) { console.log('\n== dry run: nothing written (add --apply)'); return; }
   if (blockers.length) throw new Error(`refusing to write: ${blockers.length} precondition(s) not met`);
 
-  const ts = admin.firestore.FieldValue.serverTimestamp();
-  const w = writer();
-  for (const t of teamPlan) {
-    await w.add((b) => b.set(t.ref.collection('seasons').doc(FROM), { ...t.archive, archivedAt: ts }));
-    await w.add((b) => b.update(t.ref, { ...forWrite(t.patch, R.DELETE), updatedAt: ts }));
+  // one batch per group, in order: a failure leaves every earlier group whole and every later one untouched
+  let done = 0;
+  for (const g of plan.groups) {
+    const batch = db.batch();
+    for (const op of g.ops) {
+      const o = op.path.startsWith('races/') ? { ...op, data: SCHEDULE_TO_TS(op.data) } : op;
+      if (op.path === `seasons/${TO}`) {
+        for (const k of ['startDate', 'endDate']) if (o.data[k]) o.data = { ...o.data, [k]: admin.firestore.Timestamp.fromDate(new Date(o.data[k])) };
+      }
+      toBatch(batch, o, R);
+    }
+    try {
+      await batch.commit();
+    } catch (e) {
+      throw new Error(`group "${g.label}" failed after ${done} of ${plan.groups.length} groups committed: ${e.message}. Earlier groups are complete; re-run to finish.`);
+    }
+    done++;
   }
-  for (const l of leaguePlan) {
-    await w.add((b) => b.set(l.ref.collection('seasons').doc(FROM), { ...l.archive, archivedAt: ts }));
-    for (const m of l.members) await w.add((b) => b.update(m.ref, forWrite(m.patch, R.DELETE)));
-    await w.add((b) => b.update(l.ref, { ...l.patch, updatedAt: ts }));
-  }
-  const finals = { drivers: {}, constructors: {} };
-  for (const p of pricePlan) {
-    finals[p.ref.parent.id][p.ref.id] = { fantasyPoints: p.patch.seasonPoints };
-    await w.add((b) => b.update(p.ref, p.patch));
-  }
-  for (const r of calendar) {
-    if (existing.has(r.id)) continue;
-    const schedule = Object.fromEntries(Object.entries(r.schedule).map(([k, v]) => [k, admin.firestore.Timestamp.fromDate(new Date(v))]));
-    await w.add((b) => b.create(db.doc(`races/${r.id}`), { ...r, schedule }));
-  }
-  const first = calendar[0], last = calendar[calendar.length - 1];
-  await w.add((b) => b.set(db.doc(`seasons/${TO}`), {
-    id: TO, year: Number(TO), name: `${TO} Season`, isActive: true,
-    startDate: admin.firestore.Timestamp.fromDate(new Date(first.schedule.fp1 || first.schedule.race)),
-    endDate: admin.firestore.Timestamp.fromDate(new Date(last.schedule.race)),
-    totalRaces: calendar.length, currentRound: 1, budget: R.START_BUDGET, teamSize: 5,
-  }, { merge: true }));
-  await w.add((b) => b.set(db.doc(`seasons/${FROM}`), { isActive: false, rolledOverAt: ts, final: finals }, { merge: true }));
-  await w.add((b) => b.set(db.doc('config/app'), { currentSeason: TO }, { merge: true }));
-  const n = await w.done();
-  console.log(`\n== wrote ${n} document changes: ${teamPlan.length} teams, ${leaguePlan.length} leagues, ${pricePlan.length} prices, ${calendar.filter((r) => !existing.has(r.id)).length} races; config/app.currentSeason = ${TO}`);
+  console.log(`\n== committed ${done} groups: ${plan.teams.reset} teams, ${plan.leagues.reset} leagues, ${plan.prices.filter((p) => !p.stamped).length} prices, ${plan.newRaces.length} races; config/app.currentSeason = ${TO}`);
 }
 
 if (require.main === module) {

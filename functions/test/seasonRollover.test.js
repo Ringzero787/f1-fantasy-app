@@ -138,3 +138,92 @@ test('every circuit keeps its 2026 race id slug, and slugs are unique', () => {
   const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'races2026.json'), 'utf8')).races;
   for (const r of fixture) assert.ok(slugs.includes(r.id.replace(/_2026$/, '')), `${r.id} has no 2027 slug`);
 });
+
+// ── the plan the script commits ─────────────────────────────────────────────────────────────────
+const cal = buildCalendar(2027, meetings, sessions);
+const input = (over = {}) => ({
+  from: '2026', to: '2027',
+  teams: [{ id: 't1', data: team2026(), archived: false }, { id: 't2', data: { ...team2026(), name: 'Other' }, archived: true }],
+  leagues: [{ id: 'L1', data: { name: 'L', seasonId: '2026', raceResultIds: ['r1'] }, archived: false, members: [{ id: 'm1', userId: 'u1', displayName: 'Ann', totalPoints: 900 }, { id: 'm2', userId: 'u2', displayName: 'Bo', totalPoints: 100 }] }],
+  entities: [
+    { coll: 'drivers', id: 'norris', data: { price: 592, fantasyPoints: 695 } },
+    { coll: 'drivers', id: 'piastri', data: { price: 370, fantasyPoints: 0, seasonPoints: 561, pricedFor: '2027' } },
+    { coll: 'constructors', id: 'mclaren', data: { price: 662, fantasyPoints: 1172 } },
+  ],
+  scores: { norris: { races: 20, points: 872 }, piastri: { races: 20, points: 740 }, mclaren: { races: 20, points: 1628 } },
+  calendar: cal, existingRaces: ['japan_2027'],
+  ...over,
+});
+
+test('plan: each team is one atomic group — archive created with the reset — and an archived team is done', () => {
+  const plan = R.planRollover(input());
+  const t1 = plan.groups.find((g) => g.label === 'team t1');
+  assert.deepEqual(t1.ops.map((o) => [o.kind, o.path]), [['create', 'fantasyTeams/t1/seasons/2026'], ['update', 'fantasyTeams/t1']]);
+  assert.equal(t1.ops[0].data.archivedAt, R.NOW);
+  assert.equal(t1.ops[1].data.budget, 1000);
+  assert.ok(!plan.groups.some((g) => g.label === 'team t2'), 'archived on an earlier run');
+  assert.deepEqual([plan.teams.total, plan.teams.reset], [2, 1]);
+});
+
+test('plan: a team or league a player stamped seasonId 2027 is still archived and reset', () => {
+  const plan = R.planRollover(input({
+    teams: [{ id: 'cheat', data: { ...team2026(), seasonId: '2027' }, archived: false }],
+    leagues: [{ id: 'Lc', data: { name: 'x', seasonId: '2027' }, archived: false, members: [{ id: 'm', userId: 'u', totalPoints: 5 }] }],
+  }));
+  const team = plan.groups.find((g) => g.label === 'team cheat');
+  assert.ok(team, 'the client-writable seasonId is not a skip marker');
+  assert.equal(team.ops[1].data.totalPoints, 0);
+  assert.ok(plan.groups.find((g) => g.label === 'league Lc'));
+});
+
+test('plan: a league commits its archive, every member and its reset together; an archived league is done', () => {
+  const plan = R.planRollover(input());
+  const g = plan.groups.find((x) => x.label === 'league L1');
+  assert.deepEqual(g.ops.map((o) => o.path), ['leagues/L1/seasons/2026', 'leagues/L1/members/m1', 'leagues/L1/members/m2', 'leagues/L1']);
+  assert.deepEqual(g.ops[0].data.champions, [{ userId: 'u1', displayName: 'Ann' }]);
+  assert.deepEqual(g.ops[0].data.memberUserIds, ['u1', 'u2']);
+  assert.deepEqual(g.ops[3].data.raceResultIds, []);
+  const again = R.planRollover(input({ leagues: [{ ...input().leagues[0], archived: true, members: [{ id: 'm1', totalPoints: 0 }] }] }));
+  assert.ok(!again.groups.some((x) => x.label === 'league L1'), 'a re-run never rebuilds the archive from zeroed members');
+});
+
+test('plan: prices in one group, a priced entity is not re-priced, and finals cover every entity', () => {
+  const plan = R.planRollover(input());
+  const g = plan.groups.find((x) => x.label === 'prices');
+  assert.deepEqual(g.ops.map((o) => o.path), ['drivers/norris', 'constructors/mclaren']);
+  assert.equal(g.ops[1].data.price, Math.round(1628 / 20 * 5), 'constructors at the constructor rate');
+  assert.equal(g.ops[0].data.pricedFor, '2027');
+  assert.deepEqual(plan.finals, { drivers: { norris: { fantasyPoints: 695 }, piastri: { fantasyPoints: 561 } }, constructors: { mclaren: { fantasyPoints: 1172 } } });
+});
+
+test('plan: only missing races are created, the season switch is last, and the backup list covers what is created', () => {
+  const plan = R.planRollover(input());
+  const c = plan.groups.find((x) => x.label === 'calendar');
+  assert.deepEqual(c.ops.map((o) => [o.kind, o.path]), [['create', 'races/bahrain_2027']]);
+  const last = plan.groups[plan.groups.length - 1];
+  assert.equal(last.label, 'season switch');
+  assert.deepEqual(last.ops.map((o) => o.path), ['seasons/2027', 'seasons/2026', 'config/app']);
+  assert.deepEqual(last.ops[2].data, { currentSeason: '2027' });
+  assert.equal(last.ops[1].data.isActive, false);
+  for (const p of ['fantasyTeams/t1/seasons/2026', 'leagues/L1/seasons/2026', 'leagues/L1/members', 'races/bahrain_2027', 'races/japan_2027', 'seasons/2027', 'config/app']) assert.ok(plan.backupPaths.includes(p), p);
+});
+
+test('account deletion: an archived league table keeps the row but loses who it was', () => {
+  const archive = R.leagueArchive({ name: 'L' }, [{ id: 'm1', userId: 'u1', displayName: 'Ann', totalPoints: 900 }, { id: 'm2', userId: 'u2', displayName: 'Bo', totalPoints: 100 }], '2026');
+  const patch = R.anonymiseLeagueArchive(archive, 'u1');
+  assert.deepEqual(patch.standings.map((s) => [s.rank, s.totalPoints, s.userId, s.displayName]), [[1, 900, null, R.DELETED_PLAYER], [2, 100, 'u2', 'Bo']]);
+  assert.deepEqual(patch.champions, [{ userId: null, displayName: R.DELETED_PLAYER }]);
+  assert.deepEqual(patch.memberUserIds, ['u2']);
+  assert.equal(R.anonymiseLeagueArchive(archive, 'nobody'), null);
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'users', 'deleteUserData.ts'), 'utf8');
+  assert.match(src, /db\.recursiveDelete\(t\.ref\)/, 'teams go with their subcollections');
+  assert.match(src, /collectionGroup\('seasons'\)\.where\('memberUserIds', 'array-contains', userId\)/);
+  const idx = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'firestore.indexes.json'), 'utf8'));
+  assert.ok(idx.fieldOverrides.some((f) => f.collectionGroup === 'seasons' && f.fieldPath === 'memberUserIds' && f.indexes.some((i) => i.arrayConfig === 'CONTAINS' && i.queryScope === 'COLLECTION_GROUP')));
+});
+
+test('the calendar refuses a Race with no start time and a name that is not a race name', () => {
+  assert.throws(() => buildCalendar(2027, [meetings[1]], [S(3, 'Race', 'soon')]), /has no start time/);
+  assert.throws(() => buildCalendar(2027, [{ ...meetings[1], meeting_name: '<script>x</script>' }], sessions), /implausible name/);
+  assert.equal(buildCalendar(2027, [{ ...meetings[1], meeting_name: 'São Paulo Grand Prix' }], sessions)[0].name, 'São Paulo Grand Prix');
+});

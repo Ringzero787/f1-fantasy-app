@@ -94,6 +94,9 @@ export function buildCalendar(season: number, meetings: ReadonlyArray<OpenF1Meet
     const own = sessions.filter((s) => s.meeting_key === m.meeting_key && s.is_cancelled !== true);
     const race = own.find((s) => s.session_name === 'Race');
     if (!race) continue; // pre-season testing: no Race
+    if (!Number.isFinite(new Date(race.date_start).getTime())) throw new Error(`${m.meeting_name}: its Race has no start time`);
+    // the name is shown to every player as received: refuse anything that is not a plain race name
+    if (typeof m.meeting_name !== 'string' || !/^[\p{L}\p{N} .'-]{3,60}$/u.test(m.meeting_name)) throw new Error(`meeting ${m.meeting_key}: implausible name ${JSON.stringify(m.meeting_name)}`);
     const meta = CIRCUITS[m.circuit_short_name];
     if (!meta) throw new Error(`no CIRCUITS entry for "${m.circuit_short_name}" (${m.meeting_name}) — add its slug, circuit, city and timezone`);
     const schedule: Record<string, string> = {};

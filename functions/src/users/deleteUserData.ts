@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { anonymiseLeagueArchive } from '../season/rollover';
 
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
@@ -10,13 +11,14 @@ const bucket = admin.storage().bucket();
  *
  * Collections cleaned:
  * - users/{userId}
- * - fantasyTeams where userId == uid
+ * - fantasyTeams where userId == uid, with their subcollections (raceSnapshots, F-150 seasons archives)
  * - transactions where userId == uid
  * - notifications where userId == uid
  * - purchases where userId == uid
  * - leagues/{leagueId}/members/{userId} (all leagues)
  * - leagues/{leagueId}/chatReadReceipts/{userId}
  * - avatarRateLimits/{userId}
+ * - leagues/{leagueId}/seasons/{season} (F-150): the user's standings row and champion entry lose their id and name
  * - Storage: avatars/{userId}/**
  */
 export const onUserDeleted = functions.auth.user().onDelete(async (user) => {
@@ -35,9 +37,10 @@ export const onUserDeleted = functions.auth.user().onDelete(async (user) => {
     db.collection('avatarRateLimits').doc(userId).delete().catch(logAndIgnore('avatarRateLimits'))
   );
 
-  // 3. Delete fantasyTeams owned by user
+  // 3. Delete fantasyTeams owned by user, with their history: a plain doc delete leaves the
+  // raceSnapshots and the F-150 season archives (team name, league) behind
   deletions.push(
-    batchDeleteByField('fantasyTeams', 'userId', userId)
+    deleteTeamsWithHistory(userId)
   );
 
   // 4. Delete transactions
@@ -61,10 +64,30 @@ export const onUserDeleted = functions.auth.user().onDelete(async (user) => {
   // 8. Delete Storage avatars
   deletions.push(deleteStorageFolder(`avatars/${userId}/`));
 
+  // 9. F-150: past-season league tables keep the row (rank and points) but not who it was
+  deletions.push(anonymiseLeagueArchives(userId).catch(logAndIgnore('leagues/*/seasons')));
+
   await Promise.all(deletions);
 
   console.log(`Cleanup complete for user: ${userId}`);
 });
+
+/** Every team the user owns, recursively: the team document and every subcollection under it. */
+async function deleteTeamsWithHistory(userId: string): Promise<void> {
+  const teams = await db.collection('fantasyTeams').where('userId', '==', userId).get();
+  for (const t of teams.docs) await db.recursiveDelete(t.ref);
+  if (!teams.empty) console.log(`Deleted ${teams.size} fantasyTeams with their subcollections`);
+}
+
+/** The user's entries in archived league tables (leagues/{id}/seasons/{season}), found by memberUserIds. */
+async function anonymiseLeagueArchives(userId: string): Promise<void> {
+  const archives = await db.collectionGroup('seasons').where('memberUserIds', 'array-contains', userId).get();
+  for (const a of archives.docs) {
+    const patch = anonymiseLeagueArchive(a.data(), userId);
+    if (patch) await a.ref.update(patch);
+  }
+  if (!archives.empty) console.log(`Anonymised ${archives.size} league season archives`);
+}
 
 /**
  * Batch-delete all documents in a collection where a field matches a value.
