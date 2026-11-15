@@ -135,9 +135,20 @@ test('F-135: a race held by the ingestion fails with the reason; one awaiting ad
   s.held = [{ raceId: 'mexico_2026', round: 21, fetchedAt: new Date(NOW.getTime() - 3 * 3600 * 1000).toISOString(), blockedReason: 'Unmapped driver number(s) — grid is incomplete: Unknown driver number: 50' }];
   const r = evaluate(s, NOW);
   assert.deepEqual(levels(r, 'scoring'), ['fail']);
-  assert.match(r.findings.find((f) => f.check === 'scoring').text, /mexico_2026 \(round 21, registry status 'in_progress'\) results fetched .+ ago are held: "Unmapped driver number.*"\. Fix: .*requeueBlockedResults/);
+  assert.match(r.findings.find((f) => f.check === 'scoring').text, /mexico_2026 \(round 21, registry status 'in_progress'\) results fetched .+ ago are held: "Unmapped driver number.*"\. The checker fetches it again every 30 min/);
   s.held[0].blockedReason = null;
   assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), ['warn']);
+});
+
+test('F-152: a race scored with a car resolved by name warns for a week, then drops off', () => {
+  const s = healthy();
+  const line = 'Resolved by name: car 97 is not in the driver table; credited to camara, drivers/camara by code and surname. Add it to DRIVER_NUMBER_TO_ID';
+  s.resolved = [{ raceId: 'brazil_2026', round: 22, fetchedAt: new Date(NOW.getTime() - 2 * 3600 * 1000).toISOString(), lines: [line] }];
+  const r = evaluate(s, NOW);
+  assert.deepEqual(levels(r, 'scoring'), ['warn']);
+  assert.match(r.findings.find((f) => f.check === 'scoring').text, /brazil_2026 \(round 22\) scored with 1 car\(s\) resolved by name: Resolved by name: car 97/);
+  s.resolved[0].fetchedAt = new Date(NOW.getTime() - 8 * 24 * 3600 * 1000).toISOString();
+  assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), []);
 });
 
 test('F-135: a race three hours past with nothing fetched warns, twelve hours past fails, and a fresh race is quiet', () => {

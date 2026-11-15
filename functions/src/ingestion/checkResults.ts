@@ -22,13 +22,44 @@ import {
   convertToSprintResults,
   convertToQualifyingResults,
   isUnmappedDriverWarning,
+  fetchDrivers,
+  extrasFor,
   type OpenF1Session,
 } from './openf1Client';
+import { loadRoster, type KnownDriver } from './resolveCars';
 import { MATCH_WINDOW_MS, ingestBlocker, meetingForRace, seasonOfRace, sessionsBySeason, toMs, type MatchedMeeting } from './season';
 import { handleQualifyingScoring, handleSprintScoring } from '../scoring/calculatePoints';
 import { openf1Secrets } from './openf1Auth';
 
 const db = admin.firestore();
+
+/**
+ * F-152: a race held on an unmapped car is fetched again this often, so it scores by itself once
+ * the cause is gone — a mapping deployed, or the provider completing its entry list — with no
+ * re-queue op. Before, a held race was skipped on every tick until someone re-queued it by hand.
+ */
+export const HELD_RETRY_MS = 30 * 60 * 1000;
+/** …for this long after the race; past it a held race waits for a hand re-queue (requeueBlockedResults.js). */
+export const HELD_RETRY_FOR_MS = 14 * 24 * 3600 * 1000;
+
+/**
+ * Pure: what the results check does with a due race given its pendingResults document. 'fetch' for
+ * no document or a rejected one (as before); 'retry' for one held on a blockedReason whose last
+ * fetch is HELD_RETRY_MS old, inside HELD_RETRY_FOR_MS of the race; otherwise skip.
+ */
+export function heldAction(
+  pending: { status?: unknown; blockedReason?: unknown; fetchedAt?: unknown } | undefined,
+  raceMs: number,
+  nowMs: number,
+): 'fetch' | 'retry' | 'skip' {
+  if (!pending) return 'fetch';
+  if (pending.status === 'approved') return 'skip';
+  if (pending.status !== 'pending') return 'fetch';
+  if (!pending.blockedReason) return 'skip';
+  if (nowMs - raceMs > HELD_RETRY_FOR_MS) return 'skip';
+  const fetchedMs = toMs(pending.fetchedAt);
+  return !Number.isFinite(fetchedMs) || nowMs - fetchedMs >= HELD_RETRY_MS ? 'retry' : 'skip';
+}
 
 /** A race the results check may fetch: its document's season and race time pick the OpenF1 meeting (F-149). */
 interface Candidate {
@@ -102,23 +133,23 @@ export const checkOpenF1Results = onSchedule(
 
       console.log(`[Ingestion] Found ${candidateRaces.length} candidate race(s)`);
 
+      // F-152: the roster unknown car numbers are resolved against, read once per tick
+      let roster: KnownDriver[] | undefined;
+      const rosterNow = async () => (roster ??= await loadRoster(db));
+
       // 2. Check which already have approved pending results
       for (const race of candidateRaces) {
         const pendingDoc = await db.collection('pendingResults').doc(race.raceId).get();
-        if (pendingDoc.exists) {
-          const status = pendingDoc.data()?.status;
-          if (status === 'approved') {
-            console.log(`[Ingestion] ${race.raceId} already approved, skipping`);
-            continue;
-          }
-          if (status === 'pending') {
-            console.log(`[Ingestion] ${race.raceId} already pending review, skipping`);
-            continue;
-          }
-          // status === 'rejected' — allow re-fetch
+        const action = heldAction(pendingDoc.exists ? pendingDoc.data() : undefined, race.raceMs, now.toMillis());
+        if (action === 'skip') {
+          console.log(`[Ingestion] ${race.raceId} already ${pendingDoc.data()?.status}, skipping`);
+          continue;
+        }
+        if (action === 'retry') {
+          console.log(`[Ingestion] ${race.raceId} is held (${pendingDoc.data()?.blockedReason}); fetching again`);
         }
 
-        await processRace(race, sessionsFor);
+        await processRace(race, sessionsFor, await rosterNow());
       }
 
       // 3. Correction pass — re-check recently-completed races so stewards'
@@ -138,7 +169,7 @@ export const checkOpenF1Results = onSchedule(
         const candidate = candidateOf(doc, 'Ingestion');
         if (!candidate) continue;
         console.log(`[Ingestion] Correction re-check ${doc.id} (completed ${(ageMs / 3600000).toFixed(1)}h ago)`);
-        await processRace(candidate, sessionsFor);
+        await processRace(candidate, sessionsFor, await rosterNow());
       }
     } catch (error) {
       console.error('[Ingestion] Fatal error:', error);
@@ -146,7 +177,7 @@ export const checkOpenF1Results = onSchedule(
   },
 );
 
-async function processRace(race: Candidate, sessionsFor: (season: number) => Promise<OpenF1Session[]>) {
+async function processRace(race: Candidate, sessionsFor: (season: number) => Promise<OpenF1Session[]>, roster: KnownDriver[]) {
   console.log(`[Ingestion] Processing ${race.raceName} (${race.season} round ${race.round})...`);
   const warnings: string[] = [];
 
@@ -167,14 +198,19 @@ async function processRace(race: Candidate, sessionsFor: (season: number) => Pro
       return;
     }
 
+    // F-152: cars the table does not know, resolved by name from the race's entry list, so the grid
+    // and fastest lap (rows that carry only a number) credit them too. The race converter resolves
+    // the same list again and reports it; the warnings here would only repeat that.
+    const raceExtras = extrasFor(await fetchDrivers(raceSession.session_key).catch(() => []), roster, []);
+
     // Fetch grid positions — actual starting grid for the race session
     // (includes penalties/pit-lane starts), with qualifying as fallback
-    const gridPositions = await getGridPositions(meetingSessions, raceSession.session_key);
+    const gridPositions = await getGridPositions(meetingSessions, raceSession.session_key, raceExtras);
 
     // Fetch fastest lap
     let fastestLapDriverId: string | null = null;
     try {
-      fastestLapDriverId = await findFastestLap(raceSession.session_key);
+      fastestLapDriverId = await findFastestLap(raceSession.session_key, raceExtras);
     } catch (e) {
       warnings.push('Failed to fetch fastest lap data');
       console.warn('[Ingestion] Fastest lap fetch failed:', e);
@@ -185,6 +221,7 @@ async function processRace(race: Candidate, sessionsFor: (season: number) => Pro
       raceSession.session_key,
       gridPositions,
       fastestLapDriverId,
+      roster,
     );
 
     if (raceData.results.length === 0) {
@@ -202,7 +239,7 @@ async function processRace(race: Candidate, sessionsFor: (season: number) => Pro
     if (hasSprint) {
       const sprintSession = meetingSessions.find(s => s.session_name === 'Sprint');
       if (sprintSession) {
-        sprintData = await convertToSprintResults(sprintSession.session_key);
+        sprintData = await convertToSprintResults(sprintSession.session_key, roster);
         warnings.push(...sprintData.warnings);
       } else {
         warnings.push('Sprint expected but no Sprint session found');
@@ -213,7 +250,7 @@ async function processRace(race: Candidate, sessionsFor: (season: number) => Pro
     let qualifyingData: { results: Array<{ position: number; driverId: string; constructorId: string }>; warnings: string[] } | null = null;
     const qualiSession = meetingSessions.find(s => s.session_name === 'Qualifying');
     if (qualiSession) {
-      qualifyingData = await convertToQualifyingResults(qualiSession.session_key);
+      qualifyingData = await convertToQualifyingResults(qualiSession.session_key, roster);
       warnings.push(...qualifyingData.warnings);
     } else {
       warnings.push('No qualifying session found');
@@ -274,14 +311,13 @@ async function processRace(race: Candidate, sessionsFor: (season: number) => Pro
     // Auto-approve if configured — but only once settled and we have enough results
     const MIN_RESULTS_FOR_AUTO = 15;
     if (AUTO_APPROVE && unmappedDrivers.length > 0) {
-      // Leave status 'pending': the scheduler skips 'pending' races, so this
-      // stops the re-fetch loop and the race sits in the admin panel with its
-      // warnings until someone adds the mapping and re-approves. Deliberately
-      // louder than publishing an incomplete grid, which is permanent and
+      // Leave status 'pending' with the blockedReason: the race sits in the admin panel with its
+      // warnings, and the scheduler fetches it again every HELD_RETRY_MS (F-152) until the cars
+      // resolve. Deliberately louder than publishing an incomplete grid, which is permanent and
       // invisible; this is temporary and visible.
       console.error(
         `[Ingestion] BLOCKED auto-approval of ${race.raceId} — ${unmappedDrivers.length} unmapped driver number(s): ${unmappedDrivers.join('; ')}. ` +
-        'Add the mapping to DRIVER_NUMBER_TO_ID and re-approve; results are held as pending.'
+        `Held as pending and fetched again every ${HELD_RETRY_MS / 60000} minutes; it scores once every car resolves (add the number to DRIVER_NUMBER_TO_ID if the entry list cannot name him).`
       );
     } else if (AUTO_APPROVE && settled && raceData.results.length >= MIN_RESULTS_FOR_AUTO) {
       console.log(`[Ingestion] Auto-approving ${race.raceId} (settled ${SETTLE_MINUTES}m+ after race)...`);
@@ -387,8 +423,8 @@ export const checkQualifyingResults = onSchedule(
           continue;
         }
 
-        // Fetch and convert qualifying results
-        const qualiData = await convertToQualifyingResults(qualiSession.session_key);
+        // Fetch and convert qualifying results (unknown cars resolved by name, F-152)
+        const qualiData = await convertToQualifyingResults(qualiSession.session_key, await loadRoster(db));
         if (qualiData.results.length === 0) {
           console.log(`[QualiIngestion] No qualifying results yet for round ${round}`);
           continue;
@@ -453,8 +489,8 @@ export const checkSprintResults = onSchedule(
         // Check if sprint already scored
         if (raceData.sprintScored === true) continue;
 
-        // Fetch and convert sprint results
-        const sprintData = await convertToSprintResults(sprintSession.session_key);
+        // Fetch and convert sprint results (unknown cars resolved by name, F-152)
+        const sprintData = await convertToSprintResults(sprintSession.session_key, await loadRoster(db));
         if (sprintData.results.length === 0) {
           console.log(`[SprintIngestion] No sprint results yet for round ${round}`);
           continue;
