@@ -1,0 +1,18 @@
+id: OP-230
+title: "Vegas readiness: calendar/season agreement check (read-only)"
+kind: uc-script
+status: dry-run
+params:
+  script: checkRaceCalendar.js
+  backup: races
+created_at: 2026-11-15T02:50:08.086Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-15T02:50:08.380Z
+    head_sha: 07157b59739740648d73f38ac0fb94c044e048e9
+    command: node scripts/ops/run-script.js undercut 'checkRaceCalendar.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-230/dry-run-2026-11-15T02-50-08-380Z.log
+    log_sha256: 4c1bbf4c2f88b090c5e75dc7942bd5aee2ab7938e8eefb9c3fc40c988193c027
+    lines: 11
