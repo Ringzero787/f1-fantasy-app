@@ -1,5 +1,5 @@
 {
-  "_provenance": "The 2026 round-to-race calendar, as Undercut ingestion understands it. Only the fields roundMapping.test.js asserts on: id, round, status, hasSprint. Undercut is the sole writer of the shared races collection, so this truth belongs in this repo. It was extracted on 2026-10-02 from Track Limits seed data, which then lived at newgame/functions/src/triggers/_seedRacesData.json and now lives in the tracklimits repo. If the calendar changes, update this and ROUND_TO_RACE_ID together: the test exists to make that mandatory.",
+  "_provenance": "The 2026 round-to-race calendar, as Undercut ingestion understands it. Only the fields roundMapping.test.js asserts on: id, round, status, hasSprint. Undercut is the sole writer of the shared races collection, so this truth belongs in this repo. It was extracted on 2026-10-02 from Track Limits seed data, which then lived at newgame/functions/src/triggers/_seedRacesData.json and now lives in the tracklimits repo. If the calendar changes, update this with the seeder. (F-149 retired ROUND_TO_RACE_ID: ingestion matches each race document to its OpenF1 meeting by season and race time.)",
   "races": [
     {
       "id": "australia_2026",

@@ -5,8 +5,8 @@
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
-import { SEASON_YEAR, ROUND_TO_RACE_ID } from './config';
-import { fetchSessions, deriveRoundNumbers, type OpenF1Session } from './openf1Client';
+import { fetchSessions, type OpenF1Session } from './openf1Client';
+import { meetingForRace, seasonOfRace, sessionsBySeason, toMs } from './season';
 import { openf1Secrets } from './openf1Auth';
 
 const db = admin.firestore();
@@ -48,41 +48,38 @@ export const syncRaceSchedules = onSchedule(
   async () => {
     console.log('[ScheduleSync] Fetching sessions from OpenF1...');
 
-    const allSessions = await fetchSessions(SEASON_YEAR);
-    const yearSessions = allSessions.filter(s => s.year === SEASON_YEAR);
-
-    if (yearSessions.length === 0) {
-      console.log('[ScheduleSync] No sessions found for', SEASON_YEAR);
-      return;
-    }
-
-    const roundMap = deriveRoundNumbers(yearSessions);
+    // F-149: each open race document is synced from its own season's calendar, to the meeting whose
+    // Race starts within three days of the document's race time. A race OpenF1 has moved further than
+    // that is not matched — the schedule monitor flags it and an op moves it — because matching by
+    // round number is what once wrote Bahrain's times onto singapore_2026.
+    const sessionsFor = sessionsBySeason(fetchSessions);
+    const racesSnap = await db.collection('races').where('status', '!=', 'completed').get();
     let updatedCount = 0;
 
-    for (const [meetingKey, round] of roundMap.entries()) {
-      const raceId = ROUND_TO_RACE_ID[round];
-      if (!raceId) {
-        console.log(`[ScheduleSync] No race ID mapping for round ${round}`);
+    for (const raceDoc of racesSnap.docs) {
+      const raceId = raceDoc.id;
+      const data = raceDoc.data();
+      if (data.status === 'cancelled') continue;
+      const season = seasonOfRace(raceId, data);
+      if (season == null) {
+        console.error(`[ScheduleSync] ${raceId}: seasonId, race id year and race time do not agree on one season — not synced`);
         continue;
       }
-
-      const meetingSessions = yearSessions.filter(s => s.meeting_key === meetingKey);
+      const meeting = meetingForRace(await sessionsFor(season), season, toMs(data.schedule?.race));
+      if (!meeting) {
+        console.log(`[ScheduleSync] ${raceId}: no ${season} OpenF1 meeting with a Race within 3 days — not synced`);
+        continue;
+      }
+      const round = data.round;
+      const meetingSessions = meeting.sessions;
       const newSchedule = buildSchedule(meetingSessions);
 
       if (!newSchedule.race) {
         continue; // Skip if no race session time
       }
 
-      // Read current schedule from Firestore
-      const raceRef = db.collection('races').doc(raceId);
-      const raceDoc = await raceRef.get();
-
-      if (!raceDoc.exists) {
-        console.log(`[ScheduleSync] Race doc ${raceId} not found, skipping`);
-        continue;
-      }
-
-      const currentSchedule = raceDoc.data()?.schedule || {};
+      const raceRef = raceDoc.ref;
+      const currentSchedule = data.schedule || {};
 
       // Check if any schedule times have changed
       let hasChanges = false;
@@ -101,7 +98,7 @@ export const syncRaceSchedules = onSchedule(
       // seed data, and clobbering that to false would hide the Sprint scope
       // until late. The race-time `sprint` key is the definitive marker.
       const isSprintWeekend = !!newSchedule.sprint;
-      const currentHasSprint = raceDoc.data()?.hasSprint === true;
+      const currentHasSprint = data.hasSprint === true;
       const needsSprintFlag = isSprintWeekend && !currentHasSprint;
 
       if (hasChanges || needsSprintFlag) {

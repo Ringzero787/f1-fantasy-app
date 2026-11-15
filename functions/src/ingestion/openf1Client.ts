@@ -45,6 +45,8 @@ export interface OpenF1Session {
   session_name: string;
   session_type: string;
   year: number;
+  /** F-149: OpenF1 keeps cancelled meetings in the calendar (2026 Sakhir and Jeddah) with this set */
+  is_cancelled?: boolean;
 }
 
 export interface OpenF1SessionResult {
@@ -516,45 +518,4 @@ export async function convertToQualifyingResults(
 
   results.sort((a, b) => a.position - b.position);
   return { results, warnings };
-}
-
-/**
- * Group sessions by meeting_key and derive round numbers from date ordering.
- * Only counts meetings that have a Race or Sprint session (excludes pre-season
- * testing, which OpenF1 lists as separate meetings with no Race session).
- * Returns meeting_key → round number map.
- *
- * Cancelled meetings KEEP their round slots. OpenF1 still lists the 2026
- * Sakhir (round 4) and Jeddah (round 5) Race sessions with is_cancelled=true.
- * Skipping those would collapse Miami onto round 4 and misfile every later
- * race against ROUND_TO_RACE_ID. The cancelled rounds stay unmapped there,
- * so their sessions are never written onto a live race doc.
- */
-export function deriveRoundNumbers(
-  sessions: OpenF1Session[],
-): Map<number, number> {
-  // Find meetings that have an actual Race or Sprint session
-  const raceMeetingKeys = new Set<number>();
-  for (const s of sessions) {
-    if (s.session_name === 'Race' || s.session_name === 'Sprint') {
-      raceMeetingKeys.add(s.meeting_key);
-    }
-  }
-
-  // Get earliest date per race meeting
-  const meetingDates = new Map<number, string>();
-  for (const s of sessions) {
-    if (!raceMeetingKeys.has(s.meeting_key)) continue;
-    if (!meetingDates.has(s.meeting_key) || s.date_start < meetingDates.get(s.meeting_key)!) {
-      meetingDates.set(s.meeting_key, s.date_start);
-    }
-  }
-
-  const sorted = [...meetingDates.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  const roundMap = new Map<number, number>();
-  sorted.forEach(([meetingKey], index) => {
-    roundMap.set(meetingKey, index + 1);
-  });
-
-  return roundMap;
 }

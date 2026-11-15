@@ -653,7 +653,7 @@ export const races = [
     city: 'Jeddah',
     timezone: 'Asia/Riyadh',
     hasSprint: false,
-    // Cancelled; round 5 stays unmapped in ROUND_TO_RACE_ID.
+    // Cancelled; OpenF1 lists Jeddah as cancelled, so ingestion matches no meeting to it (F-149).
     status: 'cancelled',
     schedule: {
       fp1: admin.firestore.Timestamp.fromDate(new Date('2026-04-17T13:30:00Z')),

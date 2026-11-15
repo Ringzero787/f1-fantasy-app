@@ -612,9 +612,8 @@ export const demoRaces: Race[] = [
   // Round 18: Bahrain Grand Prix - October 2-4, 2026, run at Sepang.
   // The April race at Sakhir was cancelled; the event was reinstated in
   // Malaysia and inserted as round 18, which pushed Singapore..Abu Dhabi up
-  // one each. Keep this in step with functions/src/ingestion/config.ts
-  // (ROUND_TO_RACE_ID) — functions/test/roundMapping.test.js and
-  // __tests__/data/demoCalendar.test.ts both fail if they drift apart.
+  // one each. Keep this in step with functions/src/seedData.ts —
+  // __tests__/data/demoCalendar.test.ts fails if they drift apart.
   {
     id: 'bahrain_2026',
     seasonId: '2026',

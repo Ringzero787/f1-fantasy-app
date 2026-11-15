@@ -11,8 +11,8 @@
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
-import { SEASON_YEAR, ROUND_TO_RACE_ID } from './config';
 import { fetchSessions } from './openf1Client';
+import { seasonOfRace, sessionsBySeason } from './season';
 import { openf1Secrets } from './openf1Auth';
 
 const db = admin.firestore();
@@ -23,18 +23,9 @@ export const monitorScheduleChanges = onSchedule(
     console.log('[ScheduleMonitor] Checking for schedule changes...');
 
     try {
-      // Fetch all sessions from OpenF1 for the current season
-      const sessions = await fetchSessions(SEASON_YEAR);
-
-      // Group sessions by meeting (round)
-      const meetingRounds = new Map<number, { sessionNames: string[]; dates: string[] }>();
-      for (const session of sessions) {
-        // Derive round from meeting data
-        const existing = meetingRounds.get(session.meeting_key) || { sessionNames: [], dates: [] };
-        existing.sessionNames.push(session.session_name);
-        existing.dates.push(session.date_start);
-        meetingRounds.set(session.meeting_key, existing);
-      }
+      // F-149: each race is checked against its own season's OpenF1 calendar. With one global year a
+      // 2027 race would have found no 2026 session near it and been auto-cancelled the day it ran.
+      const sessionsFor = sessionsBySeason(fetchSessions);
 
       // Get all races from Firestore
       const racesSnap = await db.collection('races').get();
@@ -49,23 +40,11 @@ export const monitorScheduleChanges = onSchedule(
           continue; // Don't touch finished or already-cancelled races
         }
 
-        // Check if this round still exists in OpenF1 data
-        const roundMapped = ROUND_TO_RACE_ID[round];
-        if (!roundMapped) {
-          // Round not in our config (already removed) — check if it should be cancelled
-          // If the race date has passed and OpenF1 has no sessions for it, mark cancelled
-          const raceTime = race.schedule?.race;
-          if (raceTime) {
-            const raceDate = raceTime instanceof admin.firestore.Timestamp
-              ? raceTime.toDate()
-              : new Date(raceTime);
-
-            if (raceDate < new Date() && race.status === 'upcoming') {
-              console.log(`[ScheduleMonitor] Race ${raceId} (R${round}) date has passed with no results — marking cancelled`);
-              await raceDoc.ref.update({ status: 'cancelled' });
-              changes.push(`CANCELLED: ${race.name} (R${round}) — date passed, no OpenF1 data`);
-            }
-          }
+        // A race whose season cannot be read is never compared with a calendar, so never cancelled
+        const season = seasonOfRace(raceId, race);
+        if (season == null) {
+          console.error(`[ScheduleMonitor] ${raceId}: seasonId, race id year and race time do not agree on one season — skipped`);
+          changes.push(`CHECK: ${race.name} (R${round}) — seasonId, race id and race time disagree on the season`);
           continue;
         }
 
@@ -83,7 +62,7 @@ export const monitorScheduleChanges = onSchedule(
           const threeDays = 3 * 24 * 60 * 60 * 1000;
           let hasNearbySessions = false;
 
-          for (const session of sessions) {
+          for (const session of await sessionsFor(season)) {
             const sessionDate = new Date(session.date_start).getTime();
             if (Math.abs(sessionDate - raceMs) < threeDays) {
               hasNearbySessions = true;

@@ -14,7 +14,8 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import { fetchDrivers, fetchSessions, findFastestLap, getGridPositions, teamsForSession, type OpenF1Session } from '../ingestion/openf1Client';
 import { openf1Fetch, openf1Secrets } from '../ingestion/openf1Auth';
-import { DRIVER_NUMBER_TO_ID, SEASON_YEAR, driverIdFor, numberToIdFor } from '../ingestion/config';
+import { DRIVER_NUMBER_TO_ID, driverIdFor, numberToIdFor } from '../ingestion/config';
+import { ingestBlocker, seasonOfRace } from '../ingestion/season';
 import { runningScore } from '../scoring/runningScore';
 import { loadMoonshotConfig } from './config';
 
@@ -137,10 +138,14 @@ export async function sweepLivePositions(db: admin.firestore.Firestore, nowMs = 
   // the owner's switch stops the pull itself, not only the rendering: no deploy needed to turn it off
   const cfg = await loadMoonshotConfig(db);
   if (!cfg.liveTiming) return { raceId: null, written: false, drivers: 0, off: true };
-  // the same query the account header runs (seasonId + status + round has its index); the season filter keeps a stray old `upcoming` out
-  const snap = await db.collection('races').where('seasonId', '==', String(SEASON_YEAR)).where('status', 'in', ['in_progress', 'upcoming']).orderBy('round').limit(2).get();
+  // the same query the account header runs (seasonId + status + round has its index); the season filter keeps a stray old `upcoming` out.
+  // F-149: the season is this calendar year — every race weekend starts and ends inside one year.
+  const snap = await db.collection('races').where('seasonId', '==', String(new Date(nowMs).getUTCFullYear())).where('status', 'in', ['in_progress', 'upcoming']).orderBy('round').limit(2).get();
   const race = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<RaceLike, 'id'>) })).find((r) => isLive(r, nowMs));
   if (!race) return { raceId: null, written: false, drivers: 0 };
+  // the car numbers are one season's: a race from another season shows nothing live rather than the wrong drivers
+  const blocker = ingestBlocker(race.id, seasonOfRace(race.id, race as { seasonId?: unknown; schedule?: { race?: unknown } }));
+  if (blocker) { console.error(`[live] NOT SWEEPING ${blocker}`); return { raceId: race.id, written: false, drivers: 0 }; }
   const ref = db.doc(`races/${race.id}/live/positions`);
   // the session is looked up once: the last document carries its key, grid and entry list for the rest of the race
   const prior = (await ref.get()).data();
