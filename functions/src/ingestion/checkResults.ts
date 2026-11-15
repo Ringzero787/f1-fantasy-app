@@ -13,12 +13,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
-import {
-  SEASON_YEAR,
-  AUTO_APPROVE,
-  SPRINT_ROUNDS,
-  ROUND_TO_RACE_ID,
-} from './config';
+import { AUTO_APPROVE } from './config';
 import {
   fetchSessions,
   getGridPositions,
@@ -26,13 +21,60 @@ import {
   convertToRaceResults,
   convertToSprintResults,
   convertToQualifyingResults,
-  deriveRoundNumbers,
   isUnmappedDriverWarning,
+  type OpenF1Session,
 } from './openf1Client';
+import { MATCH_WINDOW_MS, ingestBlocker, meetingForRace, seasonOfRace, sessionsBySeason, toMs, type MatchedMeeting } from './season';
 import { handleQualifyingScoring, handleSprintScoring } from '../scoring/calculatePoints';
 import { openf1Secrets } from './openf1Auth';
 
 const db = admin.firestore();
+
+/** A race the results check may fetch: its document's season and race time pick the OpenF1 meeting (F-149). */
+interface Candidate {
+  raceId: string;
+  round: number;
+  raceName: string;
+  hasSprint: boolean;
+  season: number;
+  raceMs: number;
+}
+
+/**
+ * The races the results check fetches: not completed (the query), not cancelled, race time passed,
+ * and a season ingestion can read (F-149; a season it cannot is logged by candidateOf).
+ */
+export function dueCandidates(docs: admin.firestore.QueryDocumentSnapshot[], nowMs: number): Candidate[] {
+  const out: Candidate[] = [];
+  for (const doc of docs) {
+    const data = doc.data();
+    if (data.status === 'cancelled' || data.status === 'completed') continue;
+    const raceMs = toMs(data.schedule?.race);
+    if (!Number.isFinite(raceMs) || raceMs > nowMs) continue; // only races in the past
+    const candidate = candidateOf(doc, 'Ingestion');
+    if (candidate) out.push(candidate);
+  }
+  return out;
+}
+
+/** The candidate for a race document, or null (logged) when its season cannot be ingested from the feed. */
+export function candidateOf(doc: admin.firestore.QueryDocumentSnapshot, tag: string): Candidate | null {
+  const data = doc.data();
+  const season = seasonOfRace(doc.id, data);
+  const blocker = ingestBlocker(doc.id, season);
+  if (blocker) {
+    console.error(`[${tag}] NOT INGESTING ${blocker}`);
+    return null;
+  }
+  return {
+    raceId: doc.id,
+    round: data.round,
+    raceName: data.name || doc.id,
+    hasSprint: data.hasSprint || false,
+    season: season!,
+    raceMs: toMs(data.schedule?.race),
+  };
+}
 
 /**
  * Scheduled: Check OpenF1 for new race results every 30 minutes.
@@ -50,28 +92,8 @@ export const checkOpenF1Results = onSchedule(
         .where('status', '!=', 'completed')
         .get();
 
-      const candidateRaces: Array<{ raceId: string; round: number; raceName: string; hasSprint: boolean }> = [];
-
-      for (const doc of racesSnapshot.docs) {
-        const data = doc.data();
-        if (data.status === 'cancelled') continue; // skip cancelled races
-        const raceTime = data.schedule?.race;
-        if (!raceTime) continue;
-
-        // Only consider races in the past
-        const raceTimestamp = raceTime instanceof admin.firestore.Timestamp
-          ? raceTime
-          : admin.firestore.Timestamp.fromDate(new Date(raceTime));
-
-        if (raceTimestamp.toMillis() > now.toMillis()) continue;
-
-        candidateRaces.push({
-          raceId: doc.id,
-          round: data.round,
-          raceName: data.name || doc.id,
-          hasSprint: data.hasSprint || false,
-        });
-      }
+      const candidateRaces = dueCandidates(racesSnapshot.docs, now.toMillis());
+      const sessionsFor = sessionsBySeason(fetchSessions);
 
       if (candidateRaces.length === 0) {
         console.log('[Ingestion] No candidate races found.');
@@ -96,7 +118,7 @@ export const checkOpenF1Results = onSchedule(
           // status === 'rejected' — allow re-fetch
         }
 
-        await processRace(race);
+        await processRace(race, sessionsFor);
       }
 
       // 3. Correction pass — re-check recently-completed races so stewards'
@@ -109,21 +131,14 @@ export const checkOpenF1Results = onSchedule(
       const CORRECTION_WINDOW_HOURS = 6;
       const completedSnap = await db.collection('races').where('status', '==', 'completed').get();
       for (const doc of completedSnap.docs) {
-        const data = doc.data();
-        const raceTime = data.schedule?.race;
-        if (!raceTime) continue;
-        const raceMs = (raceTime instanceof admin.firestore.Timestamp
-          ? raceTime
-          : admin.firestore.Timestamp.fromDate(new Date(raceTime))).toMillis();
+        const raceMs = toMs(doc.data().schedule?.race);
+        if (!Number.isFinite(raceMs)) continue;
         const ageMs = now.toMillis() - raceMs;
         if (ageMs < 0 || ageMs > CORRECTION_WINDOW_HOURS * 3600 * 1000) continue; // only recently completed
+        const candidate = candidateOf(doc, 'Ingestion');
+        if (!candidate) continue;
         console.log(`[Ingestion] Correction re-check ${doc.id} (completed ${(ageMs / 3600000).toFixed(1)}h ago)`);
-        await processRace({
-          raceId: doc.id,
-          round: data.round,
-          raceName: data.name || doc.id,
-          hasSprint: data.hasSprint || false,
-        });
+        await processRace(candidate, sessionsFor);
       }
     } catch (error) {
       console.error('[Ingestion] Fatal error:', error);
@@ -131,51 +146,20 @@ export const checkOpenF1Results = onSchedule(
   },
 );
 
-async function processRace(race: {
-  raceId: string;
-  round: number;
-  raceName: string;
-  hasSprint: boolean;
-}) {
-  console.log(`[Ingestion] Processing ${race.raceName} (round ${race.round})...`);
+async function processRace(race: Candidate, sessionsFor: (season: number) => Promise<OpenF1Session[]>) {
+  console.log(`[Ingestion] Processing ${race.raceName} (${race.season} round ${race.round})...`);
   const warnings: string[] = [];
 
   try {
-    // Fetch all sessions for the season
-    const allSessions = await fetchSessions(SEASON_YEAR);
-
-    // Strict year filter
-    const yearSessions = allSessions.filter(s => s.year === SEASON_YEAR);
-    if (yearSessions.length === 0) {
-      console.log(`[Ingestion] No ${SEASON_YEAR} sessions found on OpenF1`);
+    // F-149: the meeting is the race document's season's meeting whose Race starts within three days
+    // of the document's race time — never a round number looked up in a fixed year
+    const meeting = meetingForRace(await sessionsFor(race.season), race.season, race.raceMs);
+    if (!meeting) {
+      console.log(`[Ingestion] No ${race.season} OpenF1 meeting with a Race within 3 days of ${race.raceId}`);
       return;
     }
-
-    // Derive round numbers from date ordering
-    const roundMap = deriveRoundNumbers(yearSessions);
-
-    // Find the meeting_key for this round
-    let targetMeetingKey: number | null = null;
-    for (const [meetingKey, round] of roundMap.entries()) {
-      if (round === race.round) {
-        targetMeetingKey = meetingKey;
-        break;
-      }
-    }
-
-    if (targetMeetingKey == null) {
-      console.log(`[Ingestion] No meeting found for round ${race.round}`);
-      return;
-    }
-
-    // Get all sessions for this meeting
-    const meetingSessions = yearSessions.filter(s => s.meeting_key === targetMeetingKey);
-    const raceSession = meetingSessions.find(s => s.session_name === 'Race');
-
-    if (!raceSession) {
-      console.log(`[Ingestion] No Race session found for meeting ${targetMeetingKey}`);
-      return;
-    }
+    const meetingSessions = meeting.sessions;
+    const raceSession = meeting.race;
 
     // Check if session has ended (date_end in the past)
     if (raceSession.date_end && new Date(raceSession.date_end) > new Date()) {
@@ -212,7 +196,8 @@ async function processRace(race: {
 
     // Fetch sprint results if applicable
     let sprintData: { results: Array<{ position: number; driverId: string; status: 'finished' | 'dnf' | 'dsq' | 'dns' | 'nc' }>; warnings: string[] } | null = null;
-    const hasSprint = race.hasSprint || SPRINT_ROUNDS.has(race.round);
+    // a sprint weekend is one the document flags or one OpenF1 lists a Sprint for
+    const hasSprint = race.hasSprint || meetingSessions.some(s => s.session_name === 'Sprint');
 
     if (hasSprint) {
       const sprintSession = meetingSessions.find(s => s.session_name === 'Sprint');
@@ -388,29 +373,14 @@ export const checkQualifyingResults = onSchedule(
     console.log('[QualiIngestion] Checking for completed qualifying...');
 
     try {
-      const allSessions = await fetchSessions(SEASON_YEAR);
-      const yearSessions = allSessions.filter(s => s.year === SEASON_YEAR);
-      if (yearSessions.length === 0) return;
-
-      const roundMap = deriveRoundNumbers(yearSessions);
       const now = new Date();
 
-      for (const [meetingKey, round] of roundMap.entries()) {
-        const raceId = ROUND_TO_RACE_ID[round];
-        if (!raceId) continue;
-
-        const meetingSessions = yearSessions.filter(s => s.meeting_key === meetingKey);
-        const qualiSession = meetingSessions.find(s => s.session_name === 'Qualifying');
+      for (const { raceDoc, raceId, raceData, round, meeting } of await openRaceMeetings('QualiIngestion')) {
+        const qualiSession = meeting.sessions.find(s => s.session_name === 'Qualifying');
         if (!qualiSession) continue;
 
         // Check if qualifying has ended
         if (!qualiSession.date_end || new Date(qualiSession.date_end) > now) continue;
-
-        // Check if race is still upcoming/in_progress (not yet completed)
-        const raceDoc = await db.collection('races').doc(raceId).get();
-        if (!raceDoc.exists) continue;
-        const raceData = raceDoc.data()!;
-        if (raceData.status === 'completed') continue;
 
         // Check if qualifying already scored
         if (raceData.qualifyingScored === true) {
@@ -470,32 +440,15 @@ export const checkSprintResults = onSchedule(
     console.log('[SprintIngestion] Checking for completed sprints...');
 
     try {
-      const allSessions = await fetchSessions(SEASON_YEAR);
-      const yearSessions = allSessions.filter(s => s.year === SEASON_YEAR);
-      if (yearSessions.length === 0) return;
-
-      const roundMap = deriveRoundNumbers(yearSessions);
       const now = new Date();
 
-      for (const [meetingKey, round] of roundMap.entries()) {
-        // Only process sprint rounds
-        if (!SPRINT_ROUNDS.has(round)) continue;
-
-        const raceId = ROUND_TO_RACE_ID[round];
-        if (!raceId) continue;
-
-        const meetingSessions = yearSessions.filter(s => s.meeting_key === meetingKey);
-        const sprintSession = meetingSessions.find(s => s.session_name === 'Sprint');
+      for (const { raceDoc, raceId, raceData, round, meeting } of await openRaceMeetings('SprintIngestion')) {
+        // a sprint weekend is one OpenF1 lists a Sprint session for
+        const sprintSession = meeting.sessions.find(s => s.session_name === 'Sprint');
         if (!sprintSession) continue;
 
         // Check if sprint has ended
         if (!sprintSession.date_end || new Date(sprintSession.date_end) > now) continue;
-
-        // Check if race is still upcoming/in_progress (not yet completed)
-        const raceDoc = await db.collection('races').doc(raceId).get();
-        if (!raceDoc.exists) continue;
-        const raceData = raceDoc.data()!;
-        if (raceData.status === 'completed') continue;
 
         // Check if sprint already scored
         if (raceData.sprintScored === true) continue;
@@ -539,6 +492,43 @@ export const checkSprintResults = onSchedule(
     }
   },
 );
+
+/**
+ * F-149: the races the qualifying and sprint checks look at — not completed, not cancelled, race
+ * within three days or already past — each with its season's OpenF1 meeting. A race further out
+ * has no finished session yet, so it is not fetched and its season is not judged.
+ */
+export async function openRaceMeetings(
+  tag: string,
+  store: admin.firestore.Firestore = db,
+  fetch: (year: number) => Promise<OpenF1Session[]> = fetchSessions,
+  nowMs: number = Date.now(),
+): Promise<Array<{
+  raceDoc: admin.firestore.QueryDocumentSnapshot;
+  raceId: string;
+  raceData: admin.firestore.DocumentData;
+  round: number;
+  meeting: MatchedMeeting;
+}>> {
+  const snap = await store.collection('races').where('status', '!=', 'completed').get();
+  const sessionsFor = sessionsBySeason(fetch);
+  const out = [];
+  for (const raceDoc of snap.docs) {
+    const raceData = raceDoc.data();
+    if (raceData.status === 'cancelled') continue;
+    const raceMs = toMs(raceData.schedule?.race);
+    if (!Number.isFinite(raceMs) || raceMs - nowMs > MATCH_WINDOW_MS) continue;
+    const candidate = candidateOf(raceDoc, tag);
+    if (!candidate) continue;
+    const meeting = meetingForRace(await sessionsFor(candidate.season), candidate.season, raceMs);
+    if (!meeting) {
+      console.warn(`[${tag}] ${raceDoc.id}: no ${candidate.season} OpenF1 meeting with a Race within 3 days of its race time`);
+      continue;
+    }
+    out.push({ raceDoc, raceId: raceDoc.id, raceData, round: candidate.round, meeting });
+  }
+  return out;
+}
 
 async function doApprove(raceId: string, approvedBy: string) {
   const pendingRef = db.collection('pendingResults').doc(raceId);

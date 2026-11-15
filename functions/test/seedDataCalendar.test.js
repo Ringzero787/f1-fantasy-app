@@ -4,7 +4,7 @@
 // the 2026 calendar that nothing pinned, and it was wrong: Bahrain at round 4
 // at Sakhir in April, Saudi still 'upcoming' rather than cancelled, and the
 // season tail each one round low. Running it would have written
-// singapore_2026.round = 18 while ROUND_TO_RACE_ID[18] is bahrain_2026 — the
+// singapore_2026.round = 18 while the round table (retired in F-149) mapped 18 to bahrain_2026 — the
 // 2026-10-01 misfiling, recreated, with real money settling against it.
 //
 // It could not be pinned before, because the module called seedDatabase() at
@@ -77,24 +77,10 @@ test('the 2026 season scores 23 races', () => {
   assert.equal(season.totalRaces, 23);
 });
 
-test('the seeder agrees with the ingestion round table', () => {
-  // The other half of the same question, and the one that decides whether a
-  // race weekend's results land on the right document.
-  const { ROUND_TO_RACE_ID, SPRINT_ROUNDS } = require('../lib/ingestion/config.js');
-  const live = races.filter((r) => r.status !== 'cancelled');
-
-  assert.deepEqual(
-    Object.keys(ROUND_TO_RACE_ID).map(Number).sort((a, b) => a - b),
-    live.map((r) => r.round).sort((a, b) => a - b),
-    'the mapped rounds and the seeder\'s live rounds are not the same set'
-  );
-  for (const [roundStr, raceId] of Object.entries(ROUND_TO_RACE_ID)) {
-    const seeded = races.find((r) => r.round === Number(roundStr));
-    assert.equal(seeded.id, raceId, `round ${roundStr}: mapping says ${raceId}, seeder says ${seeded.id}`);
-  }
-  assert.deepEqual(
-    [...SPRINT_ROUNDS].sort((a, b) => a - b),
-    races.filter((r) => r.hasSprint === true).map((r) => r.round).sort((a, b) => a - b),
-    'SPRINT_ROUNDS and the seeder\'s sprint weekends disagree'
-  );
+test('every seeded race carries the season ingestion reads it by', () => {
+  // F-149: ingestion no longer has a round → race table to agree with. It reads each race
+  // document's seasonId, id year and race time (season.test.js replays this calendar against
+  // OpenF1), so all three must name the same season on every race the seeder writes.
+  const { seasonOfRace } = require('../lib/ingestion/season.js');
+  for (const r of races) assert.equal(seasonOfRace(r.id, r), 2026, r.id);
 });

@@ -1,0 +1,509 @@
+{
+ "_provenance": "F-149 test data: the 2026 race weekend calendar (Race, Sprint and Qualifying start and end times, circuit, cancelled flag) as listed by OpenF1 (openf1.org, GET /v1/sessions?year=2026, fetched 2026-11-15), reduced to the fields ingestion matches on. Calendar facts; the source data belongs to OpenF1 and is used under its terms. season.test.js and seasonJobs.test.js replay the 2026 race documents against it.",
+ "sessions": [
+  {
+   "meeting_key": 1279,
+   "session_name": "Qualifying",
+   "date_start": "2026-03-07T05:00:00+00:00",
+   "date_end": "2026-03-07T06:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Melbourne"
+  },
+  {
+   "meeting_key": 1279,
+   "session_name": "Race",
+   "date_start": "2026-03-08T04:00:00+00:00",
+   "date_end": "2026-03-08T06:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Melbourne"
+  },
+  {
+   "meeting_key": 1280,
+   "session_name": "Sprint",
+   "date_start": "2026-03-14T03:00:00+00:00",
+   "date_end": "2026-03-14T04:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Shanghai"
+  },
+  {
+   "meeting_key": 1280,
+   "session_name": "Qualifying",
+   "date_start": "2026-03-14T07:00:00+00:00",
+   "date_end": "2026-03-14T08:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Shanghai"
+  },
+  {
+   "meeting_key": 1280,
+   "session_name": "Race",
+   "date_start": "2026-03-15T07:00:00+00:00",
+   "date_end": "2026-03-15T09:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Shanghai"
+  },
+  {
+   "meeting_key": 1281,
+   "session_name": "Qualifying",
+   "date_start": "2026-03-28T06:00:00+00:00",
+   "date_end": "2026-03-28T07:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Suzuka"
+  },
+  {
+   "meeting_key": 1281,
+   "session_name": "Race",
+   "date_start": "2026-03-29T05:00:00+00:00",
+   "date_end": "2026-03-29T07:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Suzuka"
+  },
+  {
+   "meeting_key": 1282,
+   "session_name": "Qualifying",
+   "date_start": "2026-04-11T16:00:00+00:00",
+   "date_end": "2026-04-11T17:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": true,
+   "circuit_short_name": "Sakhir"
+  },
+  {
+   "meeting_key": 1282,
+   "session_name": "Race",
+   "date_start": "2026-04-12T15:00:00+00:00",
+   "date_end": "2026-04-12T17:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": true,
+   "circuit_short_name": "Sakhir"
+  },
+  {
+   "meeting_key": 1283,
+   "session_name": "Qualifying",
+   "date_start": "2026-04-18T17:00:00+00:00",
+   "date_end": "2026-04-18T18:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": true,
+   "circuit_short_name": "Jeddah"
+  },
+  {
+   "meeting_key": 1283,
+   "session_name": "Race",
+   "date_start": "2026-04-19T17:00:00+00:00",
+   "date_end": "2026-04-19T19:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": true,
+   "circuit_short_name": "Jeddah"
+  },
+  {
+   "meeting_key": 1284,
+   "session_name": "Sprint",
+   "date_start": "2026-05-02T16:00:00+00:00",
+   "date_end": "2026-05-02T17:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Miami"
+  },
+  {
+   "meeting_key": 1284,
+   "session_name": "Qualifying",
+   "date_start": "2026-05-02T20:00:00+00:00",
+   "date_end": "2026-05-02T21:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Miami"
+  },
+  {
+   "meeting_key": 1284,
+   "session_name": "Race",
+   "date_start": "2026-05-03T17:00:00+00:00",
+   "date_end": "2026-05-03T19:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Miami"
+  },
+  {
+   "meeting_key": 1285,
+   "session_name": "Sprint",
+   "date_start": "2026-05-23T16:00:00+00:00",
+   "date_end": "2026-05-23T17:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Montreal"
+  },
+  {
+   "meeting_key": 1285,
+   "session_name": "Qualifying",
+   "date_start": "2026-05-23T20:00:00+00:00",
+   "date_end": "2026-05-23T21:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Montreal"
+  },
+  {
+   "meeting_key": 1285,
+   "session_name": "Race",
+   "date_start": "2026-05-24T20:00:00+00:00",
+   "date_end": "2026-05-24T22:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Montreal"
+  },
+  {
+   "meeting_key": 1286,
+   "session_name": "Qualifying",
+   "date_start": "2026-06-06T14:00:00+00:00",
+   "date_end": "2026-06-06T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Monte Carlo"
+  },
+  {
+   "meeting_key": 1286,
+   "session_name": "Race",
+   "date_start": "2026-06-07T13:00:00+00:00",
+   "date_end": "2026-06-07T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Monte Carlo"
+  },
+  {
+   "meeting_key": 1287,
+   "session_name": "Qualifying",
+   "date_start": "2026-06-13T14:00:00+00:00",
+   "date_end": "2026-06-13T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Catalunya"
+  },
+  {
+   "meeting_key": 1287,
+   "session_name": "Race",
+   "date_start": "2026-06-14T13:00:00+00:00",
+   "date_end": "2026-06-14T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Catalunya"
+  },
+  {
+   "meeting_key": 1288,
+   "session_name": "Qualifying",
+   "date_start": "2026-06-27T14:00:00+00:00",
+   "date_end": "2026-06-27T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Spielberg"
+  },
+  {
+   "meeting_key": 1288,
+   "session_name": "Race",
+   "date_start": "2026-06-28T13:00:00+00:00",
+   "date_end": "2026-06-28T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Spielberg"
+  },
+  {
+   "meeting_key": 1289,
+   "session_name": "Sprint",
+   "date_start": "2026-07-04T11:00:00+00:00",
+   "date_end": "2026-07-04T12:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Silverstone"
+  },
+  {
+   "meeting_key": 1289,
+   "session_name": "Qualifying",
+   "date_start": "2026-07-04T15:00:00+00:00",
+   "date_end": "2026-07-04T16:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Silverstone"
+  },
+  {
+   "meeting_key": 1289,
+   "session_name": "Race",
+   "date_start": "2026-07-05T14:00:00+00:00",
+   "date_end": "2026-07-05T16:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Silverstone"
+  },
+  {
+   "meeting_key": 1290,
+   "session_name": "Qualifying",
+   "date_start": "2026-07-18T14:00:00+00:00",
+   "date_end": "2026-07-18T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Spa-Francorchamps"
+  },
+  {
+   "meeting_key": 1290,
+   "session_name": "Race",
+   "date_start": "2026-07-19T13:00:00+00:00",
+   "date_end": "2026-07-19T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Spa-Francorchamps"
+  },
+  {
+   "meeting_key": 1291,
+   "session_name": "Qualifying",
+   "date_start": "2026-07-25T14:00:00+00:00",
+   "date_end": "2026-07-25T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Hungaroring"
+  },
+  {
+   "meeting_key": 1291,
+   "session_name": "Race",
+   "date_start": "2026-07-26T13:00:00+00:00",
+   "date_end": "2026-07-26T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Hungaroring"
+  },
+  {
+   "meeting_key": 1292,
+   "session_name": "Sprint",
+   "date_start": "2026-08-22T10:00:00+00:00",
+   "date_end": "2026-08-22T11:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Zandvoort"
+  },
+  {
+   "meeting_key": 1292,
+   "session_name": "Qualifying",
+   "date_start": "2026-08-22T14:00:00+00:00",
+   "date_end": "2026-08-22T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Zandvoort"
+  },
+  {
+   "meeting_key": 1292,
+   "session_name": "Race",
+   "date_start": "2026-08-23T13:00:00+00:00",
+   "date_end": "2026-08-23T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Zandvoort"
+  },
+  {
+   "meeting_key": 1293,
+   "session_name": "Qualifying",
+   "date_start": "2026-09-05T14:00:00+00:00",
+   "date_end": "2026-09-05T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Monza"
+  },
+  {
+   "meeting_key": 1293,
+   "session_name": "Race",
+   "date_start": "2026-09-06T13:00:00+00:00",
+   "date_end": "2026-09-06T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Monza"
+  },
+  {
+   "meeting_key": 1294,
+   "session_name": "Qualifying",
+   "date_start": "2026-09-12T14:00:00+00:00",
+   "date_end": "2026-09-12T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Madring"
+  },
+  {
+   "meeting_key": 1294,
+   "session_name": "Race",
+   "date_start": "2026-09-13T13:00:00+00:00",
+   "date_end": "2026-09-13T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Madring"
+  },
+  {
+   "meeting_key": 1295,
+   "session_name": "Qualifying",
+   "date_start": "2026-09-25T12:00:00+00:00",
+   "date_end": "2026-09-25T13:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Baku"
+  },
+  {
+   "meeting_key": 1295,
+   "session_name": "Race",
+   "date_start": "2026-09-26T11:00:00+00:00",
+   "date_end": "2026-09-26T13:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Baku"
+  },
+  {
+   "meeting_key": 1308,
+   "session_name": "Qualifying",
+   "date_start": "2026-10-03T08:00:00+00:00",
+   "date_end": "2026-10-03T09:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Kuala Lumpur"
+  },
+  {
+   "meeting_key": 1308,
+   "session_name": "Race",
+   "date_start": "2026-10-04T07:00:00+00:00",
+   "date_end": "2026-10-04T09:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Kuala Lumpur"
+  },
+  {
+   "meeting_key": 1296,
+   "session_name": "Sprint",
+   "date_start": "2026-10-10T09:00:00+00:00",
+   "date_end": "2026-10-10T09:30:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Singapore"
+  },
+  {
+   "meeting_key": 1296,
+   "session_name": "Qualifying",
+   "date_start": "2026-10-10T13:00:00+00:00",
+   "date_end": "2026-10-10T14:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Singapore"
+  },
+  {
+   "meeting_key": 1296,
+   "session_name": "Race",
+   "date_start": "2026-10-11T12:00:00+00:00",
+   "date_end": "2026-10-11T14:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Singapore"
+  },
+  {
+   "meeting_key": 1297,
+   "session_name": "Qualifying",
+   "date_start": "2026-10-24T21:00:00+00:00",
+   "date_end": "2026-10-24T22:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Austin"
+  },
+  {
+   "meeting_key": 1297,
+   "session_name": "Race",
+   "date_start": "2026-10-25T20:00:00+00:00",
+   "date_end": "2026-10-25T22:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Austin"
+  },
+  {
+   "meeting_key": 1298,
+   "session_name": "Qualifying",
+   "date_start": "2026-10-31T21:00:00+00:00",
+   "date_end": "2026-10-31T22:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Mexico City"
+  },
+  {
+   "meeting_key": 1298,
+   "session_name": "Race",
+   "date_start": "2026-11-01T20:00:00+00:00",
+   "date_end": "2026-11-01T22:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Mexico City"
+  },
+  {
+   "meeting_key": 1299,
+   "session_name": "Qualifying",
+   "date_start": "2026-11-07T18:00:00+00:00",
+   "date_end": "2026-11-07T19:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Interlagos"
+  },
+  {
+   "meeting_key": 1299,
+   "session_name": "Race",
+   "date_start": "2026-11-08T17:00:00+00:00",
+   "date_end": "2026-11-08T19:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Interlagos"
+  },
+  {
+   "meeting_key": 1300,
+   "session_name": "Qualifying",
+   "date_start": "2026-11-21T04:00:00+00:00",
+   "date_end": "2026-11-21T05:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Las Vegas"
+  },
+  {
+   "meeting_key": 1300,
+   "session_name": "Race",
+   "date_start": "2026-11-22T04:00:00+00:00",
+   "date_end": "2026-11-22T06:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Las Vegas"
+  },
+  {
+   "meeting_key": 1301,
+   "session_name": "Qualifying",
+   "date_start": "2026-11-28T18:00:00+00:00",
+   "date_end": "2026-11-28T19:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Lusail"
+  },
+  {
+   "meeting_key": 1301,
+   "session_name": "Race",
+   "date_start": "2026-11-29T16:00:00+00:00",
+   "date_end": "2026-11-29T18:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Lusail"
+  },
+  {
+   "meeting_key": 1302,
+   "session_name": "Qualifying",
+   "date_start": "2026-12-05T14:00:00+00:00",
+   "date_end": "2026-12-05T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Yas Marina Circuit"
+  },
+  {
+   "meeting_key": 1302,
+   "session_name": "Race",
+   "date_start": "2026-12-06T13:00:00+00:00",
+   "date_end": "2026-12-06T15:00:00+00:00",
+   "year": 2026,
+   "is_cancelled": false,
+   "circuit_short_name": "Yas Marina Circuit"
+  }
+ ]
+}

@@ -108,7 +108,8 @@ const DEFAULT_CONFIG: GameConfig = {
   // old value of 24 meant when Abu Dhabi was round 24.
   // sprintRounds previously ended in 18, which is now Bahrain — not a sprint.
   // The sprint moved up with the rest of the tail, to Singapore at 19. Keep
-  // this in step with SPRINT_ROUNDS in functions/src/ingestion/config.ts.
+  // this in step with the race documents' hasSprint flags (server ingestion
+  // reads sprint weekends from OpenF1 since F-149).
   totalRounds: 25,
   sprintRounds: [2, 6, 7, 11, 14, 19],
 };

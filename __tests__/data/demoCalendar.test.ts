@@ -12,9 +12,11 @@
  * through the Bahrain weekend and left the Ace unlocked.
  *
  * So this pins the shipped fallback against the same fixture that
- * functions/test/roundMapping.test.js pins ROUND_TO_RACE_ID against. One
- * fixture, two consumers: the server's round table and the client's fallback
+ * functions/test/seedDataCalendar.test.js pins the server seeder against. One
+ * fixture, two consumers: the seeded race documents and the client's fallback
  * calendar cannot drift from each other without one of these two tests failing.
+ * (F-149 retired the server's round table; ingestion matches each race
+ * document to its OpenF1 meeting by season and race time.)
  */
 import * as fs from 'fs';
 import * as path from 'path';

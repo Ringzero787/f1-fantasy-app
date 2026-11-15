@@ -1,4 +1,4 @@
-next_id: 149
+next_id: 150
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1848,3 +1848,13 @@ features:
       - blanket
       - ghsa
       - waiver
+  - id: F-149
+    name: "UC: season-aware results ingestion"
+    status: implemented
+    spec: .aidlc/specs/F-149.md
+    created_at: 2026-11-15
+    keywords:
+      - season
+      - aware
+      - results
+      - ingestion
