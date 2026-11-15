@@ -86,12 +86,16 @@ test('results check: only past, open races of a season with a car-number table a
     'races/qatar_2026': race('2026', 'upcoming', QATAR, { round: 24 }),
     'races/australia_2027': race('2027', 'upcoming', Date.parse('2027-03-07T04:00:00Z'), { round: 1 }),
     'races/bad_2026': race('2027', 'upcoming', VEGAS - 30 * D),
+    'races/notime_2026': { seasonId: '2026', status: 'upcoming', round: 0, name: 'x' },
   });
   const docs = [...db.store.keys()].map((k) => ({ id: k.split('/')[1], data: () => db.store.get(k) }));
   // the morning after Las Vegas: Vegas is due; Qatar is not yet; the mislabelled doc is due but refused
   assert.deepEqual(dueCandidates(docs, VEGAS + 3 * H).map((c) => [c.raceId, c.season, c.raceMs]), [['las_vegas_2026', 2026, VEGAS]]);
   // the day after the 2027 opener: due, and held for the car-number table rather than matched
   assert.deepEqual(dueCandidates(docs, Date.parse('2027-03-08T00:00:00Z')).map((c) => c.raceId).sort(), ['las_vegas_2026', 'qatar_2026']);
+  // the mislabelled doc is refused for its season, not for its time: fixed, it is due
+  const fixed = docs.map((d) => (d.id === 'bad_2026' ? { id: d.id, data: () => ({ ...d.data(), seasonId: '2026' }) } : d));
+  assert.deepEqual(dueCandidates(fixed, VEGAS + 3 * H).map((c) => c.raceId).sort(), ['bad_2026', 'las_vegas_2026']);
 });
 
 test('qualifying and sprint checks: open races within three days, each with its own 2026 meeting; a due 2027 race is held without a fetch', async () => {
@@ -174,6 +178,13 @@ test('schedule monitor: flags an unmatched or moved race, never cancels on an em
   // a 2026 race with no session anywhere near it, the day after: auto-cancelled, as before
   const ghost = Date.parse('2026-08-09T13:00:00Z');
   const dbg = fakeDb({ 'races/ghost_2026': race('2026', 'upcoming', ghost, { name: 'Ghost', round: 99 }) });
+  // the window edges: 15 days out and 25 hours after are outside it — no line, no cancel
+  assert.deepEqual(await checkScheduleChanges(dbg, feed().fetch, ghost - 15 * D), []);
+  assert.deepEqual(await checkScheduleChanges(dbg, feed().fetch, ghost + 25 * H), []);
+  assert.deepEqual(dbg.writes, []);
+  const warned = await checkScheduleChanges(dbg, feed().fetch, ghost - 5 * D);
+  assert.ok(warned.some((c) => c.startsWith('WARNING: Ghost (R99)')) && !warned.some((c) => c.startsWith('AUTO-CANCELLED')), warned.join('\n'));
+  dbg.writes.length = 0;
   const cg = await checkScheduleChanges(dbg, feed().fetch, ghost + 6 * H);
   assert.ok(cg.includes('AUTO-CANCELLED: Ghost (R99)'), cg.join('\n'));
   assert.deepEqual(dbg.writes.filter((w) => w.op === 'update').map((w) => [w.path, w.data.status]), [['races/ghost_2026', 'cancelled']]);

@@ -74,9 +74,7 @@ export async function syncSchedules(
     const round = data.round;
     const newSchedule = buildSchedule(meeting.sessions);
 
-    if (!newSchedule.race) {
-      continue; // Skip if no race session time
-    }
+    // meetingForRace only returns a meeting whose Race has a start time, so `race` is always set
     if (Math.abs(newSchedule.race.toMillis() - raceMs) > MOVE_FLAG_MS) {
       console.error(`[ScheduleSync] ${raceId}: OpenF1 moved the race ${((newSchedule.race.toMillis() - raceMs) / 3600e3).toFixed(1)} h — over 24 h is not followed; correct it by op`);
       continue;
