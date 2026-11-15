@@ -1,0 +1,38 @@
+id: OP-229
+title: "F-149/F-150/F-151: season-aware ingestion, onUserDeleted archives, server season scope"
+kind: functions-deploy
+status: applied
+params:
+  only: functions
+created_at: 2026-11-15T02:28:33.321Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-15T02:28:36.431Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    command: git --no-pager diff --stat 'd9a8614c58609c6c225999e36ddec35fd28e6c3b' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-229/dry-run-2026-11-15T02-28-36-431Z.log
+    log_sha256: a049b45c19c2ba46b67e63d5173bd06ff94dc83c4f8356690cc73c6e13acc4af
+    lines: 20
+  - step: gates
+    at: 2026-11-15T02:32:53.679Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-15T02:32:53.683Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-229/apply-2026-11-15T02-32-53-683Z.log
+    log_sha256: e2e4e4acca02c2566bc656b2753de3401c7e992801805829676108aab1390acb
+    lines: 181
+  - step: gates
+    at: 2026-11-15T02:35:08.387Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,37 @@
+id: OP-227
+title: "F-150: seasons.memberUserIds index for account-deletion archive anonymising"
+kind: indexes-deploy
+status: applied
+params: {}
+created_at: 2026-11-15T02:28:32.745Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-15T02:28:35.789Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    command: git --no-pager diff '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- firestore.indexes.json
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-227/dry-run-2026-11-15T02-28-35-789Z.log
+    log_sha256: 74abd2af530d5773a8ecc440d009fd333aa390543b53ced2a9851e77062a660a
+    lines: 281
+  - step: gates
+    at: 2026-11-15T02:32:38.373Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-15T02:32:38.376Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:indexes --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-227/apply-2026-11-15T02-32-38-376Z.log
+    log_sha256: 0dcfbd2d3e5730939040de29041866d740a111100cc8072b0c9bdaee2f39bd87
+    lines: 15
+  - step: gates
+    at: 2026-11-15T02:32:41.072Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    exit: 0
+    gates:
+      G15: skip

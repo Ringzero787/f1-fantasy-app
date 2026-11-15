@@ -1,0 +1,37 @@
+id: OP-228
+title: "F-151: config/app.currentSeason server-only"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-11-15T02:28:33.033Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-15T02:28:36.121Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    command: git --no-pager diff '2a0d8f86b0e68ab82527a9799c4002e7cfa3c72b' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-228/dry-run-2026-11-15T02-28-36-121Z.log
+    log_sha256: 72227bc50e3504fe14d4ace98e548cf64465034dfcf26f5381dcc8125add9d78
+    lines: 19
+  - step: gates
+    at: 2026-11-15T02:32:45.089Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-15T02:32:45.092Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-228/apply-2026-11-15T02-32-45-092Z.log
+    log_sha256: def96f69cb3e15543bb6c56faf61b14037c874e2b2886f6bd731ef9ab9fa4817
+    lines: 15
+  - step: gates
+    at: 2026-11-15T02:32:48.350Z
+    head_sha: df0a5f0a2807560f0d7a1310eae121dd874ede93
+    exit: 0
+    gates:
+      G15: skip
