@@ -1850,7 +1850,8 @@ features:
       - waiver
   - id: F-149
     name: "UC: season-aware results ingestion"
-    status: implemented
+    status: shipped
+    shipped_at: 2026-11-15
     spec: .aidlc/specs/F-149.md
     created_at: 2026-11-15
     keywords:
@@ -1876,7 +1877,8 @@ features:
       - calendar
   - id: F-151
     name: "UC: server season scope - race counts, locks, form and scoring per season"
-    status: implemented
+    status: shipped
+    shipped_at: 2026-11-15
     spec: .aidlc/specs/F-151.md
     created_at: 2026-11-15
     keywords:
