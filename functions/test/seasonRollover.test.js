@@ -52,7 +52,8 @@ test('the archive keeps the whole 2026 season of a team', () => {
   const a = R.teamArchive(team2026(), '2026');
   assert.equal(a.season, '2026');
   assert.equal(a.seasonTotal, 900 + 3600 + 79, 'the total the league table ranked');
-  assert.deepEqual([a.totalPoints, a.lockedPoints, a.moonshotPoints, a.raceWins, a.racesPlayed], [900, 3600, 79, 3, 22]);
+  assert.deepEqual([a.totalPoints, a.lockedPoints, a.moonshotPoints], [900, 3600, 79]);
+  for (const k of ['raceWins', 'racesPlayed', 'pointsHistory']) assert.ok(!(k in a), `${k} is client-written: not part of the record`);
   assert.deepEqual([a.bestRaceId, a.bestRacePoints], ['monaco_2026', 310]);
   assert.deepEqual(a.finalDrivers, ['norris', 'hadjar']);
   assert.equal(a.finalConstructor, 'mclaren');
@@ -67,7 +68,7 @@ test('league archive: final order and champion; a shared top score is a shared t
   const a = R.leagueArchive({ name: 'L', raceResultIds: ['r1'] }, [m('b', 300), m('a', 500), m('c', 100)], '2026');
   assert.deepEqual(a.standings.map((s) => [s.memberId, s.rank, s.totalPoints]), [['a', 1, 500], ['b', 2, 300], ['c', 3, 100]]);
   assert.deepEqual(a.champions, [{ userId: 'u_a', displayName: 'A' }]);
-  assert.deepEqual(a.raceResultIds, ['r1']);
+  assert.ok(!('raceResultIds' in a), 'owner-writable, not copied');
   const tie = R.leagueArchive({}, [m('a', 500, { lastRacePoints: 1 }), m('b', 500, { lastRacePoints: 9 })], '2026');
   assert.deepEqual(tie.champions.map((c) => c.userId).sort(), ['u_a', 'u_b']);
   assert.deepEqual(R.leagueArchive({}, [m('a', 0)], '2026').champions, []);

@@ -45,7 +45,12 @@ const ids = (v: unknown, key: string): string[] =>
 /** Fields a team keeps through the rollover; every other field is reset or removed. */
 const TEAM_KEEPS = ['userId', 'name', 'leagueId', 'createdAt', 'avatarUrl', 'avatarGeneratedAt'];
 
-/** The 2026 record kept at fantasyTeams/{id}/seasons/{season}. */
+/**
+ * The 2026 record kept at fantasyTeams/{id}/seasons/{season}. Only fields the server owns (the team
+ * update rule denies them to clients): raceWins, racesPlayed and pointsHistory are client-writable and
+ * never written by the server, so they are left out — a planted value would read as the official
+ * record, and an oversized one could make the archive too large to write and stall the rollover.
+ */
 export function teamArchive(team: Doc, season: string): Doc {
   const total = num(team.totalPoints) + num(team.lockedPoints) + num(team.moonshotPoints);
   const constructor = team.constructor && typeof team.constructor === 'object' ? (team.constructor as Doc).constructorId ?? null : null;
@@ -57,12 +62,9 @@ export function teamArchive(team: Doc, season: string): Doc {
     totalPoints: num(team.totalPoints),
     lockedPoints: num(team.lockedPoints),
     moonshotPoints: num(team.moonshotPoints),
-    raceWins: num(team.raceWins),
-    racesPlayed: num(team.racesPlayed),
     bestRacePoints: team.bestRacePoints ?? null,
     bestRaceId: team.bestRaceId ?? null,
     scoredRaces: Array.isArray(team.scoredRaces) ? team.scoredRaces : [],
-    pointsHistory: Array.isArray(team.pointsHistory) ? team.pointsHistory : [],
     moonshotStats: team.moonshotStats ?? null,
     finalDrivers: ids(team.drivers, 'driverId'),
     finalConstructor: constructor,
@@ -100,7 +102,11 @@ export function teamResetPatch(team: Doc): Doc {
 
 export interface MemberDoc extends Doc { id: string; totalPoints?: number; lastRacePoints?: number; rank?: number }
 
-/** The final table kept at leagues/{id}/seasons/{season}: members in their final order, with the champion(s). */
+/**
+ * The final table kept at leagues/{id}/seasons/{season}: members in their final order, with the
+ * champion(s). Built from member totals, which only the server writes; the league's own
+ * raceResultIds is owner-writable, so it is not copied (the per-race results stay in raceResults).
+ */
 export function leagueArchive(league: Doc, members: MemberDoc[], season: string): Doc {
   const ordered = orderMembers(members);
   const standings = ordered.map((m, i) => ({
@@ -120,7 +126,6 @@ export function leagueArchive(league: Doc, members: MemberDoc[], season: string)
     standings,
     // a tie on points at the top is a shared title, not a coin toss on lastRacePoints or id
     champions: top === null || top <= 0 ? [] : standings.filter((s) => s.totalPoints === top).map((s) => ({ userId: s.userId, displayName: s.displayName })),
-    raceResultIds: Array.isArray(league.raceResultIds) ? league.raceResultIds : [],
     // lets account deletion find every archive that names a user (onUserDeleted anonymises them)
     memberUserIds: [...new Set(standings.map((s) => s.userId).filter((u): u is string => typeof u === 'string'))],
   };

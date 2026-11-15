@@ -83,8 +83,12 @@ async function deleteTeamsWithHistory(userId: string): Promise<void> {
 async function anonymiseLeagueArchives(userId: string): Promise<void> {
   const archives = await db.collectionGroup('seasons').where('memberUserIds', 'array-contains', userId).get();
   for (const a of archives.docs) {
-    const patch = anonymiseLeagueArchive(a.data(), userId);
-    if (patch) await a.ref.update(patch);
+    // read and rewrite in one transaction: two league-mates deleted at once must not undo each other
+    await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(a.ref);
+      const patch = fresh.exists ? anonymiseLeagueArchive(fresh.data()!, userId) : null;
+      if (patch) tx.update(a.ref, patch as FirebaseFirestore.DocumentData);
+    });
   }
   if (!archives.empty) console.log(`Anonymised ${archives.size} league season archives`);
 }

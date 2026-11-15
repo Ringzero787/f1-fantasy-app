@@ -148,9 +148,13 @@ async function main(apply) {
   if (!apply) { console.log('\n== dry run: nothing written (add --apply)'); return; }
   if (blockers.length) throw new Error(`refusing to write: ${blockers.length} precondition(s) not met`);
 
-  // one batch per group, in order: a failure leaves every earlier group whole and every later one untouched
+  // one batch per group, in order. A failed group is reported and the rest go on — one team or league
+  // that cannot be written must not hold every other player in 2026 — but the season switch waits
+  // until every group has gone in: it is committed only on a run with no failures.
   let done = 0;
+  const failed = [];
   for (const g of plan.groups) {
+    if (g.label === 'season switch' && failed.length) break;
     const batch = db.batch();
     for (const op of g.ops) {
       const o = op.path.startsWith('races/') ? { ...op, data: SCHEDULE_TO_TS(op.data) } : op;
@@ -161,10 +165,14 @@ async function main(apply) {
     }
     try {
       await batch.commit();
+      done++;
     } catch (e) {
-      throw new Error(`group "${g.label}" failed after ${done} of ${plan.groups.length} groups committed: ${e.message}. Earlier groups are complete; re-run to finish.`);
+      failed.push(`${g.label}: ${e.message}`);
+      console.error(`!! group "${g.label}" failed and was skipped: ${e.message}`);
     }
-    done++;
+  }
+  if (failed.length) {
+    throw new Error(`${failed.length} group(s) failed (${failed.join('; ')}); ${done} committed. The season switch was NOT made: fix or remove the cause and re-run — committed groups are skipped.`);
   }
   console.log(`\n== committed ${done} groups: ${plan.teams.reset} teams, ${plan.leagues.reset} leagues, ${plan.prices.filter((p) => !p.stamped).length} prices, ${plan.newRaces.length} races; config/app.currentSeason = ${TO}`);
 }
