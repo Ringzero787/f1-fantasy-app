@@ -1,0 +1,38 @@
+id: OP-231
+title: "F-152: auto-retry held results and resolve unknown cars by name (three result checkers)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults
+created_at: 2026-11-15T05:22:54.585Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-15T05:22:54.879Z
+    head_sha: 9e19903fec950d064f8f1836d19bf7392ab188f0
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-231/dry-run-2026-11-15T05-22-54-879Z.log
+    log_sha256: aebeb46d9fc8c9537d94b6e3bdb1a3440e89922726012d525327d79d6a027b5a
+    lines: 80
+  - step: gates
+    at: 2026-11-15T14:54:59.251Z
+    head_sha: 9e19903fec950d064f8f1836d19bf7392ab188f0
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-15T14:54:59.256Z
+    head_sha: 9e19903fec950d064f8f1836d19bf7392ab188f0
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-231/apply-2026-11-15T14-54-59-256Z.log
+    log_sha256: fea6b67b84682597fcb52fb1db334352658adaff1c694373b90124cd7ff99e05
+    lines: 35
+  - step: gates
+    at: 2026-11-15T14:56:06.627Z
+    head_sha: 9e19903fec950d064f8f1836d19bf7392ab188f0
+    exit: 0
+    gates:
+      G15: skip
