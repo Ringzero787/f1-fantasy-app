@@ -149,6 +149,17 @@ export function noTeamWarning(driverNumber: number, driverId: string, where: 'ra
   return `${UNMAPPED_DRIVER_WARNING_PREFIX} team: no team for ${where} driver ${driverNumber} (${driverId}) in this session or the meeting`;
 }
 
+/**
+ * F-152: one driver credited in two cars of a session. The table never does that, but a car
+ * resolved by name could if the entry list leaves out the car the table already gives him. It
+ * carries the unmapped prefix so the result is held, never published with a driver scored twice.
+ */
+export function duplicateDriverWarnings(rows: ReadonlyArray<{ driverId: string }>, where: string): string[] {
+  const seen = new Map<string, number>();
+  for (const r of rows) seen.set(r.driverId, (seen.get(r.driverId) ?? 0) + 1);
+  return [...seen].filter(([, k]) => k > 1).map(([id, k]) => `${UNMAPPED_DRIVER_WARNING_PREFIX} clash: ${id} is credited in ${k} cars of the ${where} session`);
+}
+
 export function isUnmappedDriverWarning(warning: string): boolean {
   return warning.startsWith(UNMAPPED_DRIVER_WARNING_PREFIX);
 }
@@ -410,7 +421,7 @@ export async function convertToRaceResults(
 
     // Use grid position from starting_grid/qualifying; for drivers without
     // data (e.g. crashed in Q1, stewards' permission), place them at the back
-    const grid = gridPositions[driverId] ?? 22;
+    const grid = Object.prototype.hasOwnProperty.call(gridPositions, driverId) ? gridPositions[driverId] : 22;
 
     if (r.number_of_laps > maxLaps) {
       maxLaps = r.number_of_laps;
@@ -433,6 +444,8 @@ export async function convertToRaceResults(
     if (a.status === 'finished' && b.status !== 'finished') return -1;
     return a.position - b.position;
   });
+
+  warnings.push(...duplicateDriverWarnings(results, 'race'));
 
   if (Object.keys(gridPositions).length === 0) {
     warnings.push('No starting-grid or qualifying data found — grid positions defaulted to back of grid (P22)');
@@ -485,6 +498,7 @@ export async function convertToSprintResults(
 
     results.push({ position, driverId, status });
   }
+  warnings.push(...duplicateDriverWarnings(results, 'sprint'));
 
   results.sort((a, b) => {
     if (a.status !== 'finished' && b.status === 'finished') return 1;
@@ -539,5 +553,6 @@ export async function convertToQualifyingResults(
   }
 
   results.sort((a, b) => a.position - b.position);
+  warnings.push(...duplicateDriverWarnings(results, 'qualifying'));
   return { results, warnings };
 }

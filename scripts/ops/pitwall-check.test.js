@@ -140,6 +140,16 @@ test('F-135: a race held by the ingestion fails with the reason; one awaiting ad
   assert.deepEqual(levels(evaluate(s, NOW), 'scoring'), ['warn']);
 });
 
+test('F-152: past the 14-day retry, a held race fails with the re-queue op', () => {
+  const s = healthy();
+  s.races[1].status = 'in_progress';
+  s.races[1].schedule.race = new Date(NOW.getTime() - 15 * 24 * 3600 * 1000).toISOString();
+  s.held = [{ raceId: 'mexico_2026', round: 21, fetchedAt: new Date(NOW.getTime() - 3600 * 1000).toISOString(), blockedReason: 'Unmapped driver number(s)' }];
+  const r = evaluate(s, NOW);
+  assert.deepEqual(levels(r, 'scoring'), ['fail']);
+  assert.match(r.findings.find((f) => f.check === 'scoring').text, /Past the 14-day retry: .*requeueBlockedResults/);
+});
+
 test('F-152: a race scored with a car resolved by name warns for a week, then drops off', () => {
   const s = healthy();
   const line = 'Resolved by name: car 97 is not in the driver table; credited to camara, drivers/camara by code and surname. Add it to DRIVER_NUMBER_TO_ID';

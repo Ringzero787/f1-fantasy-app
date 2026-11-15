@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
 if (admin.apps.length === 0) admin.initializeApp({ projectId: 'demo-uc-test' });
 const { resolveUnknownCars, nameKey, RESOLVED_BY_NAME_PREFIX, loadRoster } = require('../lib/ingestion/resolveCars.js');
-const { convertToRaceResults, convertToQualifyingResults, convertToSprintResults, getGridPositions, findFastestLap, extrasFor, isUnmappedDriverWarning } = require('../lib/ingestion/openf1Client.js');
+const { convertToRaceResults, convertToQualifyingResults, convertToSprintResults, getGridPositions, findFastestLap, extrasFor, isUnmappedDriverWarning, duplicateDriverWarnings } = require('../lib/ingestion/openf1Client.js');
 const { heldAction, HELD_RETRY_MS, HELD_RETRY_FOR_MS } = require('../lib/ingestion/checkResults.js');
 
 // the drivers/ docs as production has them (name, shortName), trimmed
@@ -58,6 +58,12 @@ test('anything that could credit the wrong driver is refused and the car stays u
   refused([entry(51, 'CAM', 'Rafael CAMARA'), entry(97, 'CAM', 'Rafael CAMARA')], 'resolves to a driver the table seats in another car');
   refused([entry(97, '', 'Jane DOE')], 'no code');
   refused([entry(97, 'DOE', '')], 'no name');
+  refused([entry(97, 'HAA', 'Gene HAAS')], 'a stand-in id that is a constructor id');
+  refused([entry(97, 'CON', 'Anna CONSTRUCTOR')], 'a built-in object name');
+  // a drivers/ doc with no name: its id still may not be taken by a stand-in
+  const w2 = [];
+  assert.deepEqual(resolveUnknownCars([entry(97, 'ZHO', 'Guanyu ZHOU')], [...ROSTER, { id: 'zhou' }], w2), {});
+  assert.ok(w2[0].includes("already another driver's"));
   // a roster with two drivers sharing a code: neither is chosen
   const w = [];
   assert.deepEqual(resolveUnknownCars([entry(97, 'CAM', 'Rafael CAMARA')], [...ROSTER, { id: 'campos', name: 'Pedro Campos', shortName: 'CAM' }], w), {});
@@ -138,6 +144,27 @@ test('without the roster the same weekend holds exactly as before (the Zandvoort
   assert.equal(race.results.length, 2);
 });
 
+test('a driver credited in two cars of a session holds the result (an entry list that leaves out his own car)', async () => {
+  // car 1 is Norris by the table but absent from the entry list; car 97 names him by code and surname.
+  // In the race and qualifying the car without an entry also has no team, which holds already; the
+  // sprint needs no team, so there the duplicate guard is what stops him being scored twice.
+  const feed = {
+    [SPRINT]: {
+      drivers: [drv(97, 'NOR', 'Lando NORRIS', 'McLaren', SPRINT), drv(87, 'BEA', 'Oliver BEARMAN', 'Haas F1 Team', SPRINT)],
+      results: [res(1, 1, 19, SPRINT), res(2, 97, 19, SPRINT), res(3, 87, 19, SPRINT)],
+    },
+    [RACE]: {
+      drivers: [drv(97, 'NOR', 'Lando NORRIS', 'McLaren', RACE), drv(87, 'BEA', 'Oliver BEARMAN', 'Haas F1 Team', RACE)],
+      results: [res(1, 1, 71, RACE), res(2, 97, 71, RACE), res(3, 87, 71, RACE)],
+    },
+  };
+  const { sprint, race } = await withFeed(feed, async () => ({ sprint: await convertToSprintResults(SPRINT, ROSTER), race: await convertToRaceResults(RACE, {}, null, ROSTER) }));
+  assert.ok(sprint.warnings.filter(isUnmappedDriverWarning).some((w) => w.includes('norris is credited in 2 cars of the sprint')), sprint.warnings.join('\n'));
+  assert.ok(race.warnings.some(isUnmappedDriverWarning), 'the race holds too');
+  assert.deepEqual(duplicateDriverWarnings([{ driverId: 'a' }, { driverId: 'b' }], 'race'), []);
+  assert.equal(duplicateDriverWarnings([{ driverId: 'a' }, { driverId: 'a' }], 'race').length, 1);
+});
+
 test('loadRoster reads id, name and shortName from drivers/', async () => {
   const db = { collection: (n) => ({ get: async () => ({ docs: n === 'drivers' ? [{ id: 'camara', data: () => ({ name: 'Rafael Câmara', shortName: 'CAM', price: 9 }) }] : [] }) }) };
   assert.deepEqual(await loadRoster(db), [{ id: 'camara', name: 'Rafael Câmara', shortName: 'CAM' }]);
@@ -156,6 +183,8 @@ test('a held race is fetched again every 30 minutes for 14 days; nothing else ch
   assert.equal(heldAction({ status: 'approved' }, race, now), 'skip');
   assert.equal(heldAction(held('2026-11-08T19:10:00Z'), race, now), 'skip', '20 minutes since the last fetch');
   assert.equal(heldAction(held('2026-11-08T19:00:00Z'), race, now), 'retry', '30 minutes');
+  assert.equal(heldAction(held('2026-11-08T19:00:05Z'), race, now), 'retry', 'the tick 29m55s on is not pushed to the 40th minute');
+  assert.equal(heldAction({ ...held('2026-11-08T18:00:00Z'), retriedAt: at('2026-11-08T19:20:00Z') }, race, now), 'skip', 'a retry that stored nothing still waits 30 minutes');
   assert.equal(heldAction({ status: 'pending', blockedReason: 'x' }, race, now), 'retry', 'no fetchedAt');
   assert.equal(heldAction({ status: 'pending', fetchedAt: at('2026-11-08T19:00:00Z') }, race, now), 'skip', 'pending without a reason waits for an admin');
   assert.equal(heldAction(held('2026-11-01T00:00:00Z'), race, race + HELD_RETRY_FOR_MS + 1), 'skip', 'past 14 days: a hand re-queue');

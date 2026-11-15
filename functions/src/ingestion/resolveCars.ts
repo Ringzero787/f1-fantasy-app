@@ -19,7 +19,7 @@
  * resolution is reported as a warning carrying `RESOLVED_BY_NAME_PREFIX`, so the result shows how
  * the grid was built and the ops check can say the table needs the number.
  */
-import { DRIVER_NUMBER_TO_ID, driverIdFor } from './config';
+import { DRIVER_NUMBER_TO_ID, TEAM_NAME_TO_ID, driverIdFor } from './config';
 
 /** A `drivers/{id}` document, as far as resolution needs it. */
 export interface KnownDriver { id: string; name?: unknown; shortName?: unknown }
@@ -33,6 +33,16 @@ export interface EntryRow {
 }
 
 export const RESOLVED_BY_NAME_PREFIX = 'Resolved by name';
+
+/**
+ * Ids a stand-in may never take: a constructor's (a surname like Haas or Williams), and the names an
+ * ordinary object already answers to (`constructor`, `valueof`…), which a lookup keyed by driver id
+ * would read as a function.
+ */
+const RESERVED_IDS = new Set<string>([
+  ...Object.values(TEAM_NAME_TO_ID),
+  ...Object.getOwnPropertyNames(Object.prototype).map(nameKey),
+]);
 
 /** Letters only, accents dropped, lower case: 'Câmara' → 'camara', 'HÜLKENBERG' → 'hulkenberg'. */
 export function nameKey(s: unknown): string {
@@ -105,8 +115,8 @@ export function resolveUnknownCars(
     }
     // nobody we know: a stand-in under his surname, with no drivers/ doc. An id the table already
     // gives a stand-in (no doc either) is the same driver back in another car.
-    if (rosterIds.has(surname)) {
-      warnings.push(`Car ${n} is not in the driver table; its entry names ${label}, but the id ${surname} is already another driver's; not resolved`);
+    if (rosterIds.has(surname) || RESERVED_IDS.has(surname)) {
+      warnings.push(`Car ${n} is not in the driver table; its entry names ${label}, but the id ${surname} is already ${rosterIds.has(surname) ? 'another driver\'s' : 'reserved (a constructor or a built-in name)'}; not resolved`);
       continue;
     }
     proposed.set(n, { id: surname, how: tableIds.has(surname) ? 'the stand-in id the table already uses (no drivers/ doc)' : 'a stand-in with no drivers/ doc (cannot be bought)' });

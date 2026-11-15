@@ -39,6 +39,8 @@ const db = admin.firestore();
  * re-queue op. Before, a held race was skipped on every tick until someone re-queued it by hand.
  */
 export const HELD_RETRY_MS = 30 * 60 * 1000;
+/** The scheduler ticks every 10 minutes and a fetch takes a few seconds: a minute's slack keeps it on the 30th, not the 40th. */
+const RETRY_SLACK_MS = 60 * 1000;
 /** …for this long after the race; past it a held race waits for a hand re-queue (requeueBlockedResults.js). */
 export const HELD_RETRY_FOR_MS = 14 * 24 * 3600 * 1000;
 
@@ -48,7 +50,7 @@ export const HELD_RETRY_FOR_MS = 14 * 24 * 3600 * 1000;
  * fetch is HELD_RETRY_MS old, inside HELD_RETRY_FOR_MS of the race; otherwise skip.
  */
 export function heldAction(
-  pending: { status?: unknown; blockedReason?: unknown; fetchedAt?: unknown } | undefined,
+  pending: { status?: unknown; blockedReason?: unknown; fetchedAt?: unknown; retriedAt?: unknown } | undefined,
   raceMs: number,
   nowMs: number,
 ): 'fetch' | 'retry' | 'skip' {
@@ -57,8 +59,10 @@ export function heldAction(
   if (pending.status !== 'pending') return 'fetch';
   if (!pending.blockedReason) return 'skip';
   if (nowMs - raceMs > HELD_RETRY_FOR_MS) return 'skip';
-  const fetchedMs = toMs(pending.fetchedAt);
-  return !Number.isFinite(fetchedMs) || nowMs - fetchedMs >= HELD_RETRY_MS ? 'retry' : 'skip';
+  // the later of the last stored fetch and the last attempt: a retry that ends early (no results
+  // yet, a feed error) stores nothing, and must not turn into a fetch on every tick
+  const lastMs = Math.max(...[toMs(pending.fetchedAt), toMs(pending.retriedAt)].filter(Number.isFinite));
+  return !Number.isFinite(lastMs) || nowMs - lastMs >= HELD_RETRY_MS - RETRY_SLACK_MS ? 'retry' : 'skip';
 }
 
 /** A race the results check may fetch: its document's season and race time pick the OpenF1 meeting (F-149). */
@@ -147,6 +151,7 @@ export const checkOpenF1Results = onSchedule(
         }
         if (action === 'retry') {
           console.log(`[Ingestion] ${race.raceId} is held (${pendingDoc.data()?.blockedReason}); fetching again`);
+          await pendingDoc.ref.update({ retriedAt: admin.firestore.FieldValue.serverTimestamp() });
         }
 
         await processRace(race, sessionsFor, await rosterNow());
@@ -201,7 +206,9 @@ async function processRace(race: Candidate, sessionsFor: (season: number) => Pro
     // F-152: cars the table does not know, resolved by name from the race's entry list, so the grid
     // and fastest lap (rows that carry only a number) credit them too. The race converter resolves
     // the same list again and reports it; the warnings here would only repeat that.
-    const raceExtras = extrasFor(await fetchDrivers(raceSession.session_key).catch(() => []), roster, []);
+    // A failed fetch throws (caught below), so the race is tried again rather than scored without
+    // the grid and fastest lap of a car resolved by name.
+    const raceExtras = extrasFor(await fetchDrivers(raceSession.session_key), roster, []);
 
     // Fetch grid positions — actual starting grid for the race session
     // (includes penalties/pit-lane starts), with qualifying as fallback
@@ -411,6 +418,7 @@ export const checkQualifyingResults = onSchedule(
     try {
       const now = new Date();
 
+      let roster: KnownDriver[] | undefined; // F-152: read once per tick, only when a session has ended
       for (const { raceDoc, raceId, raceData, round, meeting } of await openRaceMeetings('QualiIngestion')) {
         const qualiSession = meeting.sessions.find(s => s.session_name === 'Qualifying');
         if (!qualiSession) continue;
@@ -424,7 +432,7 @@ export const checkQualifyingResults = onSchedule(
         }
 
         // Fetch and convert qualifying results (unknown cars resolved by name, F-152)
-        const qualiData = await convertToQualifyingResults(qualiSession.session_key, await loadRoster(db));
+        const qualiData = await convertToQualifyingResults(qualiSession.session_key, roster ??= await loadRoster(db));
         if (qualiData.results.length === 0) {
           console.log(`[QualiIngestion] No qualifying results yet for round ${round}`);
           continue;
@@ -478,6 +486,7 @@ export const checkSprintResults = onSchedule(
     try {
       const now = new Date();
 
+      let roster: KnownDriver[] | undefined; // F-152: read once per tick, only when a session has ended
       for (const { raceDoc, raceId, raceData, round, meeting } of await openRaceMeetings('SprintIngestion')) {
         // a sprint weekend is one OpenF1 lists a Sprint session for
         const sprintSession = meeting.sessions.find(s => s.session_name === 'Sprint');
@@ -490,7 +499,7 @@ export const checkSprintResults = onSchedule(
         if (raceData.sprintScored === true) continue;
 
         // Fetch and convert sprint results (unknown cars resolved by name, F-152)
-        const sprintData = await convertToSprintResults(sprintSession.session_key, await loadRoster(db));
+        const sprintData = await convertToSprintResults(sprintSession.session_key, roster ??= await loadRoster(db));
         if (sprintData.results.length === 0) {
           console.log(`[SprintIngestion] No sprint results yet for round ${round}`);
           continue;
