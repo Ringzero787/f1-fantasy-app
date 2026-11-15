@@ -86,12 +86,13 @@ test('members restart at zero, ranked 1..n in a stable order, with no movement a
 });
 
 test('opening prices: points per race × rate, a floor, newcomers below five races, tiers from the price', () => {
-  assert.deepEqual(R.openingPrice({ id: 'antonelli', scoredRaces: 20, scorePoints: 1205, currentPrice: 660 }), { id: 'antonelli', price: 603, tier: 'A', basis: '1205 pts / 20 races × $10', perRace: 60.3 });
-  assert.equal(R.openingPrice({ id: 'hadjar', scoredRaces: 17, scorePoints: 639, currentPrice: 197 }).price, 376, 'per race scored, not per season race');
+  assert.deepEqual(R.openingPrice({ id: 'antonelli', scoredRaces: 20, scorePoints: 1205, currentPrice: 660 }), { id: 'antonelli', price: 362, tier: 'A', basis: '1205 pts / 20 races × $6', perRace: 60.3 });
+  assert.equal(R.DOLLARS_PER_POINT, 6, 'owner 2026-11-15: 2027 opens at the 2026 level');
+  assert.equal(R.openingPrice({ id: 'hadjar', scoredRaces: 17, scorePoints: 639, currentPrice: 197 }).price, 226, 'per race scored, not per season race');
   assert.equal(R.openingPrice({ id: 'camara', scoredRaces: 1, scorePoints: -1, currentPrice: 115 }).price, R.NEWCOMER_PRICE);
   assert.equal(R.openingPrice({ id: 'x', scoredRaces: 4, scorePoints: 400, currentPrice: 1 }).price, R.NEWCOMER_PRICE);
   assert.equal(R.openingPrice({ id: 'x', scoredRaces: 5, scorePoints: -50, currentPrice: 1 }).price, R.MIN_PRICE, 'never below the floor');
-  assert.equal(R.openingPrice({ id: 'mercedes', scoredRaces: 20, scorePoints: 2110, currentPrice: 700 }, { dollarsPerPoint: R.CONSTRUCTOR_DOLLARS_PER_POINT }).price, 528);
+  assert.equal(R.openingPrice({ id: 'mercedes', scoredRaces: 20, scorePoints: 2110, currentPrice: 700 }, { dollarsPerPoint: R.CONSTRUCTOR_DOLLARS_PER_POINT }).price, 317);
   assert.equal(R.CONSTRUCTOR_DOLLARS_PER_POINT, R.DOLLARS_PER_POINT / 2);
   assert.deepEqual([R.tierOf(241), R.tierOf(240), R.tierOf(121), R.tierOf(120)], ['A', 'B', 'B', 'C']);
   const patch = R.entityPricePatch({ fantasyPoints: 947, price: 660 }, { price: 603, tier: 'A' });
@@ -192,7 +193,7 @@ test('plan: prices in one group, a priced entity is not re-priced, and finals co
   const plan = R.planRollover(input());
   const g = plan.groups.find((x) => x.label === 'prices');
   assert.deepEqual(g.ops.map((o) => o.path), ['drivers/norris', 'constructors/mclaren']);
-  assert.equal(g.ops[1].data.price, Math.round(1628 / 20 * 5), 'constructors at the constructor rate');
+  assert.equal(g.ops[1].data.price, Math.round(1628 / 20 * 3), 'constructors at the constructor rate');
   assert.equal(g.ops[0].data.pricedFor, '2027');
   assert.deepEqual(plan.finals, { drivers: { norris: { fantasyPoints: 695 }, piastri: { fantasyPoints: 561 } }, constructors: { mclaren: { fantasyPoints: 1172 } } });
 });
@@ -201,6 +202,8 @@ test('plan: only missing races are created, the season switch is last, and the b
   const plan = R.planRollover(input());
   const c = plan.groups.find((x) => x.label === 'calendar');
   assert.deepEqual(c.ops.map((o) => [o.kind, o.path]), [['create', 'races/bahrain_2027']]);
+  assert.deepEqual(plan.groups[0], { label: 'pin season', ops: [{ kind: 'merge', path: 'config/app', data: { currentSeason: '2026' } }] }, 'the season is pinned before 2027 races exist');
+  assert.ok(plan.groups.findIndex((g) => g.label === 'calendar') > 0);
   const last = plan.groups[plan.groups.length - 1];
   assert.equal(last.label, 'season switch');
   assert.deepEqual(last.ops.map((o) => o.path), ['seasons/2027', 'seasons/2026', 'config/app']);

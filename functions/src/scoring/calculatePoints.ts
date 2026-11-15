@@ -35,6 +35,7 @@ import { rankWrites, bestRaceUpdate, memberSeasonTotal, moonshotShare } from './
 import { buildRaceSnapshot } from './raceSnapshots';
 import { writeLeagueRaceResult } from './leagueRaceResultsWriter';
 import { settleMoonshotsForRace } from '../moonshot/settlement';
+import { completedRaceCount, currentSeason, refusePastSeason, seasonRaces } from '../season/current';
 
 const db = admin.firestore();
 
@@ -285,6 +286,7 @@ export async function handleQualifyingScoring(
   raceId: string,
   raceData: FirebaseFirestore.DocumentData,
 ): Promise<null> {
+  if (await refusePastSeason(db, raceId, raceData.seasonId, 'Qualifying')) return null;
   const qualifyingResults: QualifyingResult[] = raceData.results?.qualifyingResults;
   if (!qualifyingResults || qualifyingResults.length === 0) {
     console.log(`[Qualifying] No qualifying results for ${raceId}`);
@@ -464,6 +466,7 @@ export async function handleSprintScoring(
   // F-029: season and round for the race snapshot; optional so older callers keep working
   raceData: { seasonId?: string | number | null; round?: number | null } = {},
 ): Promise<null> {
+  if (await refusePastSeason(db, raceId, raceData.seasonId, 'Sprint')) return null;
   if (!sprintResults || sprintResults.length === 0) {
     console.log(`[Sprint] No sprint results for ${raceId}`);
     return null;
@@ -627,6 +630,10 @@ export const onRaceCompleted = functions
       return null;
     }
 
+    // F-151: a race from a season before the current one never scores into today's teams (after the
+    // rollover they are 2027 teams; a re-approved 2026 race would add 2026 points to them)
+    if (await refusePastSeason(db, raceId, afterData.seasonId, 'Scoring')) return null;
+
     const results = afterData.results;
     if (!results || !results.raceResults) {
       console.log('No race results found');
@@ -701,7 +708,7 @@ export const onRaceCompleted = functions
       } else if (result.status === 'dnf') {
         // Must stay identical to scoringCore.calculateDriverPoints — the recon
         // guard below compares team points against this breakdown.
-        racePoints = calculateDnfPenalty(result.laps, afterData.totalLaps, afterData.round);
+        racePoints = calculateDnfPenalty(result.laps, afterData.totalLaps, afterData.round, afterData.seasonId);
       } else if (result.status === 'dsq') {
         racePoints = -5;
       }
@@ -726,6 +733,8 @@ export const onRaceCompleted = functions
         ref: db.collection('raceScores').doc(docId),
         data: {
           raceId,
+          // F-151: rounds repeat every season; the season says which one this row belongs to
+          seasonId: afterData.seasonId ?? null,
           round: afterData.round || 0,
           entityId: result.driverId,
           entityType: 'driver',
@@ -773,6 +782,7 @@ export const onRaceCompleted = functions
         ref: db.collection('raceScores').doc(docId),
         data: {
           raceId,
+          seasonId: afterData.seasonId ?? null,
           round: afterData.round || 0,
           entityId: ctorId,
           entityType: 'constructor',
@@ -857,6 +867,7 @@ export const onRaceCompleted = functions
           driverPoints = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce, {
             totalLaps: afterData.totalLaps,
             round: afterData.round,
+            seasonId: afterData.seasonId,
           });
         }
 
@@ -1326,8 +1337,9 @@ export const onRaceCompleted = functions
     // empty at the lock with the best-value cars the bank affords (F-044).
     console.log(`[Phase 3.5] Processing contract expiry`);
 
-    const completedRacesSnap = await db.collection('races').where('status', '==', 'completed').get();
-    const completedRaceCount = completedRacesSnap.size;
+    // F-151: the current season's completed races — the clock purchases stamp addedAtRace and
+    // lockouts on (teamOperations getCompletedRaceCount); all-time, 2027 contracts would expire wrong
+    const completedRaceCountNow = await completedRaceCount(db);
 
     // Reuse freshTeamsSnap from Phase 3 (no re-query needed)
     const contractOps: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, any> }> = [];
@@ -1363,7 +1375,7 @@ export const onRaceCompleted = functions
           saleReturns += driver.currentPrice; // SALE_COMMISSION_RATE is 0
           lockedPoints += driver.pointsScored;
           newlyBanked += driver.pointsScored;
-          lockouts[driver.driverId] = completedRaceCount + CONTRACT_LOCKOUT_RACES;
+          lockouts[driver.driverId] = completedRaceCountNow + CONTRACT_LOCKOUT_RACES;
           expiredDriverIds.push(driver.driverId);
           if (aceDriverId === driver.driverId) aceDriverId = undefined;
           totalExpiredDrivers++;
@@ -1392,7 +1404,7 @@ export const onRaceCompleted = functions
         // Still prune expired lockouts even if no new expirations
         let lockoutsChanged = false;
         for (const [dId, expiresAt] of Object.entries(lockouts)) {
-          if (completedRaceCount >= expiresAt) {
+          if (completedRaceCountNow >= expiresAt) {
             delete lockouts[dId];
             lockoutsChanged = true;
           }
@@ -1410,7 +1422,7 @@ export const onRaceCompleted = functions
 
       // (c) Prune expired lockouts
       for (const [dId, expiresAt] of Object.entries(lockouts)) {
-        if (completedRaceCount >= expiresAt) {
+        if (completedRaceCountNow >= expiresAt) {
           delete lockouts[dId];
         }
       }
@@ -1710,10 +1722,8 @@ export const repairTeamScoring = functions
 
     console.log(`[Repair] Starting team scoring repair (dryRun=${dryRun}, mode=incremental from round ${fromRound})`);
 
-    // ─── Load all completed races ───
-    const racesSnap = await db.collection('races')
-      .where('status', '==', 'completed')
-      .get();
+    // ─── Load this season's completed races (F-151: rounds repeat every season) ───
+    const racesSnap = await seasonRaces(db, await currentSeason(db), 'completed');
 
     if (racesSnap.empty) {
       return { success: true, message: 'No completed races found', teamsFixed: 0 };
@@ -1727,6 +1737,7 @@ export const repairTeamScoring = functions
     const completedRaces: Array<{
       raceId: string;
       round: number;
+      seasonId: unknown;
       totalLaps: number;
       hasSprint: boolean;
       qualifyingScored: boolean;
@@ -1741,6 +1752,7 @@ export const repairTeamScoring = functions
       completedRaces.push({
         raceId: raceDoc.id,
         round: rd.round,
+        seasonId: rd.seasonId,
         // Needed by the proportional DNF penalty so a repair replays a race
         // with the same inputs live scoring had.
         totalLaps: rd.totalLaps || 0,
@@ -1903,6 +1915,7 @@ export const repairTeamScoring = functions
             driverPts = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce, {
               totalLaps: race.totalLaps,
               round: race.round,
+              seasonId: race.seasonId,
             });
           }
 

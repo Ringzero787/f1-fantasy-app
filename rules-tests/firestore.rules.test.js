@@ -933,6 +933,24 @@ test('F-118: nobody writes config/lockState from a client, admin claim included'
   await assertSucceeds(getDoc(doc(db(ALICE), 'config', 'lockState')));
 });
 
+test('F-151: no client sets, changes or deletes config/app.currentSeason, admin claim included', async () => {
+  // It decides which season scores. Only the season rollover op writes it, through the Admin SDK.
+  const admin = env.authenticatedContext('root', { admin: true }).firestore();
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'config', 'app'), { minVersion: '2.8.0', currentSeason: '2027' });
+  });
+  await assertFails(updateDoc(doc(admin, 'config', 'app'), { currentSeason: '2099' }));
+  await assertFails(setDoc(doc(admin, 'config', 'app'), { minVersion: '2.8.0' }), 'a set that drops the field changes it');
+  await assertFails(deleteDoc(doc(admin, 'config', 'app')));
+  // every other field of config/app is still the admin's
+  await assertSucceeds(updateDoc(doc(admin, 'config', 'app'), { minVersion: '2.8.1' }));
+  await assertSucceeds(setDoc(doc(admin, 'config', 'app'), { minVersion: '2.8.2', currentSeason: '2027' }));
+  // and with no season set yet, an admin cannot be the one to set it
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'config', 'app'), { minVersion: '2.8.0' }); });
+  await assertFails(updateDoc(doc(admin, 'config', 'app'), { currentSeason: '2026' }));
+  await assertSucceeds(updateDoc(doc(admin, 'config', 'app'), { minVersion: '2.8.3' }));
+});
+
 // ── F-118 round two: the forged window ───────────────────────────────────────
 // The first version keyed the freeze on "does this team have a window" — a presence test where an
 // identity test was needed. `allow update` denies lockStatus, but `allow create` never constrained

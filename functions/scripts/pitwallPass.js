@@ -18,7 +18,7 @@ const EXPECTED_PROJECT = 'f1-app-18077';
 // require.main still holds there.
 let db;
 let store;
-let currentSeason;
+let saleSeason;
 let passActive;
 
 function initAdmin() {
@@ -29,7 +29,7 @@ function initAdmin() {
   admin.initializeApp({ credential: admin.credential.cert(cred), projectId: EXPECTED_PROJECT });
   db = admin.firestore();
   store = require(path.join(__dirname, '..', 'lib', 'pitwall', 'passStore.js'));
-  ({ currentSeason, passActive } = require(path.join(__dirname, '..', 'lib', 'pitwall', 'pass.js')));
+  ({ saleSeason, passActive } = require(path.join(__dirname, '..', 'lib', 'pitwall', 'pass.js')));
 }
 
 const args = process.argv.slice(2);
@@ -42,7 +42,8 @@ const opt = (name) => { const a = args.find((x) => x.startsWith(`--${name}=`)); 
 const mask = (e) => (typeof e === 'string' ? e.replace(/^(.).*(@.*)$/, '$1***$2') : '(no email)');
 
 async function main() {
-  const season = opt('season') || currentSeason(Date.now());
+  // F-151: the season a store or Stripe purchase today would grant (F-146 saleSeason): in December, next year's
+  const season = opt('season') || saleSeason(Date.now());
   if (action === 'list') {
     const snap = await db.collection('users').orderBy('pass.grantedAt', 'desc').limit(100).get().catch(() => null);
     const docs = snap ? snap.docs.filter((d) => d.data().pass) : (await db.collection('users').get()).docs.filter((d) => d.data().pass);

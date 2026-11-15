@@ -232,9 +232,13 @@ export async function loadFillContext(db: admin.firestore.Firestore): Promise<Fi
     db.collection('constructors').where('isActive', '==', true).get(),
   ]);
 
+  // F-151: most recent by race time, not round — rounds restart each season, so by round the last
+  // 2026 races would outrank every 2027 race for most of the year. Early in a season the window
+  // still reaches back into the last one, which is the form there is.
+  const raceMs = (v: unknown): number => (v && typeof (v as { toMillis?: unknown }).toMillis === 'function' ? (v as { toMillis: () => number }).toMillis() : new Date(v as string).getTime() || 0);
   const completed = completedSnap.docs
-    .map((d) => ({ id: d.id, round: Number(d.data().round) || 0 }))
-    .sort((a, b) => b.round - a.round);
+    .map((d) => ({ id: d.id, at: raceMs(d.data().schedule?.race) }))
+    .sort((a, b) => b.at - a.at);
   const formRaceIds = completed.slice(0, FORM_WINDOW).map((r) => r.id);
 
   const formSum = new Map<string, number>();

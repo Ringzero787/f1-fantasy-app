@@ -5,6 +5,7 @@ import { isUsableLeagueId } from '../utils/leagueId';
 import { LockState, creationLock, liveLockState, lockedTeamStatus, stampedForWeekend } from '../locks/lockState';
 import { pickDueRace } from '../utils/lockTime';
 import { START_BUDGET, UNLOCKED_LOCK_STATUS } from '../season/rollover';
+import { completedRaceCount } from '../season/current';
 
 
 const db = admin.firestore();
@@ -111,9 +112,12 @@ function getTeamCtor(team: Record<string, any>): Record<string, any> | null {
   return null;
 }
 
+/**
+ * F-151: completed races in the current season — the clock purchases are stamped on (`addedAtRace`)
+ * and driver lockouts are compared against. All-time, a 2027 purchase would read as race 22+.
+ */
 async function getCompletedRaceCount(): Promise<number> {
-  const snap = await db.collection('races').where('status', '==', 'completed').get();
-  return snap.size;
+  return completedRaceCount(db);
 }
 
 /**

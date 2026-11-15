@@ -167,8 +167,12 @@ export const leagueResetPatch = (nextSeason: string): Doc => ({ seasonId: nextSe
 
 // ── Prices ──────────────────────────────────────────────────────────────────────────────────────
 
-/** Drivers: the 2026 method, points per race × $10. */
-export const DOLLARS_PER_POINT = 10;
+/**
+ * Drivers: points per race × $6. The 2026 method used $10, but 2026 scored more points per race than
+ * its 2025 basis, so $10 would open 2027 at 1.7× 2026's opening prices on the same $1000 budget
+ * (average driver $265 against $155). The owner chose $6 (2026-11-15): 2027 opens at 2026's level.
+ */
+export const DOLLARS_PER_POINT = 6;
 /**
  * Constructors: half the driver rate. A constructor's race score is both its cars added together, and
  * 2026 opened constructors priced like one driver (McLaren $359 beside Norris $361); at $10 the top
@@ -252,7 +256,9 @@ export interface RolloverPlan {
  * every entity, priced on this run or before.
  */
 export function planRollover(i: RolloverInput): RolloverPlan {
-  const groups: Group[] = [];
+  // F-151: pin the season being closed before anything else, so the season never has to be read off a
+  // calendar that already holds next season's races; the switch at the end moves it on
+  const groups: Group[] = [{ label: 'pin season', ops: [{ kind: 'merge', path: 'config/app', data: { currentSeason: i.from } }] }];
   const teamArchives: Doc[] = [];
   let teamsReset = 0;
   for (const t of i.teams) {
