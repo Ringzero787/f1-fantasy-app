@@ -13,6 +13,7 @@ import {
 import { liveLockState, lockedTeamStatus, LockState } from './lockState';
 import { FillContext, autoFillTeamTx, isIncomplete, loadFillContext } from '../teams/autoFill';
 import { isUsableLeagueId } from '../utils/leagueId';
+import { currentSeason } from '../season/current';
 
 const db = admin.firestore();
 
@@ -567,10 +568,13 @@ export const seasonLockTeam = functions.https.onCall(async (data, context) => {
 
   // Remaining races are counted on the server. The client used to pass this
   // number, so a caller could lock for 1 race or for 999.
+  // F-151: this season's races — a 2026 lock must not count the 2027 calendar, nor the reverse
+  const season = await currentSeason(db);
   const racesSnap = await db.collection('races').get();
   const racesRemaining = racesSnap.docs.filter((d) => {
-    const status = d.data()?.status;
-    return status === 'upcoming' || status === 'in_progress';
+    const data = d.data() || {};
+    const status = data.status;
+    return (status === 'upcoming' || status === 'in_progress') && (season === null || data.seasonId === season);
   }).length;
   if (racesRemaining < 1) {
     throw new functions.https.HttpsError(
