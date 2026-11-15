@@ -202,6 +202,8 @@ test('plan: only missing races are created, the season switch is last, and the b
   const plan = R.planRollover(input());
   const c = plan.groups.find((x) => x.label === 'calendar');
   assert.deepEqual(c.ops.map((o) => [o.kind, o.path]), [['create', 'races/bahrain_2027']]);
+  assert.deepEqual(plan.groups[0], { label: 'pin season', ops: [{ kind: 'merge', path: 'config/app', data: { currentSeason: '2026' } }] }, 'the season is pinned before 2027 races exist');
+  assert.ok(plan.groups.findIndex((g) => g.label === 'calendar') > 0);
   const last = plan.groups[plan.groups.length - 1];
   assert.equal(last.label, 'season switch');
   assert.deepEqual(last.ops.map((o) => o.path), ['seasons/2027', 'seasons/2026', 'config/app']);

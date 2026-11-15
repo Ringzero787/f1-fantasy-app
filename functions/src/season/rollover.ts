@@ -256,7 +256,9 @@ export interface RolloverPlan {
  * every entity, priced on this run or before.
  */
 export function planRollover(i: RolloverInput): RolloverPlan {
-  const groups: Group[] = [];
+  // F-151: pin the season being closed before anything else, so the season never has to be read off a
+  // calendar that already holds next season's races; the switch at the end moves it on
+  const groups: Group[] = [{ label: 'pin season', ops: [{ kind: 'merge', path: 'config/app', data: { currentSeason: i.from } }] }];
   const teamArchives: Doc[] = [];
   let teamsReset = 0;
   for (const t of i.teams) {
