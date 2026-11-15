@@ -151,7 +151,9 @@ export const checkOpenF1Results = onSchedule(
         }
         if (action === 'retry') {
           console.log(`[Ingestion] ${race.raceId} is held (${pendingDoc.data()?.blockedReason}); fetching again`);
-          await pendingDoc.ref.update({ retriedAt: admin.firestore.FieldValue.serverTimestamp() });
+          // a failed stamp must not end the tick for the other races; the worst case is an earlier retry
+          await pendingDoc.ref.update({ retriedAt: admin.firestore.FieldValue.serverTimestamp() })
+            .catch((e: unknown) => console.warn(`[Ingestion] could not stamp retriedAt on ${race.raceId}:`, e));
         }
 
         await processRace(race, sessionsFor, await rosterNow());
