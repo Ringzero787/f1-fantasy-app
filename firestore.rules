@@ -631,7 +631,13 @@ service cloud.firestore {
       // is a person, and this is not a decision a person should be able to make from a client.
       // Note Firestore grants on ANY matching rule, so this has to be an exclusion here rather
       // than a stricter `match /config/lockState` block, which would simply be additive.
-      allow write: if isAdmin() && docId != 'lockState';
+      // F-151: config/app.currentSeason likewise. It decides which season scores, so one hand-write
+      // (or a stolen admin token) could stop scoring for everyone; only the season rollover op, through
+      // the Admin SDK, sets it.
+      allow write: if isAdmin() && docId != 'lockState'
+        && !(docId == 'app' && (
+          (request.resource != null && request.resource.data.get('currentSeason', null) != (resource == null ? null : resource.data.get('currentSeason', null)))
+          || (request.resource == null && resource != null && resource.data.get('currentSeason', null) != null)));
     }
 
     // Cache — authenticated users can read, only Cloud Functions write

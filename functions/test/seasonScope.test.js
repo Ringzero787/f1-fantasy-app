@@ -11,7 +11,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const admin = require('firebase-admin');
 if (admin.apps.length === 0) admin.initializeApp({ projectId: 'demo-f151' });
-const { seasonFromRaces, currentSeason, isPastSeason, completedRaceCount, seasonRaces } = require('../lib/season/current.js');
+const { seasonFromRaces, currentSeason, isPastSeason, completedRaceCount, seasonRaces, refusePastSeason, seasonId } = require('../lib/season/current.js');
+const { calculateDnfPenalty, DNF_PENALTY } = require('../lib/scoring/scoringCore.js');
 const { loadFillContext } = require('../lib/teams/autoFill.js');
 
 const at = (iso) => ({ toMillis: () => Date.parse(iso) });
@@ -42,21 +43,53 @@ const after = {
   'races/australia_2027': race('2027', 'upcoming', '2027-04-04T04:00Z', { round: 3 }),
 };
 
-test('the season from the calendar: the next race to run, else the last run; no year in the code', () => {
-  // today: Vegas is next
-  assert.equal(seasonFromRaces([race('2026', 'completed', '2026-11-08T17:00Z'), race('2026', 'upcoming', '2026-11-22T04:00Z')]), '2026');
-  // after Abu Dhabi, before the 2027 calendar: the last race run
-  assert.equal(seasonFromRaces([race('2026', 'completed', '2026-12-06T13:00Z'), race('2026', 'cancelled', '2026-04-19T17:00Z')]), '2026');
-  // 2027 seeded
-  assert.equal(seasonFromRaces(Object.values(after)), '2027');
-  assert.equal(seasonFromRaces([]), null);
-  assert.equal(seasonFromRaces([{ seasonId: 2027, status: 'upcoming', schedule: { race: at('2027-03-14T11:00Z') } }]), null, 'a non-string seasonId is not trusted');
+const T = (iso) => Date.parse(iso);
+
+test('the season from the calendar: the most recent race that has started; no year in the code', () => {
+  const now2026 = [race('2026', 'completed', '2026-11-08T17:00Z'), race('2026', 'upcoming', '2026-11-22T04:00Z')];
+  assert.equal(seasonFromRaces(now2026, T('2026-11-15T00:00Z')), '2026');
+  // after Abu Dhabi, before the 2027 calendar
+  assert.equal(seasonFromRaces([race('2026', 'completed', '2026-12-06T13:00Z'), race('2026', 'cancelled', '2026-04-19T17:00Z')], T('2026-12-08T00:00Z')), '2026');
+  // the rollover window: 2027 seeded, the switch not yet made — still 2026 until the opener starts,
+  // so a late correction to Abu Dhabi is not refused as a past season
+  const seeded = [race('2026', 'completed', '2026-12-06T13:00Z'), race('2027', 'upcoming', '2027-03-14T11:00Z'), race('2027', 'upcoming', '2027-03-21T11:00Z')];
+  assert.equal(seasonFromRaces(seeded, T('2026-12-08T00:00Z')), '2026');
+  assert.equal(seasonFromRaces(seeded, T('2027-03-14T11:00Z')), '2027', 'the opener has started');
+  assert.equal(seasonFromRaces(Object.values(after), T('2027-03-20T00:00Z')), '2027');
+  // a cancelled race never decides, and nothing started yet → the earliest to come
+  assert.equal(seasonFromRaces([race('2027', 'cancelled', '2026-11-01T00:00Z'), race('2026', 'upcoming', '2026-11-22T04:00Z')], T('2026-11-15T00:00Z')), '2026');
+  assert.equal(seasonFromRaces([], T('2026-11-15T00:00Z')), null);
+  assert.equal(seasonFromRaces([{ seasonId: 2027, status: 'upcoming', schedule: { race: at('2027-03-14T11:00Z') } }], T('2027-04-01T00:00Z')), '2027', 'a numeric season id is the same year');
+  assert.deepEqual([seasonId('2026'), seasonId(2026), seasonId('26'), seasonId(2026.5), seasonId(null)], ['2026', '2026', null, null, null]);
 });
 
 test('config/app.currentSeason wins; without it the calendar decides', async () => {
   assert.equal(await currentSeason(fakeDb({ 'config/app': { currentSeason: '2027' }, ...after })), '2027');
-  assert.equal(await currentSeason(fakeDb({ 'config/app': { currentSeason: 'next' }, 'races/x_2026': race('2026', 'upcoming', '2026-11-22T04:00Z') })), '2026', 'a malformed value is ignored');
-  assert.equal(await currentSeason(fakeDb({ 'races/x_2026': race('2026', 'upcoming', '2026-11-22T04:00Z') })), '2026');
+  assert.equal(await currentSeason(fakeDb({ 'config/app': { currentSeason: 'next' }, 'races/x_2026': race('2026', 'upcoming', '2026-11-22T04:00Z') }), T('2026-11-15T00:00Z')), '2026', 'a malformed value is ignored');
+  assert.equal(await currentSeason(fakeDb({ 'races/x_2026': race('2026', 'upcoming', '2026-11-22T04:00Z') }), T('2026-11-15T00:00Z')), '2026');
+});
+
+test('the scorers refuse a past-season race, and only that', async () => {
+  const pinned = fakeDb({ 'config/app': { currentSeason: '2027' } });
+  assert.equal(await refusePastSeason(pinned, 'abu_dhabi_2026', '2026', 't'), true);
+  assert.equal(await refusePastSeason(pinned, 'abu_dhabi_2026', 2026, 't'), true, 'a numeric id is judged the same');
+  assert.equal(await refusePastSeason(pinned, 'bahrain_2027', '2027', 't'), false);
+  assert.equal(await refusePastSeason(pinned, 'x', undefined, 't'), false, 'no season on the race: scores, as before');
+  // today, no config: Las Vegas 2026 scores
+  const today = fakeDb({ 'races/brazil_2026': race('2026', 'completed', '2026-11-08T17:00Z'), 'races/las_vegas_2026': race('2026', 'upcoming', '2026-11-22T04:00Z') });
+  assert.equal(await refusePastSeason(today, 'las_vegas_2026', '2026', 't'), false);
+});
+
+test('DNF: the flat -5 is only for 2026 before round 17; 2027 is proportional from round 1', () => {
+  // 2026 replays exactly as scored
+  assert.equal(calculateDnfPenalty(1, 53, 16, '2026'), DNF_PENALTY);
+  assert.equal(calculateDnfPenalty(1, 53, 16), DNF_PENALTY, 'no season: judged as 2026');
+  assert.equal(calculateDnfPenalty(0, 57, 17, '2026'), -8);
+  // 2027: rounds restart, the rule does not
+  assert.equal(calculateDnfPenalty(0, 57, 1, '2027'), -8);
+  assert.equal(calculateDnfPenalty(57, 57, 3, 2027), -2);
+  assert.equal(calculateDnfPenalty(1, 53, 30, '2025'), DNF_PENALTY, 'an earlier season is never proportional');
+  assert.equal(calculateDnfPenalty(undefined, 57, 3, '2027'), DNF_PENALTY, 'missing lap data still falls back');
 });
 
 test('only an earlier season is past: the current and later seasons score, and nothing is refused without a season', () => {
@@ -65,7 +98,8 @@ test('only an earlier season is past: the current and later seasons score, and n
   assert.equal(isPastSeason('2028', '2027'), false);
   assert.equal(isPastSeason('2026', null), false);
   assert.equal(isPastSeason(undefined, '2027'), false);
-  assert.equal(isPastSeason(2026, '2027'), false, 'only a well-formed season id is judged');
+  assert.equal(isPastSeason(2026, '2027'), true, 'a numeric season id is the same year');
+  assert.equal(isPastSeason('26', '2027'), false, 'only a well-formed season id is judged');
 });
 
 test('the completed-race clock counts this season only', async () => {
@@ -99,9 +133,10 @@ test('every race-counting server path goes through the current season', () => {
   const cp = src('scoring/calculatePoints.ts');
   assert.match(cp, /const completedRaceCountNow = await completedRaceCount\(db\);/, 'contract expiry on the same clock as purchases');
   assert.ok(!/collection\('races'\)\s*\.where\('status', '==', 'completed'\)\s*\.get\(\)/.test(cp.replace(/\r/g, '')), 'no all-time completed-race query left in the scorer');
-  assert.match(cp, /if \(isPastSeason\(afterData\.seasonId, season\)\)/, 'the race trigger refuses a past season');
-  assert.equal((cp.match(/isPastSeason\(/g) || []).length, 3, 'race, qualifying and sprint scoring');
+  for (const tag of ['Scoring', 'Qualifying', 'Sprint']) assert.ok(cp.includes(`refusePastSeason(db, raceId,`) && cp.includes(`, '${tag}')) return null;`), `${tag} scoring guards the season`);
+  assert.equal((cp.match(/seasonId: (afterData|race)\.seasonId,\r?\n/g) || []).length, 2, 'team scoring and repair pass the season to the DNF rule');
+  assert.match(cp, /calculateDnfPenalty\(result\.laps, afterData\.totalLaps, afterData\.round, afterData\.seasonId\)/, 'the race-score breakdown too');
   assert.equal((cp.match(/seasonId: afterData\.seasonId \?\? null,/g) || []).length, 2, 'driver and constructor race scores carry the season');
-  assert.match(src('locks/teamLocks.ts'), /data\.seasonId === season/);
+  assert.match(src('locks/teamLocks.ts'), /seasonId\(data\.seasonId\) === season/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'scripts', 'pitwallPass.js'), 'utf8'), /opt\('season'\) \|\| saleSeason\(Date\.now\(\)\)/);
 });

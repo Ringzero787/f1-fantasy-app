@@ -35,7 +35,7 @@ import { rankWrites, bestRaceUpdate, memberSeasonTotal, moonshotShare } from './
 import { buildRaceSnapshot } from './raceSnapshots';
 import { writeLeagueRaceResult } from './leagueRaceResultsWriter';
 import { settleMoonshotsForRace } from '../moonshot/settlement';
-import { completedRaceCount, currentSeason, isPastSeason, seasonRaces } from '../season/current';
+import { completedRaceCount, currentSeason, refusePastSeason, seasonRaces } from '../season/current';
 
 const db = admin.firestore();
 
@@ -286,10 +286,7 @@ export async function handleQualifyingScoring(
   raceId: string,
   raceData: FirebaseFirestore.DocumentData,
 ): Promise<null> {
-  if (isPastSeason(raceData.seasonId, await currentSeason(db))) {
-    console.error(`[Qualifying] NOT SCORING ${raceId}: season ${raceData.seasonId} is before the current season`);
-    return null;
-  }
+  if (await refusePastSeason(db, raceId, raceData.seasonId, 'Qualifying')) return null;
   const qualifyingResults: QualifyingResult[] = raceData.results?.qualifyingResults;
   if (!qualifyingResults || qualifyingResults.length === 0) {
     console.log(`[Qualifying] No qualifying results for ${raceId}`);
@@ -469,10 +466,7 @@ export async function handleSprintScoring(
   // F-029: season and round for the race snapshot; optional so older callers keep working
   raceData: { seasonId?: string | number | null; round?: number | null } = {},
 ): Promise<null> {
-  if (isPastSeason(raceData.seasonId == null ? null : String(raceData.seasonId), await currentSeason(db))) {
-    console.error(`[Sprint] NOT SCORING ${raceId}: season ${raceData.seasonId} is before the current season`);
-    return null;
-  }
+  if (await refusePastSeason(db, raceId, raceData.seasonId, 'Sprint')) return null;
   if (!sprintResults || sprintResults.length === 0) {
     console.log(`[Sprint] No sprint results for ${raceId}`);
     return null;
@@ -638,11 +632,7 @@ export const onRaceCompleted = functions
 
     // F-151: a race from a season before the current one never scores into today's teams (after the
     // rollover they are 2027 teams; a re-approved 2026 race would add 2026 points to them)
-    const season = await currentSeason(db);
-    if (isPastSeason(afterData.seasonId, season)) {
-      console.error(`[Scoring] NOT SCORING ${raceId}: season ${afterData.seasonId} is before the current season ${season}`);
-      return null;
-    }
+    if (await refusePastSeason(db, raceId, afterData.seasonId, 'Scoring')) return null;
 
     const results = afterData.results;
     if (!results || !results.raceResults) {
@@ -718,7 +708,7 @@ export const onRaceCompleted = functions
       } else if (result.status === 'dnf') {
         // Must stay identical to scoringCore.calculateDriverPoints — the recon
         // guard below compares team points against this breakdown.
-        racePoints = calculateDnfPenalty(result.laps, afterData.totalLaps, afterData.round);
+        racePoints = calculateDnfPenalty(result.laps, afterData.totalLaps, afterData.round, afterData.seasonId);
       } else if (result.status === 'dsq') {
         racePoints = -5;
       }
@@ -877,6 +867,7 @@ export const onRaceCompleted = functions
           driverPoints = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce, {
             totalLaps: afterData.totalLaps,
             round: afterData.round,
+            seasonId: afterData.seasonId,
           });
         }
 
@@ -1746,6 +1737,7 @@ export const repairTeamScoring = functions
     const completedRaces: Array<{
       raceId: string;
       round: number;
+      seasonId: unknown;
       totalLaps: number;
       hasSprint: boolean;
       qualifyingScored: boolean;
@@ -1760,6 +1752,7 @@ export const repairTeamScoring = functions
       completedRaces.push({
         raceId: raceDoc.id,
         round: rd.round,
+        seasonId: rd.seasonId,
         // Needed by the proportional DNF penalty so a repair replays a race
         // with the same inputs live scoring had.
         totalLaps: rd.totalLaps || 0,
@@ -1922,6 +1915,7 @@ export const repairTeamScoring = functions
             driverPts = calculateDriverPoints(raceResult, sprintResult, driver.racesHeld, isAce, {
               totalLaps: race.totalLaps,
               round: race.round,
+              seasonId: race.seasonId,
             });
           }
 

@@ -13,7 +13,7 @@ import {
 import { liveLockState, lockedTeamStatus, LockState } from './lockState';
 import { FillContext, autoFillTeamTx, isIncomplete, loadFillContext } from '../teams/autoFill';
 import { isUsableLeagueId } from '../utils/leagueId';
-import { currentSeason } from '../season/current';
+import { currentSeason, seasonId } from '../season/current';
 
 const db = admin.firestore();
 
@@ -574,7 +574,7 @@ export const seasonLockTeam = functions.https.onCall(async (data, context) => {
   const racesRemaining = racesSnap.docs.filter((d) => {
     const data = d.data() || {};
     const status = data.status;
-    return (status === 'upcoming' || status === 'in_progress') && (season === null || data.seasonId === season);
+    return (status === 'upcoming' || status === 'in_progress') && (season === null || seasonId(data.seasonId) === season);
   }).length;
   if (racesRemaining < 1) {
     throw new functions.https.HttpsError(

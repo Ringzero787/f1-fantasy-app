@@ -66,21 +66,28 @@ export const DNF_PENALTY_EARLY = -8;  // retired before completing a lap
 // raceScores confirm it). 17 = Azerbaijan 2026, the first race the deployed
 // code scores, so replaying 15 or 16 still reproduces what players were given.
 export const DNF_PROPORTIONAL_FROM_ROUND = 17;
+// F-151: …and only in the season the switch happened in. Rounds restart every season, so without the
+// season every retirement in rounds 1–16 of 2027 would have gone back to the flat -5.
+export const DNF_PROPORTIONAL_SEASON = 2026;
 
 /**
  * Penalty for a retirement, scaled by how much of the race distance was covered.
  *
  * Falls back to the flat DNF_PENALTY whenever the inputs can't support the
- * proportional form — an earlier round, missing lap data, or a malformed
- * totalLaps — so no caller can accidentally produce a softer penalty from
- * incomplete data.
+ * proportional form — a 2026 round before the switch (or a race with no season,
+ * judged as 2026), missing lap data, or a malformed totalLaps — so no caller
+ * can accidentally produce a softer penalty from incomplete data.
  */
 export function calculateDnfPenalty(
   laps?: number,
   totalLaps?: number,
   round?: number,
+  season?: unknown,
 ): number {
-  if (!Number.isFinite(round as number) || (round as number) < DNF_PROPORTIONAL_FROM_ROUND) {
+  const year = typeof season === 'number' ? season : typeof season === 'string' && /^\d{4}$/.test(season) ? Number(season) : DNF_PROPORTIONAL_SEASON;
+  const beforeSwitch = year < DNF_PROPORTIONAL_SEASON
+    || (year === DNF_PROPORTIONAL_SEASON && (!Number.isFinite(round as number) || (round as number) < DNF_PROPORTIONAL_FROM_ROUND));
+  if (beforeSwitch) {
     return DNF_PENALTY;
   }
   if (!Number.isFinite(totalLaps as number) || (totalLaps as number) <= 1) return DNF_PENALTY;
@@ -190,6 +197,8 @@ export function constructorRacePoints(position: number): number {
 export interface RaceContext {
   totalLaps?: number;
   round?: number;
+  /** F-151: the race's season; rounds repeat every season */
+  seasonId?: unknown;
 }
 
 export function calculateDriverPoints(
@@ -226,7 +235,7 @@ export function calculateDriverPoints(
       racePoints += GRID_SIZE + 1 - result.position;
     }
   } else if (result.status === 'dnf') {
-    racePoints = calculateDnfPenalty(result.laps, raceContext?.totalLaps, raceContext?.round);
+    racePoints = calculateDnfPenalty(result.laps, raceContext?.totalLaps, raceContext?.round, raceContext?.seasonId);
   } else if (result.status === 'dsq') {
     // Disqualification is a stewards' decision, not a distance outcome — it
     // stays flat regardless of when in the race it happened.
