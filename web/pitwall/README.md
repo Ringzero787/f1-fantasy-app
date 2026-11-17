@@ -3,9 +3,9 @@
 The premium analytics portal for Undercut (F-075 shell; plan in `docs/design/pitwall/`). Vite, React and TypeScript, served by Cloudflare Pages at `pitwall.humannpc.com`. It uses the same Firebase Auth project as the app, so a signed-in user sees their own team and league. Nothing here touches `newgame/`.
 
 ## State
-Deployed to Cloudflare Pages through the `pitwall-pages-deploy` op, and fed by the worker in `workers/pitwall`, which publishes the payloads the pages read. The example data in `src/data/example.ts` now serves only the `preview` build (design review and the scroll-budget test) and as a stand-in while a real payload loads.
+Deployed to Cloudflare Pages through the `pitwall-pages-deploy` op, and fed by the worker in `workers/pitwall`, which publishes the payloads the pages read. The example payload in `src/data/example.ts` now serves only the `preview` build (design review and the scroll-budget test). A signed-in reader is never shown it; in production only the example lineup stands in, for a signed-in user who has no team.
 
-Content is open to every signed-in user for now: `PITWALL_CONTENT_OPEN` in `src/data/access.ts` is a build-time constant, so closing it again takes a portal deploy. What is built and what is open is in the registry, not here.
+Content is open to every signed-in user for now. Closing it again takes three changes, and the first is the real gate: restore `hasPass()` on the `pw_pages`, `pw_entities` and `pw_projections` reads in `firestore.rules` and deploy the rules; flip the mirror constant in the app (`src/pitwall/gates.ts`), which needs an app build; and flip `PITWALL_CONTENT_OPEN` in `src/data/access.ts`, a build-time constant, with a portal deploy. Hiding the pages alone leaves the paid data readable. What is built and what is open is in the registry, not here.
 
 ## Run
 ```

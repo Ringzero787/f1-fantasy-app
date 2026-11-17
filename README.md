@@ -32,21 +32,24 @@ Track Limits, the sibling app, lives in its own repository. It reads the race, d
 
 | Status | Meaning |
 |---|---|
+| `baseline` | What existed before the registry was started |
 | `idea` | Recorded, not committed to |
 | `planned` | Committed to, not finished. May be partly live: read `status_note` |
-| `building` | Being built now and due in the next release. The release run marks every `building` feature shipped, so this is not a parking place |
-| `implemented` | Merged, not yet live. `status_note` says what it waits for |
+| `building` | Being built now and due in the next release. The release run marks every `building` feature shipped, so it must not be used as a parking place |
+| `implemented` | Merged, not yet live. `status_note` says what it waits for. A status of this repository's own: the AIDLC engine does not know it and leaves it alone |
 | `shipped` | Live. `shipped_at` is the date; `version_shipped` is the store build that carried it, when one did |
 | `deprecated` | Dropped, superseded or moved elsewhere. `status_note` says which |
 
-`status_note` carries anything a single word cannot: merged and deliberately not run, live in part, blocked on a decision.
+`status_note` is a free-text field on a registry entry. It carries anything a single word cannot: merged and deliberately not run, live in part, blocked on a decision.
+
+Older entries do not all follow this table yet; the reconciliation that brings them into line is PR #284.
 
 ## Words used here
 
 - **Ace** — the one pick on a team whose points count double for a round.
 - **Moonshot** — a scarce, second-half-of-the-season call that stakes points or in-game cash on one driver's result.
 - **Pit Wall** — the web portal: projections, a briefing, a lineup lab. **Pit Wall Pass** is its paid tier.
-- **Lock** — the moment before a round's first scoring session when lineups freeze.
+- **Lock** — when lineups freeze for a round: the start of qualifying, or of sprint qualifying on a sprint weekend.
 - **forge** — the Linux build box. It builds the Android apps, runs the Pit Wall worker and runs every production operation.
 - **op** — a production change run through `aidlc op`: planned, dry-run, applied, recorded in `.aidlc/ops/`.
 - **AIDLC** — the gate and record system this repository uses (`Ringzero787/aidlc`).

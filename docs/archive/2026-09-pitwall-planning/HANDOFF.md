@@ -1,8 +1,8 @@
 # Handoff: Undercut Pit Wall and League Pro
 
-> **Archived 2026-11-17.** A planning document from September 2026, kept for the reasoning. It describes the state before anything was built; statements such as "plans only", "not merged" or "not deployed" are no longer true. Current state: `docs/design/pitwall/README.md` and the feature registry.
+> **Archived 2026-11-17.** A planning document from September 2026, kept for the reasoning. It describes the state before anything was built; statements such as "plans only", "not merged" or "not deployed" are no longer true. Current state: `docs/design/pitwall/README.md` and the feature registry. Paths inside this document are as they were in September 2026: this folder's files used to live in `docs/design/pitwall/`, and `HANDOFF.md` was that folder's `README.md`.
 
-For whoever builds this next on `master` (human or Claude session). This PR adds **plans only**: registry entries, specs, a prototype and an architecture. No app, functions or rules code changes. **Start with `SESSION-BRIEF.md`** (same folder) (full analysis, evidence, decisions, repo state and step-by-step instructions), then this file, `ARCHITECTURE.md`, the ADRs in `.aidlc/decisions/`, and open `prototype.html` in a browser. `RESEARCH.md` is the platform survey behind the frames.
+For whoever builds this next on `master` (human or Claude session). This PR adds **plans only**: registry entries, specs, a prototype and an architecture. No app, functions or rules code changes. **Start with `SESSION-BRIEF.md`** (full analysis, evidence, decisions, repo state and step-by-step instructions), then this file, `ARCHITECTURE.md`, the ADRs in `.aidlc/decisions/`, and open `prototype.html` in a browser. `RESEARCH.md` is the platform survey behind the frames.
 
 ## What was decided (2026-09-18 and 19)
 

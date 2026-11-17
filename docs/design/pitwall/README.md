@@ -11,7 +11,7 @@ The web analytics portal for Undercut, and the worker that feeds it.
 
 | Document | What it is |
 |---|---|
-| `ARCHITECTURE.md` | How the portal, the worker, the queue and the data fit together |
+| `ARCHITECTURE.md` | How the portal, the worker, the queue and the data fit together. Two things in it were never built or have moved: the GCP backup runner, and the worker env file, which is `/data/pitwall-worker/env` |
 | `RESEARCH.md` | The market research behind the product |
 | `backtest-2026-09-19.md`, `backtest-2026-09-24.md` | Projection model backtests |
 | `briefing/` | The Briefing redesign handoff and its verification screenshots |
