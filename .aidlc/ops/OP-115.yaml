@@ -1,0 +1,38 @@
+id: OP-115
+title: "F-095 ace lock window: the sweep stamps it, the callables stop stepping around it"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:autoLockTeams,functions:autoUnlockTeams,functions:seasonLockTeam,functions:earlyUnlockTeam,functions:lockTeam,functions:createTeamSecure
+created_at: 2026-10-04T02:20:02.436Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T02:20:08.278Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-115/dry-run-2026-10-04T02-20-08-278Z.log
+    log_sha256: 11fde5574bacb3c61be5767438f3dcc644b652f9d68b7de0416212befcaa14de
+    lines: 62
+  - step: gates
+    at: 2026-10-04T02:20:26.293Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T02:20:26.298Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:autoLockTeams,functions:autoUnlockTeams,functions:seasonLockTeam,functions:earlyUnlockTeam,functions:lockTeam,functions:createTeamSecure' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-115/apply-2026-10-04T02-20-26-298Z.log
+    log_sha256: 1eea7897acdda97ca8bb1ad3b9fb33476f59f4a5dadbf231691f4f09d170374e
+    lines: 45
+  - step: gates
+    at: 2026-10-04T02:38:19.733Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    exit: 0
+    gates:
+      G15: skip

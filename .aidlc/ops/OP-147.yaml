@@ -1,0 +1,46 @@
+id: OP-147
+title: "Deploy moonshotLiveSweep: one live-positions ingest a minute during a race (F-111)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:moonshotLiveSweep
+created_at: 2026-10-07T02:34:24.626Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T02:34:25.639Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-147/dry-run-2026-10-07T02-34-25-639Z.log
+    log_sha256: bcfc28ba22803777ccd282c55ed8223114ca31cd203684c3c7f5a91dbe9e5de6
+    lines: 72
+  - step: dry-run
+    at: 2026-10-07T18:12:49.041Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-147/dry-run-2026-10-07T18-12-49-041Z.log
+    log_sha256: bcfc28ba22803777ccd282c55ed8223114ca31cd203684c3c7f5a91dbe9e5de6
+    lines: 72
+  - step: gates
+    at: 2026-10-07T18:12:52.706Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T18:12:52.841Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:moonshotLiveSweep' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-147/apply-2026-10-07T18-12-52-841Z.log
+    log_sha256: 055032dfdd1ba56eecbc4f97c262f19ec5bd9156b95260c0a2c8cb02769f44b8
+    lines: 35
+  - step: gates
+    at: 2026-10-07T18:14:19.952Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G15: skip

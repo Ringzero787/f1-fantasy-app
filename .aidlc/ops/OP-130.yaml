@@ -1,0 +1,38 @@
+id: OP-130
+title: "F-103: the header shows the lock the server enforces, and ticks"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-06T02:11:47.828Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-06T02:11:58.362Z
+    head_sha: 661a7ec306e9e16572079d28ef19d727b9e42f28
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-130/dry-run-2026-10-06T02-11-58-362Z.log
+    log_sha256: fd542483bfc85d2039bc5f33ab42789170e44890db33f719368ad07d11f9ef71
+    lines: 75
+  - step: gates
+    at: 2026-10-06T02:15:42.065Z
+    head_sha: 661a7ec306e9e16572079d28ef19d727b9e42f28
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-06T02:15:42.088Z
+    head_sha: 661a7ec306e9e16572079d28ef19d727b9e42f28
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-130/apply-2026-10-06T02-15-42-088Z.log
+    log_sha256: 7d2562d29b2dd97d8eee01eed2436810916c55ed643df857b754202ac70c7fe1
+    lines: 85
+  - step: gates
+    at: 2026-10-06T02:19:36.015Z
+    head_sha: 661a7ec306e9e16572079d28ef19d727b9e42f28
+    exit: 0
+    gates:
+      G15: skip

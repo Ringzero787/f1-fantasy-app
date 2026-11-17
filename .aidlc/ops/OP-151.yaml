@@ -1,0 +1,46 @@
+id: OP-151
+title: "Deploy Pit Wall: Moonshot chip on the Lineup Lab roster tiles (F-109)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-07T19:08:04.797Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T19:08:05.497Z
+    head_sha: e5232b47ab30e0213e37dcc3e801e89d93edb420
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-151/dry-run-2026-10-07T19-08-05-497Z.log
+    log_sha256: f2ffa240b30c595714717d24ee7bb3831f9ea49f25656b36bfc9141f726ae55c
+    lines: 76
+  - step: dry-run
+    at: 2026-10-07T19:13:45.850Z
+    head_sha: 5d27c694828d470c06a3bdd80f720885d409b5ed
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-151/dry-run-2026-10-07T19-13-45-850Z.log
+    log_sha256: 195e64dd926549b18cfc6bc93c486ed16e85033c937aafdecb777ebe838e5617
+    lines: 76
+  - step: gates
+    at: 2026-10-07T19:21:49.001Z
+    head_sha: 5d27c694828d470c06a3bdd80f720885d409b5ed
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T19:21:49.011Z
+    head_sha: 5d27c694828d470c06a3bdd80f720885d409b5ed
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-151/apply-2026-10-07T19-21-49-011Z.log
+    log_sha256: 477389fcd1a6c3d6ff8d1a6186c33b64555639ef54166ac9ce4a941863d3d1aa
+    lines: 87
+  - step: gates
+    at: 2026-10-07T19:25:40.161Z
+    head_sha: 5d27c694828d470c06a3bdd80f720885d409b5ed
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,38 @@
+id: OP-135
+title: Deploy the Moonshot callables quote/confirm/cancel (F-106)
+kind: functions-deploy
+status: applied
+params:
+  only: functions:moonshotQuote,functions:moonshotConfirm,functions:moonshotCancel
+created_at: 2026-10-06T23:10:11.506Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-06T23:10:18.650Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-135/dry-run-2026-10-06T23-10-18-650Z.log
+    log_sha256: 4cb96d4ffedba33bfa498233cdcef7663776cd2a929df91408e236ae6cbe7c47
+    lines: 69
+  - step: gates
+    at: 2026-10-06T23:15:54.995Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-06T23:15:55.001Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:moonshotQuote,functions:moonshotConfirm,functions:moonshotCancel' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-135/apply-2026-10-06T23-15-55-001Z.log
+    log_sha256: 7e383ab78c60de388481a85f2043b8c86712b15fb337b327dd83d5fe08011e9d
+    lines: 39
+  - step: gates
+    at: 2026-10-06T23:17:21.736Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,38 @@
+id: OP-143
+title: Deploy moonshotLeagueBoard for the app's league feed and race-day card (F-108 PR 2)
+kind: functions-deploy
+status: applied
+params:
+  only: functions:moonshotLeagueBoard
+created_at: 2026-10-07T01:07:51.972Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T01:07:52.268Z
+    head_sha: d620f1ab8c7d91b221ae2fd7b01549fe6bd7cf59
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-143/dry-run-2026-10-07T01-07-52-268Z.log
+    log_sha256: 48d44d59fd9dad21203e67d1d4dc01627216e36aa3b2982cef30f70a1bb6c5e6
+    lines: 70
+  - step: gates
+    at: 2026-10-07T01:07:55.674Z
+    head_sha: d620f1ab8c7d91b221ae2fd7b01549fe6bd7cf59
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T01:07:55.681Z
+    head_sha: d620f1ab8c7d91b221ae2fd7b01549fe6bd7cf59
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:moonshotLeagueBoard' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-143/apply-2026-10-07T01-07-55-681Z.log
+    log_sha256: ccccc3a2c9792204cf60484d4b241e78f3167786f500caf4852db4e42d322145
+    lines: 35
+  - step: gates
+    at: 2026-10-07T01:09:20.632Z
+    head_sha: d620f1ab8c7d91b221ae2fd7b01549fe6bd7cf59
+    exit: 0
+    gates:
+      G15: skip

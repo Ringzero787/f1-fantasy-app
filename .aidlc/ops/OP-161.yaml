@@ -1,0 +1,37 @@
+id: OP-161
+title: "F-118: the ace of a team the sweep never reached, and lockState is unwritable from a client"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-10-09T13:39:51.856Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-09T13:39:52.385Z
+    head_sha: 5d95cc2efaf4217c8998f91fefdc4c70ea5a3173
+    command: git --no-pager diff '44b5c8ca632c8f484fda56db9f211698495bb287' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-161/dry-run-2026-10-09T13-39-52-385Z.log
+    log_sha256: b7aad5fc780930149d5824a38d4489c80731e61eb506c56597ca02c6dd2c5423
+    lines: 100
+  - step: gates
+    at: 2026-10-09T13:40:01.077Z
+    head_sha: 5d95cc2efaf4217c8998f91fefdc4c70ea5a3173
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-09T13:40:01.203Z
+    head_sha: 5d95cc2efaf4217c8998f91fefdc4c70ea5a3173
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-161/apply-2026-10-09T13-40-01-203Z.log
+    log_sha256: 8c561f07f869654066ec9586af1f6b3999dd4f54a552f4342f2685b84166099f
+    lines: 13
+  - step: gates
+    at: 2026-10-09T13:40:05.038Z
+    head_sha: 5d95cc2efaf4217c8998f91fefdc4c70ea5a3173
+    exit: 0
+    gates:
+      G15: skip

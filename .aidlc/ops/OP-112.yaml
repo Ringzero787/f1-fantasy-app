@@ -1,0 +1,38 @@
+id: OP-112
+title: The Briefing stops recommending an ace over the cap (F-091 portal fix)
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-03T22:43:56.024Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-03T22:44:01.745Z
+    head_sha: 7711cc6eb20239b92601b83bf9cdca9e02fc3397
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-112/dry-run-2026-10-03T22-44-01-745Z.log
+    log_sha256: e3869f1569917a676514803a9a66145395cf219b1df9c30cae98b9abbf2acf7c
+    lines: 71
+  - step: gates
+    at: 2026-10-03T22:51:57.473Z
+    head_sha: 7711cc6eb20239b92601b83bf9cdca9e02fc3397
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-03T22:51:57.528Z
+    head_sha: 7711cc6eb20239b92601b83bf9cdca9e02fc3397
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-112/apply-2026-10-03T22-51-57-528Z.log
+    log_sha256: ac20dfe383ab386b7ec535f3a677445fd8e97ccb0b849c30be0ea8aaaca4b052
+    lines: 81
+  - step: gates
+    at: 2026-10-03T22:55:35.331Z
+    head_sha: 7711cc6eb20239b92601b83bf9cdca9e02fc3397
+    exit: 0
+    gates:
+      G15: skip

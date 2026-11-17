@@ -1,0 +1,47 @@
+id: OP-117
+title: "F-095: stamp the ace window on the Bahrain weekend, which locked before the sweep could"
+kind: uc-script
+status: applied
+params:
+  script: stampAceWindowForLiveRace.js
+  backup: fantasyTeams
+created_at: 2026-10-04T02:40:31.355Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T02:40:38.529Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    command: node scripts/ops/run-script.js undercut 'stampAceWindowForLiveRace.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-117/dry-run-2026-10-04T02-40-38-529Z.log
+    log_sha256: 4b571934200adfa63b0b6c3d9d4c9b8182d4da37eec088eec5c8130e9f5d8085
+    lines: 6
+  - step: backup
+    at: 2026-10-04T02:40:48.737Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-117'/backup.json 'fantasyTeams'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-117/backup-2026-10-04T02-40-48-737Z.log
+    log_sha256: 9e925b32f275b37ddde1e33bce0d87cc07d1d7ef24824997199887971efa44c2
+    lines: 3
+  - step: gates
+    at: 2026-10-04T02:40:49.532Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T02:40:49.533Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    command: node scripts/ops/run-script.js undercut 'stampAceWindowForLiveRace.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-117/apply-2026-10-04T02-40-49-533Z.log
+    log_sha256: abc5eee3388336e8a85138319510f6d1ca7c2eb3e8b938a9aa18ac6907eab436
+    lines: 6
+  - step: gates
+    at: 2026-10-04T02:40:50.580Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    exit: 0
+    gates:
+      G15: skip

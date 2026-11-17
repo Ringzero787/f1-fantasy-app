@@ -1,0 +1,37 @@
+id: OP-109
+title: The Google sign-in return URL (F-093) — the rewrite has not been deployed since OP-102
+kind: hosting-deploy
+status: applied
+params: {}
+created_at: 2026-10-03T16:48:22.348Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-03T16:48:27.426Z
+    head_sha: 841b8f853637dfd13b214cfa58b72250adb415e0
+    command: git --no-pager diff --stat '79ae87bfdc9c63e7c0c60dd08a809dde0eead882' HEAD -- public firebase.json && node -e "const h=require('./firebase.json').hosting; console.log('public:', h.public); for (const r of h.rewrites||[]) console.log('rewrite', r.source, '->', r.destination || (r.function && (r.function.functionId+'@'+r.function.region)));" && ls -A public
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-109/dry-run-2026-10-03T16-48-27-426Z.log
+    log_sha256: 6ddf31faf53705913fdb9ca441e5c4d23809bb5f9578af4819dd438331738776
+    lines: 15
+  - step: gates
+    at: 2026-10-03T16:48:36.734Z
+    head_sha: 841b8f853637dfd13b214cfa58b72250adb415e0
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-03T16:48:36.757Z
+    head_sha: 841b8f853637dfd13b214cfa58b72250adb415e0
+    command: bash scripts/ops/firebase-deploy.sh --only hosting --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-109/apply-2026-10-03T16-48-36-757Z.log
+    log_sha256: 48cf5738ff7317fc3aeffd7a70e3aff7eb03d0c422a64327f63f2885fedc4db3
+    lines: 15
+  - step: gates
+    at: 2026-10-03T16:48:41.191Z
+    head_sha: 841b8f853637dfd13b214cfa58b72250adb415e0
+    exit: 0
+    gates:
+      G15: skip

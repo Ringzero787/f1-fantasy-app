@@ -1,0 +1,37 @@
+id: OP-140
+title: "F-107 rules: moonshotPoints/moonshotStats pinned on team create+update, league activity feed"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-10-06T23:41:26.074Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-06T23:41:38.430Z
+    head_sha: 0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c
+    command: git --no-pager diff '32b248263474000e6be15c22e198be5f10c28fa6' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-140/dry-run-2026-10-06T23-41-38-430Z.log
+    log_sha256: 2f03bf9a04b30592ada5b02c42c8a59cc80039561b3c120340b62ba3d7dc1b09
+    lines: 37
+  - step: gates
+    at: 2026-10-06T23:53:04.139Z
+    head_sha: 0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-06T23:53:04.147Z
+    head_sha: 0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-140/apply-2026-10-06T23-53-04-147Z.log
+    log_sha256: 3ca27a9ea5c4bd91a28737ce63b2327a6ffa67bc2ace9bd8f46995bff0938b74
+    lines: 13
+  - step: gates
+    at: 2026-10-06T23:53:07.863Z
+    head_sha: 0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c
+    exit: 0
+    gates:
+      G15: skip
