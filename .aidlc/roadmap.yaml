@@ -162,6 +162,7 @@ milestones:
   - id: M-13
     name: Undercut 2027 season readiness
     status: active
+    target_date: 2027-03-14
     confidence: medium
     features:
       - F-150
@@ -175,13 +176,19 @@ milestones:
       - F-161
       - F-162
       - F-116
-    notes: target 2027-03-14 (the 2027 opener). Created 2026-11-17 from the EGM readiness review; the dates are proposals
-      worked back from the opener, not owner decisions. By 2026-12-04 — rollover rehearsal and hardening (F-154), the
-      off-season decisions (F-155). From 2026-12-07 — run the rollover (F-150) once Abu Dhabi is scored plus a day. By
-      2026-12-15 — the Expo upgrade or waiver decision (F-161). By 2027-01-31 — the app season build (F-157), the
-      calendar reconcile op (F-159), functions.config() (F-160). By 2027-02-07 — the build is submitted to all three
-      stores. By 2027-02-15 — portal, worker and check on the current season (F-158), the off-box alarm (F-162). By
-      2027-02-28 — the 2027 car table and lineup seed (F-156). 2027-03-01 — the four dependency waivers expire. By
-      2027-03-07 — raise the update floor (F-116). By 2027-03-12 — the opener checklist rehearsed (F-162). Not in this
-      milestone and still undecided — when Pit Wall starts charging (M-09 says after 50+ store ratings and also paid by
-      February 2027)
+    notes: target is the 2027 opener. Created 2026-11-17 from the EGM readiness review; the dates are proposals worked
+      back from the opener, not owner decisions. Order and dependencies — by 2026-12-04 the rollover is rehearsed in the
+      emulator on doctored data and hardened (F-154) and the owner has made the off-season decisions (F-155). The
+      rollover (F-150) runs only after Abu Dhabi is scored plus a day AND the server-side parts of F-155 are live, so
+      expect mid-December, not 2026-12-07. By 2026-12-15 — the Expo upgrade or waiver decision (F-161), which rides the
+      F-157 build. By 2027-01-31 — the app season build (F-157, carrying the update links F-116 needs), the calendar
+      reconcile op (F-159), functions.config() (F-160). By 2027-02-07 — the build is submitted to all three stores; four
+      weeks to the floor with no slack. By 2027-02-15 — portal, worker and check on the current season with a pre-season
+      state (F-158), the off-box alarm (F-162). By 2027-02-28 — the 2027 car table and lineup seed (F-156), which waits
+      on the provider's entry list; its hold-not-drop change ships first as the fallback. 2027-03-01 — the four
+      dependency waivers expire. By 2027-03-07 — raise the update floor (F-116, retargeted to the 2027 build). By
+      2027-03-12 — the opener checklist rehearsed (F-162). Owned by no feature yet — who seeds the 2027 Moonshot models,
+      what Track Limits changes on its side, and when Pit Wall starts charging (M-09 says after 50+ store ratings, with
+      February 2027 as the target). This milestone will not release itself (several features are outside the release
+      paths); close it by hand. A commit subject that names one of these ids under the release paths makes the release
+      run mark it shipped

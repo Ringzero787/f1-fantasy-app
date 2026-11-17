@@ -2031,7 +2031,6 @@ features:
       - number
       - table
       - driver
-      - table
       - season
       - lineup
       - seed
