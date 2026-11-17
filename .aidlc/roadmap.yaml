@@ -26,10 +26,10 @@ milestones:
   - id: M-06
     name: Track Limits next
     version: 0.1.44
-    status: planned
+    status: dropped
     confidence: medium
     features: []
-    notes: add features with `aidlc feature add` as they are planned
+    notes: dropped here 2026-11-17 — Track Limits moved to Ringzero787/tracklimits on 2026-10-02 and plans its releases there
   - id: M-07
     name: Undercut Grid redesign
     version: 2.3.0

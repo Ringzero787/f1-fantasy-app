@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const here = __dirname;
-const scripts = ['build-tl-aab.sh', 'build-uc-aab.sh', 'build-uc-apk-amazon.sh', 'build-uc-ios.sh', 'mac/uc-ios-archive.sh'];
+const scripts = ['build-uc-aab.sh', 'build-uc-apk-amazon.sh', 'build-uc-ios.sh', 'mac/uc-ios-archive.sh'];
 
 for (const s of scripts) {
   test(`${s} parses`, () => {

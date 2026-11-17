@@ -1,19 +1,19 @@
 // Shared Firestore access for the aidlc op helper scripts in scripts/ops/.
-// Uses the firebase-admin already installed for either functions codebase, so
+// Uses the firebase-admin already installed for the functions codebase, so
 // this directory needs no package.json of its own.
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 
 function loadAdmin() {
-  for (const dir of ['functions', 'newgame/functions']) {
+  for (const dir of ['functions']) {
     try {
       return require(require.resolve('firebase-admin', { paths: [path.join(ROOT, dir)] }));
     } catch {
-      // try the next codebase
+      // fall through to the error below
     }
   }
-  throw new Error('firebase-admin is not installed in functions/ or newgame/functions/ — run npm ci there');
+  throw new Error('firebase-admin is not installed in functions/ — run npm ci there');
 }
 
 const admin = loadAdmin();

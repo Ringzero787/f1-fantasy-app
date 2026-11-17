@@ -1,6 +1,6 @@
 // Stamp a release version into an Expo app.config.js and move android.versionCode
 // (and ios.buildNumber, when the file has one) on by one — the first step of a
-// local release build (build-tl-aab.sh, build-uc-*.sh).
+// local release build (build-uc-*.sh).
 // Play refuses any versionCode it has already seen (even from an upload that was
 // never released), so the code only goes up. Re-running for the same version
 // keeps the code, so a failed build can be retried without burning a number.

@@ -127,13 +127,14 @@ features:
     shipped_at: 2026-09-11
   - id: F-015
     name: "TL: Real in-app purchases"
-    status: idea
+    status: deprecated
     created_at: 2026-09-11
     summary: Cosmetics-only until real IAP (0.1.35 note); functions/purchases scaffolding exists
     keywords:
       - iap
       - purchases
       - billing
+    status_note: "Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted; the pre-split specs are kept there read-only. Not tracked here any more."
   - id: F-016
     name: "UC: Server-authoritative scoring and economy"
     status: shipped
@@ -436,7 +437,7 @@ features:
       - log forging
   - id: F-047
     name: "TL: server-driven config, economy values and copy"
-    status: building
+    status: deprecated
     spec: .aidlc/specs/F-047.md
     created_at: 2026-09-17
     keywords:
@@ -446,6 +447,7 @@ features:
       - economy
       - values
       - copy
+    status_note: "Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted; the pre-split specs are kept there read-only. Not tracked here any more."
   - id: F-048
     name: "UC: Android release target (uc-android)"
     status: shipped
@@ -846,7 +848,7 @@ features:
     shipped_at: 2026-10-07
   - id: F-076
     name: "TL: repair race schedules from seed data"
-    status: planned
+    status: deprecated
     spec: .aidlc/specs/F-076.md
     created_at: 2026-09-24
     keywords:
@@ -856,6 +858,7 @@ features:
       - from
       - seed
       - data
+    status_note: "Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted; the pre-split specs are kept there read-only. Not tracked here any more."
   - id: F-077
     name: "UC: Pit Wall in the app — portal handoff, pass status and pass-only pick marks"
     status: planned
@@ -873,7 +876,7 @@ features:
       - marks
   - id: F-078
     name: "TL: UI string extraction and localization"
-    status: planned
+    status: deprecated
     created_at: 2026-09-24
     summary: "Same pattern as F-079, applied to Track Limits (newgame/). Do it after Undercut proves it: i18next +
       expo-localization, catalog at newgame/src/i18n/locales/{lang}.json, then add catalogs and scan to localization in
@@ -883,6 +886,7 @@ features:
       - i18n
       - translation
       - locales
+    status_note: "Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted; the pre-split specs are kept there read-only. Not tracked here any more."
   - id: F-079
     name: "UC: UI string extraction and localization"
     status: shipped

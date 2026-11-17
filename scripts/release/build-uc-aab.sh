@@ -3,7 +3,7 @@
 #
 # Run through the release unit:
 #   aidlc run --tier release --unit undercut --version X.Y.Z
-# which exports AIDLC_RELEASE_VERSION. Mirrors scripts/release/build-tl-aab.sh:
+# which exports AIDLC_RELEASE_VERSION. The steps:
 # bump app.config.js, prebuild clean (plugins/withReleaseSigning re-injects
 # the release keystore that --clean wipes), gradle bundleRelease, verify the
 # signature and the JS bundle, then copy the AAB to the share and the Windows

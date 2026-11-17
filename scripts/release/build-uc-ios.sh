@@ -42,7 +42,7 @@ cd "$ROOT"
 # the Android signing material (keystore, its password file, credentials.json)
 # has no business on the Mac and is filtered out explicitly.
 rsync -a --delete \
-  --exclude .git --exclude node_modules --exclude android --exclude ios --exclude newgame \
+  --exclude .git --exclude node_modules --exclude android --exclude ios \
   --exclude functions/lib --exclude functions/node_modules --exclude .aidlc/tmp --exclude .aidlc/runs \
   --exclude android-bundle --exclude .expo --exclude build \
   --exclude '*.keystore' --exclude .signing.env --exclude credentials.json --exclude '*.p12' --exclude '*.pem' \
