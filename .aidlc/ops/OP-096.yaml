@@ -1,0 +1,47 @@
+id: OP-096
+title: Revoke the owner's granted pass so the purchase can be tested for real
+kind: uc-script
+status: applied
+params:
+  script: pitwallPass.js
+  backup: users
+created_at: 2026-10-02T15:44:37.852Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T15:44:53.834Z
+    head_sha: 82b907d3a608dd86f4cb415496ed74c7ac11bfbc
+    command: node scripts/ops/run-script.js undercut 'pitwallPass.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-096/dry-run-2026-10-02T15-44-53-834Z.log
+    log_sha256: 7a03ee03defe6a1ed84d2c3c6e549fa066198d670a798dddc490b87143bc65a9
+    lines: 7
+  - step: backup
+    at: 2026-10-02T15:45:05.194Z
+    head_sha: 82b907d3a608dd86f4cb415496ed74c7ac11bfbc
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-096'/backup.json 'users'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-096/backup-2026-10-02T15-45-05-194Z.log
+    log_sha256: e840df5527e6899506647d4cd7d959f0a61a5f78cefcea1d4846a5e1503ace4a
+    lines: 3
+  - step: gates
+    at: 2026-10-02T15:45:05.930Z
+    head_sha: 82b907d3a608dd86f4cb415496ed74c7ac11bfbc
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-02T15:45:05.931Z
+    head_sha: 82b907d3a608dd86f4cb415496ed74c7ac11bfbc
+    command: node scripts/ops/run-script.js undercut 'pitwallPass.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-096/apply-2026-10-02T15-45-05-931Z.log
+    log_sha256: facba00bb2d49d99bf12923e4310b9e6a2f7693f12a6b46d352fd644977b7c7f
+    lines: 8
+  - step: gates
+    at: 2026-10-02T15:45:07.473Z
+    head_sha: 82b907d3a608dd86f4cb415496ed74c7ac11bfbc
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,56 @@
+id: OP-111
+title: Undercut 2.4.1 (vc66) to production
+kind: uc-play-publish
+status: verified
+params:
+  aab: /mnt/smb/share/undercut/undercut-2.4.1-vc66.aab
+  track: production
+  notes: Sign in with Google, Apple or Amazon from any version of Undercut, so the team you built on one device is the team you find on the next. The team picker now names the pick you are still missing instead of counting drivers and constructors together.
+created_at: 2026-10-03T21:33:58.580Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-03T21:34:04.452Z
+    head_sha: 20bd3be0ac504d34086cc752c376bc0f37f70eac
+    command: node scripts/ops/play-publish.js upload '/mnt/smb/share/undercut/undercut-2.4.1-vc66.aab' --track='production' --notes='Sign in with Google, Apple or Amazon from any version of Undercut, so the team you built on one device is the team you find on the next. The team picker now names the pick you are still missing instead of counting drivers and constructors together.'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-111/dry-run-2026-10-03T21-34-04-452Z.log
+    log_sha256: 744b46b31b229e867f1b7102aba8d7bd918db21188b739650e647d8824f3f212
+    lines: 8
+  - step: backup
+    at: 2026-10-03T21:34:13.976Z
+    head_sha: 20bd3be0ac504d34086cc752c376bc0f37f70eac
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-111'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-111/backup-2026-10-03T21-34-13-976Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-03T21:34:15.921Z
+    head_sha: 20bd3be0ac504d34086cc752c376bc0f37f70eac
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-03T21:34:15.921Z
+    head_sha: 20bd3be0ac504d34086cc752c376bc0f37f70eac
+    command: node scripts/ops/play-publish.js upload '/mnt/smb/share/undercut/undercut-2.4.1-vc66.aab' --track='production' --notes='Sign in with Google, Apple or Amazon from any version of Undercut, so the team you built on one device is the team you find on the next. The team picker now names the pick you are still missing instead of counting drivers and constructors together.' --apply --confirm=com.undercut.app
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-111/apply-2026-10-03T21-34-15-921Z.log
+    log_sha256: 788a71c587cca17b3d511b3064d808d118369f2b09970a50b74b0741f19212ee
+    lines: 10
+  - step: verify
+    at: 2026-10-03T21:35:11.163Z
+    head_sha: 20bd3be0ac504d34086cc752c376bc0f37f70eac
+    command: node scripts/ops/play-publish.js status
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-111/verify-2026-10-03T21-35-11-163Z.log
+    log_sha256: 4c2a90f4dff39a50a8690fe3807aa309e53421db809f6f9da750a70ce87f9981
+    lines: 6
+  - step: gates
+    at: 2026-10-03T21:35:13.006Z
+    head_sha: 20bd3be0ac504d34086cc752c376bc0f37f70eac
+    exit: 0
+    gates:
+      G15: skip

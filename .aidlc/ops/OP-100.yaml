@@ -1,0 +1,16 @@
+id: OP-100
+title: The Apple and Amazon sign-in return URLs (F-091)
+kind: hosting-deploy
+status: dry-run
+params: {}
+created_at: 2026-10-02T20:52:32.863Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T20:52:45.361Z
+    head_sha: 5dc3e8ce0879747c83d1a3e83317e343b071e590
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- public firebase.json && node -e "const h=require('./firebase.json').hosting; console.log('public:', h.public); for (const r of h.rewrites||[]) console.log('rewrite', r.source, '->', r.destination || (r.function && (r.function.functionId+'@'+r.function.region)));" && ls -A public
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-100/dry-run-2026-10-02T20-52-45-361Z.log
+    log_sha256: 4bd7a2f5fefd414b565fc6012cbc1bc450a2f2073ce21dae4c9e05e6e67ef2c3
+    lines: 18

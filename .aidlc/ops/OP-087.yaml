@@ -1,0 +1,47 @@
+id: OP-087
+title: Pit Wall pass sells through the Amazon Appstore
+kind: uc-script
+status: applied
+params:
+  script: setPitWallConfig.js
+  backup: config/app
+created_at: 2026-10-02T02:16:34.808Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T02:16:48.165Z
+    head_sha: a65dabf4a8d1fe657e1d830cc9b65cc0bab82b1e
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-087/dry-run-2026-10-02T02-16-48-165Z.log
+    log_sha256: 22f0e6f9fa3af56f5a14ff505281aea04851c892b67999e9328bbb8f99fd57f7
+    lines: 51
+  - step: backup
+    at: 2026-10-02T02:16:54.218Z
+    head_sha: a65dabf4a8d1fe657e1d830cc9b65cc0bab82b1e
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-087'/backup.json 'config/app'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-087/backup-2026-10-02T02-16-54-218Z.log
+    log_sha256: b1e8613ea6131d2533f7d93e84255dd15afdfdb370712842984118a4ab112da1
+    lines: 3
+  - step: gates
+    at: 2026-10-02T02:16:54.853Z
+    head_sha: a65dabf4a8d1fe657e1d830cc9b65cc0bab82b1e
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-02T02:16:54.853Z
+    head_sha: a65dabf4a8d1fe657e1d830cc9b65cc0bab82b1e
+    command: node scripts/ops/run-script.js undercut 'setPitWallConfig.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-087/apply-2026-10-02T02-16-54-853Z.log
+    log_sha256: d70d4db74f84aa9b72015d12d52d16a2318a03702a1f4611851e5cf6f90d5fd1
+    lines: 51
+  - step: gates
+    at: 2026-10-02T02:16:55.524Z
+    head_sha: a65dabf4a8d1fe657e1d830cc9b65cc0bab82b1e
+    exit: 0
+    gates:
+      G15: skip

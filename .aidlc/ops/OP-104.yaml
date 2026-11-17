@@ -1,0 +1,37 @@
+id: OP-104
+title: No client may read the sign-in handoff (F-091)
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-10-02T21:02:45.328Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T21:02:53.322Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: git --no-pager diff '2fd7c2a8210e0f55844a0bea7066ec84a8090ea9' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-104/dry-run-2026-10-02T21-02-53-322Z.log
+    log_sha256: 4006613b498810e5fb4c0897da1f54e7d0c7edc3cc67c8233f9bacb4b41a57f2
+    lines: 16
+  - step: gates
+    at: 2026-10-03T01:07:28.589Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-03T01:07:28.616Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-104/apply-2026-10-03T01-07-28-616Z.log
+    log_sha256: 6319dded68dc0d2b7414e02ad1bfb4e13243da89eeb5d436c3eadb7b9c11e110
+    lines: 13
+  - step: gates
+    at: 2026-10-03T01:07:31.946Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G15: skip

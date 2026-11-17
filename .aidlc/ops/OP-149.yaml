@@ -1,0 +1,46 @@
+id: OP-149
+title: "Deploy Pit Wall: the Moonshot tile reads live positions (F-111)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-07T02:34:25.280Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T02:34:28.857Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-149/dry-run-2026-10-07T02-34-28-857Z.log
+    log_sha256: 7c221be56704e2b033609192cc43ea159efeca6496ebc22d8cda22f4a13a7cc5
+    lines: 76
+  - step: dry-run
+    at: 2026-10-07T18:14:25.951Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-149/dry-run-2026-10-07T18-14-25-951Z.log
+    log_sha256: d88f3e720ead5851b209d7b49046ec555331922b0d91455cc2e9baaf3ed3e455
+    lines: 76
+  - step: gates
+    at: 2026-10-07T18:18:08.223Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T18:18:08.468Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-149/apply-2026-10-07T18-18-08-468Z.log
+    log_sha256: af3dda43dd71b702a9ceae73648ce1ff6cbb4c330153c3458a8e3b92e7ceaeae
+    lines: 86
+  - step: gates
+    at: 2026-10-07T18:22:05.182Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G15: skip

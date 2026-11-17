@@ -1,0 +1,38 @@
+id: OP-150
+title: "Deploy Pit Wall: Moonshot entry points in the Lineup Lab (F-109)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-07T18:46:05.120Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T18:46:05.461Z
+    head_sha: e5232b47ab30e0213e37dcc3e801e89d93edb420
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-150/dry-run-2026-10-07T18-46-05-461Z.log
+    log_sha256: f0396c78bf591d5b3140c14373b5b07dadf70f7f06e4c2af714786c85bba6b5c
+    lines: 76
+  - step: gates
+    at: 2026-10-07T18:50:16.784Z
+    head_sha: e5232b47ab30e0213e37dcc3e801e89d93edb420
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T18:50:16.803Z
+    head_sha: e5232b47ab30e0213e37dcc3e801e89d93edb420
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-150/apply-2026-10-07T18-50-16-803Z.log
+    log_sha256: 506b8cf45e41c0f17469ed2dff00550b5521a0f8008e3e56d9fbb1971cdbdb02
+    lines: 86
+  - step: gates
+    at: 2026-10-07T18:54:05.630Z
+    head_sha: e5232b47ab30e0213e37dcc3e801e89d93edb420
+    exit: 0
+    gates:
+      G15: skip

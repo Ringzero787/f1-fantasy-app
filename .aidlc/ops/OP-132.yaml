@@ -1,0 +1,38 @@
+id: OP-132
+title: "F-104: leagueId validated where the rules cannot reach"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:createTeamSecure,functions:autoLockTeams,functions:onRaceCompleted,functions:checkQualifyingResults,functions:checkSprintResults,functions:applyLeagueExpansion,functions:repairTeamScoring
+created_at: 2026-10-06T03:18:49.748Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-06T03:18:50.186Z
+    head_sha: a98d752d6ec7ee06a6d12d6f4c17d8a816f00429
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-132/dry-run-2026-10-06T03-18-50-186Z.log
+    log_sha256: bd3358f4f3130c93ec9e87b5241fcaf3b3d381438a306f85db077a980aa703a5
+    lines: 63
+  - step: gates
+    at: 2026-10-06T03:19:17.357Z
+    head_sha: a98d752d6ec7ee06a6d12d6f4c17d8a816f00429
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-06T03:19:17.389Z
+    head_sha: a98d752d6ec7ee06a6d12d6f4c17d8a816f00429
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:createTeamSecure,functions:autoLockTeams,functions:onRaceCompleted,functions:checkQualifyingResults,functions:checkSprintResults,functions:applyLeagueExpansion,functions:repairTeamScoring' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-132/apply-2026-10-06T03-19-17-389Z.log
+    log_sha256: 7da9aa07c3605e7654c4231300ba0b541571b2cc6ab7751fb5659fe78c0acc6f
+    lines: 47
+  - step: gates
+    at: 2026-10-06T03:21:11.176Z
+    head_sha: a98d752d6ec7ee06a6d12d6f4c17d8a816f00429
+    exit: 0
+    gates:
+      G15: skip

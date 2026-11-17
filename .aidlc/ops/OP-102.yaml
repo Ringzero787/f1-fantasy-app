@@ -1,0 +1,37 @@
+id: OP-102
+title: The Apple and Amazon sign-in return URLs, with the landing page back in public/ (F-091)
+kind: hosting-deploy
+status: applied
+params: {}
+created_at: 2026-10-02T21:02:17.335Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T21:02:24.823Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- public firebase.json && node -e "const h=require('./firebase.json').hosting; console.log('public:', h.public); for (const r of h.rewrites||[]) console.log('rewrite', r.source, '->', r.destination || (r.function && (r.function.functionId+'@'+r.function.region)));" && ls -A public
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-102/dry-run-2026-10-02T21-02-24-823Z.log
+    log_sha256: 1894e8902a3948b411879e71c80786e1a4878ce0b2852f57413370cd519ccbcd
+    lines: 20
+  - step: gates
+    at: 2026-10-03T01:06:58.836Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-03T01:06:58.877Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: bash scripts/ops/firebase-deploy.sh --only hosting --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-102/apply-2026-10-03T01-06-58-877Z.log
+    log_sha256: 457b9701b1c10fdc6bf9b07994c0f8d4d13f9e6f49419cb7e86bace6da5b6b02
+    lines: 24
+  - step: gates
+    at: 2026-10-03T01:07:22.083Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,25 @@
+id: OP-097
+title: versionCode 65 to internal testing, so the purchase can be tested on a real device
+kind: uc-play-publish
+status: dry-run
+params:
+  aab: /data/f1-app/undercut-2.4.0-vc65.aab
+  track: internal
+  notes: Driver analysis on every driver, share your team and your league, and purchases now finish properly.
+created_at: 2026-10-02T16:12:43.539Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T16:12:49.823Z
+    head_sha: f6cab1d8b01169f34c64636e1e5eacaa196bcd61
+    command: node scripts/ops/play-publish.js upload '/data/f1-app/undercut-2.4.0-vc65.aab' --track='internal' --notes='Driver analysis on every driver, share your team and your league, and purchases now finish properly.'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-097/dry-run-2026-10-02T16-12-49-823Z.log
+    log_sha256: e2568b6d01d293195ad9945271c10ef5a6e661f768162f0fde0a6ee565ce111a
+    lines: 7
+  - step: gates
+    at: 2026-10-02T16:13:13.172Z
+    head_sha: f6cab1d8b01169f34c64636e1e5eacaa196bcd61
+    exit: 1
+    gates:
+      G14: fail

@@ -1,0 +1,38 @@
+id: OP-103
+title: F-091 sign-in endpoints and the F-092 purchase refusal reason
+kind: functions-deploy
+status: applied
+params:
+  only: functions:appleAuthRedirect,functions:claimAppleSignIn,functions:amazonAuthRedirect,functions:claimAmazonSignIn,functions:cleanupAuthHandoffs,functions:validatePurchase
+created_at: 2026-10-02T21:02:45.062Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T21:02:50.587Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-103/dry-run-2026-10-02T21-02-50-587Z.log
+    log_sha256: 86daf95729df6cae715e3dc9c53184d1dec6535c4fabd8c50c525bea0fe8502c
+    lines: 60
+  - step: gates
+    at: 2026-10-03T01:05:16.821Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-03T01:05:16.860Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:appleAuthRedirect,functions:claimAppleSignIn,functions:amazonAuthRedirect,functions:claimAmazonSignIn,functions:cleanupAuthHandoffs,functions:validatePurchase' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-103/apply-2026-10-03T01-05-16-860Z.log
+    log_sha256: ba648727a910f72fd332ee1936bd62937d9a6e43cf987d054cfb953a4fe6f5ac
+    lines: 47
+  - step: gates
+    at: 2026-10-03T01:06:51.114Z
+    head_sha: 79ae87bfdc9c63e7c0c60dd08a809dde0eead882
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,38 @@
+id: OP-108
+title: F-093 Google sign-in endpoints and the F-094 handoff binding
+kind: functions-deploy
+status: applied
+params:
+  only: functions:googleAuthRedirect,functions:claimGoogleSignIn,functions:appleAuthRedirect,functions:claimAppleSignIn,functions:amazonAuthRedirect,functions:claimAmazonSignIn,functions:signInWithAmazon,functions:cleanupAuthHandoffs
+created_at: 2026-10-03T16:39:34.206Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-03T16:39:40.939Z
+    head_sha: 841b8f853637dfd13b214cfa58b72250adb415e0
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-108/dry-run-2026-10-03T16-39-40-939Z.log
+    log_sha256: d958eb7af99543d6a447aa359aa08840eee6dd48ade82942287a5e98ffabc7a1
+    lines: 62
+  - step: gates
+    at: 2026-10-03T16:46:32.129Z
+    head_sha: 841b8f853637dfd13b214cfa58b72250adb415e0
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-03T16:46:32.154Z
+    head_sha: 841b8f853637dfd13b214cfa58b72250adb415e0
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:googleAuthRedirect,functions:claimGoogleSignIn,functions:appleAuthRedirect,functions:claimAppleSignIn,functions:amazonAuthRedirect,functions:claimAmazonSignIn,functions:signInWithAmazon,functions:cleanupAuthHandoffs' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-108/apply-2026-10-03T16-46-32-154Z.log
+    log_sha256: 9959d459e341cd6e3b9a14d95277eff6304460d2d70c17b8ec23fa8ac14defee
+    lines: 58
+  - step: gates
+    at: 2026-10-03T16:47:50.236Z
+    head_sha: 841b8f853637dfd13b214cfa58b72250adb415e0
+    exit: 0
+    gates:
+      G15: skip

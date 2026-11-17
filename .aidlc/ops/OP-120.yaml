@@ -1,0 +1,37 @@
+id: OP-120
+title: "F-098 ace session freeze: the rule covers qualifying and the sprint"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-10-04T15:24:46.303Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T15:24:46.608Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    command: git --no-pager diff 'ed4da066c65558a74f1adc01b853a4ed4146dea7' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-120/dry-run-2026-10-04T15-24-46-608Z.log
+    log_sha256: fc4fbdfbc057053ac469a828142d391f45b5e0ba11cd504eb68b1bfebecb9260
+    lines: 79
+  - step: gates
+    at: 2026-10-04T15:24:57.161Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T15:24:57.197Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-120/apply-2026-10-04T15-24-57-197Z.log
+    log_sha256: c3b014b8ca9294b1388bf31155f466259d276bbc71b47887951ef7a155d9a4d5
+    lines: 13
+  - step: gates
+    at: 2026-10-04T15:25:01.073Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    exit: 0
+    gates:
+      G15: skip

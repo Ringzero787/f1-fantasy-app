@@ -1,0 +1,47 @@
+id: OP-121
+title: "F-098: clear the Bahrain ace window left on teams the unlock sweep never visits"
+kind: uc-script
+status: applied
+params:
+  script: clearStaleAceWindow.js
+  backup: fantasyTeams
+created_at: 2026-10-04T15:27:16.832Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T15:27:24.848Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    command: node scripts/ops/run-script.js undercut 'clearStaleAceWindow.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-121/dry-run-2026-10-04T15-27-24-848Z.log
+    log_sha256: 147c5aa08fd9e495efd49c3c5ce1dbdc8f7aa1c56a85cc56cf24deeab3881604
+    lines: 11
+  - step: backup
+    at: 2026-10-04T15:27:36.902Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-121'/backup.json 'fantasyTeams'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-121/backup-2026-10-04T15-27-36-902Z.log
+    log_sha256: e2d029d0d1e0e7b4471641b07bd993cf9d2236869f1870709d2331a6f650d54f
+    lines: 3
+  - step: gates
+    at: 2026-10-04T15:27:37.717Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T15:27:37.718Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    command: node scripts/ops/run-script.js undercut 'clearStaleAceWindow.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-121/apply-2026-10-04T15-27-37-718Z.log
+    log_sha256: 5d1b41616f62870236bb7c5840320d1ce6c5b56110e93a4b9001dca47016e38c
+    lines: 11
+  - step: gates
+    at: 2026-10-04T15:27:38.771Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    exit: 0
+    gates:
+      G15: skip

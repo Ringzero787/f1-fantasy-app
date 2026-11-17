@@ -1,0 +1,38 @@
+id: OP-119
+title: "F-098 ace session freeze: the sweep stamps it, the scorers mark every team"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:autoLockTeams,functions:autoUnlockTeams,functions:createTeamSecure,functions:checkQualifyingResults,functions:checkSprintResults,functions:onRaceCompleted
+created_at: 2026-10-04T15:22:05.518Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T15:22:12.621Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-119/dry-run-2026-10-04T15-22-12-621Z.log
+    log_sha256: 5f54bbbeda6041177271f0bb44fe5ca3805038100f80b3f70962846ebf2e80e6
+    lines: 62
+  - step: gates
+    at: 2026-10-04T15:22:50.119Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T15:22:50.132Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:autoLockTeams,functions:autoUnlockTeams,functions:createTeamSecure,functions:checkQualifyingResults,functions:checkSprintResults,functions:onRaceCompleted' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-119/apply-2026-10-04T15-22-50-132Z.log
+    log_sha256: 194e001c7fac04f4d44c03e71157f261b999d389651548115313db950615d12b
+    lines: 45
+  - step: gates
+    at: 2026-10-04T15:24:36.834Z
+    head_sha: e0fd26a29107eed0e4e8286d3b922978e7791258
+    exit: 0
+    gates:
+      G15: skip

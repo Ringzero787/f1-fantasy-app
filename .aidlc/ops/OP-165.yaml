@@ -1,0 +1,18 @@
+id: OP-165
+title: "F-120: backfill roster value on past league race results (backup covers raceResults)"
+kind: uc-script
+status: dry-run
+params:
+  script: backfillRaceResultRosterValue.js
+  backup: leagues/5HskmlSBBg0kXS5jPt9J/raceResults,leagues/5ubXdQIEE3DPnbOq33HH/raceResults,leagues/D5932uRNEvM56RtUvbmd/raceResults,leagues/DNcibnByUjO2SnI6bC2T/raceResults,leagues/E17EKWuXWuvVvVFEU5Kl/raceResults,leagues/E77n3HKjz3FXASuSbTLJ/raceResults,leagues/HysV2nvgZrVaRK76es7S/raceResults,leagues/Ty5R8LwJdWt7n7IeLdMb/raceResults,leagues/bOsMNmgGFd27evuCTyMF/raceResults,leagues/exKzZQJ10jBNjkY7Uuun/raceResults,leagues/fFXwWrQm3sOkO1pmlMpI/raceResults,leagues/isbdFIijANpen4YXu4u5/raceResults,leagues/jWZhTLDrH27gNz9wPHhp/raceResults,leagues/kCI7qANcPBNUciTrNufn/raceResults,leagues/lf1MhUkADVzzr5LjWfxk/raceResults,leagues/my2JhRGiMb0AnU9a19id/raceResults,leagues/pu81nhDywyN34jGFGkhH/raceResults,leagues/rU3kWC2s6mYAjVBDjVqS/raceResults,leagues/sbZD7V4eyGDqtPwBLISK/raceResults
+created_at: 2026-10-11T20:37:54.008Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-11T20:37:54.289Z
+    head_sha: fdc533e59f228e6b00f1ce1fbd63245953bda112
+    command: node scripts/ops/run-script.js undercut 'backfillRaceResultRosterValue.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-165/dry-run-2026-10-11T20-37-54-289Z.log
+    log_sha256: a78fdddc28b57e6e21ce6e16f154041c384e6d2ff28503093dd3403787c670d0
+    lines: 58

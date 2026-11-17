@@ -1,0 +1,33 @@
+id: OP-155
+title: Deploy Pit Wall with the F-112 Season-tile guard
+kind: pitwall-pages-deploy
+status: dry-run
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-07T20:13:44.775Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T20:18:51.597Z
+    head_sha: 61652a9840a37899e6db9e9c64648055de6d1681
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-155/dry-run-2026-10-07T20-18-51-597Z.log
+    log_sha256: 0a3b6d610e2748d951970b4cc86de41381d7e4aa1bff49b7940cda86717fadfd
+    lines: 40
+  - step: dry-run
+    at: 2026-10-07T20:21:01.608Z
+    head_sha: 61652a9840a37899e6db9e9c64648055de6d1681
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-155/dry-run-2026-10-07T20-21-01-608Z.log
+    log_sha256: 927bb09cee9c6aca3b672956903d1e4f04a4e21a66513df672443156564b3c53
+    lines: 76
+  - step: dry-run
+    at: 2026-10-07T22:41:33.736Z
+    head_sha: b65ee6c0772e8e03fb93f69fcd70c4d498bb3612
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-155/dry-run-2026-10-07T22-41-33-736Z.log
+    log_sha256: 8151fa20c09e926556a65f327621c70186d2be9795cec61acde891736a21e798
+    lines: 76
