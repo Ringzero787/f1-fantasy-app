@@ -1,5 +1,7 @@
 # Permission request to OpenF1 (draft)
 
+> **Archived 2026-11-17.** This draft is superseded: the provider answered on 2026-09-28 (granted, on a paid feed), recorded in `.aidlc/decisions/ADR-001-pit-wall-pass-and-timing-data.md`. The reply itself is paraphrased there, not filed verbatim.
+
 Status: **draft, not sent.** Owner sends it. Tracked in `.aidlc/decisions/ADR-001-pit-wall-pass-and-timing-data.md`; append the reply there.
 
 How to send: openf1.org has a **contact** link in its navigation and FAQ (checked 2026-09-19). Their site says the API is "intended for educational purposes, personal learning projects, research, and non-commercial fan engagement" and "For other use cases, please contact us to discuss appropriate licensing." They also list a Sponsor tier at EUR 9.90 per month (live data, higher rate limits).

@@ -7,7 +7,7 @@ Premium web analytics portal for Undercut (root app). Everything here runs on in
 - **Firebase project `f1-app-18077`** stays the system of record: Auth, Firestore, and a small set of Cloud Functions for the things that must answer requests (sign-in handoff, checkout, webhook, the existing team callables).
 - `config/app` remote config and `aidlc op` for every production change, as today. New third parties: Stripe (web checkout) and an LLM API (briefings).
 
-Features: F-075 shell, F-068 pass, F-069 pipeline, F-070 projections, F-071 news, F-072 reports, F-073 lineup lab, F-074 market and season (milestone M-09). Prototype: `prototype.html` in this folder (example data).
+Features: F-075 shell, F-068 pass, F-069 pipeline, F-070 projections, F-071 news, F-072 reports, F-073 lineup lab, F-074 market and season (milestone M-09). Prototype: `docs/archive/2026-09-pitwall-planning/prototype.html` (example data).
 
 ## 1. System overview
 

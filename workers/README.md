@@ -7,11 +7,13 @@ Compute that is too heavy or too long-running for Cloud Functions runs here, on 
 - **Job ids are deterministic** (`kind__season__round__session`), so enqueueing the same work twice is a no-op and a missed timer can be replayed.
 - **Every run leaves a record** (`pw_runs`): job, runner, times, outcome, counters, and the commit the worker was built from.
 - **The worker never runs from a development checkout.** On this box a service that runs from a working tree runs whatever branch is checked out. It runs from a dedicated deploy checkout (`/data/pitwall-worker`) that only the `pitwall-worker-deploy` op updates.
-- **Secrets live outside the repository** (`/etc/pitwall-worker.env`, mode 600), with the worker's own service account.
+- **Secrets live outside the repository** (`/data/pitwall-worker/env`, mode 600), with the worker's own service account.
 - **Production writes go through `aidlc op`**, like everything else in this repository.
 
-## State (2026-09-19)
-`pitwall/` has the job types, lease rules, an in-memory store, the runner loop, a Firestore store that has **not** been run against Firestore yet, and the F-070 projection model with its walk-forward backtest. Nothing here is deployed, nothing writes to production, and there is no systemd unit or deploy op yet: those wait for the owner's forge setup (ADR-002).
+## State
+The Pit Wall worker is deployed: `pitwall-worker.service` runs `/data/pitwall-worker/current`, a release folder that only the `pitwall-worker-deploy` op fills. It queues and runs the projections jobs around each session and once a day, writes a heartbeat (`pw_status/worker`), restarts itself after three failed ticks, and emails the owner in plain words when something goes wrong and again when it is back (`src/jobs/watchdog.ts`, `src/jobs/alertText.ts`). The GCP backup runner described in ADR-002 was never built: the box is the only runner. What is built and what is open is in the registry, not here.
+
+Logs: `journalctl -u pitwall-worker`. Health from outside the worker: `scripts/ops/pitwall-check.sh`, which cron runs hourly on the box.
 
 ## Pit Wall worker
 ```

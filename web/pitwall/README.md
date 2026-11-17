@@ -3,10 +3,9 @@
 The premium analytics portal for Undercut (F-075 shell; plan in `docs/design/pitwall/`). Vite, React and TypeScript, served by Cloudflare Pages at `pitwall.humannpc.com`. It uses the same Firebase Auth project as the app, so a signed-in user sees their own team and league. Nothing here touches `newgame/`.
 
 ## State
-- The shell is complete: context bar, eight pages, slide-over (past, present, outlook), compare tray, sign-in (email, Google, Apple) and the `/h#code` app handoff route.
-- **Every analytics frame shows EXAMPLE DATA**, generated in `src/data/example.ts` and labelled with a red pill, until the projection worker publishes real payloads (F-070, F-072). The signed-in user's team name, bank, round and lock countdown are real.
-- "Keep this what-if" in the Lineup Lab writes nothing. Saving to the real team arrives with F-073, through the existing server callables only.
-- Not deployed. The `pw` functions (handoff) are not deployed either.
+Deployed to Cloudflare Pages through the `pitwall-pages-deploy` op, and fed by the worker in `workers/pitwall`, which publishes the payloads the pages read. The example data in `src/data/example.ts` now serves only the `preview` build (design review and the scroll-budget test) and as a stand-in while a real payload loads.
+
+Content is open to every signed-in user for now: `PITWALL_CONTENT_OPEN` in `src/data/access.ts` is a build-time constant, so closing it again takes a portal deploy. What is built and what is open is in the registry, not here.
 
 ## Run
 ```
