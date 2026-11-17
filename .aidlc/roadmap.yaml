@@ -159,3 +159,29 @@ milestones:
       Championship Points or Cash on one driver's result, priced from the F-070 distribution, settled in the scoring
       run. Build order F-106, F-107, F-108, F-109; the launch simulation on the scored season picks banded vs continuous
       pricing before F-108 ships. Unlock round is configuration, not code
+  - id: M-13
+    name: Undercut 2027 season readiness
+    status: active
+    confidence: medium
+    features:
+      - F-150
+      - F-154
+      - F-155
+      - F-156
+      - F-157
+      - F-158
+      - F-159
+      - F-160
+      - F-161
+      - F-162
+      - F-116
+    notes: target 2027-03-14 (the 2027 opener). Created 2026-11-17 from the EGM readiness review; the dates are proposals
+      worked back from the opener, not owner decisions. By 2026-12-04 — rollover rehearsal and hardening (F-154), the
+      off-season decisions (F-155). From 2026-12-07 — run the rollover (F-150) once Abu Dhabi is scored plus a day. By
+      2026-12-15 — the Expo upgrade or waiver decision (F-161). By 2027-01-31 — the app season build (F-157), the
+      calendar reconcile op (F-159), functions.config() (F-160). By 2027-02-07 — the build is submitted to all three
+      stores. By 2027-02-15 — portal, worker and check on the current season (F-158), the off-box alarm (F-162). By
+      2027-02-28 — the 2027 car table and lineup seed (F-156). 2027-03-01 — the four dependency waivers expire. By
+      2027-03-07 — raise the update floor (F-116). By 2027-03-12 — the opener checklist rehearsed (F-162). Not in this
+      milestone and still undecided — when Pit Wall starts charging (M-09 says after 50+ store ratings and also paid by
+      February 2027)
