@@ -1,0 +1,37 @@
+id: OP-141
+title: "F-107 index: moonshots raceId+status for settlement"
+kind: indexes-deploy
+status: applied
+params: {}
+created_at: 2026-10-06T23:41:26.352Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-06T23:41:40.878Z
+    head_sha: 0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c
+    command: git --no-pager diff '32b248263474000e6be15c22e198be5f10c28fa6' HEAD -- firestore.indexes.json
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-141/dry-run-2026-10-06T23-41-40-878Z.log
+    log_sha256: ac46919e5e8b2574900670845ad2d4dbaa44ff20caafae9ba0a180725d00da91
+    lines: 19
+  - step: gates
+    at: 2026-10-06T23:53:15.478Z
+    head_sha: 0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-06T23:53:15.495Z
+    head_sha: 0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:indexes --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-141/apply-2026-10-06T23-53-15-495Z.log
+    log_sha256: a9f431563e4c0cf72d5f7a06d14ed9f1ea06f8401a7ea89401923c251d546939
+    lines: 13
+  - step: gates
+    at: 2026-10-06T23:53:17.817Z
+    head_sha: 0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c
+    exit: 0
+    gates:
+      G15: skip

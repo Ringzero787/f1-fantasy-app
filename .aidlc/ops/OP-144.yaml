@@ -1,0 +1,38 @@
+id: OP-144
+title: "Deploy Pit Wall with Moonshot: slide-over tab, Briefing tile, rivals' calls, season record (F-109)"
+kind: pitwall-pages-deploy
+status: applied
+params:
+  pages_project: undercut-pitwall
+created_at: 2026-10-07T01:37:14.646Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T01:37:15.316Z
+    head_sha: aafe62c8b2d55cbd42770d0d553670b71c8c9e67
+    command: bash scripts/ops/pitwall-pages-deploy.sh dryrun
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-144/dry-run-2026-10-07T01-37-15-316Z.log
+    log_sha256: 938dc46d6f020a55c6fd1e2e338d9ed4ce3090322bf8991dc2a275c453719438
+    lines: 76
+  - step: gates
+    at: 2026-10-07T01:41:59.811Z
+    head_sha: aafe62c8b2d55cbd42770d0d553670b71c8c9e67
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T01:41:59.998Z
+    head_sha: aafe62c8b2d55cbd42770d0d553670b71c8c9e67
+    command: bash scripts/ops/pitwall-pages-deploy.sh apply 'undercut-pitwall'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-144/apply-2026-10-07T01-41-59-998Z.log
+    log_sha256: bf4f034d90c1fa86da2581db5e3953c4b304220a53054bf9904889788d183f07
+    lines: 87
+  - step: gates
+    at: 2026-10-07T01:45:52.567Z
+    head_sha: aafe62c8b2d55cbd42770d0d553670b71c8c9e67
+    exit: 0
+    gates:
+      G15: skip

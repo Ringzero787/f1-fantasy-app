@@ -1,0 +1,40 @@
+id: OP-098
+title: versionCode 65 to internal testing, so the purchase can be tested on a real device
+kind: uc-play-publish
+status: applied
+params:
+  aab: /data/f1-app/undercut-2.4.0-vc65.aab
+  track: internal
+  notes: Driver analysis on every driver, share your team and your league, and purchases now finish properly.
+created_at: 2026-10-02T16:13:58.122Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T16:14:04.539Z
+    head_sha: 1f36121cb2de5fa28121efcd004e9896a611097c
+    command: node scripts/ops/play-publish.js upload '/data/f1-app/undercut-2.4.0-vc65.aab' --track='internal' --notes='Driver analysis on every driver, share your team and your league, and purchases now finish properly.'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-098/dry-run-2026-10-02T16-14-04-539Z.log
+    log_sha256: e2568b6d01d293195ad9945271c10ef5a6e661f768162f0fde0a6ee565ce111a
+    lines: 7
+  - step: gates
+    at: 2026-10-02T16:14:05.318Z
+    head_sha: 1f36121cb2de5fa28121efcd004e9896a611097c
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-02T16:14:05.321Z
+    head_sha: 1f36121cb2de5fa28121efcd004e9896a611097c
+    command: node scripts/ops/play-publish.js upload '/data/f1-app/undercut-2.4.0-vc65.aab' --track='internal' --notes='Driver analysis on every driver, share your team and your league, and purchases now finish properly.' --apply --confirm=com.undercut.app
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-098/apply-2026-10-02T16-14-05-321Z.log
+    log_sha256: c22bfc6a2b08c93a51900afea4b015fbf772266920d92aca533da8d8366f685e
+    lines: 10
+  - step: gates
+    at: 2026-10-02T16:15:01.081Z
+    head_sha: 1f36121cb2de5fa28121efcd004e9896a611097c
+    exit: 0
+    gates:
+      G15: skip

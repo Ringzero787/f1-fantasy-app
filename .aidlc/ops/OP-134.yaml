@@ -1,0 +1,37 @@
+id: OP-134
+title: "F-105: creating a league cannot hand yourself the paid features"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-10-06T16:07:26.925Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-06T16:10:20.744Z
+    head_sha: e205fd4981e5d59335a8ae74b3aaec65eca93c21
+    command: git --no-pager diff 'a98d752d6ec7ee06a6d12d6f4c17d8a816f00429' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-134/dry-run-2026-10-06T16-10-20-744Z.log
+    log_sha256: 4ac658ce9350efbd63b41e3306daec48b169678818e9d85fe4285720f12e6b8e
+    lines: 40
+  - step: gates
+    at: 2026-10-06T16:10:29.797Z
+    head_sha: e205fd4981e5d59335a8ae74b3aaec65eca93c21
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-06T16:10:29.831Z
+    head_sha: e205fd4981e5d59335a8ae74b3aaec65eca93c21
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-134/apply-2026-10-06T16-10-29-831Z.log
+    log_sha256: e21f39b43ceca6179c33a5256c9a89ad5fbcd171ffd546bf1029e38ac6d9620b
+    lines: 13
+  - step: gates
+    at: 2026-10-06T16:10:33.716Z
+    head_sha: e205fd4981e5d59335a8ae74b3aaec65eca93c21
+    exit: 0
+    gates:
+      G15: skip

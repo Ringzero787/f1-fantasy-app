@@ -1,0 +1,58 @@
+id: OP-145
+title: Deploy the seat rule in settlement and the seat stamp at confirm (F-110)
+kind: functions-deploy
+status: applied
+params:
+  only: functions:onRaceCompleted,functions:onRaceCancelled,functions:calculatePointsManually,functions:repairTeamScoring,functions:moonshotConfirm
+created_at: 2026-10-07T02:20:36.844Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T02:20:37.477Z
+    head_sha: f4388fa759f948445b6ae5454284de9f758bd643
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-145/dry-run-2026-10-07T02-20-37-477Z.log
+    log_sha256: dfbfeb3b4f916cc2108d8daa385a2c049a1a02afce0c05601a7e64096c4e7382
+    lines: 71
+  - step: gates
+    at: 2026-10-07T18:10:13.240Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 1
+    gates:
+      G14: fail
+  - step: gates
+    at: 2026-10-07T18:10:26.511Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 1
+    gates:
+      G14: fail
+  - step: dry-run
+    at: 2026-10-07T18:10:26.971Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-145/dry-run-2026-10-07T18-10-26-971Z.log
+    log_sha256: bcfc28ba22803777ccd282c55ed8223114ca31cd203684c3c7f5a91dbe9e5de6
+    lines: 72
+  - step: gates
+    at: 2026-10-07T18:10:31.249Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T18:10:31.255Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:onRaceCompleted,functions:onRaceCancelled,functions:calculatePointsManually,functions:repairTeamScoring,functions:moonshotConfirm' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-145/apply-2026-10-07T18-10-31-255Z.log
+    log_sha256: eb318b6509c895ac96a1fbbc48e66a0b9af0df3b56eb3cc4e72e51b6bd06e3a1
+    lines: 43
+  - step: gates
+    at: 2026-10-07T18:12:29.647Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G15: skip

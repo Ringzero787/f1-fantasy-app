@@ -1,0 +1,45 @@
+id: OP-148
+title: "F-111 rules: races/{raceId}/live readable by signed-in clients"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-10-07T02:34:24.955Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T02:34:28.475Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: git --no-pager diff '0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-148/dry-run-2026-10-07T02-34-28-475Z.log
+    log_sha256: 094f3ef7cbb1df20ab101cd2b7412d07315373f77f6dcd723bfdc673ba699dcc
+    lines: 18
+  - step: dry-run
+    at: 2026-10-07T18:14:20.550Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: git --no-pager diff '0fbe35429bfdb38a8ea3a1197b00c19fdf990d0c' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-148/dry-run-2026-10-07T18-14-20-550Z.log
+    log_sha256: 094f3ef7cbb1df20ab101cd2b7412d07315373f77f6dcd723bfdc673ba699dcc
+    lines: 18
+  - step: gates
+    at: 2026-10-07T18:14:21.768Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T18:14:22.005Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-148/apply-2026-10-07T18-14-22-005Z.log
+    log_sha256: f79e8cb9de0ccae17760c092999647d6e9b6c32a205022dfbfad389972d7e4e4
+    lines: 13
+  - step: gates
+    at: 2026-10-07T18:14:25.651Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G15: skip

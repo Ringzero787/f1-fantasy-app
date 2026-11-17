@@ -1,0 +1,55 @@
+id: OP-146
+title: "Switch Moonshot on: continuous pricing, DNS/DNF lose, live timing off (F-110)"
+kind: uc-script
+status: applied
+params:
+  script: setMoonshotConfig.js
+  backup: config/app
+created_at: 2026-10-07T02:20:37.138Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T02:20:40.198Z
+    head_sha: f4388fa759f948445b6ae5454284de9f758bd643
+    command: node scripts/ops/run-script.js undercut 'setMoonshotConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-146/dry-run-2026-10-07T02-20-40-198Z.log
+    log_sha256: 5ec97fe77dbb8f1b8564b823cee4b877f515106bb2bdcf35dea15d6da5fcff15
+    lines: 18
+  - step: dry-run
+    at: 2026-10-07T18:12:46.240Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: node scripts/ops/run-script.js undercut 'setMoonshotConfig.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-146/dry-run-2026-10-07T18-12-46-240Z.log
+    log_sha256: e724c890b4a0c64be62ca1e133210ce83cb135253f86949c9a0afd31ea5784b1
+    lines: 18
+  - step: backup
+    at: 2026-10-07T18:12:47.110Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-146'/backup.json 'config/app'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-146/backup-2026-10-07T18-12-47-110Z.log
+    log_sha256: 1b03f506a208768f64e8d9f6c72a46952235187c4a3d6232c90dfcdab754ba99
+    lines: 3
+  - step: gates
+    at: 2026-10-07T18:12:47.891Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T18:12:47.892Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    command: node scripts/ops/run-script.js undercut 'setMoonshotConfig.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-146/apply-2026-10-07T18-12-47-892Z.log
+    log_sha256: 925d345707a1894940af0b90c8fe7d81c2a17321099e71db0b3cbb05e90caf73
+    lines: 18
+  - step: gates
+    at: 2026-10-07T18:12:48.702Z
+    head_sha: 41f6933c2983cea832f66e836cd44a9f11ceef5d
+    exit: 0
+    gates:
+      G15: skip

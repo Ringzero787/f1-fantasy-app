@@ -1,0 +1,29 @@
+id: OP-079
+title: Close the Play token traversal on validatePurchase
+kind: functions-deploy
+status: dry-run
+params:
+  only: functions:validatePurchase
+created_at: 2026-10-01T18:13:33.131Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-01T18:13:37.606Z
+    head_sha: 788056ca64290f9147ea810d524679ec5c719337
+    command: git --no-pager diff --stat '84114d585d94ba2aee4b064a7950c94d4f5531c8' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-079/dry-run-2026-10-01T18-13-37-606Z.log
+    log_sha256: 551193388bbe456deda9c5e1caaac263f92e4596ea2c86e4d4b9f57648edf02a
+    lines: 6
+  - step: gates
+    at: 2026-10-01T18:13:46.517Z
+    head_sha: 788056ca64290f9147ea810d524679ec5c719337
+    exit: 1
+    gates:
+      G14: fail
+  - step: gates
+    at: 2026-10-01T18:13:52.170Z
+    head_sha: 788056ca64290f9147ea810d524679ec5c719337
+    exit: 1
+    gates:
+      G14: fail

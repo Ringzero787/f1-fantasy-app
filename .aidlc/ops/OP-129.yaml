@@ -1,0 +1,38 @@
+id: OP-129
+title: "F-103: the lock sweep takes one race per run, fails late not never, and survives a bad leagueId"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:autoLockTeams
+created_at: 2026-10-05T23:57:49.728Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-05T23:58:48.714Z
+    head_sha: 661a7ec306e9e16572079d28ef19d727b9e42f28
+    command: git --no-pager diff --stat 'fd445c988a8770318d727b327419cbbd655d01f7' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-129/dry-run-2026-10-05T23-58-48-714Z.log
+    log_sha256: 5eb4a093886d4c5c16fa50411f0f38d847e7994a0669975a909e68a5b28f76c3
+    lines: 43
+  - step: gates
+    at: 2026-10-06T02:08:22.192Z
+    head_sha: 661a7ec306e9e16572079d28ef19d727b9e42f28
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-06T02:08:22.222Z
+    head_sha: 661a7ec306e9e16572079d28ef19d727b9e42f28
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:autoLockTeams' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-129/apply-2026-10-06T02-08-22-222Z.log
+    log_sha256: a9f9abf094d30bbc66d42c7e5ffb4f92940cd3e7653f3f4c1e94c49fc8c68720
+    lines: 33
+  - step: gates
+    at: 2026-10-06T02:09:19.743Z
+    head_sha: 661a7ec306e9e16572079d28ef19d727b9e42f28
+    exit: 0
+    gates:
+      G15: skip

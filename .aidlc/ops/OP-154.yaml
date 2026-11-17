@@ -1,0 +1,53 @@
+id: OP-154
+title: "F-112 rules: league content for approved members, scoped team and notification lists"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-10-07T20:13:34.643Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T20:18:50.465Z
+    head_sha: 61652a9840a37899e6db9e9c64648055de6d1681
+    command: git --no-pager diff '41f6933c2983cea832f66e836cd44a9f11ceef5d' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-154/dry-run-2026-10-07T20-18-50-465Z.log
+    log_sha256: 35a9225b22e66b8ccb879087ff2ea3b554fc69e36716a0f10544ad5265956067
+    lines: 93
+  - step: dry-run
+    at: 2026-10-07T22:41:33.350Z
+    head_sha: b65ee6c0772e8e03fb93f69fcd70c4d498bb3612
+    command: git --no-pager diff '41f6933c2983cea832f66e836cd44a9f11ceef5d' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-154/dry-run-2026-10-07T22-41-33-350Z.log
+    log_sha256: 35a9225b22e66b8ccb879087ff2ea3b554fc69e36716a0f10544ad5265956067
+    lines: 93
+  - step: dry-run
+    at: 2026-10-09T03:20:08.782Z
+    head_sha: 44b5c8ca632c8f484fda56db9f211698495bb287
+    command: git --no-pager diff '41f6933c2983cea832f66e836cd44a9f11ceef5d' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-154/dry-run-2026-10-09T03-20-08-782Z.log
+    log_sha256: 35a9225b22e66b8ccb879087ff2ea3b554fc69e36716a0f10544ad5265956067
+    lines: 93
+  - step: gates
+    at: 2026-10-09T03:20:43.996Z
+    head_sha: 44b5c8ca632c8f484fda56db9f211698495bb287
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-09T03:20:44.069Z
+    head_sha: 44b5c8ca632c8f484fda56db9f211698495bb287
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-154/apply-2026-10-09T03-20-44-069Z.log
+    log_sha256: 9678f4544d30d35fd655f44aec3dfdee4a8aeed397350da540a7244729c7fce7
+    lines: 13
+  - step: gates
+    at: 2026-10-09T03:20:48.047Z
+    head_sha: 44b5c8ca632c8f484fda56db9f211698495bb287
+    exit: 0
+    gates:
+      G15: skip

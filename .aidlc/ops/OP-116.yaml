@@ -1,0 +1,37 @@
+id: OP-116
+title: "F-095 ace lock window: firestore.rules refuses an ace change inside it"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-10-04T02:38:36.657Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T02:38:36.964Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    command: git --no-pager diff '79ae87bfdc9c63e7c0c60dd08a809dde0eead882' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-116/dry-run-2026-10-04T02-38-36-964Z.log
+    log_sha256: 8929d3a26a8236916bc586a66f8fe2d96283d2a0ec5c0ddcadedd0561e2d7e50
+    lines: 56
+  - step: gates
+    at: 2026-10-04T02:38:46.098Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T02:38:46.102Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-116/apply-2026-10-04T02-38-46-102Z.log
+    log_sha256: 3a81d8ef1bc9d23296b56dfdd8d390ff85edbfde2e74014860572942fa7a69cb
+    lines: 13
+  - step: gates
+    at: 2026-10-04T02:38:49.591Z
+    head_sha: ed4da066c65558a74f1adc01b853a4ed4146dea7
+    exit: 0
+    gates:
+      G15: skip

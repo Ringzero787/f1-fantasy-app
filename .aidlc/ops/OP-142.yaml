@@ -1,0 +1,38 @@
+id: OP-142
+title: Deploy moonshotMenu so the app's Moonshot sheet opens in one round-trip (F-108 PR 1)
+kind: functions-deploy
+status: applied
+params:
+  only: functions:moonshotMenu
+created_at: 2026-10-07T00:20:08.650Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-07T00:20:08.960Z
+    head_sha: f38246d867f38f25db4b6a53e8eae1c6de5cf73e
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-142/dry-run-2026-10-07T00-20-08-960Z.log
+    log_sha256: f9d35fe1c993029ef5e79163b2bd8eb556267087ecfd23156b607c021a771866
+    lines: 70
+  - step: gates
+    at: 2026-10-07T01:04:01.273Z
+    head_sha: f38246d867f38f25db4b6a53e8eae1c6de5cf73e
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-07T01:04:01.394Z
+    head_sha: f38246d867f38f25db4b6a53e8eae1c6de5cf73e
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:moonshotMenu' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-142/apply-2026-10-07T01-04-01-394Z.log
+    log_sha256: 1bc77b739e55933025c0b8b0ad91445d5c9cfa359d5c194e851e3875e7d41c6f
+    lines: 35
+  - step: gates
+    at: 2026-10-07T01:05:48.540Z
+    head_sha: f38246d867f38f25db4b6a53e8eae1c6de5cf73e
+    exit: 0
+    gates:
+      G15: skip

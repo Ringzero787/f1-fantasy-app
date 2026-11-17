@@ -1,0 +1,56 @@
+id: OP-158
+title: Undercut 2.5.1 vc70 to Play production
+kind: uc-play-publish
+status: verified
+params:
+  aab: /mnt/smb/share/undercut/undercut-2.5.1-vc70.aab
+  track: production
+  notes: "Tap a league invite and Undercut opens. The link used to end up in a browser, and before that it went nowhere at all, because the address it pointed at did not exist. Both are fixed. The budget on the driver-pick screen is readable again too: it was dim grey on a dark panel and all but invisible. It now has high contrast, and changes colour when the budget runs low."
+created_at: 2026-10-09T02:28:47.319Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-09T02:28:54.642Z
+    head_sha: ffd045c29526c099fd48a8973542658b4ddb916a
+    command: "node scripts/ops/play-publish.js upload '/mnt/smb/share/undercut/undercut-2.5.1-vc70.aab' --track='production' --notes='Tap a league invite and Undercut opens. The link used to end up in a browser, and before that it went nowhere at all, because the address it pointed at did not exist. Both are fixed. The budget on the driver-pick screen is readable again too: it was dim grey on a dark panel and all but invisible. It now has high contrast, and changes colour when the budget runs low.'"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-158/dry-run-2026-10-09T02-28-54-642Z.log
+    log_sha256: 0b811283fbabc2da735ea4ede713c2073f702328c30d5caf2f3f5d726cefc810
+    lines: 8
+  - step: backup
+    at: 2026-10-09T02:29:11.394Z
+    head_sha: ffd045c29526c099fd48a8973542658b4ddb916a
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-158'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-158/backup-2026-10-09T02-29-11-394Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-09T02:29:13.574Z
+    head_sha: ffd045c29526c099fd48a8973542658b4ddb916a
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-09T02:29:13.587Z
+    head_sha: ffd045c29526c099fd48a8973542658b4ddb916a
+    command: "node scripts/ops/play-publish.js upload '/mnt/smb/share/undercut/undercut-2.5.1-vc70.aab' --track='production' --notes='Tap a league invite and Undercut opens. The link used to end up in a browser, and before that it went nowhere at all, because the address it pointed at did not exist. Both are fixed. The budget on the driver-pick screen is readable again too: it was dim grey on a dark panel and all but invisible. It now has high contrast, and changes colour when the budget runs low.' --apply --confirm=com.undercut.app"
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-158/apply-2026-10-09T02-29-13-587Z.log
+    log_sha256: 712652db5d00aa08c5014db769273af3e82dbae0550ed4b2fd449aab83badc19
+    lines: 10
+  - step: verify
+    at: 2026-10-09T02:30:04.754Z
+    head_sha: ffd045c29526c099fd48a8973542658b4ddb916a
+    command: node scripts/ops/play-publish.js status
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-158/verify-2026-10-09T02-30-04-754Z.log
+    log_sha256: 134be675166590bd717a1baf98df9feefcf11b9c8b99dbb5d3276cbddc9aaaa1
+    lines: 6
+  - step: gates
+    at: 2026-10-09T02:30:06.547Z
+    head_sha: ffd045c29526c099fd48a8973542658b4ddb916a
+    exit: 0
+    gates:
+      G15: skip

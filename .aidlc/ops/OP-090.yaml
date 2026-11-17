@@ -1,0 +1,47 @@
+id: OP-090
+title: Grant the Pit Wall Pass stranded by the Play permission failure
+kind: uc-script
+status: applied
+params:
+  script: pitwallPass.js
+  backup: users
+created_at: 2026-10-02T13:39:57.568Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T13:40:03.246Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    command: node scripts/ops/run-script.js undercut 'pitwallPass.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-088/dry-run-2026-10-02T13-40-03-246Z.log
+    log_sha256: 302e5e27461734833520a6b8e193d9909237819cc254cf2954eafd8764e56f5e
+    lines: 7
+  - step: backup
+    at: 2026-10-02T13:40:09.776Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-088'/backup.json 'users'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-088/backup-2026-10-02T13-40-09-776Z.log
+    log_sha256: d3a9d554fbafb6553270b4957d2be5d69ebc5513c7615ccc5237e27f9a98833e
+    lines: 3
+  - step: gates
+    at: 2026-10-02T13:40:10.571Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-02T13:40:10.571Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    command: node scripts/ops/run-script.js undercut 'pitwallPass.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-088/apply-2026-10-02T13-40-10-571Z.log
+    log_sha256: 38753de79532c2082adf4ae2dea4e504a8bd381426d46c42f029410dcfa82a52
+    lines: 8
+  - step: gates
+    at: 2026-10-02T13:40:12.114Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    exit: 0
+    gates:
+      G15: skip

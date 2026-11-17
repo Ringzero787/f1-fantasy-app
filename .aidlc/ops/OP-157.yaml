@@ -1,0 +1,38 @@
+id: OP-157
+title: Publish the App Links association files on undercut.humannpc.com (F-113)
+kind: hosting-deploy
+status: applied
+params:
+  project: f1-app-18077
+created_at: 2026-10-08T21:43:49.396Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-08T21:43:54.804Z
+    head_sha: 997191e6824cff95a1a6ac518879dc194987cc89
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- public firebase.json && node -e "const h=require('./firebase.json').hosting; console.log('public:', h.public); for (const r of h.rewrites||[]) console.log('rewrite', r.source, '->', r.destination || (r.function && (r.function.functionId+'@'+r.function.region)));" && ls -A public
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-157/dry-run-2026-10-08T21-43-54-804Z.log
+    log_sha256: 937e8b681e266dd62c1d04c959d84c0142df7164bdbe763ffce1ac3ec559ad41
+    lines: 24
+  - step: gates
+    at: 2026-10-08T21:44:23.325Z
+    head_sha: 997191e6824cff95a1a6ac518879dc194987cc89
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-08T21:44:23.449Z
+    head_sha: 997191e6824cff95a1a6ac518879dc194987cc89
+    command: bash scripts/ops/firebase-deploy.sh --only hosting --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-157/apply-2026-10-08T21-44-23-449Z.log
+    log_sha256: 70c96592a46ce03ecc193bfa3674dba3e58d905881688678c922fdb6fe6c110e
+    lines: 15
+  - step: gates
+    at: 2026-10-08T21:44:29.936Z
+    head_sha: 997191e6824cff95a1a6ac518879dc194987cc89
+    exit: 0
+    gates:
+      G15: skip
