@@ -209,13 +209,14 @@ features:
     summary: ROADMAP Next (S)
   - id: F-027
     name: "UC: Dependency bump pass (Dependabot alerts)"
-    status: planned
+    status: deprecated
     created_at: 2026-09-11
     summary: "ROADMAP Next (M): ~70 alerts"
     keywords:
       - dependabot
       - security
       - deps
+    status_note: "Superseded by F-148, which shipped the dependency pass on 2026-11-14."
   - id: F-028
     name: "UC: Post-race penalty re-score path"
     status: planned
@@ -399,7 +400,7 @@ features:
     shipped_at: 2026-09-17
   - id: F-044
     name: "UC: Auto-fill by value at lock time"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-044.md
     created_at: 2026-09-17
     summary: Expired contracts leave seats open until the weekend locks; autoLockTeams then fills forgotten seats with the
@@ -409,9 +410,12 @@ features:
       - autoLockTeams
       - contract expiry
       - value
+    shipped_at: 2026-09-17
+    version_shipped: 2.2.3
+    status_note: "Functions deploy OP-008; in the 2.2.3 changelog."
   - id: F-045
     name: "UC: Faster roster edits and standings"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-045.md
     created_at: 2026-09-17
     summary: Roster callables return the updated team so the app adopts it without refetching; constructor edits become
@@ -423,9 +427,12 @@ features:
       - standings
       - onSnapshot
       - callable
+    shipped_at: 2026-09-17
+    version_shipped: 2.2.3
+    status_note: "Functions deploy OP-008; in the 2.2.3 changelog."
   - id: F-046
     name: "UC: Auto-fill log and price hardening"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-046.md
     created_at: 2026-09-17
     summary: Follow-up to F-044 from the CI security gate — doc values go into console.log as arguments, and non-positive
@@ -434,6 +441,9 @@ features:
       - auto-fill
       - autoLockTeams
       - log forging
+    shipped_at: 2026-09-17
+    version_shipped: 2.2.3
+    status_note: "Functions deploy OP-009; in the 2.2.3 changelog."
   - id: F-047
     name: "TL: server-driven config, economy values and copy"
     status: building
@@ -462,7 +472,7 @@ features:
     shipped_at: 2026-09-18
   - id: F-049
     name: "UC: Amazon and iOS release targets (uc-amazon, uc-ios)"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-049.md
     created_at: 2026-09-17
     summary: The undercut release unit builds all three stores — Play AAB, Amazon APK (EXPO_PUBLIC_STORE=amazon), and the
@@ -474,6 +484,8 @@ features:
       - uc-ios
       - altool
       - buildNumber
+    shipped_at: 2026-09-17
+    status_note: "Release targets uc-amazon and uc-ios in aidlc.yaml, used by every release since 2.2.3."
   - id: F-050
     name: "UC: Grid theme, fonts, routes and Team screen"
     summary: Grid redesign (Z:\share\undercut design_handoff_grid_redesign, 2026-09-18) of the Undercut (simple) UI
@@ -637,7 +649,7 @@ features:
     summary: "League Pro is derived from the league owner's Pit Wall Pass ($14.99 per season, the only product): re-enable
       in-app purchase, validatePurchase grants the pass, server stamps the pro field on leagues the holder owns; rules
       deny client writes; free leagues keep standard play"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-060.md
     created_at: 2026-09-18
     keywords:
@@ -645,6 +657,7 @@ features:
       - entitlement
       - purchase
       - verification
+    status_note: "Purchase validation and the pass grant are live (functions deploy OP-038, 2026-09-25; in 2.4.x). League Pro itself is closed (F-105) and the spec criteria are unticked: the remaining scope needs restating."
   - id: F-061
     name: "UC: League Pro upgrade screen and free-tier changes"
     summary: Grid League Manager shows League Pro as included with Pit Wall Pass and opens the one upgrade sheet; league
@@ -757,7 +770,7 @@ features:
     name: "UC: Pit Wall analytics data pipeline"
     summary: Daily and post-session timing ingest into precomputed analytics documents with history back to 2023;
       timing-derived frames are free only and kept apart from pass-gated payloads (ADR-001)
-    status: planned
+    status: building
     spec: .aidlc/specs/F-069.md
     created_at: 2026-09-19
     keywords:
@@ -765,6 +778,7 @@ features:
       - analytics
       - data
       - pipeline
+    status_note: "The worker has run on forge since OP-062 (2026-09-27). Timing ingest is blocked on the data licence (ADR-001)."
   - id: F-070
     name: "UC: Pit Wall projections and price model"
     summary: Statistical fantasy-points projection per driver and constructor with floor, median, ceiling, DNF risk and next
@@ -783,7 +797,7 @@ features:
     name: "UC: Pit Wall news wire and daily briefing"
     summary: Multi-source news ingest with entity and impact tagging, de-duplicated story clusters with source links, and a
       daily LLM-written briefing and per-driver outlook clearly labelled as estimates
-    status: planned
+    status: building
     spec: .aidlc/specs/F-071.md
     created_at: 2026-09-19
     keywords:
@@ -792,11 +806,12 @@ features:
       - wire
       - daily
       - briefing
+    status_note: "The briefing job is deployed (OP-047 to OP-050, OP-071) but outlooks are switched off on the worker. Spec criteria unticked."
   - id: F-072
     name: "UC: Pit Wall driver, constructor and circuit reports"
     summary: "Report pages: projection board, driver and constructor deep dives (past, present, outlook), circuit profile
       and history splits, pace lab with practice long-run pace, tyre degradation and teammate head-to-head"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-072.md
     created_at: 2026-09-19
     keywords:
@@ -805,6 +820,7 @@ features:
       - constructor
       - circuit
       - reports
+    status_note: "Reports deployed in parts (OP-054, OP-064, OP-065, OP-067). Spec criteria unticked: scope needs restating."
   - id: F-073
     name: "UC: Pit Wall lineup lab"
     summary: Shows the signed-in user's lineup with ranked swap recommendations, a what-if simulator and optimizer under
@@ -858,7 +874,7 @@ features:
       - data
   - id: F-077
     name: "UC: Pit Wall in the app — portal handoff, pass status and pass-only pick marks"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-077.md
     created_at: 2026-09-24
     keywords:
@@ -871,6 +887,7 @@ features:
       - only
       - pick
       - marks
+    status_note: "The Pit Wall row, handoff and pass status are in the app since 2.4.x (config OP-052, 2026-09-25). Amazon still links out; 8 spec criteria unticked."
   - id: F-078
     name: "TL: UI string extraction and localization"
     status: planned
@@ -927,7 +944,7 @@ features:
       - countries
   - id: F-082
     name: "UC: Play publishing from the build box"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-082.md
     created_at: 2026-10-01
     keywords:
@@ -935,9 +952,11 @@ features:
       - publishing
       - from
       - build
+    shipped_at: 2026-10-09
+    status_note: "First verified Play production publish from the box: OP-158 (2.5.1). Every Play release since goes through uc-play-publish."
   - id: F-083
     name: "UC: Share league standings as text"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-083.md
     created_at: 2026-10-02
     keywords:
@@ -945,6 +964,9 @@ features:
       - league
       - standings
       - text
+    shipped_at: 2026-10-04
+    version_shipped: 2.4.3
+    status_note: "In the 2.4.3 changelog (reached players at 2.4.1)."
   - id: F-084
     name: "UC: Amazon receipt ids get their own shape"
     status: shipped
@@ -963,7 +985,7 @@ features:
     shipped_at: 2026-10-07
   - id: F-085
     name: "UC: Revoke a pass when the store refunds it"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-085.md
     created_at: 2026-10-02
     keywords:
@@ -971,6 +993,9 @@ features:
       - revoke
       - pass
       - store
+    shipped_at: 2026-10-04
+    version_shipped: 2.4.3
+    status_note: "In the 2.4.3 changelog; all spec criteria ticked."
   - id: F-086
     name: "UC: Round mapping misfiled race data and the reminder dedupe spammed players"
     status: shipped
@@ -1044,8 +1069,8 @@ features:
     version_shipped: 2.5.0
     shipped_at: 2026-10-07
   - id: F-096
-    name: "PW: recommendations carry confidence, not just a delta"
-    status: building
+    name: "UC: Pit Wall recommendations carry confidence, not just a delta"
+    status: shipped
     spec: .aidlc/specs/F-096.md
     created_at: 2026-10-04
     keywords:
@@ -1054,6 +1079,8 @@ features:
       - confidence
       - variance
       - projection
+    shipped_at: 2026-10-04
+    status_note: "Portal deploy OP-114; all spec criteria ticked. Renamed from the PW: prefix, which matches no release unit."
   - id: F-095
     name: "UC: the ace lock holds on the server, not only in the app"
     status: shipped
@@ -1217,7 +1244,7 @@ features:
     shipped_at: 2026-10-07
   - id: F-102
     name: "UC: the portal says when the ace freezes on a sprint weekend"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-102.md
     created_at: 2026-10-05
     keywords:
@@ -1227,6 +1254,8 @@ features:
       - freezes
       - sprint
       - weekend
+    shipped_at: 2026-10-05
+    status_note: "Portal deploy OP-128."
   - id: F-103
     name: "UC: the lineup lock the clients show is the one the server enforces"
     status: shipped
@@ -1313,12 +1342,14 @@ features:
     name: "UC: Moonshot in Pit Wall"
     summary: The portal shows a team's open and settled Moonshots on the Briefing and race pages, prices any driver's
       predictions from the same snapshot, and gives pass holders the deeper model view behind a multiplier
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-109.md
     created_at: 2026-10-06
     keywords:
       - moonshot
       - wall
+    shipped_at: 2026-10-07
+    status_note: "Portal deploys OP-144, OP-150, OP-151."
   - id: F-110
     name: "UC: Moonshot follows the car when a substitute drives, and the enable script"
     status: shipped
@@ -1379,7 +1410,7 @@ features:
     shipped_at: 2026-10-08
   - id: F-114
     name: "UC: Pit Wall shows the league your team is in"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-114.md
     created_at: 2026-10-08
     keywords:
@@ -1388,9 +1419,11 @@ features:
       - league
       - team
     unit: undercut
+    shipped_at: 2026-10-14
+    status_note: "Merged 2026-10-08 (#194). No deploy op names it; live at the latest with portal deploy OP-175 (2026-10-14)."
   - id: F-115
     name: "UC: Pit Wall tables read larger on a wide screen"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-115.md
     created_at: 2026-10-08
     keywords:
@@ -1399,6 +1432,8 @@ features:
       - larger
       - wide
     unit: undercut
+    shipped_at: 2026-10-14
+    status_note: "Merged 2026-10-08 (#198). No deploy op names it; live at the latest with portal deploy OP-175 (2026-10-14)."
   - id: F-116
     name: "UC: raise the update floor to 2.5.0 once every store has it"
     status: planned
@@ -1411,18 +1446,21 @@ features:
       - once
       - every
       - store
+    status_note: "Not done: OP-156 (minVersion 2.5.0) stopped at dry-run. The app is at 2.8.0; retarget to the 2027-ready build."
   - id: F-117
     name: "UC: the Firestore rules tests run in CI"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-117.md
     created_at: 2026-10-09
     keywords:
       - firestore
       - rules
       - tests
+    shipped_at: 2026-10-09
+    status_note: "Merged #202: npm run test:rules is in the blocking CI test command."
   - id: F-118
     name: "UC: a team created after the lock sweep is still locked for that race"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-118.md
     created_at: 2026-10-09
     keywords:
@@ -1435,6 +1473,8 @@ features:
       - locked
       - that
       - race
+    shipped_at: 2026-10-09
+    status_note: "Functions deploy OP-160. Server-side; the app half is F-020 (2.6.0)."
   - id: F-119
     name: "UC: Pit Wall says who to ace in the app, and the driver sheet scrolls"
     status: shipped
@@ -1497,7 +1537,7 @@ features:
     name: "UC: Marketing site and store listings"
     summary: Replace the APK hero with store badges, three screenshots, private league, contracts, Ace, join-by-code; drop
       Formula 1 from the store name line
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-123.md
     created_at: 2026-10-14
     unit: undercut
@@ -1506,6 +1546,9 @@ features:
       - site
       - store
       - listings
+    shipped_at: 2026-10-14
+    version_shipped: 2.6.0
+    status_note: "Site deploy OP-173. Follow-up open: the Play en-US listing publish OP-177 failed."
   - id: F-124
     name: "UC: Pit Wall ungated until ratings"
     summary: Open paid Pit Wall content to every signed-in user until 50+ store ratings
@@ -1558,7 +1601,7 @@ features:
     shipped_at: 2026-10-26
   - id: F-128
     name: "UC: OpenF1 authenticated feed"
-    status: implemented
+    status: shipped
     spec: .aidlc/specs/F-128.md
     created_at: 2026-10-25
     keywords:
@@ -1568,6 +1611,8 @@ features:
       - token
       - live
       - results
+    shipped_at: 2026-10-26
+    status_note: "Functions deploy OP-182; proven at the Mexico round."
   - id: F-129
     name: "UC: Race-day running score from live positions"
     status: shipped
@@ -1607,7 +1652,7 @@ features:
     shipped_at: 2026-11-14
   - id: F-132
     name: "UC: Pit Wall worker watchdog and calendar check"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-132.md
     created_at: 2026-10-29
     keywords:
@@ -1616,9 +1661,11 @@ features:
       - watchdog
       - calendar
       - check
+    shipped_at: 2026-10-29
+    status_note: "Worker deploy OP-200; the check runs from cron on the box."
   - id: F-133
     name: "UC: Pit Wall worker claim query starved by finished jobs (F-133)"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-133.md
     created_at: 2026-10-29
     keywords:
@@ -1629,9 +1676,11 @@ features:
       - starved
       - finished
       - jobs
+    shipped_at: 2026-10-29
+    status_note: "Worker deploy OP-202."
   - id: F-134
     name: "UC: Results ingestion: stand-in driver with no team in the provider's race session (Mexico, Hirakawa)"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-134.md
     created_at: 2026-11-02
     keywords:
@@ -1646,9 +1695,11 @@ features:
       - session
       - mexico
       - hirakawa
+    shipped_at: 2026-11-02
+    status_note: "Functions deploy OP-205 and requeue OP-206. F-152 has since made the requeue step unnecessary."
   - id: F-135
     name: "UC: Pit Wall check flags a race held by results ingestion"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-135.md
     created_at: 2026-11-02
     keywords:
@@ -1659,6 +1710,8 @@ features:
       - held
       - results
       - ingestion
+    shipped_at: 2026-11-01
+    status_note: "Merged #253; part of the ops check that cron runs on the box."
   - id: F-136
     name: "UC: post-results unlock visibility and shorter buffer"
     status: shipped
@@ -1675,7 +1728,7 @@ features:
     shipped_at: 2026-11-14
   - id: F-137
     name: "UC: Moonshot model seed maps a stand-in onto the seat"
-    status: planned
+    status: shipped
     spec: .aidlc/specs/F-137.md
     created_at: 2026-11-03
     keywords:
@@ -1686,6 +1739,8 @@ features:
       - stand
       - onto
       - seat
+    shipped_at: 2026-11-03
+    status_note: "First used by the Brazil model seed OP-210."
   - id: F-138
     name: "UC: Haas seat change at Brazil (Câmara in, Ocon out)"
     status: shipped
@@ -1719,7 +1774,7 @@ features:
     summary: The twice-weekly ops check flagged the held São Paulo result as FAIL within 30 minutes but only wrote a file
       and a log, so nobody knew for 3 days. Email the owner when a check FAILs (deduped, daily reminder, all-clear), and
       run it hourly with quiet OK runs.
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-140.md
     created_at: 2026-11-12
     keywords:
@@ -1728,6 +1783,8 @@ features:
       - emails
       - owner
       - fail
+    shipped_at: 2026-11-13
+    status_note: "Hourly cron installed 2026-11-13; RESEND_API_KEY and ALERT_TO are present in the worker env file (seen 2026-11-17). A real FAIL email has not been observed yet."
   - id: F-141
     name: "UC: lock-time auto-fill never writes (constructor update assertion)"
     status: shipped
@@ -1743,6 +1800,8 @@ features:
       - constructor
       - update
       - assertion
+    shipped_at: 2026-11-13
+    status_note: "Functions deploy OP-218."
   - id: F-142
     name: "UC: Owner playtest fixes — market buy and details, team-first names, Moonshot feed, suffix surnames, car numbers"
     status: shipped
@@ -1793,6 +1852,8 @@ features:
       - rank
       - after
       - sale
+    shipped_at: 2026-11-13
+    status_note: "Portal deploy OP-219."
   - id: F-145
     name: "UC: Pit Wall strategies (stars and scrubs, balanced, value) read from the first picks"
     status: shipped
@@ -1875,6 +1936,7 @@ features:
       - "2027"
       - prices
       - calendar
+    status_note: "MERGED (#278) AND DELIBERATELY NOT RUN. Blocked on: Abu Dhabi 2026 scored plus 24 hours. Do not treat this as live."
   - id: F-151
     name: "UC: server season scope - race counts, locks, form and scoring per season"
     status: shipped
@@ -1908,7 +1970,7 @@ features:
       - name
   - id: F-153
     name: "UC: Pit Wall worker alert emails in plain words"
-    status: planned
+    status: implemented
     spec: .aidlc/specs/F-153.md
     created_at: 2026-11-17
     keywords:
@@ -1918,3 +1980,4 @@ features:
       - emails
       - plain
       - words
+    status_note: "Merged #283 (2026-11-17). Worker deploy OP-232 is dry-run and waiting for the owner to apply."
