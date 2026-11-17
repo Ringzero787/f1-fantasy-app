@@ -6,14 +6,11 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 
 function loadAdmin() {
-  for (const dir of ['functions']) {
-    try {
-      return require(require.resolve('firebase-admin', { paths: [path.join(ROOT, dir)] }));
-    } catch {
-      // fall through to the error below
-    }
+  try {
+    return require(require.resolve('firebase-admin', { paths: [path.join(ROOT, 'functions')] }));
+  } catch {
+    throw new Error('firebase-admin is not installed in functions/ — run npm ci there');
   }
-  throw new Error('firebase-admin is not installed in functions/ — run npm ci there');
 }
 
 const admin = loadAdmin();

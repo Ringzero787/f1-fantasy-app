@@ -1,6 +1,6 @@
 # Undercut Pit Wall (web portal)
 
-The premium analytics portal for Undercut (F-075 shell; plan in `docs/design/pitwall/`). Vite, React and TypeScript, served by Cloudflare Pages at `pitwall.humannpc.com`. It uses the same Firebase Auth project as the app, so a signed-in user sees their own team and league. Nothing here touches `newgame/`.
+The premium analytics portal for Undercut (F-075 shell; plan in `docs/design/pitwall/`). Vite, React and TypeScript, served by Cloudflare Pages at `pitwall.humannpc.com`. It uses the same Firebase Auth project as the app, so a signed-in user sees their own team and league.
 
 ## State
 - The shell is complete: context bar, eight pages, slide-over (past, present, outlook), compare tray, sign-in (email, Google, Apple) and the `/h#code` app handoff route.

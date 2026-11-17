@@ -90,3 +90,8 @@ AppstoreAuthenticationKey.pem
 *.p12
 *.mobileprovision
 .env.production
+
+# Track Limits moved to its own repo on 2026-10-02. Checkouts that predate the removal keep an untracked
+# newgame/ with its signing notes (KEYSTORE.md), env files and build output; newgame/.gitignore used to
+# ignore those and is gone with the folder. Nothing under this path belongs in this repo.
+newgame/
