@@ -86,3 +86,30 @@ waivers:
       as a warn.'
     by: nathan
     date: 2026-10-01
+  # 2026-11-17: GHSA-fc5q-39xc-vjpf (picomatch ReDoS) was widened that day to every released version
+  # (last affected 4.0.7), so there is nothing to upgrade to. It blocks every PR until a fixed
+  # release exists. Short expiry on purpose: re-check for a fix, do not just extend.
+  - gate: G05
+    finding: "picomatch@2.3.2: GHSA-fc5q-39xc-vjpf"
+    reason: ReDoS on a crafted glob pattern. No fixed version exists (the advisory covers every
+      release up to 4.0.7). Every copy is build or test tooling — jest, metro, the Expo CLI,
+      anymatch and micromatch under them — matching patterns from this repo's own config; no
+      user-supplied pattern reaches it and it is in neither the app bundle nor the deployed
+      functions (dev dependency there).
+    by: nathan
+    date: 2026-11-17
+    expires: 2026-12-15
+  - gate: G05
+    finding: "picomatch@4.0.4: GHSA-fc5q-39xc-vjpf"
+    reason: Same advisory and reasoning as picomatch@2.3.2 above; this copy is under the Expo
+      CLI and metro config in the root lockfile.
+    by: nathan
+    date: 2026-11-17
+    expires: 2026-12-15
+  - gate: G05
+    finding: "picomatch@4.0.7: GHSA-fc5q-39xc-vjpf"
+    reason: Same advisory and reasoning as picomatch@2.3.2 above; this copy is under vite and
+      vitest in web/pitwall and under jest and the parcel watcher in functions, dev-only in both.
+    by: nathan
+    date: 2026-11-17
+    expires: 2026-12-15
