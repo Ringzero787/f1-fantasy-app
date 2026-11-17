@@ -6,7 +6,7 @@
  *   SA_KEY=… node dist/workers/pitwall/src/cli/serve.js [--once] [--plan]   (--plan prints the due jobs and writes nothing)
  *
  * Alerts: a failed run writes pw_alerts/{jobId}_{ts} and, when RESEND_API_KEY and ALERT_TO are
- * set, sends one email. The outlooks read their settings from the environment through
+ * set, sends one email written for a person (alertText.ts, F-153; ALERT_TZ adds local time). The outlooks read their settings from the environment through
  * `outlookSettings`, which is pure and tested — the flags are the only brake on model spend. The heartbeat is pw_status/worker; the portal's "data as of" is the
  * reader-facing check.
  */
@@ -18,6 +18,7 @@ import { runOutlooks } from '../jobs/outlooks';
 import { outlookSettings } from '../jobs/outlookSettings';
 import { withDeadline, afterTick, TICK_DEADLINE_MS, MAX_TICK_FAILURES } from '../jobs/watchdog';
 import { STALE_AFTER_MS } from '../jobs/lease';
+import { tickFailedEmail, jobFailedEmail, staleEmail, backEmail, allClearSince, type Email } from '../jobs/alertText';
 import type { Job } from '../jobs/types';
 
 const args = process.argv.slice(2);
@@ -41,13 +42,27 @@ const commit = process.env.PW_COMMIT ?? null;
 
 const log = (msg: string) => console.log(`${new Date().toISOString()} [pw] ${msg}`);
 
-async function alert(subject: string, body: string): Promise<void> {
+const TZ = process.env.ALERT_TZ;
+/** The longest ordinary distance between two heartbeats: a tick that used its whole deadline, plus the pause. */
+const GAP_LIMIT_MS = TICK_DEADLINE_MS + TICK_MS;
+/** A process's first tick has no long tick of its own behind it: two missed ticks is already an outage (a deploy restart is seconds). */
+const FIRST_GAP_LIMIT_MS = 2 * TICK_MS;
+/** F-153 all-clear state: when this process first sent a failure email with no good tick since, and whether it has had a good tick at all. */
+let failedSince: number | null = null;
+let firstTick = true;
+
+/**
+ * `subject` and `body` are the record in pw_alerts (the ops check prints the subject; `record: false`
+ * skips it, for good news that is not an alert). `email` is what the owner reads; without it the
+ * record's own words are sent.
+ */
+async function alert(subject: string, body: string, email?: Email, record = true): Promise<void> {
   const id = `${Date.now()}_${subject.replace(/[^a-z0-9]+/gi, '-').slice(0, 60)}`;
-  await db.collection('pw_alerts').doc(id).set({ at: Date.now(), subject, body, runner: OWNER }).catch(() => undefined);
+  if (record) await db.collection('pw_alerts').doc(id).set({ at: Date.now(), subject, body, runner: OWNER }).catch(() => undefined);
   const apiKey = process.env.RESEND_API_KEY, to = process.env.ALERT_TO;
   if (!apiKey || !to) return;
   try {
-    const res = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: process.env.ALERT_FROM ?? 'Pit Wall worker <noreply@humannpc.com>', to: [to], subject: `[pit wall] ${subject}`, text: body }), signal: AbortSignal.timeout(10000) });
+    const res = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: process.env.ALERT_FROM ?? 'Pit Wall worker <noreply@humannpc.com>', to: [to], subject: email?.subject ?? `[pit wall] ${subject}`, text: email?.text ?? body }), signal: AbortSignal.timeout(10000) });
     if (!res.ok) log(`alert email refused: ${res.status}`);
   } catch (e) { log(`alert email failed: ${e instanceof Error ? e.message : e}`); }
 }
@@ -89,7 +104,10 @@ async function tick(): Promise<void> {
     if (!run || !run.counts.stale) break;
     log(`skipped ${run.jobId}: due ${run.counts.lateHours} h ago (F-133 stale limit)`);
   }
-  if (run && !run.ok) await alert(`job ${run.jobId} failed`, `${run.error ?? 'unknown error'}\nrunner ${OWNER}, commit ${commit ?? '?'}, ${new Date(run.finishedAt).toISOString()}`);
+  if (run && !run.ok) await alert(`job ${run.jobId} failed`, `${run.error ?? 'unknown error'}\nrunner ${OWNER}, commit ${commit ?? '?'}, ${new Date(run.finishedAt).toISOString()}`,
+    jobFailedEmail({ jobId: run.jobId, error: run.error ?? 'unknown error', finishedAt: run.finishedAt, runner: OWNER, commit, tz: TZ }));
+  // Read before the stale check, by itself: a failed stale check must not cost the all-clear below.
+  const prevTickAt: unknown = await db.collection('pw_status').doc('worker').get().then((d: { data(): { lastTickAt?: unknown } | undefined }) => d.data()?.lastTickAt, () => undefined);
   // Self-check: if the newest published payload is more than 30 hours old, say so once a day, whatever the queue thinks.
   try {
     const newest = await db.collection('pw_public').orderBy('asOf', 'desc').limit(1).get();
@@ -98,11 +116,25 @@ async function tick(): Promise<void> {
     const day = now.toISOString().slice(0, 10);
     const status = (await db.collection('pw_status').doc('worker').get()).data() ?? {};
     if (age > 30 * 3600 * 1000 && status.lastStaleAlertDay !== day) {
-      await alert('published data is stale', `newest pw_public asOf ${asOf ?? 'none'} (${Math.round(age / 3600000)} h old); round ${round?.round ?? '?'}; runner ${OWNER}`);
+      await alert('published data is stale', `newest pw_public asOf ${asOf ?? 'none'} (${Math.round(age / 3600000)} h old); round ${round?.round ?? '?'}; runner ${OWNER}`,
+        staleEmail({ asOf: asOf ?? null, ageMs: age, round: round?.round ?? null, at: now.getTime(), runner: OWNER, commit, tz: TZ }));
       await db.collection('pw_status').doc('worker').set({ lastStaleAlertDay: day }, { merge: true });
     }
   } catch (e) { log(`stale check failed: ${e instanceof Error ? e.message : e}`); }
-  await db.collection('pw_status').doc('worker').set({ runner: OWNER, commit, lastTickAt: now.getTime(), round: round?.round ?? null, enqueued, lastRun: run ? { jobId: run.jobId, ok: run.ok, error: run.error, finishedAt: run.finishedAt, counts: run.counts } : null }, { merge: true }).catch((e: Error) => log(`heartbeat failed: ${e.message}`));
+  const beat: boolean = await db.collection('pw_status').doc('worker').set({ runner: OWNER, commit, lastTickAt: now.getTime(), round: round?.round ?? null, enqueued, lastRun: run ? { jobId: run.jobId, ok: run.ok, error: run.error, finishedAt: run.finishedAt, counts: run.counts } : null }, { merge: true }).then(() => true, (e: Error) => { log(`heartbeat failed: ${e.message}`); return false; });
+  // F-153: a good tick after a failure email, or after a long silence, says so — a stall email is
+  // not the last word. Only once the new heartbeat is written: if that write failed the gap would
+  // still be there on the next tick and the all-clear would go out every five minutes. A --once run
+  // is a person at a terminal, not the service coming back. The time is the clock's, not this
+  // tick's start: a tick that hung and then finished came back now, not when it began.
+  if (!beat || once) return;
+  const back = Date.now();
+  const since = allClearSince(prevTickAt, back, firstTick ? FIRST_GAP_LIMIT_MS : GAP_LIMIT_MS, failedSince);
+  failedSince = null; firstTick = false;
+  if (since !== null) {
+    log(`back after ${Math.round((back - since) / 60000)} min without a good tick`);
+    await withDeadline(alert('worker is back', '', backEmail({ prevTickAt: since, at: back, runner: OWNER, commit, tz: TZ }), false), 30 * 1000, 'alert').catch((err: Error) => log(`alert failed: ${err.message}`));
+  }
 }
 
 (async () => {
@@ -120,11 +152,13 @@ async function tick(): Promise<void> {
   // it cannot hang the exit.
   let failures = 0;
   let inFlight: Promise<void> | null = null;
+  let startedAt = Date.now();
   for (;;) {
     let ok = true;
     try {
       // a tick that outlived its deadline is still running: do not start a second one beside it
       if (inFlight) throw new Error('previous tick still running');
+      startedAt = Date.now();
       const current = tick();
       inFlight = current;
       current.finally(() => { if (inFlight === current) inFlight = null; }).catch(() => undefined);
@@ -132,7 +166,10 @@ async function tick(): Promise<void> {
     } catch (e) {
       ok = false;
       log(`tick failed: ${e instanceof Error ? e.message : e}`);
-      await withDeadline(alert('worker tick failed', e instanceof Error ? e.stack ?? e.message : String(e)), 30 * 1000, 'alert').catch((err: Error) => log(`alert failed: ${err.message}`));
+      const detail = e instanceof Error ? e.stack ?? e.message : String(e);
+      failedSince ??= startedAt;
+      const email = tickFailedEmail({ message: e instanceof Error ? e.message : String(e), detail, failures: failures + 1, maxFailures: MAX_TICK_FAILURES, tickMs: TICK_MS, startedAt, at: Date.now(), runner: OWNER, commit, tz: TZ });
+      await withDeadline(alert('worker tick failed', detail, email), 30 * 1000, 'alert').catch((err: Error) => log(`alert failed: ${err.message}`));
     }
     const next = afterTick(ok, failures, MAX_TICK_FAILURES);
     failures = next.failures;
