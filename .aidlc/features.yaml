@@ -271,6 +271,7 @@ features:
     spec: .aidlc/specs/F-034.md
     version_shipped: 2.3.0
     shipped_at: 2026-09-18
+    status_note: "Only the ESLint configuration shipped. Three of four spec criteria are open, including the four rules-of-hooks errors; lint stays advisory in aidlc.yaml."
   - id: F-035
     name: "UC: TypeScript errors and root tsconfig scope"
     status: shipped
@@ -649,7 +650,7 @@ features:
     summary: "League Pro is derived from the league owner's Pit Wall Pass ($14.99 per season, the only product): re-enable
       in-app purchase, validatePurchase grants the pass, server stamps the pro field on leagues the holder owns; rules
       deny client writes; free leagues keep standard play"
-    status: building
+    status: planned
     spec: .aidlc/specs/F-060.md
     created_at: 2026-09-18
     keywords:
@@ -657,7 +658,7 @@ features:
       - entitlement
       - purchase
       - verification
-    status_note: "Purchase validation and the pass grant are live (functions deploy OP-038, 2026-09-25; in 2.4.x). League Pro itself is closed (F-105) and the spec criteria are unticked: the remaining scope needs restating."
+    status_note: "Purchase validation and the pass grant are live (functions deploy OP-038, 2026-09-25; in 2.4.x). League Pro itself is closed (F-105) and the spec criteria are unticked: the remaining scope needs restating. Kept at planned on purpose: the release run stamps every building feature shipped (G13)."
   - id: F-061
     name: "UC: League Pro upgrade screen and free-tier changes"
     summary: Grid League Manager shows League Pro as included with Pit Wall Pass and opens the one upgrade sheet; league
@@ -770,7 +771,7 @@ features:
     name: "UC: Pit Wall analytics data pipeline"
     summary: Daily and post-session timing ingest into precomputed analytics documents with history back to 2023;
       timing-derived frames are free only and kept apart from pass-gated payloads (ADR-001)
-    status: building
+    status: planned
     spec: .aidlc/specs/F-069.md
     created_at: 2026-09-19
     keywords:
@@ -778,7 +779,7 @@ features:
       - analytics
       - data
       - pipeline
-    status_note: "The worker has run on forge since OP-062 (2026-09-27). Timing ingest is blocked on the data licence (ADR-001)."
+    status_note: "The worker has run on forge since OP-062 (2026-09-27). Timing ingest is blocked on the data licence (ADR-001). Kept at planned on purpose: the release run stamps every building feature shipped (G13)."
   - id: F-070
     name: "UC: Pit Wall projections and price model"
     summary: Statistical fantasy-points projection per driver and constructor with floor, median, ceiling, DNF risk and next
@@ -797,7 +798,7 @@ features:
     name: "UC: Pit Wall news wire and daily briefing"
     summary: Multi-source news ingest with entity and impact tagging, de-duplicated story clusters with source links, and a
       daily LLM-written briefing and per-driver outlook clearly labelled as estimates
-    status: building
+    status: planned
     spec: .aidlc/specs/F-071.md
     created_at: 2026-09-19
     keywords:
@@ -806,12 +807,12 @@ features:
       - wire
       - daily
       - briefing
-    status_note: "The briefing job is deployed (OP-047 to OP-050, OP-071) but outlooks are switched off on the worker. Spec criteria unticked."
+    status_note: "The briefing job is deployed (OP-047 to OP-050, OP-071) but outlooks are switched off on the worker. Spec criteria unticked. Kept at planned on purpose: the release run stamps every building feature shipped (G13)."
   - id: F-072
     name: "UC: Pit Wall driver, constructor and circuit reports"
     summary: "Report pages: projection board, driver and constructor deep dives (past, present, outlook), circuit profile
       and history splits, pace lab with practice long-run pace, tyre degradation and teammate head-to-head"
-    status: building
+    status: planned
     spec: .aidlc/specs/F-072.md
     created_at: 2026-09-19
     keywords:
@@ -820,7 +821,7 @@ features:
       - constructor
       - circuit
       - reports
-    status_note: "Reports deployed in parts (OP-054, OP-064, OP-065, OP-067). Spec criteria unticked: scope needs restating."
+    status_note: "Reports deployed in parts (OP-054, OP-064, OP-065, OP-067). Spec criteria unticked: scope needs restating. Kept at planned on purpose: the release run stamps every building feature shipped (G13)."
   - id: F-073
     name: "UC: Pit Wall lineup lab"
     summary: Shows the signed-in user's lineup with ranked swap recommendations, a what-if simulator and optimizer under
@@ -874,7 +875,7 @@ features:
       - data
   - id: F-077
     name: "UC: Pit Wall in the app — portal handoff, pass status and pass-only pick marks"
-    status: building
+    status: planned
     spec: .aidlc/specs/F-077.md
     created_at: 2026-09-24
     keywords:
@@ -887,7 +888,7 @@ features:
       - only
       - pick
       - marks
-    status_note: "The Pit Wall row, handoff and pass status are in the app since 2.4.x (config OP-052, 2026-09-25). Amazon still links out; 8 spec criteria unticked."
+    status_note: "The Pit Wall row, handoff and pass status are in the app since 2.4.x (config OP-052, 2026-09-25). Amazon still links out; 8 spec criteria unticked. Kept at planned on purpose: the release run stamps every building feature shipped (G13)."
   - id: F-078
     name: "TL: UI string extraction and localization"
     status: planned
@@ -914,6 +915,7 @@ features:
       - locales
     version_shipped: 2.5.0
     shipped_at: 2026-10-07
+    status_note: "The translation layer and the first converted screens shipped. Screen conversion is ongoing: 6 of 14 spec criteria are open."
   - id: F-080
     name: "UC: right-to-left support and Arabic"
     status: idea
@@ -952,8 +954,8 @@ features:
       - publishing
       - from
       - build
-    shipped_at: 2026-10-09
-    status_note: "First verified Play production publish from the box: OP-158 (2.5.1). Every Play release since goes through uc-play-publish."
+    shipped_at: 2026-10-03
+    status_note: "First verified Play production publish from the box: OP-111 (2.4.1, 2026-10-03). Every Play release since goes through uc-play-publish."
   - id: F-083
     name: "UC: Share league standings as text"
     status: shipped
@@ -1710,7 +1712,7 @@ features:
       - held
       - results
       - ingestion
-    shipped_at: 2026-11-01
+    shipped_at: 2026-11-02
     status_note: "Merged #253; part of the ops check that cron runs on the box."
   - id: F-136
     name: "UC: post-results unlock visibility and shorter buffer"
@@ -1739,8 +1741,8 @@ features:
       - stand
       - onto
       - seat
-    shipped_at: 2026-11-03
-    status_note: "First used by the Brazil model seed OP-210."
+    shipped_at: 2026-11-04
+    status_note: "Merged #258; first used by the Brazil model seed OP-210 (applied 2026-11-04 UTC)."
   - id: F-138
     name: "UC: Haas seat change at Brazil (Câmara in, Ocon out)"
     status: shipped
@@ -1936,7 +1938,7 @@ features:
       - "2027"
       - prices
       - calendar
-    status_note: "MERGED (#278) AND DELIBERATELY NOT RUN. Blocked on: Abu Dhabi 2026 scored plus 24 hours. Do not treat this as live."
+    status_note: "MERGED (#278) AND DELIBERATELY NOT RUN. Blocked on: Abu Dhabi 2026 scored plus 24 hours. Do not treat this as live. Trap: the next Undercut release run will stamp this shipped by itself, because its commit is in the release range (G13 reads commit subjects); set it back by hand after that run until the rollover has actually been applied."
   - id: F-151
     name: "UC: server season scope - race counts, locks, form and scoring per season"
     status: shipped
