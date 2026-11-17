@@ -1,4 +1,4 @@
-next_id: 153
+next_id: 154
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -1906,3 +1906,15 @@ features:
       - unknown
       - cars
       - name
+  - id: F-153
+    name: "UC: Pit Wall worker alert emails in plain words"
+    status: planned
+    spec: .aidlc/specs/F-153.md
+    created_at: 2026-11-17
+    keywords:
+      - wall
+      - worker
+      - alert
+      - emails
+      - plain
+      - words

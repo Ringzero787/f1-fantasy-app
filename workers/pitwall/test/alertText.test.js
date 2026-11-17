@@ -1,0 +1,100 @@
+// node --test test/*.test.js — what the worker's alert emails say (F-153).
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { classifyTickError, clock, span, tickFailedEmail, jobLabel, jobFailedEmail, staleEmail, outageGap, backEmail } = require('../dist/workers/pitwall/src/jobs/alertText.js');
+
+const AT = Date.parse('2026-11-17T10:49:42Z');
+const base = { failures: 2, maxFailures: 3, tickMs: 300000, startedAt: Date.parse('2026-11-17T10:19:12Z'), at: AT, runner: 'forge', commit: '0bf6972' };
+const SECTIONS = ['WHAT HAPPENED', 'WHAT THE WORKER DOES ABOUT IT', 'WHAT YOU NEED TO DO'];
+
+test('classifyTickError names the four families', () => {
+  assert.equal(classifyTickError('previous tick still running'), 'overlap');
+  assert.equal(classifyTickError('tick did not finish within 1500 s'), 'deadline');
+  assert.equal(classifyTickError('14 UNAVAILABLE: No connection established'), 'network');
+  assert.equal(classifyTickError('getaddrinfo EAI_AGAIN firestore.googleapis.com'), 'network');
+  assert.equal(classifyTickError("Cannot read properties of undefined (reading 'round')"), 'other');
+});
+
+test('clock prints UTC, adds local time for a zone, and survives a bad zone', () => {
+  assert.equal(clock(AT), '10:49 UTC');
+  assert.equal(clock(AT, 'America/Chicago'), '04:49 CST (10:49 UTC)');
+  assert.equal(clock(AT, 'Not/AZone'), '10:49 UTC');
+});
+
+test('span reads as words', () => {
+  assert.equal(span(30 * 1000), '1 minute');
+  assert.equal(span(42 * 60000), '42 minutes');
+  assert.equal(span(60 * 60000), '1 hour');
+  assert.equal(span(185 * 60000), '3 hours 5 minutes');
+  assert.equal(span(52 * 3600000), '2 days 4 hours');
+});
+
+test('the 2026-11-17 email: the stack is the last thing in it, not the whole of it', () => {
+  const stack = 'Error: previous tick still running\n    at /data/pitwall-worker/releases/0bf6972/dist/workers/pitwall/src/cli/serve.js:155:23';
+  const e = tickFailedEmail({ ...base, message: 'previous tick still running', detail: stack });
+  assert.equal(e.subject, '[pit wall] Worker still stalled (2 of 3)');
+  for (const s of SECTIONS) assert.ok(e.text.includes(s), s);
+  assert.ok(e.text.indexOf('WHAT HAPPENED') < e.text.indexOf('TECHNICAL DETAIL'));
+  assert.ok(e.text.indexOf(stack) > e.text.indexOf('TECHNICAL DETAIL'));
+  assert.match(e.text, /started at 10:19 UTC is still stuck \(31 minutes so far\)/);
+  assert.match(e.text, /same stall as the earlier email/);
+  assert.match(e.text, /tries again in 5 minutes\. This is failure 2 of 3/);
+  assert.match(e.text, /Nothing right now/);
+});
+
+test('a tick past its deadline says how long it ran and blames the network', () => {
+  const e = tickFailedEmail({ ...base, failures: 1, at: Date.parse('2026-11-17T10:44:12Z'), message: 'tick did not finish within 1500 s', detail: 'x' });
+  assert.equal(e.subject, '[pit wall] Worker stalled, probably a network drop (1 of 3)');
+  assert.match(e.text, /had still not finished 25 minutes later/);
+});
+
+test('the last failure says the worker is restarting, not that it will try again', () => {
+  const e = tickFailedEmail({ ...base, failures: 3, message: 'previous tick still running', detail: 'x' });
+  assert.match(e.text, /3 of 3 failures in a row, so the worker is restarting itself now/);
+  assert.doesNotMatch(e.text, /tries again in/);
+});
+
+test('an unexpected error asks for a look and does not promise an "is back" email', () => {
+  const e = tickFailedEmail({ ...base, failures: 1, message: 'boom', detail: 'Error: boom\n    at x' });
+  assert.equal(e.subject, '[pit wall] Worker hit an error (1 of 3)');
+  assert.match(e.text, /not the usual network drop/);
+  assert.doesNotMatch(e.text, /"is back" email/);
+});
+
+test('jobLabel turns an id into words', () => {
+  assert.equal(jobLabel('projections__2026__23__daily-20261117'), 'the daily numbers refresh for round 23');
+  assert.equal(jobLabel('briefing__2026__23__quali'), 'the post-quali written briefing for round 23');
+  assert.equal(jobLabel('mystery'), 'the "mystery" job');
+});
+
+test('a failed job names the job in words and keeps the id and error at the bottom', () => {
+  const e = jobFailedEmail({ jobId: 'projections__2026__23__daily-20261117', error: '14 UNAVAILABLE', finishedAt: AT, runner: 'forge', commit: null, tz: 'America/Chicago' });
+  assert.equal(e.subject, '[pit wall] A scheduled job failed: the daily numbers refresh for round 23');
+  assert.match(e.text, /at 04:49 CST \(10:49 UTC\)/);
+  assert.match(e.text, /TECHNICAL DETAIL\njob projections__2026__23__daily-20261117\n14 UNAVAILABLE/);
+  assert.match(e.text, /release unknown/);
+});
+
+test('stale data gives the age in words, and copes with nothing published', () => {
+  const e = staleEmail({ asOf: '2026-11-15T06:02:00Z', ageMs: 52 * 3600000, round: 23, at: AT, runner: 'forge', commit: 'abc' });
+  assert.equal(e.subject, '[pit wall] Portal data is out of date (2 days 4 hours old)');
+  assert.match(e.text, /published 2 days 4 hours ago; the current round is 23/);
+  const none = staleEmail({ asOf: null, ageMs: Number.POSITIVE_INFINITY, round: null, at: AT, runner: 'forge', commit: 'abc' });
+  assert.equal(none.subject, '[pit wall] Portal data is out of date');
+  assert.match(none.text, /Nothing has been published/);
+});
+
+test('outageGap ignores an ordinary gap, a missing heartbeat and a non-number', () => {
+  const limit = 30 * 60000;
+  assert.equal(outageGap(AT - 5 * 60000, AT, limit), null);
+  assert.equal(outageGap(AT - limit, AT, limit), null);
+  assert.equal(outageGap(AT - 42 * 60000, AT, limit), 42 * 60000);
+  assert.equal(outageGap(undefined, AT, limit), null);
+  assert.equal(outageGap('1763376582000', AT, limit), null);
+});
+
+test('the all-clear says how long the worker was away', () => {
+  const e = backEmail({ prevTickAt: AT - 42 * 60000, at: AT, runner: 'forge', commit: 'abc' });
+  assert.equal(e.subject, '[pit wall] Worker is back (was away 42 minutes)');
+  assert.match(e.text, /before this one was at 10:07 UTC; it was away for 42 minutes and came back at 10:49 UTC/);
+});
