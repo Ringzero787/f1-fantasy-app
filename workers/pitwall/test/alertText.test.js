@@ -1,11 +1,16 @@
 // node --test test/*.test.js — what the worker's alert emails say (F-153).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { classifyTickError, clock, span, tickFailedEmail, jobLabel, jobFailedEmail, staleEmail, outageGap, backEmail } = require('../dist/workers/pitwall/src/jobs/alertText.js');
+const { classifyTickError, clock, span, tickFailedEmail, jobLabel, jobFailedEmail, staleEmail, outageGap, allClearSince, backEmail } = require('../dist/workers/pitwall/src/jobs/alertText.js');
 
 const AT = Date.parse('2026-11-17T10:49:42Z');
 const base = { failures: 2, maxFailures: 3, tickMs: 300000, startedAt: Date.parse('2026-11-17T10:19:12Z'), at: AT, runner: 'forge', commit: '0bf6972' };
-const SECTIONS = ['WHAT HAPPENED', 'WHAT THE WORKER DOES ABOUT IT', 'WHAT YOU NEED TO DO'];
+const SECTIONS = ['WHAT HAPPENED', 'WHAT THE WORKER DOES ABOUT IT', 'WHAT YOU NEED TO DO', 'WHAT PLAYERS SEE', 'TECHNICAL DETAIL'];
+/** every section present, in the spec's order */
+const inOrder = (text, sections = SECTIONS) => {
+  let at = -1;
+  for (const s of sections) { const i = text.indexOf(s); assert.ok(i > at, `${s} missing or out of order`); at = i; }
+};
 
 test('classifyTickError names the four families', () => {
   assert.equal(classifyTickError('previous tick still running'), 'overlap');
@@ -33,8 +38,7 @@ test('the 2026-11-17 email: the stack is the last thing in it, not the whole of 
   const stack = 'Error: previous tick still running\n    at /data/pitwall-worker/releases/0bf6972/dist/workers/pitwall/src/cli/serve.js:155:23';
   const e = tickFailedEmail({ ...base, message: 'previous tick still running', detail: stack });
   assert.equal(e.subject, '[pit wall] Worker still stalled (2 of 3)');
-  for (const s of SECTIONS) assert.ok(e.text.includes(s), s);
-  assert.ok(e.text.indexOf('WHAT HAPPENED') < e.text.indexOf('TECHNICAL DETAIL'));
+  inOrder(e.text);
   assert.ok(e.text.indexOf(stack) > e.text.indexOf('TECHNICAL DETAIL'));
   assert.match(e.text, /started at 10:19 UTC is still stuck \(31 minutes so far\)/);
   assert.match(e.text, /same stall as the earlier email/);
@@ -61,7 +65,15 @@ test('an unexpected error asks for a look and does not promise an "is back" emai
   assert.doesNotMatch(e.text, /"is back" email/);
 });
 
+test('a database error that fails fast is named as such, sections in order', () => {
+  const e = tickFailedEmail({ ...base, failures: 1, message: '14 UNAVAILABLE: No connection established', detail: 'x' });
+  assert.equal(e.subject, '[pit wall] Worker could not reach the database (1 of 3)');
+  inOrder(e.text);
+  assert.match(e.text, /"is back" email follows/);
+});
+
 test('jobLabel turns an id into words', () => {
+  assert.equal(jobLabel('projections__2026__x__x'), 'the numbers refresh');
   assert.equal(jobLabel('projections__2026__23__daily-20261117'), 'the daily numbers refresh for round 23');
   assert.equal(jobLabel('briefing__2026__23__quali'), 'the post-quali written briefing for round 23');
   assert.equal(jobLabel('mystery'), 'the "mystery" job');
@@ -72,7 +84,9 @@ test('a failed job names the job in words and keeps the id and error at the bott
   assert.equal(e.subject, '[pit wall] A scheduled job failed: the daily numbers refresh for round 23');
   assert.match(e.text, /at 04:49 CST \(10:49 UTC\)/);
   assert.match(e.text, /TECHNICAL DETAIL\njob projections__2026__23__daily-20261117\n14 UNAVAILABLE/);
+  assert.match(e.text, /up to five times in all/);
   assert.match(e.text, /release unknown/);
+  inOrder(e.text);
 });
 
 test('stale data gives the age in words, and copes with nothing published', () => {
@@ -82,6 +96,7 @@ test('stale data gives the age in words, and copes with nothing published', () =
   const none = staleEmail({ asOf: null, ageMs: Number.POSITIVE_INFINITY, round: null, at: AT, runner: 'forge', commit: 'abc' });
   assert.equal(none.subject, '[pit wall] Portal data is out of date');
   assert.match(none.text, /Nothing has been published/);
+  inOrder(e.text); inOrder(none.text);
 });
 
 test('outageGap ignores an ordinary gap, a missing heartbeat and a non-number', () => {
@@ -93,8 +108,27 @@ test('outageGap ignores an ordinary gap, a missing heartbeat and a non-number', 
   assert.equal(outageGap('1763376582000', AT, limit), null);
 });
 
+test('allClearSince: owed after a failure email however short, else only past the gap limit', () => {
+  const long = 30 * 60000, first = 10 * 60000;
+  // a failure email went out and the next tick is fine: owed, counted from the last good heartbeat
+  assert.equal(allClearSince(AT - 10 * 60000, AT, long, AT - 5 * 60000), AT - 10 * 60000);
+  // ...or from the first failure when there is no usable heartbeat
+  assert.equal(allClearSince(undefined, AT, long, AT - 5 * 60000), AT - 5 * 60000);
+  assert.equal(allClearSince(AT + 1000, AT, long, AT - 5 * 60000), AT - 5 * 60000);
+  // no failure email from this process: the gap decides
+  assert.equal(allClearSince(AT - 5 * 60000, AT, long, null), null);
+  assert.equal(allClearSince(AT - 42 * 60000, AT, long, null), AT - 42 * 60000);
+  // three fast failures then a restart leave about 15 minutes: quiet under the long limit, owed on a first tick
+  assert.equal(allClearSince(AT - 15.5 * 60000, AT, long, null), null);
+  assert.equal(allClearSince(AT - 15.5 * 60000, AT, first, null), AT - 15.5 * 60000);
+  // a deploy restart is not an outage
+  assert.equal(allClearSince(AT - 5.5 * 60000, AT, first, null), null);
+  assert.equal(allClearSince(undefined, AT, first, null), null);
+});
+
 test('the all-clear says how long the worker was away', () => {
   const e = backEmail({ prevTickAt: AT - 42 * 60000, at: AT, runner: 'forge', commit: 'abc' });
   assert.equal(e.subject, '[pit wall] Worker is back (was away 42 minutes)');
-  assert.match(e.text, /before this one was at 10:07 UTC; it was away for 42 minutes and came back at 10:49 UTC/);
+  assert.match(e.text, /before this began at 10:07 UTC; it was away for 42 minutes and came back at 10:49 UTC/);
+  inOrder(e.text, SECTIONS.slice(0, 4));
 });

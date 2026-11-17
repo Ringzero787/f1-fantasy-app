@@ -118,7 +118,8 @@ export interface JobFailure { jobId: string; error: string; finishedAt: number; 
 
 /** What a job id means to a reader: "projections__2026__23__daily-20261117" → "the daily numbers refresh for round 23". */
 export function jobLabel(jobId: string): string {
-  const [type, , round, session] = jobId.split('__');
+  // lease.ts writes 'x' for a job with no round or no session
+  const [type, , round, session] = jobId.split('__').map((p) => (p === 'x' ? '' : p));
   const what = type === 'projections' ? 'numbers refresh' : type === 'briefing' ? 'written briefing' : `"${type}" job`;
   const when = !session ? '' : session.startsWith('daily') ? 'daily ' : `post-${session} `;
   return `the ${when}${what}${round ? ` for round ${round}` : ''}`;
@@ -131,7 +132,7 @@ export function jobFailedEmail(j: JobFailure): Email {
     subject: `[pit wall] A scheduled job failed: ${label}`,
     text: [
       `WHAT HAPPENED\nThe worker ran ${label} at ${clock(j.finishedAt, j.tz)} and it failed. The worker itself is fine and still running.`,
-      `WHAT THE WORKER DOES ABOUT IT\nIt tries the same job again by itself, up to its retry limit. If a later try works there is no further email.`,
+      `WHAT THE WORKER DOES ABOUT IT\nIt tries a failed job again by itself, up to five times in all, and emails each time one fails. After the fifth it leaves the job alone and the next scheduled run takes over. If a later try works there is no further email.`,
       `WHAT YOU NEED TO DO\nNothing if this is a one-off. If the same job fails again, or the portal's "data as of" time stops moving, send the technical detail below to a Claude session in the Undercut repo.`,
       `WHAT PLAYERS SEE\nThe portal keeps the previous numbers until a run succeeds.`,
       `TECHNICAL DETAIL\njob ${j.jobId}\n${j.error}`,
@@ -170,6 +171,20 @@ export function outageGap(prevTickAt: unknown, now: number, limitMs: number): nu
   return gap > limitMs ? gap : null;
 }
 
+/**
+ * Whether this good tick owes the owner an all-clear, and since when the worker was away (null:
+ * nothing owed). Two ways to owe one. `failedSince` is set when this process sent a failure email
+ * and has not had a good tick since: the reader was told to expect an "is back", however short the
+ * trouble was. Otherwise the heartbeat gap decides, which is what survives a restart — `limitMs`
+ * is short for a process's first tick (nothing of its own can have been running) and long after
+ * that (a tick may legitimately use its whole deadline).
+ */
+export function allClearSince(prevTickAt: unknown, now: number, limitMs: number, failedSince: number | null): number | null {
+  const prev = typeof prevTickAt === 'number' && Number.isFinite(prevTickAt) && prevTickAt < now ? prevTickAt : null;
+  if (failedSince !== null) return prev ?? Math.min(failedSince, now);
+  return outageGap(prev, now, limitMs) === null ? null : prev;
+}
+
 export interface Back { prevTickAt: number; at: number; runner: string; commit: string | null; tz?: string }
 
 /** The all-clear after a gap: the first normal tick says the worker is back and how long it was away. */
@@ -178,9 +193,10 @@ export function backEmail(b: Back): Email {
   return {
     subject: `[pit wall] Worker is back (was away ${gap})`,
     text: [
-      `WHAT HAPPENED\nThe worker is running normally again. Its last normal round of work before this one was at ${clock(b.prevTickAt, b.tz)}; it was away for ${gap} and came back at ${clock(b.at, b.tz)}.`,
+      `WHAT HAPPENED\nThe worker is running normally again. The last round of work it finished normally before this began at ${clock(b.prevTickAt, b.tz)}; it was away for ${gap} and came back at ${clock(b.at, b.tz)}.`,
       `WHAT THE WORKER DOES ABOUT IT\nIt picks up anything that came due while it was away. Work that is more than a day late is set aside, and the next scheduled run covers it.`,
       `WHAT YOU NEED TO DO\nNothing. If the stall emails keep coming back, the box's internet connection is the thing to look at.`,
+      `WHAT PLAYERS SEE\nNo change while it was away: the portal kept the last published numbers. If the daily refresh was missed, the numbers update within a few minutes.`,
       footer(b.runner, b.commit, b.at),
     ].join('\n\n'),
   };
