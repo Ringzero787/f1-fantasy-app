@@ -1,0 +1,47 @@
+id: OP-091
+title: Re-grant the stranded pass now that a revoked grant record no longer blocks it
+kind: uc-script
+status: applied
+params:
+  script: pitwallPass.js
+  backup: users
+created_at: 2026-10-02T13:42:28.694Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-02T13:42:50.053Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    command: node scripts/ops/run-script.js undercut 'pitwallPass.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-089/dry-run-2026-10-02T13-42-50-053Z.log
+    log_sha256: faac38bdf028545fd56bd4573b6bf9b948c8d329d32bffa8b9e71289ee10f04a
+    lines: 7
+  - step: backup
+    at: 2026-10-02T13:42:59.637Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-089'/backup.json 'users'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-089/backup-2026-10-02T13-42-59-637Z.log
+    log_sha256: 369127429e9973b73246b024d8cdf5883590222d587905153bf9d01c0b6d0813
+    lines: 3
+  - step: gates
+    at: 2026-10-02T13:43:00.435Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-02T13:43:00.436Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    command: node scripts/ops/run-script.js undercut 'pitwallPass.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-089/apply-2026-10-02T13-43-00-436Z.log
+    log_sha256: 4065b9704394b11f216e39f65a1b9065416c30f03812c89abe0948f4c5150589
+    lines: 8
+  - step: gates
+    at: 2026-10-02T13:43:01.965Z
+    head_sha: 9bb63365528084c1ece1a16d59635ebdf6d04c83
+    exit: 0
+    gates:
+      G15: skip

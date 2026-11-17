@@ -1,0 +1,25 @@
+id: OP-110
+title: Undercut 2.4.1 (vc66) to production
+kind: uc-play-publish
+status: dry-run
+params:
+  aab: /mnt/smb/share/undercut/undercut-2.4.1-vc66.aab
+  track: production
+  notes: Sign in with Google, Apple or Amazon from any version of Undercut, so the team you built on one device is the team you find on the next. The team picker now names the pick you are still missing instead of counting drivers and constructors together.
+created_at: 2026-10-03T18:06:33.800Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-03T18:06:39.859Z
+    head_sha: 7fb5e6d340eac3d11b1cd74bc031df137e9fc13e
+    command: node scripts/ops/play-publish.js upload '/mnt/smb/share/undercut/undercut-2.4.1-vc66.aab' --track='production' --notes='Sign in with Google, Apple or Amazon from any version of Undercut, so the team you built on one device is the team you find on the next. The team picker now names the pick you are still missing instead of counting drivers and constructors together.'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-110/dry-run-2026-10-03T18-06-39-859Z.log
+    log_sha256: 744b46b31b229e867f1b7102aba8d7bd918db21188b739650e647d8824f3f212
+    lines: 8
+  - step: gates
+    at: 2026-10-03T18:07:56.391Z
+    head_sha: 7fb5e6d340eac3d11b1cd74bc031df137e9fc13e
+    exit: 1
+    gates:
+      G14: fail

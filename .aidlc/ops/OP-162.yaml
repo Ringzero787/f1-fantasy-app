@@ -1,0 +1,18 @@
+id: OP-162
+title: "F-118: publish config/lockState for the Singapore weekend already under way"
+kind: uc-script
+status: dry-run
+params:
+  script: stampLockStateForLiveRace.js
+  backup: config/lockState
+created_at: 2026-10-09T15:49:34.850Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-09T15:49:37.521Z
+    head_sha: b1dceeb871a3af1221c8383b030ccb1f02a66d6e
+    command: node scripts/ops/run-script.js undercut 'stampLockStateForLiveRace.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-162/dry-run-2026-10-09T15-49-37-521Z.log
+    log_sha256: 89ce7900818d0322813691b42a492ed98aecf16e35981b7bd247df274688c7b1
+    lines: 10

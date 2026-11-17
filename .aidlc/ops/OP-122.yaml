@@ -1,0 +1,56 @@
+id: OP-122
+title: "Undercut 2.4.3 vc68 to Play production: the ace lock holds on the server"
+kind: uc-play-publish
+status: verified
+params:
+  aab: /mnt/smb/share/undercut/undercut-2.4.3-vc68.aab
+  track: production
+  notes: Your Ace now holds while a session it scores in is running — from the start of qualifying, or of the sprint on a sprint weekend, until qualifying has been scored. After that it is yours to move again, right up to lights out. And the app no longer offers you an Ace change it cannot save.
+created_at: 2026-10-04T15:57:56.083Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-04T15:58:05.584Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    command: node scripts/ops/play-publish.js upload '/mnt/smb/share/undercut/undercut-2.4.3-vc68.aab' --track='production' --notes='Your Ace now holds while a session it scores in is running — from the start of qualifying, or of the sprint on a sprint weekend, until qualifying has been scored. After that it is yours to move again, right up to lights out. And the app no longer offers you an Ace change it cannot save.'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-122/dry-run-2026-10-04T15-58-05-584Z.log
+    log_sha256: 9c91f79029ebbf7ae056a65c90184ba65f6fd5328240f3a0019408482c84d454
+    lines: 8
+  - step: backup
+    at: 2026-10-04T15:58:18.361Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    command: node scripts/ops/play-publish.js status > /mnt/smb/f1-app/aidlc-ops/'OP-122'/play-tracks-before.txt
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-122/backup-2026-10-04T15-58-18-361Z.log
+    log_sha256: 907e60ba15bfb20ebd96d9cb1a454c6deb7e81916121e39df02e0f767098c4dd
+    lines: 1
+  - step: gates
+    at: 2026-10-04T15:58:20.895Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-04T15:58:20.900Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    command: node scripts/ops/play-publish.js upload '/mnt/smb/share/undercut/undercut-2.4.3-vc68.aab' --track='production' --notes='Your Ace now holds while a session it scores in is running — from the start of qualifying, or of the sprint on a sprint weekend, until qualifying has been scored. After that it is yours to move again, right up to lights out. And the app no longer offers you an Ace change it cannot save.' --apply --confirm=com.undercut.app
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-122/apply-2026-10-04T15-58-20-900Z.log
+    log_sha256: 47b9d6af9442ea16f0d86ca6de16f3991b71f2a5ed73ee46fc0fc8ada0c8d976
+    lines: 10
+  - step: verify
+    at: 2026-10-04T15:59:08.546Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    command: node scripts/ops/play-publish.js status
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-122/verify-2026-10-04T15-59-08-546Z.log
+    log_sha256: c2180e30ddcb6e24c2d525ff99d68ec31f28bfd99c2e19e7ba5c4170f80cb3c9
+    lines: 6
+  - step: gates
+    at: 2026-10-04T15:59:10.839Z
+    head_sha: da2e8872872bfb061cccaa0b94516469cdd84f1d
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,37 @@
+id: OP-137
+title: "Moonshot indexes: moonshotModels season+round, moonshots teamId+seasonId+status (F-106)"
+kind: indexes-deploy
+status: applied
+params: {}
+created_at: 2026-10-06T23:10:12.049Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-06T23:10:26.076Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    command: git --no-pager diff '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- firestore.indexes.json
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-137/dry-run-2026-10-06T23-10-26-076Z.log
+    log_sha256: d9c819331de51bc340f68975aef7b9c862cf95b61b6a76156b4eb278f2c556e5
+    lines: 265
+  - step: gates
+    at: 2026-10-06T23:17:42.729Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-06T23:17:42.737Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:indexes --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-137/apply-2026-10-06T23-17-42-737Z.log
+    log_sha256: f24c9a100080aa6e0a9114c8ad7093e63521dd3da2f1b90bd5dffb7b7e087fee
+    lines: 13
+  - step: gates
+    at: 2026-10-06T23:17:45.554Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    exit: 0
+    gates:
+      G15: skip

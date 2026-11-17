@@ -1,0 +1,48 @@
+id: OP-138
+title: Seed the singapore_2026 Moonshot model from MODELS_10.md (F-106)
+kind: uc-moonshot-model-seed
+status: applied
+params:
+  race: singapore_2026
+  doc: /mnt/smb/share/tracklimits/MODELS_10.md
+  source: ben_model_R19
+created_at: 2026-10-06T23:10:12.332Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-06T23:10:28.424Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    command: cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_10.md' --race='singapore_2026' --source='ben_model_R19'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-138/dry-run-2026-10-06T23-10-28-424Z.log
+    log_sha256: a88f3e568083b57dcbe7860b7d327099cf1c64418e3ca73e5bb8646a0dc9aedd
+    lines: 28
+  - step: backup
+    at: 2026-10-06T23:17:52.308Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-138'/backup.json moonshotModels/'singapore_2026'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-138/backup-2026-10-06T23-17-52-308Z.log
+    log_sha256: a5374e67933c720c8768954169e6e7d5745929eb73cf604b2899706fc8623c55
+    lines: 3
+  - step: gates
+    at: 2026-10-06T23:17:52.975Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-06T23:17:52.976Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    command: cd functions && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_10.md' --race='singapore_2026' --source='ben_model_R19' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-138/apply-2026-10-06T23-17-52-976Z.log
+    log_sha256: d0a2997177d8c11e24e716a18edc7f2bae3655c53a22df3c31e720b50a8ff0b5
+    lines: 28
+  - step: gates
+    at: 2026-10-06T23:17:54.173Z
+    head_sha: 32b248263474000e6be15c22e198be5f10c28fa6
+    exit: 0
+    gates:
+      G15: skip

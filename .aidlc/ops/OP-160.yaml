@@ -1,0 +1,38 @@
+id: OP-160
+title: "F-118: lock sweep coverage for a team created mid-weekend"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:autoLockTeams,functions:createTeamSecure,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure,functions:buildTeamSecure,functions:onRaceCompleted
+created_at: 2026-10-09T13:37:53.044Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-10-09T13:37:59.763Z
+    head_sha: 5d95cc2efaf4217c8998f91fefdc4c70ea5a3173
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-160/dry-run-2026-10-09T13-37-59-763Z.log
+    log_sha256: 4046969d4984183bd61e53d3304a8c6be078a2f5fcedc7d1defae3aeaa5e5837
+    lines: 73
+  - step: gates
+    at: 2026-10-09T13:38:13.835Z
+    head_sha: 5d95cc2efaf4217c8998f91fefdc4c70ea5a3173
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-10-09T13:38:14.057Z
+    head_sha: 5d95cc2efaf4217c8998f91fefdc4c70ea5a3173
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:autoLockTeams,functions:createTeamSecure,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure,functions:buildTeamSecure,functions:onRaceCompleted' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-160/apply-2026-10-09T13-38-14-057Z.log
+    log_sha256: ebd8f374cd6f8a49bdaf66bd2f01cc116a5ce671c63a10aa93c0d6592cbe34f0
+    lines: 49
+  - step: gates
+    at: 2026-10-09T13:39:42.334Z
+    head_sha: 5d95cc2efaf4217c8998f91fefdc4c70ea5a3173
+    exit: 0
+    gates:
+      G15: skip

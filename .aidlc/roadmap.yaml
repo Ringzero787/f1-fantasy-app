@@ -32,8 +32,9 @@ milestones:
     notes: dropped here 2026-11-17 — Track Limits moved to Ringzero787/tracklimits on 2026-10-02 and plans its releases there
   - id: M-07
     name: Undercut Grid redesign
-    version: 2.3.0
-    status: planned
+    version: 2.3.3
+    status: released
+    released_at: 2026-09-19
     confidence: high
     features:
       - F-050
@@ -49,7 +50,6 @@ milestones:
       first public Grid release is 2.3.3 (U-mark icon, F-067)
   - id: M-03
     name: Undercut correctness and safety
-    version: 2.4.0
     status: planned
     confidence: high
     features:
@@ -57,9 +57,10 @@ milestones:
       - F-021
       - F-022
       - F-023
+    notes: no version (2026-11-17) — 2.4.0 shipped other content. F-020 and F-023 are shipped; F-021 and F-022 are open
+      and belong to no dated release
   - id: M-04
     name: Undercut observability and ops
-    version: 2.5.0
     status: planned
     confidence: medium
     features:
@@ -67,9 +68,10 @@ milestones:
       - F-025
       - F-026
       - F-027
+    notes: no version (2026-11-17) — 2.5.0 shipped Moonshot. F-027 is deprecated (superseded by F-148); F-024, F-025
+      and F-026 are open. F-132, F-135, F-140 and F-152 since cover part of F-024's ground
   - id: M-05
     name: Undercut economy polish
-    version: 2.6.0
     status: planned
     confidence: medium
     features:
@@ -78,6 +80,8 @@ milestones:
       - F-030
       - F-031
       - F-032
+    notes: no version (2026-11-17) — 2.6.0 shipped the closed-beta pack. F-029 is shipped; the other four are open and
+      belong to no dated release
   - id: M-08
     name: Undercut League Pro
     version: 3.0.0
@@ -128,7 +132,8 @@ milestones:
   - id: M-12
     name: Undercut closed-beta product pack
     version: 2.6.0
-    status: planned
+    status: released
+    released_at: 2026-10-14
     confidence: high
     features:
       - F-122
@@ -141,8 +146,9 @@ milestones:
       F-044.
   - id: M-11
     name: Undercut Moonshot
-    version: 2.6.0
-    status: planned
+    version: 2.5.0
+    status: released
+    released_at: 2026-10-07
     confidence: medium
     features:
       - F-106
