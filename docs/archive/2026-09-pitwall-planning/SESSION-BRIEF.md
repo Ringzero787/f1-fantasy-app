@@ -1,5 +1,7 @@
 # Session brief for the main Claude session
 
+> **Archived 2026-11-17.** A planning document from September 2026, kept for the reasoning. It describes the state before anything was built; statements such as "plans only", "not merged" or "not deployed" are no longer true. Current state: `docs/design/pitwall/README.md` and the feature registry. Paths inside this document are as they were in September 2026: this folder's files used to live in `docs/design/pitwall/`, and `HANDOFF.md` was that folder's `README.md`.
+
 Written 2026-09-19 by the session that did the Undercut monetization review, designed Undercut Pit Wall and opened PR #69. It carries everything that session learned so you can continue without its context. Everything is about **Undercut** (repo root). Nothing here touches `newgame/` (Track Limits).
 
 Read in this order: this file, `README.md` (build order, owner actions, do-nots), `ARCHITECTURE.md`, the two ADRs in `.aidlc/decisions/`, then open `prototype.html` in a browser. `RESEARCH.md` is background.

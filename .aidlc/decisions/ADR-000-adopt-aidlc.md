@@ -1,6 +1,6 @@
 # ADR-000: Adopt AIDLC
 
-Date: {{DATE}}
+Date: 2026-09-11
 Status: accepted
 
 ## Decision
