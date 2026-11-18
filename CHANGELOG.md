@@ -321,7 +321,7 @@ Undercut 2.3.0: Grid redesign complete with standings tracking and profile photo
 
 - Profile photos now upload to owner-scoped avatars/{uid}/user/ path with 5 MB limit and image/* type enforcement
 
-All notable changes to **Undercut** (the root app; Track Limits lives in `newgame/`).
+All notable changes to **Undercut**.
 
 Versions are Android `versionName (versionCode)`. Many fixes are **Cloud Functions**
 (server-side) and reach all users on deploy regardless of app version — those are

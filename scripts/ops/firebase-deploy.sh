@@ -11,8 +11,7 @@
 # aidlc wrapper loads it); it is deliberately not written in this public repo.
 #
 # Usage: scripts/ops/firebase-deploy.sh --only <targets> --project <id> [firebase deploy flags…]
-# Run from the directory whose firebase.json owns the targets (newgame/ for the
-# tracklimits functions codebase, the repo root for everything else).
+# Run from the repo root, whose firebase.json owns the targets.
 set -euo pipefail
 umask 077
 

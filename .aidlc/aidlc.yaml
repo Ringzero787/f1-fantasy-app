@@ -1,47 +1,43 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Ringzero787/aidlc/main/schemas/aidlc.schema.json
 name: f1-fantasy-app
-description: Two Expo apps in one repo — Undercut (F1 fantasy, repo root, com.undercut.app) and Track Limits (newgame/, com.tracklimits.app) — each with Firebase Cloud Functions.
+description: Undercut (fantasy motorsport, com.undercut.app) — an Expo app with Firebase Cloud Functions, the Pit Wall web portal (web/pitwall) and its worker (workers/pitwall). Track Limits left for Ringzero787/tracklimits on 2026-10-02; this repo still owns the Firestore rules, indexes and hosting both apps share.
 public: true
 profiles: [ mobile-react-native, firebase ]
 aidlc: { repo: Ringzero787/aidlc, ref: main }
 # Public repo: cannot call the private engine's reusable workflows, so `aidlc sync` renders standalone copies into .github/workflows/.
 standalone:
   setup: |
-    (cd newgame && npm ci)
-    (cd newgame/functions && npm ci --ignore-scripts)
     (cd functions && npm ci --ignore-scripts) || true
   release_setup: |
-    (cd newgame && npm ci)
-    (cd newgame/functions && npm ci --ignore-scripts)
+    (cd functions && npm ci --ignore-scripts) || true
 adopted_at: 2026-09-11
 baseline_sha: 3a63cf1eeec2dcfd28059fb0c58bf7b949f40ddb
 budgets: { pr_tokens: 150000, release_tokens: 500000, lookback_tokens: 200000 }
 overrides:
   hygiene:
-    # Both apps block on typecheck; Undercut's jest suite blocks (180 tests). Root ESLint is advisory until the
+    # Typecheck blocks; the jest suite blocks. Root ESLint is advisory until the
     # 4 rules-of-hooks errors are fixed (F-034); its 242 warnings are debt, not gates.
     lint: ""
-    typecheck: "npx tsc --noEmit && (cd newgame && npx tsc --noEmit) && (cd newgame/functions && npx tsc --noEmit -p .)"
-    # Undercut: jest (unit). Track Limits + repo: node:test on the compiled functions, the release-signing plugin,
-    # the aidlc op helpers and the release scripts (F-040, F-033, F-014).
-    test: "npx jest --ci && npm --prefix functions run build >/dev/null && node --test functions/test/*.test.js && npm run test:rules && npm --prefix newgame/functions run build >/dev/null && node --test newgame/functions/scripts/*.test.js newgame/functions/test/*.test.js newgame/plugins/*.test.js plugins/*.test.js scripts/*.test.js scripts/ops/*.test.js scripts/release/*.test.js && npm --prefix web/pitwall ci --no-audit --no-fund >/dev/null && npm --prefix web/pitwall test && VITE_FIREBASE_API_KEY=ci VITE_FIREBASE_PROJECT_ID=f1-app-18077 VITE_FIREBASE_APP_ID=ci npm --prefix web/pitwall run build >/dev/null && npm --prefix workers/pitwall test >/dev/null"
+    typecheck: "npx tsc --noEmit"
+    # jest (unit); node:test on the compiled functions, the rules suite, the release-signing plugin, the aidlc op
+    # helpers and the release scripts; then the portal and the worker.
+    test: "npx jest --ci && npm --prefix functions run build >/dev/null && node --test functions/test/*.test.js && npm run test:rules && node --test plugins/*.test.js scripts/*.test.js scripts/ops/*.test.js scripts/release/*.test.js && npm --prefix web/pitwall ci --no-audit --no-fund >/dev/null && npm --prefix web/pitwall test && VITE_FIREBASE_API_KEY=ci VITE_FIREBASE_PROJECT_ID=f1-app-18077 VITE_FIREBASE_APP_ID=ci npm --prefix web/pitwall run build >/dev/null && npm --prefix workers/pitwall test >/dev/null"
     advisory:
       - "npm run lint"
   build:
-    # PRs: the JS bundle export proves both apps compile without a native build. Store builds are local, never EAS:
-    # `aidlc run --tier release --unit tracklimits --version X.Y.Z` on the Linux build box runs tl-android (F-014);
-    # `--unit undercut` runs uc-android, uc-amazon and uc-ios the same way (F-048, F-049).
+    # PRs: the JS bundle export proves the app compiles without a native build. Store builds are local, never EAS:
+    # `aidlc run --tier release --unit undercut --version X.Y.Z` on the Linux build box runs uc-android, uc-amazon
+    # and uc-ios (F-048, F-049).
     # Shell scripts are invoked through `bash` so they work whatever file mode a checkout gives them.
-    command: "npx expo export --platform android --output-dir .aidlc/tmp/export-undercut && (cd newgame && npx expo export --platform android --output-dir ../.aidlc/tmp/export-tracklimits)"
-    output: .aidlc/tmp/export-tracklimits
+    command: "npx expo export --platform android --output-dir .aidlc/tmp/export-undercut"
+    output: .aidlc/tmp/export-undercut
     targets:
-      tl-android: { command: "bash scripts/release/build-tl-aab.sh", artifact: "newgame/android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
       uc-android: { command: "bash scripts/release/build-uc-aab.sh", artifact: "android/app/build/outputs/bundle/release/app-release.aab", runner: ubuntu-latest, tiers: [ release ] }
       uc-amazon: { command: "bash scripts/release/build-uc-apk-amazon.sh", artifact: "android/app/build/outputs/apk/release/app-release.apk", runner: ubuntu-latest, tiers: [ release ] }
       uc-ios: { command: "bash scripts/release/build-uc-ios.sh", artifact: ".aidlc/tmp/undercut-ios/*.ipa", runner: ubuntu-latest, tiers: [ release ] }
     manifests:
-      android: newgame/app.config.js
-      ios: newgame/app.config.js
+      android: app.config.js
+      ios: app.config.js
   security:
     semgrep_config: [ p/default, p/owasp-top-ten, p/secrets, p/typescript, p/react, p/nodejs ]
   privacy:
@@ -49,7 +45,9 @@ overrides:
     android_data_safety: .aidlc/data-safety.yaml
   release:
     stores: [ google_play, apple, amazon ]
-  # Production operations (aidlc op → G14/G15), F-038. Both apps share Firebase project f1-app-18077.
+  # Production operations (aidlc op → G14/G15), F-038. Firebase project f1-app-18077 is shared with Track Limits
+  # (Ringzero787/tracklimits), whose own repo carries its functions, lines and script kinds; the rules, index,
+  # storage-rules and hosting deploys for BOTH apps run from here.
   # Credentials stay on the Linux build box (service-account key; SA_KEY in ~/.config/aidlc/env); CI has
   # none. Logs and backups go to the SMB share because this repo is public and backups can hold user data.
   # Parameters are single-quoted by the engine; the helper scripts also reject anything but plain names/paths.
@@ -96,37 +94,6 @@ overrides:
         paths: [ scripts/ops/firebase-functions-delete.sh ]
         dryrun: "bash scripts/ops/firebase-functions-delete.sh dryrun {names} {region} {project}"
         apply: "bash scripts/ops/firebase-functions-delete.sh apply {names} {region} {project}"
-      tl-functions-deploy:
-        summary: "Track Limits functions (only = functions:tracklimits, or functions:tracklimits:<name>,…)"
-        deploy: true
-        params: [ only ]
-        paths: [ newgame/functions/src, newgame/functions/package.json, newgame/firebase.json ]
-        dryrun: "git --no-pager diff --stat {last_sha} HEAD -- newgame/functions/src newgame/functions/package.json newgame/firebase.json && npm --prefix newgame/functions run build"
-        apply: "npm --prefix newgame/functions run build && cd newgame && bash ../scripts/ops/firebase-deploy.sh --only {only} --project {project}"
-      tl-lines-seed:
-        summary: "Post Ben's weekly lines from a MODELS doc (race = madrid_2026, doc = path, source = ben_model_R16)"
-        params: [ race, doc, source ]
-        dryrun: "cd newgame/functions && node scripts/seedFromModelsDoc.js --doc={doc} --race={race} --source={source}"
-        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json ben_lines/{race}_race ben_lines/{race}_qualifying ben_lines/{race}_sprint"
-        apply: "cd newgame/functions && node scripts/seedFromModelsDoc.js --doc={doc} --race={race} --source={source} --write"
-        verify: "node newgame/functions/scripts/checkBenLines.js --race={race} --fail-on=high"
-        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=ben_lines/{race}_race,ben_lines/{race}_qualifying,ben_lines/{race}_sprint --write"
-      tl-lines-seed-sprint:
-        summary: "tl-lines-seed on a sprint weekend: also writes {race}_sprint from the race lines"
-        params: [ race, doc, source ]
-        dryrun: "cd newgame/functions && node scripts/seedFromModelsDoc.js --doc={doc} --race={race} --source={source} --sprint"
-        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json ben_lines/{race}_race ben_lines/{race}_qualifying ben_lines/{race}_sprint"
-        apply: "cd newgame/functions && node scripts/seedFromModelsDoc.js --doc={doc} --race={race} --source={source} --sprint --write"
-        verify: "node newgame/functions/scripts/checkBenLines.js --race={race} --fail-on=high"
-        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=ben_lines/{race}_race,ben_lines/{race}_qualifying,ben_lines/{race}_sprint --write"
-      tl-best-bets:
-        summary: "Ben's race best bets (picks = id:call,… — P2-P5 in range, O14.5 over, U17.5 under)"
-        params: [ race, picks ]
-        dryrun: "cd newgame/functions && node scripts/setBestBets.js --race={race} --picks={picks}"
-        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json ben_lines/{race}_race"
-        apply: "cd newgame/functions && node scripts/setBestBets.js --race={race} --picks={picks} --write"
-        verify: "node newgame/functions/scripts/checkBenLines.js --race={race} --fail-on=high"
-        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=ben_lines/{race}_race --write"
       pitwall-job:
         summary: "Run one Pit Wall worker job against production (job = projections; session = the refresh key, e.g. daily or fp1). Dry run reads only and prints the projections; apply writes pw_pages, pw_public and a pw_projections snapshot"
         params: [ job, session ]
@@ -212,28 +179,12 @@ overrides:
         backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json {backup}"
         apply: "node scripts/ops/run-script.js undercut {script} --apply"
         rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only={backup} --write"
-      tl-script:
-        summary: "Track Limits script that dry-runs by default and writes with --write (script = file name in newgame/functions/scripts; backup = comma-separated paths)"
-        params: [ script, backup ]
-        dryrun: "node scripts/ops/run-script.js tracklimits {script}"
-        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json {backup}"
-        apply: "node scripts/ops/run-script.js tracklimits {script} --write"
-        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only={backup} --write"
-  # G15 domain checks: Ben's odds model invariants (F-039) around every operation that writes lines.
-  checks:
-    domain:
-      - { name: ben-lines-before, command: "node newgame/functions/scripts/checkBenLines.js", kinds: [ tl-best-bets ], phases: [ pre ] }
-      - { name: ben-lines-after, command: "node newgame/functions/scripts/checkBenLines.js", kinds: [ tl-lines-seed, tl-lines-seed-sprint, tl-best-bets ], phases: [ post ] }
-      # F-042: monthly calibration backtest of Ben's lines (advisory). Runs on the build box with
-      # `aidlc run --tier lookback --gates G15`; in CI it skips (no Firestore credentials). The report goes to the
-      # private share, never this public repo — it shows where players beat the book.
-      - { name: ben-lines-calibration, command: "(npm --prefix newgame/functions run build >/dev/null 2>&1 || true) && node newgame/functions/scripts/calibrateBenLines.js --json --report=/mnt/smb/f1-app/aidlc-ops/reports/calibration-latest.md", tiers: [ lookback ], blocking: false }
 gates:
   # G05 and G06 ran out of their 8000-token budgets (thinking + answer) on the F-038 diff and crashed; give them room.
   G05: { max_tokens: 16000 }
   G06: { max_tokens: 16000 }
   G09: { blocking: warn }
-# Localization (decision 13). Undercut is the global flagship; Track Limits follows the same set.
+# Localization.
 # Nine languages chosen for F1's actual markets rather than a generic top-ten:
 #   es Spain + Mexico + LatAm · pt Brazil · fr France/Belgium/Canada · de Germany/Austria/Switzerland
 #   it Italy (Ferrari) · nl Netherlands · pl Poland · ja Japan (Suzuka, Honda) · zh China
@@ -257,16 +208,9 @@ trademark:
   watchlist: [ "Formula 1", "Formula One", "F1", "FIA", "Grand Prix" ]
   nice_classes: [ 9, 41, 42 ]
 stores: { google_play: true, apple: true, amazon: true }
-# Release units (F-014): the two apps version and release independently, on the Linux build box.
-# `aidlc run --tier release --unit tracklimits --version 0.1.43` → bump, local AAB build + checks, notes, tag tl-v0.1.43.
+# Release unit (F-014): `aidlc run --tier release --unit undercut --version X.Y.Z` on the Linux build box → bump, local
+# builds + checks, notes, tag uc-vX.Y.Z.
 releases:
-  tracklimits:
-    tag_prefix: tl-v
-    paths: [ newgame/ ]
-    changelog: newgame/CHANGELOG.md
-    targets: [ tl-android ]
-    features_prefix: [ "TL:", "Repo:" ]
-    bump: patch
   undercut:
     tag_prefix: uc-v
     paths: [ app/, src/, functions/, app.config.js, package.json, eas.json ]

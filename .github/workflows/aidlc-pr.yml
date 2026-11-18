@@ -45,8 +45,6 @@ jobs:
           command -v gitleaks >/dev/null || { echo "::error::gitleaks is not installed — see ADR-003"; exit 1; }
       - name: Project setup
         run: |
-          (cd newgame && npm ci)
-          (cd newgame/functions && npm ci --ignore-scripts)
           (cd functions && npm ci --ignore-scripts) || true
       - name: Install project deps
         run: |
