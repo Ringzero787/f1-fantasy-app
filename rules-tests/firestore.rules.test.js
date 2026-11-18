@@ -702,6 +702,8 @@ test('F-112: an admin reads the whole users and fantasyTeams collections; a play
     await setDoc(doc(a, 'fantasyTeams', 'tM'), { userId: MALLORY, leagueId: null, name: 'Solo', budget: 500, totalPoints: 10, drivers: [] });
   });
   const adminDb = env.authenticatedContext('admin-1', { admin: true }).firestore();
+  // This list is the assertion that pins the rule order: it fails when isAdmin() comes after the
+  // league lookup. The users list and the single get below pass either way; they cover the rest of the page.
   const teams = await assertSucceeds(getDocs(collection(adminDb, 'fantasyTeams')));
   assert.equal(teams.size, 2);
   await assertSucceeds(getDocs(collection(adminDb, 'users')));
