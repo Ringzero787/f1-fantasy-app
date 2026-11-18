@@ -17,8 +17,8 @@
 //   --paths-check=FILE  apply: refuse unless every path the run will write is captured by FILE
 //                       (something created since the dry run would otherwise escape the backup).
 //   --emulator=HOST:PORT  rehearsal only: read and write the Firestore emulator at a loopback
-//                       address. The service-account key is never loaded, so production is
-//                       unreachable; the project id is still checked.
+//                       address. The service-account key is never loaded, so nothing in the run
+//                       can authenticate to production (the key's project check is not needed).
 //   --fail-after=N      rehearsal only, needs --emulator: stop dead after N committed groups, to
 //                       rehearse a run that dies halfway.
 const path = require('path');
@@ -80,11 +80,13 @@ async function openf1(pathAndQuery) {
 function toBatch(batch, op, R) {
   const data = Object.fromEntries(Object.entries(op.data).map(([k, v]) => [k, v === R.DELETE ? admin.firestore.FieldValue.delete() : v === R.NOW ? admin.firestore.FieldValue.serverTimestamp() : v]));
   const ref = db.doc(op.path);
-  if (op.kind === 'create') batch.create(ref, data);
-  else if (op.kind === 'update') batch.update(ref, data);
-  else if (op.kind === 'replace') batch.set(ref, data, { mergeFields: Object.keys(data) });
-  else if (op.kind === 'merge') batch.set(ref, data, { merge: true });
-  else throw new Error(`unknown write kind ${op.kind} for ${op.path}`);
+  const call = R.writeCall(op);
+  if (call.method !== 'set') batch[call.method](ref, data);
+  else if ('mergeFields' in call.options) {
+    // each name as ONE literal segment: a string is parsed as a path, so a team field a player named
+    // `a.b` (or with * ~ [ ]) would fail the write — and every re-run with it
+    batch.set(ref, data, { mergeFields: call.options.mergeFields.map((k) => new admin.firestore.FieldPath(k)) });
+  } else batch.set(ref, data, call.options);
 }
 
 /** ISO strings in a race or season document become Timestamps on write. */
@@ -166,8 +168,9 @@ async function main(conn) {
   console.log(`\n== op backup paths (a restore deletes the documents listed here that do not exist yet): ${plan.backupPaths.length}`);
   if (conn.pathsOut) {
     fs.mkdirSync(path.dirname(conn.pathsOut), { recursive: true, mode: 0o700 });
-    fs.writeFileSync(conn.pathsOut, plan.backupPaths.join('\n') + '\n', { mode: 0o600 });
-    console.log(`  written to ${conn.pathsOut}`);
+    const body = plan.backupPaths.join('\n') + '\n';
+    fs.writeFileSync(conn.pathsOut, body, { mode: 0o600 });
+    console.log(`  written to ${conn.pathsOut} (sha256 ${require('crypto').createHash('sha256').update(body).digest('hex')})`);
   } else {
     console.log(plan.backupPaths.join(','));
   }
@@ -175,11 +178,12 @@ async function main(conn) {
   if (!apply) { console.log('\n== dry run: nothing written (add --apply)'); return; }
   if (blockers.length) throw new Error(`refusing to write: ${blockers.length} precondition(s) not met`);
   if (conn.pathsCheck) {
-    const listed = fs.readFileSync(conn.pathsCheck, 'utf8').split('\n');
+    const listed = require(path.join(__dirname, '..', '..', 'scripts', 'ops', '_paths.js')).readPathsFile(conn.pathsCheck);
     const writes = plan.groups.flatMap((g) => g.ops.map((o) => o.path));
     const missing = R.uncoveredPaths(writes, listed);
     if (missing.length) throw new Error(`refusing to write: ${missing.length} path(s) this run writes are not in the backup list ${conn.pathsCheck} (created since the dry run?): ${missing.slice(0, 5).join(', ')}. Plan a new op.`);
-    console.log(`\n== every write is covered by ${conn.pathsCheck}`);
+    // the same digest the dry run printed: a list edited on the share in between shows up here
+    console.log(`\n== every write is covered by ${conn.pathsCheck} (sha256 ${require('crypto').createHash('sha256').update(fs.readFileSync(conn.pathsCheck)).digest('hex')}; compare with the dry run)`);
   } else if (!conn.emulator) {
     throw new Error('refusing to write: an apply on production needs --paths-check=<the dry run\'s path file>, so a write the backup never saw cannot happen.');
   }
@@ -191,20 +195,21 @@ async function main(conn) {
   const failed = [];
   for (const g of plan.groups) {
     if (g.label === 'season switch' && failed.length) break;
-    const batch = db.batch();
-    for (const op of g.ops) {
-      const o = op.path.startsWith('races/') ? { ...op, data: SCHEDULE_TO_TS(op.data) } : op;
-      if (op.path === `seasons/${TO}`) {
-        for (const k of ['startDate', 'endDate']) if (o.data[k]) o.data = { ...o.data, [k]: admin.firestore.Timestamp.fromDate(new Date(o.data[k])) };
-      }
-      toBatch(batch, o, R);
-    }
     if (conn.failAfter !== null && done >= conn.failAfter) {
       // rehearsal: die the way a lost connection or a killed process would, mid-run, with no cleanup
       console.error(`!! --fail-after=${conn.failAfter}: stopping dead before group "${g.label}" (${done} committed)`);
       process.exit(3);
     }
     try {
+      // built inside the try: a write that cannot even be constructed fails its own group, not the run
+      const batch = db.batch();
+      for (const op of g.ops) {
+        const o = op.path.startsWith('races/') ? { ...op, data: SCHEDULE_TO_TS(op.data) } : op;
+        if (op.path === `seasons/${TO}`) {
+          for (const k of ['startDate', 'endDate']) if (o.data[k]) o.data = { ...o.data, [k]: admin.firestore.Timestamp.fromDate(new Date(o.data[k])) };
+        }
+        toBatch(batch, o, R);
+      }
       await batch.commit();
       done++;
     } catch (e) {

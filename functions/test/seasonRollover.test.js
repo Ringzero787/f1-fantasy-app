@@ -374,3 +374,23 @@ test('F-154: no update() in the plan writes a top-level `constructor` (the SDK c
   assert.deepEqual(bad.map((o) => o.path), []);
 });
 
+
+test('F-154: how each write is sent — the team reset replaces its named fields, guarded by an update of the same team', () => {
+  const plan = R.planRollover(input());
+  const t1 = plan.groups.find((g) => g.label === 'team t1');
+  const [archive, guard, reset] = t1.ops;
+  assert.deepEqual(R.writeCall(archive), { method: 'create' });
+  // update() fails the batch when the team is gone, so the set below can never recreate a deleted team
+  assert.deepEqual(R.writeCall(guard), { method: 'update' });
+  assert.equal(guard.path, reset.path);
+  const call = R.writeCall(reset);
+  assert.equal(call.method, 'set');
+  assert.deepEqual(call.options, { mergeFields: Object.keys(reset.data) }, 'mergeFields, never merge: true (a deep merge would keep 2026 keys inside lockStatus)');
+  assert.ok(call.options.mergeFields.includes('constructor'));
+  // every field the reset deletes is in the mask, which is what lets FieldValue.delete() through
+  for (const [k, v] of Object.entries(reset.data)) if (v === R.DELETE) assert.ok(call.options.mergeFields.includes(k), k);
+  assert.deepEqual(R.writeCall({ kind: 'merge', path: 'config/app', data: {} }), { method: 'set', options: { merge: true } });
+  assert.throws(() => R.writeCall({ kind: 'upsert', path: 'x/y', data: {} }), /unknown write kind/);
+  // every replace in the plan sits after an update of the same document in the same group
+  for (const g of plan.groups) g.ops.forEach((o, i) => { if (o.kind === 'replace') assert.ok(g.ops.slice(0, i).some((p) => p.kind === 'update' && p.path === o.path), `${g.label}: unguarded replace`); });
+});

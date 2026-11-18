@@ -13,6 +13,14 @@ function loadAdmin() {
   }
 }
 
+const { firestoreTarget } = require('./_paths');
+const where = firestoreTarget(process.argv.slice(2), process.env);
+if (where.error) throw new Error(where.error);
+// set before initializeApp: the SDK reads it once, when the client is created
+if (where.target === 'emulator') process.env.FIRESTORE_EMULATOR_HOST = where.host;
+/** 'production' or 'emulator': stamped into every backup, checked by every restore. */
+const target = where.target;
+
 const admin = loadAdmin();
 const project = process.env.FIRESTORE_PROJECT || 'f1-app-18077';
 admin.initializeApp({ projectId: project });
@@ -55,4 +63,4 @@ function parseArgs(argv) {
   return { flags, rest };
 }
 
-module.exports = { admin, db, project, encode, decode, parseArgs };
+module.exports = { admin, db, project, target, encode, decode, parseArgs };

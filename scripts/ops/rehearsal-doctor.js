@@ -9,16 +9,19 @@
 //     the new race id, so prices see a plausible extra race instead of a missed one;
 //   - pendingResults still pending for FROM → status 'rehearsal-cleared';
 //   - Moonshot calls of FROM not settled or cancelled → CANCELLED.
-// The full procedure is in .aidlc/specs/F-150.md ("Rehearsal").
+//   - with --hostile-fields: three teams get top-level fields a player could write to their own team
+//     (`a.b`, `x*y`, `odd~[name]`), to prove the reset still clears them (F-154 security review).
+// The full procedure is scripts/ops/rollover-rehearsal.sh; the results are in .aidlc/specs/F-150.md.
 //
-// Usage: FIRESTORE_EMULATOR_HOST=127.0.0.1:8791 node scripts/ops/rehearsal-doctor.js [--write]
+// Usage: node scripts/ops/rehearsal-doctor.js --emulator=127.0.0.1:8791 [--write]
 const FROM = '2026';
-const HOST = process.env.FIRESTORE_EMULATOR_HOST || '';
+const { firestoreTarget } = require('./_paths');
 
-function refuseUnlessEmulator(host) {
-  return /^(127\.0\.0\.1|localhost|\[::1\]):\d{2,5}$/.test(host)
-    ? null
-    : `FIRESTORE_EMULATOR_HOST must be a loopback HOST:PORT (got ${JSON.stringify(host)}). This script only ever doctors an emulator copy.`;
+/** Null when this run would reach a loopback emulator; otherwise why it refuses. Production is never an option here. */
+function refuseUnlessEmulator(argv, env) {
+  const t = firestoreTarget(argv, env);
+  if (t.error) return t.error;
+  return t.target === 'emulator' ? null : 'pass --emulator=HOST:PORT: this script only ever doctors an emulator copy.';
 }
 
 async function main(write) {
@@ -27,8 +30,8 @@ async function main(write) {
   const { Timestamp } = require(require.resolve('firebase-admin', { paths: [require('path').join(__dirname, '..', '..', 'functions')] })).firestore;
   const races = (await db.collection('races').where('seasonId', '==', FROM).get()).docs;
   const open = races.filter((d) => !['completed', 'cancelled'].includes(d.data().status));
-  const completed = races.filter((d) => d.data().status === 'completed')
-    .sort((a, b) => a.data().schedule.race.toMillis() - b.data().schedule.race.toMillis());
+  const raceMs = (d) => { const t = d.data().schedule && d.data().schedule.race; return t && typeof t.toMillis === 'function' ? t.toMillis() : 0; };
+  const completed = races.filter((d) => d.data().status === 'completed').sort((a, b) => raceMs(a) - raceMs(b));
   const template = completed[completed.length - 1];
   if (!template) throw new Error(`no completed ${FROM} race to copy raceScores from`);
   const rows = (await db.collection('raceScores').where('raceId', '==', template.id).get()).docs;
@@ -46,11 +49,16 @@ async function main(write) {
     const d = m.data();
     if ((d.seasonId === FROM || fromIds.has(d.raceId)) && d.status !== 'CANCELLED' && !d.settledAt) ops.push([`moonshots/${m.id}`, 'update', { status: 'CANCELLED', rehearsalDoctored: true }]);
   }
-  console.log(`emulator ${HOST}: ${open.length} race(s) to complete (${open.map((d) => d.id).join(', ') || 'none'}), raceScores copied from ${template.id} (${rows.length} rows each), ${ops.length} writes`);
+  if (process.argv.includes('--hostile-fields')) {
+    for (const t of (await db.collection('fantasyTeams').limit(3).get()).docs) ops.push([`fantasyTeams/${t.id}`, 'set-merge', { 'a.b': 1, 'x*y': 2, 'odd~[name]': 3 }]);
+  }
+  console.log(`emulator ${process.env.FIRESTORE_EMULATOR_HOST}: ${open.length} race(s) to complete (${open.map((d) => d.id).join(', ') || 'none'}), raceScores copied from ${template.id} (${rows.length} rows each), ${ops.length} writes`);
   if (!write) { console.log('dry run: pass --write'); return; }
   let batch = db.batch(), n = 0;
   for (const [p, kind, data] of ops) {
-    if (kind === 'set') batch.set(db.doc(p), data); else batch.update(db.doc(p), data);
+    if (kind === 'set') batch.set(db.doc(p), data);
+    else if (kind === 'set-merge') batch.set(db.doc(p), data, { merge: true });   // set() keys are literal, as a client's are
+    else batch.update(db.doc(p), data);
     if (++n % 400 === 0) { await batch.commit(); batch = db.batch(); }
   }
   await batch.commit();
@@ -60,7 +68,7 @@ async function main(write) {
 module.exports = { refuseUnlessEmulator };
 
 if (require.main === module) {
-  const why = refuseUnlessEmulator(HOST);
+  const why = refuseUnlessEmulator(process.argv.slice(2), process.env);
   if (why) { console.error(why); process.exit(2); }
   main(process.argv.includes('--write')).then(() => process.exit(0)).catch((e) => { console.error(e.message); process.exit(1); });
 }

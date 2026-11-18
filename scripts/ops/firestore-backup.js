@@ -11,10 +11,11 @@
 // overwritten (it is the older, pre-operation state); the new snapshot is written
 // next to it with a timestamp suffix. Files are created owner-only: backups can
 // hold user data. Credentials: GOOGLE_APPLICATION_CREDENTIALS or ADC. Project:
-// FIRESTORE_PROJECT or f1-app-18077.
+// FIRESTORE_PROJECT or f1-app-18077. Database: production, or the emulator with --emulator=HOST:PORT
+// (F-154; _paths.js firestoreTarget). The backup records which, and a restore refuses the other.
 const fs = require('fs');
 const path = require('path');
-const { db, project, encode, parseArgs } = require('./_firestore');
+const { db, project, target, encode, parseArgs } = require('./_firestore');
 const { validFirestorePath, readPathsFile } = require('./_paths');
 
 async function main() {
@@ -40,7 +41,7 @@ async function main() {
   let out = flags.out;
   if (fs.existsSync(out)) out = out.replace(/(\.json)?$/, `.${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   fs.mkdirSync(path.dirname(out), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(out, JSON.stringify({ project, taken_at: new Date().toISOString(), paths, docs }, null, 1), { mode: 0o600 });
+  fs.writeFileSync(out, JSON.stringify({ project, target, taken_at: new Date().toISOString(), paths, docs }, null, 1), { mode: 0o600 });
   const present = Object.values(docs).filter(Boolean).length;
   console.log(`backed up ${present} document(s), ${Object.keys(docs).length - present} absent, from ${paths.join(' ')} → ${out}`);
 }

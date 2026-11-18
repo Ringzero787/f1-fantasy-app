@@ -230,6 +230,17 @@ export const NOW = Object.freeze({ __now: true }) as unknown as never;
  * because the same group also holds an update of that document.
  */
 export interface Op { kind: 'create' | 'update' | 'merge' | 'replace'; path: string; data: Doc }
+
+/** How the script sends one op in a batch: the method and its options. Pure, so the mapping is tested. */
+export function writeCall(op: Op): { method: 'create' | 'update' | 'set'; options?: { merge: true } | { mergeFields: string[] } } {
+  switch (op.kind) {
+    case 'create': return { method: 'create' };
+    case 'update': return { method: 'update' };
+    case 'merge': return { method: 'set', options: { merge: true } };
+    case 'replace': return { method: 'set', options: { mergeFields: Object.keys(op.data) } };
+    default: throw new Error(`unknown write kind ${(op as Op).kind} for ${(op as Op).path}`);
+  }
+}
 /** Writes that commit together or not at all, in this order: the season pin, all prices, one team, one league with its members and archive, the calendar, the season switch. */
 export interface Group { label: string; ops: Op[] }
 
