@@ -1,7 +1,9 @@
 // Snapshot Firestore documents or collections to a JSON file — the `backup`
 // step of aidlc op data kinds. Read-only against Firestore.
 //
-// Usage: node scripts/ops/firestore-backup.js --out=<file.json> <path>[,<path>…] …
+// Usage: node scripts/ops/firestore-backup.js --out=<file.json> [--paths-file=<file>] <path>[,<path>…] …
+//   --paths-file adds the paths listed in a file, one per line (F-154: the season rollover's dry run
+//   writes that file, so the backup takes exactly the list the dry run planned).
 //   A path with an even number of segments is a document (ben_lines/madrid_2026_race);
 //   odd is a whole collection (fantasyTeams). A document that does not exist is
 //   recorded as absent, so a restore deletes what the operation created.
@@ -13,12 +15,14 @@
 const fs = require('fs');
 const path = require('path');
 const { db, project, encode, parseArgs } = require('./_firestore');
-const { validFirestorePath } = require('./_paths');
+const { validFirestorePath, readPathsFile } = require('./_paths');
 
 async function main() {
   const { flags, rest } = parseArgs(process.argv.slice(2));
-  const paths = rest.flatMap((p) => p.split(',')).map((p) => p.trim()).filter(Boolean);
-  if (typeof flags.out !== 'string' || !paths.length) throw new Error('usage: firestore-backup.js --out=<file.json> <document-or-collection path>…');
+  if ('paths-file' in flags && typeof flags['paths-file'] !== 'string') throw new Error('--paths-file needs a file (--paths-file=<file>)');
+  const fromFile = typeof flags['paths-file'] === 'string' ? readPathsFile(flags['paths-file']) : [];
+  const paths = [...rest.flatMap((p) => p.split(',')), ...fromFile].map((p) => p.trim()).filter(Boolean);
+  if (typeof flags.out !== 'string' || !paths.length) throw new Error('usage: firestore-backup.js --out=<file.json> [--paths-file=<file>] <document-or-collection path>…');
   const bad = paths.filter((p) => !validFirestorePath(p));
   if (bad.length) throw new Error(`not a plain Firestore path: ${bad.join(', ')}`);
 

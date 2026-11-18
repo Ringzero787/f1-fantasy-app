@@ -20,4 +20,11 @@ function validScriptName(name) {
   return /^[A-Za-z0-9_-][A-Za-z0-9._-]*\.(c|m)?js$/.test(String(name));
 }
 
-module.exports = { validFirestorePath, withinRoots, validScriptName };
+// F-154: a path list kept in a file (one path per line, blank lines and # comments ignored), so an
+// op's backup and rollback read the exact list its dry run wrote instead of a pasted parameter.
+function readPathsFile(file) {
+  const fs = require('fs');
+  return fs.readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+}
+
+module.exports = { validFirestorePath, withinRoots, validScriptName, readPathsFile };

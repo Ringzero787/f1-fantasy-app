@@ -1,7 +1,8 @@
 // Restore documents from a firestore-backup.js snapshot — the `rollback` step
 // of aidlc op data kinds.
 //
-// Usage: node scripts/ops/firestore-restore.js --from=<backup.json> --only=<path>[,<path>…] [--write]
+// Usage: node scripts/ops/firestore-restore.js --from=<backup.json> (--only=<path>[,<path>…] | --only-file=<file>) [--write]
+// --only-file reads the paths from a file, one per line (F-154: the season rollover's path list).
 // Without --write it lists what it would do. Documents that existed are
 // overwritten with their backed-up contents (no merge); documents recorded as
 // absent are deleted. --only names the documents/collections the operation
@@ -10,7 +11,7 @@
 // backup file cannot reach other collections. Documents that appeared later in
 // a backed-up collection are left alone — other users may have created them.
 const fs = require('fs');
-const { validFirestorePath, withinRoots } = require('./_paths');
+const { validFirestorePath, withinRoots, readPathsFile } = require('./_paths');
 
 // Pure: what a restore of `backup` would do, or why it is refused.
 function planRestore(backup, only, project) {
@@ -27,7 +28,11 @@ async function main() {
   const { db, project, decode, parseArgs } = require('./_firestore');
   const { flags } = parseArgs(process.argv.slice(2));
   if (typeof flags.from !== 'string') throw new Error('usage: firestore-restore.js --from=<backup.json> --only=<paths> [--write]');
-  const only = typeof flags.only === 'string' ? flags.only.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  if ('only-file' in flags && typeof flags['only-file'] !== 'string') throw new Error('--only-file needs a file (--only-file=<file>)');
+  const only = [
+    ...(typeof flags.only === 'string' ? flags.only.split(',') : []),
+    ...(typeof flags['only-file'] === 'string' ? readPathsFile(flags['only-file']) : []),
+  ].map((s) => s.trim()).filter(Boolean);
   if (flags.write && !only.length) throw new Error('--write needs --only=<the paths the operation touched>');
 
   const backup = JSON.parse(fs.readFileSync(flags.from, 'utf8'));
