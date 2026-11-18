@@ -463,10 +463,13 @@ service cloud.firestore {
       );
       // F-112: a list must be the owner's own teams or one league's teams — never the whole collection.
       // Firestore proves this from the query's constraints (where userId == uid / where leagueId == X).
+      // The admin check goes FIRST. Written last, it was never reached: a query with no league
+      // constraint fails on the league lookup before the admin claim is read, so the admin page's
+      // "all teams" read was refused from the day this rule shipped. The rules test holds the order.
       allow list: if isAuthenticated() && (
+        isAdmin() ||
         resource.data.userId == request.auth.uid ||
-        (resource.data.leagueId != null && (isLeagueMember(resource.data.leagueId) || isLeagueOwner(resource.data.leagueId))) ||
-        isAdmin()
+        (resource.data.leagueId != null && (isLeagueMember(resource.data.leagueId) || isLeagueOwner(resource.data.leagueId)))
       );
       // Create allowed only with a pristine financial state — a client cannot
       // mint a team with extra budget, a pre-filled roster, or points.
