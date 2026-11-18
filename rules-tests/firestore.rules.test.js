@@ -691,6 +691,30 @@ test('pending members read no league content; approved members do; team and noti
   await assertFails(getDocs(collection(db(ALICE), 'notifications')));
 });
 
+// The admin page (admin.humannpc.com) reads these collections whole, as an account with the admin
+// claim. The team list was refused from F-112 until the admin check moved to the front of its rule.
+test('F-112: an admin reads the whole users and fantasyTeams collections; a player still cannot', async () => {
+  await seedLeague(); await seedMember('L1', ALICE);
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'users', ALICE), { displayName: 'Alice' });
+    await setDoc(doc(a, 'fantasyTeams', 'tA'), { userId: ALICE, leagueId: 'L1', name: 'Alice Racing', budget: 500, totalPoints: 10, drivers: [] });
+    await setDoc(doc(a, 'fantasyTeams', 'tM'), { userId: MALLORY, leagueId: null, name: 'Solo', budget: 500, totalPoints: 10, drivers: [] });
+  });
+  const adminDb = env.authenticatedContext('admin-1', { admin: true }).firestore();
+  // This list is the assertion that pins the rule order: it fails when isAdmin() comes after the
+  // league lookup. The users list and the single get below pass either way; they cover the rest of the page.
+  const teams = await assertSucceeds(getDocs(collection(adminDb, 'fantasyTeams')));
+  assert.equal(teams.size, 2);
+  await assertSucceeds(getDocs(collection(adminDb, 'users')));
+  await assertSucceeds(getDoc(doc(adminDb, 'fantasyTeams', 'tM')));
+  // the claim is what opens it: the same account without the claim, and a claim that is not `true`, get nothing
+  await assertFails(getDocs(collection(env.authenticatedContext('admin-1').firestore(), 'fantasyTeams')));
+  await assertFails(getDocs(collection(env.authenticatedContext('admin-1', { admin: 'true' }).firestore(), 'fantasyTeams')));
+  await assertFails(getDocs(collection(db(ALICE), 'fantasyTeams')));
+  await assertFails(getDocs(collection(db(ALICE), 'users')));
+});
+
 // ── F-075 Pit Wall: handoff codes and the worker's collections are Admin SDK only ──
 test('pit wall server collections: no client can read or write them, signed in or not', async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
