@@ -42,6 +42,7 @@ test('Google test lab and Amazon reviewers', () => {
 test('unknown times or no address: never marked', () => {
   assert.equal(testAccountReason(acct({ createdMs: 0 })), null);
   assert.equal(testAccountReason(acct({ lastActiveMs: 0 })), null);
+  assert.equal(testAccountReason(acct({ lastActiveMs: T0 - 1 })), null);
   assert.equal(testAccountReason(acct({ email: null })), null);
   assert.equal(testAccountReason(acct({ email: '@gmail.com' })), null);
 });

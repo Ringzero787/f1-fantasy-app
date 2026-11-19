@@ -11,6 +11,8 @@
 //
 // A real player marked by mistake: add the uid to KEEP, commit, and remove the field through a
 // new op (the rollback restores the whole collection, so it is the wrong tool for one user).
+// A marked user who deletes their own document (account deletion) and signs up again comes back
+// unmarked; rerunning this script marks them again. Safe to rerun: marked users are skipped.
 const admin = require('firebase-admin');
 const path = require('path');
 
@@ -74,15 +76,19 @@ async function run(apply) {
   if (!apply) { console.log('dry run: pass --apply to write'); return; }
 
   const { FieldValue } = admin.firestore;
-  for (let i = 0; i < marks.length; i += 400) {
-    const batch = db.batch();
-    for (const m of marks.slice(i, i + 400)) {
-      // update(): a user deleted since the read is skipped by the failure, not recreated
-      batch.update(db.collection('users').doc(m.uid), { testAccount: { reason: m.reason, markedAt: FieldValue.serverTimestamp(), by: 'F-163' } });
+  let marked = 0, gone = 0;
+  for (const m of marks) {
+    try {
+      // update(), one user at a time: a user deleted since the read fails alone (NOT_FOUND) and is
+      // not recreated; every other mark still lands
+      await db.collection('users').doc(m.uid).update({ testAccount: { reason: m.reason, markedAt: FieldValue.serverTimestamp(), by: 'F-163' } });
+      marked++;
+    } catch (e) {
+      if (e.code !== 5) throw e;
+      gone++;
     }
-    await batch.commit();
   }
-  console.log(`marked ${marks.length}`);
+  console.log(`marked ${marked}${gone ? `; ${gone} deleted since the read, skipped` : ''}`);
 }
 
 if (require.main === module) {

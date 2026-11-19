@@ -33,7 +33,8 @@ const lettersOf = (s: string | null | undefined) => (s || '').toLowerCase().repl
 /** Why this account is a test account, or null for a player (or anyone we are not sure about). */
 export function testAccountReason(a: AccountFacts): TestAccountReason | null {
   if (!a.createdMs || !a.lastActiveMs) return null;
-  if (a.lastActiveMs - a.createdMs >= RETURNED_AFTER_MS) return null;
+  // a clock that runs backwards is not evidence of anything
+  if (a.lastActiveMs < a.createdMs || a.lastActiveMs - a.createdMs >= RETURNED_AFTER_MS) return null;
   const email = (a.email || '').trim().toLowerCase();
   const at = email.lastIndexOf('@');
   if (at < 1) return null;
