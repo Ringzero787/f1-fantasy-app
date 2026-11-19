@@ -16,8 +16,8 @@ async function count(q: FirebaseFirestore.Query): Promise<number> {
 }
 
 /** today = created in the last 24h, all = every doc. */
-async function usage(col: string, since: admin.firestore.Timestamp, base?: FirebaseFirestore.Query): Promise<UsageCount> {
-  const q = base ?? db.collection(col);
+async function usage(col: string, since: admin.firestore.Timestamp): Promise<UsageCount> {
+  const q = db.collection(col);
   const [today, all] = await Promise.all([count(q.where('createdAt', '>=', since)), count(q)]);
   return { today, all };
 }
@@ -51,7 +51,9 @@ export async function runUndercutStats(now = Date.now()) {
       usage('fantasyTeams', since),
       usage('leagues', since),
       usage('moonshots', since),
-      usage('purchases', since, db.collection('purchases').where('status', '==', 'validated')),
+      // Every purchases doc is written by validatePurchase after a store verified it; filtering on
+      // status as well would need a (status, createdAt) composite index.
+      usage('purchases', since),
       // Undercut and Track Limits share errorLogs; Track Limits stamps app: 'tracklimits'.
       db.collection('errorLogs').where('createdAt', '>=', since).select('app').get(),
     ]);
@@ -85,6 +87,6 @@ export const aggregateAdminStats = onSchedule(
 );
 
 export const getAdminStats = onCall({ memory: '512MiB', timeoutSeconds: 300 }, async (request) => {
-  if (!request.auth?.token?.admin) throw new HttpsError('permission-denied', 'Admin only');
+  if (request.auth?.token?.admin !== true) throw new HttpsError('permission-denied', 'Admin only');
   return runUndercutStats();
 });
