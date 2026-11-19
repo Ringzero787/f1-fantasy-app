@@ -1047,6 +1047,17 @@ test('errorLogs: a 2001-char message is refused; a normal report still writes', 
   await assertFails(addDoc(collection(db(ALICE), 'errorLogs'), { message: 'x'.repeat(2001) }));
 });
 
+test('admin stats (F-163): the admin claim reads, players do not, nobody writes from a client', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'admin', 'projects', 'undercut', 'stats'), { totalUsers: 1 });
+  });
+  const adminDb = env.authenticatedContext('boss', { admin: true }).firestore();
+  await assertSucceeds(getDoc(doc(adminDb, 'admin', 'projects', 'undercut', 'stats')));
+  await assertFails(getDoc(doc(db(ALICE), 'admin', 'projects', 'undercut', 'stats')));
+  await assertFails(setDoc(doc(adminDb, 'admin', 'projects', 'undercut', 'stats'), { totalUsers: 9 }));
+  await assertFails(setDoc(doc(db(ALICE), 'admin', 'projects', 'undercut', 'stats'), { totalUsers: 9 }));
+});
+
 test('TL members cannot mint or rewrite scoring fields', async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const a = ctx.firestore();

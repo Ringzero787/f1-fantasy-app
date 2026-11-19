@@ -8,6 +8,7 @@ export * from './scoring/calculatePoints';
 export * from './pricing/updatePrices';
 export * from './locks/teamLocks';
 export * from './admin/setAdminClaim';
+export { aggregateAdminStats, getAdminStats } from './admin/adminStats';
 export * from './news/fetchNews';
 export * from './invites/sendInviteEmail';
 export * from './purchases/validatePurchase';

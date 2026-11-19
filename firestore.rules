@@ -555,6 +555,14 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Admin stats (F-163): written only by the getAdminStats / aggregateAdminStats functions
+    // (Admin SDK), read by the humannpc admin App Stats page with the admin claim. Counts and
+    // windows only — no per-user rows.
+    match /admin/projects/{app}/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Error logs — users can create, only admins can read, immutable.
     // Cap the payload so a signed-in client cannot fill the collection with
     // megabyte docs (Undercut and Track Limits both write here).
