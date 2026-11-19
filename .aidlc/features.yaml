@@ -2113,7 +2113,8 @@ features:
   - id: F-163
     name: "UC: admin stats aggregator"
     summary: "Daily and on-demand server aggregation of Undercut usage stats into admin/projects/undercut (the shared stats contract QuiltWall uses) for the humannpc admin App Stats page, plus an admin-only read rule for admin/projects/**"
-    status: planned
+    status: shipped
+    shipped_at: 2026-11-19
     spec: .aidlc/specs/F-163.md
     created_at: 2026-11-19
     keywords:
