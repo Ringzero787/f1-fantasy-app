@@ -1,7 +1,10 @@
 // Restore documents from a firestore-backup.js snapshot — the `rollback` step
 // of aidlc op data kinds.
 //
-// Usage: node scripts/ops/firestore-restore.js --from=<backup.json> --only=<path>[,<path>…] [--write]
+// Usage: node scripts/ops/firestore-restore.js --from=<backup.json> (--only=<path>[,<path>…] | --only-file=<file>) [--write]
+// --only-file reads the paths from a file, one per line (F-154: the season rollover's path list).
+// --emulator=HOST:PORT restores into the emulator; a backup taken from the other database is refused,
+// except --load-production-copy, which loads a production backup into the emulator for a rehearsal.
 // Without --write it lists what it would do. Documents that existed are
 // overwritten with their backed-up contents (no merge); documents recorded as
 // absent are deleted. --only names the documents/collections the operation
@@ -10,13 +13,20 @@
 // backup file cannot reach other collections. Documents that appeared later in
 // a backed-up collection are left alone — other users may have created them.
 const fs = require('fs');
-const { validFirestorePath, withinRoots } = require('./_paths');
+const { validFirestorePath, withinRoots, readPathsFile } = require('./_paths');
 
 // Pure: what a restore of `backup` would do, or why it is refused.
-function planRestore(backup, only, project) {
+function planRestore(backup, only, project, target = 'production', { loadProductionCopy = false } = {}) {
   const badRoots = only.filter((r) => !validFirestorePath(r));
   if (badRoots.length) throw new Error(`not a plain Firestore path in --only: ${badRoots.join(', ')}`);
   if (backup.project !== project) throw new Error(`backup is from ${backup.project}, target is ${project}`);
+  // F-154: an emulator backup carries the production project id too, so the database is checked on its own.
+  // Backups from before the stamp were all taken from production.
+  const from = backup.target || 'production';
+  // the one crossing allowed: loading a production copy INTO the emulator for a rehearsal, asked for by name
+  const rehearsalLoad = loadProductionCopy && from === 'production' && target === 'emulator';
+  if (loadProductionCopy && !rehearsalLoad) throw new Error('--load-production-copy only loads a production backup into the emulator (--emulator=HOST:PORT)');
+  if (from !== target && !rehearsalLoad) throw new Error(`backup was taken from the ${from}, this restore would write the ${target}`);
   const entries = Object.entries(backup.docs || {});
   const outside = entries.map(([p]) => p).filter((p) => !validFirestorePath(p) || (only.length && !withinRoots(p, only)));
   if (outside.length) throw new Error(`backup names ${outside.length} document(s) outside --only, refusing: ${outside.slice(0, 5).join(', ')}`);
@@ -24,14 +34,18 @@ function planRestore(backup, only, project) {
 }
 
 async function main() {
-  const { db, project, decode, parseArgs } = require('./_firestore');
+  const { db, project, target, decode, parseArgs } = require('./_firestore');
   const { flags } = parseArgs(process.argv.slice(2));
   if (typeof flags.from !== 'string') throw new Error('usage: firestore-restore.js --from=<backup.json> --only=<paths> [--write]');
-  const only = typeof flags.only === 'string' ? flags.only.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  if ('only-file' in flags && typeof flags['only-file'] !== 'string') throw new Error('--only-file needs a file (--only-file=<file>)');
+  const only = [
+    ...(typeof flags.only === 'string' ? flags.only.split(',') : []),
+    ...(typeof flags['only-file'] === 'string' ? readPathsFile(flags['only-file']) : []),
+  ].map((s) => s.trim()).filter(Boolean);
   if (flags.write && !only.length) throw new Error('--write needs --only=<the paths the operation touched>');
 
   const backup = JSON.parse(fs.readFileSync(flags.from, 'utf8'));
-  const plan = planRestore(backup, only, project);
+  const plan = planRestore(backup, only, project, target, { loadProductionCopy: flags['load-production-copy'] === true });
   const deletes = plan.filter((s) => s.action === 'delete').length;
   for (const s of plan) console.log(`${s.action.padEnd(9)} ${s.path}`);
   console.log(`${plan.length - deletes} overwrite(s), ${deletes} delete(s) from the backup taken ${backup.taken_at}`);

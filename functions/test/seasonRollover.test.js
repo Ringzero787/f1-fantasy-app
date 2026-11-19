@@ -160,9 +160,11 @@ const input = (over = {}) => ({
 test('plan: each team is one atomic group — archive created with the reset — and an archived team is done', () => {
   const plan = R.planRollover(input());
   const t1 = plan.groups.find((g) => g.label === 'team t1');
-  assert.deepEqual(t1.ops.map((o) => [o.kind, o.path]), [['create', 'fantasyTeams/t1/seasons/2026'], ['update', 'fantasyTeams/t1']]);
+  assert.deepEqual(t1.ops.map((o) => [o.kind, o.path]), [['create', 'fantasyTeams/t1/seasons/2026'], ['update', 'fantasyTeams/t1'], ['replace', 'fantasyTeams/t1']]);
   assert.equal(t1.ops[0].data.archivedAt, R.NOW);
-  assert.equal(t1.ops[1].data.budget, 1000);
+  assert.deepEqual(t1.ops[1].data, { updatedAt: R.NOW }, 'the existence check carries nothing else');
+  assert.equal(t1.ops[2].data.budget, 1000);
+  assert.ok('constructor' in t1.ops[2].data);
   assert.ok(!plan.groups.some((g) => g.label === 'team t2'), 'archived on an earlier run');
   assert.deepEqual([plan.teams.total, plan.teams.reset], [2, 1]);
 });
@@ -174,7 +176,7 @@ test('plan: a team or league a player stamped seasonId 2027 is still archived an
   }));
   const team = plan.groups.find((g) => g.label === 'team cheat');
   assert.ok(team, 'the client-writable seasonId is not a skip marker');
-  assert.equal(team.ops[1].data.totalPoints, 0);
+  assert.equal(team.ops[2].data.totalPoints, 0);
   assert.ok(plan.groups.find((g) => g.label === 'league Lc'));
 });
 
@@ -230,4 +232,165 @@ test('the calendar refuses a Race with no start time and a name that is not a ra
   assert.throws(() => buildCalendar(2027, [meetings[1]], [S(3, 'Race', 'soon')]), /has no start time/);
   assert.throws(() => buildCalendar(2027, [{ ...meetings[1], meeting_name: '<script>x</script>' }], sessions), /implausible name/);
   assert.equal(buildCalendar(2027, [{ ...meetings[1], meeting_name: 'São Paulo Grand Prix' }], sessions)[0].name, 'São Paulo Grand Prix');
+});
+
+// ── F-154: hardening before the production run ──────────────────────────────────────────────────
+
+test('F-154: prices are written before any team or league is reset', () => {
+  const plan = R.planRollover(input());
+  const labels = plan.groups.map((g) => g.label);
+  const prices = labels.indexOf('prices');
+  assert.equal(labels[0], 'pin season');
+  assert.equal(prices, 1, `prices must be the first write after the pin, got ${labels.join(' → ')}`);
+  const firstReset = labels.findIndex((l) => l.startsWith('team ') || l.startsWith('league '));
+  assert.ok(firstReset > prices, 'no team or league is reset while 2026 prices are still on the market');
+  assert.equal(labels[labels.length - 1], 'season switch');
+});
+
+test('F-154: a re-run with every price stamped still resets the remaining teams (no prices group, order kept)', () => {
+  const entities = input().entities.map((e) => ({ ...e, data: { ...e.data, pricedFor: '2027', seasonPoints: e.data.fantasyPoints } }));
+  const labels = R.planRollover(input({ entities })).groups.map((g) => g.label);
+  assert.ok(!labels.includes('prices'));
+  assert.deepEqual(labels.slice(0, 2), ['pin season', 'team t1']);
+});
+
+const H = 3600e3;
+const NOW_MS = Date.parse('2026-12-08T12:00:00Z');
+const ready = (over = {}) => ({
+  from: '2026', to: '2027', now: NOW_MS, settleHours: 24,
+  fromSeason: {}, currentSeason: '2026',
+  fromRaces: [
+    { id: 'brazil_2026', status: 'completed', raceTimeMs: NOW_MS - 20 * 24 * H },
+    { id: 'abu_dhabi_2026', status: 'completed', raceTimeMs: NOW_MS - 48 * H },
+    { id: 'imola_2026', status: 'cancelled', raceTimeMs: NaN },
+  ],
+  pendingResultIds: [], scoredRaceIds: ['brazil_2026', 'abu_dhabi_2026'],
+  moonshots: [
+    { id: 'a', status: 'HIT', settledAt: 'T', raceId: 'brazil_2026' },
+    { id: 'b', status: 'VOID', settledAt: 'T', raceId: 'abu_dhabi_2026' },
+    { id: 'c', status: 'CANCELLED', settledAt: null, raceId: 'abu_dhabi_2026' },
+  ],
+  calendarSize: 24,
+  ...over,
+});
+
+test('F-154: a finished, scored, settled season has no blockers', () => {
+  assert.deepEqual(R.rolloverBlockers(ready()), []);
+});
+
+test('F-154: a completed race with no raceScores rows blocks (prices would treat it as missed by everyone)', () => {
+  const b = R.rolloverBlockers(ready({ scoredRaceIds: ['brazil_2026'] }));
+  assert.equal(b.length, 1);
+  assert.match(b[0], /no raceScores rows: abu_dhabi_2026/);
+  // a cancelled race needs no rows
+  assert.ok(!b[0].includes('imola_2026'));
+});
+
+test('F-154: a Moonshot call still open blocks; settled, void and cancelled calls do not', () => {
+  for (const status of ['CONFIRMED', 'LOCKED', 'LIVE']) {
+    const b = R.rolloverBlockers(ready({ moonshots: [...ready().moonshots, { id: 'open1', status, settledAt: null, raceId: 'abu_dhabi_2026' }] }));
+    assert.equal(b.length, 1, status);
+    assert.match(b[0], /1 2026 Moonshot call\(s\) not settled or cancelled: open1/);
+  }
+  // an unknown status with no settledAt is not taken as finished
+  assert.equal(R.rolloverBlockers(ready({ moonshots: [{ id: 'x', status: 'WEIRD', raceId: 'abu_dhabi_2026' }] })).length, 1);
+  assert.equal(R.moonshotFinished({ status: 'MISSED', settledAt: 'T' }), true);
+  assert.equal(R.moonshotFinished({ status: 'LOCKED', settledAt: null }), false);
+});
+
+test('F-154: the preconditions the script already had still hold, now in one tested place', () => {
+  const one = (over) => R.rolloverBlockers(ready(over));
+  assert.match(one({ fromSeason: { rolledOverAt: 'T' } })[0], /already rolled over/);
+  assert.match(one({ currentSeason: '2025' })[0], /currentSeason is "2025"/);
+  assert.equal(one({ currentSeason: '2027' }).length, 0, 'a re-run after the switch is not blocked by its own switch');
+  assert.match(one({ fromRaces: [] }).join(' '), /no completed 2026 race found/);
+  assert.match(one({ fromRaces: [...ready().fromRaces, { id: 'qatar_2026', status: 'upcoming', raceTimeMs: NOW_MS + H }] })[0], /1 2026 race\(s\) not completed: qatar_2026 \(upcoming\)/);
+  assert.match(one({ now: NOW_MS - 30 * H })[0], /wait 24 h for corrections/);
+  assert.match(one({ pendingResultIds: ['abu_dhabi_2026', 'x_2025'] })[0], /held for review: abu_dhabi_2026$/);
+  assert.match(one({ calendarSize: 0 })[0], /OpenF1 lists no 2027 races/);
+});
+
+test('F-154: backup coverage — a collection root covers its own documents, never their subcollections', () => {
+  assert.equal(R.coveredBy('fantasyTeams/t1', 'fantasyTeams'), true);
+  assert.equal(R.coveredBy('fantasyTeams/t1/seasons/2026', 'fantasyTeams'), false);
+  assert.equal(R.coveredBy('leagues/L1/members/m1', 'leagues/L1/members'), true);
+  assert.equal(R.coveredBy('config/app', 'config/app'), true);
+  assert.equal(R.coveredBy('config/appX', 'config/app'), false);
+  assert.equal(R.coveredBy('config/app/x/y', 'config/app'), false, 'a document root covers only itself');
+});
+
+test('F-154: every write of the plan is covered by the plan\'s own backup list; a team created since is not', () => {
+  const plan = R.planRollover(input());
+  const writes = plan.groups.flatMap((g) => g.ops.map((o) => o.path));
+  assert.deepEqual(R.uncoveredPaths(writes, plan.backupPaths), []);
+  const later = R.planRollover(input({ teams: [...input().teams, { id: 'tNew', data: team2026(), archived: false }] }));
+  const laterWrites = later.groups.flatMap((g) => g.ops.map((o) => o.path));
+  assert.deepEqual(R.uncoveredPaths(laterWrites, plan.backupPaths), ['fantasyTeams/tNew/seasons/2026']);
+});
+
+// ── the script's switch between production and a rehearsal in the emulator ────────────────────
+const { connectionFor, EXPECTED_PROJECT } = require('../lib/season/rolloverConnection.js');
+
+test('F-154: the script and the switch agree on the production project', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'seasonRollover.js'), 'utf8');
+  assert.match(src, /const EXPECTED_PROJECT = 'f1-app-18077';/);
+  assert.match(src, /lib\('rolloverConnection\.js'\)\.connectionFor\(process\.argv\.slice\(2\), process\.env\)/);
+});
+
+test('F-154: production runs load the key, refuse a stray emulator variable, and need no flag to dry-run', () => {
+  assert.equal(EXPECTED_PROJECT, 'f1-app-18077');
+  assert.deepEqual(connectionFor([], {}), { apply: false, failAfter: null, pathsOut: null, pathsCheck: null, emulator: null, useKey: true });
+  const a = connectionFor(['--apply', '--paths-check=/x/p.txt'], {});
+  assert.equal(a.useKey, true); assert.equal(a.apply, true); assert.equal(a.pathsCheck, '/x/p.txt');
+  assert.match(connectionFor(['--apply'], { FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' }).error, /FIRESTORE_EMULATOR_HOST is set/);
+  assert.match(connectionFor([], { FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' }).error, /without --emulator/);
+});
+
+test('F-154: the emulator switch only takes a loopback address and never loads the key', () => {
+  const e = connectionFor(['--emulator=127.0.0.1:8791', '--apply'], {});
+  assert.equal(e.useKey, false); assert.equal(e.emulator, '127.0.0.1:8791'); assert.equal(e.apply, true);
+  assert.equal(connectionFor(['--emulator=localhost:8080'], {}).useKey, false);
+  for (const bad of ['--emulator=firestore.googleapis.com:443', '--emulator=10.0.25.1:8080', '--emulator=127.0.0.1', '--emulator=127.0.0.1:80/x', '--emulator=127.0.0.1.evil.com:8080', '--emulator']) {
+    assert.ok(connectionFor([bad], {}).error, bad);
+  }
+});
+
+test('F-154: rehearsal-only and malformed flags are refused before anything connects', () => {
+  assert.match(connectionFor(['--fail-after=3'], {}).error, /needs --emulator/);
+  assert.equal(connectionFor(['--emulator=127.0.0.1:8791', '--apply', '--fail-after=3'], {}).failAfter, 3);
+  assert.match(connectionFor(['--emulator=127.0.0.1:8791', '--fail-after=x'], {}).error, /whole number/);
+  assert.match(connectionFor(['--apply', '--paths-out=/x'], {}).error, /belongs to the dry run/);
+  assert.match(connectionFor(['--write'], {}).error, /not a flag/);
+  assert.match(connectionFor(['--apply=yes'], {}).error, /takes no value/);
+  assert.match(connectionFor(['--apply', '--apply'], {}).error, /twice/);
+  assert.match(connectionFor(['--paths-check='], {}).error, /needs a value/);
+});
+
+// The SDK only asserts when the batch is committed, so this is checked on the plan; the emulator
+// rehearsal (F-150 spec, "Rehearsal") is where the commit itself was seen to fail and then pass.
+test('F-154: no update() in the plan writes a top-level `constructor` (the SDK cannot; see Op in rollover.ts)', () => {
+  const plan = R.planRollover(input());
+  const bad = plan.groups.flatMap((g) => g.ops).filter((o) => o.kind === 'update' && Object.prototype.hasOwnProperty.call(o.data, 'constructor'));
+  assert.deepEqual(bad.map((o) => o.path), []);
+});
+
+
+test('F-154: how each write is sent — the team reset replaces its named fields, guarded by an update of the same team', () => {
+  const plan = R.planRollover(input());
+  const t1 = plan.groups.find((g) => g.label === 'team t1');
+  const [archive, guard, reset] = t1.ops;
+  assert.deepEqual(R.writeCall(archive), { method: 'create' });
+  // update() fails the batch when the team is gone, so the set below can never recreate a deleted team
+  assert.deepEqual(R.writeCall(guard), { method: 'update' });
+  assert.equal(guard.path, reset.path);
+  const call = R.writeCall(reset);
+  assert.equal(call.method, 'set');
+  assert.deepEqual(call.options, { mergeFields: Object.keys(reset.data) }, 'mergeFields, never merge: true (a deep merge would keep 2026 keys inside lockStatus)');
+  assert.ok(call.options.mergeFields.includes('constructor'));
+  // every field the reset deletes is in the mask, which is what lets FieldValue.delete() through
+  for (const [k, v] of Object.entries(reset.data)) if (v === R.DELETE) assert.ok(call.options.mergeFields.includes(k), k);
+  assert.deepEqual(R.writeCall({ kind: 'merge', path: 'config/app', data: {} }), { method: 'set', options: { merge: true } });
+  assert.throws(() => R.writeCall({ kind: 'upsert', path: 'x/y', data: {} }), /unknown write kind/);
+  // every replace in the plan sits after an update of the same document in the same group
+  for (const g of plan.groups) g.ops.forEach((o, i) => { if (o.kind === 'replace') assert.ok(g.ops.slice(0, i).some((p) => p.kind === 'update' && p.path === o.path), `${g.label}: unguarded replace`); });
 });

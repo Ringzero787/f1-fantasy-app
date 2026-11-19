@@ -10,10 +10,19 @@
 // done, a priced entity is stamped `pricedFor`, races are only created (rollover.ts planRollover).
 //
 // Dry run by default: prints the preconditions, every price, every league's champion and the new
-// calendar, plus the backup path list for the op. `--apply` writes. The uc-script op kind passes
-// only --apply, so FROM / TO / pricing live in this file and in rollover.ts.
-const admin = require('firebase-admin');
+// calendar, plus the backup path list for the op. `--apply` writes. FROM / TO / pricing live in this
+// file and in rollover.ts. Flags (F-154):
+//   --paths-out=FILE    dry run: write the backup path list to FILE, one path per line. The
+//                       uc-season-rollover op backs up exactly that file's paths.
+//   --paths-check=FILE  apply: refuse unless every path the run will write is captured by FILE
+//                       (something created since the dry run would otherwise escape the backup).
+//   --emulator=HOST:PORT  rehearsal only: read and write the Firestore emulator at a loopback
+//                       address. The service-account key is never loaded, so nothing in the run
+//                       can authenticate to production (the key's project check is not needed).
+//   --fail-after=N      rehearsal only, needs --emulator: stop dead after N committed groups, to
+//                       rehearse a run that dies halfway.
 const path = require('path');
+const fs = require('fs');
 
 const EXPECTED_PROJECT = 'f1-app-18077';
 const FROM = '2026';
@@ -24,7 +33,18 @@ const SETTLE_HOURS = 24;
 // Nothing happens on import: the key read and initializeApp sit in initAdmin, which only the
 // require.main guard at the foot calls (scripts/seedGuards.test.js holds every op script to this).
 let db;
-function initAdmin() {
+let admin;
+
+function initAdmin(conn) {
+  admin = require('firebase-admin');
+  if (!conn.useKey) {
+    // emulator: no credential at all, so nothing here can authenticate to production
+    process.env.FIRESTORE_EMULATOR_HOST = conn.emulator;
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    admin.initializeApp({ projectId: EXPECTED_PROJECT });
+    db = admin.firestore();
+    return;
+  }
   const KEY = process.env.SA_KEY;
   if (!KEY) {
     console.error('SA_KEY must point at the service-account key (set by aidlc op from ~/.config/aidlc/env).');
@@ -60,38 +80,30 @@ async function openf1(pathAndQuery) {
 function toBatch(batch, op, R) {
   const data = Object.fromEntries(Object.entries(op.data).map(([k, v]) => [k, v === R.DELETE ? admin.firestore.FieldValue.delete() : v === R.NOW ? admin.firestore.FieldValue.serverTimestamp() : v]));
   const ref = db.doc(op.path);
-  if (op.kind === 'create') batch.create(ref, data);
-  else if (op.kind === 'update') batch.update(ref, data);
-  else batch.set(ref, data, { merge: true });
+  const call = R.writeCall(op);
+  if (call.method !== 'set') batch[call.method](ref, data);
+  else if ('mergeFields' in call.options) {
+    // each name as ONE literal segment: a string is parsed as a path, so a team field a player named
+    // `a.b` (or with * ~ [ ]) would fail the write — and every re-run with it
+    batch.set(ref, data, { mergeFields: call.options.mergeFields.map((k) => new admin.firestore.FieldPath(k)) });
+  } else batch.set(ref, data, call.options);
 }
 
 /** ISO strings in a race or season document become Timestamps on write. */
 const SCHEDULE_TO_TS = (r) => ({ ...r, schedule: Object.fromEntries(Object.entries(r.schedule).map(([k, v]) => [k, admin.firestore.Timestamp.fromDate(new Date(v))])) });
 
-async function main(apply) {
+async function main(conn) {
+  const { apply } = conn;
   const R = lib('rollover.js');
   const { buildCalendar } = lib('calendar.js');
-  console.log(`SEASON ROLLOVER ${FROM} → ${TO} · project ${EXPECTED_PROJECT} · ${apply ? 'APPLY' : 'dry run'} · ${new Date().toISOString()}`);
+  console.log(`SEASON ROLLOVER ${FROM} → ${TO} · project ${EXPECTED_PROJECT}${conn.emulator ? ` · EMULATOR ${conn.emulator} (rehearsal; production unreachable)` : ''} · ${apply ? 'APPLY' : 'dry run'} · ${new Date().toISOString()}`);
 
-  // ── preconditions ──────────────────────────────────────────────────────────────────────────
-  const blockers = [];
+  // ── preconditions (read here, judged by rollover.ts rolloverBlockers) ───────────────────────
   const fromSeason = (await db.doc(`seasons/${FROM}`).get()).data() || {};
-  if (fromSeason.rolledOverAt) blockers.push(`seasons/${FROM} already rolled over at ${new Date(toMs(fromSeason.rolledOverAt)).toISOString()}`);
   const appCfg = (await db.doc('config/app').get()).data() || {};
-  if (appCfg.currentSeason !== undefined && appCfg.currentSeason !== FROM && appCfg.currentSeason !== TO) {
-    blockers.push(`config/app.currentSeason is ${JSON.stringify(appCfg.currentSeason)}, expected ${FROM}`);
-  }
   const fromRaces = (await db.collection('races').where('seasonId', '==', FROM).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
   const completed = fromRaces.filter((r) => r.status === 'completed');
-  // an empty list must not pass as "nothing open, all settled"
-  if (completed.length === 0) blockers.push(`no completed ${FROM} race found (${fromRaces.length} race documents with seasonId ${FROM})`);
-  const open = fromRaces.filter((r) => r.status !== 'completed' && r.status !== 'cancelled');
-  if (open.length) blockers.push(`${open.length} ${FROM} race(s) not completed: ${open.map((r) => `${r.id} (${r.status})`).join(', ')}`);
-  const raceTimes = completed.map((r) => toMs(r.schedule && r.schedule.race)).filter(Number.isFinite);
-  const settledH = raceTimes.length ? (Date.now() - Math.max(...raceTimes)) / 3600e3 : NaN;
-  if (!(settledH >= SETTLE_HOURS)) blockers.push(`last ${FROM} race was ${Number.isFinite(settledH) ? settledH.toFixed(1) : '?'} h ago; wait ${SETTLE_HOURS} h for corrections`);
-  const pending = (await db.collection('pendingResults').where('status', '==', 'pending').get()).docs.map((d) => d.id).filter((id) => id.endsWith(`_${FROM}`));
-  if (pending.length) blockers.push(`results still held for review: ${pending.join(', ')}`);
+  const pendingResultIds = (await db.collection('pendingResults').where('status', '==', 'pending').get()).docs.map((d) => d.id);
 
   // ── read ───────────────────────────────────────────────────────────────────────────────────
   const archived = async (ref) => (await ref.collection('seasons').doc(FROM).get()).exists;
@@ -108,8 +120,10 @@ async function main(apply) {
   }
   const fromIds = new Set(completed.map((r) => r.id));
   const scores = {};
+  const scoredRaceIds = new Set();
   for (const d of (await db.collection('raceScores').get()).docs) {
     const s = d.data();
+    if (typeof s.raceId === 'string') scoredRaceIds.add(s.raceId);
     if (!fromIds.has(s.raceId) || typeof s.entityId !== 'string') continue;
     const e = (scores[s.entityId] ||= { races: 0, points: 0 });
     e.races++;
@@ -117,7 +131,15 @@ async function main(apply) {
   }
   const [meetings, sessions] = await Promise.all([openf1(`meetings?year=${TO}`), openf1(`sessions?year=${TO}`)]);
   const calendar = buildCalendar(Number(TO), meetings, sessions);
-  if (calendar.length === 0) blockers.push(`OpenF1 lists no ${TO} races`);
+  const allFromIds = new Set(fromRaces.map((r) => r.id));
+  const moonshots = (await db.collection('moonshots').get()).docs.map((d) => ({ id: d.id, ...d.data() }))
+    .filter((m) => m.seasonId === FROM || allFromIds.has(m.raceId));
+  const blockers = R.rolloverBlockers({
+    from: FROM, to: TO, now: Date.now(), settleHours: SETTLE_HOURS,
+    fromSeason, currentSeason: appCfg.currentSeason,
+    fromRaces: fromRaces.map((r) => ({ id: r.id, status: r.status, raceTimeMs: toMs(r.schedule && r.schedule.race) })),
+    pendingResultIds, scoredRaceIds: [...scoredRaceIds], moonshots, calendarSize: calendar.length,
+  });
   const existingRaces = (await db.collection('races').where('seasonId', '==', TO).get()).docs.map((d) => d.id);
 
   const plan = R.planRollover({ from: FROM, to: TO, teams, leagues, entities, scores, calendar, existingRaces });
@@ -143,10 +165,28 @@ async function main(apply) {
   console.log(`\n== ${TO} calendar from OpenF1: ${calendar.length} races (${calendar.filter((r) => r.hasSprint).length} sprint weekends), ${plan.newRaces.length} to create`);
   for (const r of calendar) console.log(`  R${String(r.round).padStart(2)} ${r.schedule.race.slice(0, 16)}Z  ${r.id.padEnd(16)} ${r.name}${r.hasSprint ? '  [sprint]' : ''}${plan.newRaces.includes(r.id) ? '' : '  (exists, kept)'}`);
   console.log(`\n== ${plan.groups.length} atomic write groups, ${plan.groups.reduce((n, g) => n + g.ops.length, 0)} writes`);
-  console.log(`\n== op backup paths (a restore deletes the documents listed here that do not exist yet):\n${plan.backupPaths.join(',')}`);
+  console.log(`\n== op backup paths (a restore deletes the documents listed here that do not exist yet): ${plan.backupPaths.length}`);
+  if (conn.pathsOut) {
+    fs.mkdirSync(path.dirname(conn.pathsOut), { recursive: true, mode: 0o700 });
+    const body = plan.backupPaths.join('\n') + '\n';
+    fs.writeFileSync(conn.pathsOut, body, { mode: 0o600 });
+    console.log(`  written to ${conn.pathsOut} (sha256 ${require('crypto').createHash('sha256').update(body).digest('hex')})`);
+  } else {
+    console.log(plan.backupPaths.join(','));
+  }
 
   if (!apply) { console.log('\n== dry run: nothing written (add --apply)'); return; }
   if (blockers.length) throw new Error(`refusing to write: ${blockers.length} precondition(s) not met`);
+  if (conn.pathsCheck) {
+    const listed = require(path.join(__dirname, '..', '..', 'scripts', 'ops', '_paths.js')).readPathsFile(conn.pathsCheck);
+    const writes = plan.groups.flatMap((g) => g.ops.map((o) => o.path));
+    const missing = R.uncoveredPaths(writes, listed);
+    if (missing.length) throw new Error(`refusing to write: ${missing.length} path(s) this run writes are not in the backup list ${conn.pathsCheck} (created since the dry run?): ${missing.slice(0, 5).join(', ')}. Plan a new op.`);
+    // the same digest the dry run printed: a list edited on the share in between shows up here
+    console.log(`\n== every write is covered by ${conn.pathsCheck} (sha256 ${require('crypto').createHash('sha256').update(fs.readFileSync(conn.pathsCheck)).digest('hex')}; compare with the dry run)`);
+  } else if (!conn.emulator) {
+    throw new Error('refusing to write: an apply on production needs --paths-check=<the dry run\'s path file>, so a write the backup never saw cannot happen.');
+  }
 
   // one batch per group, in order. A failed group is reported and the rest go on — one team or league
   // that cannot be written must not hold every other player in 2026 — but the season switch waits
@@ -155,15 +195,21 @@ async function main(apply) {
   const failed = [];
   for (const g of plan.groups) {
     if (g.label === 'season switch' && failed.length) break;
-    const batch = db.batch();
-    for (const op of g.ops) {
-      const o = op.path.startsWith('races/') ? { ...op, data: SCHEDULE_TO_TS(op.data) } : op;
-      if (op.path === `seasons/${TO}`) {
-        for (const k of ['startDate', 'endDate']) if (o.data[k]) o.data = { ...o.data, [k]: admin.firestore.Timestamp.fromDate(new Date(o.data[k])) };
-      }
-      toBatch(batch, o, R);
+    if (conn.failAfter !== null && done >= conn.failAfter) {
+      // rehearsal: die the way a lost connection or a killed process would, mid-run, with no cleanup
+      console.error(`!! --fail-after=${conn.failAfter}: stopping dead before group "${g.label}" (${done} committed)`);
+      process.exit(3);
     }
     try {
+      // built inside the try: a write that cannot even be constructed fails its own group, not the run
+      const batch = db.batch();
+      for (const op of g.ops) {
+        const o = op.path.startsWith('races/') ? { ...op, data: SCHEDULE_TO_TS(op.data) } : op;
+        if (op.path === `seasons/${TO}`) {
+          for (const k of ['startDate', 'endDate']) if (o.data[k]) o.data = { ...o.data, [k]: admin.firestore.Timestamp.fromDate(new Date(o.data[k])) };
+        }
+        toBatch(batch, o, R);
+      }
       await batch.commit();
       done++;
     } catch (e) {
@@ -178,9 +224,9 @@ async function main(apply) {
 }
 
 if (require.main === module) {
-  const argv = process.argv.slice(2);
-  const unknown = argv.filter((a) => a !== '--apply');
-  if (unknown.length) { console.error(`"${unknown[0]}" is not a flag this script understands. Nothing was written.`); process.exit(2); }
-  initAdmin();
-  main(argv.includes('--apply')).then(() => process.exit(0)).catch((e) => { console.error(e.message); process.exit(1); });
+  // the decision is pure and tested: functions/src/season/rolloverConnection.ts
+  const conn = lib('rolloverConnection.js').connectionFor(process.argv.slice(2), process.env);
+  if (conn.error) { console.error(conn.error); process.exit(2); }
+  initAdmin(conn);
+  main(conn).then(() => process.exit(0)).catch((e) => { console.error(e.message); process.exit(1); });
 }

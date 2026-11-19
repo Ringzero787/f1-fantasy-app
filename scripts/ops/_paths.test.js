@@ -26,3 +26,13 @@ test('script names: a plain file in the scripts folder', () => {
     assert.equal(validScriptName(bad), false, bad);
   }
 });
+
+test('F-154: firestoreTarget never takes the database from the environment alone', () => {
+  const { firestoreTarget } = require('./_paths');
+  assert.deepEqual(firestoreTarget([], {}), { target: 'production' });
+  assert.match(firestoreTarget([], { FIRESTORE_EMULATOR_HOST: '127.0.0.1:8791' }).error, /--emulator was not given/);
+  assert.deepEqual(firestoreTarget(['--emulator=127.0.0.1:8791'], {}), { target: 'emulator', host: '127.0.0.1:8791' });
+  assert.deepEqual(firestoreTarget(['--write', '--emulator=127.0.0.1:8791'], { FIRESTORE_EMULATOR_HOST: '127.0.0.1:8791' }), { target: 'emulator', host: '127.0.0.1:8791' });
+  assert.match(firestoreTarget(['--emulator=127.0.0.1:8791'], { FIRESTORE_EMULATOR_HOST: '127.0.0.1:9999' }).error, /but FIRESTORE_EMULATOR_HOST is/);
+  for (const bad of ['--emulator', '--emulator=', '--emulator=10.0.0.5:8080', '--emulator=firestore.googleapis.com:443']) assert.ok(firestoreTarget([bad], {}).error, bad);
+});

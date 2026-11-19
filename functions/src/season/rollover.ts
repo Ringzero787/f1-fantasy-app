@@ -220,8 +220,28 @@ export function entityPricePatch(entity: Doc, out: PriceOutput): Doc {
 /** Marks a field the writer sets to the server time; a plain value so the plan stays pure. */
 export const NOW = Object.freeze({ __now: true }) as unknown as never;
 
-export interface Op { kind: 'create' | 'update' | 'merge'; path: string; data: Doc }
-/** Writes that commit together or not at all: one team, one league with its members and archive, all prices, the calendar, the season switch. */
+/**
+ * create: the document must not exist. update: it must exist. merge: set with merge.
+ * replace: set with mergeFields = the data's keys — each named field replaced whole, as update()
+ * would, but without update()'s field-path expansion. That expansion cannot write a top-level field
+ * called `constructor` (the SDK builds a plain object and finds Object.prototype.constructor there,
+ * then asserts "Can't merge current value into a nested object" — F-141 hit it in auto-fill; the
+ * F-154 rehearsal hit it on every team reset). A replace never creates a missing document only
+ * because the same group also holds an update of that document.
+ */
+export interface Op { kind: 'create' | 'update' | 'merge' | 'replace'; path: string; data: Doc }
+
+/** How the script sends one op in a batch: the method and its options. Pure, so the mapping is tested. */
+export function writeCall(op: Op): { method: 'create' | 'update' | 'set'; options?: { merge: true } | { mergeFields: string[] } } {
+  switch (op.kind) {
+    case 'create': return { method: 'create' };
+    case 'update': return { method: 'update' };
+    case 'merge': return { method: 'set', options: { merge: true } };
+    case 'replace': return { method: 'set', options: { mergeFields: Object.keys(op.data) } };
+    default: throw new Error(`unknown write kind ${(op as Op).kind} for ${(op as Op).path}`);
+  }
+}
+/** Writes that commit together or not at all, in this order: the season pin, all prices, one team, one league with its members and archive, the calendar, the season switch. */
 export interface Group { label: string; ops: Op[] }
 
 export interface RolloverInput {
@@ -259,6 +279,26 @@ export function planRollover(i: RolloverInput): RolloverPlan {
   // F-151: pin the season being closed before anything else, so the season never has to be read off a
   // calendar that already holds next season's races; the switch at the end moves it on
   const groups: Group[] = [{ label: 'pin season', ops: [{ kind: 'merge', path: 'config/app', data: { currentSeason: i.from } }] }];
+
+  // F-154: prices go in BEFORE any team is reset. In the other order, a team reset early in the run
+  // holds a fresh $1000 while the market still shows 2026 prices, and can buy a 2027 roster at them
+  // for as long as the run takes (or for days, if the run stops halfway). Priced first, a 2026 team
+  // that is not reset yet sees 2027 prices, but its reset puts it back to $1000 and an empty roster.
+  const prices: RolloverPlan['prices'] = [];
+  const finals: RolloverPlan['finals'] = { drivers: {}, constructors: {} };
+  const priceOps: Op[] = [];
+  for (const e of i.entities) {
+    const stamped = e.data.pricedFor === i.to;
+    // stamped: this season's points already moved to seasonPoints on an earlier run
+    finals[e.coll][e.id] = { fantasyPoints: num(stamped ? e.data.seasonPoints : e.data.fantasyPoints) };
+    const s = i.scores[e.id] ?? { races: 0, points: 0 };
+    const rate = e.coll === 'constructors' ? CONSTRUCTOR_DOLLARS_PER_POINT : DOLLARS_PER_POINT;
+    const out = openingPrice({ id: e.id, scoredRaces: s.races, scorePoints: s.points, currentPrice: num(e.data.price) }, { dollarsPerPoint: rate });
+    prices.push({ coll: e.coll, id: e.id, from: num(e.data.price), out, inactive: e.data.isActive === false, stamped });
+    if (!stamped) priceOps.push({ kind: 'update', path: `${e.coll}/${e.id}`, data: { ...entityPricePatch(e.data, out), pricedFor: i.to } });
+  }
+  if (priceOps.length) groups.push({ label: 'prices', ops: priceOps });
+
   const teamArchives: Doc[] = [];
   let teamsReset = 0;
   for (const t of i.teams) {
@@ -270,7 +310,10 @@ export function planRollover(i: RolloverInput): RolloverPlan {
       label: `team ${t.id}`,
       ops: [
         { kind: 'create', path: `fantasyTeams/${t.id}/seasons/${i.from}`, data: { ...archive, archivedAt: NOW } },
-        { kind: 'update', path: `fantasyTeams/${t.id}`, data: { ...teamResetPatch(t.data), updatedAt: NOW } },
+        // the update fails the whole group if the team was deleted since it was read (account deletion),
+        // so the replace below can never bring a deleted team back as a skeleton
+        { kind: 'update', path: `fantasyTeams/${t.id}`, data: { updatedAt: NOW } },
+        { kind: 'replace', path: `fantasyTeams/${t.id}`, data: teamResetPatch(t.data) },
       ],
     });
   }
@@ -288,21 +331,6 @@ export function planRollover(i: RolloverInput): RolloverPlan {
     ops.push({ kind: 'update', path: `leagues/${l.id}`, data: { ...leagueResetPatch(i.to), updatedAt: NOW } });
     groups.push({ label: `league ${l.id}`, ops });
   }
-
-  const prices: RolloverPlan['prices'] = [];
-  const finals: RolloverPlan['finals'] = { drivers: {}, constructors: {} };
-  const priceOps: Op[] = [];
-  for (const e of i.entities) {
-    const stamped = e.data.pricedFor === i.to;
-    // stamped: this season's points already moved to seasonPoints on an earlier run
-    finals[e.coll][e.id] = { fantasyPoints: num(stamped ? e.data.seasonPoints : e.data.fantasyPoints) };
-    const s = i.scores[e.id] ?? { races: 0, points: 0 };
-    const rate = e.coll === 'constructors' ? CONSTRUCTOR_DOLLARS_PER_POINT : DOLLARS_PER_POINT;
-    const out = openingPrice({ id: e.id, scoredRaces: s.races, scorePoints: s.points, currentPrice: num(e.data.price) }, { dollarsPerPoint: rate });
-    prices.push({ coll: e.coll, id: e.id, from: num(e.data.price), out, inactive: e.data.isActive === false, stamped });
-    if (!stamped) priceOps.push({ kind: 'update', path: `${e.coll}/${e.id}`, data: { ...entityPricePatch(e.data, out), pricedFor: i.to } });
-  }
-  if (priceOps.length) groups.push({ label: 'prices', ops: priceOps });
 
   const have = new Set(i.existingRaces);
   const newRaces = i.calendar.filter((r) => !have.has(r.id)).map((r) => r.id);
@@ -332,4 +360,90 @@ export function planRollover(i: RolloverInput): RolloverPlan {
     leagues: { total: i.leagues.length, reset: leaguesReset, members: membersReset, archives: leagueArchives },
     newRaces, backupPaths,
   };
+}
+
+// ── Preconditions (F-154) ───────────────────────────────────────────────────────────────────────
+
+export interface PreconditionInput {
+  from: string;
+  to: string;
+  now: number;
+  settleHours: number;
+  /** seasons/{from} */
+  fromSeason: Doc;
+  /** config/app.currentSeason */
+  currentSeason: unknown;
+  /** every race document with seasonId == from; raceTimeMs = schedule.race in ms (NaN when absent) */
+  fromRaces: Array<{ id: string; status?: unknown; raceTimeMs: number }>;
+  /** ids of pendingResults documents whose status is 'pending' */
+  pendingResultIds: string[];
+  /** race ids that have at least one raceScores row */
+  scoredRaceIds: string[];
+  /** Moonshot calls of the from season (seasonId == from, or raceId one of its races) */
+  moonshots: Array<{ id: string; status?: unknown; settledAt?: unknown; raceId?: unknown }>;
+  /** races the next season's calendar holds */
+  calendarSize: number;
+}
+
+/** A Moonshot call is finished when it was cancelled or settled (HIT, MISSED and VOID all stamp settledAt). */
+export const moonshotFinished = (m: { status?: unknown; settledAt?: unknown }): boolean =>
+  m.status === 'CANCELLED' || (m.settledAt !== undefined && m.settledAt !== null);
+
+/**
+ * Every reason the rollover must not write yet. Empty = go. Pure, so each reason is tested; the
+ * script only reads the documents and prints these.
+ */
+export function rolloverBlockers(i: PreconditionInput): string[] {
+  const out: string[] = [];
+  const rolled = i.fromSeason.rolledOverAt;
+  if (rolled) out.push(`seasons/${i.from} already rolled over`);
+  if (i.currentSeason !== undefined && i.currentSeason !== i.from && i.currentSeason !== i.to) {
+    out.push(`config/app.currentSeason is ${JSON.stringify(i.currentSeason)}, expected ${i.from}`);
+  }
+  const completed = i.fromRaces.filter((r) => r.status === 'completed');
+  // an empty list must not pass as "nothing open, all settled"
+  if (completed.length === 0) out.push(`no completed ${i.from} race found (${i.fromRaces.length} race documents with seasonId ${i.from})`);
+  const open = i.fromRaces.filter((r) => r.status !== 'completed' && r.status !== 'cancelled');
+  if (open.length) out.push(`${open.length} ${i.from} race(s) not completed: ${open.map((r) => `${r.id} (${String(r.status)})`).join(', ')}`);
+  const times = completed.map((r) => r.raceTimeMs).filter(Number.isFinite);
+  const settledH = times.length ? (i.now - Math.max(...times)) / 3600e3 : NaN;
+  if (!(settledH >= i.settleHours)) out.push(`last ${i.from} race was ${Number.isFinite(settledH) ? settledH.toFixed(1) : '?'} h ago; wait ${i.settleHours} h for corrections`);
+  const held = i.pendingResultIds.filter((id) => id.endsWith(`_${i.from}`));
+  if (held.length) out.push(`results still held for review: ${held.join(', ')}`);
+  // prices come from raceScores: a completed race with no rows would price every driver as if they
+  // had skipped it, and means the race's scoring never ran in full
+  const scored = new Set(i.scoredRaceIds);
+  const unscored = completed.filter((r) => !scored.has(r.id)).map((r) => r.id);
+  if (unscored.length) out.push(`${unscored.length} completed ${i.from} race(s) have no raceScores rows: ${unscored.join(', ')}`);
+  // a call still open would settle after the reset, into a 2027 team
+  const unsettled = i.moonshots.filter((m) => !moonshotFinished(m));
+  if (unsettled.length) out.push(`${unsettled.length} ${i.from} Moonshot call(s) not settled or cancelled: ${unsettled.slice(0, 10).map((m) => `${m.id} (${String(m.status)}, ${String(m.raceId)})`).join(', ')}${unsettled.length > 10 ? ', …' : ''}`);
+  if (i.calendarSize === 0) out.push(`OpenF1 lists no ${i.to} races`);
+  return out;
+}
+
+// ── Backup coverage (F-154) ─────────────────────────────────────────────────────────────────────
+
+/**
+ * True when a backup of `root` captures `p`: the path itself, or — for a collection root — one of its
+ * own documents. NOT a subcollection below them: firestore-backup.js reads a collection with one
+ * get(), which returns its documents only, so `fantasyTeams` does not cover
+ * `fantasyTeams/t1/seasons/2026`. That is why the plan lists every archive path on its own.
+ */
+export function coveredBy(p: string, root: string): boolean {
+  if (p === root) return true;
+  const rootSegs = root.split('/').length;
+  if (rootSegs % 2 === 0 || !p.startsWith(`${root}/`)) return false;
+  return p.split('/').length === rootSegs + 1;
+}
+
+/**
+ * The backup the op took is the file of paths the dry run wrote. If anything was created since — a
+ * new league, so a new `leagues/{id}/members` and `leagues/{id}/seasons/{from}` — the apply would
+ * write paths the backup never saw, and a rollback would leave them behind. Returns the plan's
+ * paths that the file does not cover; the script refuses to apply unless this is empty.
+ */
+export function uncoveredPaths(planPaths: string[], backedUp: string[]): string[] {
+  const roots = backedUp.map((p) => p.trim()).filter(Boolean);
+  return planPaths.filter((p) => !roots.some((r) => coveredBy(p, r)));
 }

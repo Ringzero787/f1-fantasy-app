@@ -172,6 +172,12 @@ overrides:
         backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json moonshotModels/{race}"
         apply: "cd functions && node scripts/seedMoonshotModel.js --doc={doc} --race={race} --source={source} --write"
         rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only=moonshotModels/{race} --write"
+      uc-season-rollover:
+        summary: "F-150/F-154 season rollover (functions/scripts/seasonRollover.js). The dry run writes the backup path list into the op's folder; the backup takes exactly that list; the apply refuses any write the list does not cover, and the rollback restores the same list. Plan and dry-run on the day: a team or league created after the dry run makes the apply refuse."
+        dryrun: "node scripts/ops/run-script.js undercut seasonRollover.js --paths-out=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --paths-file=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
+        apply: "node scripts/ops/run-script.js undercut seasonRollover.js --apply --paths-check=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only-file=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt --write"
       uc-script:
         summary: "Undercut repair/backfill script that dry-runs by default and writes with --apply (script = file name in functions/scripts; backup = comma-separated doc/collection paths it touches)"
         params: [ script, backup ]
