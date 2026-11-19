@@ -804,6 +804,19 @@ test('a user cannot write their own pass, trial flag or revocation record', asyn
   await assertFails(getDoc(doc(db(MALLORY), 'users', ALICE)));
 });
 
+test('F-164: the test-account mark is server-owned, and a marked user still saves their own fields', async () => {
+  const mark = { reason: 'tester-farm', markedAt: 0, by: 'F-164' };
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users', ALICE), { email: 'a@example.com', displayName: 'Alice', testAccount: mark });
+  });
+  const d = db(ALICE);
+  await assertSucceeds(updateDoc(doc(d, 'users', ALICE), { displayName: 'Alice B', pushToken: 'x' }));
+  await assertFails(updateDoc(doc(d, 'users', ALICE), { testAccount: null }));
+  await assertFails(updateDoc(doc(d, 'users', ALICE), { testAccount: { ...mark, reason: 'other' } }));
+  await assertFails(setDoc(doc(db(BOB), 'users', BOB), { displayName: 'Bob', testAccount: mark }));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext('admin-1', { admin: true }).firestore(), 'users', ALICE)));
+});
+
 test('a league owner cannot stamp League Pro on their own league', async () => {
   await seedLeague();
   await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'L1'), { pro: true }));

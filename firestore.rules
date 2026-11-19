@@ -50,10 +50,12 @@ service cloud.firestore {
       allow create: if isOwner(userId)
                     && !('isAdmin' in request.resource.data)
                     && !('pass' in request.resource.data)
-                    && !('pwTrialUsed' in request.resource.data);
+                    && !('pwTrialUsed' in request.resource.data)
+                    && !('testAccount' in request.resource.data);
       allow update: if isOwner(userId)
                     // F-068: the pass, its trial flag and the revocation record are server-owned
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'pass', 'pwTrialUsed', 'pwRevoked']);
+                    // F-164: so is the test-account mark (set only by functions/scripts/markTestAccounts.js)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'pass', 'pwTrialUsed', 'pwRevoked', 'testAccount']);
       allow delete: if isOwner(userId);
 
       // F-071: what this person has read and rated on the Pit Wall wire. Private to them: it is

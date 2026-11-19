@@ -95,3 +95,20 @@ test('the document carries the shared contract fields', () => {
   assert.deepEqual(s.health, { errors24h: 3 });
   assert.ok(s.content && s.usage && s.signupsByDay);
 });
+
+test('F-164: marked test accounts are counted apart and in no other number', () => {
+  const s = buildUndercutStats(base({
+    users: [
+      { uid: 'player', createdAt: ts(NOW - 1000) },
+      { uid: 'tester', createdAt: ts(NOW - 1000), testAccount: { reason: 'tester-farm' }, pass: PASS },
+    ],
+    lastSeen: new Map([['player', NOW - 1000], ['tester', NOW - 1000]]),
+  }));
+  assert.equal(s.totalUsers, 1);
+  assert.equal(s.testAccounts, 1);
+  assert.equal(s.newUsersToday, 1);
+  assert.equal(s.activeUsersDay, 1);
+  assert.equal(s.paidSubscribers, 0);
+  assert.equal(s.freeUsers, 1);
+  assert.equal(s.signupsByDay['2026-11-19'], 1);
+});
