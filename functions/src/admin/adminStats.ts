@@ -42,7 +42,7 @@ export async function runUndercutStats(now = Date.now()) {
 
   const [usersSnap, lastSeen, teams, leagues, racesCompleted, moonshots, teamsCreated, leaguesCreated, moonshotUse, purchases, errSnap] =
     await Promise.all([
-      db.collection('users').select('createdAt', 'pass').get(),
+      db.collection('users').select('createdAt', 'pass', 'testAccount').get(),
       readLastSeen(),
       count(db.collection('fantasyTeams')),
       count(db.collection('leagues')),
@@ -58,7 +58,7 @@ export async function runUndercutStats(now = Date.now()) {
       db.collection('errorLogs').where('createdAt', '>=', since).select('app').get(),
     ]);
 
-  const users: UserRow[] = usersSnap.docs.map((d) => ({ uid: d.id, createdAt: d.get('createdAt'), pass: d.get('pass') }));
+  const users: UserRow[] = usersSnap.docs.map((d) => ({ uid: d.id, createdAt: d.get('createdAt'), pass: d.get('pass'), testAccount: d.get('testAccount') }));
   const errors24h = errSnap.docs.filter((d) => d.get('app') !== 'tracklimits').length;
 
   const stats = buildUndercutStats({

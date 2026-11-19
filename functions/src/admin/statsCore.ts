@@ -23,6 +23,8 @@ export interface UserRow {
   uid: string;
   createdAt: TimeLike;
   pass?: Partial<Pass> | null;
+  /** F-164: set on store testers and reviewers; they are not counted as users. */
+  testAccount?: unknown;
 }
 
 /** Auth metadata for one uid: the later of last sign-in and last token refresh (an open app refreshes hourly). */
@@ -71,7 +73,10 @@ export function activeWindows(uids: string[], lastSeen: LastSeen, now: number) {
 }
 
 export function buildUndercutStats(input: UndercutStatsInput) {
-  const { now, users, lastSeen } = input;
+  const { now, lastSeen } = input;
+  // F-164: store testers and reviewers are counted once, apart, and nowhere else
+  const users = input.users.filter((u) => !u.testAccount);
+  const testAccounts = input.users.length - users.length;
   const created = users.map((u) => toMillis(u.createdAt));
   let paid = 0, trial = 0;
   for (const u of users) {
@@ -83,6 +88,7 @@ export function buildUndercutStats(input: UndercutStatsInput) {
     app: 'undercut',
     updatedAt: now,
     totalUsers: users.length,
+    testAccounts,
     newUsersToday: created.filter((ms) => ms && now - ms < DAY_MS).length,
     newUsersWeek: created.filter((ms) => ms && now - ms < 7 * DAY_MS).length,
     ...activeWindows(users.map((u) => u.uid), lastSeen, now),
