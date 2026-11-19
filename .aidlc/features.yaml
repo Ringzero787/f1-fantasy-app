@@ -2124,7 +2124,8 @@ features:
   - id: F-164
     name: "UC: test account flag"
     summary: "Mark store testers and reviewers testAccount (server-owned) so admin counts show real players"
-    status: planned
+    status: shipped
+    shipped_at: 2026-11-19
     spec: .aidlc/specs/F-164.md
     created_at: 2026-11-19
     keywords:
