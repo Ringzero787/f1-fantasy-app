@@ -1,0 +1,55 @@
+id: OP-238
+title: "F-164: mark store test accounts"
+kind: uc-script
+status: applied
+params:
+  script: markTestAccounts.js
+  backup: users
+created_at: 2026-11-19T16:41:17.739Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-19T16:41:18.062Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    command: node scripts/ops/run-script.js undercut 'markTestAccounts.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-238/dry-run-2026-11-19T16-41-18-062Z.log
+    log_sha256: af148ab5ad605723cac91526d197c24d8cf7891135cf5f101c5e81fbf18570c5
+    lines: 61
+  - step: dry-run
+    at: 2026-11-19T16:41:19.256Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    command: node scripts/ops/run-script.js undercut 'markTestAccounts.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-238/dry-run-2026-11-19T16-41-19-256Z.log
+    log_sha256: af148ab5ad605723cac91526d197c24d8cf7891135cf5f101c5e81fbf18570c5
+    lines: 61
+  - step: backup
+    at: 2026-11-19T16:41:25.783Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-238'/backup.json 'users'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-238/backup-2026-11-19T16-41-25-783Z.log
+    log_sha256: e0e223700df826140a74c2959633c3223709ba9ec3f956ed61fa474fd1336bd9
+    lines: 1
+  - step: gates
+    at: 2026-11-19T16:41:26.590Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-19T16:41:26.591Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    command: node scripts/ops/run-script.js undercut 'markTestAccounts.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-238/apply-2026-11-19T16-41-26-591Z.log
+    log_sha256: 8fc610b9007a211637e9889effb338e5df0d32a905f2a06017a3977474db5f93
+    lines: 61
+  - step: gates
+    at: 2026-11-19T16:41:33.556Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    exit: 0
+    gates:
+      G15: skip

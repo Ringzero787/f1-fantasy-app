@@ -1,0 +1,48 @@
+# Applied as OP-233 on 2026-11-17/18; renumbered OP-235 when recorded because a parallel session's
+# OP-233 went to master first (#294). Its logs are in the OP-233 folder on the share, by timestamp.
+id: OP-235
+title: "Deploy Firestore rules: admin claim lists every team again (F-112 fix, #290)"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-11-18T19:25:59.698Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-18T19:26:00.014Z
+    head_sha: 02c9080a8bc47ff92074285f34d9fde8bf0cf98d
+    command: git --no-pager diff 'df0a5f0a2807560f0d7a1310eae121dd874ede93' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-233/dry-run-2026-11-18T19-26-00-014Z.log
+    log_sha256: 09a5fe55864bba9e048dff74e80cb005124617cccb786b69ccadf0d9261024da
+    lines: 20
+  - step: dry-run
+    at: 2026-11-18T19:40:07.921Z
+    head_sha: 6037e0f7d3bfddcebfd4d995a8ff0c50252b24a5
+    command: git --no-pager diff 'df0a5f0a2807560f0d7a1310eae121dd874ede93' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-233/dry-run-2026-11-18T19-40-07-921Z.log
+    log_sha256: 09a5fe55864bba9e048dff74e80cb005124617cccb786b69ccadf0d9261024da
+    lines: 20
+  - step: gates
+    at: 2026-11-18T20:38:24.303Z
+    head_sha: 6037e0f7d3bfddcebfd4d995a8ff0c50252b24a5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-18T20:38:24.309Z
+    head_sha: 6037e0f7d3bfddcebfd4d995a8ff0c50252b24a5
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-233/apply-2026-11-18T20-38-24-309Z.log
+    log_sha256: def96f69cb3e15543bb6c56faf61b14037c874e2b2886f6bd731ef9ab9fa4817
+    lines: 15
+  - step: gates
+    at: 2026-11-18T20:38:28.094Z
+    head_sha: 6037e0f7d3bfddcebfd4d995a8ff0c50252b24a5
+    exit: 0
+    gates:
+      G15: skip
+feature: F-112

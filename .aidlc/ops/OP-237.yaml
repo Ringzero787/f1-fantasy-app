@@ -1,0 +1,38 @@
+id: OP-237
+title: "F-164: admin stats leave test accounts out"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:aggregateAdminStats,functions:getAdminStats
+created_at: 2026-11-19T16:39:50.443Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-19T16:39:50.776Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    command: git --no-pager diff --stat '10e5d52afef8bf61f1d82b3a196fa1ef0c4c488a' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-237/dry-run-2026-11-19T16-39-50-776Z.log
+    log_sha256: 6e6f087855fb8e4a92c8e8dfe13c9f3fb9b8ff3d0c93b9361fdbcfc20579e3b5
+    lines: 6
+  - step: gates
+    at: 2026-11-19T16:40:01.040Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-19T16:40:01.044Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:aggregateAdminStats,functions:getAdminStats' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-237/apply-2026-11-19T16-40-01-044Z.log
+    log_sha256: cb0eb6d305c11d435c2a5f3b26b327da41195ad173c1a53da81a2c061b17e09e
+    lines: 33
+  - step: gates
+    at: 2026-11-19T16:41:13.788Z
+    head_sha: 3945afa073eb2abf851077a1ad305920715fefce
+    exit: 0
+    gates:
+      G15: skip
