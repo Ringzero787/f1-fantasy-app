@@ -1,4 +1,4 @@
-next_id: 163
+next_id: 164
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -134,7 +134,8 @@ features:
       - iap
       - purchases
       - billing
-    status_note: "Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted; the pre-split specs are kept there read-only. Not tracked here any more."
+    status_note: Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted;
+      the pre-split specs are kept there read-only. Not tracked here any more.
   - id: F-016
     name: "UC: Server-authoritative scoring and economy"
     status: shipped
@@ -459,7 +460,8 @@ features:
       - economy
       - values
       - copy
-    status_note: "Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted; the pre-split specs are kept there read-only. Not tracked here any more."
+    status_note: Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted;
+      the pre-split specs are kept there read-only. Not tracked here any more.
   - id: F-048
     name: "UC: Android release target (uc-android)"
     status: shipped
@@ -881,7 +883,8 @@ features:
       - from
       - seed
       - data
-    status_note: "Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted; the pre-split specs are kept there read-only. Not tracked here any more."
+    status_note: Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted;
+      the pre-split specs are kept there read-only. Not tracked here any more.
   - id: F-077
     name: "UC: Pit Wall in the app — portal handoff, pass status and pass-only pick marks"
     status: planned
@@ -912,7 +915,8 @@ features:
       - i18n
       - translation
       - locales
-    status_note: "Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted; the pre-split specs are kept there read-only. Not tracked here any more."
+    status_note: Transferred with Track Limits to Ringzero787/tracklimits on 2026-10-02, where feature numbering restarted;
+      the pre-split specs are kept there read-only. Not tracked here any more.
   - id: F-079
     name: "UC: UI string extraction and localization"
     status: shipped
@@ -2110,3 +2114,12 @@ features:
       - opener
       - checklist
       - alarm
+  - id: F-163
+    name: "UC: test account flag"
+    status: planned
+    spec: .aidlc/specs/F-163.md
+    created_at: 2026-11-19
+    keywords:
+      - test
+      - account
+      - flag
