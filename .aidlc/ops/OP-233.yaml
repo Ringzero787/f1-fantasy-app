@@ -1,0 +1,39 @@
+id: OP-233
+title: "F-163: deploy aggregateAdminStats + getAdminStats"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:aggregateAdminStats,functions:getAdminStats
+created_at: 2026-11-19T15:04:18.597Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-19T15:04:18.915Z
+    head_sha: 10e5d52afef8bf61f1d82b3a196fa1ef0c4c488a
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-233/dry-run-2026-11-19T15-04-18-915Z.log
+    log_sha256: d9bbdcba239cfc2f6d362f1d9e6890874904b0586b4ee1d4b5f6c4bcf955b007
+    lines: 82
+  - step: gates
+    at: 2026-11-19T15:04:28.572Z
+    head_sha: 10e5d52afef8bf61f1d82b3a196fa1ef0c4c488a
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-19T15:04:28.575Z
+    head_sha: 10e5d52afef8bf61f1d82b3a196fa1ef0c4c488a
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:aggregateAdminStats,functions:getAdminStats' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-233/apply-2026-11-19T15-04-28-575Z.log
+    log_sha256: 5024640ce99a304ad23f1d18cb065caefbeb286604c5ab6944b09a61f8904097
+    lines: 33
+  - step: gates
+    at: 2026-11-19T15:06:19.797Z
+    head_sha: 10e5d52afef8bf61f1d82b3a196fa1ef0c4c488a
+    exit: 0
+    gates:
+      G15: skip
+feature: F-163
