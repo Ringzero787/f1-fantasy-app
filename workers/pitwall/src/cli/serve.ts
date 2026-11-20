@@ -18,7 +18,7 @@ import { runOutlooks } from '../jobs/outlooks';
 import { outlookSettings } from '../jobs/outlookSettings';
 import { withDeadline, afterTick, TICK_DEADLINE_MS, MAX_TICK_FAILURES } from '../jobs/watchdog';
 import { STALE_AFTER_MS } from '../jobs/lease';
-import { tickFailedEmail, jobFailedEmail, staleEmail, backEmail, allClearSince, emailTickFailure, type Email } from '../jobs/alertText';
+import { tickFailedEmail, jobFailedEmail, staleEmail, backEmail, allClearSince, onTickFailure, type Email } from '../jobs/alertText';
 import type { Job } from '../jobs/types';
 
 const args = process.argv.slice(2);
@@ -166,16 +166,16 @@ async function tick(): Promise<void> {
       await withDeadline(current, TICK_DEADLINE_MS, 'tick');
     } catch (e) {
       ok = false;
-      log(`tick failed: ${e instanceof Error ? e.message : e}`);
-      const detail = e instanceof Error ? e.stack ?? e.message : String(e);
       const message = e instanceof Error ? e.message : String(e);
+      log(`tick failed: ${message}`);
+      const detail = e instanceof Error ? e.stack ?? e.message : String(e);
       // F-166: one network blip that the next tick recovers from is recorded (pw_alerts, so the
-      // ops check still lists it) but not mailed — nor is the "is back" that would follow it.
-      const send = emailTickFailure(message, failures + 1);
-      if (send) failedSince ??= startedAt;
-      else log('first network failure in a row: recorded, not mailed (F-166)');
-      const email = tickFailedEmail({ message, detail, failures: failures + 1, maxFailures: MAX_TICK_FAILURES, tickMs: TICK_MS, startedAt, at: Date.now(), runner: OWNER, commit, tz: TZ });
-      await withDeadline(alert('worker tick failed', detail, email, true, send), 30 * 1000, 'alert').catch((err: Error) => log(`alert failed: ${err.message}`));
+      // ops check still lists it) but not mailed, and does not arm the "is back" that would follow.
+      const decision = onTickFailure({ message, failures: failures + 1, failedSince, startedAt, once });
+      failedSince = decision.failedSince;
+      if (!decision.send) log('first network failure in a row: recorded, not mailed (F-166)');
+      const email = decision.send ? tickFailedEmail({ message, detail, failures: failures + 1, maxFailures: MAX_TICK_FAILURES, tickMs: TICK_MS, startedAt, at: Date.now(), runner: OWNER, commit, tz: TZ }) : undefined;
+      await withDeadline(alert('worker tick failed', detail, email, true, decision.send), 30 * 1000, 'alert').catch((err: Error) => log(`alert failed: ${err.message}`));
     }
     const next = afterTick(ok, failures, MAX_TICK_FAILURES);
     failures = next.failures;

@@ -34,6 +34,16 @@ export function emailTickFailure(message: string, failures: number): boolean {
   return kind === 'deadline' || kind === 'other' || failures >= 2;
 }
 
+/**
+ * The loop's bookkeeping for a failed tick (F-166): whether to mail it, and the new `failedSince`
+ * that arms the "is back" email. Only a failure that was mailed arms it, so a silent blip is
+ * followed by silence. A `--once` run is a person at a terminal: it has no next tick, so it mails.
+ */
+export function onTickFailure(t: { message: string; failures: number; failedSince: number | null; startedAt: number; once: boolean }): { send: boolean; failedSince: number | null } {
+  const send = t.once || emailTickFailure(t.message, t.failures);
+  return { send, failedSince: send ? t.failedSince ?? t.startedAt : t.failedSince };
+}
+
 /** "10:50 UTC", or "04:50 CST (10:50 UTC)" when a time zone is given. An unknown zone falls back to UTC alone. */
 export function clock(ms: number, tz?: string): string {
   const utc = `${new Date(ms).toISOString().slice(11, 16)} UTC`;
