@@ -3,7 +3,9 @@
 // owner to ignore the mail that matters (Mexico F-134, Brazil F-139).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseNumberMap, pickRace, previousRace, compareEntry, renderReport } = require('./uc-entry-check-lib');
+const fs = require('fs');
+const path = require('path');
+const { parseNumberMap, pickRace, previousRace, compareEntry, renderReport, isScoringSession, clean } = require('./uc-entry-check-lib');
 const { verdict, failures } = require('./pitwall-alert-lib');
 
 const CONFIG = `export const X = 1;
@@ -45,17 +47,17 @@ test('race list: an unmapped car and a number with a new driver are alerts', () 
   const { fail, note } = compareEntry({
     entry: [car(1, 'AAA'), car(2, 'NEW'), car(99, 'XYZ')],
     last: [car(1, 'AAA'), car(2, 'OLD'), car(3, 'GON')],
-    lastName: 'Brazil', map, isRaceList: true,
+    lastName: 'Brazil', raceName: 'Las Vegas 2026', map, alerting: true,
   });
   assert.equal(fail.length, 2);
-  assert.match(fail[0], /car 99 XYZ .*not in DRIVER_NUMBER_TO_ID/);
+  assert.match(fail[0], /^Las Vegas 2026: car 99 XYZ .*not in DRIVER_NUMBER_TO_ID/);
   assert.match(fail[1], /car 2 was OLD at Brazil, now NEW/);
-  assert.deepEqual(note, ['car 3 GON raced at Brazil and is not on this entry list']);
+  assert.deepEqual(note, ['Las Vegas 2026: car 3 GON (T) raced at Brazil and is not on this entry list']);
 });
 
 test('practice list before the race list is out: stand-ins are notes, never alerts', () => {
   const map = parseNumberMap(CONFIG);
-  const { fail, note } = compareEntry({ entry: [car(34, 'CRA'), car(2, 'BEG')], last: [car(2, 'HAM')], map, isRaceList: false });
+  const { fail, note } = compareEntry({ entry: [car(34, 'CRA'), car(2, 'BEG')], last: [car(2, 'HAM')], map, alerting: false });
   assert.deepEqual(fail, []);
   assert.equal(note.length, 2);
 });
@@ -69,4 +71,25 @@ test('the report reads the way pitwall-alert expects', () => {
   assert.equal(verdict(warn.text), 'WARN');
   assert.deepEqual(failures(warn.text), []);
   assert.equal(verdict(renderReport({ stamp: 's', title: 't', fail: [], note: [] }).text), 'OK');
+});
+
+test('the repo\'s real config.ts parses, with the stand-in seats of Mexico and Brazil', () => {
+  const map = parseNumberMap(fs.readFileSync(path.join(__dirname, '../../functions/src/ingestion/config.ts'), 'utf8'));
+  assert.equal(map['50'], 'hirakawa');
+  assert.equal(map['51'], 'camara');
+  assert.equal(map['44'], 'hamilton');
+});
+
+test('qualifying and sprint lists alert like the race list; practice lists never do', () => {
+  for (const s of ['Race', 'Qualifying', 'Sprint', 'Sprint Qualifying', 'Sprint Shootout']) assert.equal(isScoringSession(s), true, s);
+  for (const s of ['Practice 1', 'Practice 2', 'Practice 3', undefined]) assert.equal(isScoringSession(s), false, String(s));
+});
+
+test('OpenF1 text cannot forge or hide a report line', () => {
+  const map = parseNumberMap(CONFIG);
+  const { fail } = compareEntry({ entry: [car(99, 'X\n- ✗ fake', 'T\n## Triage')], map, alerting: true });
+  const r = renderReport({ stamp: 's', title: 't', fail, note: [] });
+  assert.deepEqual(failures(r.text).length, 1);
+  assert.equal(clean('a\u0000b\nc'), 'a b c');
+  assert.equal(clean('x'.repeat(100)).length, 60);
 });
