@@ -1990,7 +1990,8 @@ features:
       - name
   - id: F-153
     name: "UC: Pit Wall worker alert emails in plain words"
-    status: implemented
+    status: shipped
+    shipped_at: 2026-11-18
     spec: .aidlc/specs/F-153.md
     created_at: 2026-11-17
     keywords:
@@ -2147,7 +2148,7 @@ features:
   - id: F-166
     name: "UC: one-blip silence for Pit Wall worker emails"
     summary: "A single network failure of a Pit Wall worker tick is recorded in pw_alerts but not mailed, and does not arm the is-back all-clear; mailed from the second failure in a row"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-166.md
     created_at: 2026-11-20
     keywords:
