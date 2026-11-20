@@ -1,7 +1,7 @@
 // node --test test/*.test.js — what the worker's alert emails say (F-153).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { classifyTickError, clock, span, tickFailedEmail, jobLabel, jobFailedEmail, staleEmail, outageGap, allClearSince, backEmail } = require('../dist/workers/pitwall/src/jobs/alertText.js');
+const { classifyTickError, clock, span, tickFailedEmail, jobLabel, jobFailedEmail, staleEmail, outageGap, allClearSince, backEmail, emailTickFailure, onTickFailure } = require('../dist/workers/pitwall/src/jobs/alertText.js');
 
 const AT = Date.parse('2026-11-17T10:49:42Z');
 const base = { failures: 2, maxFailures: 3, tickMs: 300000, startedAt: Date.parse('2026-11-17T10:19:12Z'), at: AT, runner: 'forge', commit: '0bf6972' };
@@ -131,4 +131,29 @@ test('the all-clear says how long the worker was away', () => {
   assert.equal(e.subject, '[pit wall] Worker is back (was away 42 minutes)');
   assert.match(e.text, /before this began at 10:07 UTC; it was away for 42 minutes and came back at 10:49 UTC/);
   inOrder(e.text, SECTIONS.slice(0, 4));
+});
+
+test('F-166: one network blip is not mailed, the second in a row is; a stall or unknown error is mailed at once', () => {
+  // the 2026-11-20 21:39 UTC blip: recorded, not mailed, so no "is back" follows either
+  assert.equal(emailTickFailure('14 UNAVAILABLE: The service is temporarily unavailable.', 1), false);
+  assert.equal(emailTickFailure('getaddrinfo EAI_AGAIN firestore.googleapis.com', 1), false);
+  assert.equal(emailTickFailure('14 UNAVAILABLE: The service is temporarily unavailable.', 2), true);
+  assert.equal(emailTickFailure('fetch failed', 3), true);
+  assert.equal(emailTickFailure('tick did not finish within 1500 s', 1), true);
+  assert.equal(emailTickFailure('previous tick still running', 2), true);
+  assert.equal(emailTickFailure("Cannot read properties of undefined (reading 'round')", 1), true);
+});
+
+test('F-166: a silent blip does not arm the all-clear; a mailed failure does, and keeps the first start', () => {
+  const blip = '14 UNAVAILABLE: The service is temporarily unavailable.';
+  const T1 = Date.parse('2026-11-20T21:39:00Z'), T2 = T1 + 330000;
+  const first = onTickFailure({ message: blip, failures: 1, failedSince: null, startedAt: T1, once: false });
+  assert.deepEqual(first, { send: false, failedSince: null });
+  // ...so the good tick at 21:45 owes nothing: a 14-minute heartbeat gap is under the 30-minute limit
+  assert.equal(allClearSince(Date.parse('2026-11-20T21:31:00Z'), Date.parse('2026-11-20T21:45:08Z'), 30 * 60000, first.failedSince), null);
+  const second = onTickFailure({ message: blip, failures: 2, failedSince: first.failedSince, startedAt: T2, once: false });
+  assert.deepEqual(second, { send: true, failedSince: T2 });
+  assert.deepEqual(onTickFailure({ message: blip, failures: 3, failedSince: T2, startedAt: T2 + 330000, once: false }), { send: true, failedSince: T2 });
+  // a --once run has no next tick to recover on
+  assert.deepEqual(onTickFailure({ message: blip, failures: 1, failedSince: null, startedAt: T1, once: true }), { send: true, failedSince: T1 });
 });

@@ -18,7 +18,7 @@ import { runOutlooks } from '../jobs/outlooks';
 import { outlookSettings } from '../jobs/outlookSettings';
 import { withDeadline, afterTick, TICK_DEADLINE_MS, MAX_TICK_FAILURES } from '../jobs/watchdog';
 import { STALE_AFTER_MS } from '../jobs/lease';
-import { tickFailedEmail, jobFailedEmail, staleEmail, backEmail, allClearSince, type Email } from '../jobs/alertText';
+import { tickFailedEmail, jobFailedEmail, staleEmail, backEmail, allClearSince, onTickFailure, type Email } from '../jobs/alertText';
 import type { Job } from '../jobs/types';
 
 const args = process.argv.slice(2);
@@ -54,11 +54,12 @@ let firstTick = true;
 /**
  * `subject` and `body` are the record in pw_alerts (the ops check prints the subject; `record: false`
  * skips it, for good news that is not an alert). `email` is what the owner reads; without it the
- * record's own words are sent.
+ * record's own words are sent. `send: false` writes the record only (F-166).
  */
-async function alert(subject: string, body: string, email?: Email, record = true): Promise<void> {
+async function alert(subject: string, body: string, email?: Email, record = true, send = true): Promise<void> {
   const id = `${Date.now()}_${subject.replace(/[^a-z0-9]+/gi, '-').slice(0, 60)}`;
   if (record) await db.collection('pw_alerts').doc(id).set({ at: Date.now(), subject, body, runner: OWNER }).catch(() => undefined);
+  if (!send) return;
   const apiKey = process.env.RESEND_API_KEY, to = process.env.ALERT_TO;
   if (!apiKey || !to) return;
   try {
@@ -165,11 +166,16 @@ async function tick(): Promise<void> {
       await withDeadline(current, TICK_DEADLINE_MS, 'tick');
     } catch (e) {
       ok = false;
-      log(`tick failed: ${e instanceof Error ? e.message : e}`);
+      const message = e instanceof Error ? e.message : String(e);
+      log(`tick failed: ${message}`);
       const detail = e instanceof Error ? e.stack ?? e.message : String(e);
-      failedSince ??= startedAt;
-      const email = tickFailedEmail({ message: e instanceof Error ? e.message : String(e), detail, failures: failures + 1, maxFailures: MAX_TICK_FAILURES, tickMs: TICK_MS, startedAt, at: Date.now(), runner: OWNER, commit, tz: TZ });
-      await withDeadline(alert('worker tick failed', detail, email), 30 * 1000, 'alert').catch((err: Error) => log(`alert failed: ${err.message}`));
+      // F-166: one network blip that the next tick recovers from is recorded (pw_alerts, so the
+      // ops check still lists it) but not mailed, and does not arm the "is back" that would follow.
+      const decision = onTickFailure({ message, failures: failures + 1, failedSince, startedAt, once });
+      failedSince = decision.failedSince;
+      if (!decision.send) log('first network failure in a row: recorded, not mailed (F-166)');
+      const email = decision.send ? tickFailedEmail({ message, detail, failures: failures + 1, maxFailures: MAX_TICK_FAILURES, tickMs: TICK_MS, startedAt, at: Date.now(), runner: OWNER, commit, tz: TZ }) : undefined;
+      await withDeadline(alert('worker tick failed', detail, email, true, decision.send), 30 * 1000, 'alert').catch((err: Error) => log(`alert failed: ${err.message}`));
     }
     const next = afterTick(ok, failures, MAX_TICK_FAILURES);
     failures = next.failures;
