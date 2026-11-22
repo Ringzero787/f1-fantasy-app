@@ -7,7 +7,7 @@
 //   SA_KEY=… node scripts/ops/pitwall-check.js [--json]
 'use strict';
 const path = require('path');
-const { evaluate, render } = require('./pitwall-check-lib');
+const { evaluate, render, resultDiffs } = require('./pitwall-check-lib');
 
 const EXPECTED_PROJECT = 'f1-app-18077';
 const SEASON = process.env.PW_SEASON || '2026';
@@ -62,7 +62,24 @@ async function collect() {
     m.raceStart = race ? race.date_start : null;
   }
 
+  // F-168: races scored in the last 7 days against the provider's classification now. The car
+  // numbers come from the race's own live-sweep map, so a stand-in resolves as it was scored.
+  const resultDrift = [];
+  for (const d of racesSnap.docs) {
+    const r = d.data();
+    const raceAt = toIso(r.schedule && r.schedule.race);
+    if (r.status !== 'completed' || !raceAt || Date.now() - new Date(raceAt).getTime() > 7 * 24 * 3600 * 1000) continue;
+    const raceSession = sessions.find((x) => x.session_name === 'Race' && Math.abs(new Date(x.date_start).getTime() - new Date(raceAt).getTime()) < 36 * 3600 * 1000);
+    const live = await db.collection('races').doc(d.id).collection('live').doc('positions').get();
+    const numberToId = (live.exists && live.data().numberToId) || {};
+    if (!raceSession || !Object.keys(numberToId).length) continue;
+    await new Promise((res) => setTimeout(res, 1500));
+    const provider = await openf1(`/session_result?session_key=${raceSession.session_key}`);
+    resultDrift.push({ raceId: d.id, round: r.round, raceAt, diffs: resultDiffs((r.results && r.results.raceResults) || [], provider, numberToId) });
+  }
+
   return {
+    resultDrift,
     worker: worker.exists ? worker.data() : null,
     races,
     newestPublic: pubSnap.docs[0] ? pubSnap.docs[0].data() : null,

@@ -163,6 +163,18 @@ function evaluate(state, now = new Date()) {
     else if (raceAt < t - 3 * HOUR && !heldIds.has(r.id)) add('warn', 'scoring', `${r.id} (round ${r.round}) raced ${fmtAge(t - raceAt)} ago, nothing fetched yet (the checker runs every 10 min from session end)`);
   }
 
+  // F-168: a scored race whose official classification changed afterwards (Las Vegas 2026: a
+  //    time penalty swapped 14th and 15th after scoring). From F-168 the ingestion re-applies a
+  //    change for 72 h and the teams are re-graded; a difference still there after that needs the
+  //    correctRaceResults op.
+  for (const d of state.resultDrift || []) {
+    if (!d.diffs || !d.diffs.length) continue;
+    const age = t - ms(d.raceAt);
+    const what = d.diffs.slice(0, 6).join(', ') + (d.diffs.length > 6 ? ` and ${d.diffs.length - 6} more` : '');
+    if (age < 72 * HOUR) add('warn', 'scoring', `${d.raceId} (round ${d.round}) official classification differs from what was scored: ${what}. The correction pass re-applies it within 72 h of the race`);
+    else add('fail', 'scoring', `${d.raceId} (round ${d.round}) official classification differs from what was scored: ${what}. Past the 72 h correction window: run the uc-script op with script=correctRaceResults.js`);
+  }
+
   // 4. the calendar against the provider: cancelled, added, moved
   for (const r of state.races) if (r.status === 'cancelled') add('ok', 'calendar', `${r.id} (round ${r.round}) is cancelled in the registry`);
   const upcoming = state.races.filter(live);
@@ -229,4 +241,24 @@ function render(result, now = new Date()) {
   return lines.join('\n') + '\n';
 }
 
-module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, evaluate, render, fmtAge, oneLine };
+/**
+ * F-168, pure: where the provider's race classification (/session_result rows) differs from the
+ * stored raceResults. `numberToId` maps car numbers as the race was scored. A row the provider
+ * does not classify (no position, no flag) is skipped: there is nothing to compare it with.
+ */
+function resultDiffs(stored, provider, numberToId) {
+  const byId = new Map((stored || []).map((r) => [r.driverId, r]));
+  const diffs = [];
+  for (const p of provider || []) {
+    const id = numberToId[p.driver_number];
+    if (!id) { diffs.push(`car ${p.driver_number} unknown`); continue; }
+    const want = p.dsq ? 'dsq' : p.dns ? 'dns' : p.dnf ? 'dnf' : Number.isInteger(p.position) ? `P${p.position}` : null;
+    if (want === null) continue;
+    const r = byId.get(id);
+    const have = !r ? 'missing' : r.status === 'finished' ? `P${r.position}` : r.status;
+    if (have !== want) diffs.push(`${id} scored ${have}, now ${want}`);
+  }
+  return diffs;
+}
+
+module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, resultDiffs, evaluate, render, fmtAge, oneLine };

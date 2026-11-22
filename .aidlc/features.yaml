@@ -2167,3 +2167,14 @@ features:
       - lineup
       - highlight
       - grid
+  - id: F-168
+    name: "UC: post-race result corrections re-grade teams"
+    summary: "A classification changed after scoring is applied to every team as a per-pick delta (onRaceCompleted, 72 h correction window), contract expiry sells at post-race prices, the ops check pages on a missed correction, and repair ops fix Las Vegas 2026"
+    status: building
+    spec: .aidlc/specs/F-168.md
+    created_at: 2026-11-22
+    keywords:
+      - correction
+      - penalty
+      - results
+      - expiry

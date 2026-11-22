@@ -66,7 +66,7 @@ export function heldAction(
 }
 
 /** A race the results check may fetch: its document's season and race time pick the OpenF1 meeting (F-149). */
-interface Candidate {
+export interface Candidate {
   raceId: string;
   round: number;
   raceName: string;
@@ -166,7 +166,11 @@ export const checkOpenF1Results = onSchedule(
       // re-grade of picks + lineups + standings + bets). An unchanged re-fetch
       // is a no-op via onRaceCompleted's results signature, so this is cheap and
       // safe. Bounded to a window so we stop re-fetching once results are final.
-      const CORRECTION_WINDOW_HOURS = 6;
+      // F-168: was 6 h from the race start, which closed about four hours after a night race was
+      // approved (Las Vegas 2026's penalty landed outside it). Stewards' decisions and the
+      // provider's re-classification can take a day or more; 72 h still ends well before the
+      // next race weekend. A correction now re-grades Undercut teams too (onRaceCompleted).
+      const CORRECTION_WINDOW_HOURS = 72;
       const completedSnap = await db.collection('races').where('status', '==', 'completed').get();
       for (const doc of completedSnap.docs) {
         const raceMs = toMs(doc.data().schedule?.race);
@@ -184,86 +188,106 @@ export const checkOpenF1Results = onSchedule(
   },
 );
 
+/**
+ * The official classification for a race document's meeting, fetched and converted exactly as the
+ * ingestion approves it: race (with the real starting grid and fastest lap), sprint, qualifying.
+ * Null when the meeting is not found, the race is still running or has no results yet. `warnings`
+ * collects the converters' warnings. Shared by processRace and the F-168 repair script
+ * (scripts/correctRaceResults.js), so a repair can never classify a race differently.
+ */
+export async function fetchOfficialResults(
+  race: Candidate,
+  sessionsFor: (season: number) => Promise<OpenF1Session[]>,
+  roster: KnownDriver[],
+  warnings: string[],
+) {
+  // F-149: the meeting is the race document's season's meeting whose Race starts within three days
+  // of the document's race time — never a round number looked up in a fixed year
+  const meeting = meetingForRace(await sessionsFor(race.season), race.season, race.raceMs);
+  if (!meeting) {
+    console.log(`[Ingestion] No ${race.season} OpenF1 meeting with a Race within 3 days of ${race.raceId}`);
+    return null;
+  }
+  const meetingSessions = meeting.sessions;
+  const raceSession = meeting.race;
+
+  // Check if session has ended (date_end in the past)
+  if (raceSession.date_end && new Date(raceSession.date_end) > new Date()) {
+    console.log(`[Ingestion] Race session still in progress, skipping`);
+    return null;
+  }
+
+  // F-152: cars the table does not know, resolved by name from the race's entry list, so the grid
+  // and fastest lap (rows that carry only a number) credit them too. The race converter resolves
+  // the same list again and reports it; the warnings here would only repeat that.
+  // A failed fetch throws (caught below), so the race is tried again rather than scored without
+  // the grid and fastest lap of a car resolved by name.
+  const raceExtras = extrasFor(await fetchDrivers(raceSession.session_key), roster, []);
+
+  // Fetch grid positions — actual starting grid for the race session
+  // (includes penalties/pit-lane starts), with qualifying as fallback
+  const gridPositions = await getGridPositions(meetingSessions, raceSession.session_key, raceExtras);
+
+  // Fetch fastest lap
+  let fastestLapDriverId: string | null = null;
+  try {
+    fastestLapDriverId = await findFastestLap(raceSession.session_key, raceExtras);
+  } catch (e) {
+    warnings.push('Failed to fetch fastest lap data');
+    console.warn('[Ingestion] Fastest lap fetch failed:', e);
+  }
+
+  // Convert race results
+  const raceData = await convertToRaceResults(
+    raceSession.session_key,
+    gridPositions,
+    fastestLapDriverId,
+    roster,
+  );
+
+  if (raceData.results.length === 0) {
+    console.log(`[Ingestion] No race results for ${race.raceId} — likely not yet available`);
+    return null;
+  }
+
+  warnings.push(...raceData.warnings);
+
+  // Fetch sprint results if applicable
+  let sprintData: { results: Array<{ position: number; driverId: string; status: 'finished' | 'dnf' | 'dsq' | 'dns' | 'nc' }>; warnings: string[] } | null = null;
+  // a sprint weekend is one the document flags or one OpenF1 lists a Sprint for
+  const hasSprint = race.hasSprint || meetingSessions.some(s => s.session_name === 'Sprint');
+
+  if (hasSprint) {
+    const sprintSession = meetingSessions.find(s => s.session_name === 'Sprint');
+    if (sprintSession) {
+      sprintData = await convertToSprintResults(sprintSession.session_key, roster);
+      warnings.push(...sprintData.warnings);
+    } else {
+      warnings.push('Sprint expected but no Sprint session found');
+    }
+  }
+
+  // Fetch qualifying results
+  let qualifyingData: { results: Array<{ position: number; driverId: string; constructorId: string }>; warnings: string[] } | null = null;
+  const qualiSession = meetingSessions.find(s => s.session_name === 'Qualifying');
+  if (qualiSession) {
+    qualifyingData = await convertToQualifyingResults(qualiSession.session_key, roster);
+    warnings.push(...qualifyingData.warnings);
+  } else {
+    warnings.push('No qualifying session found');
+  }
+
+  return { meetingSessions, raceSession, raceData, sprintData, qualifyingData, fastestLapDriverId, hasSprint };
+}
+
 async function processRace(race: Candidate, sessionsFor: (season: number) => Promise<OpenF1Session[]>, roster: KnownDriver[]) {
   console.log(`[Ingestion] Processing ${race.raceName} (${race.season} round ${race.round})...`);
   const warnings: string[] = [];
 
   try {
-    // F-149: the meeting is the race document's season's meeting whose Race starts within three days
-    // of the document's race time — never a round number looked up in a fixed year
-    const meeting = meetingForRace(await sessionsFor(race.season), race.season, race.raceMs);
-    if (!meeting) {
-      console.log(`[Ingestion] No ${race.season} OpenF1 meeting with a Race within 3 days of ${race.raceId}`);
-      return;
-    }
-    const meetingSessions = meeting.sessions;
-    const raceSession = meeting.race;
-
-    // Check if session has ended (date_end in the past)
-    if (raceSession.date_end && new Date(raceSession.date_end) > new Date()) {
-      console.log(`[Ingestion] Race session still in progress, skipping`);
-      return;
-    }
-
-    // F-152: cars the table does not know, resolved by name from the race's entry list, so the grid
-    // and fastest lap (rows that carry only a number) credit them too. The race converter resolves
-    // the same list again and reports it; the warnings here would only repeat that.
-    // A failed fetch throws (caught below), so the race is tried again rather than scored without
-    // the grid and fastest lap of a car resolved by name.
-    const raceExtras = extrasFor(await fetchDrivers(raceSession.session_key), roster, []);
-
-    // Fetch grid positions — actual starting grid for the race session
-    // (includes penalties/pit-lane starts), with qualifying as fallback
-    const gridPositions = await getGridPositions(meetingSessions, raceSession.session_key, raceExtras);
-
-    // Fetch fastest lap
-    let fastestLapDriverId: string | null = null;
-    try {
-      fastestLapDriverId = await findFastestLap(raceSession.session_key, raceExtras);
-    } catch (e) {
-      warnings.push('Failed to fetch fastest lap data');
-      console.warn('[Ingestion] Fastest lap fetch failed:', e);
-    }
-
-    // Convert race results
-    const raceData = await convertToRaceResults(
-      raceSession.session_key,
-      gridPositions,
-      fastestLapDriverId,
-      roster,
-    );
-
-    if (raceData.results.length === 0) {
-      console.log(`[Ingestion] No race results for ${race.raceId} — likely not yet available`);
-      return;
-    }
-
-    warnings.push(...raceData.warnings);
-
-    // Fetch sprint results if applicable
-    let sprintData: { results: Array<{ position: number; driverId: string; status: 'finished' | 'dnf' | 'dsq' | 'dns' | 'nc' }>; warnings: string[] } | null = null;
-    // a sprint weekend is one the document flags or one OpenF1 lists a Sprint for
-    const hasSprint = race.hasSprint || meetingSessions.some(s => s.session_name === 'Sprint');
-
-    if (hasSprint) {
-      const sprintSession = meetingSessions.find(s => s.session_name === 'Sprint');
-      if (sprintSession) {
-        sprintData = await convertToSprintResults(sprintSession.session_key, roster);
-        warnings.push(...sprintData.warnings);
-      } else {
-        warnings.push('Sprint expected but no Sprint session found');
-      }
-    }
-
-    // Fetch qualifying results
-    let qualifyingData: { results: Array<{ position: number; driverId: string; constructorId: string }>; warnings: string[] } | null = null;
-    const qualiSession = meetingSessions.find(s => s.session_name === 'Qualifying');
-    if (qualiSession) {
-      qualifyingData = await convertToQualifyingResults(qualiSession.session_key, roster);
-      warnings.push(...qualifyingData.warnings);
-    } else {
-      warnings.push('No qualifying session found');
-    }
+    const fetched = await fetchOfficialResults(race, sessionsFor, roster, warnings);
+    if (!fetched) return;
+    const { meetingSessions, raceSession, raceData, sprintData, qualifyingData, fastestLapDriverId, hasSprint } = fetched;
 
     // An unmapped driver number means the converters dropped a car from every
     // session it appeared in, so the stored grid is silently short and any
@@ -310,7 +334,7 @@ async function processRace(race: Candidate, sessionsFor: (season: number) => Pro
 
     // Settle window: brief pause after session end so OpenF1's classification
     // stabilizes before first approval. This is no longer the penalty safety
-    // net — the correction pass re-fetches completed races for 6h and
+    // net — the correction pass re-fetches completed races for 72h and
     // onRaceCompleted delta-re-grades, so late stewards' penalties flow
     // through regardless. (Was 1h back when approval was final.)
     const SETTLE_MINUTES = 15;
