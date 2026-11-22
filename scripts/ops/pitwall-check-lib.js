@@ -168,6 +168,7 @@ function evaluate(state, now = new Date()) {
   //    change for 72 h and the teams are re-graded; a difference still there after that needs the
   //    correctRaceResults op.
   for (const d of state.resultDrift || []) {
+    if (d.unchecked) { add('ok', 'scoring', `${d.raceId} (round ${d.round}) not compared with the provider: ${d.unchecked}`); continue; }
     if (!d.diffs || !d.diffs.length) continue;
     const age = t - ms(d.raceAt);
     const what = d.diffs.slice(0, 6).join(', ') + (d.diffs.length > 6 ? ` and ${d.diffs.length - 6} more` : '');
@@ -243,8 +244,9 @@ function render(result, now = new Date()) {
 
 /**
  * F-168, pure: where the provider's race classification (/session_result rows) differs from the
- * stored raceResults. `numberToId` maps car numbers as the race was scored. A row the provider
- * does not classify (no position, no flag) is skipped: there is nothing to compare it with.
+ * stored raceResults. Statuses are derived exactly as the ingestion does (openf1Client
+ * convertToRaceResults): dsq, then dns, then dnf, then "no position" = nc, else finished at the
+ * position. `numberToId` maps car numbers as the race was scored.
  */
 function resultDiffs(stored, provider, numberToId) {
   const byId = new Map((stored || []).map((r) => [r.driverId, r]));
@@ -253,8 +255,8 @@ function resultDiffs(stored, provider, numberToId) {
     const num = Number(p.driver_number); // provider text: only ever a number in the report
     const id = numberToId[num];
     if (!id) { diffs.push(`car ${Number.isFinite(num) ? num : '?'} unknown`); continue; }
-    const want = p.dsq ? 'dsq' : p.dns ? 'dns' : p.dnf ? 'dnf' : Number.isInteger(p.position) ? `P${p.position}` : null;
-    if (want === null) continue;
+    const pos = Number(p.position);
+    const want = p.dsq === true ? 'dsq' : p.dns === true ? 'dns' : p.dnf === true ? 'dnf' : !(pos > 0) ? 'nc' : `P${pos}`;
     const r = byId.get(id);
     const have = !r ? 'missing' : r.status === 'finished' ? `P${r.position}` : r.status;
     if (have !== want) diffs.push(`${id} scored ${have}, now ${want}`);

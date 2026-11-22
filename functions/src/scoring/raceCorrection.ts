@@ -96,11 +96,22 @@ export interface TeamCorrection {
   aceUnknown: string[];
 }
 
-/** The phase a component was scored in: standalone qualifying/sprint when the snapshot has one, else the race phase. */
-function phaseFor(component: Component, snap: SnapshotLike): PhaseName {
-  if (component === 'quali' && snap.phases?.qualifying) return 'qualifying';
-  if (component === 'sprint' && snap.phases?.sprint) return 'sprint';
-  return 'race';
+/** Which sessions were scored on their own, before the race (the race doc's qualifyingScored / sprintScored). */
+export interface Standalone { quali: boolean; sprint: boolean }
+
+/**
+ * The phase a component was scored into for this team, or null when it never was. Scored on its
+ * own: the snapshot's qualifying/sprint phase, and only for a pick that phase scored (a pick
+ * bought between qualifying and the race got none). A team without that phase while the session
+ * was scored on its own joined after it, and the race run gave it none either. Not scored on its
+ * own: the race run folded it into the race phase for every team.
+ */
+function phaseFor(component: Component, snap: SnapshotLike, standalone: Standalone, pickId: string): PhaseName | null {
+  if (component === 'race') return 'race';
+  const phase: PhaseName = component === 'quali' ? 'qualifying' : 'sprint';
+  const own = snap.phases?.[phase];
+  if (own) return own.entities && pickId in own.entities ? phase : null;
+  return standalone[component] ? null : 'race';
 }
 
 /**
@@ -113,6 +124,7 @@ export function planTeamCorrection(
   team: TeamLike,
   deltas: Map<string, EntityDelta>,
   preRacePrice: (entityId: string) => number | undefined,
+  standalone: Standalone = { quali: false, sprint: false },
 ): TeamCorrection | null {
   // (a `constructor` key cannot default from `{}`: TypeScript reads Object's own constructor)
   const roster = snap.roster;
@@ -141,9 +153,9 @@ export function planTeamCorrection(
     let pickDelta = 0;
     for (const c of comps) {
       if (!d[c]) continue;
-      const phase = phaseFor(c, snap);
-      const stored = snap.phases?.[phase];
-      if (!stored) continue; // the component was never scored into this team (e.g. joined after qualifying)
+      const phase = phaseFor(c, snap, standalone, pick.id);
+      const stored = phase ? snap.phases?.[phase] : undefined;
+      if (!phase || !stored) continue; // never scored into this team
       const amount = d[c] * factor;
       const p = out.phases[phase] ?? { entities: { ...(stored.entities || {}) }, points: stored.points || 0 };
       p.entities[pick.id] = (p.entities[pick.id] || 0) + amount;
@@ -185,6 +197,8 @@ export interface CorrectionSummary {
   entityDeltas: Record<string, EntityDelta>;
   teams: Array<{ teamId: string; leagueId: string | null; userId: string | null; racePhaseDelta: number; activeDelta: number; bankedDelta: number; entityDelta: Record<string, number> }>;
   skippedAlreadyCorrected: number;
+  /** snapshot reflects results other than this event's "before" (an out-of-order or stale event) */
+  skippedOutOfOrder: number;
   aceUnknown: Array<{ teamId: string; entityId: string }>;
   moonshotsToReview: string[];
   leaguesSynced: string[];
@@ -204,24 +218,35 @@ export interface ApplyOptions {
 export async function applyRaceCorrection(
   db: FirebaseFirestore.Firestore,
   raceId: string,
-  race: { seasonId?: string | null; round?: number; totalLaps?: number; name?: string | null },
+  race: { seasonId?: string | null; round?: number; totalLaps?: number; name?: string | null; qualifyingScored?: boolean; sprintScored?: boolean },
   oldResults: RaceResultsDoc,
   newResults: RaceResultsDoc,
   opts: ApplyOptions,
+  /** the lap count the old results were scored with (the DNF penalty depends on it); defaults to race.totalLaps */
+  oldTotalLaps?: number,
 ): Promise<CorrectionSummary> {
   const log = opts.log ?? ((m: string) => console.log(`[Correction] ${m}`));
-  const ctx = { raceId, seasonId: race.seasonId ?? null, round: race.round || 0, totalLaps: race.totalLaps };
-  const rowsOf = (r: RaceResultsDoc) => buildRaceScoreRows(r.raceResults || [], r.sprintResults || null, r.qualifyingResults || null, ctx);
-  const oldRows = rowsOf(oldResults);
-  const newRows = rowsOf(newResults);
+  const ctx = (laps: number | undefined) => ({ raceId, seasonId: race.seasonId ?? null, round: race.round || 0, totalLaps: laps });
+  const rowsOf = (r: RaceResultsDoc, laps: number | undefined) => buildRaceScoreRows(r.raceResults || [], r.sprintResults || null, r.qualifyingResults || null, ctx(laps));
+  const oldRows = rowsOf(oldResults, oldTotalLaps ?? race.totalLaps);
+  const newRows = rowsOf(newResults, race.totalLaps);
+  const oldSig = resultsSignature(oldResults);
+  const standalone: Standalone = { quali: race.qualifyingScored === true, sprint: race.sprintScored === true };
   const deltas = componentDeltas(oldRows, newRows);
   const rowsToWrite = changedRows(oldRows, newRows);
   const newSig = resultsSignature(newResults);
   const summary: CorrectionSummary = {
     raceId, changed: deltas.size > 0 || rowsToWrite.length > 0, newSig, rows: rowsToWrite.length,
-    entityDeltas: Object.fromEntries(deltas), teams: [], skippedAlreadyCorrected: 0, aceUnknown: [], moonshotsToReview: [], leaguesSynced: [],
+    entityDeltas: Object.fromEntries(deltas), teams: [], skippedAlreadyCorrected: 0, skippedOutOfOrder: 0, aceUnknown: [], moonshotsToReview: [], leaguesSynced: [],
   };
   if (!summary.changed) { log(`${raceId}: the corrected results score the same; nothing to do`); return summary; }
+  // An empty classification is a broken fetch or a manual edit, never a correction: applying it
+  // would take every team's race points away.
+  if (!(newResults.raceResults || []).length) {
+    summary.refused = 'the new results have no race classification';
+    log(`${raceId}: REFUSED — ${summary.refused}`);
+    return summary;
+  }
 
   // A later race of the same season already scored: lastRacePoints and the weekend leaderboard
   // now belong to it, and rewriting them for this race would be wrong. Refuse; that needs a person.
@@ -253,7 +278,10 @@ export async function applyRaceCorrection(
       const snap = snapSnap.data() as SnapshotLike;
       const team = (teamSnap.data() || {}) as TeamLike;
       if (snap.resultsSig === newSig) { summary.skippedAlreadyCorrected++; return null; }
-      const plan = planTeamCorrection(snap, team, deltas, preRacePrice);
+      // The delta is (new − old) for THIS event's old results. A snapshot already moved to some
+      // other version (an event delivered late or out of order) must not take it again on top.
+      if (snap.resultsSig !== undefined && snap.resultsSig !== oldSig) { summary.skippedOutOfOrder++; return null; }
+      const plan = planTeamCorrection(snap, team, deltas, preRacePrice, standalone);
       if (!tx) return plan;
       const now = admin.firestore.Timestamp.now();
       const snapUpdate: Record<string, unknown> = {
@@ -336,6 +364,7 @@ export async function applyRaceCorrection(
   }
 
   log(`${raceId}: corrected ${summary.teams.length} team(s), ${rowsToWrite.length} raceScores row(s), ${summary.leaguesSynced.length} league(s)` +
+    (summary.skippedOutOfOrder ? `; ${summary.skippedOutOfOrder} team(s) skipped: snapshot is on another results version (review)` : '') +
     (summary.moonshotsToReview.length ? `; settled Moonshots to review: ${summary.moonshotsToReview.join(', ')}` : '') +
     (summary.aceUnknown.length ? `; Ace without a pre-race price (scored ×1): ${summary.aceUnknown.map((a) => `${a.teamId}/${a.entityId}`).join(', ')}` : ''));
   return summary;

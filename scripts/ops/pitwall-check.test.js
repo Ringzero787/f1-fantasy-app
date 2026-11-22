@@ -259,16 +259,20 @@ test('F-168: the provider classification against what was scored (Las Vegas 2026
     { driverId: 'hadjar', position: 14, status: 'finished' },
     { driverId: 'lawson', position: 15, status: 'finished' },
     { driverId: 'perez', position: 0, status: 'dnf' },
+    { driverId: 'bearman', position: 0, status: 'nc' },
   ];
   const map = { 6: 'hadjar', 30: 'lawson', 11: 'perez', 87: 'bearman' };
   const provider = [
     { driver_number: 30, position: 14 }, { driver_number: 6, position: 15 },
     { driver_number: 11, position: null, dnf: true },
-    { driver_number: 87, position: null }, // not classified, no flag: nothing to compare
+    { driver_number: 87, position: null }, // not classified, no flag: nc, as the ingestion stores it
   ];
   assert.deepEqual(resultDiffs(stored, provider, map), ['lawson scored P15, now P14', 'hadjar scored P14, now P15']);
   assert.deepEqual(resultDiffs(stored, [{ driver_number: 6, position: 14 }, { driver_number: 30, position: 15 }], map), []);
   assert.deepEqual(resultDiffs(stored, [{ driver_number: 99, position: 1 }], map), ['car 99 unknown']);
+  // statuses as the ingestion derives them: an unclassified car stored as nc is not a difference
+  assert.deepEqual(resultDiffs([{ driverId: 'bearman', position: 0, status: 'nc' }], [{ driver_number: 87, position: null }], map), []);
+  assert.deepEqual(resultDiffs([{ driverId: 'perez', position: 0, status: 'dsq' }], [{ driver_number: 11, position: null, dnf: true, dsq: true }], map), []);
 });
 
 test('F-168: a classification change warns inside the 72 h correction window and fails after it', () => {
@@ -279,4 +283,5 @@ test('F-168: a classification change warns inside the 72 h correction window and
   assert.deepEqual(levels(late, 'scoring'), ['fail']);
   assert.match(late.findings.find((f) => f.check === 'scoring').text, /correctRaceResults\.js/);
   assert.equal(evaluate({ ...healthy(), resultDrift: [{ raceId: 'usa_2026', round: 20, raceAt: at(80), diffs: [] }] }, NOW).worst, 'ok');
+  assert.equal(evaluate({ ...healthy(), resultDrift: [{ raceId: 'usa_2026', round: 20, raceAt: at(80), unchecked: 'no live-sweep car map for this race' }] }, NOW).worst, 'ok');
 });

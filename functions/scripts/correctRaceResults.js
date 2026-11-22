@@ -125,14 +125,16 @@ async function main() {
     if ((qb.get(id) || {}).position !== (qa.get(id) || {}).position) console.log(`  qualifying ${id}: ${(qb.get(id) || {}).position ?? '—'} → ${(qa.get(id) || {}).position ?? '—'}`);
   }
 
-  const summary = await applyRaceCorrection(db, raceDoc.id, race, old, corrected, { dryRun: !APPLY, syncLeagues: syncLeaguesForRace, log: (m) => console.log(m) });
+  // the new rows use the provider's lap count (written below); the old ones the count they were scored with
+  const newLaps = fetched.raceData.totalLaps || race.totalLaps || 0;
+  const summary = await applyRaceCorrection(db, raceDoc.id, { ...race, totalLaps: newLaps }, old, corrected, { dryRun: !APPLY, syncLeagues: syncLeaguesForRace, log: (m) => console.log(m) }, race.totalLaps);
   if (summary.refused) { console.error(`REFUSED: ${summary.refused}`); process.exit(1); }
 
   console.log('\npoints per pick (neutral, before the Ace):');
   for (const [id, d] of Object.entries(summary.entityDeltas)) console.log(`  ${id.padEnd(14)} race ${d.race >= 0 ? '+' : ''}${d.race}  quali ${d.quali >= 0 ? '+' : ''}${d.quali}  sprint ${d.sprint >= 0 ? '+' : ''}${d.sprint}`);
   const hist = new Map();
   summary.teams.forEach((t) => { const k = t.activeDelta + t.bankedDelta; hist.set(k, (hist.get(k) || 0) + 1); });
-  console.log(`\nteams that change: ${summary.teams.length}${summary.skippedAlreadyCorrected ? ` (${summary.skippedAlreadyCorrected} already corrected, skipped)` : ''}`);
+  console.log(`\nteams that change: ${summary.teams.length}${summary.skippedAlreadyCorrected ? ` (${summary.skippedAlreadyCorrected} already corrected, skipped)` : ''}${summary.skippedOutOfOrder ? ` (${summary.skippedOutOfOrder} on another results version, skipped: review)` : ''}`);
   [...hist.entries()].sort((a, b) => a[0] - b[0]).forEach(([k, n]) => console.log(`  ${k >= 0 ? '+' : ''}${k} points: ${n} team(s)`));
   console.log(`  of which banked (sold or expired picks → lockedPoints): ${summary.teams.filter((t) => t.bankedDelta).length} team(s)`);
   const leagues = [...new Set(summary.teams.map((t) => t.leagueId).filter(Boolean))];
@@ -149,7 +151,7 @@ async function main() {
     ...(corrected.sprintResults ? { 'results.sprintResults': corrected.sprintResults } : {}),
     ...(corrected.qualifyingResults ? { 'results.qualifyingResults': corrected.qualifyingResults } : {}),
     ...(corrected.fastestLap ? { 'results.fastestLap': corrected.fastestLap } : {}),
-    totalLaps: fetched.raceData.totalLaps || race.totalLaps || 0,
+    totalLaps: newLaps,
     resultsCorrectedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
   await raceDoc.ref.update(update);

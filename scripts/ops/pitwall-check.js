@@ -72,7 +72,10 @@ async function collect() {
     const raceSession = sessions.find((x) => x.session_name === 'Race' && Math.abs(new Date(x.date_start).getTime() - new Date(raceAt).getTime()) < 36 * 3600 * 1000);
     const live = await db.collection('races').doc(d.id).collection('live').doc('positions').get();
     const numberToId = (live.exists && live.data().numberToId) || {};
-    if (!raceSession || !Object.keys(numberToId).length) continue;
+    if (!raceSession || !Object.keys(numberToId).length) {
+      resultDrift.push({ raceId: d.id, round: r.round, raceAt, unchecked: !raceSession ? 'no provider Race session' : 'no live-sweep car map for this race' });
+      continue;
+    }
     await new Promise((res) => setTimeout(res, 1500));
     const provider = await openf1(`/session_result?session_key=${raceSession.session_key}`);
     resultDrift.push({ raceId: d.id, round: r.round, raceAt, diffs: resultDiffs((r.results && r.results.raceResults) || [], provider, numberToId) });

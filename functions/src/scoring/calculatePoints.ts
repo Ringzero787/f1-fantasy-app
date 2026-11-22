@@ -736,7 +736,7 @@ export const onRaceCompleted = functions
       try {
         await applyRaceCorrection(db, raceId, afterData, beforeData.results || {}, afterData.results || {}, {
           dryRun: false, syncLeagues: syncLeaguesForRace,
-        });
+        }, beforeData.totalLaps);
       } catch (err) {
         console.error(`[Correction] ${raceId} failed:`, err);
       }
