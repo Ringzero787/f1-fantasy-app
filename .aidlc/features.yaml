@@ -2156,3 +2156,14 @@ features:
       - alert
       - email
       - blip
+  - id: F-167
+    name: "UC: open lineup slot highlight"
+    summary: "An open Team-grid slot the player can fill gets a soft accent wash, dashed accent border and ringed plus, so it no longer reads like a filled slot"
+    status: building
+    spec: .aidlc/specs/F-167.md
+    created_at: 2026-11-22
+    keywords:
+      - slot
+      - lineup
+      - highlight
+      - grid
