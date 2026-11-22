@@ -1560,6 +1560,11 @@ export const onRaceCompleted = functions
       console.log('[Phase 5] Cleared config/lockState for %s', raceId);
     }
 
+    // F-168: the correction pass (checkResults) leaves a race alone until this stamp exists. A
+    // correction approved while this run was still scoring would re-grade only the teams already
+    // scored, and this run would then score the rest on the old results.
+    await change.after.ref.update({ scoringCompletedAt: admin.firestore.FieldValue.serverTimestamp() });
+
     console.log(`Race ${raceId} fully processed: scored, priced, ranked, unlocked`);
     return null;
   });

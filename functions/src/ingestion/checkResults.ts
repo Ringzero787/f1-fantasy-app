@@ -177,6 +177,8 @@ export const checkOpenF1Results = onSchedule(
         if (!Number.isFinite(raceMs)) continue;
         const ageMs = now.toMillis() - raceMs;
         if (ageMs < 0 || ageMs > CORRECTION_WINDOW_HOURS * 3600 * 1000) continue; // only recently completed
+        // F-168: not while the first scoring run is still going (onRaceCompleted stamps this last)
+        if (!doc.data().scoringCompletedAt) continue;
         const candidate = candidateOf(doc, 'Ingestion');
         if (!candidate) continue;
         console.log(`[Ingestion] Correction re-check ${doc.id} (completed ${(ageMs / 3600000).toFixed(1)}h ago)`);

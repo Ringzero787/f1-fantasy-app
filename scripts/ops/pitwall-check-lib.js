@@ -250,8 +250,9 @@ function resultDiffs(stored, provider, numberToId) {
   const byId = new Map((stored || []).map((r) => [r.driverId, r]));
   const diffs = [];
   for (const p of provider || []) {
-    const id = numberToId[p.driver_number];
-    if (!id) { diffs.push(`car ${p.driver_number} unknown`); continue; }
+    const num = Number(p.driver_number); // provider text: only ever a number in the report
+    const id = numberToId[num];
+    if (!id) { diffs.push(`car ${Number.isFinite(num) ? num : '?'} unknown`); continue; }
     const want = p.dsq ? 'dsq' : p.dns ? 'dns' : p.dnf ? 'dnf' : Number.isInteger(p.position) ? `P${p.position}` : null;
     if (want === null) continue;
     const r = byId.get(id);
