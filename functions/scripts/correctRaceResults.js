@@ -40,6 +40,27 @@ function initAdmin() {
   db = admin.firestore();
 }
 
+/** The compiled code must be current: a stale ../lib would run old scoring code against production. */
+function requireFreshBuild() {
+  const fs = require('fs');
+  const path = require('path');
+  const src = path.join(__dirname, '..', 'src');
+  const lib = path.join(__dirname, '..', 'lib');
+  const stale = [];
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).forEach((e) => {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) return walk(p);
+    if (!e.name.endsWith('.ts')) return;
+    const out = path.join(lib, path.relative(src, p)).replace(/\.ts$/, '.js');
+    if (!fs.existsSync(out) || fs.statSync(out).mtimeMs < fs.statSync(p).mtimeMs) stale.push(path.relative(src, p));
+  });
+  walk(src);
+  if (stale.length) {
+    console.error(`Refusing to run: functions/lib is older than src for ${stale.length} file(s) (${stale.slice(0, 3).join(', ')}…). Run \`npm --prefix functions run build\` first.`);
+    process.exit(2);
+  }
+}
+
 const APPLY = process.argv.includes('--apply');
 const raceArg = (() => { const i = process.argv.indexOf('--race'); return i > 0 ? process.argv[i + 1] : null; })();
 
@@ -136,6 +157,7 @@ async function main() {
 }
 
 if (require.main === module) {
+  requireFreshBuild();
   initAdmin();
   main().then(() => process.exit(0), (e) => { console.error(e.message || e); process.exit(1); });
 }

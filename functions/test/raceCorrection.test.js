@@ -25,6 +25,12 @@ test('resultsSignature ignores row order and sees any scored field', () => {
   assert.equal(resultsSignature({ raceResults: scored }), resultsSignature({ raceResults: [...scored].reverse() }));
   assert.notEqual(resultsSignature({ raceResults: scored }), resultsSignature({ raceResults: official }));
   assert.notEqual(resultsSignature({ raceResults: scored }), resultsSignature({ raceResults: scored, fastestLap: 'lawson' }));
+  // the repair script corrects the teams with `corrected`, then writes its fields onto the stored
+  // results; the trigger then sees the merged document and must compute the same signature, or it
+  // would apply the correction a second time
+  const stored = { raceResults: scored, qualifyingResults: [{ driverId: 'hadjar', constructorId: 'red_bull', position: 5 }], fastestLap: 'lawson', other: 'kept' };
+  const corrected = { raceResults: official, qualifyingResults: stored.qualifyingResults, fastestLap: 'lawson' };
+  assert.equal(resultsSignature({ ...stored, ...corrected }), resultsSignature(corrected));
 });
 
 const snap = (over = {}) => ({
