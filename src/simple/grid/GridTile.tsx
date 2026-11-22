@@ -4,6 +4,7 @@ import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { teamAccent } from '../theme/simpleTheme';
 import { MonoLabel, ColorBar } from './GridBits';
 import { signedScore } from './liveScore';
+import { openSlotLook } from './openSlotLook';
 import type { GridTile as Tile } from './tileState';
 
 export const TILE_HEIGHT = 132;
@@ -31,30 +32,40 @@ export const GridTile = React.memo(function GridTile({ tile, locked, aceLocked, 
 
   if (tile.kind === 'empty') {
     const disabled = locked || readOnly;
+    const look = openSlotLook(colors, !!disabled);
+    const plus = scaled(28);
     return (
       <Pressable
         onPress={disabled ? undefined : () => onOpenSlot?.(tile.slot)}
         disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={tile.slot === 'driver' ? 'Add driver' : 'Add constructor'}
+        accessibilityState={{ disabled: !!disabled }}
         style={({ pressed }) => ({
           height,
           borderRadius: 18,
-          borderWidth: 1,
+          borderWidth: look.borderWidth,
           borderStyle: 'dashed',
-          borderColor: colors.borderStrong,
+          borderColor: look.borderColor,
+          backgroundColor: look.backgroundColor,
           padding: pad,
           paddingBottom: scaled(12),
           justifyContent: 'space-between',
           opacity: pressed ? 0.6 : 1,
         })}
       >
-        <MonoLabel color={colors.text.muted} style={{ letterSpacing: scaled(11) * 0.14 }}>
+        <MonoLabel color={look.label} style={{ letterSpacing: scaled(11) * 0.14 }}>
           {tile.slot === 'driver' ? 'DRIVER' : 'TEAM'}
         </MonoLabel>
         <View style={{ gap: 6 }}>
-          <Text style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(22), color: disabled ? colors.text.muted : colors.primary }}>+</Text>
-          <Text style={{ fontFamily: family.ui.black, fontSize: scaled(11), lineHeight: scaled(13), letterSpacing: scaled(11) * 0.06, textTransform: 'uppercase', color: colors.text.muted }}>
+          {look.ring ? (
+            <View style={{ width: plus, height: plus, borderRadius: plus / 2, borderWidth: 1.5, borderColor: look.accent, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontFamily: family.ui.black, fontSize: scaled(18), lineHeight: scaled(20), color: look.accent }}>+</Text>
+            </View>
+          ) : (
+            <Text style={{ fontFamily: family.ui.black, fontSize: scaled(22), lineHeight: scaled(22), color: look.accent }}>+</Text>
+          )}
+          <Text style={{ fontFamily: family.ui.black, fontSize: scaled(11), lineHeight: scaled(13), letterSpacing: scaled(11) * 0.06, textTransform: 'uppercase', color: look.label }}>
             {tile.slot === 'driver' ? 'Add driver' : 'Add constructor'}
           </Text>
         </View>
