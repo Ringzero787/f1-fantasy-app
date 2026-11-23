@@ -197,6 +197,8 @@ export interface FantasyTeam {
   raceWins: number; // Number of race weekend wins in league
   // V5: Driver lockout after contract expiry (1-race cooldown per team)
   driverLockouts?: Record<string, number>; // driverId -> completedRaceCount when lockout expires
+  /** F-169 (server-owned): drivers sold this window → races held in a row and the clock then */
+  driverStreaks?: Record<string, { held: number; atRace: number }>;
   // V7: Banked points from departed drivers (contract expiry, trade, removal)
   lockedPoints?: number;
   // Server-written: race/quali/sprint keys this team has been scored for

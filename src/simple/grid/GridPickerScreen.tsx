@@ -40,6 +40,7 @@ import {
   cheapestCompletion, driverReserve, formatValue, leftoverLine, leftoverTight, pairingHints, rowAvailability, valueOf,
 } from './pickerArithmetic';
 import type { Driver, Constructor } from '../../types';
+import { contractChoices, contractLimit, priorStreak, seasonClock } from './contractChoices';
 
 type Tab = 'drivers' | 'constructors';
 type Sort = 'pts' | 'price' | 'proj' | 'value';
@@ -72,7 +73,6 @@ interface Row {
   hint: string | null;
 }
 
-const CONTRACTS = [1, 2, 3, 4, 5, 6];
 const LOW_BUDGET = 50;
 
 interface Props {
@@ -138,6 +138,14 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   // F-124: projections load for every signed-in user while content is open.
   const proj = pwProjections;
 
+  // F-169: no contract past the season's end, and no more than six races in a row with one driver
+  const clock = useMemo(() => seasonClock(races ?? [], now.getTime()), [races, now]);
+  const limitFor = useCallback((kind: Kind, id: string) => contractLimit(
+    clock?.racesLeft ?? null,
+    kind === 'driver' && clock ? priorStreak(team?.driverStreaks, id, clock.completed) : 0,
+  ), [clock, team?.driverStreaks]);
+  const sheetContracts = useMemo(() => (sheet ? { limit: limitFor(sheet.kind, sheet.entry.id), ...contractChoices(limitFor(sheet.kind, sheet.entry.id), PRICING_CONFIG.CONTRACT_LENGTH) } : null), [sheet, limitFor]);
+
   const plan = useMemo<LineupPlan | null>(() => {
     if (!current || !pending) return null;
     return planLineup(current, pending, market, { teamSize: TEAM_SIZE, defaultContract: PRICING_CONFIG.CONTRACT_LENGTH });
@@ -197,10 +205,12 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
           const selected = pending.driverIds.includes(d.id);
           const onRoster = current?.drivers.some((r) => r.id === d.id) ?? false;
           const lockedOut = isDriverLockedOut(team?.driverLockouts, d.id, completedRaceCount);
+          // F-169: six races in a row, sold and re-bought this window — out until a race passes
+          const streakFull = !onRoster && limitFor('driver', d.id).max === 0;
           // F-142: only the bank, a full line-up or a lock-out blocks a row; the reserve marks it tight
           const avail = rowAvailability({
             kind: 'driver', price: d.price, bank: plan.budgetAfter, reserve: driverReserve(d.price, openDriverPrices, missingDrivers, ctorReserve),
-            selected, owned: onRoster, driversFull, lockedOut, teamSize: TEAM_SIZE,
+            selected, owned: onRoster, driversFull, lockedOut, streakFull, teamSize: TEAM_SIZE,
           });
           return {
             kind: 'driver', id: d.id, num: String(d.number ?? '').padStart(2, '0'), name: surname(d.name), fullName: d.name,
@@ -246,7 +256,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     const by: Sort = sort === 'proj' && !proj ? 'pts' : sort;
     list.sort((a, b) => (by === 'value' ? (b.value ?? -1) - (a.value ?? -1) : by === 'proj' ? (b.proj ?? -1) - (a.proj ?? -1) : by === 'pts' ? b.pts - a.pts : b.price - a.price));
     return list;
-  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, driversFull, ctorSwapBudget, sort, proj, openDriverPrices, missingDrivers, ctorReserve, strategyPlan]);
+  }, [tab, allDrivers, allConstructors, pending, plan, current, team?.driverLockouts, completedRaceCount, limitFor, driversFull, ctorSwapBudget, sort, proj, openDriverPrices, missingDrivers, ctorReserve, strategyPlan]);
 
   // F-125: while locked the screen is the market to look at, not a picker — every row is readable at
   // full strength (a dimmed row means "you cannot take this one", which is not the message during a
@@ -278,15 +288,15 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       }
       const onRoster = current.drivers.some((r) => r.id === row.id);
       if (onRoster) { setPending({ ...pending, driverIds: [...pending.driverIds, row.id] }); return; }
-      setContract(PRICING_CONFIG.CONTRACT_LENGTH);
+      setContract(contractChoices(limitFor('driver', row.id), PRICING_CONFIG.CONTRACT_LENGTH).initial);
       setSheet({ kind: 'driver', entry: { id: row.id, name: row.fullName, price: row.price } });
     } else {
       if (row.selected) { setPending({ ...pending, constructorId: null }); return; }
       if (current.constructor?.id === row.id) { setPending({ ...pending, constructorId: row.id }); return; }
-      setContract(PRICING_CONFIG.CONTRACT_LENGTH);
+      setContract(contractChoices(limitFor('constructor', row.id), PRICING_CONFIG.CONTRACT_LENGTH).initial);
       setSheet({ kind: 'constructor', entry: { id: row.id, name: row.fullName, price: row.price } });
     }
-  }, [locked, pending, current, openDetail]);
+  }, [locked, pending, current, openDetail, limitFor]);
 
   const confirmSheet = useCallback(() => {
     if (!sheet || !pending) return;
@@ -579,7 +589,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
             </View>
             <MonoLabel>CONTRACT · RACES</MonoLabel>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              {CONTRACTS.map((n) => {
+              {(sheetContracts?.choices ?? []).map((n) => {
                 const on = contract === n;
                 return (
                   <Pressable key={n} onPress={() => setContract(n)} accessibilityRole="radio" accessibilityState={{ selected: on }} style={{ flex: 1, paddingVertical: scaled(14), borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: on ? colors.text.primary : colors.borderStrong, backgroundColor: on ? colors.text.primary : 'transparent' }}>
@@ -588,6 +598,9 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
                 );
               })}
             </View>
+            {sheetContracts?.limit.why ? (
+              <Text style={[mono(10, 'medium'), { color: colors.text.secondary }]}>{sheetContracts.limit.why}</Text>
+            ) : null}
             <Text style={[mono(10, 'medium'), { color: colors.text.muted }]}>
               SELLING BEFORE THE CONTRACT ENDS COSTS {Math.round(PRICING_CONFIG.EARLY_TERMINATION_RATE * 100)}% OF THE PRICE PER RACE LEFT.
             </Text>

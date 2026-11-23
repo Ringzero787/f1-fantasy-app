@@ -20,6 +20,8 @@
  */
 
 import * as admin from 'firebase-admin';
+import { allowedContractLength, priorStreak, racesLeftInSeason } from './contractRules';
+import { currentSeason } from '../season/current';
 
 export const TEAM_SIZE = 5;
 export const FORM_WINDOW = 5;
@@ -177,7 +179,10 @@ export function selectValueFill(req: FillRequest): FillResult {
 export interface FillContext {
   drivers: FillCandidate[];
   constructors: FillCandidate[];
+  /** This season's completed races: the clock addedAtRace, lockouts and streaks are stamped on (F-151). */
   completedRaceCount: number;
+  /** F-169: races of this season still to run; a contract never runs past them. Absent → no season cap. */
+  racesLeft?: number;
   formRaceIds: string[];
 }
 
@@ -226,11 +231,15 @@ export function hasEverFielded(team: Record<string, any>): boolean {
  * (a round with no row counts as 0, so absentees and fresh rookies rank low).
  */
 export async function loadFillContext(db: admin.firestore.Firestore): Promise<FillContext> {
-  const [completedSnap, driversSnap, ctorsSnap] = await Promise.all([
+  const [completedSnap, driversSnap, ctorsSnap, season] = await Promise.all([
     db.collection('races').where('status', '==', 'completed').get(),
     db.collection('drivers').where('isActive', '==', true).get(),
     db.collection('constructors').where('isActive', '==', true).get(),
+    currentSeason(db),
   ]);
+  // F-169: the purchase clock is this season's (as teamOperations and Phase 3.5 stamp it), not
+  // every completed race ever — from 2027 the two differ and lockouts would read as long expired.
+  const seasonRaces = season === null ? null : (await db.collection('races').where('seasonId', '==', season).get()).docs.map((d) => d.data());
 
   // F-151: most recent by race time, not round — rounds restart each season, so by round the last
   // 2026 races would outrank every 2027 race for most of the year. Early in a season the window
@@ -273,7 +282,8 @@ export async function loadFillContext(db: admin.firestore.Firestore): Promise<Fi
   return {
     drivers: driversSnap.docs.map(toCandidate).filter((c): c is FillCandidate => !!c),
     constructors: ctorsSnap.docs.map(toCandidate).filter((c): c is FillCandidate => !!c),
-    completedRaceCount: completedSnap.size,
+    completedRaceCount: seasonRaces ? seasonRaces.filter((r) => r.status === 'completed').length : completedSnap.size,
+    ...(seasonRaces ? { racesLeft: racesLeftInSeason(seasonRaces) } : {}),
     formRaceIds,
   };
 }
@@ -308,6 +318,8 @@ export function planAutoFill(team: Record<string, any>, ctx: FillContext): AutoF
     // Object.prototype must not read as a lockout (or as "not locked out").
     const expiry = Object.prototype.hasOwnProperty.call(lockouts, c.id) ? lockouts[c.id] : undefined;
     if (typeof expiry === 'number' && ctx.completedRaceCount < expiry) return false;
+    // F-169: sold earlier this window after a full run of races: not again until a race passes
+    if (allowedContractLength(CONTRACT_LENGTH_DEFAULT, ctx.racesLeft ?? CONTRACT_LENGTH_DEFAULT, priorStreak(team.driverStreaks, c.id, ctx.completedRaceCount)) === 0) return false;
     return true;
   });
 
@@ -320,17 +332,22 @@ export function planAutoFill(team: Record<string, any>, ctx: FillContext): AutoF
   });
   if (result.drivers.length === 0 && !result.constructor) return null;
 
-  const stamp = (c: FillCandidate, withCtorId: boolean) => ({
-    ...(withCtorId ? { driverId: c.id, shortName: c.shortName, constructorId: c.constructorId } : { constructorId: c.id }),
-    name: c.name,
-    purchasePrice: Math.max(0, Math.ceil(c.price)),
-    currentPrice: Math.max(0, Math.ceil(c.price)),
-    pointsScored: 0,
-    racesHeld: 0,
-    contractLength: CONTRACT_LENGTH_DEFAULT,
-    isReservePick: true,
-    addedAtRace: ctx.completedRaceCount,
-  });
+  const stamp = (c: FillCandidate, withCtorId: boolean) => {
+    // F-169: never past the season's end, and a re-bought driver keeps the run it already had
+    const prior = withCtorId ? priorStreak(team.driverStreaks, c.id, ctx.completedRaceCount) : 0;
+    return {
+      ...(withCtorId ? { driverId: c.id, shortName: c.shortName, constructorId: c.constructorId } : { constructorId: c.id }),
+      name: c.name,
+      purchasePrice: Math.max(0, Math.ceil(c.price)),
+      currentPrice: Math.max(0, Math.ceil(c.price)),
+      pointsScored: 0,
+      racesHeld: 0,
+      contractLength: allowedContractLength(CONTRACT_LENGTH_DEFAULT, ctx.racesLeft ?? CONTRACT_LENGTH_DEFAULT, prior),
+      ...(prior > 0 ? { streakBefore: prior } : {}),
+      isReservePick: true,
+      addedAtRace: ctx.completedRaceCount,
+    };
+  };
 
   return {
     drivers: [...drivers, ...result.drivers.map((c) => stamp(c, true))],

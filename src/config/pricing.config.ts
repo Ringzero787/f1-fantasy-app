@@ -65,7 +65,7 @@ export const PRICING_CONFIG = {
   // V5: Contract System
   CONTRACT_LENGTH: 3, // Drivers auto-sell after this many races
   MIN_CONTRACT_LENGTH: 1,
-  MAX_CONTRACT_LENGTH: 10,
+  MAX_CONTRACT_LENGTH: 6, // F-169: and never past the season's end (src/simple/grid/contractChoices.ts)
   CONTRACT_LOCKOUT_RACES: 1, // Races a driver is locked out after contract expiry (per team)
 
   // V6: Early Termination Fee

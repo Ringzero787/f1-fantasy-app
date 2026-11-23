@@ -165,6 +165,8 @@ export function rowAvailability(o: {
   owned: boolean;
   driversFull?: boolean;
   lockedOut?: boolean;
+  /** F-169: on this team six races in a row (sold and re-bought this window): out until a race passes */
+  streakFull?: boolean;
   teamSize?: number;
 }): RowAvailability {
   if (o.selected) return { blocked: false, tight: false, reason: null };
@@ -173,6 +175,7 @@ export function rowAvailability(o: {
   const n = o.teamSize ?? 5;
   let reason: string | null = null;
   if (o.kind === 'driver' && o.lockedOut) reason = 'SOLD RECENTLY · LOCKED OUT OF YOUR TEAM FOR NOW';
+  else if (o.kind === 'driver' && o.streakFull) reason = '6 RACES IN A ROW ON YOUR TEAM · BACK AFTER THE NEXT RACE';
   else if (o.kind === 'driver' && o.driversFull) reason = `${n} OF ${n} DRIVERS PICKED · UNTICK ONE TO ADD ANOTHER`;
   else if (!affordable) reason = `$${o.price - o.bank} OVER YOUR BANK`;
   const blocked = reason != null;

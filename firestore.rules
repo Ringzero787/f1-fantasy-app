@@ -496,7 +496,7 @@ service cloud.firestore {
                       'totalPoints', 'lockedPoints', 'scoredRaces',
                       'isLocked', 'lockStatus',
                       'drivers', 'constructor', 'budget', 'totalSpent',
-                      'racesSinceTransfer', 'driverLockouts',
+                      'racesSinceTransfer', 'driverLockouts', 'driverStreaks',
                       'bestRacePoints', 'bestRaceId',
                       'moonshotPoints', 'moonshotStats'
                     ]))
