@@ -117,6 +117,19 @@ test('expiry sale repair: an expired pick sold at the pre-race price is re-credi
   assert.equal(p.drivers[0].currentPrice, 600, 'the remaining roster gets the market price back');
   // a pick that did not race has no post-race price: it was sold at the right price
   assert.equal(planExpirySale(s, t, () => undefined, () => undefined).sold.length, 0);
+  assert.equal(p.newBudget, 657);
+  assert.equal(p.forgiven, 0);
+});
+
+test('expiry sale repair: an over-credited team that spent the money is floored at 0, the rest forgiven', () => {
+  // Las Vegas 2026, G9IrVx: credited 53 too much, 38 left in the bank
+  const s = { roster: { drivers: [{ driverId: 'alonso', racesHeld: 2, contractLength: 3, currentPrice: 94 }], constructor: { constructorId: 'aston_martin', racesHeld: 2, contractLength: 3, currentPrice: 29 } } };
+  const t = { drivers: [], constructor: null, budget: 38 };
+  const post = { alonso: 56, aston_martin: 14 };
+  const p = planExpirySale(s, t, (id) => post[id], (id) => post[id]);
+  assert.equal(p.budgetDelta, -53);
+  assert.equal(p.newBudget, 0);
+  assert.equal(p.forgiven, 15);
 });
 
 // ── applyRaceCorrection end to end, against a small in-memory Firestore ──────────────────────

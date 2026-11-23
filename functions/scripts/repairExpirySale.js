@@ -11,6 +11,8 @@
  * currentPrice; the right price is the post-race price in priceHistory/{raceId}__{id}. The
  * difference goes onto the budget, and the remaining roster gets today's market prices.
  * A team is done once: the snapshot is stamped expirySaleRepair.
+ * The budget never goes below 0 (owner decision 2026-11-23): a team that was over-credited and has
+ * spent the money gives back what it has, and the rest is forgiven (recorded as `forgiven`).
  *
  * Usage:
  *   node scripts/repairExpirySale.js            # dry run
@@ -81,6 +83,10 @@ function planTeam(snap, team, postPrice, marketPrice) {
     sold.push({ id: p.id, credited, right, delta: right - credited });
   }
   const budgetDelta = sold.reduce((s, x) => s + x.delta, 0);
+  const before = typeof team.budget === 'number' && Number.isFinite(team.budget) ? team.budget : 0;
+  const raw = Math.round(before + budgetDelta);
+  const newBudget = Math.max(0, raw);
+  const forgiven = newBudget - raw; // > 0 only when the floor applied
   // the rest of the roster: put today's market prices back where the expiry write reverted them
   let repriced = 0;
   const drivers = (team.drivers || []).map((d) => {
@@ -93,7 +99,7 @@ function planTeam(snap, team, postPrice, marketPrice) {
     const m = marketPrice(constructor.constructorId);
     if (m !== undefined && m !== constructor.currentPrice) { repriced++; constructor = { ...constructor, currentPrice: m }; }
   }
-  return { sold, budgetDelta, drivers, constructor, repriced };
+  return { sold, budgetDelta, newBudget, forgiven, drivers, constructor, repriced };
 }
 
 async function main() {
@@ -129,8 +135,8 @@ async function main() {
       const plan = planTeam(snap, team, (id) => post.get(id), (id) => market.get(id));
       if (!plan.sold.length) return null;
       if (tx) {
-        tx.update(teamDoc.ref, { budget: Math.round((team.budget || 0) + plan.budgetDelta), drivers: plan.drivers, constructor: plan.constructor });
-        tx.update(snapRef, { expirySaleRepair: { at: admin.firestore.Timestamp.now(), budgetDelta: plan.budgetDelta, sold: plan.sold } });
+        tx.update(teamDoc.ref, { budget: plan.newBudget, drivers: plan.drivers, constructor: plan.constructor });
+        tx.update(snapRef, { expirySaleRepair: { at: admin.firestore.Timestamp.now(), budgetDelta: plan.budgetDelta, forgiven: plan.forgiven, sold: plan.sold } });
       }
       return { plan, budget: team.budget || 0 };
     };
@@ -138,9 +144,9 @@ async function main() {
     if (!r) continue;
     changed++;
     const { plan, budget } = r;
-    console.log(`  ${teamDoc.id}: budget ${budget} → ${Math.round(budget + plan.budgetDelta)} (${plan.budgetDelta >= 0 ? '+' : ''}${plan.budgetDelta}); ` +
+    console.log(`  ${teamDoc.id}: budget ${budget} → ${plan.newBudget} (${plan.budgetDelta >= 0 ? '+' : ''}${plan.budgetDelta}); ` +
       plan.sold.map((x) => `${x.id} sold at ${x.credited}, should be ${x.right}`).join('; ') + `; ${plan.repriced} roster price(s) refreshed` +
-      (budget + plan.budgetDelta < 0 ? '  WARNING budget goes negative' : ''));
+      (plan.forgiven ? `  (floored at 0: ${plan.forgiven} forgiven)` : ''));
   }
   console.log(`${changed} team(s) ${APPLY ? 'repaired' : 'to repair'}; backup paths: ${teams.docs.length ? 'fantasyTeams' : '-'}`);
   if (!APPLY) console.log('DRY RUN — nothing written. Re-run with --apply.');
