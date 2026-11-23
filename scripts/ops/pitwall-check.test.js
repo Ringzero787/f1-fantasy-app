@@ -2,7 +2,7 @@
 // or wrong-round payload, an unscored race, and a calendar that moved, vanished or grew.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { evaluate, pairRounds, sessionDrift, currentRound } = require('./pitwall-check-lib');
+const { evaluate, pairRounds, sessionDrift, currentRound, resultDiffs } = require('./pitwall-check-lib');
 
 const NOW = new Date('2026-10-29T12:00:00Z');
 const min = (n) => n * 60 * 1000;
@@ -252,4 +252,36 @@ test('off-season: a calendar still unseeded 75 days after the final round WARNs,
   const r = evaluate(s, LATE);
   assert.equal(r.worst, 'warn');
   assert.match(r.findings.find((f) => f.check === 'round').text, /seed the new calendar/);
+});
+
+test('F-168: the provider classification against what was scored (Las Vegas 2026)', () => {
+  const stored = [
+    { driverId: 'hadjar', position: 14, status: 'finished' },
+    { driverId: 'lawson', position: 15, status: 'finished' },
+    { driverId: 'perez', position: 0, status: 'dnf' },
+    { driverId: 'bearman', position: 0, status: 'nc' },
+  ];
+  const map = { 6: 'hadjar', 30: 'lawson', 11: 'perez', 87: 'bearman' };
+  const provider = [
+    { driver_number: 30, position: 14 }, { driver_number: 6, position: 15 },
+    { driver_number: 11, position: null, dnf: true },
+    { driver_number: 87, position: null }, // not classified, no flag: nc, as the ingestion stores it
+  ];
+  assert.deepEqual(resultDiffs(stored, provider, map), ['lawson scored P15, now P14', 'hadjar scored P14, now P15']);
+  assert.deepEqual(resultDiffs(stored, [{ driver_number: 6, position: 14 }, { driver_number: 30, position: 15 }], map), []);
+  assert.deepEqual(resultDiffs(stored, [{ driver_number: 99, position: 1 }], map), ['car 99 unknown']);
+  // statuses as the ingestion derives them: an unclassified car stored as nc is not a difference
+  assert.deepEqual(resultDiffs([{ driverId: 'bearman', position: 0, status: 'nc' }], [{ driver_number: 87, position: null }], map), []);
+  assert.deepEqual(resultDiffs([{ driverId: 'perez', position: 0, status: 'dsq' }], [{ driver_number: 11, position: null, dnf: true, dsq: true }], map), []);
+});
+
+test('F-168: a classification change warns inside the 72 h correction window and fails after it', () => {
+  const at = (h) => new Date(NOW.getTime() - h * 3600 * 1000).toISOString();
+  const drift = (h) => ({ ...healthy(), resultDrift: [{ raceId: 'usa_2026', round: 20, raceAt: at(h), diffs: ['hadjar scored P14, now P15'] }] });
+  assert.deepEqual(levels(evaluate(drift(14), NOW), 'scoring'), ['warn']);
+  const late = evaluate(drift(80), NOW);
+  assert.deepEqual(levels(late, 'scoring'), ['fail']);
+  assert.match(late.findings.find((f) => f.check === 'scoring').text, /correctRaceResults\.js/);
+  assert.equal(evaluate({ ...healthy(), resultDrift: [{ raceId: 'usa_2026', round: 20, raceAt: at(80), diffs: [] }] }, NOW).worst, 'ok');
+  assert.equal(evaluate({ ...healthy(), resultDrift: [{ raceId: 'usa_2026', round: 20, raceAt: at(80), unchecked: 'no live-sweep car map for this race' }] }, NOW).worst, 'ok');
 });

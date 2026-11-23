@@ -163,6 +163,19 @@ function evaluate(state, now = new Date()) {
     else if (raceAt < t - 3 * HOUR && !heldIds.has(r.id)) add('warn', 'scoring', `${r.id} (round ${r.round}) raced ${fmtAge(t - raceAt)} ago, nothing fetched yet (the checker runs every 10 min from session end)`);
   }
 
+  // F-168: a scored race whose official classification changed afterwards (Las Vegas 2026: a
+  //    time penalty swapped 14th and 15th after scoring). From F-168 the ingestion re-applies a
+  //    change for 72 h and the teams are re-graded; a difference still there after that needs the
+  //    correctRaceResults op.
+  for (const d of state.resultDrift || []) {
+    if (d.unchecked) { add('ok', 'scoring', `${d.raceId} (round ${d.round}) not compared with the provider: ${d.unchecked}`); continue; }
+    if (!d.diffs || !d.diffs.length) continue;
+    const age = t - ms(d.raceAt);
+    const what = d.diffs.slice(0, 6).join(', ') + (d.diffs.length > 6 ? ` and ${d.diffs.length - 6} more` : '');
+    if (age < 72 * HOUR) add('warn', 'scoring', `${d.raceId} (round ${d.round}) official classification differs from what was scored: ${what}. The correction pass re-applies it within 72 h of the race`);
+    else add('fail', 'scoring', `${d.raceId} (round ${d.round}) official classification differs from what was scored: ${what}. Past the 72 h correction window: run the uc-script op with script=correctRaceResults.js`);
+  }
+
   // 4. the calendar against the provider: cancelled, added, moved
   for (const r of state.races) if (r.status === 'cancelled') add('ok', 'calendar', `${r.id} (round ${r.round}) is cancelled in the registry`);
   const upcoming = state.races.filter(live);
@@ -229,4 +242,26 @@ function render(result, now = new Date()) {
   return lines.join('\n') + '\n';
 }
 
-module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, evaluate, render, fmtAge, oneLine };
+/**
+ * F-168, pure: where the provider's race classification (/session_result rows) differs from the
+ * stored raceResults. Statuses are derived exactly as the ingestion does (openf1Client
+ * convertToRaceResults): dsq, then dns, then dnf, then "no position" = nc, else finished at the
+ * position. `numberToId` maps car numbers as the race was scored.
+ */
+function resultDiffs(stored, provider, numberToId) {
+  const byId = new Map((stored || []).map((r) => [r.driverId, r]));
+  const diffs = [];
+  for (const p of provider || []) {
+    const num = Number(p.driver_number); // provider text: only ever a number in the report
+    const id = numberToId[num];
+    if (!id) { diffs.push(`car ${Number.isFinite(num) ? num : '?'} unknown`); continue; }
+    const pos = Number(p.position);
+    const want = p.dsq === true ? 'dsq' : p.dns === true ? 'dns' : p.dnf === true ? 'dnf' : !(pos > 0) ? 'nc' : `P${pos}`;
+    const r = byId.get(id);
+    const have = !r ? 'missing' : r.status === 'finished' ? `P${r.position}` : r.status;
+    if (have !== want) diffs.push(`${id} scored ${have}, now ${want}`);
+  }
+  return diffs;
+}
+
+module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, resultDiffs, evaluate, render, fmtAge, oneLine };

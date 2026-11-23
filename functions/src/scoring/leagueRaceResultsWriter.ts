@@ -13,7 +13,7 @@ export function cleanName(v: unknown): string | undefined {
   return s.length > 0 ? s : undefined;
 }
 
-interface RaceMeta {
+export interface RaceMeta {
   raceId: string;
   season: string | number | null | undefined;
   round: number | null | undefined;

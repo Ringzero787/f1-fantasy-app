@@ -135,8 +135,11 @@ test('every race-counting server path goes through the current season', () => {
   assert.ok(!/collection\('races'\)\s*\.where\('status', '==', 'completed'\)\s*\.get\(\)/.test(cp.replace(/\r/g, '')), 'no all-time completed-race query left in the scorer');
   for (const tag of ['Scoring', 'Qualifying', 'Sprint']) assert.ok(cp.includes(`refusePastSeason(db, raceId,`) && cp.includes(`, '${tag}')) return null;`), `${tag} scoring guards the season`);
   assert.equal((cp.match(/seasonId: (afterData|race)\.seasonId,\r?\n/g) || []).length, 2, 'team scoring and repair pass the season to the DNF rule');
-  assert.match(cp, /calculateDnfPenalty\(result\.laps, afterData\.totalLaps, afterData\.round, afterData\.seasonId\)/, 'the race-score breakdown too');
-  assert.equal((cp.match(/seasonId: afterData\.seasonId \?\? null,/g) || []).length, 2, 'driver and constructor race scores carry the season');
+  // F-168: the race-score breakdown moved to raceScoreRows.ts (shared with the correction path)
+  const rows = src('scoring/raceScoreRows.ts');
+  assert.match(cp, /buildRaceScoreRows\(raceResults, sprintResults, qualifyingResults, \{\s*raceId, seasonId: afterData\.seasonId \?\? null,/, 'the scorer passes the season to the breakdown');
+  assert.match(rows, /calculateDnfPenalty\(result\.laps, ctx\.totalLaps, ctx\.round, ctx\.seasonId \?\? undefined\)/, 'the race-score breakdown too');
+  assert.equal((rows.match(/seasonId: ctx\.seasonId,/g) || []).length, 2, 'driver and constructor race scores carry the season');
   assert.match(src('locks/teamLocks.ts'), /seasonId\(data\.seasonId\) === season/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'scripts', 'pitwallPass.js'), 'utf8'), /opt\('season'\) \|\| saleSeason\(Date\.now\(\)\)/);
 });
