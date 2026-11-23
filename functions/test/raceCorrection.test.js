@@ -130,6 +130,15 @@ test('expiry sale repair: an over-credited team that spent the money is floored 
   assert.equal(p.budgetDelta, -53);
   assert.equal(p.newBudget, 0);
   assert.equal(p.forgiven, 15);
+  // exactly enough in the bank: nothing forgiven
+  const exact = planExpirySale(s, { ...t, budget: 53 }, (id) => post[id], (id) => post[id]);
+  assert.deepEqual([exact.newBudget, exact.forgiven], [0, 0]);
+  // already in debt: the repair takes nothing more, and does not pay the old debt off
+  const debt = planExpirySale(s, { ...t, budget: -10 }, (id) => post[id], (id) => post[id]);
+  assert.deepEqual([debt.newBudget, debt.forgiven], [-10, 53]);
+  // no stored budget reads as 0
+  const none = planExpirySale(s, { drivers: [], constructor: null }, (id) => post[id], (id) => post[id]);
+  assert.deepEqual([none.newBudget, none.forgiven], [0, 53]);
 });
 
 // ── applyRaceCorrection end to end, against a small in-memory Firestore ──────────────────────

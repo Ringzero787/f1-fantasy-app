@@ -85,8 +85,10 @@ function planTeam(snap, team, postPrice, marketPrice) {
   const budgetDelta = sold.reduce((s, x) => s + x.delta, 0);
   const before = typeof team.budget === 'number' && Number.isFinite(team.budget) ? team.budget : 0;
   const raw = Math.round(before + budgetDelta);
-  const newBudget = Math.max(0, raw);
-  const forgiven = newBudget - raw; // > 0 only when the floor applied
+  // A clawback stops at 0 (or at the budget, if that was already below 0): it never adds debt, and
+  // never pays off debt the team had before. A credit is applied in full.
+  const newBudget = budgetDelta >= 0 ? raw : Math.max(raw, Math.min(Math.round(before), 0));
+  const forgiven = newBudget - raw; // > 0 only when the floor applied: the part of this repair not taken back
   // the rest of the roster: put today's market prices back where the expiry write reverted them
   let repriced = 0;
   const drivers = (team.drivers || []).map((d) => {
@@ -138,7 +140,7 @@ async function main() {
         tx.update(teamDoc.ref, { budget: plan.newBudget, drivers: plan.drivers, constructor: plan.constructor });
         tx.update(snapRef, { expirySaleRepair: { at: admin.firestore.Timestamp.now(), budgetDelta: plan.budgetDelta, forgiven: plan.forgiven, sold: plan.sold } });
       }
-      return { plan, budget: team.budget || 0 };
+      return { plan, budget: typeof team.budget === 'number' && Number.isFinite(team.budget) ? team.budget : 0 };
     };
     const r = APPLY ? await db.runTransaction((tx) => work(tx)) : await work(null);
     if (!r) continue;
