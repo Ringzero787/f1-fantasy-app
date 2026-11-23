@@ -5,7 +5,11 @@ import { isUsableLeagueId } from '../utils/leagueId';
 import { LockState, creationLock, liveLockState, lockedTeamStatus, stampedForWeekend } from '../locks/lockState';
 import { pickDueRace } from '../utils/lockTime';
 import { START_BUDGET, UNLOCKED_LOCK_STATUS } from '../season/rollover';
-import { completedRaceCount } from '../season/current';
+import { completedRaceCount, currentSeason } from '../season/current';
+import {
+  MIN_CONTRACT_LENGTH, MAX_CONTRACT_LENGTH, MAX_CONSECUTIVE_RACES,
+  allowedContractLength, priorStreak, racesLeftInSeason, streaksAfterSale,
+} from './contractRules';
 
 
 const db = admin.firestore();
@@ -14,10 +18,9 @@ const BUDGET = START_BUDGET;
 const TEAM_SIZE = 5;
 const MAX_TEAMS_PER_USER = 2;
 
-// Contract system — keep in sync with src/config/pricing.config.ts
+// Contract system — keep in sync with src/config/pricing.config.ts. The length limits (season end,
+// six in a row) live in contractRules.ts (F-169).
 const CONTRACT_LENGTH_DEFAULT = 3;
-const MIN_CONTRACT_LENGTH = 1;
-const MAX_CONTRACT_LENGTH = 10;
 
 // Early termination fee — keep in sync with PRICING_CONFIG.EARLY_TERMINATION_RATE.
 // This is the fee the app has always actually charged (3%/race, floor, with
@@ -56,13 +59,22 @@ function quoteSale(entity: {
 function validateContractLength(raw: unknown): number {
   if (raw === undefined || raw === null) return CONTRACT_LENGTH_DEFAULT;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < MIN_CONTRACT_LENGTH || n > MAX_CONTRACT_LENGTH) {
+  if (!Number.isInteger(n) || n < MIN_CONTRACT_LENGTH) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      `contractLength must be an integer between ${MIN_CONTRACT_LENGTH} and ${MAX_CONTRACT_LENGTH}`
+      `contractLength must be an integer of at least ${MIN_CONTRACT_LENGTH}`
     );
   }
-  return n;
+  // F-169: too long is not an error — the purchase clamps it to MAX_CONTRACT_LENGTH, the races left
+  // this season and the driver's run. Shipped builds send 3 whatever the calendar says, and refusing
+  // would block every purchase at the end of a season.
+  return Math.min(n, MAX_CONTRACT_LENGTH);
+}
+
+/** F-169: the refusal for a driver re-bought straight after a full run (the one-race lockout). */
+function streakLockedOut(name: string): functions.https.HttpsError {
+  return new functions.https.HttpsError('failed-precondition',
+    `${name || 'This driver'} has been on this team for ${MAX_CONSECUTIVE_RACES} races in a row, so is locked out until after the next race.`);
 }
 
 function assertOwnedUnlockedTeam(
@@ -118,6 +130,17 @@ function getTeamCtor(team: Record<string, any>): Record<string, any> | null {
  */
 async function getCompletedRaceCount(): Promise<number> {
   return completedRaceCount(db);
+}
+
+/**
+ * F-169: the season clock for a purchase — completed races (as getCompletedRaceCount) and the races
+ * still to run, which no contract may outlast. No readable season: the old all-time count, no cap.
+ */
+async function getSeasonClock(): Promise<{ completedRaceCount: number; racesLeft: number }> {
+  const season = await currentSeason(db);
+  if (season === null) return { completedRaceCount: await getCompletedRaceCount(), racesLeft: MAX_CONTRACT_LENGTH };
+  const races = (await db.collection('races').where('seasonId', '==', season).get()).docs.map((d) => d.data());
+  return { completedRaceCount: races.filter((r) => r.status === 'completed').length, racesLeft: racesLeftInSeason(races) };
 }
 
 /**
@@ -222,10 +245,10 @@ export const addDriverSecure = functions.https.onCall(async (data, context) => {
   if (!teamId || !driverId || typeof teamId !== 'string' || typeof driverId !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'teamId and driverId required');
   }
-  const contractLength = validateContractLength(data.contractLength);
+  const requestedLength = validateContractLength(data.contractLength);
 
   const userId = context.auth.uid;
-  const completedRaceCount = await getCompletedRaceCount();
+  const { completedRaceCount, racesLeft } = await getSeasonClock();
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const driverRef = db.collection('drivers').doc(driverId);
 
@@ -259,6 +282,11 @@ export const addDriverSecure = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Driver is locked out after contract expiry');
     }
 
+    // F-169: sold and re-bought in one window is one run; it may not pass six races, nor the season.
+    const prior = priorStreak(team.driverStreaks, driverId, completedRaceCount);
+    const contractLength = allowedContractLength(requestedLength, racesLeft, prior);
+    if (contractLength === 0) throw streakLockedOut(driver.name);
+
     // Cash-ledger budget check at the server price (source of truth)
     const price: number = typeof driver.price === 'number' ? driver.price : 0;
     const budget: number = typeof team.budget === 'number' ? team.budget : BUDGET;
@@ -277,6 +305,7 @@ export const addDriverSecure = functions.https.onCall(async (data, context) => {
       pointsScored: 0,
       racesHeld: 0,
       contractLength,
+      ...(prior > 0 ? { streakBefore: prior } : {}),
       addedAtRace: completedRaceCount,
     };
 
@@ -317,6 +346,8 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
   const userId = context.auth.uid;
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const driverRef = db.collection('drivers').doc(driverId);
+  // F-169: the clock the sale is stamped on, so a re-buy in this window continues the run
+  const completedRaceCount = await getCompletedRaceCount();
 
   // F-118: read outside the transaction on purpose — this is an advisory gate, and the
   // authoritative state is still the team's own isLocked, which the same sweep writes. The
@@ -345,19 +376,20 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
       lockedPoints: admin.firestore.FieldValue.increment(bankedPoints),
       totalPoints: admin.firestore.FieldValue.increment(-bankedPoints),
       racesSinceTransfer: 0,
+      // F-169: the whole map, written with update (set-merge would keep stale keys): this window's sales
+      driverStreaks: streaksAfterSale(team.driverStreaks, driver, completedRaceCount) ?? {},
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     if (team.aceDriverId === driverId) {
       updateData.aceDriverId = null;
     }
 
-    // set(merge), NOT update(): tx.update() expands top-level keys as field
-    // paths and the literal key `constructor` collides with
-    // Object.prototype.constructor, throwing "AssertionError: Can't merge
-    // current value into a nested object" (HTTP 500). set(merge) serializes
-    // the same way the scoring pipeline does and handles `constructor` fine.
-    // The team doc is guaranteed to exist (read + ownership-asserted above).
-    tx.set(teamRef, updateData, { merge: true });
+    // F-169: update(), not set(merge) like the constructor callables below: driverStreaks must
+    // REPLACE the stored map (set-merge deep-merges it and keeps stale keys). Safe here because
+    // this payload has no `constructor` key, which update() cannot take (it expands top-level keys
+    // as field paths and `constructor` collides with Object.prototype.constructor: HTTP 500). The
+    // team doc exists (read + ownership-asserted above). Never add `constructor` to this payload.
+    tx.update(teamRef, updateData);
 
     return {
       saleReturn: quote.saleReturn,
@@ -389,10 +421,11 @@ export const setConstructorSecure = functions.https.onCall(async (data, context)
   if (!teamId || !constructorId || typeof teamId !== 'string' || typeof constructorId !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'teamId and constructorId required');
   }
-  const contractLength = validateContractLength(data.contractLength);
 
   const userId = context.auth.uid;
-  const completedRaceCount = await getCompletedRaceCount();
+  const { completedRaceCount, racesLeft } = await getSeasonClock();
+  // F-169: never past the season's end (the six-in-a-row run is a driver rule)
+  const contractLength = allowedContractLength(validateContractLength(data.contractLength), racesLeft);
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const newCtorRef = db.collection('constructors').doc(constructorId);
 
@@ -585,10 +618,10 @@ export const buildTeamSecure = functions.https.onCall(async (data, context) => {
   if (new Set(driverIds).size !== driverIds.length) {
     throw new functions.https.HttpsError('invalid-argument', 'Duplicate drivers not allowed');
   }
-  const contractLength = validateContractLength(data.contractLength);
+  const requestedLength = validateContractLength(data.contractLength);
 
   const userId = context.auth.uid;
-  const completedRaceCount = await getCompletedRaceCount();
+  const { completedRaceCount, racesLeft } = await getSeasonClock();
   const teamRef = db.collection('fantasyTeams').doc(teamId);
 
   // F-118: read outside the transaction on purpose — this is an advisory gate, and the
@@ -609,6 +642,7 @@ export const buildTeamSecure = functions.https.onCall(async (data, context) => {
 
     let budget: number = typeof team.budget === 'number' ? team.budget : BUDGET;
     const drivers: any[] = [];
+    const lockouts: Record<string, number> = team.driverLockouts || {};
 
     for (let i = 0; i < driverIds.length; i++) {
       const snap = snaps[1 + i];
@@ -617,6 +651,15 @@ export const buildTeamSecure = functions.https.onCall(async (data, context) => {
       if (d.isActive === false) {
         throw new functions.https.HttpsError('failed-precondition', `Driver ${driverIds[i]} is not active`);
       }
+      // A roster emptied by expiry and sales is rebuilt here: the same lockouts as addDriverSecure
+      // (before F-169 this path skipped the expiry lockout entirely).
+      const lockExpiry = Object.prototype.hasOwnProperty.call(lockouts, driverIds[i]) ? lockouts[driverIds[i]] : undefined;
+      if (typeof lockExpiry === 'number' && completedRaceCount < lockExpiry) {
+        throw new functions.https.HttpsError('failed-precondition', `${d.name || driverIds[i]} is locked out after contract expiry`);
+      }
+      const prior = priorStreak(team.driverStreaks, driverIds[i], completedRaceCount);
+      const contractLength = allowedContractLength(requestedLength, racesLeft, prior);
+      if (contractLength === 0) throw streakLockedOut(d.name);
       const price: number = typeof d.price === 'number' ? d.price : 0;
       budget -= price;
       drivers.push({
@@ -629,6 +672,7 @@ export const buildTeamSecure = functions.https.onCall(async (data, context) => {
         pointsScored: 0,
         racesHeld: 0,
         contractLength,
+        ...(prior > 0 ? { streakBefore: prior } : {}),
         addedAtRace: completedRaceCount,
       });
     }
@@ -650,7 +694,7 @@ export const buildTeamSecure = functions.https.onCall(async (data, context) => {
         currentPrice: price,
         pointsScored: 0,
         racesHeld: 0,
-        contractLength,
+        contractLength: allowedContractLength(requestedLength, racesLeft),
         addedAtRace: completedRaceCount,
       };
     }

@@ -48,7 +48,7 @@ const SECTIONS: RuleSection[] = [
         items: [
           '5 drivers + 1 constructor per team',
           '$1,000 starting budget',
-          'Drivers sign 1\u20135 race contracts (default 3)',
+          'Drivers sign 1\u20136 race contracts (default 3), never past the season\u2019s last race',
           'Choose 1 Ace driver for double points',
         ],
       },
@@ -208,7 +208,7 @@ const SECTIONS: RuleSection[] = [
     content: [
       {
         type: 'paragraph',
-        text: 'When you sign a driver, you choose a contract length of 1\u20135 races (default 3). When a contract expires, that seat is locked out for 1 race.',
+        text: 'When you sign a driver, you choose a contract length of 1\u20136 races (default 3). A contract can\u2019t run past the last race of the season, so near the end the longest contract is the number of races left. When a contract expires, that driver is locked out for 1 race.',
       },
       { type: 'heading', text: 'Contract Expiry' },
       {
@@ -227,6 +227,15 @@ const SECTIONS: RuleSection[] = [
           'You can sell before a contract expires',
           'Early termination fee: 3% of price \u00D7 races remaining',
           'Example: $200 driver with 2 races left = $12 fee',
+        ],
+      },
+      { type: 'heading', text: 'Six in a Row' },
+      {
+        type: 'bullets',
+        items: [
+          'A driver can be on your team for at most 6 races in a row',
+          'Selling and re-signing before the next race doesn\u2019t restart the count',
+          'After 6 in a row, the driver is locked out for 1 race',
         ],
       },
     ],
@@ -275,7 +284,7 @@ const SECTIONS: RuleSection[] = [
       { type: 'heading', text: 'Driver Lockout' },
       {
         type: 'paragraph',
-        text: 'When a driver\u2019s contract expires, they can\u2019t be re-signed for 1 race. This prevents exploiting short contracts for free loyalty resets.',
+        text: 'When a driver\u2019s contract expires, or after 6 races in a row on your team, they can\u2019t be re-signed for 1 race. This prevents exploiting short contracts for free loyalty resets.',
       },
     ],
   },
