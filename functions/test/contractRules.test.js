@@ -128,3 +128,7 @@ test('every purchase path clamps the length; the driver paths check the run', ()
 test('driverStreaks is server-owned in the rules', () => {
   assert.match(src('../firestore.rules'), /'racesSinceTransfer', 'driverLockouts', 'driverStreaks',/);
 });
+
+test('a new team cannot be created carrying a run', () => {
+  assert.match(src('../firestore.rules'), /&& !\('driverStreaks' in request\.resource\.data\)/);
+});

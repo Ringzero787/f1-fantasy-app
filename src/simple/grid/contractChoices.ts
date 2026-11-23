@@ -22,15 +22,21 @@ const ms = (v: unknown): number => {
 };
 
 /**
- * The season the game is in (as the server reads it off the calendar: the season of the most recent
- * race that has started, else of the next one), its completed races and the races still to run.
- * Null with no dated races.
+ * The season the game is in, as the server reads it (functions/src/season/current.ts): the season
+ * the rollover pinned (`config/app.currentSeason`) when there is one, else off the calendar — the
+ * season of the most recent race that has started, else of the next one. Then its completed races
+ * and the races still to run. Null with neither a pinned season nor dated races.
  */
-export function seasonClock(races: ReadonlyArray<RaceLike>, nowMs: number): { season: string; completed: number; racesLeft: number } | null {
-  const dated = races.filter((r) => r.seasonId && r.status !== 'cancelled' && Number.isFinite(ms(r.schedule?.race)));
-  if (!dated.length) return null;
-  const started = dated.filter((r) => ms(r.schedule?.race) <= nowMs).sort((a, b) => ms(b.schedule?.race) - ms(a.schedule?.race));
-  const season = String((started[0] ?? [...dated].sort((a, b) => ms(a.schedule?.race) - ms(b.schedule?.race))[0]).seasonId);
+export function seasonClock(races: ReadonlyArray<RaceLike>, nowMs: number, pinned?: string | null): { season: string; completed: number; racesLeft: number } | null {
+  let season: string;
+  if (typeof pinned === 'string' && /^\d{4}$/.test(pinned)) {
+    season = pinned;
+  } else {
+    const dated = races.filter((r) => r.seasonId && r.status !== 'cancelled' && Number.isFinite(ms(r.schedule?.race)));
+    if (!dated.length) return null;
+    const started = dated.filter((r) => ms(r.schedule?.race) <= nowMs).sort((a, b) => ms(b.schedule?.race) - ms(a.schedule?.race));
+    season = String((started[0] ?? [...dated].sort((a, b) => ms(a.schedule?.race) - ms(b.schedule?.race))[0]).seasonId);
+  }
   const inSeason = races.filter((r) => String(r.seasonId) === season);
   return {
     season,

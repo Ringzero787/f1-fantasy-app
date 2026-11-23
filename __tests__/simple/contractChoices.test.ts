@@ -22,6 +22,13 @@ describe('seasonClock', () => {
   it('before any race has started, the season of the next one', () => {
     expect(seasonClock([race('2027', 'upcoming', '2027-03-07T05:00:00Z')], Date.parse('2027-01-01T00:00:00Z'))?.racesLeft).toBe(1);
   });
+  it('the season the rollover pinned wins over the calendar (off-season after the rollover)', () => {
+    // Abu Dhabi done, 2027 pinned, the opener not yet run: 2027 with its races left, not 2026 with none
+    const cal = [...CAL.slice(0, 3), race('2026', 'completed', '2026-11-29T16:00:00Z'), race('2026', 'completed', '2026-12-06T13:00:00Z'), CAL[5], race('2027', 'upcoming', '2027-03-14T05:00:00Z')];
+    expect(seasonClock(cal, Date.parse('2027-01-10T00:00:00Z'))).toEqual({ season: '2026', completed: 4, racesLeft: 0 });
+    expect(seasonClock(cal, Date.parse('2027-01-10T00:00:00Z'), '2027')).toEqual({ season: '2027', completed: 0, racesLeft: 2 });
+    expect(seasonClock(cal, Date.parse('2027-01-10T00:00:00Z'), 'junk')?.season).toBe('2026');
+  });
   it('no dated races: null (the sheet then offers up to six)', () => {
     expect(seasonClock([], Date.now())).toBeNull();
   });

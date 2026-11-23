@@ -10,7 +10,7 @@
  *
  * The server CLAMPS a requested length rather than refusing it: shipped builds send their default
  * (3) whatever the calendar says, and refusing would block every purchase near the season's end.
- * Keep in sync with src/config/contractRules.ts (the picker's copy).
+ * Keep in sync with src/simple/grid/contractChoices.ts (the picker's copy).
  */
 
 export const MIN_CONTRACT_LENGTH = 1;

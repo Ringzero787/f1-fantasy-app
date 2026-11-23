@@ -139,7 +139,8 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
   const proj = pwProjections;
 
   // F-169: no contract past the season's end, and no more than six races in a row with one driver
-  const clock = useMemo(() => seasonClock(races ?? [], now.getTime()), [races, now]);
+  const pinnedSeason = useRemoteConfigStore((s) => s.appConfig?.currentSeason ?? null);
+  const clock = useMemo(() => seasonClock(races ?? [], now.getTime(), pinnedSeason), [races, now, pinnedSeason]);
   const limitFor = useCallback((kind: Kind, id: string) => contractLimit(
     clock?.racesLeft ?? null,
     kind === 'driver' && clock ? priorStreak(team?.driverStreaks, id, clock.completed) : 0,

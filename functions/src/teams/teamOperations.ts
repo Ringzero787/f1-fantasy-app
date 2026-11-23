@@ -384,12 +384,11 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
       updateData.aceDriverId = null;
     }
 
-    // set(merge), NOT update(): tx.update() expands top-level keys as field
-    // paths and the literal key `constructor` collides with
-    // Object.prototype.constructor, throwing "AssertionError: Can't merge
-    // current value into a nested object" (HTTP 500). set(merge) serializes
-    // the same way the scoring pipeline does and handles `constructor` fine.
-    // The team doc is guaranteed to exist (read + ownership-asserted above).
+    // F-169: update(), not set(merge) like the constructor callables below: driverStreaks must
+    // REPLACE the stored map (set-merge deep-merges it and keeps stale keys). Safe here because
+    // this payload has no `constructor` key, which update() cannot take (it expands top-level keys
+    // as field paths and `constructor` collides with Object.prototype.constructor: HTTP 500). The
+    // team doc exists (read + ownership-asserted above). Never add `constructor` to this payload.
     tx.update(teamRef, updateData);
 
     return {

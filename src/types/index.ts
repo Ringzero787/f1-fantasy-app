@@ -225,6 +225,8 @@ export interface FantasyDriver {
   purchasedAtRaceId?: string;
   // V5: Contract system - drivers auto-sell after contractLength races
   contractLength?: number; // Default 5
+  /** F-169 (server-owned): races already held in a row when re-bought in the window it was sold */
+  streakBefore?: number;
   isReservePick?: boolean; // true if system auto-filled at lockout
   addedAtRace?: number; // Completed race count when driver was added
 }

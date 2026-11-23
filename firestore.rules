@@ -487,6 +487,9 @@ service cloud.firestore {
                     // F-107: the Moonshot column is settlement's alone; a new team starts with none
                     && (!('moonshotPoints' in request.resource.data) || request.resource.data.moonshotPoints == 0)
                     && !('moonshotStats' in request.resource.data)
+                    // F-169: the six-in-a-row run is the server's alone (no client ever sent it;
+                    // driverLockouts is left alone here because older builds created teams by addDoc)
+                    && !('driverStreaks' in request.resource.data)
                     // F-118: and no forged ace window, which the freeze is keyed on
                     && createdWithoutAceWindow(request.resource.data)
                     && usableLeagueId(request.resource.data);
