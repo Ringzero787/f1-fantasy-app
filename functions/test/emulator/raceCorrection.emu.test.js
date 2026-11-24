@@ -15,7 +15,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const EMU = process.env.FIRESTORE_EMULATOR_HOST;
-const PROJECT = process.env.GCLOUD_PROJECT || 'demo-f171';
+// Pinned, never GCLOUD_PROJECT: the rules runner's CLI fallback exports demo-uc-rules, and this file
+// clears its whole project between cases, which would wipe the rules tests running beside it.
+const PROJECT = 'demo-f171';
 if (!EMU) {
   test('race correction on the Firestore emulator', { skip: 'FIRESTORE_EMULATOR_HOST is not set — run `npm run test:emulator`' }, () => {});
   return;

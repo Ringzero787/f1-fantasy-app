@@ -6,9 +6,10 @@
 set -e
 cd "$(dirname "$0")/../.."
 major() { "$1" -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | head -1; }
-if [ "$(major java 2>/dev/null || echo 0)" -lt 21 ] 2>/dev/null; then
+v=$(major java 2>/dev/null); if [ "${v:-0}" -lt 21 ]; then
   for j in "$JAVA_HOME" /usr/lib/jvm/java-2[1-9]-* /usr/lib/jvm/java-1.2[1-9]*; do
     if [ -x "$j/bin/java" ] && [ "$(major "$j/bin/java")" -ge 21 ]; then PATH="$j/bin:$PATH"; export PATH; JAVA_HOME="$j"; export JAVA_HOME; break; fi
   done
 fi
+v=$(major java 2>/dev/null); [ "${v:-0}" -ge 21 ] || { echo "F-171: firebase emulators:exec needs Java 21+ (found ${v:-none}); install a JDK 21 or set JAVA_HOME" >&2; exit 2; }
 exec firebase emulators:exec --only firestore --project demo-f171 "node --test --test-concurrency=1 'test/emulator/*.emu.test.js'"
