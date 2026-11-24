@@ -95,6 +95,8 @@ module.exports = {
       // --clean` wipes from android/app/build.gradle (F-048). Password from
       // UC_KEYSTORE_PASSWORD or the untracked .signing.env, read only at prebuild.
       "./plugins/withReleaseSigning",
+      // Raises every pod to the app's iOS minimum: Xcode 27 refuses the iOS 12 pods (2.9.0 build).
+      "./plugins/withPodDeploymentTarget",
       "expo-sharing",
       ["expo-build-properties", {
         ios: {
