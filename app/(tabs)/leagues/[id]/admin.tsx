@@ -17,11 +17,9 @@ import { useLeagueStore } from '../../../../src/store/league.store';
 import { useTeamStore } from '../../../../src/store/team.store';
 import { useAnnouncementStore } from '../../../../src/store/announcement.store';
 import { usePurchaseStore } from '../../../../src/store/purchase.store';
-import { useAuthStore } from '../../../../src/store/auth.store';
-import { Card, Button, Loading, PurchaseModal } from '../../../../src/components';
+import { Card, Button, Loading } from '../../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, SLOTS_PER_EXPANSION } from '../../../../src/config/constants';
 import { useTheme } from '../../../../src/hooks/useTheme';
-import { PRODUCTS, PRODUCT_IDS } from '../../../../src/config/products';
 import { validateLeagueName } from '../../../../src/utils/validation';
 
 export default function LeagueAdminScreen() {
@@ -51,11 +49,9 @@ export default function LeagueAdminScreen() {
   const { loadUserTeams } = useTeamStore();
 
   // Purchase store
-  const purchaseLeagueExpansion = usePurchaseStore(s => s.purchaseLeagueExpansion);
   const hasExpansionCredit = usePurchaseStore(s => s.hasExpansionCredit);
+  const expansionCredits = usePurchaseStore(s => s.pendingExpansionCredits);
   const consumeExpansionCredit = usePurchaseStore(s => s.consumeExpansionCredit);
-  const isPurchasing = usePurchaseStore(s => s.isPurchasing);
-  const isDemoMode = useAuthStore.getState().isDemoMode;
 
   const {
     activeAnnouncements,
@@ -80,8 +76,7 @@ export default function LeagueAdminScreen() {
   const [showHistory, setShowHistory] = useState(false);
   const [isApprovingOrRejecting, setIsApprovingOrRejecting] = useState<string | null>(null);
 
-  // Expansion purchase state
-  const [showExpansionPurchase, setShowExpansionPurchase] = useState(false);
+  // Applying a slot pack already paid for (F-175: no longer sold)
   const [isExpanding, setIsExpanding] = useState(false);
 
   // Inline edit state for name & description
@@ -303,57 +298,22 @@ export default function LeagueAdminScreen() {
   const handleExpandSlots = async () => {
     if (!currentLeague) return;
 
-    // In demo mode, just expand directly
-    if (isDemoMode) {
-      setIsExpanding(true);
-      try {
-        await expandLeagueCapacity(currentLeague.id, SLOTS_PER_EXPANSION);
-        Alert.alert('Slots Added', `${SLOTS_PER_EXPANSION} member slots have been added to your league! (Demo mode)`);
-      } catch (error) {
-        Alert.alert('Error', 'Failed to expand league capacity');
-      } finally {
-        setIsExpanding(false);
-      }
-      return;
-    }
-
     // Check if user already has an expansion credit
     if (hasExpansionCredit()) {
       setIsExpanding(true);
+      const spent = consumeExpansionCredit();
       try {
-        consumeExpansionCredit();
         await expandLeagueCapacity(currentLeague.id, SLOTS_PER_EXPANSION);
         Alert.alert('Slots Added', `${SLOTS_PER_EXPANSION} member slots have been added to your league!`);
       } catch (error) {
+        // Not applied, so the credit goes back: the pack cannot be bought again (F-175).
+        if (spent) usePurchaseStore.getState().restoreExpansionCredit();
         Alert.alert('Error', 'Failed to expand league capacity');
       } finally {
         setIsExpanding(false);
       }
-    } else {
-      // Show purchase modal
-      setShowExpansionPurchase(true);
     }
-  };
-
-  const handleExpansionPurchaseComplete = async () => {
-    await purchaseLeagueExpansion(currentLeague?.id);
-    // Modal stays open during purchase flow; user can dismiss via "Not now"
-    // After purchase listener grants credit, check and expand
-    setTimeout(async () => {
-      if (currentLeague && hasExpansionCredit()) {
-        setShowExpansionPurchase(false);
-        setIsExpanding(true);
-        try {
-          consumeExpansionCredit();
-          await expandLeagueCapacity(currentLeague.id, SLOTS_PER_EXPANSION);
-          Alert.alert('Slots Added', `${SLOTS_PER_EXPANSION} member slots have been added to your league!`);
-        } catch (error) {
-          Alert.alert('Error', 'Failed to expand league capacity');
-        } finally {
-          setIsExpanding(false);
-        }
-      }
-    }, 500);
+    // F-175: the slot pack is retired; without a credit there is nothing to apply.
   };
 
   const handleStartEditName = () => {
@@ -679,12 +639,12 @@ export default function LeagueAdminScreen() {
                     <Ionicons name="warning" size={14} color={barColor} />
                     <Text style={[styles.capacityWarningText, { color: barColor }]}>
                       {remaining <= 0
-                        ? 'League is full! Add more slots to accept new members.'
+                        ? 'League is full.'
                         : `Only ${remaining} slot${remaining === 1 ? '' : 's'} remaining`}
                     </Text>
                   </View>
                 )}
-                {isOwner && (
+                {isOwner && expansionCredits > 0 && (
                   <TouchableOpacity
                     style={[styles.expandButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }, isExpanding && { opacity: 0.6 }]}
                     onPress={handleExpandSlots}
@@ -692,7 +652,7 @@ export default function LeagueAdminScreen() {
                   >
                     <Ionicons name="add-circle-outline" size={18} color={theme.primary} />
                     <Text style={[styles.expandButtonText, { color: theme.primary }]}>
-                      {isExpanding ? 'Adding...' : `Add ${SLOTS_PER_EXPANSION} Slots \u2014 $4.99`}
+                      {isExpanding ? 'Adding...' : `Apply Slot Pack (+${SLOTS_PER_EXPANSION})`}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -1066,18 +1026,6 @@ export default function LeagueAdminScreen() {
         </Card>
       </View>
       )}
-      {/* League Expansion Purchase Modal */}
-      <PurchaseModal
-        visible={showExpansionPurchase}
-        onClose={() => setShowExpansionPurchase(false)}
-        onPurchase={handleExpansionPurchaseComplete}
-        isLoading={isPurchasing}
-        title={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].title}
-        description={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].description}
-        price={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].price}
-        icon={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].icon}
-        benefits={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].benefits}
-      />
     </ScrollView>
   );
 }

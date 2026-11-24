@@ -37,9 +37,7 @@ export default function CreateLeagueScreen() {
   const { createTeam, userTeams, loadUserTeams, assignTeamToLeague } = useTeamStore();
 
   // Purchase store
-  const hasExpansionCredit = usePurchaseStore(s => s.hasExpansionCredit);
-  const consumeExpansionCredit = usePurchaseStore(s => s.consumeExpansionCredit);
-  const purchaseLeagueExpansion = usePurchaseStore(s => s.purchaseLeagueExpansion);
+  const expansionCredits = usePurchaseStore(s => s.pendingExpansionCredits);
   const purchaseLeagueSlot = usePurchaseStore(s => s.purchaseLeagueSlot);
   const hasLeagueSlotCredit = usePurchaseStore(s => s.hasLeagueSlotCredit);
   const consumeLeagueSlotCredit = usePurchaseStore(s => s.consumeLeagueSlotCredit);
@@ -67,9 +65,8 @@ export default function CreateLeagueScreen() {
   const [maxMembers, setMaxMembers] = useState(String(FREE_LEAGUE_MEMBER_LIMIT));
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [showExpansionPurchase, setShowExpansionPurchase] = useState(false);
   const [showLeagueSlotPurchase, setShowLeagueSlotPurchase] = useState(false);
-  const hasCredit = hasExpansionCredit();
+  const hasCredit = expansionCredits > 0;
   const isDemoMode = useAuthStore.getState().isDemoMode;
 
   // Team selection modal state
@@ -93,7 +90,7 @@ export default function CreateLeagueScreen() {
     // lost: apply it to the league once it exists and it adds its slots then.
     const members = parseInt(maxMembers, 10);
     if (isNaN(members) || members < 2 || members > FREE_LEAGUE_MEMBER_LIMIT) {
-      setValidationError(`Max members must be between 2 and ${FREE_LEAGUE_MEMBER_LIMIT}. Buy and apply an expansion to go further once the league exists.`);
+      setValidationError(`Max members must be between 2 and ${FREE_LEAGUE_MEMBER_LIMIT}.`);
       return;
     }
 
@@ -114,21 +111,8 @@ export default function CreateLeagueScreen() {
       consumeLeagueSlotCredit();
     }
 
-    // Gate leagues >22 members behind expansion purchase
-    const needsExpansion = members > FREE_LEAGUE_MEMBER_LIMIT;
-
-    if (needsExpansion && !isDemoMode && !hasExpansionCredit()) {
-      setShowExpansionPurchase(true);
-      return;
-    }
-
-    // F-105: `needsExpansion` can no longer be true — `members` is validated at the free ceiling
-    // above — so nothing is consumed here. Kept as a guard rather than deleted: it is what stops
-    // a credit being spent on a write the rules would refuse, which is how an older build could
-    // lose one. Capacity is bought and applied in league settings now.
-    if (needsExpansion && !isDemoMode) {
-      consumeExpansionCredit();
-    }
+    // F-105 / F-175: `members` is validated at the free ceiling above, and the slot pack is no
+    // longer sold, so creating a league never spends an expansion credit.
 
     setIsCreating(true);
     try {
@@ -271,29 +255,18 @@ export default function CreateLeagueScreen() {
             maxLength={200}
           />
 
-          {/* F-105: a league is CREATED at the free ceiling and grown afterwards, because the
-              rules refuse anything larger at create — capacity past 22 comes from the expansion
-              purchase, which a Cloud Function applies to a league that already exists. This used
-              to offer a 22-100 input behind a client-side credit check, which is exactly the
-              arrangement applyLeagueExpansion was written to replace, and which the server now
-              declines. An owner with a credit buys here and applies it in league settings; the
-              credit is not spent by creating the league. */}
+          {/* F-105: a league is CREATED at the free ceiling; the rules refuse anything larger.
+              F-175 retired the slot pack that used to grow it afterwards, so 22 is the size.
+              An owner who already paid for a pack applies it in league settings. */}
           <Text style={styles.inputLabel}>Max Members</Text>
           <View style={styles.memberRow}>
             <View style={[styles.lockedField, { backgroundColor: theme.surface }]}>
               <Text style={styles.lockedFieldText}>{String(FREE_LEAGUE_MEMBER_LIMIT)}</Text>
               <Ionicons name="lock-closed" size={14} color={COLORS.text.muted} />
             </View>
-            {hasCredit || isDemoMode ? (
-              <Text style={styles.expandedHint}>Expansion ready — apply it in league settings once the league exists.</Text>
-            ) : (
-              <TouchableOpacity
-                style={[styles.buyMoreButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }]}
-                onPress={() => setShowExpansionPurchase(true)}
-              >
-                <Ionicons name="cart-outline" size={18} color={theme.primary} />
-                <Text style={[styles.buyMoreText, { color: theme.primary }]}>Add 20 Slots — $4.99</Text>
-              </TouchableOpacity>
+            {/* F-175: the slot pack is retired. A pack already paid for still applies. */}
+            {hasCredit && (
+              <Text style={styles.expandedHint}>Slot pack ready — apply it in league settings once the league exists.</Text>
             )}
           </View>
 
@@ -427,23 +400,6 @@ export default function CreateLeagueScreen() {
           </View>
         </View>
       </Modal>
-
-      {/* League Expansion Purchase Modal */}
-      <PurchaseModal
-        visible={showExpansionPurchase}
-        onClose={() => setShowExpansionPurchase(false)}
-        onPurchase={async () => {
-          await purchaseLeagueExpansion();
-          // Modal stays open during purchase; closes when listener grants credit
-          // or when user dismisses after error alert
-        }}
-        isLoading={isPurchasing}
-        title={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].title}
-        description={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].description}
-        price={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].price}
-        icon={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].icon}
-        benefits={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].benefits}
-      />
 
       {/* League Slot Purchase Modal */}
       <PurchaseModal
@@ -698,29 +654,6 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
 
-  buyMoreButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    backgroundColor: COLORS.primary + '15',
-    borderRadius: BORDER_RADIUS.md,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.primary + '30',
-  },
-
-  buyMoreText: {
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-
-  expandedInputWrap: {
-    flex: 1,
-  },
 
   expandedHint: {
     fontSize: FONTS.sizes.xs,

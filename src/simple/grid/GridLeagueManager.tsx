@@ -15,8 +15,6 @@ import { useTeamStore } from '../../store/team.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../config/firebase';
-import { PurchaseModal } from '../../components/PurchaseModal';
-import { PRODUCTS, PRODUCT_IDS } from '../../config/products';
 import { DEFAULT_MAX_MEMBERS, MIN_LEAGUE_NAME_LENGTH, MAX_LEAGUE_NAME_LENGTH, SLOTS_PER_EXPANSION } from '../../config/constants';
 import { MonoLabel, PillButton, ScreenHeader } from './GridBits';
 import { playersCaption } from './standings';
@@ -25,7 +23,6 @@ import { expansionNext, callableErrorCode } from './expansionFallback';
 export type ManagerStep = 'none' | 'join' | 'create' | 'done';
 const MIN_CODE = 6;
 const APP_URL = 'https://undercut.humannpc.com';
-const CREDIT_WAIT_MS = 12_000;
 
 interface Props {
   initialStep?: 'none' | 'join' | 'create';
@@ -49,10 +46,10 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const joinLeagueByCode = useLeagueStore((s) => s.joinLeagueByCode);
   const leaveLeague = useLeagueStore((s) => s.leaveLeague);
   const deleteLeague = useLeagueStore((s) => s.deleteLeague);
-  const purchaseLeagueExpansion = usePurchaseStore((s) => s.purchaseLeagueExpansion);
   const hasExpansionCredit = usePurchaseStore((s) => s.hasExpansionCredit);
   const consumeExpansionCredit = usePurchaseStore((s) => s.consumeExpansionCredit);
-  const isPurchasing = usePurchaseStore((s) => s.isPurchasing);
+  // F-175: the slot pack is retired; only a credit already paid for can still be applied.
+  const expansionCredits = usePurchaseStore((s) => s.pendingExpansionCredits);
   const expandLeagueCapacity = useLeagueStore((s) => s.expandLeagueCapacity);
   const [expanding, setExpanding] = useState(false);
 
@@ -69,7 +66,6 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const [copied, setCopied] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [email, setEmail] = useState('');
-  const [expandOpen, setExpandOpen] = useState(false);
 
   useEffect(() => { if (userId) loadUserLeagues(userId); }, [userId, loadUserLeagues]);
   useEffect(() => { if (joinCode) { setCode(joinCode.toUpperCase()); setStep('join'); } }, [joinCode]);
@@ -145,25 +141,14 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
     finally { setBusy(false); }
   }, [league, email, userId]);
 
-  // Creator-only: same entitlement flow as the legacy admin screen — buy a
-  // credit (the store grants it on purchase completion, instantly in demo
-  // mode), consume it, then apply the slots through the demo-aware store.
+  // Creator-only: apply a slot pack the owner already paid for. The pack is no
+  // longer sold (F-175), so there is no purchase here: no credit, nothing to do.
   const expand = useCallback(async () => {
-    if (!league || !isOwner || expanding) return;
+    if (!league || !isOwner || expanding || !hasExpansionCredit()) return;
     setExpanding(true);
+    let spent = false;
     try {
-      if (!hasExpansionCredit()) {
-        await purchaseLeagueExpansion(league.id);
-        // A real purchase completes asynchronously; give the listener a moment.
-        const until = Date.now() + CREDIT_WAIT_MS;
-        while (!hasExpansionCredit() && Date.now() < until) await new Promise((r) => setTimeout(r, 400));
-      }
-      if (!hasExpansionCredit()) {
-        setExpandOpen(false);
-        if (!isDemoMode) Alert.alert('Not applied yet', 'If the purchase went through, tap LEAGUE SIZE again in a moment to add the slots.');
-        return;
-      }
-      consumeExpansionCredit();
+      spent = consumeExpansionCredit();
       // Server path first (F-059): spends one store-verified purchase in a
       // transaction. Falls back to the direct write so a paying customer is
       // never left without their slots if validation is unavailable.
@@ -190,14 +175,23 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
         }
       }
       if (!appliedByServer) await expandLeagueCapacity(league.id, SLOTS_PER_EXPANSION);
-      setExpandOpen(false);
+      spent = false;
       Alert.alert('League expanded', `${SLOTS_PER_EXPANSION} more players can join.`);
     } catch (e) {
+      // The slots were not added, so the credit goes back: the pack cannot be bought again (F-175).
+      if (spent) usePurchaseStore.getState().restoreExpansionCredit();
       Alert.alert('Error', e instanceof Error ? e.message : 'Could not add the extra slots.');
     } finally {
       setExpanding(false);
     }
-  }, [league, isOwner, expanding, hasExpansionCredit, purchaseLeagueExpansion, isDemoMode, consumeExpansionCredit, expandLeagueCapacity, loadUserLeagues, userId]);
+  }, [league, isOwner, expanding, hasExpansionCredit, isDemoMode, consumeExpansionCredit, expandLeagueCapacity, loadUserLeagues, userId]);
+
+  const confirmExpand = useCallback(() => {
+    Alert.alert('Apply your slot pack?', `Adds ${SLOTS_PER_EXPANSION} member slots to ${league?.name ?? 'this league'}. A pack can be applied once.`, [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Apply', onPress: () => { void expand(); } },
+    ]);
+  }, [league, expand]);
 
   const detachTeam = useCallback(async () => {
     const cur = useTeamStore.getState().currentTeam;
@@ -322,11 +316,11 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
               <View style={rowStyle}><MonoLabel>NAME</MonoLabel><Text numberOfLines={1} style={[rowValue, { flexShrink: 1 }]}>{league.name}</Text></View>
               <View style={rowStyle}><MonoLabel>PLAYERS</MonoLabel><Text style={rowValue}>{memberCount} / {league.maxMembers}</Text></View>
               <View style={rowStyle}><MonoLabel>OWNER</MonoLabel><Text numberOfLines={1} style={[rowValue, { flexShrink: 1 }]}>{isOwner ? 'You' : league.ownerName}</Text></View>
-              {isOwner && (
-                <Pressable onPress={() => setExpandOpen(true)} accessibilityRole="button" style={({ pressed }) => [rowStyle, { opacity: pressed ? 0.7 : 1 }]}>
-                  <MonoLabel>LEAGUE SIZE</MonoLabel>
+              {isOwner && expansionCredits > 0 && (
+                <Pressable onPress={confirmExpand} disabled={expanding} accessibilityRole="button" accessibilityLabel={`Apply your slot pack: ${SLOTS_PER_EXPANSION} more member slots`} style={({ pressed }) => [rowStyle, { opacity: pressed || expanding ? 0.7 : 1 }]}>
+                  <MonoLabel>SLOT PACK</MonoLabel>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Text style={rowValue}>{memberCount} / {league.maxMembers}</Text>
+                    <Text style={rowValue}>{expanding ? 'ADDING…' : `+${SLOTS_PER_EXPANSION} · APPLY`}</Text>
                     <Text style={{ color: colors.text.muted, fontSize: scaled(14) }}>›</Text>
                   </View>
                 </Pressable>
@@ -350,19 +344,6 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
           </Pressable>
         </Pressable>
       </Modal>
-
-      {/* Creator-only: unlock more slots */}
-      <PurchaseModal
-        visible={expandOpen}
-        onClose={() => setExpandOpen(false)}
-        onPurchase={expand}
-        isLoading={isPurchasing || expanding}
-        title={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].title}
-        description={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].description}
-        price={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].price}
-        icon={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].icon}
-        benefits={PRODUCTS[PRODUCT_IDS.LEAGUE_EXPANSION].benefits}
-      />
     </ScrollView>
   );
 }

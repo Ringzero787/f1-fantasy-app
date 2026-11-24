@@ -37,5 +37,6 @@ from making their own leagues Pro, or losing a pass they paid for when they leav
 - F-060 and F-061 are deprecated in the registry, superseded by F-175.
 - The full build plan, and what was found when it was checked against the code on 2026-11-24, is
   `docs/design/charter/BUILD.md`. The spec is `.aidlc/specs/F-175.md`.
-- Open: BUILD.md treats `league.expansion` as retired; it is still sold in the grid and still in
-  `KNOWN_PRODUCTS`. That is an owner question, not changed by this decision.
+- The +20 slot pack (`league.expansion`) is retired (owner decision 2026-11-24): the app no longer
+  sells it; credits already paid for still apply; the server keeps validating and applying it until
+  the store listings are removed. Leagues stay at 22 members.

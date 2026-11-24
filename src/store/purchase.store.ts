@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { secureStorage } from '../utils/secureStorage';
 import { Alert, Platform } from 'react-native';
-import { PRODUCT_IDS, ALL_PRODUCT_IDS, AVATAR_PACK_CREDITS } from '../config/products';
+import { PRODUCT_IDS, ALL_PRODUCT_IDS, AVATAR_PACK_CREDITS, LEAGUE_EXPANSION_ON_SALE } from '../config/products';
 import { readStorePrices } from './storePrices';
 import { functions, httpsCallable, firebaseAuth } from '../config/firebase';
 import { usePitWallStore } from './pitwall.store';
@@ -71,6 +71,8 @@ interface PurchaseState {
   consumeBonusCredit: (userId: string) => void;
   hasExpansionCredit: () => boolean;
   consumeExpansionCredit: () => boolean;
+  /** Gives back a credit whose apply failed (F-175: the pack can no longer be bought again). */
+  restoreExpansionCredit: () => void;
   hasLeagueSlotCredit: () => boolean;
   consumeLeagueSlotCredit: () => boolean;
   /** `isReplay` marks a purchase the store handed back at launch rather than one just bought. */
@@ -306,6 +308,8 @@ export const usePurchaseStore = create<PurchaseState>()(
       },
 
       purchaseLeagueExpansion: async (leagueId?: string) => {
+        // F-175: retired. Kept so an older caller cannot reach the store sheet by accident.
+        if (!LEAGUE_EXPANSION_ON_SALE) return;
         const { useAuthStore } = require('./auth.store');
         const isDemoMode = useAuthStore.getState().isDemoMode;
 
@@ -615,6 +619,10 @@ export const usePurchaseStore = create<PurchaseState>()(
         if (credits <= 0) return false;
         set({ pendingExpansionCredits: credits - 1 });
         return true;
+      },
+
+      restoreExpansionCredit: () => {
+        set((state) => ({ pendingExpansionCredits: state.pendingExpansionCredits + 1 }));
       },
 
       hasLeagueSlotCredit: () => {
