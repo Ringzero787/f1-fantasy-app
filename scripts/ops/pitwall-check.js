@@ -7,15 +7,18 @@
 //   SA_KEY=… node scripts/ops/pitwall-check.js [--json]
 'use strict';
 const path = require('path');
-const { evaluate, render, resultDiffs } = require('./pitwall-check-lib');
+const { evaluate, render, resultDiffs, isDeepRun, carMapFor } = require('./pitwall-check-lib');
 
-// The scoring side's car-number table (functions/lib, built by every functions deploy). Optional: a
-// checkout without a build still checks races that have their own live-sweep map.
+// The scoring side's car-number table and the season it is for (functions/lib, built by every
+// functions deploy). Optional: without a build, races with their own live-sweep map are still
+// checked, and the others are reported as unchecked with a WARN (not silently passed).
 let ingestionTableCache;
 function ingestionTable() {
   if (ingestionTableCache === undefined) {
-    try { ingestionTableCache = { ...require(path.join(__dirname, '../../functions/lib/ingestion/config.js')).DRIVER_NUMBER_TO_ID }; }
-    catch { ingestionTableCache = {}; }
+    try {
+      const lib = path.join(__dirname, '../../functions/lib/ingestion');
+      ingestionTableCache = { map: { ...require(path.join(lib, 'config.js')).DRIVER_NUMBER_TO_ID }, season: String(require(path.join(lib, 'season.js')).DRIVER_TABLE_SEASON) };
+    } catch { ingestionTableCache = null; }
   }
   return ingestionTableCache;
 }
@@ -77,25 +80,39 @@ async function collect() {
   // Every older race of the season once a day (the 07 UTC run, or PW_CHECK_DEEP=1): a late appeal or
   // stewards' decision can change a result weeks later. The car numbers come from the race's own
   // live-sweep map, so a stand-in resolves as it was scored.
-  const deep = process.env.PW_CHECK_DEEP === '1' || new Date().getUTCHours() === 7;
+  const deep = isDeepRun(new Date(), process.env);
+  // the newest completed race: the only one the correctRaceResults op can fix (F-168 refuses an older
+  // race once a later one has scored); an older one needs the post-season past-race correction (F-173)
+  const completedRounds = racesSnap.docs.map((x) => x.data()).filter((x) => x.status === 'completed').map((x) => x.round || 0);
+  const latestRound = completedRounds.length ? Math.max(...completedRounds) : null;
   const resultDrift = [];
   for (const d of racesSnap.docs) {
     const r = d.data();
     const raceAt = toIso(r.schedule && r.schedule.race);
     if (r.status !== 'completed' || !raceAt) continue;
-    if (!deep && Date.now() - new Date(raceAt).getTime() > 7 * 24 * 3600 * 1000) continue;
+    const recent = Date.now() - new Date(raceAt).getTime() <= 7 * 24 * 3600 * 1000;
+    if (!deep && !recent) continue;
     const raceSession = sessions.find((x) => x.session_name === 'Race' && Math.abs(new Date(x.date_start).getTime() - new Date(raceAt).getTime()) < 36 * 3600 * 1000);
     const live = await db.collection('races').doc(d.id).collection('live').doc('positions').get();
     // the race's own map first (a stand-in as it was scored), the ingestion table under it for
     // races from before the live sweep and for a car the sweep never saw
-    const numberToId = { ...ingestionTable(), ...((live.exists && live.data().numberToId) || {}) };
+    const car = carMapFor((live.exists && live.data().numberToId) || null, ingestionTable(), r.seasonId);
+    const numberToId = car.map;
     if (!raceSession || !Object.keys(numberToId).length) {
-      resultDrift.push({ raceId: d.id, round: r.round, raceAt, unchecked: !raceSession ? 'no provider Race session' : 'no live-sweep car map for this race' });
+      resultDrift.push({ raceId: d.id, round: r.round, raceAt, unchecked: !raceSession ? 'no provider Race session' : car.missing, uncheckedLevel: raceSession && car.warn ? 'warn' : 'ok' });
       continue;
     }
     await new Promise((res) => setTimeout(res, 1500));
-    const provider = await openf1(`/session_result?session_key=${raceSession.session_key}`);
-    resultDrift.push({ raceId: d.id, round: r.round, raceAt, diffs: resultDiffs((r.results && r.results.raceResults) || [], provider, numberToId) });
+    let provider;
+    try { provider = await openf1(`/session_result?session_key=${raceSession.session_key}`); }
+    catch (e) {
+      // an older race (daily pass) must not take the whole check down with it: one 401/429 marks it
+      // unchecked; a recent race keeps the old behaviour (the run fails and says why)
+      if (recent) throw e;
+      resultDrift.push({ raceId: d.id, round: r.round, raceAt, unchecked: `provider error (${String(e.message).slice(0, 80)})`, uncheckedLevel: 'ok' });
+      continue;
+    }
+    resultDrift.push({ raceId: d.id, round: r.round, raceAt, latest: r.round === latestRound, diffs: resultDiffs((r.results && r.results.raceResults) || [], provider, numberToId) });
   }
 
   return {
