@@ -45,24 +45,27 @@ const runOf = (from, to, c) => Array.from({ length: to - from + 1 }, (_, i) => [
 
 const TEAMS = {
   // filled at Vegas (confirmed), constructor object, counter 14 at R17 → 20 at Vegas: penalised from R9
-  tA: { userId: 'u1', leagueId: 'L1', name: 'Abandoned A', totalPoints: 700, lockedPoints: 100, constructor: ctorObj('mclaren'), lastAutoFill: fill(VEGAS), vegasFill: true,
+  tA: { userId: 'u1', leagueId: 'L1', name: 'Abandoned A', totalPoints: 700, lockedPoints: 100, constructor: ctorObj('mclaren'), lastAutoFill: fill(VEGAS), vegasFill: true, rst: 21, rstAfter: 1,
     snaps: runOf(17, 23, 14), extra: [['abu_dhabi_2025', '2025', 24, -30]], snapshot: 420, recon: 180, vegas: 75 },
   // filled at Vegas (confirmed), `constructor: null`, counter 0 at R17 → only Vegas penalised
-  tB: { userId: 'u2', leagueId: 'L1', name: 'Null Ctor', totalPoints: 400, lockedPoints: 0, moonshotPoints: 12, constructor: null, lastAutoFill: fill(VEGAS), vegasFill: true,
+  tB: { userId: 'u2', leagueId: 'L1', name: 'Null Ctor', totalPoints: 400, lockedPoints: 0, moonshotPoints: 12, constructor: null, lastAutoFill: fill(VEGAS), vegasFill: true, rst: 7, rstAfter: 1,
     snaps: runOf(17, 23, 0), snapshot: 5, recon: 0, vegas: 5 },
   // an active player: penalised, never auto-filled — untouched
-  tC: { userId: 'u3', leagueId: 'L1', name: 'Active', totalPoints: 850, lockedPoints: 0, constructor: ctorObj('ferrari'), vegasFill: false,
+  tC: { userId: 'u3', leagueId: 'L1', name: 'Active', totalPoints: 850, lockedPoints: 0, constructor: ctorObj('ferrari'), vegasFill: false, rst: 21, rstAfter: 21,
     snaps: runOf(17, 23, 14), snapshot: 0, recon: 0, vegas: 0 },
-  // filled at Vegas (confirmed), never penalised
-  tD: { userId: 'u4', leagueId: 'L1', name: 'Fresh Fill', totalPoints: 300, lockedPoints: 0, constructor: ctorObj('haas'), lastAutoFill: fill(VEGAS), vegasFill: true,
+  // filled at Vegas (confirmed), never penalised, and has transferred since (counter 0 stays 0)
+  tD: { userId: 'u4', leagueId: 'L1', name: 'Fresh Fill', totalPoints: 300, lockedPoints: 0, constructor: ctorObj('haas'), lastAutoFill: fill(VEGAS), vegasFill: true, rst: 0, rstAfter: 0,
     snaps: runOf(17, 23, 0).map(([r]) => [r, 0]), snapshot: 0, recon: 0, vegas: 0 },
   // filled at Vegas (confirmed), no league; R22 carries a negative adjustment that is not a stale penalty
-  tE: { userId: 'u5', leagueId: null, name: 'Solo', totalPoints: 200, lockedPoints: 0, constructor: ctorObj('williams'), lastAutoFill: fill(VEGAS), vegasFill: true,
+  tE: { userId: 'u5', leagueId: null, name: 'Solo', totalPoints: 200, lockedPoints: 0, constructor: ctorObj('williams'), lastAutoFill: fill(VEGAS), vegasFill: true, rst: 11, rstAfter: 1,
     snaps: [[22, -7], [23, -25]], snapshot: 25, recon: 0, vegas: 25 },
   // a FORGED stamp (written by the client before the rules fix): Lawson is the player's own Vegas
   // purchase, so the snapshot does not confirm a fill — nothing, though it was penalised
-  tF: { userId: 'u6', leagueId: 'L1', name: 'Forger', totalPoints: 600, lockedPoints: 0, constructor: ctorObj('alpine'), lastAutoFill: fill(VEGAS), vegasFill: false,
+  tF: { userId: 'u6', leagueId: 'L1', name: 'Forger', totalPoints: 600, lockedPoints: 0, constructor: ctorObj('alpine'), lastAutoFill: fill(VEGAS), vegasFill: false, rst: 21, rstAfter: 21,
     snaps: runOf(17, 23, 14), snapshot: 0, recon: 0, vegas: 0 },
+  // filled at Vegas, then its lastAutoFill moved on (as a Qatar refill would): the snapshot keeps it in
+  tG: { userId: 'u7', leagueId: null, name: 'Refilled', totalPoints: 150, lockedPoints: 0, constructor: ctorObj('sauber'), lastAutoFill: fill('qatar_2026'), vegasFill: true, rst: 10, rstAfter: 1,
+    snaps: runOf(17, 23, 3), snapshot: 50, recon: 0, vegas: 20 },
 };
 const refundOf = (t) => t.snapshot + t.recon;
 
@@ -80,7 +83,9 @@ async function seed() {
   const w = db.batch();
   w.set(db.doc('config/app'), { currentSeason: '2026' });
   // Vegas stores its season as a number: the lookups must find it either way
-  IDS.forEach((id, i) => w.set(db.doc(`races/${id}`), { seasonId: id === VEGAS ? 2026 : '2026', round: i + 1, status: 'completed', name: id }));
+  // a race every 14 days from 8 March: R8 (14 June) is the first on or after 2026-06-13
+  IDS.forEach((id, i) => w.set(db.doc(`races/${id}`), { seasonId: id === VEGAS ? 2026 : '2026', round: i + 1, status: 'completed', name: id,
+    schedule: { race: Timestamp.fromMillis(Date.UTC(2026, 2, 8) + i * 14 * 86400000) } }));
   w.set(db.doc('races/qatar_2026'), { seasonId: '2026', round: 24, status: 'upcoming', name: 'Qatar' });
   w.set(db.doc('races/abu_dhabi_2025'), { seasonId: '2025', round: 24, status: 'completed', name: 'Abu Dhabi 2025' });
   w.set(db.doc('leagues/L1'), { name: 'Paddock Club', ownerId: 'u1', seasonId: '2026', memberCount: 5, raceResultIds: [VEGAS] });
@@ -92,7 +97,7 @@ async function seed() {
       userId: t.userId, leagueId: t.leagueId, name: t.name, seasonId: '2026', budget: 25,
       drivers: [drv('lawson', { racesHeld: 1 }), drv('albon')], constructor: t.constructor,
       totalPoints: t.totalPoints, lockedPoints: t.lockedPoints, ...(t.moonshotPoints ? { moonshotPoints: t.moonshotPoints } : {}),
-      racesSinceTransfer: 0, scoredRaces: ALL_SCORED, bestRaceId: VEGAS, bestRacePoints: racePoints(vegasAdj),
+      racesSinceTransfer: t.rst, scoredRaces: ALL_SCORED, bestRaceId: VEGAS, bestRacePoints: racePoints(vegasAdj),
       ...(t.lastAutoFill ? { lastAutoFill: t.lastAutoFill } : {}),
     });
     const rows = [...t.snaps.map(([round, adj]) => [RID(round), '2026', round, adj]), ...(t.extra || [])];
@@ -141,16 +146,20 @@ async function assertRefunded() {
     assert.deepEqual(team.constructor, t.constructor, `${id}: constructor kept whole`);
     assert.equal(team.drivers.length, 2, `${id}: drivers kept`);
     assert.equal(team.name, t.name, `${id}: unrelated fields kept`);
+    assert.equal(team.racesSinceTransfer, t.rstAfter, `${id}: racesSinceTransfer`);
     assert.equal(team.bestRaceId, VEGAS, `${id}: bestRaceId not moved`);
     assert.equal(team.bestRacePoints, racePoints(t.snaps.find((s) => s[0] === 23)[1]), `${id}: bestRacePoints not moved`);
+    if (t.rst !== t.rstAfter || refundOf(t)) assert.equal(team.staleRefund.counterBefore, t.rst, `${id}: counter before the reset recorded`);
     if (t.recon) {
       assert.equal(team.staleRefund.total, t.recon, `${id}: reconstructed total recorded`);
       assert.deepEqual(Object.keys(team.staleRefund.races).sort(), [9, 10, 11, 12, 13, 14, 15, 16].map(RID).sort(), `${id}: reconstructed races recorded`);
       assert.equal(team.staleRefund.races[RID(9)], 5);
       assert.equal(team.staleRefund.races[RID(16)], 40);
       assert.ok(typeof team.staleRefund.at.toDate === 'function');
+    } else if (t.rst === t.rstAfter && !refundOf(t)) {
+      assert.equal(team.staleRefund, undefined, `${id}: untouched team, no record`);
     } else {
-      assert.equal(team.staleRefund, undefined, `${id}: no team record without a reconstruction`);
+      assert.equal(team.staleRefund.total, 0, `${id}: no reconstructed races`);
     }
     const refunded = t.snapshot > 0;
     for (const [round, adj] of t.snaps) {
@@ -186,37 +195,46 @@ test('dry run: reports both kinds of refund, the gaps and the forged team, and w
   const lines = [];
   const s = await run(true, lines);
   assert.deepEqual(await dumpAll(), before);
-  assert.equal(s.teams, 3);
-  assert.deepEqual([s.total, s.snapshotTotal, s.reconTotal], [630, 450, 180]);
-  assert.equal(s.vegas, 105);
-  assert.equal(s.vegasTeams, 3);
+  assert.equal(s.teams, 4);
+  assert.deepEqual([s.total, s.snapshotTotal, s.reconTotal], [680, 500, 180]);
+  assert.equal(s.vegas, 125);
+  assert.equal(s.vegasTeams, 4);
+  assert.equal(s.eligible, 5);
+  assert.equal(s.counterResets, 4);
+  assert.deepEqual([s.crossChecked, s.crossCheckPassed], [1, 1]);
+  assert.equal(s.refilled, 1);
   assert.deepEqual(s.worst, { teamId: 'tA', name: 'Abandoned A', points: 600, races: 15 });
   assert.deepEqual(s.ineligible.map((x) => x.teamId), ['tF']);
   assert.deepEqual(s.unexplained.map((u) => [u.teamId, u.raceId, u.adjustment]), [['tE', RID(22), -7]]);
   assert.equal(s.latestRaceId, VEGAS, 'found with a numeric seasonId');
   assert.deepEqual(s.leagues, ['L1']);
   assert.deepEqual(s.races.find((r) => r.round === 9), { raceId: RID(9), round: 9, snapshot: 0, reconstructed: 5, teams: 1 });
-  assert.deepEqual(s.races.find((r) => r.round === 23), { raceId: VEGAS, round: 23, snapshot: 105, reconstructed: 0, teams: 3 });
+  assert.deepEqual(s.races.find((r) => r.round === 23), { raceId: VEGAS, round: 23, snapshot: 125, reconstructed: 0, teams: 4 });
   const out = lines.join('\n');
-  assert.match(out, /TOTAL refund: \+630 points/);
-  assert.match(out, /from snapshots \(recorded penalties\): +\+450/);
+  assert.match(out, /TOTAL refund: \+680 points/);
+  assert.match(out, /from snapshots \(recorded penalties\): +\+500/);
   assert.match(out, /reconstructed from the counter: +\+180/);
-  assert.match(out, /las_vegas_2026 only: \+105 points across 3 team\(s\)/);
+  assert.match(out, /las_vegas_2026 only: \+125 points across 4 team\(s\)/);
+  assert.match(out, /counter reset to 1 \(the F-170 value\): 4 team\(s\)/);
+  assert.match(out, /near-end counter cross-check: 1 of 1 team\(s\) with a penalised first snapshot passed/);
+  assert.match(out, / {2}tA: totalPoints 700 → 1300 \(\+600; .*\); counter 21 → 1/);
+  assert.match(out, / {2}tB: [^\n]*counter 7 → 1/);
   assert.match(out, /worst team: tA \(Abandoned A\) \+600/);
   assert.match(out, /INELIGIBLE[^\n]*\n {2}tF: lawson is not an auto-filled pick/);
-  assert.match(out, /GAP[^\n]*\n(.*\n)*? {2}tA: 2 race\(s\): R1 R2/);
-  assert.match(out, / {2}tB: 16 race\(s\)/);
+  assert.match(out, /GAP[^\n]*\n(.*\n)*? {2}tA: 2 race\(s\): R1 R2 \(before the last transfer\)/);
+  assert.match(out, / {2}tB: 16 race\(s\): R1 .* R16 \(first snapshot shows no counter to count back from\)/);
   const backup = out.match(/backup paths: (.*)/)[1].split(',');
   for (const p of ['fantasyTeams/tA', `fantasyTeams/tA/raceSnapshots/${VEGAS}`, `fantasyTeams/tA/raceSnapshots/${RID(17)}`, 'fantasyTeams/tE', 'leagues/L1/members', `leagues/L1/raceResults/${VEGAS}`]) {
     assert.ok(backup.includes(p), `backup lists ${p}`);
   }
   for (const p of ['fantasyTeams/tC', 'fantasyTeams/tD', 'fantasyTeams/tF']) assert.ok(!backup.includes(p), `backup leaves out ${p}`);
+  assert.ok(backup.includes('fantasyTeams/tG'));
 });
 
 test('apply: refunds the confirmed Vegas-filled teams, records and stamps, re-syncs the league', async () => {
   await seed();
   const s = await run(false);
-  assert.equal(s.total, 630);
+  assert.equal(s.total, 680);
   assert.deepEqual(s.synced, ['L1']);
   await assertRefunded();
 });
@@ -253,12 +271,14 @@ test('refuses once the season has rolled over', async () => {
   assert.deepEqual(await dumpAll(), before);
 });
 
-test('a team refilled after Vegas is left out, with a warning', async () => {
+test('once a race after Vegas has completed: --apply refuses, the dry run warns', async () => {
   await seed();
-  await db.doc('fantasyTeams/tB').set({ lastAutoFill: fill('qatar_2026') }, { mergeFields: ['lastAutoFill'] });
+  await db.doc('races/qatar_2026').set({ status: 'completed' }, { merge: true });
+  const before = await dumpAll();
+  await assert.rejects(run(false), /refusing --apply: a race after las_vegas_2026 has completed \(qatar_2026\)/);
+  assert.deepEqual(await dumpAll(), before, 'nothing written');
   const lines = [];
-  const s = await run(false, lines);
-  assert.equal(s.total, 625);
-  assert.equal((await data('fantasyTeams/tB')).totalPoints, TEAMS.tB.totalPoints);
-  assert.match(lines.join('\n'), /WARNING: 1 team\(s\) were auto-filled again after las_vegas_2026 \(qatar_2026: 1\)/);
+  await run(true, lines);
+  assert.match(lines.join('\n'), /WARNING \*\*\* a race after las_vegas_2026 has completed/);
+  assert.deepEqual(await dumpAll(), before);
 });
