@@ -96,7 +96,9 @@ function planTeam(snap, team, postPrice, marketPrice) {
     if (m !== undefined && m !== d.currentPrice) { repriced++; return { ...d, currentPrice: m }; }
     return d;
   });
-  let constructor = team.constructor || null;
+  // own key only: a team doc with no constructor field would otherwise read Object.prototype.constructor
+  // (a function) and the team write would fail on it
+  let constructor = Object.prototype.hasOwnProperty.call(team, 'constructor') ? team.constructor || null : null;
   if (constructor && constructor.constructorId) {
     const m = marketPrice(constructor.constructorId);
     if (m !== undefined && m !== constructor.currentPrice) { repriced++; constructor = { ...constructor, currentPrice: m }; }
@@ -130,7 +132,7 @@ async function main() {
     const snapRef = teamDoc.ref.collection('raceSnapshots').doc(raceId);
     const work = async (tx) => {
       const [t, s] = tx ? await Promise.all([tx.get(teamDoc.ref), tx.get(snapRef)]) : [teamDoc, await snapRef.get()];
-      if (!s.exists) return null;
+      if (!s.exists || !t.exists) return null; // a deleted team is not recreated by the set below
       const snap = s.data();
       if (snap.expirySaleRepair) return null;
       const team = t.data();

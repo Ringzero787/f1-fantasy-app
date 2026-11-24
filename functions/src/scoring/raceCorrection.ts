@@ -275,6 +275,9 @@ export async function applyRaceCorrection(
     const run = async (tx: FirebaseFirestore.Transaction | null) => {
       const [teamSnap, snapSnap] = tx ? await Promise.all([tx.get(teamDoc.ref), tx.get(snapRef)]) : [teamDoc, await snapRef.get()];
       if (!snapSnap.exists) return null;
+      // set+mergeFields below would create a missing doc where update() failed: a team deleted after
+      // the list was read (its snapshots outlive it) must not come back as a partial doc
+      if (!teamSnap.exists) return null;
       const snap = snapSnap.data() as SnapshotLike;
       const team = (teamSnap.data() || {}) as TeamLike;
       if (snap.resultsSig === newSig) { summary.skippedAlreadyCorrected++; return null; }

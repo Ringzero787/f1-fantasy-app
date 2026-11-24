@@ -274,7 +274,8 @@ test('a team write carrying `constructor` serializes as set+mergeFields, not as 
   const { Firestore } = require('@google-cloud/firestore');
   const db = new Firestore({ projectId: 'offline-test' });
   const ref = db.doc('fantasyTeams/t1');
-  const serialize = (fn) => { const b = db.batch(); fn(b); b._ops.forEach((o) => o.op()); };
+  // _ops is the SDK's private queue; if an upgrade renames it, fail loudly rather than pass vacuously
+  const serialize = (fn) => { const b = db.batch(); fn(b); assert.ok(Array.isArray(b._ops) && b._ops.length === 1, 'SDK internals moved: rewrite this test'); b._ops.forEach((o) => o.op()); };
   for (const ctor of [{ constructorId: 'red_bull', racesHeld: 2 }, null]) {
     const data = { drivers: [], constructor: ctor, totalPoints: 10 };
     assert.throws(() => serialize((b) => b.update(ref, data)), /Can't merge current value/, 'the premise: update() cannot');
@@ -292,4 +293,24 @@ test('both team writers use set+mergeFields for the team doc', () => {
   const rx = read('scripts/repairExpirySale.js');
   assert.match(rx, /tx\.set\(teamDoc\.ref, teamWrite, \{ mergeFields: Object\.keys\(teamWrite\) \}\)/);
   assert.ok(!/tx\.update\(teamDoc\.ref/.test(rx), 'repairExpirySale: no update() of the team doc');
+});
+
+test('applyRaceCorrection: a team deleted after the list was read is not recreated', async () => {
+  const db = fakeDb(vegasSeed());
+  const run = db.runTransaction;
+  db.runTransaction = async (fn) => { db.docs.delete('fantasyTeams/t1'); return run(fn); };
+  const s = await applyRaceCorrection(db, 'las_vegas_2026', raceMeta, { raceResults: scored }, { raceResults: official }, { dryRun: false, log: () => {} });
+  assert.ok(!db.docs.has('fantasyTeams/t1'), 'no partial team doc');
+  assert.deepEqual(s.teams, []);
+});
+
+test('repairExpirySale skips a missing team before its set', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'scripts/repairExpirySale.js'), 'utf8');
+  assert.match(src, /if \(!s\.exists \|\| !t\.exists\) return null;/);
+});
+
+test('repairExpirySale: a team doc with no constructor field plans constructor null, not Object', () => {
+  const { planTeam } = require('../scripts/repairExpirySale.js');
+  const plan = planTeam({ roster: { drivers: [], constructor: null } }, { budget: 10, drivers: [] }, () => undefined, () => undefined);
+  assert.equal(plan.constructor, null);
 });
