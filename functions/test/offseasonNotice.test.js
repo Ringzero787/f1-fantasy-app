@@ -55,7 +55,7 @@ test('the marker is read from a Timestamp, a number or an ISO string; absent is 
 
 const H = 3600e3;
 const NOW = Date.parse('2026-12-10T12:00:00Z');
-const ready = (noticeSentMs, noticeEmailMs = NOW - 1 * H) => ({
+const ready = (noticeSentMs, noticeEmailMs = NOW - 25 * H) => ({
   from: '2026', to: '2027', now: NOW, settleHours: 24, fromSeason: {}, currentSeason: '2026',
   fromRaces: [{ id: 'abu_dhabi_2026', status: 'completed', raceTimeMs: NOW - 96 * H }],
   pendingResultIds: [], scoredRaceIds: ['abu_dhabi_2026'], moonshots: [], calendarSize: 24, noticeSentMs, noticeEmailMs,

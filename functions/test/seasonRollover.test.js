@@ -451,7 +451,7 @@ test('F-154: how each write is sent — the team reset replaces its named fields
 });
 
 test('F-155: the reset email needs the same lead time as the inbox notice', () => {
-  const recent = rolloverBlockers(ready({ noticeEmailMs: NOW_MS - 2 * H }));
+  const recent = R.rolloverBlockers(ready({ noticeEmailMs: NOW_MS - 2 * H }));
   assert.ok(recent.some((b) => /reset email was stamped 2\.0 h ago/.test(b)), recent.join(' | '));
-  assert.ok(!rolloverBlockers(ready({ noticeEmailMs: NOW_MS - 25 * H })).some((b) => /reset email/.test(b)));
+  assert.ok(!R.rolloverBlockers(ready({ noticeEmailMs: NOW_MS - 25 * H })).some((b) => /reset email/.test(b)));
 });
