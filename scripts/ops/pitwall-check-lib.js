@@ -168,12 +168,15 @@ function evaluate(state, now = new Date()) {
   //    change for 72 h and the teams are re-graded; a difference still there after that needs the
   //    correctRaceResults op.
   for (const d of state.resultDrift || []) {
-    if (d.unchecked) { add('ok', 'scoring', `${d.raceId} (round ${d.round}) not compared with the provider: ${d.unchecked}`); continue; }
+    if (d.unchecked) { add(d.uncheckedLevel === 'warn' ? 'warn' : 'ok', 'scoring', `${d.raceId} (round ${d.round}) not compared with the provider: ${d.unchecked}`); continue; }
     if (!d.diffs || !d.diffs.length) continue;
+    const ack = acknowledgedDrift(d.raceId, d.diffs);
+    if (ack) { add('ok', 'scoring', `${d.raceId} (round ${d.round}) differs from the provider as already acknowledged: ${ack}`); continue; }
     const age = t - ms(d.raceAt);
     const what = d.diffs.slice(0, 6).join(', ') + (d.diffs.length > 6 ? ` and ${d.diffs.length - 6} more` : '');
     if (age < 72 * HOUR) add('warn', 'scoring', `${d.raceId} (round ${d.round}) official classification differs from what was scored: ${what}. The correction pass re-applies it within 72 h of the race`);
-    else add('fail', 'scoring', `${d.raceId} (round ${d.round}) official classification differs from what was scored: ${what}. Past the 72 h correction window: run the uc-script op with script=correctRaceResults.js`);
+    else if (d.latest !== false) add('fail', 'scoring', `${d.raceId} (round ${d.round}) official classification differs from what was scored: ${what}. Past the 72 h correction window: run the uc-script op with script=correctRaceResults.js`);
+    else add('fail', 'scoring', `${d.raceId} (round ${d.round}) official classification differs from what was scored: ${what}. A later race has scored, so correctRaceResults.js cannot fix it: it needs the past-race correction (F-173), or an entry in ACKNOWLEDGED_DRIFT (scripts/ops/pitwall-check-lib.js) with the owner's decision`);
   }
 
   // 4. the calendar against the provider: cancelled, added, moved
@@ -243,6 +246,48 @@ function render(result, now = new Date()) {
 }
 
 /**
+ * Differences already looked at and decided (2026-11-24, when the check first compared every race
+ * of the season). Each entry lists the EXACT differences seen then: a race stays quiet only while
+ * its differences are exactly these, so any further change to it fails again.
+ */
+const ACKNOWLEDGED_DRIFT = {
+  australia_2026: { why: 'scored before DNS/NC handling existed (2026-06-13/06-30); scored under the rules then, not corrected', diffs: ['stroll scored P17, now nc', 'piastri scored dnf, now dns', 'hulkenberg scored dnf, now dns'] },
+  china_2026: { why: 'scored before DNS handling existed; not corrected', diffs: ['piastri scored dnf, now dns', 'norris scored dnf, now dns', 'bortoleto scored dnf, now dns', 'albon scored dnf, now dns'] },
+  canada_2026: { why: 'scored before DNS handling existed; not corrected', diffs: ['lindblad scored dnf, now dns'] },
+  monaco_2026: { why: 'post-race penalty (Pérez); no raceSnapshots for this race, so it cannot be corrected', diffs: ['alonso scored P11, now P10', 'bortoleto scored P12, now P11', 'russell scored P13, now P12', 'hulkenberg scored P14, now P13', 'colapinto scored P15, now P14', 'perez scored P10, now P15'] },
+  britain_2026: { why: 'post-race penalty (Sainz); no raceSnapshots for this race, so it cannot be corrected', diffs: ['bearman scored P13, now P12', 'ocon scored P14, now P13', 'perez scored P15, now P14', 'antonelli scored P16, now P15', 'bottas scored P17, now P16', 'sainz scored P12, now P17'] },
+  azerbaijan_2026: { why: 'post-race penalty (Bortoleto); owner decision 2026-11-24: corrected after the season by the past-race correction (F-173, planned)', diffs: ['piastri scored P14, now P13', 'perez scored P15, now P14', 'bortoleto scored P13, now P15'] },
+  mexico_2026: { why: 'post-race penalties (Piastri, Colapinto, Gasly); owner decision 2026-11-24: corrected after the season by the past-race correction (F-173, planned)', diffs: ['lawson scored P9, now P7', 'bortoleto scored P11, now P8', 'hadjar scored P12, now P9', 'hirakawa scored P13, now P10', 'albon scored P14, now P11', 'sainz scored P15, now P12', 'piastri scored P7, now P13', 'hulkenberg scored P16, now P14', 'colapinto scored P8, now P15', 'perez scored P17, now P16', 'gasly scored P10, now P17'] },
+};
+
+/** The reason a race's differences are acknowledged, or null when they are not exactly the acknowledged set. */
+function acknowledgedDrift(raceId, diffs, table = ACKNOWLEDGED_DRIFT) {
+  const a = Object.prototype.hasOwnProperty.call(table, raceId) ? table[raceId] : null;
+  if (!a || !Array.isArray(diffs) || diffs.length !== a.diffs.length) return null;
+  const want = [...a.diffs].sort();
+  return [...diffs].sort().every((x, i) => x === want[i]) ? a.why : null;
+}
+
+/** Whether this run also compares every older race of the season: once a day (the 07 UTC run), or forced. */
+function isDeepRun(now, env = {}) {
+  return env.PW_CHECK_DEEP === '1' || now.getUTCHours() === 7;
+}
+
+/**
+ * The car map to compare a race with: the race's own live-sweep map over the ingestion table, but the
+ * table only for its own season (a car number means a different driver in another season).
+ * `missing`/`warn` say why a race without any map cannot be compared.
+ */
+function carMapFor(liveMap, table, raceSeason) {
+  const own = liveMap && typeof liveMap === 'object' ? liveMap : {};
+  const tableFits = !!table && String(raceSeason) === table.season;
+  const map = { ...(tableFits ? table.map : {}), ...own };
+  if (Object.keys(map).length) return { map, missing: null, warn: false };
+  if (!table) return { map, missing: 'no car map: no live-sweep map and functions/lib is not built here', warn: true };
+  return { map, missing: `no car map: no live-sweep map and the car table is for ${table.season}`, warn: false };
+}
+
+/**
  * F-168, pure: where the provider's race classification (/session_result rows) differs from the
  * stored raceResults. Statuses are derived exactly as the ingestion does (openf1Client
  * convertToRaceResults): dsq, then dns, then dnf, then "no position" = nc, else finished at the
@@ -264,4 +309,4 @@ function resultDiffs(stored, provider, numberToId) {
   return diffs;
 }
 
-module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, resultDiffs, evaluate, render, fmtAge, oneLine };
+module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, resultDiffs, acknowledgedDrift, ACKNOWLEDGED_DRIFT, isDeepRun, carMapFor, evaluate, render, fmtAge, oneLine };

@@ -1,4 +1,4 @@
-next_id: 172
+next_id: 174
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -2211,3 +2211,25 @@ features:
       - correction
       - integration
       - test
+  - id: F-172
+    name: "UC: compare every race of the season with the official classification"
+    summary: "The ops check compares races of the last 7 days every hour and every completed race of the season once a day (07 UTC), with the ingestion car table under each race's own map; known differences are acknowledged by exact set, so any further change fails again"
+    status: building
+    spec: .aidlc/specs/F-172.md
+    created_at: 2026-11-24
+    keywords:
+      - drift
+      - classification
+      - season
+      - ops
+  - id: F-173
+    name: "UC: correct a past race after the season"
+    summary: "A past-race correction mode for a race that is not the latest: classification only, no races/{id}.results write (Track Limits would re-grade bets), no lastRacePoints, ranks without previousRank; for Mexico R21 and Azerbaijan R17 2026 after the season (owner decision 2026-11-24)"
+    status: planned
+    spec: .aidlc/specs/F-173.md
+    created_at: 2026-11-24
+    keywords:
+      - correction
+      - past
+      - classification
+      - penalty

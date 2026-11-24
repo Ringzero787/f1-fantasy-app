@@ -285,3 +285,53 @@ test('F-168: a classification change warns inside the 72 h correction window and
   assert.equal(evaluate({ ...healthy(), resultDrift: [{ raceId: 'usa_2026', round: 20, raceAt: at(80), diffs: [] }] }, NOW).worst, 'ok');
   assert.equal(evaluate({ ...healthy(), resultDrift: [{ raceId: 'usa_2026', round: 20, raceAt: at(80), unchecked: 'no live-sweep car map for this race' }] }, NOW).worst, 'ok');
 });
+
+test('acknowledged drift: quiet only while the differences are exactly the acknowledged set', () => {
+  const { acknowledgedDrift, ACKNOWLEDGED_DRIFT } = require('./pitwall-check-lib');
+  const mex = ACKNOWLEDGED_DRIFT.mexico_2026.diffs;
+  const at = (h) => new Date(NOW.getTime() - h * 3600 * 1000).toISOString();
+  const old = (diffs) => ({ ...healthy(), resultDrift: [{ raceId: 'mexico_2026', round: 21, raceAt: at(24 * 30), diffs }] });
+  assert.equal(evaluate(old([...mex].reverse()), NOW).worst, 'ok', 'same set, any order: acknowledged');
+  assert.equal(evaluate(old([...mex, 'ocon scored P18, now P19']), NOW).worst, 'fail', 'a further change fails again');
+  assert.equal(evaluate(old(mex.slice(1)), NOW).worst, 'fail', 'a different set fails');
+  assert.equal(acknowledgedDrift('usa_2026', ['x']), null, 'an unlisted race is never acknowledged');
+  assert.equal(acknowledgedDrift('toString', []), null, 'own keys only');
+});
+
+test('deep pass: the 07 UTC run, or forced', () => {
+  const { isDeepRun } = require('./pitwall-check-lib');
+  assert.equal(isDeepRun(new Date('2026-11-25T07:33:00Z'), {}), true);
+  assert.equal(isDeepRun(new Date('2026-11-25T08:33:00Z'), {}), false);
+  assert.equal(isDeepRun(new Date('2026-11-25T08:33:00Z'), { PW_CHECK_DEEP: '1' }), true);
+});
+
+test('car map: the race map wins, the table only for its own season, a missing build warns', () => {
+  const { carMapFor } = require('./pitwall-check-lib');
+  const table = { season: '2026', map: { 50: 'ocon', 51: 'camara', 1: 'norris' } };
+  assert.deepEqual(carMapFor({ 50: 'hirakawa' }, table, '2026').map, { 50: 'hirakawa', 51: 'camara', 1: 'norris' });
+  assert.deepEqual(carMapFor(null, table, 2026).map, table.map, 'numeric seasonId matches');
+  const other = carMapFor(null, table, '2027');
+  assert.deepEqual(other.map, {});
+  assert.equal(other.warn, false);
+  const unbuilt = carMapFor(null, null, '2026');
+  assert.equal(unbuilt.warn, true);
+  assert.match(unbuilt.missing, /functions\/lib is not built/);
+});
+
+test('an unchecked race is ok, or warn when the car table is missing', () => {
+  const NOWd = NOW;
+  const at = (h) => new Date(NOWd.getTime() - h * 3600 * 1000).toISOString();
+  const st = (lvl) => ({ ...healthy(), resultDrift: [{ raceId: 'japan_2026', round: 3, raceAt: at(24 * 200), unchecked: 'x', uncheckedLevel: lvl }] });
+  assert.deepEqual(levels(evaluate(st('ok'), NOW), 'scoring'), ['ok']);
+  assert.deepEqual(levels(evaluate(st('warn'), NOW), 'scoring'), ['warn']);
+});
+
+test('an older race that drifts is not sent to correctRaceResults.js (it only fixes the latest race)', () => {
+  const at = (h) => new Date(NOW.getTime() - h * 3600 * 1000).toISOString();
+  const st = (latest) => ({ ...healthy(), resultDrift: [{ raceId: 'japan_2026', round: 3, raceAt: at(24 * 200), latest, diffs: ['norris scored P4, now P5'] }] });
+  const old = evaluate(st(false), NOW).findings.find((f) => f.check === 'scoring');
+  assert.equal(old.level, 'fail');
+  assert.match(old.text, /past-race correction \(F-173\)/);
+  assert.doesNotMatch(old.text, /run the uc-script op/);
+  assert.match(evaluate(st(true), NOW).findings.find((f) => f.check === 'scoring').text, /script=correctRaceResults\.js/);
+});
