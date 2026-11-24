@@ -1,4 +1,4 @@
-next_id: 174
+next_id: 175
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -2233,3 +2233,15 @@ features:
       - past
       - classification
       - penalty
+  - id: F-174
+    name: "UC: server-driven notice banner on the Team panel"
+    summary: "An optional config/app.notice (id, title, body, tone, from/until window, min/max app version, allowlisted link) parsed fail-closed and shown at the top of the Grid Team panel, dismissible per notice id on the device; text changes need no build (owner decision 2026-11-24, for the 2027 season reset in 2.9.0)"
+    status: building
+    spec: .aidlc/specs/F-174.md
+    created_at: 2026-11-24
+    keywords:
+      - notice
+      - banner
+      - remote-config
+      - team
+      - season-reset

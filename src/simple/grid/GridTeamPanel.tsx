@@ -24,6 +24,8 @@ import { GridMoonshotLive } from './GridMoonshotLive';
 import { useAceCallPrompt, aceCallWorthOpening } from './aceCallPrompt';
 import { useIsFocused } from '@react-navigation/native';
 import { GridMoonshotCoach } from './GridMoonshotCoach';
+import { GridNoticeBanner } from './GridNoticeBanner';
+import { useNotice } from '../hooks/useNotice';
 import { useMoonshotStore } from '../../store/moonshot.store';
 import { useMoonshotLive } from '../hooks/useMoonshotLive';
 import { track } from '../../services/analytics.service';
@@ -120,6 +122,9 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const driverNameOf = useCallback((id: string) => remoteDrivers.find((d) => d.id === id)?.name ?? id, [remoteDrivers]);
   // F-142: the race-day Moonshot list names teams, like the league feed
   const memberNameOf = useCallback((uid: string) => { const m = leagueMembers.find((x) => x.userId === uid); return m?.teamName || m?.displayName || 'Player'; }, [leagueMembers]);
+
+  // F-174: the server notice (config/app.notice), re-checked against its window as `now` ticks
+  const { notice, dismiss: dismissNotice } = useNotice(now.getTime());
 
   useEffect(() => { fetchLastRaceScores(); }, [fetchLastRaceScores]);
   useEffect(() => {
@@ -367,6 +372,9 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
           <View style={{ width: `${Math.round(seasonProgress(completedRounds, seasonLength) * 100)}%`, height: '100%', backgroundColor: colors.text.primary }} />
         </View>
       </ScreenHeader>
+
+      {/* F-174: the server notice, when there is a valid, undismissed one; nothing at all otherwise */}
+      {notice ? <GridNoticeBanner notice={notice} onDismiss={dismissNotice} style={{ marginHorizontal: gutter, marginTop: 14 }} /> : null}
 
       {/* Team switcher on the left (only when there is, or can be, a second team) and MARKET → on the
           right. F-125: the market used to be reachable only through EDIT, which the lock disables, so
