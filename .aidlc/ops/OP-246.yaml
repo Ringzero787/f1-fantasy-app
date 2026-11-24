@@ -1,0 +1,37 @@
+id: OP-246
+title: "F-170: lastAutoFill and staleRefund are server-only (before the refund)"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-11-24T17:02:11.438Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-24T17:02:16.653Z
+    head_sha: 17f9acdc7e86976a6fa03ec81f0646588c0a2823
+    command: git --no-pager diff '247e418257b2fbe1dbecede79c6d3a73462868d5' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-246/dry-run-2026-11-24T17-02-16-653Z.log
+    log_sha256: 54a8f2b72864d99b5314bed7f2334ec57c6ef06729247a2872200fef246c86b4
+    lines: 24
+  - step: gates
+    at: 2026-11-24T17:05:04.997Z
+    head_sha: 17f9acdc7e86976a6fa03ec81f0646588c0a2823
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-24T17:05:05.002Z
+    head_sha: 17f9acdc7e86976a6fa03ec81f0646588c0a2823
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-246/apply-2026-11-24T17-05-05-002Z.log
+    log_sha256: fe42d8e3ca6f8a349366b30d8bf2a85124a818119ca2bb8b1bad98c33fff3e23
+    lines: 15
+  - step: gates
+    at: 2026-11-24T17:05:08.748Z
+    head_sha: 17f9acdc7e86976a6fa03ec81f0646588c0a2823
+    exit: 0
+    gates:
+      G15: skip

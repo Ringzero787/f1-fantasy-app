@@ -1,0 +1,24 @@
+id: OP-245
+title: "F-157: raceScores (entityType, seasonId, round desc) index for the season-scoped last-race view"
+kind: indexes-deploy
+status: applied
+params: {}
+created_at: 2026-11-24T16:22:40.000Z
+by: nathan
+note: "Record rebuilt by hand on 2026-11-24 from the logs below: the original yaml was deleted from the ops worktree before it was committed. Steps, hashes and line counts are from the logs; created_at is approximate (just before the dry run)."
+steps:
+  - step: dry-run
+    at: 2026-11-24T16:22:52.810Z
+    head_sha: 412987c096d6bb7aedb9a05e800a5516a6db2b0a
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-245/dry-run-2026-11-24T16-22-52-810Z.log
+    log_sha256: 0a4c1fca128aff5fc77b3e29de01f49a848e6f4720e10f84f22b1b7b0cd96dfb
+    lines: 20
+  - step: apply
+    at: 2026-11-24T16:27:22.147Z
+    head_sha: 412987c096d6bb7aedb9a05e800a5516a6db2b0a
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:indexes --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-245/apply-2026-11-24T16-27-22-147Z.log
+    log_sha256: 33a17ebd72731571a7993463cb4ccf7c9cb5ae638b3f99f3c8e09339c56303ca
+    lines: 19
