@@ -38,7 +38,9 @@ service cloud.firestore {
     function memberMayJoin(leagueId, status) {
       let league = get(/databases/$(database)/documents/leagues/$(leagueId)).data;
       let settings = league.get('settings', {});
-      let needsApproval = settings is map && settings.get('requireApproval', false) == true;
+      // F-175: a chartered league always asks first, whatever its settings say: approval is what
+      // grants Charter access.
+      let needsApproval = (settings is map && settings.get('requireApproval', false) == true) || charterLive(league);
       return league.memberCount < league.maxMembers
              && ((needsApproval && status == 'pending') || (!needsApproval && status == 'approved'));
     }
@@ -51,11 +53,13 @@ service cloud.firestore {
                     && !('isAdmin' in request.resource.data)
                     && !('pass' in request.resource.data)
                     && !('pwTrialUsed' in request.resource.data)
-                    && !('testAccount' in request.resource.data);
+                    && !('testAccount' in request.resource.data)
+                    && !('charterAccess' in request.resource.data);
       allow update: if isOwner(userId)
                     // F-068: the pass, its trial flag and the revocation record are server-owned
                     // F-164: so is the test-account mark (set only by functions/scripts/markTestAccounts.js)
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'pass', 'pwTrialUsed', 'pwRevoked', 'testAccount']);
+                    // F-175: so is Charter access, which the `pw` claim is stamped from
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'pass', 'pwTrialUsed', 'pwRevoked', 'testAccount', 'charterAccess']);
       allow delete: if isOwner(userId);
 
       // F-071: what this person has read and rated on the Pit Wall wire. Private to them: it is
@@ -76,6 +80,37 @@ service cloud.firestore {
     // `applyLeagueExpansion` in twenty-slot steps — never by the client. Mirrors
     // DEFAULT_MAX_MEMBERS / FREE_LEAGUE_MEMBER_LIMIT in src/config/constants.ts.
     function freeLeagueCeiling() { return 22; }
+
+    // F-175 Charter: fields only the server writes on a league. A client may never set them on
+    // create or change them on update, whatever the league's state.
+    function charterKeys() { return ['charter', 'chartered', 'searchPoints', 'rankUpsWeek']; }
+
+    // F-175: while a league's charter is unexpired (`charter.expiresAt`, epoch ms), it stays public
+    // and approval stays on: an update may not make `isPublic` or `settings.requireApproval`
+    // anything other than true, or remove them. A value left untouched is not checked, so a
+    // chartered league in an odd state can still be renamed. `charter` set to null or missing
+    // reads as unchartered (get() returns the stored null, which `is map` rejects).
+    // F-175: a league whose charter is unexpired. Its owner cannot delete it: members paid
+    // nothing but rely on it, and a refund (which clears the charter) is the server's call.
+    function charterLive(data) {
+      let charter = data.get('charter', null);
+      return charter is map
+             && charter.get('expiresAt', null) is number
+             && charter.expiresAt > request.time.toMillis();
+    }
+
+    function charterKeepsOpen(before, after) {
+      let charter = before.get('charter', null);
+      let chartered = charter is map
+                      && charter.get('expiresAt', null) is number
+                      && charter.expiresAt > request.time.toMillis();
+      return !chartered || (
+        (after.get('isPublic', null) == true
+           || after.get('isPublic', null) == before.get('isPublic', null))
+        && (after.get(['settings', 'requireApproval'], null) == true
+           || after.get(['settings', 'requireApproval'], null) == before.get(['settings', 'requireApproval'], null))
+      );
+    }
 
     match /leagues/{leagueId} {
       allow read: if isAuthenticated();
@@ -99,7 +134,9 @@ service cloud.firestore {
                     // Pro is derived from the owner's pass and stamped by passStore; absent or
                     // explicitly off is the only honest starting state.
                     && (!('pro' in request.resource.data) || request.resource.data.pro == false)
-                    && (!('proUntil' in request.resource.data) || request.resource.data.proUntil == null);
+                    && (!('proUntil' in request.resource.data) || request.resource.data.proUntil == null)
+                    // F-175: Charter is bought, never created: these arrive from a function or not at all.
+                    && !request.resource.data.keys().hasAny(charterKeys());
       // F-056: the owner edits league details but can never hand the league to
       // someone else, and capacity never shrinks under the current head count.
       // Everyone else may only move memberCount by one, and only in step with
@@ -113,9 +150,15 @@ service cloud.firestore {
           isLeagueOwner(leagueId)
           && request.resource.data.ownerId == resource.data.ownerId
           && request.resource.data.maxMembers >= resource.data.maxMembers
+          // F-175: a chartered league never grows from a client: each approved member gets paid
+          // Pit Wall, so capacity changes only through the server while the charter runs.
+          && (!charterLive(resource.data) || request.resource.data.maxMembers == resource.data.maxMembers)
           // F-068: League Pro is derived from the owner's pass and stamped by a function;
           // an owner setting it by hand would hand themselves the paid features.
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pro', 'proUntil'])
+          // F-175: the charter fields are server-owned, and a chartered league stays public with approval on.
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(charterKeys())
+          && charterKeepsOpen(resource.data, request.resource.data)
         ) || (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount', 'updatedAt'])
           && (
@@ -131,7 +174,7 @@ service cloud.firestore {
           )
         )
       );
-      allow delete: if isLeagueOwner(leagueId);
+      allow delete: if isLeagueOwner(leagueId) && !charterLive(resource.data);
 
       // League members subcollection
       match /members/{memberId} {
@@ -186,6 +229,13 @@ service cloud.firestore {
       // F-062: per-race leaderboard and winners, written by scoring only.
       // F-112: league content is for APPROVED members (a join awaiting approval reads only the member list)
       match /raceResults/{raceId} {
+        allow read: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId));
+        allow write: if false;
+      }
+
+      // F-175: one Rank Up per approved member per ISO week ({weekId}_{fromUid}), written only by the
+      // giveRankUp callable (Admin SDK). Members of the league may read them.
+      match /rankUps/{rankUpId} {
         allow read: if isAuthenticated() && (isApprovedLeagueMember(leagueId) || isLeagueOwner(leagueId));
         allow write: if false;
       }

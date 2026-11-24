@@ -16,6 +16,7 @@ import { createHandoff, deleteOldHandoffs, redeemHandoff, takeRateSlot } from '.
 import { passActive, PASS_PRICE_USD, saleSeason, type Pass } from './pass';
 import { expirePasses, grantPass, grantTrial, revokePass, stampClaim } from './passStore';
 import { checkoutSessionParams, verifyStripeSignature, webhookAction } from './stripe';
+import { claimExpiry, claimInputsChanged, type CharterAccess } from '../charter/charter';
 
 const db = admin.firestore();
 
@@ -139,11 +140,18 @@ export const expirePitWallPasses = onSchedule('every 24 hours', async () => {
 });
 
 /** Re-stamp the claim when a pass changes from anywhere (grant op, store purchase, support fix). */
+// F-175: the claim is the later of the personal pass and Charter access, so a change to either
+// restamps it. Any other write to the user document (a display name, a push token) is skipped.
 export const onUserPassWritten = onDocumentWritten({ document: 'users/{uid}', retry: true }, async (event) => {
-  const before = event.data?.before.data()?.pass as Partial<Pass> | undefined;
-  const after = event.data?.after.data()?.pass as Partial<Pass> | undefined;
-  if (JSON.stringify(before ?? null) === JSON.stringify(after ?? null)) return;
-  await stampClaim(event.params.uid, after ?? null);
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!claimInputsChanged(before, after)) return;
+  // Stamp from the document as it is now, not from this event's snapshot: deliveries are not
+  // ordered and retry replays old ones, so a late grant event must not bring back a revoked claim.
+  const current = (await db.doc(`users/${event.params.uid}`).get()).data();
+  const pass = current?.pass as Partial<Pass> | undefined;
+  const charterAccess = current?.charterAccess as Partial<CharterAccess> | undefined;
+  await stampClaim(event.params.uid, claimExpiry(pass, charterAccess, Date.now()));
 });
 
 // Deployed as pw-sweepRefundedPasses, inside the group, so `--only functions:pw` reaches it.

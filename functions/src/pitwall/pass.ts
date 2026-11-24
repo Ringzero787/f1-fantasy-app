@@ -51,6 +51,10 @@ export function passActive(pass: Partial<Pass> | undefined | null, now: number):
  * The custom auth claim. Firestore rules read it instead of fetching the user document on every
  * read, so a paid page costs one read, not two. Claims are capped at 1000 bytes, so it is one
  * number: the epoch seconds the access ends.
+ *
+ * F-175: the claim is now stamped from `claimExpiry()` (charter/charter.ts), the later of the pass
+ * and Charter access, through `nextClaims()` in passStore.ts. Same shape; `passClaim` is the
+ * pass-only value.
  */
 export const PASS_CLAIM = 'pw';
 export function passClaim(pass: Partial<Pass> | undefined | null): number | null {
