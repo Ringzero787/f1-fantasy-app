@@ -264,3 +264,25 @@ An unchartered invite keeps a short version of the same template: league name, c
 - That account leaving loses the paid read and keeps a personal pass if they bought one.
 - Search lists the chartered league above an unchartered public league, and a Rank Up moves it at most three places.
 - The personal pass purchase still grants only `users.pass`, and a charter purchase still does not.
+
+## Checked against the code (2026-11-24)
+
+Added when slice 1 (F-175) was built from `origin/master`. The owner's text above is unchanged; where it and the code disagree, this list says what the code does today and what the build does about it.
+
+- **The share link.** Every link in the code is `https://undercut.humannpc.com/join?code=CODE` (`GridLeagueManager`, `roundReportShare.ts`, `sendInviteEmail.ts`). There is no `/join/{code}` route. The share text must use `/join?code={code}`.
+- **`league.expansion` is not retired.** It is still sold in the grid (the `LEAGUE SIZE` row in `GridLeagueManager`) and is still in `KNOWN_PRODUCTS` (`functions/src/purchases/productGuards.ts`). By an earlier owner decision the client may still raise `maxMembers` on update as the expansion fallback (the rules test that an owner can set 42 stands). Charter does not change the `maxMembers` rule or the expansion path. **Open owner question:** this plan says it is retired; it is live.
+- **Amazon is already a live source for the personal pass** (`validatePurchase`, `PassSource` includes `amazon`). Charter uses only Stripe, Play and Apple, as above; the pass keeps Amazon.
+- **Approval is written by the client today.** The league owner updates `members/{uid}.status` directly (the member update rule in `firestore.rules`), and `isApprovedLeagueMember` treats any status other than `pending` as approved. "Nothing writes `approved` except `approveMember`" needs a server callable and a member-rules change: that is slice 3. Slice 1 does not change the member rules.
+- **The live invite email** is a dark card (`#161B22` on `#0D1117`) with a teal accent (`#14B8A6`), not a teal card. It does say "Leave Me To It".
+- **The grid create step hardcodes `isPublic: false`** (`GridLeagueManager`, step `create`). Making a chartered league public at purchase is server work (slice 2); the create option is slice 4.
+- **`users.lastOpenAt` does not exist yet.** Slice 3.
+- **`stampClaim` before this change** deleted the `pw` claim whenever `passClaim()` returned null: no pass, or not a `pitwall` pass with a numeric expiry. (`passClaim` checks the pass against time 0, so an expired pass kept a past-dated claim, which `hasPass()` already rejects.) Slice 1 stamps the claim from `claimExpiry(pass, charterAccess, now)` instead, so it is deleted only when neither an unexpired pass nor unexpired charter access is left. The claim's shape is unchanged: one number, epoch seconds.
+- **`revokePass` does not clear `proUntil`** (it sets `pro: false` only) **and it writes `pwRevoked`.** The Charter refund path must not reuse it (see "The entitlement trap"); a Charter refund clears `pro` and `proUntil` on its league itself.
+
+What slice 1 built: `functions/src/charter/charter.ts` (`charterActive`, `charterAccessExpiry`, `claimExpiry`, `charterEnabled`), `functions/src/charter/rankUp.ts` (`weekId`, `climb`, `rankUpsThisWeek`, `orderChartered`), the claim change in `passStore.ts` and `onUserPassWritten`, the League and User types, and the rules (charter fields server-owned on create and update, a chartered league stays public with approval on, `charterAccess` server-owned, `rankUps` server-written). Choices made where this plan left room:
+
+- `charterActive` needs both `chartered === true` and an unexpired `charter.expiresAt`; either alone is not a charter.
+- "This week's count" is `rankUpsWeek.count` only when `rankUpsWeek.weekId === weekId(now)`; `now` is an argument.
+- `orderChartered` walks the points order top-down and moves each league up its climb in the list as it stands at that moment. A league at the top cannot climb, so two climbers in first and second place end up swapped once (second passes first), never twice.
+- Unchartered leagues are listed only when `isPublic === true`, by `memberCount` desc then id asc. A league with an expired charter or a cleared flag is listed with them.
+- The rules lock on a chartered league checks only values that change: an update may leave `isPublic` or `requireApproval` as they are, but may not set either to anything other than `true`, or remove it, while `charter.expiresAt` is in the future.

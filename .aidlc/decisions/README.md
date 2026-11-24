@@ -8,6 +8,7 @@ One file per decision. From here on, a decision is not edited after it is accept
 | [ADR-001](ADR-001-pit-wall-pass-and-timing-data.md) | One premium product (Pit Wall Pass, per season); what the timing data may be used for | 2026-09-19 | accepted, with later notes appended |
 | [ADR-002](ADR-002-pit-wall-infrastructure.md) | Pit Wall: Cloudflare for the site, the build box for compute, GCP as backup | 2026-09-19 | accepted; decision 3 (the GCP backup runner) was never built |
 | [ADR-003](ADR-003-model-gates-on-the-subscription.md) | The model gates run on the maintainer's machine, not on an API key in CI | 2026-09-28 | accepted |
+| [ADR-004](ADR-004-charter.md) | A second product: Charter, $39.99 per league per season, beside the personal pass | 2026-11-24 | accepted |
 
 ## Reading ADR-001
 
