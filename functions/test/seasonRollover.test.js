@@ -449,3 +449,9 @@ test('F-154: how each write is sent — the team reset replaces its named fields
   // every replace in the plan sits after an update of the same document in the same group
   for (const g of plan.groups) g.ops.forEach((o, i) => { if (o.kind === 'replace') assert.ok(g.ops.slice(0, i).some((p) => p.kind === 'update' && p.path === o.path), `${g.label}: unguarded replace`); });
 });
+
+test('F-155: the reset email needs the same lead time as the inbox notice', () => {
+  const recent = rolloverBlockers(ready({ noticeEmailMs: NOW_MS - 2 * H }));
+  assert.ok(recent.some((b) => /reset email was stamped 2\.0 h ago/.test(b)), recent.join(' | '));
+  assert.ok(!rolloverBlockers(ready({ noticeEmailMs: NOW_MS - 25 * H })).some((b) => /reset email/.test(b)));
+});

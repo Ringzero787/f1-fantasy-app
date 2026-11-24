@@ -478,6 +478,9 @@ export function rolloverBlockers(i: PreconditionInput): string[] {
   // it (the admin broadcast) and say so (stampSeasonNoticeEmail.js)
   if (i.noticeEmailMs === null || !Number.isFinite(i.noticeEmailMs)) {
     out.push(`the reset email has not been stamped: send the admin broadcast with email, then run stampSeasonNoticeEmail.js (uc-script op) (seasons/${i.from}.resetNotice.emailAt is absent)`);
+  } else if ((i.now - i.noticeEmailMs) / 3600e3 < NOTICE_LEAD_HOURS) {
+    // the email is the channel that reaches everyone, so it needs the same lead time as the inbox notice
+    out.push(`the reset email was stamped ${((i.now - i.noticeEmailMs) / 3600e3).toFixed(1)} h ago; wait ${NOTICE_LEAD_HOURS} h so players can read it first`);
   }
   return out;
 }
