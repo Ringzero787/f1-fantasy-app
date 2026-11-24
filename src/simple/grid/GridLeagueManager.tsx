@@ -146,8 +146,9 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const expand = useCallback(async () => {
     if (!league || !isOwner || expanding || !hasExpansionCredit()) return;
     setExpanding(true);
+    let spent = false;
     try {
-      consumeExpansionCredit();
+      spent = consumeExpansionCredit();
       // Server path first (F-059): spends one store-verified purchase in a
       // transaction. Falls back to the direct write so a paying customer is
       // never left without their slots if validation is unavailable.
@@ -174,8 +175,11 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
         }
       }
       if (!appliedByServer) await expandLeagueCapacity(league.id, SLOTS_PER_EXPANSION);
+      spent = false;
       Alert.alert('League expanded', `${SLOTS_PER_EXPANSION} more players can join.`);
     } catch (e) {
+      // The slots were not added, so the credit goes back: the pack cannot be bought again (F-175).
+      if (spent) usePurchaseStore.getState().restoreExpansionCredit();
       Alert.alert('Error', e instanceof Error ? e.message : 'Could not add the extra slots.');
     } finally {
       setExpanding(false);

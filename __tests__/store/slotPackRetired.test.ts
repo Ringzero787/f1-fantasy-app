@@ -42,5 +42,7 @@ describe('slot pack retired (F-175)', () => {
     expect(src).toMatch(/pendingExpansionCredits/);
     expect(src).toMatch(/expansionCredits > 0/);
     expect(src).toMatch(/consumeExpansionCredit\(\)/);
+    expect(src).toMatch(/restoreExpansionCredit\(\)/);
+    expect(src).not.toMatch(/expansionCredits > 0 \|\| isDemoMode/);
   });
 });

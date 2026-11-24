@@ -71,6 +71,8 @@ interface PurchaseState {
   consumeBonusCredit: (userId: string) => void;
   hasExpansionCredit: () => boolean;
   consumeExpansionCredit: () => boolean;
+  /** Gives back a credit whose apply failed (F-175: the pack can no longer be bought again). */
+  restoreExpansionCredit: () => void;
   hasLeagueSlotCredit: () => boolean;
   consumeLeagueSlotCredit: () => boolean;
   /** `isReplay` marks a purchase the store handed back at launch rather than one just bought. */
@@ -617,6 +619,10 @@ export const usePurchaseStore = create<PurchaseState>()(
         if (credits <= 0) return false;
         set({ pendingExpansionCredits: credits - 1 });
         return true;
+      },
+
+      restoreExpansionCredit: () => {
+        set((state) => ({ pendingExpansionCredits: state.pendingExpansionCredits + 1 }));
       },
 
       hasLeagueSlotCredit: () => {

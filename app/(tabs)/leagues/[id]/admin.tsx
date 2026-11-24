@@ -17,7 +17,6 @@ import { useLeagueStore } from '../../../../src/store/league.store';
 import { useTeamStore } from '../../../../src/store/team.store';
 import { useAnnouncementStore } from '../../../../src/store/announcement.store';
 import { usePurchaseStore } from '../../../../src/store/purchase.store';
-import { useAuthStore } from '../../../../src/store/auth.store';
 import { Card, Button, Loading } from '../../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS, SLOTS_PER_EXPANSION } from '../../../../src/config/constants';
 import { useTheme } from '../../../../src/hooks/useTheme';
@@ -53,7 +52,6 @@ export default function LeagueAdminScreen() {
   const hasExpansionCredit = usePurchaseStore(s => s.hasExpansionCredit);
   const expansionCredits = usePurchaseStore(s => s.pendingExpansionCredits);
   const consumeExpansionCredit = usePurchaseStore(s => s.consumeExpansionCredit);
-  const isDemoMode = useAuthStore.getState().isDemoMode;
 
   const {
     activeAnnouncements,
@@ -300,28 +298,16 @@ export default function LeagueAdminScreen() {
   const handleExpandSlots = async () => {
     if (!currentLeague) return;
 
-    // In demo mode, just expand directly
-    if (isDemoMode) {
-      setIsExpanding(true);
-      try {
-        await expandLeagueCapacity(currentLeague.id, SLOTS_PER_EXPANSION);
-        Alert.alert('Slots Added', `${SLOTS_PER_EXPANSION} member slots have been added to your league! (Demo mode)`);
-      } catch (error) {
-        Alert.alert('Error', 'Failed to expand league capacity');
-      } finally {
-        setIsExpanding(false);
-      }
-      return;
-    }
-
     // Check if user already has an expansion credit
     if (hasExpansionCredit()) {
       setIsExpanding(true);
+      const spent = consumeExpansionCredit();
       try {
-        consumeExpansionCredit();
         await expandLeagueCapacity(currentLeague.id, SLOTS_PER_EXPANSION);
         Alert.alert('Slots Added', `${SLOTS_PER_EXPANSION} member slots have been added to your league!`);
       } catch (error) {
+        // Not applied, so the credit goes back: the pack cannot be bought again (F-175).
+        if (spent) usePurchaseStore.getState().restoreExpansionCredit();
         Alert.alert('Error', 'Failed to expand league capacity');
       } finally {
         setIsExpanding(false);
@@ -658,7 +644,7 @@ export default function LeagueAdminScreen() {
                     </Text>
                   </View>
                 )}
-                {isOwner && (expansionCredits > 0 || isDemoMode) && (
+                {isOwner && expansionCredits > 0 && (
                   <TouchableOpacity
                     style={[styles.expandButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }, isExpanding && { opacity: 0.6 }]}
                     onPress={handleExpandSlots}

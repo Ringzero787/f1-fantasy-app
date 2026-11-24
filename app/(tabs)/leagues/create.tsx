@@ -37,7 +37,7 @@ export default function CreateLeagueScreen() {
   const { createTeam, userTeams, loadUserTeams, assignTeamToLeague } = useTeamStore();
 
   // Purchase store
-  const hasExpansionCredit = usePurchaseStore(s => s.hasExpansionCredit);
+  const expansionCredits = usePurchaseStore(s => s.pendingExpansionCredits);
   const purchaseLeagueSlot = usePurchaseStore(s => s.purchaseLeagueSlot);
   const hasLeagueSlotCredit = usePurchaseStore(s => s.hasLeagueSlotCredit);
   const consumeLeagueSlotCredit = usePurchaseStore(s => s.consumeLeagueSlotCredit);
@@ -66,7 +66,7 @@ export default function CreateLeagueScreen() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showLeagueSlotPurchase, setShowLeagueSlotPurchase] = useState(false);
-  const hasCredit = hasExpansionCredit();
+  const hasCredit = expansionCredits > 0;
   const isDemoMode = useAuthStore.getState().isDemoMode;
 
   // Team selection modal state
@@ -90,7 +90,7 @@ export default function CreateLeagueScreen() {
     // lost: apply it to the league once it exists and it adds its slots then.
     const members = parseInt(maxMembers, 10);
     if (isNaN(members) || members < 2 || members > FREE_LEAGUE_MEMBER_LIMIT) {
-      setValidationError(`Max members must be between 2 and ${FREE_LEAGUE_MEMBER_LIMIT}. Leagues hold up to ${FREE_LEAGUE_MEMBER_LIMIT} players.`);
+      setValidationError(`Max members must be between 2 and ${FREE_LEAGUE_MEMBER_LIMIT}.`);
       return;
     }
 
@@ -654,11 +654,6 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
 
-
-
-  expandedInputWrap: {
-    flex: 1,
-  },
 
   expandedHint: {
     fontSize: FONTS.sizes.xs,
