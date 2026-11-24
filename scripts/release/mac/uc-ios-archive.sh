@@ -44,14 +44,17 @@ npm ci --legacy-peer-deps
 echo "== prebuild ios"
 npx expo prebuild --platform ios --clean --no-install
 echo "== pod install"
-# React Native's prebuilt iOS binaries (core, dependencies, Hermes) moved: Maven Central now answers
-# their URLs with a 301 to repo.reactnative.dev, and RN 0.83's "does the prebuilt exist?" check does
-# not follow redirects. It then builds everything from source and takes Hermes from its main branch,
-# which does not compile (2.9.0, 2026-11-24). ENTERPRISE_REPOSITORY is RN's own switch for the base URL.
+# React Native's prebuilt iOS binaries (core, dependencies, Hermes) are now served from
+# repo.reactnative.dev (Maven Central answers their URLs with a 301 there). On 2026-11-24 two pod
+# installs for 2.9.0 found "no prebuilt artifacts" when probing Maven Central and silently built
+# React Native from source, with Hermes from its main branch, which does not compile. RN's probe does
+# follow the redirect and returns 200 from a shell, so the cause was not reproduced; probing the
+# serving host directly worked. ENTERPRISE_REPOSITORY is RN's own switch for that base URL, and the
+# guard below is what actually stops a from-source archive.
 export ENTERPRISE_REPOSITORY="${ENTERPRISE_REPOSITORY:-https://repo.reactnative.dev/maven2}"
 # A pod the Mac's spec repo has never seen (expo-iap's `openiap`) fails resolution until the repo
 # is refreshed. Refreshing every time costs minutes, so it is only done on the retry.
-# (set +e: under `set -eo pipefail` a failed pod install would exit before the retry)
+# (set +e: under `set -euo pipefail` a failed pod install would exit before the retry)
 set +e
 (cd ios && pod install) 2>&1 | tee build/pod-install.log; pod_rc=${PIPESTATUS[0]}
 if [ "$pod_rc" -ne 0 ]; then

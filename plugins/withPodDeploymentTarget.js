@@ -6,7 +6,9 @@
 // archive them ("The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 12.0, but the
 // range of supported deployment target versions is 15.0 to 27.2.x"), which failed the 2.9.0 iOS
 // build. Xcode 27's clang also rejects fmt 11.0.2's consteval format strings, so the fmt pod is
-// compiled as C++17 (fmt then does not use consteval).
+// compiled as C++17 (fmt then does not use consteval). A separate fmt pod only exists when React
+// Native builds from source (prebuilt ReactNativeDependencies carry fmt inside); the release archive
+// refuses that, so this covers local and `expo run:ios` builds that fall back to source.
 // `expo prebuild --clean` regenerates ios/Podfile, so the fix has to live here.
 
 const { withPodfile } = require('@expo/config-plugins');
