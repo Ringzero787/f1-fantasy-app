@@ -58,7 +58,7 @@ if ! verify_jar; then
   if ! command -v java >/dev/null 2>&1; then
     # No java at all: the CLI's own JDK handling is the only hope, and it needs 21.
     echo "No java on PATH; falling back to the firebase CLI (which needs JDK 21)." >&2
-    exec firebase emulators:exec --only firestore --project demo-uc-rules "node --test rules-tests/*.test.js"
+    exec firebase emulators:exec --only firestore --project demo-uc-rules "node --test rules-tests/*.test.js functions/test/emulator/*.emu.test.js"
   fi
   mkdir -p "$CACHE"
   echo "Downloading the Firestore emulator $EMULATOR_VERSION..." >&2
@@ -97,4 +97,6 @@ for _ in $(seq 1 60); do
 done
 [ "$READY" = 1 ] || { echo "Firestore emulator did not become ready on port $PORT" >&2; cat "$LOG" >&2; exit 1; }
 
-FIRESTORE_EMULATOR_HOST="127.0.0.1:$PORT" node --test rules-tests/*.test.js
+# F-171: the race-correction path end to end (functions/test/emulator) rides on the same emulator;
+# it uses its own demo- project, so it cannot collide with the rules tests running beside it.
+FIRESTORE_EMULATOR_HOST="127.0.0.1:$PORT" node --test rules-tests/*.test.js functions/test/emulator/*.emu.test.js

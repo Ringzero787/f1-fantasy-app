@@ -12,6 +12,14 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "emulators": {
+    "comment": "F-171: functions/ `npm run test:emulator` runs the Firestore emulator under a demo- project id (offline). Ports are off the defaults because other emulators run on this box.",
+    "firestore": { "host": "127.0.0.1", "port": 8186, "websocketPort": 9156 },
+    "hub": { "host": "127.0.0.1", "port": 4406 },
+    "logging": { "host": "127.0.0.1", "port": 4506 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  },
   "functions": [
     {
       "source": "functions",

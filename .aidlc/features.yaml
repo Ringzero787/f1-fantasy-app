@@ -1,4 +1,4 @@
-next_id: 171
+next_id: 172
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -2200,3 +2200,14 @@ features:
       - stale
       - penalty
       - transfer
+  - id: F-171
+    name: "UC: race-correction end-to-end test on the Firestore emulator"
+    summary: "The F-168 correction path (applyRaceCorrection, the onRaceCompleted trigger, the expiry-sale repair write) runs against the real Firestore emulator with a Las Vegas-shaped race, so a write shape the SDK refuses (the #305 constructor bug) fails a test instead of a production op"
+    status: building
+    spec: .aidlc/specs/F-171.md
+    created_at: 2026-11-24
+    keywords:
+      - emulator
+      - correction
+      - integration
+      - test
