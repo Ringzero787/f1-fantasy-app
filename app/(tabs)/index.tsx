@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useNextRace, useUpcomingRaces } from '../../src/hooks';
 import { useLockoutStatus } from '../../src/hooks/useLockoutStatus';
+import { useCurrentSeasonId } from '../../src/hooks/useCurrentSeason';
 import { SpoilerFreeOverlay } from '../../src/components/SpoilerFreeOverlay';
 import { useTeamStore } from '../../src/store/team.store';
 import { useLeagueStore } from '../../src/store/league.store';
@@ -36,8 +37,6 @@ import { useScale } from '../../src/hooks/useScale';
 import { useTheme } from '../../src/hooks/useTheme';
 import { formatPoints } from '../../src/utils/formatters';
 import type { FantasyTeam } from '../../src/types';
-
-const CURRENT_SEASON_ID = '2026'; // This would come from app config
 
 /* ─── TeamCard: collapsible team tile ─── */
 function TeamCard({
@@ -239,8 +238,9 @@ export default function HomeScreen() {
   const { scaledFonts, scaledSpacing, scaledIcon } = useScale();
   const theme = useTheme();
   const { user } = useAuth();
-  const { data: nextRace, isLoading: raceLoading, refetch: refetchRace } = useNextRace(CURRENT_SEASON_ID);
-  const { data: upcomingRaces } = useUpcomingRaces(CURRENT_SEASON_ID, 4);
+  const seasonId = useCurrentSeasonId(); // F-157
+  const { data: nextRace, isLoading: raceLoading, refetch: refetchRace } = useNextRace(seasonId);
+  const { data: upcomingRaces } = useUpcomingRaces(seasonId, 4);
   const [racesExpanded, setRacesExpanded] = useState(false);
   const currentTeam = useTeamStore(s => s.currentTeam);
   const userTeams = useTeamStore(s => s.userTeams);

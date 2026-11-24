@@ -17,8 +17,7 @@ import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/const
 import { useTheme } from '../../../src/hooks/useTheme';
 import { formatCountdown, formatTimeWithZone, formatDateWithZone, getDriverDisplayName } from '../../../src/utils/formatters';
 import { usePrefsStore } from '../../../src/store/prefs.store';
-
-const CURRENT_SEASON_ID = '2026';
+import { useCurrentSeasonId } from '../../../src/hooks/useCurrentSeason';
 
 export default function RaceDetailScreen() {
   const theme = useTheme();
@@ -26,7 +25,9 @@ export default function RaceDetailScreen() {
   const { data: race, isLoading, refetch } = useRace(id || '');
   const { data: results } = useRaceResults(id || '');
   const { showLocalTime, toggleLocalTime } = usePrefsStore();
-  const { data: allRaces } = useSeasonRaces(CURRENT_SEASON_ID);
+  // F-157: previous/next within the race's own season, so a past season's race still pages through its year
+  const currentSeasonId = useCurrentSeasonId();
+  const { data: allRaces } = useSeasonRaces(race?.seasonId || currentSeasonId);
 
   const { prevRace, nextRace } = useMemo(() => {
     if (!allRaces || !id) return { prevRace: null, nextRace: null };

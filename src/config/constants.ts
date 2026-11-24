@@ -87,15 +87,15 @@ export const LOCK_BONUS = {
   TIER_1: { maxRaces: 3, bonusPerRace: 1 },
   TIER_2: { maxRaces: 6, bonusPerRace: 2 },
   TIER_3: { maxRaces: Infinity, bonusPerRace: 3 },
-  FULL_SEASON_RACES: 23,
-  FULL_SEASON_BONUS: 100,
+  // F-157: the full-season bonus and the season lock are counted on the server
+  // (functions/src/scoring/scoringCore.ts, functions/src/locks/teamLocks.ts) against the season's
+  // own races; the app no longer bundles a race count for them (it read neither).
 } as const;
 
 // ============================================
 // Season Lock
 // ============================================
 
-export const SEASON_LOCK_RACES = 23;
 export const EARLY_UNLOCK_FEE = 50; // matches earlyUnlockTeam in functions/src/locks/teamLocks.ts
 
 // ============================================

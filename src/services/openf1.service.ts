@@ -10,6 +10,9 @@
  * Rate limits: 3 req/s, 30 req/min (free tier)
  */
 
+import { useRemoteConfigStore } from '../store/remoteConfig.store';
+import type { Driver } from '../types';
+
 const BASE_URL = 'https://api.openf1.org/v1';
 
 // Rate limiting: OpenF1 free tier allows 3 req/s, 30 req/min
@@ -108,7 +111,10 @@ export interface OpenF1ChampionshipTeam {
   position_start: number;
 }
 
-// Map OpenF1 driver numbers to our app's driver IDs
+// Map OpenF1 driver numbers to our app's driver IDs: the FALLBACK only (F-157). The live driver
+// documents (drivers/{id}.number, server data) are read first, so a new season's grid needs no build.
+// Only the admin OpenF1 import tools use this; scoring maps cars on the server
+// (functions/src/ingestion/config.ts, with F-152's by-name resolution for unknown cars).
 // Confirmed 2026 numbers from formula1.com/en/drivers
 const DRIVER_NUMBER_TO_ID: Record<number, string> = {
   1: 'norris',        // McLaren (2025 World Champion)
@@ -168,6 +174,17 @@ const SPRINT_POINTS: Record<number, number> = {
   1: 8, 2: 7, 3: 6, 4: 5, 5: 4,
   6: 3, 7: 2, 8: 1,
 };
+
+/**
+ * F-157: a car number's driver — the active driver document carrying that number (server data, so it
+ * follows the season's entry list), else the bundled table. A number two active drivers share is not
+ * guessed at from the documents (car 50/51 in 2026, F-138): the table answers.
+ */
+export function driverIdForNumber(driverNumber: number, drivers: ReadonlyArray<Pick<Driver, 'id' | 'number' | 'isActive'>> = []): string | null {
+  const live = drivers.filter((d) => d.number === driverNumber && d.isActive !== false);
+  if (live.length === 1) return live[0].id;
+  return DRIVER_NUMBER_TO_ID[driverNumber] || null;
+}
 
 class OpenF1Service {
   private async fetch<T>(endpoint: string, params?: Record<string, string | number>): Promise<T[]> {
@@ -324,7 +341,7 @@ class OpenF1Service {
    * Convert OpenF1 driver number to our app's driver ID
    */
   driverNumberToId(driverNumber: number): string | null {
-    return DRIVER_NUMBER_TO_ID[driverNumber] || null;
+    return driverIdForNumber(driverNumber, useRemoteConfigStore.getState().drivers);
   }
 
   /**

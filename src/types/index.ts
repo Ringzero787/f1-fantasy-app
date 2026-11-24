@@ -35,8 +35,8 @@ export interface Driver {
   photoURL?: string;
   price: number; // Current price in fantasy points
   previousPrice: number;
-  seasonPoints: number; // 2025 F1 championship points (used for initial price calculation)
-  currentSeasonPoints: number; // 2026 F1 championship points (displayed to users)
+  seasonPoints: number; // previous season championship points (used for initial price calculation)
+  currentSeasonPoints: number; // current season championship points (displayed to users)
   fantasyPoints: number; // Total fantasy points scored
   tier: 'A' | 'B' | 'C'; // A = >100, B = >50, C = <=50
   isActive: boolean;
@@ -53,8 +53,8 @@ export interface Constructor {
   secondaryColor: string;
   price: number;
   previousPrice: number;
-  seasonPoints: number; // 2025 points (used for initial pricing)
-  currentSeasonPoints?: number; // 2026 points (displayed to users)
+  seasonPoints: number; // previous season points (used for initial pricing)
+  currentSeasonPoints?: number; // current season points (displayed to users)
   fantasyPoints: number;
   drivers: string[]; // Driver IDs
   isActive: boolean;

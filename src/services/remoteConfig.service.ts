@@ -4,6 +4,8 @@ import { PRICING_CONFIG } from '../config/pricing.config';
 import { TEAM_COLORS, RACE_POINTS, SPRINT_POINTS, GRID_SIZE, BUDGET, TEAM_SIZE } from '../config/constants';
 import { raceService } from './race.service';
 import type { Driver, Constructor, Race } from '../types';
+import { resolveSeasonId, seasonShape } from '../utils/season';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../config/storeLinks';
 
 // ─── Types ───
 
@@ -57,6 +59,8 @@ export interface AppVersionConfig {
   updateMessage: string | null;
   androidUrl: string | null;
   iosUrl: string | null;
+  /** F-157: the Amazon Appstore link for the Amazon build's update prompt (absent → src/config/storeLinks.ts) */
+  amazonUrl?: string | null;
   /** F-150/F-169: the season the rollover pinned (server-owned); the server's season source, read first */
   currentSeason?: string | null;
   /** F-108: the Moonshot block, parsed by src/simple/grid/moonshot.ts (absent → off) */
@@ -67,8 +71,8 @@ const DEFAULT_APP_CONFIG: AppVersionConfig = {
   minVersion: null,
   latestVersion: null,
   updateMessage: null,
-  androidUrl: 'https://play.google.com/store/apps/details?id=com.undercut.app',
-  iosUrl: 'https://apps.apple.com/app/id6739999999',
+  androidUrl: PLAY_STORE_URL,
+  iosUrl: APP_STORE_URL,
 };
 
 export interface RemoteData {
@@ -103,18 +107,27 @@ const DEFAULT_CONFIG: GameConfig = {
   minPrice: PRICING_CONFIG.MIN_PRICE,
   maxPrice: PRICING_CONFIG.MAX_PRICE,
   diminishFloor: PRICING_CONFIG.DIMINISH_FLOOR,
-  // Round numbers, not race counts — the two used to coincide and no longer do.
-  // The 2026 season runs to round 25 but holds 24 races, because round 4 (the
-  // cancelled Bahrain at Sakhir) is vacant and the race was reinstated at
-  // Sepang as round 18. `totalRounds` is the highest round, which is what the
-  // old value of 24 meant when Abu Dhabi was round 24.
-  // sprintRounds previously ended in 18, which is now Bahrain — not a sprint.
-  // The sprint moved up with the rest of the tail, to Singapore at 19. Keep
-  // this in step with the race documents' hasSprint flags (server ingestion
-  // reads sprint weekends from OpenF1 since F-149).
-  totalRounds: 25,
-  sprintRounds: [2, 6, 7, 11, 14, 19],
+  // F-157: no season's shape is bundled. 0 and [] mean "not set": fetchAll fills them from the
+  // current season's race documents (seasonShape: highest round, hasSprint rounds), and a
+  // config/gameRules value, when the doc sets one, still wins. Round numbers, not race counts:
+  // 2026 ran to round 25 with 24 races (round 4 vacant).
+  totalRounds: 0,
+  sprintRounds: [],
 };
+
+/**
+ * F-157: fill the season-shaped fields a config/gameRules doc leaves unset from the current season's
+ * race documents. Exported for the test.
+ */
+export function withSeasonShape(config: GameConfig, races: ReadonlyArray<Race>, appConfig: Pick<AppVersionConfig, 'currentSeason'>, nowMs: number = Date.now()): GameConfig {
+  if (config.totalRounds > 0 && config.sprintRounds?.length) return config;
+  const shape = seasonShape(races, resolveSeasonId(races, nowMs, appConfig.currentSeason));
+  return {
+    ...config,
+    totalRounds: config.totalRounds > 0 ? config.totalRounds : shape.totalRounds,
+    sprintRounds: config.sprintRounds?.length ? config.sprintRounds : shape.sprintRounds,
+  };
+}
 
 // ─── Service ───
 
@@ -241,7 +254,7 @@ export const remoteConfigService = {
       this.fetchRaces(),
       this.fetchTeamColors(),
     ]);
-    return { config, appConfig, drivers, constructors, races, teamColors };
+    return { config: withSeasonShape(config, races, appConfig), appConfig, drivers, constructors, races, teamColors };
   },
 
   /**

@@ -28,7 +28,7 @@ export default function ConstructorDetailScreen() {
   const { data: allDrivers } = useDrivers();
   const [refreshing, setRefreshing] = React.useState(false);
 
-  // Calculate top 10 driver IDs by 2026 season points
+  // Calculate top 10 driver IDs by current-season points
   const topTenDriverIds = React.useMemo(() => {
     if (!allDrivers) return new Set<string>();
     const sorted = [...allDrivers].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));

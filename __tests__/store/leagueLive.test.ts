@@ -43,6 +43,10 @@ jest.mock('../../src/services/errorLog.service', () => ({
 jest.mock('../../src/store/auth.store', () => ({
   useAuthStore: { getState: () => ({ isDemoMode: false, user: null }) },
 }));
+// F-157: the demo join stamps the current season, read from the remote-config store
+jest.mock('../../src/store/remoteConfig.store', () => ({
+  useRemoteConfigStore: { getState: () => ({ getCurrentSeasonId: () => '2027' }) },
+}));
 jest.mock('../../src/store/team.store', () => ({
   useTeamStore: { getState: () => ({ userTeams: [], currentTeam: null }) },
 }));

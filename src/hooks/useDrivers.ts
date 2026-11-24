@@ -73,7 +73,7 @@ function getDemoDriversFiltered(filter: DriverFilter): Driver[] {
   return drivers;
 }
 
-// Helper to calculate 2026 season points from race results
+// Helper to calculate current-season points from race results
 function getSeasonPointsFromRaces(driverId: string, raceResults: Record<string, any>): number {
   let total = 0;
   Object.values(raceResults).forEach((result: any) => {
@@ -108,7 +108,7 @@ export function useDrivers(filter?: DriverFilter) {
       ? [...driverKeys.list(filter), versionKey]
       : [...driverKeys.lists(), versionKey],
     queryFn: async () => {
-      // Add 2026 season points and apply price updates to drivers
+      // Add current-season points and apply price updates to drivers
       const addSeasonPointsAndPrices = (drivers: Driver[], sortFilter?: DriverFilter) => {
         let updated = drivers.map(d => {
           const priceUpdate = driverPrices[d.id];
@@ -117,8 +117,8 @@ export function useDrivers(filter?: DriverFilter) {
             // Apply price updates from race results
             price: priceUpdate?.currentPrice ?? d.price,
             previousPrice: priceUpdate?.previousPrice ?? d.previousPrice,
-            // seasonPoints stays as 2025 data (used for pricing calculations)
-            // currentSeasonPoints is 2026 data (displayed to users)
+            // seasonPoints stays as previous-season data (used for pricing calculations)
+            // currentSeasonPoints is current-season data (displayed to users)
             currentSeasonPoints: priceUpdate?.totalPoints ?? getSeasonPointsFromRaces(d.id, raceResults),
           };
         });
@@ -193,7 +193,7 @@ export function useDriver(driverId: string) {
           ...driver,
           price: priceUpdate?.currentPrice ?? driver.price,
           previousPrice: priceUpdate?.previousPrice ?? driver.previousPrice,
-          // currentSeasonPoints is 2026 data (displayed to users)
+          // currentSeasonPoints is current-season data (displayed to users)
           currentSeasonPoints: priceUpdate?.totalPoints ?? getSeasonPointsFromRaces(driver.id, raceResults),
         };
       };
@@ -290,7 +290,7 @@ export function useTopDrivers(limit: number = 10) {
   return useQuery({
     queryKey: [...driverKeys.top(limit), `${Object.keys(raceResults).length}_${Object.keys(driverPrices).length}`],
     queryFn: async () => {
-      // Calculate 2026 season points from race results
+      // Calculate current-season points from race results
       const getSeasonPoints = (driverId: string): number => {
         // First check if we have tracked points from price updates
         const priceUpdate = driverPrices[driverId];

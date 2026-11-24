@@ -3,6 +3,8 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet, Linking, Platform } fr
 import Constants from 'expo-constants';
 import { useRemoteConfigStore } from '../store/remoteConfig.store';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../config/constants';
+import { storeUrlsFor } from '../config/storeLinks';
+import { isAmazonBuild } from '../utils/storeDetection';
 
 /**
  * Compare two dotted version strings (e.g. "2.1.6" vs "2.10.0").
@@ -23,7 +25,6 @@ function compareVersions(a: string, b: string): number | null {
   return 0;
 }
 
-const STORE_FALLBACK = 'https://play.google.com/store/apps/details?id=com.undercut.app';
 
 /**
  * Launch-time version gate, driven by the config/app remote-config doc.
@@ -64,9 +65,11 @@ export function AppUpdateGate() {
     return { mode: 'none' as const, message: '' };
   }, [current, appConfig]);
 
-  const openStore = () => {
-    const url = (Platform.OS === 'ios' ? appConfig.iosUrl : appConfig.androidUrl) || STORE_FALLBACK;
-    Linking.openURL(url).catch(() => {});
+  // F-157: this build's own store (Play, App Store or Amazon), trying each link until one opens
+  const openStore = async () => {
+    for (const url of storeUrlsFor(Platform.OS, isAmazonBuild, appConfig)) {
+      try { await Linking.openURL(url); return; } catch { /* next */ }
+    }
   };
 
   if (mode === 'none') return null;

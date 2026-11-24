@@ -19,6 +19,7 @@ import { pitWallSurface } from '../../pitwall/config';
 import { isAmazonBuild } from '../../utils/storeDetection';
 import { useAdminStore } from '../../store/admin.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
+import { useCurrentSeasonId } from '../../hooks/useCurrentSeason';
 import { authService } from '../../services/auth.service';
 import * as notificationService from '../../services/notification.service';
 import { generateAvatar } from '../../services/avatarGeneration.service';
@@ -74,11 +75,12 @@ export function GridProfileScreen() {
   const seasonPoints = (team?.totalPoints ?? 0) + (team?.lockedPoints ?? 0);
   const history = useMemo(() => teamRaceHistory(team as never, raceResults as never, races), [team, raceResults, races]);
   const stats = useMemo(() => historyStats(history, seasonPoints, scoredRaceCount(team?.scoredRaces), team?.bestRacePoints ?? null), [history, seasonPoints, team]);
+  // F-157: the current season (pinned, else the calendar), not the season of the highest round on file
+  const seasonYear = useCurrentSeasonId();
   const seasonLength = useMemo(() => {
-    const id = races[races.length - 1]?.seasonId;
-    return id ? races.filter((r) => r.seasonId === id).length : races.length;
-  }, [races]);
-  const seasonYear = races[races.length - 1]?.seasonId ?? String(new Date().getFullYear());
+    const n = races.filter((r) => r.seasonId === seasonYear).length;
+    return n || races.length;
+  }, [races, seasonYear]);
   const version = Constants.expoConfig?.version ?? '?';
 
   const commitName = async () => {

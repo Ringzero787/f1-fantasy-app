@@ -6,6 +6,7 @@ import { teamAccent } from '../theme/simpleTheme';
 import { usePitWallStore } from '../../store/pitwall.store';
 import { GridPitWallBlock } from './GridPitWallBlock';
 import { useRaceScoresStore } from '../../store/raceScores.store';
+import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useAdminStore } from '../../store/admin.store';
 import { PRICING_CONFIG } from '../../config/pricing.config';
 import { ColorBar, MonoLabel, PillButton } from './GridBits';
@@ -74,7 +75,10 @@ export function GridTileSheet({ target, onClose, locked, aceLocked, onToggleAce,
   // Fetch on open when there is nothing cached — including an empty result,
   // which is also what a transient failure leaves behind.
   useEffect(() => {
-    if (id && !(useRaceScoresStore.getState().entityHistory[id]?.length)) fetchEntityHistory(id);
+    const rs = useRaceScoresStore.getState();
+    // F-157: refetch when the cached history was read for another season (e.g. before config loaded)
+    const staleSeason = rs.entityHistorySeason !== null && rs.entityHistorySeason !== useRemoteConfigStore.getState().getCurrentSeasonId();
+    if (id && (staleSeason || !(rs.entityHistory[id]?.length))) fetchEntityHistory(id);
   }, [id, fetchEntityHistory]);
 
   const d = useMemo(() => {

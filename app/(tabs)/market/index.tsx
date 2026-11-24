@@ -113,7 +113,7 @@ export default function MarketScreen() {
     return new Set(getLockedOutDriverIds(currentTeam?.driverLockouts, completedRaceCount));
   }, [currentTeam?.driverLockouts, raceResults]);
 
-  // Calculate top 10 driver IDs by 2026 season points (highest points = top positions)
+  // Calculate top 10 driver IDs by current-season points (highest points = top positions)
   const topTenDriverIds = useMemo(() => {
     if (!drivers) return new Set<string>();
     const sorted = [...drivers].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));

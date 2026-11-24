@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useCurrentSeasonId } from '../../src/hooks/useCurrentSeason';
 import { useAvatarGeneration, useScale, useTheme, useLayout } from '../../src/hooks';
 import { usePrefsStore } from '../../src/store/prefs.store';
 import { CONSTRUCTOR_THEMES, type ConstructorThemeId } from '../../src/config/themes';
@@ -40,6 +41,7 @@ export default function ProfileScreen() {
   const { isLandscape } = useLayout();
   const setUser = useAuthStore((state) => state.setUser);
   const userTeams = useTeamStore((state) => state.userTeams);
+  const seasonId = useCurrentSeasonId(); // F-157
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.photoURL || null);
   const [isUploading, setIsUploading] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
@@ -413,7 +415,7 @@ export default function ProfileScreen() {
           </View>
           <View style={[styles.statsPill, { backgroundColor: theme.background, paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }]}>
             <Ionicons name="calendar" size={scaledIcon(13)} color={COLORS.warning} />
-            <Text style={[styles.statsPillText, { fontSize: scaledFonts.sm }]}>2026 Season</Text>
+            <Text style={[styles.statsPillText, { fontSize: scaledFonts.sm }]}>{seasonId} Season</Text>
           </View>
           <View style={[styles.statsPill, { backgroundColor: theme.background, paddingHorizontal: scaledSpacing.md, paddingVertical: scaledSpacing.xs + 2 }, isDemoMode && styles.statsPillDemo]}>
             <Ionicons name={isDemoMode ? 'flask' : 'cloud'} size={scaledIcon(13)} color={isDemoMode ? COLORS.warning : COLORS.success} />
@@ -741,7 +743,7 @@ export default function ProfileScreen() {
             <IconBox icon="calendar-outline" color={COLORS.warning} bg={COLORS.warning + '15'} />
             <Text style={[styles.menuItemText, { fontSize: scaledFonts.md }]}>Season</Text>
           </View>
-          <Text style={[styles.menuItemValue, { fontSize: scaledFonts.md }]}>2026</Text>
+          <Text style={[styles.menuItemValue, { fontSize: scaledFonts.md }]}>{seasonId}</Text>
         </View>
 
         <View style={styles.menuDivider} />

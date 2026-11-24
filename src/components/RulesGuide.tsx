@@ -129,7 +129,7 @@ const SECTIONS: RuleSection[] = [
         items: [
           'Sprint DNF/DSQ: \u22123 pts (less than race DNF)',
           'Ace 2\u00D7 applies to sprint points',
-          '6 sprint weekends per season',
+          'Sprint weekends are marked on the calendar',
         ],
       },
       { type: 'heading', text: 'Bonuses & Penalties' },

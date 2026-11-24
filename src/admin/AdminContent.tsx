@@ -26,6 +26,8 @@ import { useChatStore } from '../store/chat.store';
 import { raceService } from '../services/race.service';
 import { openF1Service } from '../services/openf1.service';
 import { useAutoSyncOpenF1 } from '../hooks';
+import { useRemoteConfigStore } from '../store/remoteConfig.store';
+import { parseSeasonId } from '../utils/season';
 import { functions, httpsCallable, db } from '../config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { RaceResults, RaceResult as CloudRaceResult, SprintResult as CloudSprintResult } from '../types';
@@ -969,7 +971,9 @@ export default function AdminContent() {
     setIsImporting(true);
     try {
       // Find the OpenF1 meeting key by country name
-      const meetingKey = await openF1Service.findMeetingKeyForRace(2026, selectedRace.country);
+      // F-157: the race's own season, not a year written here
+      const season = Number(parseSeasonId(selectedRace.seasonId) ?? useRemoteConfigStore.getState().getCurrentSeasonId());
+      const meetingKey = await openF1Service.findMeetingKeyForRace(season, selectedRace.country);
       if (!meetingKey) {
         Alert.alert('Not Found', `Could not find OpenF1 data for ${selectedRace.country}. The race may not have happened yet.`);
         return;
@@ -1009,7 +1013,7 @@ export default function AdminContent() {
           onPress: async () => {
             setIsBulkImporting(true);
             try {
-              const result = await autoSyncOpenF1.mutateAsync(2025);
+              const result = await autoSyncOpenF1.mutateAsync(Number(useRemoteConfigStore.getState().getCurrentSeasonId()));
               Alert.alert(
                 'Import Successful',
                 `Imported ${result.driversImported} driver results.\n` +

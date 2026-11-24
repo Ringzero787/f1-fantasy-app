@@ -12,11 +12,13 @@ import { useDriver } from '../../../../src/hooks';
 import { Card, Loading, EmptyState } from '../../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../../src/config/constants';
 import { useTheme } from '../../../../src/hooks/useTheme';
+import { useCurrentSeasonId } from '../../../../src/hooks/useCurrentSeason';
 import { formatPoints, formatPriceChange } from '../../../../src/utils/formatters';
 
 export default function DriverDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const seasonId = useCurrentSeasonId(); // F-157
   const { data: driver, isLoading, refetch } = useDriver(id || '');
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -119,7 +121,7 @@ export default function DriverDetailScreen() {
         <Text style={styles.sectionTitle}>Statistics</Text>
         <Card variant="outlined">
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>2026 Season Points</Text>
+            <Text style={styles.statLabel}>{seasonId} Season Points</Text>
             <Text style={styles.statValue}>
               {formatPoints(driver.currentSeasonPoints || 0)}
             </Text>

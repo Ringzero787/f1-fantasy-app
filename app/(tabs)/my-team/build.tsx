@@ -46,7 +46,7 @@ export default function BuildTeamScreen() {
 
   const remainingBudget = selectionState.remainingBudget;
 
-  // Calculate top 10 driver IDs by 2026 season points (highest points = top positions)
+  // Calculate top 10 driver IDs by current-season points (highest points = top positions)
   const topTenDriverIds = useMemo(() => {
     if (!allDrivers) return new Set<string>();
     const sorted = [...allDrivers].sort((a, b) => (b.currentSeasonPoints || 0) - (a.currentSeasonPoints || 0));

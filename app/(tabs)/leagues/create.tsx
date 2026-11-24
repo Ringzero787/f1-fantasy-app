@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useLeagueStore } from '../../../src/store/league.store';
+import { useRemoteConfigStore } from '../../../src/store/remoteConfig.store';
 import { useTeamStore } from '../../../src/store/team.store';
 import { usePurchaseStore } from '../../../src/store/purchase.store';
 import { useAuthStore } from '../../../src/store/auth.store';
@@ -27,7 +28,7 @@ import { PRODUCTS, PRODUCT_IDS } from '../../../src/config/products';
 import { validateLeagueName } from '../../../src/utils/validation';
 import type { FantasyTeam, League } from '../../../src/types';
 
-const CURRENT_SEASON_ID = '2026';
+// F-157: a new league is stamped with the season the app is in (src/utils/season.ts)
 
 export default function CreateLeagueScreen() {
   const theme = useTheme();
@@ -142,7 +143,7 @@ export default function CreateLeagueScreen() {
           maxMembers: members,
           requireApproval,
         },
-        CURRENT_SEASON_ID
+        useRemoteConfigStore.getState().getCurrentSeasonId()
       );
 
       if (league && league.id) {

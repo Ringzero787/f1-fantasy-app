@@ -14,7 +14,7 @@ export const constructorKeys = {
   top: (limit: number) => [...constructorKeys.all, 'top', limit] as const,
 };
 
-// Helper to calculate 2026 season points from race results
+// Helper to calculate current-season points from race results
 function getConstructorSeasonPoints(constructorId: string, raceResults: Record<string, any>): number {
   let total = 0;
   Object.values(raceResults).forEach((result: any) => {
@@ -50,7 +50,7 @@ export function useConstructors() {
             ...c,
             price: priceUpdate?.currentPrice ?? c.price,
             previousPrice: priceUpdate?.previousPrice ?? c.previousPrice,
-            // currentSeasonPoints is 2026 data (displayed to users)
+            // currentSeasonPoints is current-season data (displayed to users)
             currentSeasonPoints: priceUpdate?.totalPoints ?? getConstructorSeasonPoints(c.id, raceResults),
           };
         });
@@ -93,7 +93,7 @@ export function useConstructor(constructorId: string) {
           ...constructor,
           price: priceUpdate?.currentPrice ?? constructor.price,
           previousPrice: priceUpdate?.previousPrice ?? constructor.previousPrice,
-          // currentSeasonPoints is 2026 data (displayed to users)
+          // currentSeasonPoints is current-season data (displayed to users)
           currentSeasonPoints: priceUpdate?.totalPoints ?? getConstructorSeasonPoints(constructor.id, raceResults),
         };
       };
