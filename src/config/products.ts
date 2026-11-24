@@ -13,6 +13,14 @@ export const PRODUCT_IDS = {
 
 export const AVATAR_PACK_CREDITS = 20;
 
+/**
+ * The +20 slot pack (`league.expansion`) is retired (owner decision 2026-11-24, F-175): leagues stay
+ * at 22 and Charter is the league-level product. Nothing in the app sells it any more. A credit a
+ * player already paid for is still honoured: the league screens offer to apply it, and the server
+ * still validates and applies purchases made from older builds until the store listings are removed.
+ */
+export const LEAGUE_EXPANSION_ON_SALE = false;
+
 /** Everything the store is asked about at start-up. */
 export const ALL_PRODUCT_IDS = Object.values(PRODUCT_IDS);
 

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { secureStorage } from '../utils/secureStorage';
 import { Alert, Platform } from 'react-native';
-import { PRODUCT_IDS, ALL_PRODUCT_IDS, AVATAR_PACK_CREDITS } from '../config/products';
+import { PRODUCT_IDS, ALL_PRODUCT_IDS, AVATAR_PACK_CREDITS, LEAGUE_EXPANSION_ON_SALE } from '../config/products';
 import { readStorePrices } from './storePrices';
 import { functions, httpsCallable, firebaseAuth } from '../config/firebase';
 import { usePitWallStore } from './pitwall.store';
@@ -306,6 +306,8 @@ export const usePurchaseStore = create<PurchaseState>()(
       },
 
       purchaseLeagueExpansion: async (leagueId?: string) => {
+        // F-175: retired. Kept so an older caller cannot reach the store sheet by accident.
+        if (!LEAGUE_EXPANSION_ON_SALE) return;
         const { useAuthStore } = require('./auth.store');
         const isDemoMode = useAuthStore.getState().isDemoMode;
 
