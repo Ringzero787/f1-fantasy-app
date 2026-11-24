@@ -137,6 +137,14 @@ test('the write replaces each field whole and names every field it writes', () =
   assert.equal(data.lastAutoFill.constructorId, plan.filledConstructorId);
 });
 
+test('F-170: a fill counts as a transfer: the stale-roster counter goes back to 0', () => {
+  const team = { ...EMPTY_TEAM, racesSinceTransfer: 14 };
+  const plan = planAutoFill(team, CTX);
+  const { data, options } = autoFillWrite(team, plan, 'las_vegas_2026');
+  assert.equal(data.racesSinceTransfer, 0);
+  assert.ok(options.mergeFields.includes('racesSinceTransfer'), 'written, not merged around');
+});
+
 test('a team that already has a constructor keeps it: written back unchanged, nothing bought', () => {
   const owned = { constructorId: 'aston_martin', name: 'aston_martin', purchasePrice: 9, currentPrice: 9 };
   const team = { ...EMPTY_TEAM, constructor: owned };
