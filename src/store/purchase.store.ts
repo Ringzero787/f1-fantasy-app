@@ -4,7 +4,10 @@ import { secureStorage } from '../utils/secureStorage';
 import { Alert, Platform } from 'react-native';
 import { PRODUCT_IDS, ALL_PRODUCT_IDS, AVATAR_PACK_CREDITS, LEAGUE_EXPANSION_ON_SALE } from '../config/products';
 import { readStorePrices } from './storePrices';
-import { functions, httpsCallable, firebaseAuth } from '../config/firebase';
+import { functions, httpsCallable, firebaseAuth, db, doc } from '../config/firebase';
+import { getDoc } from 'firebase/firestore';
+import { ownsPersonalPass } from '../pitwall/pass';
+import { isAmazonBuild } from '../utils/storeDetection';
 import { usePitWallStore } from './pitwall.store';
 import { receiptOf, storeOf, transactionKeyOf, type StorePurchase } from '../pitwall/receipt';
 import { alreadyHonoured, grantDecision, isTerminalValidationError, rememberHonoured } from './purchaseGrant';
@@ -37,6 +40,9 @@ interface ServerPurchase {
   createdAt?: string;
 }
 
+/** What validatePurchase says about a Charter purchase (F-175). */
+export interface CharterResult { applied: boolean; reason?: string; leagueId?: string; expiresAt?: number }
+
 interface PurchaseState {
   // Persisted
   bonusAvatarCredits: Record<string, number>; // userId -> bonus credits remaining
@@ -51,6 +57,11 @@ interface PurchaseState {
    * never completed is handed back by the store on every start.
    */
   honouredTransactions: string[];
+  /**
+   * The league a Charter purchase is for (F-175). Persisted, because the purchase can complete on a
+   * later launch (a pending payment, an app killed at the till), and the server needs the league.
+   */
+  pendingCharterLeagueId: string | null;
 
   // Transient
   isInitialized: boolean;
@@ -66,6 +77,12 @@ interface PurchaseState {
   purchaseLeagueSlot: () => Promise<void>;
   /** Buy the Pit Wall Pass. Resolves once the store has the order; the entitlement lands when the server grants it. */
   purchasePitWallPass: () => Promise<void>;
+  /**
+   * Charter a league the signed-in user owns (F-175). Resolves once the store has the order; the
+   * charter lands when the server grants it. Not on Amazon, not in demo mode. The screen that calls
+   * it checks the sale flag and ownership first; the server checks both again.
+   */
+  purchaseCharter: (leagueId: string) => Promise<void>;
   isLeagueExpanded: (leagueId: string) => boolean;
   getBonusCredits: (userId: string) => number;
   consumeBonusCredit: (userId: string) => void;
@@ -79,7 +96,7 @@ interface PurchaseState {
   handlePurchaseComplete: (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, opts?: { isReplay?: boolean }) => Promise<void>;
   handlePurchaseError: (error: { code: string; message: string }) => void;
   /** @returns whether the server had already recorded this store transaction. */
-  recordPurchaseOnServer: (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string) => Promise<{ duplicate: boolean }>;
+  recordPurchaseOnServer: (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string, extra?: { leagueId?: string }) => Promise<{ duplicate: boolean; charter?: CharterResult }>;
   syncPurchasesFromServer: () => Promise<void>;
   /** Finish anything the store is still holding from a previous run. */
   replayHeldPurchases: () => Promise<void>;
@@ -96,6 +113,7 @@ export const usePurchaseStore = create<PurchaseState>()(
       purchaseHistory: [],
       lastSyncedAt: null,
       honouredTransactions: [],
+      pendingCharterLeagueId: null,
 
       // Transient state
       isInitialized: false,
@@ -199,10 +217,10 @@ export const usePurchaseStore = create<PurchaseState>()(
        * launch. A purchase that cannot be validated is left unfinished with the store instead, and
        * tried again next start, exactly as the pass has always been.
        */
-      recordPurchaseOnServer: async (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string; userIdAmazon?: string }, platform: string) => {
-        const validatePurchaseFn = httpsCallable<Record<string, unknown>, { success?: boolean; purchaseId?: string; duplicate?: boolean }>(functions, 'validatePurchase');
-        const result = await validatePurchaseFn({ productId, ...verificationData, platform });
-        return { duplicate: result.data?.duplicate === true };
+      recordPurchaseOnServer: async (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string; userIdAmazon?: string }, platform: string, extra?: { leagueId?: string }) => {
+        const validatePurchaseFn = httpsCallable<Record<string, unknown>, { success?: boolean; purchaseId?: string; duplicate?: boolean; charter?: CharterResult }>(functions, 'validatePurchase');
+        const result = await validatePurchaseFn({ productId, ...verificationData, platform, ...(extra?.leagueId ? { leagueId: extra.leagueId } : {}) });
+        return { duplicate: result.data?.duplicate === true, ...(result.data?.charter ? { charter: result.data.charter } : {}) };
       },
 
       replayHeldPurchases: async () => {
@@ -422,8 +440,13 @@ export const usePurchaseStore = create<PurchaseState>()(
         try {
           // Refuse before the store takes any money. Forced, because a stale token is exactly how
           // someone ends up buying twice.
-          await usePitWallStore.getState().refresh(true);
-          if (usePitWallStore.getState().pass.active) {
+          // F-175: the personal pass itself, from users/{uid}.pass. The claim behind
+          // `usePitWallStore().pass` is also set by Charter access through a league, and a Charter
+          // member may still buy a pass of their own.
+          const uid = firebaseAuth.currentUser?.uid;
+          if (!uid) throw new Error('signed out');
+          const userSnap = await getDoc(doc(db, 'users', uid));
+          if (ownsPersonalPass(userSnap.data(), Date.now())) {
             set({ isPurchasing: false });
             Alert.alert('Pit Wall Pass', 'You already have a pass for this season.');
             return;
@@ -440,6 +463,31 @@ export const usePurchaseStore = create<PurchaseState>()(
           set({ isPurchasing: false });
           if (err?.code !== 'E_USER_CANCELLED') {
             Alert.alert('Purchase Unavailable', 'The Pit Wall Pass is not available right now. Please try again later.');
+          }
+        }
+      },
+
+      purchaseCharter: async (leagueId: string) => {
+        const { useAuthStore } = require('./auth.store');
+        if (useAuthStore.getState().isDemoMode) {
+          Alert.alert('Demo mode', 'A league cannot be chartered in demo mode.');
+          return;
+        }
+        // Charter is sold on Play, the App Store and the web, never through Amazon IAP (BUILD.md).
+        if (isAmazonBuild) {
+          Alert.alert('Charter', 'Charter is not sold in this version of the app.');
+          return;
+        }
+        if (!leagueId) return;
+        // Same double-press guard as the pass: two presses are two charges.
+        if (get().isPurchasing) return;
+        set({ isPurchasing: true, pendingCharterLeagueId: leagueId });
+        try {
+          await buy(PRODUCT_IDS.PITWALL_CHARTER);
+        } catch (err: any) {
+          set({ isPurchasing: false, pendingCharterLeagueId: null });
+          if (err?.code !== 'E_USER_CANCELLED') {
+            Alert.alert('Purchase Unavailable', 'Charter is not available right now. Please try again later.');
           }
         }
       },
@@ -557,6 +605,29 @@ export const usePurchaseStore = create<PurchaseState>()(
             return;
           }
 
+          if (productId === PRODUCT_IDS.PITWALL_CHARTER) {
+            // Server-granted, like the pass: the server checks the receipt, charters the league and
+            // gives its members access. The league comes from the persisted pending id; on a replay
+            // without one the server records the purchase as not applied, for support, rather than
+            // this device holding a paid purchase forever.
+            const leagueId = get().pendingCharterLeagueId ?? undefined;
+            const { charter } = await get().recordPurchaseOnServer(productId, receiptOf(purchase, Platform.OS), storeOf(purchase, Platform.OS), { leagueId });
+            await require('expo-iap').finishTransaction({ purchase, isConsumable: true });
+            set((state) => ({
+              pendingCharterLeagueId: null,
+              purchaseHistory: [...state.purchaseHistory, { sku: productId, date: new Date().toISOString(), leagueId: charter?.leagueId ?? leagueId }],
+            }));
+            await usePitWallStore.getState().refresh(true);
+            if (charter?.applied) {
+              if (!isReplay) Alert.alert('Charter', 'Your league is chartered. Pit Wall is on for every approved player.');
+            } else {
+              // Paid and recorded, but not applied: say so every time, replay or not, because only
+              // support can put it right.
+              Alert.alert('Charter', 'Your payment went through but the league could not be chartered. It is recorded on your account; contact support and we will sort it out.');
+            }
+            return;
+          }
+
           // A product this build does not know about, so there is nothing to grant and nothing to
           // de-duplicate. Try to record it — the receipt is worth keeping — but finish it either
           // way: `validatePurchase` refuses an unknown product id outright, and leaving it
@@ -570,7 +641,9 @@ export const usePurchaseStore = create<PurchaseState>()(
           // Unfinished, so the store hands it back on the next start and this runs again. Say so
           // when someone is standing there having just paid; a replay failing at launch is not
           // something to interrupt anyone about.
-          if (purchase.productId === PRODUCT_IDS.PITWALL_PASS) {
+          if (purchase.productId === PRODUCT_IDS.PITWALL_CHARTER) {
+            Alert.alert('Charter', 'The purchase went through but chartering the league failed. It will finish by itself next time you open the app.');
+          } else if (purchase.productId === PRODUCT_IDS.PITWALL_PASS) {
             Alert.alert('Pit Wall Pass', 'The purchase went through but activating it failed. It will finish by itself next time you open the app.');
           } else if (!isReplay) {
             Alert.alert('Purchase received', 'Your purchase went through but could not be applied just yet. It will finish by itself next time you open the app.');
@@ -647,6 +720,7 @@ export const usePurchaseStore = create<PurchaseState>()(
         purchaseHistory: state.purchaseHistory,
         lastSyncedAt: state.lastSyncedAt,
         honouredTransactions: state.honouredTransactions,
+        pendingCharterLeagueId: state.pendingCharterLeagueId,
       }),
     }
   )

@@ -25,3 +25,16 @@ export function passFromClaims(claims: Record<string, unknown> | undefined | nul
   const expiresAt = pw * 1000;
   return expiresAt > now ? { active: true, expiresAt } : NO_PASS;
 }
+
+/**
+ * Whether this account owns a personal Pit Wall Pass, from `users/{uid}.pass` (F-175).
+ *
+ * Not the same as `passFromClaims(...).active`: since Charter the `pw` claim is the later of the
+ * personal pass and Charter access through a league, so a Charter member has the claim without a
+ * pass. "You already have a pass" must read the pass itself, or a Charter member could never buy one.
+ * Same test as the server's `passActive` (tier `pitwall`, unexpired).
+ */
+export function ownsPersonalPass(userDoc: { pass?: unknown; [field: string]: unknown } | null | undefined, now: number): boolean {
+  const p = userDoc?.pass as { tier?: unknown; expiresAt?: unknown } | null | undefined;
+  return !!p && p.tier === 'pitwall' && typeof p.expiresAt === 'number' && p.expiresAt > now;
+}

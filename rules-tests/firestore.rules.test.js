@@ -1203,6 +1203,13 @@ test('F-175: a user cannot write their own charterAccess', async () => {
   await assertSucceeds(updateDoc(doc(db(ALICE), 'users', ALICE), { displayName: 'Alice B' }));
 });
 
+test('F-175: charter grant records are server-only, even for the buyer', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'charter_grants', 'pur1'), { leagueId: 'L1', buyerId: ALICE }); });
+  await assertFails(getDoc(doc(db(ALICE), 'charter_grants', 'pur1')));
+  await assertFails(setDoc(doc(db(ALICE), 'charter_grants', 'pur2'), { leagueId: 'L1', buyerId: ALICE }));
+  await assertFails(setDoc(doc(db(ALICE), 'charter_grants', 'pur1'), { clearedAt: null }, { merge: true }));
+});
+
 test('F-175: Rank Ups are written by the server only; approved members read them', async () => {
   await seedChartered('RK', Date.now() + 1e10);
   await seedMember('RK', BOB, { status: 'pending', totalPoints: 0 });

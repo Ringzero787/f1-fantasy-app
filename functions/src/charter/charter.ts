@@ -121,3 +121,78 @@ export function claimInputsChanged(
   const same = (k: 'pass' | 'charterAccess') => JSON.stringify(before?.[k] ?? null) === JSON.stringify(after?.[k] ?? null);
   return !(same('pass') && same('charterAccess'));
 }
+
+// ─── Slice 2: purchase ───
+
+/** Why a paid charter was not applied. Recorded on the purchase / grant record for support. */
+export type CharterRefusal = 'no-league' | 'not-owner' | 'already-chartered' | 'disabled' | 'refunded';
+
+/** What a member document must look like to count: the same test as the rules and memberCount. */
+const approved = (m: { status?: unknown } | null | undefined): boolean => !!m && m.status !== 'pending';
+
+/**
+ * Who gets Charter access when a league is chartered: every approved member, plus the owner, who
+ * may have no member document of their own. De-duplicated, in a stable order.
+ */
+export function charterMemberIds(ownerId: unknown, members: Array<{ id: string; status?: unknown }>): string[] {
+  const ids = new Set<string>();
+  if (typeof ownerId === 'string' && ownerId) ids.add(ownerId);
+  for (const m of members) if (m && typeof m.id === 'string' && m.id && approved(m)) ids.add(m.id);
+  return [...ids];
+}
+
+export interface CharterGrantInput {
+  league: (CharterLeagueFields & { ownerId?: unknown }) | null | undefined;
+  buyerId: string;
+  season: string;
+  ref: string;
+  now: number;
+}
+
+export type CharterGrantDecision =
+  | { kind: 'grant' }
+  /** this purchase already chartered this league: a replay, write nothing */
+  | { kind: 'replay' }
+  | { kind: 'refuse'; reason: CharterRefusal };
+
+/**
+ * Whether a paid charter may be written. The owner is the only buyer (BUILD.md, "Purchase"); a
+ * league already chartered for the season being sold is refused, but a live charter for the
+ * season before is not, so an owner can renew in December for the next season.
+ */
+export function charterGrantDecision(i: CharterGrantInput): CharterGrantDecision {
+  const l = i.league;
+  if (!l) return { kind: 'refuse', reason: 'no-league' };
+  if (typeof l.ownerId !== 'string' || l.ownerId !== i.buyerId) return { kind: 'refuse', reason: 'not-owner' };
+  if (charterActive(l, i.now)) {
+    if (l.charter?.ref === i.ref) return { kind: 'replay' };
+    if (l.charter?.season === i.season) return { kind: 'refuse', reason: 'already-chartered' };
+  }
+  return { kind: 'grant' };
+}
+
+/** The charter object written on a successful purchase. Expiry matches the pass (seasonExpiry). */
+export function newCharter(season: string, buyerId: string, source: CharterSource, ref: string, now: number, expiresAt: number): Charter {
+  return { season, expiresAt, buyerId, source, ref, purchasedAt: now };
+}
+
+/**
+ * The fields set on the chartered league, and only that league: public, approval on, Pro until
+ * the charter ends. Nested `settings` so a merge write keeps the league's other settings.
+ */
+export function charterLeaguePatch(c: Charter): Record<string, unknown> {
+  return { charter: c, chartered: true, isPublic: true, settings: { requireApproval: true }, pro: true, proUntil: c.expiresAt };
+}
+
+/**
+ * League Pro for a league its owner owns, given the owner's personal pass (epoch ms, or null when
+ * there is none) and the league's own charter. The two never shorten each other: a pass grant on
+ * a chartered league keeps the later end, and a pass revoke leaves a chartered league Pro until
+ * the charter ends (ADR-004 decision 7; BUILD.md "The entitlement trap").
+ */
+export function ownerProPatch(league: CharterLeagueFields | null | undefined, passExpiresAt: number | null, now: number): { pro: boolean; proUntil?: number } {
+  const charterEnd = charterActive(league, now) ? (league!.charter!.expiresAt as number) : null;
+  const ends = [passExpiresAt, charterEnd].filter((v): v is number => typeof v === 'number' && v > now);
+  if (!ends.length) return { pro: false };
+  return { pro: true, proUntil: Math.max(...ends) };
+}

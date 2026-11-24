@@ -22,6 +22,8 @@ import { GoogleAuth } from 'google-auth-library';
 import { defineSecret } from 'firebase-functions/params';
 import { PASS_PRODUCT } from './pass';
 import { revokePass } from './passStore';
+import { CHARTER_PRODUCT } from '../charter/charter';
+import { clearCharter } from '../charter/charterStore';
 import { amazonVerdict, appleLegacyVerdict, checkable, isJws, playVerdict, type RefundVerdict } from './refundCheck';
 
 const db = admin.firestore();
@@ -119,8 +121,33 @@ export const sweepRefundedPasses = functions
       .where('productId', '==', PASS_PRODUCT)
       .where('status', '==', 'validated')
       .get();
+    // F-175: charter purchases too, with the same index. A refunded charter clears that league's
+    // charter and its members' access, and never touches anyone's pass.
+    const charters = await db.collection('purchases')
+      .where('productId', '==', CHARTER_PRODUCT)
+      .where('status', '==', 'validated')
+      .get();
 
-    let checked = 0, revoked = 0, skipped = 0, stale = 0, failed = 0;
+    let checked = 0, revoked = 0, skipped = 0, stale = 0, failed = 0, uncharted = 0;
+    for (const doc of charters.docs) {
+      try {
+        const purchase = doc.data();
+        const verdict = await verdictFor(purchase);
+        if (verdict === 'unknown') { skipped += 1; continue; }
+        checked += 1;
+        if (verdict !== 'refunded') continue;
+        const leagueId = typeof purchase.charterLeagueId === 'string' ? purchase.charterLeagueId : null;
+        // Clear first, then mark, for the reason given below for the pass. clearCharter only
+        // touches a charter this purchase paid for (its ref is the purchase id).
+        if (leagueId && await clearCharter(db, { leagueId, ref: doc.id, reason: `store refund · ${purchase.platform}` })) uncharted += 1;
+        await doc.ref.set({ status: 'refunded', refundedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        console.log(`[refunds] charter purchase ${doc.id} refunded${leagueId ? ` (league ${leagueId})` : ''}`);
+      } catch (err) {
+        failed += 1;
+        console.error(`[refunds] charter ${doc.id} could not be processed:`, msg(err));
+      }
+    }
+
     for (const doc of snap.docs) {
       try {
         const purchase = doc.data();
@@ -173,7 +200,7 @@ export const sweepRefundedPasses = functions
       }
     }
 
-    const line = `[refunds] ${snap.size} pass purchases · ${checked} re-checked · ${revoked} revoked · ${stale} superseded · ${skipped} not checkable · ${failed} failed`;
+    const line = `[refunds] ${snap.size} pass + ${charters.size} charter purchases · ${checked} re-checked · ${revoked} revoked · ${uncharted} charters cleared · ${stale} superseded · ${skipped} not checkable · ${failed} failed`;
     if (failed) console.error(line); else console.log(line);
     return null;
   });

@@ -325,6 +325,8 @@ service cloud.firestore {
     match /pw_jobs/{id} { allow read, write: if false; }
     match /pw_runs/{id} { allow read, write: if false; }
     match /pw_grants/{id} { allow read, write: if false; }
+    // F-175: Charter grant records (idempotency and support), server-written only.
+    match /charter_grants/{id} { allow read, write: if false; }
     // Cross-store sign-in (F-091): each document holds an Apple identity token for ten minutes
     // while the browser hands it back to the device. Written by appleAuthRedirect and read once by
     // claimAppleSignIn, both Admin SDK. A client that could read this collection could sign in as
