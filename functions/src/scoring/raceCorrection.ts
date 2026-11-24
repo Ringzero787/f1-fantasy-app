@@ -299,7 +299,11 @@ export async function applyRaceCorrection(
           totalPoints: (team.totalPoints || 0) + plan.activeDelta,
         };
         if (plan.bankedDelta) teamUpdate.lockedPoints = (team.lockedPoints || 0) + plan.bankedDelta;
-        tx.update(teamDoc.ref, teamUpdate as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>);
+        // set + mergeFields, NOT update(): update() expands keys as field paths and a top-level
+        // `constructor` collides with Object.prototype.constructor ("Can't merge current value into a
+        // nested object", thrown at commit; OP-239 hit it). mergeFields replaces each named field
+        // whole, as update() would.
+        tx.set(teamDoc.ref, teamUpdate, { mergeFields: Object.keys(teamUpdate) });
       }
       tx.update(snapRef, snapUpdate as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>);
       return plan;

@@ -137,7 +137,9 @@ async function main() {
       const plan = planTeam(snap, team, (id) => post.get(id), (id) => market.get(id));
       if (!plan.sold.length) return null;
       if (tx) {
-        tx.update(teamDoc.ref, { budget: plan.newBudget, drivers: plan.drivers, constructor: plan.constructor });
+        // set + mergeFields, not update(): update() cannot write a top-level `constructor` (see raceCorrection.ts)
+        const teamWrite = { budget: plan.newBudget, drivers: plan.drivers, constructor: plan.constructor };
+        tx.set(teamDoc.ref, teamWrite, { mergeFields: Object.keys(teamWrite) });
         tx.update(snapRef, { expirySaleRepair: { at: admin.firestore.Timestamp.now(), budgetDelta: plan.budgetDelta, forgiven: plan.forgiven, sold: plan.sold } });
       }
       return { plan, budget: typeof team.budget === 'number' && Number.isFinite(team.budget) ? team.budget : 0 };
