@@ -19,7 +19,7 @@ describe('storeUrlsFor', () => {
   it('Amazon build: never Play, even when config/app.androidUrl is set', () => {
     const urls = storeUrlsFor('android', true, { androidUrl: PLAY_STORE_URL });
     expect(urls).toEqual([AMAZON_APPSTORE_URL, AMAZON_APPSTORE_WEB_URL]);
-    expect(urls.some((u) => u.includes('play.google.com'))).toBe(false);
+    expect(urls.some((u) => /^https:\/\/play\.google\.com\//.test(u))).toBe(false);
     expect(storeUrlsFor('android', true, { amazonUrl: 'https://www.amazon.com/dp/B0EXAMPLE' })[0]).toBe('https://www.amazon.com/dp/B0EXAMPLE');
   });
 
