@@ -71,3 +71,15 @@ describe('the Team panel wiring', () => {
     expect(hook).not.toMatch(/firebase|fetch\(|getDoc/);
   });
 });
+
+describe('F-174 store hydration', () => {
+  it('the hook shows nothing until dismissals are loaded, and a corrupted stored value is read as empty', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const hook = fs.readFileSync(path.join(__dirname, '../../src/simple/hooks/useNotice.ts'), 'utf8');
+    expect(hook).toMatch(/hydrated \? noticeToShow\(/);
+    const store = fs.readFileSync(path.join(__dirname, '../../src/store/notice.store.ts'), 'utf8');
+    expect(store).toMatch(/onRehydrateStorage/);
+    expect(store).toMatch(/Array\.isArray\(ids\) \? ids\.filter/);
+  });
+});

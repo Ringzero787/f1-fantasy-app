@@ -194,3 +194,16 @@ describe('dismissal', () => {
     expect(withDismissed([1, 'b'] as unknown as string[], 'a')).toEqual(['b', 'a']);
   });
 });
+
+describe('F-174 hardening (security review)', () => {
+  const { isNoticeUrl, parseNotice } = require('../../src/simple/grid/notice');
+  it('notice links need a plain ASCII host', () => {
+    expect(isNoticeUrl('https://evil.com%2f.humannpc.com/x')).toBe(false);
+    expect(isNoticeUrl('https://evil.com\uFF20x.humannpc.com/')).toBe(false);
+    expect(isNoticeUrl('https://www.humannpc.com/undercut')).toBe(true);
+  });
+  it('a title with a line or paragraph separator is refused', () => {
+    expect(parseNotice({ id: 'a', title: 'one\u2028two', body: 'b' })).toBeNull();
+    expect(parseNotice({ id: 'a', title: 'one\u2029two', body: 'b' })).toBeNull();
+  });
+});

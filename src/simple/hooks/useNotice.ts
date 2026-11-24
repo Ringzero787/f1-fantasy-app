@@ -11,8 +11,10 @@ import { noticeToShow, type Notice } from '../grid/notice';
 export function useNotice(nowMs: number): { notice: Notice | null; dismiss: (id: string) => void } {
   const raw = useRemoteConfigStore((s) => s.appConfig?.notice);
   const dismissedIds = useNoticeStore((s) => s.dismissedIds);
+  const hydrated = useNoticeStore((s) => s.hydrated);
   const dismiss = useNoticeStore((s) => s.dismiss);
   const appVersion = Constants.expoConfig?.version ?? null;
-  const notice = useMemo(() => noticeToShow(raw, { nowMs, appVersion, dismissedIds }), [raw, nowMs, appVersion, dismissedIds]);
+  // nothing until this device's dismissals are loaded, so a dismissed notice does not flash on start
+  const notice = useMemo(() => (hydrated ? noticeToShow(raw, { nowMs, appVersion, dismissedIds }) : null), [hydrated, raw, nowMs, appVersion, dismissedIds]);
   return { notice, dismiss };
 }

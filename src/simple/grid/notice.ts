@@ -46,9 +46,10 @@ export const NOTICE_LIMITS = { id: 64, title: 80, body: 500, url: 300 } as const
 const ID_RE = /^[A-Za-z0-9._-]+$/;
 const VERSION_RE = /^\d{1,4}(\.\d{1,4}){0,3}$/;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/;
-// C0/C1 control characters, bidi overrides and zero-width joiners other than \n: none belong in a notice
+// C0/C1 control characters, bidi marks and overrides, zero-width and invisible characters, and the line/paragraph
+// separators U+2028/2029 (other than \n in the body): none belong in a notice. Written as escapes so they are visible.
 // eslint-disable-next-line no-control-regex
-const CONTROL_RE = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F​-‏‪-‮⁦-⁩﻿]/;
+const CONTROL_RE = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F\u061C\u200B-\u200F\u2028-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/;
 const OWN_HOSTS = ['humannpc.com'];
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -75,7 +76,8 @@ export function isNoticeUrl(u: unknown): u is string {
   if (typeof u !== 'string' || !u || u.length > NOTICE_LIMITS.url) return false;
   if (/[\s\\]/.test(u) || CONTROL_RE.test(u)) return false;
   if (isStoreUrl(u)) return true;
-  const m = /^https:\/\/([^/?#:@]+)(?:[/?#]|$)/i.exec(u);
+  // ASCII hosts only: a percent-escaped or non-ASCII host can be read differently by different URL parsers
+  const m = /^https:\/\/([a-z0-9.-]+)(?:[/?#]|$)/i.exec(u);
   if (!m) return false;
   const host = m[1].toLowerCase();
   return OWN_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
