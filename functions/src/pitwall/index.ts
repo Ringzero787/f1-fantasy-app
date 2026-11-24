@@ -16,8 +16,8 @@ import { createHandoff, deleteOldHandoffs, redeemHandoff, takeRateSlot } from '.
 import { passActive, PASS_PRICE_USD, PASS_PRODUCT, saleSeason, type Pass } from './pass';
 import { expirePasses, grantPass, grantTrial, revokePass, stampClaim } from './passStore';
 import { CHARTER_PRODUCT_ID, checkoutSessionParams, verifyStripeSignature, webhookAction } from './stripe';
-import { charterActive, charterEnabled, charterGrantDecision, claimExpiry, claimInputsChanged, CHARTER_PRICE_CENTS, type CharterAccess } from '../charter/charter';
-import { clearCharter, expireCharters, grantCharter } from '../charter/charterStore';
+import { CHARTER_MEMBER_CAP, charterActive, charterEnabled, charterGrantDecision, charterMemberIds, claimExpiry, claimInputsChanged, CHARTER_PRICE_CENTS, type CharterAccess } from '../charter/charter';
+import { clearCharter, expireCharters, grantCharter, markRefunded } from '../charter/charterStore';
 import { isUsableLeagueId } from '../utils/leagueId';
 
 const db = admin.firestore();
@@ -87,9 +87,12 @@ export const createCheckout = onCall({ region: 'us-central1', secrets: [stripeSe
     if (!testKey && !charterEnabled((await db.doc('config/app').get()).data())) throw new HttpsError('failed-precondition', 'Charter is not on sale yet.');
     const league = (await db.doc(`leagues/${leagueId}`).get()).data() ?? null;
     // Refuse before Stripe takes any money; the webhook checks the same again when it grants.
-    const decision = charterGrantDecision({ league, buyerId: uid, season, ref: '', now });
+    const members = await db.collection(`leagues/${leagueId}/members`).get();
+    const memberCount = charterMemberIds(league?.ownerId, members.docs.map((d) => ({ id: d.id, status: d.data()?.status }))).length;
+    const decision = charterGrantDecision({ league, buyerId: uid, season, ref: '', now, memberCount });
     if (decision.kind === 'refuse') {
       if (decision.reason === 'not-owner' || decision.reason === 'no-league') throw new HttpsError('permission-denied', 'Only the league owner can charter it.');
+      if (decision.reason === 'too-large') throw new HttpsError('failed-precondition', `A Charter covers up to ${CHARTER_MEMBER_CAP} players; this league has ${memberCount}.`);
       throw new HttpsError('already-exists', `This league is already chartered for ${season}.`);
     }
     params = checkoutSessionParams({ uid, season, email, product: CHARTER_PRODUCT_ID, leagueId },
@@ -144,6 +147,8 @@ export const stripeWebhook = onRequest({ region: 'us-central1', secrets: [stripe
       // Never revokePass: only this league's charter, and only if this payment is the one that bought it.
       const leagueId = action.leagueId ?? ((await db.collection('charter_grants').doc(action.ref).get()).data()?.leagueId as string | undefined) ?? null;
       const done = leagueId ? await clearCharter(db, { leagueId, ref: action.ref, reason: action.reason }) : false;
+      // A dispute that arrives before its charter was granted still has to stop that grant.
+      if (!leagueId) await markRefunded(db, action.ref, action.reason);
       console.log('[charter] stripe', action.reason, action.ref, leagueId ?? '(no charter for this payment)', done ? 'cleared' : 'nothing to clear');
     } else {
       console.log('[pw] stripe webhook ignored:', action.why);

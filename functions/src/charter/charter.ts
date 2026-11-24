@@ -125,7 +125,10 @@ export function claimInputsChanged(
 // ─── Slice 2: purchase ───
 
 /** Why a paid charter was not applied. Recorded on the purchase / grant record for support. */
-export type CharterRefusal = 'no-league' | 'not-owner' | 'already-chartered' | 'disabled' | 'refunded';
+export type CharterRefusal = 'no-league' | 'not-owner' | 'already-chartered' | 'too-large' | 'disabled' | 'refunded';
+
+/** Charter covers at most this many approved players, owner included: the free league cap (BUILD.md). */
+export const CHARTER_MEMBER_CAP = 22;
 
 /** What a member document must look like to count: the same test as the rules and memberCount. */
 const approved = (m: { status?: unknown } | null | undefined): boolean => !!m && m.status !== 'pending';
@@ -147,6 +150,8 @@ export interface CharterGrantInput {
   season: string;
   ref: string;
   now: number;
+  /** owner + approved members who would get access; over CHARTER_MEMBER_CAP is refused */
+  memberCount?: number;
 }
 
 export type CharterGrantDecision =
@@ -168,6 +173,9 @@ export function charterGrantDecision(i: CharterGrantInput): CharterGrantDecision
     if (l.charter?.ref === i.ref) return { kind: 'replay' };
     if (l.charter?.season === i.season) return { kind: 'refuse', reason: 'already-chartered' };
   }
+  // A league grown past the cap by the retired slot pack is not chartered: one charter is never
+  // more than 22 players' worth of Pit Wall.
+  if (typeof i.memberCount === 'number' && i.memberCount > CHARTER_MEMBER_CAP) return { kind: 'refuse', reason: 'too-large' };
   return { kind: 'grant' };
 }
 
@@ -180,8 +188,10 @@ export function newCharter(season: string, buyerId: string, source: CharterSourc
  * The fields set on the chartered league, and only that league: public, approval on, Pro until
  * the charter ends. Nested `settings` so a merge write keeps the league's other settings.
  */
-export function charterLeaguePatch(c: Charter): Record<string, unknown> {
-  return { charter: c, chartered: true, isPublic: true, settings: { requireApproval: true }, pro: true, proUntil: c.expiresAt };
+export function charterLeaguePatch(c: Charter, ownerPassExpiresAt: number | null = null): Record<string, unknown> {
+  // Never shorten Pro the owner's own pass already gives this league.
+  const proUntil = typeof ownerPassExpiresAt === 'number' && ownerPassExpiresAt > c.expiresAt ? ownerPassExpiresAt : c.expiresAt;
+  return { charter: c, chartered: true, isPublic: true, settings: { requireApproval: true }, pro: true, proUntil };
 }
 
 /**

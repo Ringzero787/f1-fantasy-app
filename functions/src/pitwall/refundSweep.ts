@@ -23,7 +23,7 @@ import { defineSecret } from 'firebase-functions/params';
 import { PASS_PRODUCT } from './pass';
 import { revokePass } from './passStore';
 import { CHARTER_PRODUCT } from '../charter/charter';
-import { clearCharter } from '../charter/charterStore';
+import { clearCharter, markRefunded } from '../charter/charterStore';
 import { amazonVerdict, appleLegacyVerdict, checkable, isJws, playVerdict, type RefundVerdict } from './refundCheck';
 
 const db = admin.firestore();
@@ -140,6 +140,9 @@ export const sweepRefundedPasses = functions
         // Clear first, then mark, for the reason given below for the pass. clearCharter only
         // touches a charter this purchase paid for (its ref is the purchase id).
         if (leagueId && await clearCharter(db, { leagueId, ref: doc.id, reason: `store refund · ${purchase.platform}` })) uncharted += 1;
+        // Not applied (refused, or never sent a league): record the refund anyway, so a later
+        // replay of this receipt can never charter.
+        if (!leagueId) await markRefunded(db, doc.id, `store refund · ${purchase.platform}`);
         await doc.ref.set({ status: 'refunded', refundedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
         console.log(`[refunds] charter purchase ${doc.id} refunded${leagueId ? ` (league ${leagueId})` : ''}`);
       } catch (err) {

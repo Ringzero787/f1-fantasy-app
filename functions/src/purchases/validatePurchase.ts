@@ -407,14 +407,28 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
    */
   async function applyCharter(): Promise<{ applied: boolean; reason?: string; leagueId?: string; expiresAt?: number }> {
     const record = (await purchaseDoc.get()).data() ?? {};
-    if (record.charterApplied === true) return { applied: true, leagueId: record.charterLeagueId as string, expiresAt: record.charterExpiresAt as number };
+    if (record.status === 'refunded') return { applied: false, reason: 'refunded' };
+    if (record.charterApplied === true) {
+      // Applied once; say what is true now, which is not "chartered" after a refund.
+      const grant = (await db.collection('charter_grants').doc(purchaseId).get()).data();
+      if (grant?.clearedAt) return { applied: false, reason: 'refunded' };
+      return { applied: true, leagueId: record.charterLeagueId as string, expiresAt: record.charterExpiresAt as number };
+    }
+    // The league named when the purchase was first recorded wins over one sent on a replay, so one
+    // payment can never charter two leagues. A league first named on a replay is stored before use.
+    const target = typeof record.leagueId === 'string' ? record.leagueId : leagueId;
+    if (typeof record.leagueId !== 'string' && typeof leagueId === 'string') await purchaseDoc.set({ leagueId }, { merge: true });
     let result: GrantCharterResult;
     const appCfg = (await db.doc('config/app').get()).data();
-    if (!charterEnabled(appCfg) && !testPurchase && record.charterTest !== true) {
+    // While the sale is off, only a store test purchase by a marked test account (F-164,
+    // server-owned) may charter, so the sandbox runs in slice 5 work and nobody else's tester
+    // build gets a free charter. Once the flag is on, every verified purchase is a sale.
+    const tester = testPurchase && (await db.doc(`users/${userId}`).get()).data()?.testAccount === true;
+    if (!charterEnabled(appCfg) && !tester) {
       result = { applied: false, reason: 'disabled' };
     } else {
       result = await grantCharter(db, {
-        leagueId: leagueId ?? record.leagueId,
+        leagueId: target,
         buyerId: userId,
         // The season on sale when it was bought, not when a replay happens to arrive.
         season: saleSeason(typeof record.createdAt?.toMillis === 'function' ? record.createdAt.toMillis() : Date.now()),
@@ -427,7 +441,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
       console.log(`[charter] ${result.leagueId} chartered from ${platform} by ${userId} until ${new Date(result.charter.expiresAt).toISOString()} (${result.members} with access)`);
       return { applied: true, leagueId: result.leagueId, expiresAt: result.charter.expiresAt };
     }
-    await purchaseDoc.set({ charterApplied: false, charterRefused: result.reason, ...(typeof leagueId === 'string' ? { leagueId } : {}) }, { merge: true });
+    await purchaseDoc.set({ charterApplied: false, charterRefused: result.reason }, { merge: true });
     console.error(`[charter] paid purchase ${purchaseId} by ${userId} NOT applied: ${result.reason}; needs a refund or a support fix`);
     return { applied: false, reason: result.reason };
   }

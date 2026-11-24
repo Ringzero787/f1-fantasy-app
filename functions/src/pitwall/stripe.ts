@@ -139,6 +139,10 @@ export function webhookAction(event: Record<string, any>): WebhookAction {
     if (product === CHARTER_PRODUCT_ID) {
       const ref = charterRef(object?.payment_intent);
       if (!leagueId || !ref) return { kind: 'ignore', why: 'charter without a league or payment intent' };
+      // The metadata is ours, but the price is checked too: before tax, in dollars, $39.99.
+      if (object?.amount_subtotal !== CHARTER_AMOUNT_CENTS || String(object?.currency ?? '').toLowerCase() !== CURRENCY) {
+        return { kind: 'ignore', why: `charter paid ${object?.amount_subtotal} ${object?.currency}, not ${CHARTER_AMOUNT_CENTS} ${CURRENCY}` };
+      }
       return { kind: 'charter', uid, season, leagueId, ref };
     }
     return { kind: 'grant', uid, season, ref: id };
@@ -157,6 +161,8 @@ export function webhookAction(event: Record<string, any>): WebhookAction {
       if (!leagueId || !ref) return { kind: 'ignore', why: 'charter refund without a league or payment intent' };
       return { kind: 'uncharter', leagueId, ref, reason: type };
     }
+    // A partial refund is a goodwill credit for the pass too, not the pass given back.
+    if (type === 'charge.refunded' && object?.refunded === false) return { kind: 'ignore', why: 'partial pass refund' };
     const refundUid = String(object?.metadata?.uid ?? '');
     if (!refundUid) return { kind: 'ignore', why: 'refund without a uid' };
     return { kind: 'revoke', uid: refundUid, reason: type };

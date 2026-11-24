@@ -173,14 +173,18 @@ test('checkout: a charter is $39.99 with the league in metadata on the session A
 
 test('webhook: a paid charter charters; a full refund or a dispute unchartered; a pass refund still revokes the pass', () => {
   const meta = { uid: 'owner', season: '2027', product: 'pitwall.charter.season', leagueId: 'L1' };
-  const paid = S.webhookAction({ id: 'evt1', type: 'checkout.session.completed', data: { object: { payment_status: 'paid', metadata: meta, payment_intent: 'pi_1' } } });
+  const sess = { payment_status: 'paid', metadata: meta, payment_intent: 'pi_1', amount_subtotal: 3999, amount_total: 4359, currency: 'usd' };
+  const paid = S.webhookAction({ id: 'evt1', type: 'checkout.session.completed', data: { object: sess } });
   assert.deepEqual(paid, { kind: 'charter', uid: 'owner', season: '2027', leagueId: 'L1', ref: 'stripe:pi_1' });
-  const async = S.webhookAction({ id: 'evt2', type: 'checkout.session.async_payment_succeeded', data: { object: { payment_status: 'paid', metadata: meta, payment_intent: 'pi_1' } } });
+  const async = S.webhookAction({ id: 'evt2', type: 'checkout.session.async_payment_succeeded', data: { object: sess } });
   assert.equal(async.ref, paid.ref, 'both success events key on the payment, so the second is a replay');
+  assert.equal(S.webhookAction({ id: 'evt3', type: 'checkout.session.completed', data: { object: { ...sess, amount_subtotal: 1499 } } }).kind, 'ignore', 'a charter at the wrong price is not granted');
+  assert.equal(S.webhookAction({ id: 'evt4', type: 'checkout.session.completed', data: { object: { ...sess, currency: 'eur' } } }).kind, 'ignore');
+  assert.equal(S.webhookAction({ type: 'charge.refunded', data: { object: { refunded: false, metadata: { uid: 'u', product: 'pitwall.pass.season' } } } }).kind, 'ignore', 'a partial pass refund keeps the pass');
   assert.deepEqual(S.webhookAction({ type: 'charge.refunded', data: { object: { refunded: true, metadata: meta, payment_intent: 'pi_1' } } }), { kind: 'uncharter', leagueId: 'L1', ref: 'stripe:pi_1', reason: 'charge.refunded' });
   assert.equal(S.webhookAction({ type: 'charge.refunded', data: { object: { refunded: false, metadata: meta, payment_intent: 'pi_1' } } }).kind, 'ignore', 'a partial refund keeps the charter');
   assert.deepEqual(S.webhookAction({ type: 'charge.dispute.created', data: { object: { payment_intent: 'pi_1', metadata: {} } } }), { kind: 'uncharter', leagueId: null, ref: 'stripe:pi_1', reason: 'charge.dispute.created' });
-  assert.deepEqual(S.webhookAction({ type: 'charge.refunded', data: { object: { metadata: { uid: 'u', product: 'pitwall.pass.season' } } } }), { kind: 'revoke', uid: 'u', reason: 'charge.refunded' });
+  assert.deepEqual(S.webhookAction({ type: 'charge.refunded', data: { object: { refunded: true, metadata: { uid: 'u', product: 'pitwall.pass.season' } } } }), { kind: 'revoke', uid: 'u', reason: 'charge.refunded' });
   assert.equal(S.webhookAction({ id: 'e', type: 'checkout.session.completed', data: { object: { payment_status: 'paid', metadata: { uid: 'u', season: '2027', product: 'pitwall.pass.season' } } } }).kind, 'grant');
 });
 
@@ -270,4 +274,53 @@ test('personal pass: revoking it leaves a chartered league Pro; granting it does
   await passStore.markOwnedLeaguesPro(db, 'owner', { expiresAt: END_2027 - 1000 }, NOW);
   assert.equal(db.docs.get('leagues/L1').proUntil, END_2027);
   assert.equal(db.docs.get('leagues/L2').proUntil, END_2027 - 1000);
+});
+
+test('one purchase charters one league: a replay naming another league gets the first one', async () => {
+  const seed = seedLeague();
+  seed['leagues/L3'] = { ownerId: 'owner', name: 'Third' };
+  const db = fakeDb(seed);
+  await store.grantCharter(db, { leagueId: 'L1', buyerId: 'owner', season: '2027', source: 'play', ref: 'pur1', now: NOW });
+  const r = await store.grantCharter(db, { leagueId: 'L3', buyerId: 'owner', season: '2027', source: 'play', ref: 'pur1', now: NOW + 1 });
+  assert.equal(r.applied, true);
+  assert.equal(r.leagueId, 'L1');
+  assert.equal(r.replay, true);
+  assert.equal(db.docs.get('leagues/L3').chartered, undefined, 'the other league is not chartered');
+  assert.equal(db.docs.get('charter_grants/pur1').leagueId, 'L1');
+});
+
+test('a league over 22 players is not chartered', async () => {
+  const seed = seedLeague();
+  for (let k = 0; k < 21; k += 1) seed[`leagues/L1/members/m${k}`] = { status: 'approved' };
+  const db = fakeDb(seed);
+  assert.equal(C.CHARTER_MEMBER_CAP, 22);
+  assert.deepEqual(await store.grantCharter(db, { leagueId: 'L1', buyerId: 'owner', season: '2027', source: 'play', ref: 'big', now: NOW }), { applied: false, reason: 'too-large' });
+  assert.equal(db.docs.get('leagues/L1').chartered, undefined);
+  assert.equal(C.charterGrantDecision({ league: { ownerId: 'o' }, buyerId: 'o', season: '2027', ref: 'r', now: NOW, memberCount: 22 }).kind, 'grant');
+});
+
+test('a refund that arrives before its grant stops the grant', async () => {
+  const db = fakeDb(seedLeague());
+  assert.equal(await store.clearCharter(db, { leagueId: 'L1', ref: 'stripe:pi_9', reason: 'charge.refunded', now: NOW }), false);
+  assert.ok(db.docs.get('charter_grants/stripe:pi_9').clearedAt);
+  assert.deepEqual(await store.grantCharter(db, { leagueId: 'L1', buyerId: 'owner', season: '2027', source: 'stripe', ref: 'stripe:pi_9', now: NOW + 1 }), { applied: false, reason: 'refunded' });
+  await store.markRefunded(db, 'stripe:pi_10', 'charge.dispute.created', NOW);
+  assert.deepEqual(await store.grantCharter(db, { leagueId: 'L1', buyerId: 'owner', season: '2027', source: 'stripe', ref: 'stripe:pi_10', now: NOW + 1 }), { applied: false, reason: 'refunded' });
+});
+
+test("a charter never shortens Pro the owner's own pass already gives", async () => {
+  const seed = seedLeague();
+  seed['users/owner'] = { pass: { tier: 'pitwall', season: '2028', expiresAt: END_2027 + 365 * 86400000 } };
+  const db = fakeDb(seed);
+  await store.grantCharter(db, { leagueId: 'L1', buyerId: 'owner', season: '2027', source: 'play', ref: 'p', now: NOW });
+  assert.equal(db.docs.get('leagues/L1').proUntil, END_2027 + 365 * 86400000);
+  assert.equal(db.docs.get('leagues/L1').charter.expiresAt, END_2027);
+});
+
+test('validatePurchase: refunded purchases and non-test accounts in the sandbox do not charter', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'purchases', 'validatePurchase.ts'), 'utf8');
+  const fn = src.slice(src.indexOf('async function applyCharter'));
+  assert.match(fn, /record\.status === 'refunded'\) return \{ applied: false, reason: 'refunded' \}/);
+  assert.match(fn, /testPurchase && \(await db\.doc\(`users\/\$\{userId\}`\)\.get\(\)\)\.data\(\)\?\.testAccount === true/);
+  assert.match(fn, /const target = typeof record\.leagueId === 'string' \? record\.leagueId : leagueId/);
 });

@@ -56,35 +56,43 @@ export async function grantCharter(db: Db, i: GrantCharterInput): Promise<GrantC
     await record.set({ leagueId: null, buyerId: i.buyerId, season: i.season, source: i.source, refusedAt: now, refused: 'no-league' }, { merge: true });
     return { applied: false, reason: 'no-league' };
   }
-  const leagueId = i.leagueId;
-  const leagueRef = db.doc(`leagues/${leagueId}`);
-
   const outcome = await db.runTransaction(async (tx) => {
-    const [leagueSnap, recordSnap] = await Promise.all([tx.get(leagueRef), tx.get(record)]);
-    const league = leagueSnap.exists ? leagueSnap.data() : null;
+    const recordSnap = await tx.get(record);
+    const rec = recordSnap.exists ? recordSnap.data() : undefined;
     // A purchase whose charter was taken back (refund, dispute) never charters again: a replayed
     // receipt must not undo a refund.
-    if (recordSnap.exists && recordSnap.data()?.clearedAt) return { applied: false as const, reason: 'refunded' as const };
-    const decision = charterGrantDecision({ league, buyerId: i.buyerId, season: i.season, ref: i.ref, now });
+    if (rec?.clearedAt) return { applied: false as const, reason: 'refunded' as const };
+    // One purchase, one league. Once this purchase has chartered a league, a replay naming another
+    // league is answered with the first one: parallel replays with different league ids conflict on
+    // this record, and the retry lands here.
+    const leagueId = rec?.grantedAt && typeof rec.leagueId === 'string' ? rec.leagueId : (i.leagueId as string);
+    const leagueRef = db.doc(`leagues/${leagueId}`);
+    const leagueSnap = await tx.get(leagueRef);
+    const league = leagueSnap.exists ? leagueSnap.data() : null;
+    const [members, ownerSnap] = await Promise.all([
+      tx.get(leagueRef.collection('members')),
+      typeof league?.ownerId === 'string' ? tx.get(db.doc(`users/${league.ownerId}`)) : Promise.resolve(null),
+    ]);
+    const ids = charterMemberIds(league?.ownerId, members.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, status: d.data()?.status })));
+    const decision = charterGrantDecision({ league, buyerId: i.buyerId, season: i.season, ref: i.ref, now, memberCount: ids.length });
     if (decision.kind === 'refuse') {
       tx.set(record, { leagueId, buyerId: i.buyerId, season: i.season, source: i.source, refusedAt: now, refused: decision.reason }, { merge: true });
       return { applied: false as const, reason: decision.reason };
     }
     if (decision.kind === 'replay') {
-      return { applied: true as const, charter: league!.charter as Charter, ownerId: league!.ownerId as string, replay: true };
+      return { applied: true as const, leagueId, charter: league!.charter as Charter, ids, replay: true };
     }
     const charter = newCharter(i.season, i.buyerId, i.source, i.ref, now, seasonExpiry(i.season));
-    tx.set(leagueRef, charterLeaguePatch(charter), { merge: true });
+    const ownerPass = ownerSnap?.data()?.pass as Partial<Pass> | undefined;
+    tx.set(leagueRef, charterLeaguePatch(charter, passActive(ownerPass, now) ? (ownerPass!.expiresAt as number) : null), { merge: true });
     tx.set(record, { leagueId, buyerId: i.buyerId, season: i.season, source: i.source, grantedAt: now, expiresAt: charter.expiresAt }, { merge: true });
-    return { applied: true as const, charter, ownerId: league!.ownerId as string, replay: false };
+    return { applied: true as const, leagueId, charter, ids, replay: false };
   });
   if (!outcome.applied) return outcome;
 
-  // Access for the members. Outside the transaction (a league holds 22 approved members, but a
-  // transaction over every user document is not needed for correctness): each write is an
-  // idempotent merge of the same value, so a retry, or a replay, converges.
-  const members = await leagueRef.collection('members').get();
-  const ids = charterMemberIds(outcome.ownerId, members.docs.map((d) => ({ id: d.id, status: d.data()?.status })));
+  // Access for the members, outside the transaction: each write is an idempotent merge of the same
+  // value, so a retry, or a replay, converges. Approval changes after this are slice 3's trigger.
+  const { leagueId, ids } = outcome;
   await setAccess(db, ids, leagueId, outcome.charter.expiresAt);
   return { applied: true, leagueId, charter: outcome.charter, members: ids.length, replay: outcome.replay };
 }
@@ -98,6 +106,11 @@ async function setAccess(db: Db, uids: string[], leagueId: string, expiresAt: nu
     }
     await batch.commit();
   }
+}
+
+/** Record that a purchase was refunded when there is no league to clear (a dispute with no grant yet). */
+export async function markRefunded(db: Db, ref: string, reason: string, now = Date.now()): Promise<void> {
+  await grantRef(db, ref).set({ clearedAt: now, clearedReason: reason }, { merge: true });
 }
 
 export interface ClearCharterInput {
@@ -116,6 +129,11 @@ export interface ClearCharterInput {
  *
  * A refund of an older purchase does not clear a charter a newer purchase paid for: `ref` must
  * match the charter on the league. Returns false when there was nothing of this purchase's to clear.
+ *
+ * Retryable: the league is cleared in a transaction and members' access after it, so a failure in
+ * between would leave access behind. A retry for the same purchase therefore finishes the access
+ * sweep whenever that purchase's grant record says it was cleared and the league is not chartered
+ * again by someone else — it does not stop at "nothing to clear".
  */
 export async function clearCharter(db: Db, i: ClearCharterInput): Promise<boolean> {
   const now = i.now ?? Date.now();
@@ -125,10 +143,17 @@ export async function clearCharter(db: Db, i: ClearCharterInput): Promise<boolea
 
   const cleared = await db.runTransaction(async (tx) => {
     const snap = await tx.get(leagueRef);
+    const recSnap = i.ref !== null ? await tx.get(grantRef(db, i.ref)) : null;
     const league = snap.exists ? snap.data() : null;
     const charter = league?.charter as Partial<Charter> | undefined;
-    if (!league || !charter) return false;
-    if (i.ref !== null && charter.ref !== i.ref) return false;
+    if (!league || !charter || (i.ref !== null && charter.ref !== i.ref)) {
+      // Nothing of this purchase's is live: the refund still counts. Recording it is what stops a
+      // grant that arrives after its own refund (out-of-order webhooks, a replayed receipt).
+      if (i.ref !== null && !recSnap?.data()?.clearedAt) {
+        tx.set(grantRef(db, i.ref), { leagueId: recSnap?.data()?.leagueId ?? i.leagueId, clearedAt: now, clearedReason: i.reason }, { merge: true });
+      }
+      return false;
+    }
     const owner = typeof league.ownerId === 'string' ? (await tx.get(db.doc(`users/${league.ownerId}`))).data() : undefined;
     const pass = owner?.pass as Partial<Pass> | undefined;
     const pro = ownerProPatch(null, passActive(pass, now) ? (pass!.expiresAt as number) : null, now);
@@ -143,11 +168,25 @@ export async function clearCharter(db: Db, i: ClearCharterInput): Promise<boolea
     if (charter.ref) tx.set(grantRef(db, charter.ref), { clearedAt: now, clearedReason: i.reason }, { merge: true });
     return true;
   });
-  if (!cleared) return false;
+  if (!cleared) {
+    if (i.ref === null) return false;
+    // Finish a sweep an earlier attempt for this purchase started (see above).
+    const [grant, now2] = await Promise.all([grantRef(db, i.ref).get(), leagueRef.get()]);
+    const g = grant.data();
+    if (!g?.clearedAt || !g.grantedAt || g.leagueId !== i.leagueId || charterActive(now2.data(), now)) return false;
+    await sweepAccess(db, leagueRef, i.leagueId);
+    return false;
+  }
+  await sweepAccess(db, leagueRef, i.leagueId);
+  return true;
+}
 
+/** Remove `leagueId` from the charterAccess of everyone holding it, and of every current member. */
+async function sweepAccess(db: Db, leagueRef: FirebaseFirestore.DocumentReference, leagueId: string): Promise<void> {
+  const del = admin.firestore.FieldValue.delete();
   // Everyone holding access through this league: the users whose map names it, and the current
   // members in case a map write was missed. Removing a key that is not there is a no-op.
-  const path = new admin.firestore.FieldPath('charterAccess', 'leagues', i.leagueId);
+  const path = new admin.firestore.FieldPath('charterAccess', 'leagues', leagueId);
   const [holders, members] = await Promise.all([
     db.collection('users').where(path, '>', 0).get(),
     leagueRef.collection('members').get(),
@@ -157,11 +196,10 @@ export async function clearCharter(db: Db, i: ClearCharterInput): Promise<boolea
   for (let k = 0; k < list.length; k += 400) {
     const batch = db.batch();
     for (const uid of list.slice(k, k + 400)) {
-      batch.set(db.doc(`users/${uid}`), { charterAccess: { leagues: { [i.leagueId]: del } } }, { merge: true });
+      batch.set(db.doc(`users/${uid}`), { charterAccess: { leagues: { [leagueId]: del } } }, { merge: true });
     }
     await batch.commit();
   }
-  return true;
 }
 
 /**
