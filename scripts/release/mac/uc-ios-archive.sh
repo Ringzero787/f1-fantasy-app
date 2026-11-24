@@ -64,7 +64,7 @@ fi
 set -e
 [ "$pod_rc" -eq 0 ] || { echo "pod install failed twice" >&2; exit 1; }
 # Never archive a from-source React Native: it is the wrong binary and it fails late in Xcode.
-if grep -qE "Building from source: true|Using the latest commit from main" build/pod-install.log; then
+if grep -qE "Building from source: true|Using the latest commit from " build/pod-install.log; then
   echo "pod install fell back to building React Native or Hermes from source (prebuilt not found at $ENTERPRISE_REPOSITORY); see build/pod-install.log" >&2
   exit 1
 fi
