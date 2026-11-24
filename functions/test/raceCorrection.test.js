@@ -117,6 +117,28 @@ test('expiry sale repair: an expired pick sold at the pre-race price is re-credi
   assert.equal(p.drivers[0].currentPrice, 600, 'the remaining roster gets the market price back');
   // a pick that did not race has no post-race price: it was sold at the right price
   assert.equal(planExpirySale(s, t, () => undefined, () => undefined).sold.length, 0);
+  assert.equal(p.newBudget, 657);
+  assert.equal(p.forgiven, 0);
+});
+
+test('expiry sale repair: an over-credited team that spent the money is floored at 0, the rest forgiven', () => {
+  // Las Vegas 2026, G9IrVx: credited 53 too much, 38 left in the bank
+  const s = { roster: { drivers: [{ driverId: 'alonso', racesHeld: 2, contractLength: 3, currentPrice: 94 }], constructor: { constructorId: 'aston_martin', racesHeld: 2, contractLength: 3, currentPrice: 29 } } };
+  const t = { drivers: [], constructor: null, budget: 38 };
+  const post = { alonso: 56, aston_martin: 14 };
+  const p = planExpirySale(s, t, (id) => post[id], (id) => post[id]);
+  assert.equal(p.budgetDelta, -53);
+  assert.equal(p.newBudget, 0);
+  assert.equal(p.forgiven, 15);
+  // exactly enough in the bank: nothing forgiven
+  const exact = planExpirySale(s, { ...t, budget: 53 }, (id) => post[id], (id) => post[id]);
+  assert.deepEqual([exact.newBudget, exact.forgiven], [0, 0]);
+  // already in debt: the repair takes nothing more, and does not pay the old debt off
+  const debt = planExpirySale(s, { ...t, budget: -10 }, (id) => post[id], (id) => post[id]);
+  assert.deepEqual([debt.newBudget, debt.forgiven], [-10, 53]);
+  // no stored budget reads as 0
+  const none = planExpirySale(s, { drivers: [], constructor: null }, (id) => post[id], (id) => post[id]);
+  assert.deepEqual([none.newBudget, none.forgiven], [0, 53]);
 });
 
 // ── applyRaceCorrection end to end, against a small in-memory Firestore ──────────────────────
