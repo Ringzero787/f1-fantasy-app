@@ -1,0 +1,14 @@
+diff --git a/node_modules/expo-router/ios/LinkPreview/LinkPreviewNativeActionView.swift b/node_modules/expo-router/ios/LinkPreview/LinkPreviewNativeActionView.swift
+--- a/node_modules/expo-router/ios/LinkPreview/LinkPreviewNativeActionView.swift
++++ b/node_modules/expo-router/ios/LinkPreview/LinkPreviewNativeActionView.swift
+@@ -138,7 +138,9 @@
+     baseUiAction.state = isOn == true ? .on : .off
+ 
+     if let subtitle = subtitle {
+-      baseUiAction.subtitle = subtitle
++      if #available(iOS 16.0, *) {
++        baseUiAction.subtitle = subtitle
++      }
+     }
+     if let label = discoverabilityLabel {
+       baseUiAction.discoverabilityTitle = label
