@@ -37,3 +37,8 @@ test('idempotent: a second prebuild does not add it twice', () => {
 test('a changed Podfile template stops the prebuild instead of building without the fix', () => {
   assert.throws(() => injectPodDeploymentTarget("target 'Undercut' do\nend\n"), /no react_native_post_install/);
 });
+
+test('the fmt pod is compiled as C++17 (Xcode 27 rejects its consteval format strings), and only fmt', () => {
+  const out = injectPodDeploymentTarget(PODFILE);
+  assert.match(out, /c\.build_settings\['CLANG_CXX_LANGUAGE_STANDARD'\] = 'c\+\+17' if t\.name == 'fmt'/);
+});
