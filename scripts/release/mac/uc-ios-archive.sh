@@ -44,12 +44,30 @@ npm ci --legacy-peer-deps
 echo "== prebuild ios"
 npx expo prebuild --platform ios --clean --no-install
 echo "== pod install"
+# React Native's prebuilt iOS binaries (core, dependencies, Hermes) are now served from
+# repo.reactnative.dev (Maven Central answers their URLs with a 301 there). On 2026-11-24 two pod
+# installs for 2.9.0 found "no prebuilt artifacts" when probing Maven Central and silently built
+# React Native from source, with Hermes from its main branch, which does not compile. RN's probe does
+# follow the redirect and returns 200 from a shell, so the cause was not reproduced; probing the
+# serving host directly worked. ENTERPRISE_REPOSITORY is RN's own switch for that base URL, and the
+# guard below is what actually stops a from-source archive.
+export ENTERPRISE_REPOSITORY="${ENTERPRISE_REPOSITORY:-https://repo.reactnative.dev/maven2}"
 # A pod the Mac's spec repo has never seen (expo-iap's `openiap`) fails resolution until the repo
 # is refreshed. Refreshing every time costs minutes, so it is only done on the retry.
-(cd ios && pod install) || {
+# (set +e: under `set -euo pipefail` a failed pod install would exit before the retry)
+set +e
+(cd ios && pod install) 2>&1 | tee build/pod-install.log; pod_rc=${PIPESTATUS[0]}
+if [ "$pod_rc" -ne 0 ]; then
   echo "== pod install failed; refreshing the spec repo and retrying"
-  (cd ios && pod install --repo-update)
-}
+  (cd ios && pod install --repo-update) 2>&1 | tee build/pod-install.log; pod_rc=${PIPESTATUS[0]}
+fi
+set -e
+[ "$pod_rc" -eq 0 ] || { echo "pod install failed twice" >&2; exit 1; }
+# Never archive a from-source React Native: it is the wrong binary and it fails late in Xcode.
+if grep -qE "Building from source: true|Using the latest commit from " build/pod-install.log; then
+  echo "pod install fell back to building React Native or Hermes from source (prebuilt not found at $ENTERPRISE_REPOSITORY); see build/pod-install.log" >&2
+  exit 1
+fi
 
 echo "== keychain"
 security create-keychain -p "$KC_PW" "$KC"
