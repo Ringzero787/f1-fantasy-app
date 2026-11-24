@@ -17,7 +17,7 @@
 // users without one. The ledger matches no rule, so no client can read or forge it. Each batch's
 // pushes go out right after it commits; a failed batch or push is counted, never fatal before the
 // stamp. Last, always, it stamps seasons/2026.resetNotice { id, sentAt, inbox, push, pushFailed }
-// with the real counts — sentAt is set once anything went out, and is the marker the rollover reads.
+// with the real counts. sentAt (the marker the rollover reads) is set by the first run that reaches everyone.
 // The rollover also needs resetNotice.emailAt, stamped by stampSeasonNoticeEmail.js after the owner
 // sends the email broadcast.
 //
@@ -130,11 +130,14 @@ async function run(fs, { apply, resetDay = RESET_DAY, push = expoPush, log = con
       log(`!! push for batch ${i / BATCH + 1} failed (${messages.length} message(s)): ${e.message}`);
     }
   }
-  // always stamped with what really went out; sentAt only once something has (the rollover's gate)
+  // always stamped with what really went out. sentAt (the rollover's 24 h clock) only once a run has
+  // reached everyone: after a failed batch the counts are written but the clock does not start until a
+  // re-run completes, so nobody gets less than 24 h of notice. An existing sentAt is kept (merge).
   const any = counts.inbox > 0 || (marker && marker.sentAt);
+  const startClock = !(marker && marker.sentAt) && counts.batchesFailed === 0;
   if (any) {
     await fs.doc(`seasons/${FROM}`).set({ resetNotice: {
-      id: N.NOTICE_ID, sentAt: marker && marker.sentAt ? marker.sentAt : FieldValue.serverTimestamp(),
+      id: N.NOTICE_ID, ...(startClock ? { sentAt: FieldValue.serverTimestamp() } : {}),
       inbox: (marker ? marker.inbox || 0 : 0) + counts.inbox, push: (marker ? marker.push || 0 : 0) + counts.pushed,
       pushFailed: (marker ? marker.pushFailed || 0 : 0) + counts.pushFailed,
     } }, { merge: true });
