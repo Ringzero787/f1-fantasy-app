@@ -1,0 +1,38 @@
+id: OP-244
+title: "F-170: auto-fill resets the stale-roster counter (autoLockTeams)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:autoLockTeams
+created_at: 2026-11-24T15:55:33.906Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-24T15:55:34.232Z
+    head_sha: fd4394407b509b171152c5ad8fdb0bfe52065a97
+    command: git --no-pager diff --stat 'bc9515a0d93c52c97a33ea23426095ff4b1dce49' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-244/dry-run-2026-11-24T15-55-34-232Z.log
+    log_sha256: edfc6050f7f8c5a064ad8ab646675e1bb4b9b1529dfca18aedd2c22dce104a0b
+    lines: 33
+  - step: gates
+    at: 2026-11-24T16:02:45.547Z
+    head_sha: fd4394407b509b171152c5ad8fdb0bfe52065a97
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-24T16:02:45.552Z
+    head_sha: fd4394407b509b171152c5ad8fdb0bfe52065a97
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:autoLockTeams' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-244/apply-2026-11-24T16-02-45-552Z.log
+    log_sha256: a3173bba4371d447189181094e6296921fc6fd6dc268fd3600fceed9c3598c0c
+    lines: 31
+  - step: gates
+    at: 2026-11-24T16:04:04.294Z
+    head_sha: fd4394407b509b171152c5ad8fdb0bfe52065a97
+    exit: 0
+    gates:
+      G15: skip
