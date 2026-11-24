@@ -170,6 +170,8 @@ function evaluate(state, now = new Date()) {
   for (const d of state.resultDrift || []) {
     if (d.unchecked) { add('ok', 'scoring', `${d.raceId} (round ${d.round}) not compared with the provider: ${d.unchecked}`); continue; }
     if (!d.diffs || !d.diffs.length) continue;
+    const ack = acknowledgedDrift(d.raceId, d.diffs);
+    if (ack) { add('ok', 'scoring', `${d.raceId} (round ${d.round}) differs from the provider as already acknowledged: ${ack}`); continue; }
     const age = t - ms(d.raceAt);
     const what = d.diffs.slice(0, 6).join(', ') + (d.diffs.length > 6 ? ` and ${d.diffs.length - 6} more` : '');
     if (age < 72 * HOUR) add('warn', 'scoring', `${d.raceId} (round ${d.round}) official classification differs from what was scored: ${what}. The correction pass re-applies it within 72 h of the race`);
@@ -248,6 +250,29 @@ function render(result, now = new Date()) {
  * convertToRaceResults): dsq, then dns, then dnf, then "no position" = nc, else finished at the
  * position. `numberToId` maps car numbers as the race was scored.
  */
+/**
+ * Differences already looked at and decided (2026-11-24, when the check first compared every race
+ * of the season). Each entry lists the EXACT differences seen then: a race stays quiet only while
+ * its differences are exactly these, so any further change to it fails again.
+ */
+const ACKNOWLEDGED_DRIFT = {
+  australia_2026: { why: 'scored before DNS/NC handling existed (2026-06-13/06-30); scored under the rules then, not corrected', diffs: ['stroll scored P17, now nc', 'piastri scored dnf, now dns', 'hulkenberg scored dnf, now dns'] },
+  china_2026: { why: 'scored before DNS handling existed; not corrected', diffs: ['piastri scored dnf, now dns', 'norris scored dnf, now dns', 'bortoleto scored dnf, now dns', 'albon scored dnf, now dns'] },
+  canada_2026: { why: 'scored before DNS handling existed; not corrected', diffs: ['lindblad scored dnf, now dns'] },
+  monaco_2026: { why: 'post-race penalty (Pérez); no raceSnapshots for this race, so it cannot be corrected', diffs: ['alonso scored P11, now P10', 'bortoleto scored P12, now P11', 'russell scored P13, now P12', 'hulkenberg scored P14, now P13', 'colapinto scored P15, now P14', 'perez scored P10, now P15'] },
+  britain_2026: { why: 'post-race penalty (Sainz); no raceSnapshots for this race, so it cannot be corrected', diffs: ['bearman scored P13, now P12', 'ocon scored P14, now P13', 'perez scored P15, now P14', 'antonelli scored P16, now P15', 'bottas scored P17, now P16', 'sainz scored P12, now P17'] },
+  azerbaijan_2026: { why: 'post-race penalty (Bortoleto); owner decision: corrected after the season by the past-race mode', diffs: ['piastri scored P14, now P13', 'perez scored P15, now P14', 'bortoleto scored P13, now P15'] },
+  mexico_2026: { why: 'post-race penalties (Piastri, Colapinto, Gasly); owner decision: corrected after the season by the past-race mode', diffs: ['lawson scored P9, now P7', 'bortoleto scored P11, now P8', 'hadjar scored P12, now P9', 'hirakawa scored P13, now P10', 'albon scored P14, now P11', 'sainz scored P15, now P12', 'piastri scored P7, now P13', 'hulkenberg scored P16, now P14', 'colapinto scored P8, now P15', 'perez scored P17, now P16', 'gasly scored P10, now P17'] },
+};
+
+/** The reason a race's differences are acknowledged, or null when they are not exactly the acknowledged set. */
+function acknowledgedDrift(raceId, diffs, table = ACKNOWLEDGED_DRIFT) {
+  const a = Object.prototype.hasOwnProperty.call(table, raceId) ? table[raceId] : null;
+  if (!a || !Array.isArray(diffs) || diffs.length !== a.diffs.length) return null;
+  const want = [...a.diffs].sort();
+  return [...diffs].sort().every((x, i) => x === want[i]) ? a.why : null;
+}
+
 function resultDiffs(stored, provider, numberToId) {
   const byId = new Map((stored || []).map((r) => [r.driverId, r]));
   const diffs = [];
@@ -264,4 +289,4 @@ function resultDiffs(stored, provider, numberToId) {
   return diffs;
 }
 
-module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, resultDiffs, evaluate, render, fmtAge, oneLine };
+module.exports = { SESSION_KEYS, currentRound, pairRounds, sessionDrift, resultDiffs, acknowledgedDrift, ACKNOWLEDGED_DRIFT, evaluate, render, fmtAge, oneLine };

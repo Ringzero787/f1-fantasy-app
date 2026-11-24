@@ -9,6 +9,17 @@
 const path = require('path');
 const { evaluate, render, resultDiffs } = require('./pitwall-check-lib');
 
+// The scoring side's car-number table (functions/lib, built by every functions deploy). Optional: a
+// checkout without a build still checks races that have their own live-sweep map.
+let ingestionTableCache;
+function ingestionTable() {
+  if (ingestionTableCache === undefined) {
+    try { ingestionTableCache = { ...require(path.join(__dirname, '../../functions/lib/ingestion/config.js')).DRIVER_NUMBER_TO_ID }; }
+    catch { ingestionTableCache = {}; }
+  }
+  return ingestionTableCache;
+}
+
 const EXPECTED_PROJECT = 'f1-app-18077';
 const SEASON = process.env.PW_SEASON || '2026';
 const OPENF1 = process.env.OPENF1_BASE || 'https://api.openf1.org/v1';
@@ -62,16 +73,22 @@ async function collect() {
     m.raceStart = race ? race.date_start : null;
   }
 
-  // F-168: races scored in the last 7 days against the provider's classification now. The car
-  // numbers come from the race's own live-sweep map, so a stand-in resolves as it was scored.
+  // F-168: races scored in the last 7 days against the provider's classification now, every run.
+  // Every older race of the season once a day (the 07 UTC run, or PW_CHECK_DEEP=1): a late appeal or
+  // stewards' decision can change a result weeks later. The car numbers come from the race's own
+  // live-sweep map, so a stand-in resolves as it was scored.
+  const deep = process.env.PW_CHECK_DEEP === '1' || new Date().getUTCHours() === 7;
   const resultDrift = [];
   for (const d of racesSnap.docs) {
     const r = d.data();
     const raceAt = toIso(r.schedule && r.schedule.race);
-    if (r.status !== 'completed' || !raceAt || Date.now() - new Date(raceAt).getTime() > 7 * 24 * 3600 * 1000) continue;
+    if (r.status !== 'completed' || !raceAt) continue;
+    if (!deep && Date.now() - new Date(raceAt).getTime() > 7 * 24 * 3600 * 1000) continue;
     const raceSession = sessions.find((x) => x.session_name === 'Race' && Math.abs(new Date(x.date_start).getTime() - new Date(raceAt).getTime()) < 36 * 3600 * 1000);
     const live = await db.collection('races').doc(d.id).collection('live').doc('positions').get();
-    const numberToId = (live.exists && live.data().numberToId) || {};
+    // the race's own map first (a stand-in as it was scored), the ingestion table under it for
+    // races from before the live sweep and for a car the sweep never saw
+    const numberToId = { ...ingestionTable(), ...((live.exists && live.data().numberToId) || {}) };
     if (!raceSession || !Object.keys(numberToId).length) {
       resultDrift.push({ raceId: d.id, round: r.round, raceAt, unchecked: !raceSession ? 'no provider Race session' : 'no live-sweep car map for this race' });
       continue;
