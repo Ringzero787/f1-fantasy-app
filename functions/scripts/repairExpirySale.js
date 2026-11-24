@@ -106,6 +106,14 @@ function planTeam(snap, team, postPrice, marketPrice) {
   return { sold, budgetDelta, newBudget, forgiven, drivers, constructor, repriced };
 }
 
+/** One team's repair writes, inside the caller's transaction (exported so the emulator test, F-171, commits the real shape). */
+function writeRepair(tx, teamDoc, snapRef, plan) {
+  // set + mergeFields, not update(): update() cannot write a top-level `constructor` (see raceCorrection.ts)
+  const teamWrite = { budget: plan.newBudget, drivers: plan.drivers, constructor: plan.constructor };
+  tx.set(teamDoc.ref, teamWrite, { mergeFields: Object.keys(teamWrite) });
+  tx.update(snapRef, { expirySaleRepair: { at: admin.firestore.Timestamp.now(), budgetDelta: plan.budgetDelta, forgiven: plan.forgiven, sold: plan.sold } });
+}
+
 async function main() {
   const { currentSeason } = require('../lib/season/current.js');
   let raceDoc;
@@ -138,12 +146,7 @@ async function main() {
       const team = t.data();
       const plan = planTeam(snap, team, (id) => post.get(id), (id) => market.get(id));
       if (!plan.sold.length) return null;
-      if (tx) {
-        // set + mergeFields, not update(): update() cannot write a top-level `constructor` (see raceCorrection.ts)
-        const teamWrite = { budget: plan.newBudget, drivers: plan.drivers, constructor: plan.constructor };
-        tx.set(teamDoc.ref, teamWrite, { mergeFields: Object.keys(teamWrite) });
-        tx.update(snapRef, { expirySaleRepair: { at: admin.firestore.Timestamp.now(), budgetDelta: plan.budgetDelta, forgiven: plan.forgiven, sold: plan.sold } });
-      }
+      if (tx) writeRepair(tx, teamDoc, snapRef, plan);
       return { plan, budget: typeof team.budget === 'number' && Number.isFinite(team.budget) ? team.budget : 0 };
     };
     const r = APPLY ? await db.runTransaction((tx) => work(tx)) : await work(null);
@@ -158,7 +161,7 @@ async function main() {
   if (!APPLY) console.log('DRY RUN — nothing written. Re-run with --apply.');
 }
 
-module.exports = { planTeam };
+module.exports = { planTeam, writeRepair };
 
 if (require.main === module) {
   requireFreshBuild();
