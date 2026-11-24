@@ -12,6 +12,11 @@ export interface User {
   createdAt: Date;
   updatedAt: Date;
   settings: UserSettings;
+  /**
+   * F-175: paid Pit Wall access through chartered leagues, { leagueId: expiresAt epoch ms }.
+   * Server-written only (firestore.rules deny it on create and update).
+   */
+  charterAccess?: { leagues: Record<string, number> };
 }
 
 export interface UserSettings {
@@ -97,6 +102,27 @@ export interface League {
   avatarGeneratedAt?: string;
   /** Races that have a per-race leaderboard (server-written, F-062) */
   raceResultIds?: string[];
+  // F-175 Charter. All four are server-written; firestore.rules deny them on create and update.
+  /** The league's Charter for one season, when one was bought. */
+  charter?: LeagueCharter;
+  /** Query flag: true while chartered, cleared on expiry or refund. */
+  chartered?: boolean;
+  /** Sum of approved members' season totals, the search order for chartered leagues. */
+  searchPoints?: number;
+  /** Rank Ups received in the ISO week `weekId` ("YYYY-Www"). */
+  rankUpsWeek?: { weekId: string; count: number };
+}
+
+/** F-175: `leagues/{id}.charter`. Mirrors `Charter` in functions/src/charter/charter.ts. */
+export interface LeagueCharter {
+  season: string;
+  /** epoch ms */
+  expiresAt: number;
+  buyerId: string;
+  source: 'stripe' | 'play' | 'apple';
+  ref: string;
+  /** epoch ms */
+  purchasedAt: number;
 }
 
 export interface LeagueSettings {

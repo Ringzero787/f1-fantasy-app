@@ -3,12 +3,12 @@
  * grant, a league trial — ends here, so the rules for what a pass does live in one place.
  */
 import * as admin from 'firebase-admin';
-import { mergePass, newPass, passClaim, PASS_CLAIM, trialPass, type Pass, type PassSource } from './pass';
+import { mergePass, newPass, PASS_CLAIM, trialPass, type Pass, type PassSource } from './pass';
 
 /**
  * This module writes Firestore only. The auth claim that gates paid payloads is stamped by the
- * `onUserPassWritten` trigger in index.ts, which fires on every change to `users/{uid}.pass`
- * whatever wrote it: Stripe, a store purchase, an admin grant or a support fix. One owner for the
+ * `onUserPassWritten` trigger in index.ts, which fires on every change to `users/{uid}.pass` or
+ * `users/{uid}.charterAccess` (F-175) whatever wrote it: Stripe, a store purchase, an admin grant or a support fix. One owner for the
  * claim means it can never drift from the document, and this module stays testable without auth.
  */
 
@@ -82,15 +82,31 @@ export async function revokePass(db: Db, uid: string, reason: string, now = Date
 }
 
 /**
- * Mirror the pass into the auth token so Firestore rules gate paid payloads without an extra read.
- * Called only by the onUserPassWritten trigger (see the note at the top of this file).
+ * The claims to set given the current ones and when paid access ends (epoch ms, or null for none).
+ * Same shape as before Charter (F-175): `pw` is one number, the epoch SECONDS access ends, so the
+ * `hasPass()` rule is unchanged. Every other claim is kept as it is.
  */
-export async function stampClaim(uid: string, pass: Partial<Pass> | null): Promise<void> {
-  const user = await admin.auth().getUser(uid);
-  const claims = { ...(user.customClaims ?? {}) };
-  const value = passClaim(pass);
-  if (value === null) delete claims[PASS_CLAIM]; else claims[PASS_CLAIM] = value;
-  await admin.auth().setCustomUserClaims(uid, claims);
+export function nextClaims(existing: Record<string, unknown> | null | undefined, accessExpiresAt: number | null): Record<string, unknown> {
+  const claims = { ...(existing ?? {}) };
+  if (typeof accessExpiresAt === 'number' && Number.isFinite(accessExpiresAt) && accessExpiresAt > 0) {
+    claims[PASS_CLAIM] = Math.floor(accessExpiresAt / 1000);
+  } else {
+    delete claims[PASS_CLAIM];
+  }
+  return claims;
+}
+
+type ClaimAuth = Pick<admin.auth.Auth, 'getUser' | 'setCustomUserClaims'>;
+
+/**
+ * Mirror paid access into the auth token so Firestore rules gate paid payloads without an extra read.
+ * Called only by the onUserPassWritten trigger (see the note at the top of this file), with
+ * `claimExpiry(pass, charterAccess, now)` from charter/charter.ts: the later of an active personal
+ * pass and the latest charter access. `pw` is dropped only when both are absent or expired.
+ */
+export async function stampClaim(uid: string, accessExpiresAt: number | null, auth: ClaimAuth = admin.auth()): Promise<void> {
+  const user = await auth.getUser(uid);
+  await auth.setCustomUserClaims(uid, nextClaims(user.customClaims, accessExpiresAt));
 }
 
 /** League Pro is derived, never bought: every league this user owns is Pro while their pass lasts. */
