@@ -38,7 +38,9 @@ service cloud.firestore {
     function memberMayJoin(leagueId, status) {
       let league = get(/databases/$(database)/documents/leagues/$(leagueId)).data;
       let settings = league.get('settings', {});
-      let needsApproval = settings is map && settings.get('requireApproval', false) == true;
+      // F-175: a chartered league always asks first, whatever its settings say: approval is what
+      // grants Charter access.
+      let needsApproval = (settings is map && settings.get('requireApproval', false) == true) || charterLive(league);
       return league.memberCount < league.maxMembers
              && ((needsApproval && status == 'pending') || (!needsApproval && status == 'approved'));
     }
@@ -88,6 +90,15 @@ service cloud.firestore {
     // anything other than true, or remove them. A value left untouched is not checked, so a
     // chartered league in an odd state can still be renamed. `charter` set to null or missing
     // reads as unchartered (get() returns the stored null, which `is map` rejects).
+    // F-175: a league whose charter is unexpired. Its owner cannot delete it: members paid
+    // nothing but rely on it, and a refund (which clears the charter) is the server's call.
+    function charterLive(data) {
+      let charter = data.get('charter', null);
+      return charter is map
+             && charter.get('expiresAt', null) is number
+             && charter.expiresAt > request.time.toMillis();
+    }
+
     function charterKeepsOpen(before, after) {
       let charter = before.get('charter', null);
       let chartered = charter is map
@@ -139,6 +150,9 @@ service cloud.firestore {
           isLeagueOwner(leagueId)
           && request.resource.data.ownerId == resource.data.ownerId
           && request.resource.data.maxMembers >= resource.data.maxMembers
+          // F-175: a chartered league never grows from a client: each approved member gets paid
+          // Pit Wall, so capacity changes only through the server while the charter runs.
+          && (!charterLive(resource.data) || request.resource.data.maxMembers == resource.data.maxMembers)
           // F-068: League Pro is derived from the owner's pass and stamped by a function;
           // an owner setting it by hand would hand themselves the paid features.
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pro', 'proUntil'])
@@ -160,7 +174,7 @@ service cloud.firestore {
           )
         )
       );
-      allow delete: if isLeagueOwner(leagueId);
+      allow delete: if isLeagueOwner(leagueId) && !charterLive(resource.data);
 
       // League members subcollection
       match /members/{memberId} {

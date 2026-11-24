@@ -108,3 +108,16 @@ export function charterEnabled(appConfig: unknown): boolean {
   const charter = (appConfig as { charter?: unknown }).charter;
   return !!charter && typeof charter === 'object' && (charter as { enabled?: unknown }).enabled === true;
 }
+
+/**
+ * Whether a write to users/{uid} changes what the `pw` claim is made from (`pass` or
+ * `charterAccess`). onUserPassWritten restamps only then; any other field (a display name, a push
+ * token) is skipped. A created or deleted document counts its fields as null on the missing side.
+ */
+export function claimInputsChanged(
+  before: Record<string, unknown> | null | undefined,
+  after: Record<string, unknown> | null | undefined,
+): boolean {
+  const same = (k: 'pass' | 'charterAccess') => JSON.stringify(before?.[k] ?? null) === JSON.stringify(after?.[k] ?? null);
+  return !(same('pass') && same('charterAccess'));
+}

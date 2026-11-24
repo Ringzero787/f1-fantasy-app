@@ -52,18 +52,24 @@ const byId = (a: { id: string }, b: { id: string }): number => (a.id < b.id ? -1
 /**
  * The public search order.
  *
+ * Only public leagues (`isPublic === true`) are listed.
  * 1. Chartered leagues (`charterActive` at `now`) by `searchPoints` desc, then id asc.
  * 2. Walking that points order from the top, each league moves up `climb(rankUpsThisWeek)` places
  *    in the list as it stands at that moment. Going top-down means a league is moved once, at its
  *    turn, and is never moved back by a climber below it acting first: two climbers do not swap
  *    twice. A league already at the top cannot climb.
- * 3. Then every other league in the input that is public (`isPublic === true`), by `memberCount`
+ * 3. Then every other public league, by `memberCount`
  *    desc, then id asc — what `getPublicLeagues` does today.
  *
  * `now` is passed in so the week is the caller's, and the function stays pure.
  */
 export function orderChartered<T extends SearchLeague>(leagues: readonly T[], now: number): T[] {
-  const chartered = leagues.filter((l) => charterActive(l, now));
+  const chartered: T[] = [];
+  const unchartered: T[] = [];
+  for (const l of leagues) {
+    if (l.isPublic !== true) continue; // search lists public leagues only, chartered or not
+    (charterActive(l, now) ? chartered : unchartered).push(l);
+  }
   const byPoints = [...chartered].sort((a, b) => num(b.searchPoints) - num(a.searchPoints) || byId(a, b));
   const order = [...byPoints];
   for (const league of byPoints) {
@@ -75,8 +81,6 @@ export function orderChartered<T extends SearchLeague>(leagues: readonly T[], no
     order.splice(at, 1);
     order.splice(to, 0, league);
   }
-  const rest = leagues
-    .filter((l) => !charterActive(l, now) && l.isPublic === true)
-    .sort((a, b) => num(b.memberCount) - num(a.memberCount) || byId(a, b));
+  const rest = unchartered.sort((a, b) => num(b.memberCount) - num(a.memberCount) || byId(a, b));
   return [...order, ...rest];
 }

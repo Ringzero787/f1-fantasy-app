@@ -16,7 +16,7 @@ import { createHandoff, deleteOldHandoffs, redeemHandoff, takeRateSlot } from '.
 import { passActive, PASS_PRICE_USD, saleSeason, type Pass } from './pass';
 import { expirePasses, grantPass, grantTrial, revokePass, stampClaim } from './passStore';
 import { checkoutSessionParams, verifyStripeSignature, webhookAction } from './stripe';
-import { claimExpiry, type CharterAccess } from '../charter/charter';
+import { claimExpiry, claimInputsChanged, type CharterAccess } from '../charter/charter';
 
 const db = admin.firestore();
 
@@ -145,10 +145,12 @@ export const expirePitWallPasses = onSchedule('every 24 hours', async () => {
 export const onUserPassWritten = onDocumentWritten({ document: 'users/{uid}', retry: true }, async (event) => {
   const before = event.data?.before.data();
   const after = event.data?.after.data();
-  const same = (k: 'pass' | 'charterAccess') => JSON.stringify(before?.[k] ?? null) === JSON.stringify(after?.[k] ?? null);
-  if (same('pass') && same('charterAccess')) return;
-  const pass = after?.pass as Partial<Pass> | undefined;
-  const charterAccess = after?.charterAccess as Partial<CharterAccess> | undefined;
+  if (!claimInputsChanged(before, after)) return;
+  // Stamp from the document as it is now, not from this event's snapshot: deliveries are not
+  // ordered and retry replays old ones, so a late grant event must not bring back a revoked claim.
+  const current = (await db.doc(`users/${event.params.uid}`).get()).data();
+  const pass = current?.pass as Partial<Pass> | undefined;
+  const charterAccess = current?.charterAccess as Partial<CharterAccess> | undefined;
   await stampClaim(event.params.uid, claimExpiry(pass, charterAccess, Date.now()));
 });
 

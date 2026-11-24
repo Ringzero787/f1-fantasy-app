@@ -172,3 +172,45 @@ test('the claim shape is unchanged: one number, epoch seconds, the same value pa
   assert.deepEqual(store.nextClaims(null, null), {});
   assert.deepEqual(store.nextClaims({ pw: 5, other: 'x' }, NaN), { other: 'x' });
 });
+
+// ── review fixes ──────────────────────────────────────────────────────────────
+test('orderChartered: a climb is clamped at the top of the list', () => {
+  const now = at('2026-11-25T12:00:00Z');
+  const wk = r.weekId(now);
+  const live = (id, pts, count) => ({ id, isPublic: true, chartered: true, searchPoints: pts,
+    charter: { expiresAt: now + 1e9 }, rankUpsWeek: { weekId: wk, count } });
+  const out = r.orderChartered([live('a', 300, 0), live('b', 200, 3), live('c', 100, 0)], now).map((l) => l.id);
+  assert.deepEqual(out, ['b', 'a', 'c']); // b climbs 3 but there is only one place above it
+});
+
+test('orderChartered: only public leagues are listed, chartered or not', () => {
+  const now = at('2026-11-25T12:00:00Z');
+  const out = r.orderChartered([
+    { id: 'hidden', isPublic: false, chartered: true, searchPoints: 999, charter: { expiresAt: now + 1e9 } },
+    { id: 'shown', isPublic: true, chartered: true, searchPoints: 1, charter: { expiresAt: now + 1e9 } },
+    { id: 'private', isPublic: false, memberCount: 20 },
+  ], now).map((l) => l.id);
+  assert.deepEqual(out, ['shown']);
+});
+
+test('claimInputsChanged: the trigger restamps only when pass or charterAccess changes', () => {
+  const pass = { active: true, expiresAt: 1 };
+  const access = { leagues: { L1: 5 } };
+  assert.equal(c.claimInputsChanged({ pass, name: 'a' }, { pass, name: 'b' }), false); // unrelated field
+  assert.equal(c.claimInputsChanged({ pass }, { pass: { ...pass, expiresAt: 2 } }), true);
+  assert.equal(c.claimInputsChanged({ pass }, { pass, charterAccess: access }), true); // only charter access
+  assert.equal(c.claimInputsChanged({ charterAccess: access }, { charterAccess: { leagues: {} } }), true); // a leave
+  assert.equal(c.claimInputsChanged(undefined, { pass }), true); // created
+  assert.equal(c.claimInputsChanged({ charterAccess: access }, undefined), true); // deleted
+  assert.equal(c.claimInputsChanged(undefined, { name: 'x' }), false);
+  assert.equal(c.claimInputsChanged({ pass: null }, {}), false); // null and absent are the same
+});
+
+test('onUserPassWritten stamps from a fresh read of the user, not the event snapshot', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'pitwall', 'index.ts'), 'utf8');
+  const body = src.slice(src.indexOf('export const onUserPassWritten'), src.indexOf('export { sweepRefundedPasses }'));
+  assert.match(body, /claimInputsChanged\(before, after\)/);
+  assert.match(body, /await db\.doc\(`users\/\$\{event\.params\.uid\}`\)\.get\(\)/);
+  assert.match(body, /claimExpiry\(pass, charterAccess, Date\.now\(\)\)/);
+  assert.doesNotMatch(body, /after\?\.pass/);
+});

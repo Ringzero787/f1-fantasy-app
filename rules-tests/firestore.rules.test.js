@@ -1219,3 +1219,31 @@ test('F-175: Rank Ups are written by the server only; approved members read them
   await assertFails(getDocs(collection(db(BOB), 'leagues', 'RK', 'rankUps')));
   await assertFails(getDocs(collection(db(MALLORY), 'leagues', 'RK', 'rankUps')));
 });
+
+// F-175 review fixes: a live charter blocks delete and growth, and every join asks first.
+const LIVE_CHARTER = (expiresAt) => ({ season: '2026', expiresAt, buyerId: OWNER, source: 'stripe', ref: 'evt_2', purchasedAt: 0 });
+
+test('F-175: the owner cannot delete a chartered league, and can once the charter has expired', async () => {
+  await seedChartered('D1', Date.now() + 1e10);
+  await assertFails(deleteDoc(doc(db(OWNER), 'leagues', 'D1')));
+  await seedChartered('D2', Date.now() - 1000);
+  await assertSucceeds(deleteDoc(doc(db(OWNER), 'leagues', 'D2')));
+});
+
+test('F-175: a chartered league never grows from a client; an ordinary league still can (expansion fallback)', async () => {
+  await seedChartered('G1', Date.now() + 1e10);
+  await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'G1'), { maxMembers: 42 }));
+  await assertSucceeds(updateDoc(doc(db(OWNER), 'leagues', 'G1'), { name: 'Renamed' }));
+  await seedLeague('G2');
+  await assertSucceeds(updateDoc(doc(db(OWNER), 'leagues', 'G2'), { maxMembers: 42 }));
+});
+
+test('F-175: joining a chartered league is always a pending request, even with approval off in its settings', async () => {
+  // odd state: chartered but settings never had requireApproval
+  await seedLeague('J1', { isPublic: true, chartered: true, charter: LIVE_CHARTER(Date.now() + 1e10) });
+  await assertFails(setDoc(doc(db(BOB), 'leagues', 'J1', 'members', BOB), joinMember('J1', BOB, 'approved')));
+  await assertSucceeds(setDoc(doc(db(BOB), 'leagues', 'J1', 'members', BOB), joinMember('J1', BOB, 'pending')));
+  // after expiry the league's own setting rules again
+  await seedLeague('J2', { isPublic: true, charter: LIVE_CHARTER(Date.now() - 1000) });
+  await assertSucceeds(setDoc(doc(db(BOB), 'leagues', 'J2', 'members', BOB), joinMember('J2', BOB, 'approved')));
+});

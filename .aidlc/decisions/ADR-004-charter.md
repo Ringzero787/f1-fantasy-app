@@ -21,6 +21,7 @@ Status: accepted (owner decision)
    leagues rank above other public leagues in search, by members' points, lifted up to three places
    a week by Rank Ups.
 6. The member cap stays 22 approved members.
+7. The personal pass keeps making the leagues its holder owns Pro (`markOwnedLeaguesPro`), as before. A Charter makes Pro only the league it was bought for. Charter access never makes any league Pro.
 
 ## Why
 Until now League Pro was derived from the owner's personal pass (F-060, F-061): the owner's $14.99
