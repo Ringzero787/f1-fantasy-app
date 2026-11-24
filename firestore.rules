@@ -490,6 +490,10 @@ service cloud.firestore {
                     // F-169: the six-in-a-row run is the server's alone (no client ever sent it;
                     // driverLockouts is left alone here because older builds created teams by addDoc)
                     && !('driverStreaks' in request.resource.data)
+                    // F-170: the Vegas auto-fill stamp decides who gets the stale-penalty refund, and the
+                    // refund record is the repair's idempotence key; both are the server's alone
+                    && !('lastAutoFill' in request.resource.data)
+                    && !('staleRefund' in request.resource.data)
                     // F-118: and no forged ace window, which the freeze is keyed on
                     && createdWithoutAceWindow(request.resource.data)
                     && usableLeagueId(request.resource.data);
@@ -499,7 +503,7 @@ service cloud.firestore {
                       'totalPoints', 'lockedPoints', 'scoredRaces',
                       'isLocked', 'lockStatus',
                       'drivers', 'constructor', 'budget', 'totalSpent',
-                      'racesSinceTransfer', 'driverLockouts', 'driverStreaks',
+                      'racesSinceTransfer', 'driverLockouts', 'driverStreaks', 'lastAutoFill', 'staleRefund',
                       'bestRacePoints', 'bestRaceId',
                       'moonshotPoints', 'moonshotStats'
                     ]))
