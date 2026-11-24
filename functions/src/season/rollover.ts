@@ -7,13 +7,15 @@
  *    points, no locks, no contracts — keeping its id, owner, name, league and avatar.
  *  - Leagues: kept with their members. The final table is archived under the league with its
  *    champion, and every member restarts at zero.
- *  - Prices: points per race × $10 (the method that set 2026 prices from 2025), from each driver's
- *    and constructor's per-race scores (`raceScores`), so a missed race does not drag a price down.
- *    Fewer than MIN_PRICED_RACES scored races → the newcomer price (2026 opened its rookies at $5).
+ *  - Prices: points per race × $6 drivers / $3 constructors (F-151), from each driver's and
+ *    constructor's per-race scores (`raceScores`), so a missed race does not drag a price down.
+ *    Fewer than MIN_PRICED_RACES scored races → the newcomer price: the median opening price of the
+ *    active entities of the same kind priced from their own results (owner, 2026-11-24, F-155).
  *
  * The script that applies these is functions/scripts/seasonRollover.js, run through `aidlc op`.
  */
 import { orderMembers, rankWrites } from '../scoring/standingsFields';
+import { NOTICE_LEAD_HOURS } from './offseasonNotice';
 
 /** Marks a field the writer deletes (FieldValue.delete()); a plain value so these stay pure. */
 export const DELETE = Object.freeze({ __delete: true }) as unknown as never;
@@ -180,6 +182,7 @@ export const DOLLARS_PER_POINT = 6;
  */
 export const CONSTRUCTOR_DOLLARS_PER_POINT = DOLLARS_PER_POINT / 2;
 export const MIN_PRICED_RACES = 5;
+/** Only the fallback now: the newcomer price when nothing of that kind is priced from its own results (see newcomerPrice). */
 export const NEWCOMER_PRICE = 5;
 export const MIN_PRICE = 5;
 const TIER_A = 240;
@@ -201,6 +204,31 @@ export function openingPrice(p: PriceInput, opts: { dollarsPerPoint?: number; mi
   const perRace = p.scorePoints / p.scoredRaces;
   const price = Math.max(MIN_PRICE, Math.round(perRace * rate));
   return { id: p.id, price, tier: tierOf(price), basis: `${p.scorePoints} pts / ${p.scoredRaces} races × $${rate}`, perRace: Math.round(perRace * 10) / 10 };
+}
+
+/** The middle value, the mean of the two middle values (rounded) for an even count; null for none. */
+export function median(values: number[]): number | null {
+  const v = values.filter((x) => typeof x === 'number' && Number.isFinite(x)).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const mid = Math.floor(v.length / 2);
+  return v.length % 2 ? v[mid] : Math.round((v[mid - 1] + v[mid]) / 2);
+}
+
+/**
+ * F-155, owner decision 2026-11-24: a newcomer opens at the median price of the season's drivers.
+ * It applies to every driver without MIN_PRICED_RACES scored races in the season — one who scored
+ * nothing, and a mid-season stand-in with a race or two (Câmara: 2 races in 2026) — and to a driver
+ * new to the game in the next season (F-156 reads it from `seasons/{to}.newcomerPrice`).
+ *
+ * The median is taken over the NEXT season's opening prices of the active entities priced from their
+ * own results, not over today's prices. Today's 2026 prices ran up through the season (active driver
+ * median $244 on 2026-11-24) while the rollover opens 2027 at 2026's opening level (median $150): a
+ * newcomer at $244 would open as the ninth dearest driver and in tier A with no results at all, which
+ * is not "a median driver". The dry run prints both figures. Constructors get the median constructor
+ * the same way (none qualifies on 2026's data). Null when nothing is priced from results.
+ */
+export function newcomerPrice(priced: Array<{ price: number; inactive?: boolean }>): number | null {
+  return median(priced.filter((p) => !p.inactive).map((p) => p.price));
 }
 
 /** The update for a driver or constructor: the new price as both price and previousPrice, the season's points archived. */
@@ -260,6 +288,8 @@ export interface RolloverPlan {
   groups: Group[];
   prices: Array<{ coll: string; id: string; from: number; out: PriceOutput; inactive: boolean; stamped: boolean }>;
   finals: { drivers: Record<string, { fantasyPoints: number }>; constructors: Record<string, { fantasyPoints: number }> };
+  /** F-155: the newcomer price per kind (null: nothing of that kind priced from results; NEWCOMER_PRICE is used) */
+  newcomer: { drivers: number | null; constructors: number | null };
   teams: { total: number; reset: number; archives: Doc[] };
   leagues: { total: number; reset: number; members: number; archives: Doc[] };
   newRaces: string[];
@@ -287,13 +317,24 @@ export function planRollover(i: RolloverInput): RolloverPlan {
   const prices: RolloverPlan['prices'] = [];
   const finals: RolloverPlan['finals'] = { drivers: {}, constructors: {} };
   const priceOps: Op[] = [];
+  const rateOf = (coll: string) => (coll === 'constructors' ? CONSTRUCTOR_DOLLARS_PER_POINT : DOLLARS_PER_POINT);
+  const inputOf = (e: RolloverInput['entities'][number]): PriceInput => {
+    const s = i.scores[e.id] ?? { races: 0, points: 0 };
+    return { id: e.id, scoredRaces: s.races, scorePoints: s.points, currentPrice: num(e.data.price) };
+  };
+  // F-155: the newcomer price per kind, from every entity priced on its own results — stamped ones
+  // included (the scores are the same on a re-run), so a re-run prices a newcomer the same way
+  const newcomer: RolloverPlan['newcomer'] = { drivers: null, constructors: null };
+  for (const coll of ['drivers', 'constructors'] as const) {
+    const priced = i.entities.filter((e) => e.coll === coll && inputOf(e).scoredRaces >= MIN_PRICED_RACES)
+      .map((e) => ({ price: openingPrice(inputOf(e), { dollarsPerPoint: rateOf(coll) }).price, inactive: e.data.isActive === false }));
+    newcomer[coll] = newcomerPrice(priced);
+  }
   for (const e of i.entities) {
     const stamped = e.data.pricedFor === i.to;
     // stamped: this season's points already moved to seasonPoints on an earlier run
     finals[e.coll][e.id] = { fantasyPoints: num(stamped ? e.data.seasonPoints : e.data.fantasyPoints) };
-    const s = i.scores[e.id] ?? { races: 0, points: 0 };
-    const rate = e.coll === 'constructors' ? CONSTRUCTOR_DOLLARS_PER_POINT : DOLLARS_PER_POINT;
-    const out = openingPrice({ id: e.id, scoredRaces: s.races, scorePoints: s.points, currentPrice: num(e.data.price) }, { dollarsPerPoint: rate });
+    const out = openingPrice(inputOf(e), { dollarsPerPoint: rateOf(e.coll), newcomer: newcomer[e.coll] ?? NEWCOMER_PRICE });
     prices.push({ coll: e.coll, id: e.id, from: num(e.data.price), out, inactive: e.data.isActive === false, stamped });
     if (!stamped) priceOps.push({ kind: 'update', path: `${e.coll}/${e.id}`, data: { ...entityPricePatch(e.data, out), pricedFor: i.to } });
   }
@@ -340,7 +381,8 @@ export function planRollover(i: RolloverInput): RolloverPlan {
   groups.push({
     label: 'season switch',
     ops: [
-      { kind: 'merge', path: `seasons/${i.to}`, data: { id: i.to, year: Number(i.to), name: `${i.to} Season`, isActive: true, startDate: first ? (first.schedule.fp1 ?? first.schedule.race) : null, endDate: last ? last.schedule.race : null, totalRaces: i.calendar.length, currentRound: 1, budget: START_BUDGET, teamSize: 5 } },
+      // newcomerPrice: what the next season's grid seed (F-156) prices a driver new to the game at
+      { kind: 'merge', path: `seasons/${i.to}`, data: { id: i.to, year: Number(i.to), name: `${i.to} Season`, isActive: true, startDate: first ? (first.schedule.fp1 ?? first.schedule.race) : null, endDate: last ? last.schedule.race : null, totalRaces: i.calendar.length, currentRound: 1, budget: START_BUDGET, teamSize: 5, newcomerPrice: newcomer.drivers ?? NEWCOMER_PRICE } },
       { kind: 'merge', path: `seasons/${i.from}`, data: { isActive: false, rolledOverAt: NOW, final: finals } },
       { kind: 'merge', path: 'config/app', data: { currentSeason: i.to } },
     ],
@@ -355,7 +397,7 @@ export function planRollover(i: RolloverInput): RolloverPlan {
     ...i.calendar.map((r) => `races/${r.id}`),
   ];
   return {
-    groups, prices, finals,
+    groups, prices, finals, newcomer,
     teams: { total: i.teams.length, reset: teamsReset, archives: teamArchives },
     leagues: { total: i.leagues.length, reset: leaguesReset, members: membersReset, archives: leagueArchives },
     newRaces, backupPaths,
@@ -383,6 +425,11 @@ export interface PreconditionInput {
   moonshots: Array<{ id: string; status?: unknown; settledAt?: unknown; raceId?: unknown }>;
   /** races the next season's calendar holds */
   calendarSize: number;
+  /**
+   * F-155: when the reset notice went out (offseasonNotice.ts noticeSentMs of seasons/{from}), null
+   * if never. Players are told before their teams are reset, or the rollover waits.
+   */
+  noticeSentMs: number | null;
 }
 
 /** A Moonshot call is finished when it was cancelled or settled (HIT, MISSED and VOID all stamp settledAt). */
@@ -419,6 +466,12 @@ export function rolloverBlockers(i: PreconditionInput): string[] {
   const unsettled = i.moonshots.filter((m) => !moonshotFinished(m));
   if (unsettled.length) out.push(`${unsettled.length} ${i.from} Moonshot call(s) not settled or cancelled: ${unsettled.slice(0, 10).map((m) => `${m.id} (${String(m.status)}, ${String(m.raceId)})`).join(', ')}${unsettled.length > 10 ? ', …' : ''}`);
   if (i.calendarSize === 0) out.push(`OpenF1 lists no ${i.to} races`);
+  // F-155: the notice gate. NOTICE_LEAD_HOURS is imported, not repeated, so the two cannot drift.
+  if (i.noticeSentMs === null || !Number.isFinite(i.noticeSentMs)) {
+    out.push(`players have not been told about the reset: run sendSeasonNotice.js (uc-script op) at least ${NOTICE_LEAD_HOURS} h before (seasons/${i.from}.resetNotice.sentAt is absent)`);
+  } else if ((i.now - i.noticeSentMs) / 3600e3 < NOTICE_LEAD_HOURS) {
+    out.push(`the reset notice went out ${((i.now - i.noticeSentMs) / 3600e3).toFixed(1)} h ago; wait ${NOTICE_LEAD_HOURS} h so players can read it first`);
+  }
   return out;
 }
 

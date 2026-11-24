@@ -3,6 +3,7 @@ import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
 import { sendPushToUsers } from './sendPush';
+import { broadcastRecipients } from '../season/offseasonNotice';
 
 const db = admin.firestore();
 const gmailAppPassword = defineSecret('GMAIL_APP_PASSWORD');
@@ -117,18 +118,10 @@ export const sendGlobalBroadcast = onCall(
       );
     }
 
-    // Fetch all users (IDs + emails)
-    const usersSnapshot = await db.collection('users').select('email').get();
-    const userIds: string[] = [];
-    const emails: string[] = [];
-
-    usersSnapshot.docs.forEach((doc) => {
-      userIds.push(doc.id);
-      const email = doc.data().email;
-      if (email && typeof email === 'string') {
-        emails.push(email);
-      }
-    });
+    // Every user but the store test accounts (F-164 testAccount; F-155: the season-reset notice is
+    // the first broadcast, and reviewers' and testers' inboxes are not players')
+    const usersSnapshot = await db.collection('users').select('email', 'testAccount').get();
+    const { userIds, emails } = broadcastRecipients(usersSnapshot.docs.map((d) => ({ id: d.id, data: d.data() })));
 
     // Send push notifications + in-app notifications
     await sendPushToUsers(userIds, title, body, {
