@@ -9,13 +9,17 @@
 //     2026-11-24, all from the old UI: the Grid UI registers none).
 // The channel that reaches every player is email, which Undercut sends only from Cloud Functions:
 // send the same title and body from the admin page's broadcast with "send email" ticked
-// (sendGlobalBroadcast, which skips test accounts from F-155). Run this script first: it is the
-// record the rollover checks.
+// (sendGlobalBroadcast, which skips test accounts from F-155), then stamp it with
+// stampSeasonNoticeEmail.js. Run this script first: the stamp refuses without it.
 //
 // Once per user: a ledger entry seasonNotices/{NOTICE_ID}/sent/{uid} is created in the same batch as
 // the inbox entry, so a re-run (after a failure, or for players who joined since) sends only to the
-// users without one. The ledger matches no rule, so no client can read or forge it. Last, it stamps
-// seasons/2026.resetNotice { id, sentAt, inbox, push } — the marker the rollover reads.
+// users without one. The ledger matches no rule, so no client can read or forge it. Each batch's
+// pushes go out right after it commits; a failed batch or push is counted, never fatal before the
+// stamp. Last, always, it stamps seasons/2026.resetNotice { id, sentAt, inbox, push, pushFailed }
+// with the real counts — sentAt is set once anything went out, and is the marker the rollover reads.
+// The rollover also needs resetNotice.emailAt, stamped by stampSeasonNoticeEmail.js after the owner
+// sends the email broadcast.
 //
 // Dry run by default: prints the wording and the recipient counts. `--apply` sends. The uc-script
 // op passes only --apply, so the reset day goes into RESET_DAY here, committed, before the op
@@ -29,6 +33,8 @@ const EXPECTED_PROJECT = 'f1-app-18077';
 const FROM = '2026';
 /** The day the rollover will run, as players read it, e.g. 'Monday 14 December'. Set before the op. */
 const RESET_DAY = '<RESET DAY>';
+/** Users per inbox batch (two writes each). */
+const DEFAULT_BATCH = 200;
 
 // Nothing happens on import: the key read and initializeApp sit in initAdmin, which only the
 // require.main guard at the foot calls (scripts/seedGuards.test.js holds every op script to this).
@@ -73,7 +79,8 @@ async function expoPush(messages) {
 }
 
 /** The whole run against `fs`; `push` sends Expo messages (stubbed in the emulator test). */
-async function run(fs, { apply, resetDay = RESET_DAY, push = expoPush, log = console.log }) {
+async function run(fs, { apply, resetDay = RESET_DAY, push = expoPush, log = console.log, batchSize }) {
+  const BATCH = batchSize || DEFAULT_BATCH;
   const N = lib();
   const { FieldValue } = admin.firestore;
   const body = N.noticeBody(resetDay);
@@ -88,28 +95,54 @@ async function run(fs, { apply, resetDay = RESET_DAY, push = expoPush, log = con
   if (!apply) { log('== dry run: nothing sent (add --apply)'); return { ...r, pushed: 0 }; }
   if (resetDay === N.DAY_PLACEHOLDER || !resetDay.trim()) throw new Error('refusing to send: set RESET_DAY in this script to the rollover day first');
 
-  const pushTo = new Set(r.push.map((p) => p.uid));
-  const messages = [];
-  for (let i = 0; i < r.inbox.length; i += 200) {
-    const batch = fs.batch();
-    for (const uid of r.inbox.slice(i, i + 200)) {
-      // create: a ledger entry another run wrote meanwhile fails this batch instead of sending twice
-      batch.create(ledger.doc(uid), { at: FieldValue.serverTimestamp(), push: pushTo.has(uid) });
-      batch.set(fs.collection('notifications').doc(), {
-        userId: uid, type: 'system_broadcast', title: N.NOTICE_TITLE, body, data: { type: 'system_broadcast', notice: N.NOTICE_ID },
-        read: false, createdAt: FieldValue.serverTimestamp(),
-      });
+  const tokenOf = new Map(r.push.map((p) => [p.uid, p.token]));
+  const counts = { inbox: 0, pushTried: 0, pushed: 0, pushFailed: 0, batchesFailed: 0 };
+  // one batch, then its pushes, then the next: a failure later in the run never strands pushes for
+  // users whose ledger entry (and so "already sent") is committed, and every failure is counted
+  for (let i = 0; i < r.inbox.length; i += BATCH) {
+    const uids = r.inbox.slice(i, i + BATCH);
+    try {
+      const batch = fs.batch();
+      for (const uid of uids) {
+        // create: a ledger entry another run wrote meanwhile fails this batch instead of sending twice
+        batch.create(ledger.doc(uid), { at: FieldValue.serverTimestamp(), push: tokenOf.has(uid) });
+        batch.set(fs.collection('notifications').doc(), {
+          userId: uid, type: 'system_broadcast', title: N.NOTICE_TITLE, body, data: { type: 'system_broadcast', notice: N.NOTICE_ID },
+          read: false, createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+      counts.inbox += uids.length;
+    } catch (e) {
+      counts.batchesFailed++;
+      log(`!! inbox batch ${i / BATCH + 1} (${uids.length} users) failed, nothing sent to them: ${e.message}`);
+      continue;
     }
-    await batch.commit();
-    for (const p of r.push) if (r.inbox.slice(i, i + 200).includes(p.uid)) messages.push({ to: p.token, sound: 'default', title: N.NOTICE_TITLE, body, data: { type: 'system_broadcast', notice: N.NOTICE_ID } });
+    const messages = uids.filter((u) => tokenOf.has(u)).map((u) => ({ to: tokenOf.get(u), sound: 'default', title: N.NOTICE_TITLE, body, data: { type: 'system_broadcast', notice: N.NOTICE_ID } }));
+    if (!messages.length) continue;
+    counts.pushTried += messages.length;
+    try {
+      const ok = await push(messages);
+      counts.pushed += ok;
+      counts.pushFailed += messages.length - ok;
+    } catch (e) {
+      counts.pushFailed += messages.length;
+      log(`!! push for batch ${i / BATCH + 1} failed (${messages.length} message(s)): ${e.message}`);
+    }
   }
-  const pushed = messages.length ? await push(messages) : 0;
-  await fs.doc(`seasons/${FROM}`).set({ resetNotice: {
-    id: N.NOTICE_ID, sentAt: marker && marker.sentAt ? marker.sentAt : FieldValue.serverTimestamp(),
-    inbox: (marker ? marker.inbox || 0 : 0) + r.inbox.length, push: (marker ? marker.push || 0 : 0) + pushed,
-  } }, { merge: true });
-  log(`== sent: ${r.inbox.length} inbox, ${pushed}/${messages.length} push accepted; seasons/${FROM}.resetNotice stamped. Now send the same title and body by email from the admin page broadcast.`);
-  return { ...r, pushed };
+  // always stamped with what really went out; sentAt only once something has (the rollover's gate)
+  const any = counts.inbox > 0 || (marker && marker.sentAt);
+  if (any) {
+    await fs.doc(`seasons/${FROM}`).set({ resetNotice: {
+      id: N.NOTICE_ID, sentAt: marker && marker.sentAt ? marker.sentAt : FieldValue.serverTimestamp(),
+      inbox: (marker ? marker.inbox || 0 : 0) + counts.inbox, push: (marker ? marker.push || 0 : 0) + counts.pushed,
+      pushFailed: (marker ? marker.pushFailed || 0 : 0) + counts.pushFailed,
+    } }, { merge: true });
+  }
+  log(`== sent: ${counts.inbox} inbox, ${counts.pushed}/${counts.pushTried} push accepted (${counts.pushFailed} failed), ${counts.batchesFailed} batch(es) failed; seasons/${FROM}.resetNotice ${any ? 'stamped' : 'NOT stamped (nothing went out)'}.`);
+  log('== next: send the same title and body by email from the admin page broadcast, then run stampSeasonNoticeEmail.js (uc-script op) — the rollover waits for both.');
+  if (counts.batchesFailed) throw new Error(`${counts.batchesFailed} inbox batch(es) failed; re-run to reach those users (the ledger skips everyone already sent)`);
+  return { ...r, ...counts };
 }
 
 /** The op's entry: production, RESET_DAY as committed. */

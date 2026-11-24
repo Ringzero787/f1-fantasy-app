@@ -325,6 +325,7 @@ const ready = (over = {}) => ({
   ],
   calendarSize: 24,
   noticeSentMs: NOW_MS - 72 * H,
+  noticeEmailMs: NOW_MS - 48 * H,
   ...over,
 });
 

@@ -430,6 +430,8 @@ export interface PreconditionInput {
    * if never. Players are told before their teams are reset, or the rollover waits.
    */
   noticeSentMs: number | null;
+  /** F-155: when the owner stamped the email broadcast (offseasonNotice.ts noticeEmailMs), null if never. */
+  noticeEmailMs: number | null;
 }
 
 /** A Moonshot call is finished when it was cancelled or settled (HIT, MISSED and VOID all stamp settledAt). */
@@ -471,6 +473,11 @@ export function rolloverBlockers(i: PreconditionInput): string[] {
     out.push(`players have not been told about the reset: run sendSeasonNotice.js (uc-script op) at least ${NOTICE_LEAD_HOURS} h before (seasons/${i.from}.resetNotice.sentAt is absent)`);
   } else if ((i.now - i.noticeSentMs) / 3600e3 < NOTICE_LEAD_HOURS) {
     out.push(`the reset notice went out ${((i.now - i.noticeSentMs) / 3600e3).toFixed(1)} h ago; wait ${NOTICE_LEAD_HOURS} h so players can read it first`);
+  }
+  // inbox + push reach about 10 of 66 players; email reaches all of them, and only the owner can send
+  // it (the admin broadcast) and say so (stampSeasonNoticeEmail.js)
+  if (i.noticeEmailMs === null || !Number.isFinite(i.noticeEmailMs)) {
+    out.push(`the reset email has not been stamped: send the admin broadcast with email, then run stampSeasonNoticeEmail.js (uc-script op) (seasons/${i.from}.resetNotice.emailAt is absent)`);
   }
   return out;
 }

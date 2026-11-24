@@ -6,7 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { retireSale, holdsDriver, retireBlockers } = require('../lib/teams/retireDriver.js');
+const { retireSale, holdsDriver, retireBlockers, retireBackupPaths } = require('../lib/teams/retireDriver.js');
 
 const team = (over = {}) => ({
   userId: 'u1', name: 'Pedal', budget: 40, totalSpent: 960, totalPoints: 300, lockedPoints: 100, racesSinceTransfer: 4,
@@ -65,14 +65,24 @@ test('no usable market price → the roster entry\'s current price', () => {
   assert.equal(retireSale(team(), 'ocon', -5).refund, 160);
 });
 
-test('a live weekend, a locked holder or an open Moonshot blocks the retirement', () => {
-  assert.deepEqual(retireBlockers({ lockedHolders: [], weekendLive: false, openMoonshots: [] }), []);
-  assert.equal(retireBlockers({ lockedHolders: ['t1'], weekendLive: true, openMoonshots: ['m1'] }).length, 3);
+test('a live weekend or an open Moonshot blocks the start; a locked holder does not (it is skipped per team)', () => {
+  assert.deepEqual(retireBlockers({ weekendLive: false, openMoonshots: [] }), []);
+  assert.equal(retireBlockers({ weekendLive: true, openMoonshots: ['m1'] }).length, 2);
 });
 
-test('the script writes each team with set + mergeFields, never update() (#305), and retires before it refunds', () => {
+test('a holder matched on an old entry\'s `id` (no driverId) is taken off and refunded', () => {
+  const s = retireSale({ budget: 0, totalSpent: 100, drivers: [{ id: 'ocon', purchasePrice: 100, currentPrice: 90 }, { driverId: 'gasly' }] }, 'ocon', 120);
+  assert.deepEqual([s.onRoster, s.refund, s.patch.budget, s.patch.totalSpent], [true, 120, 120, 0]);
+  assert.deepEqual(s.patch.drivers, [{ driverId: 'gasly' }]);
+});
+
+test('the op backup names the two drivers and the holding teams, never the whole collection', () => {
+  assert.deepEqual(retireBackupPaths('ocon', 'newbie', ['t1', 't2']), ['drivers/ocon', 'drivers/newbie', 'fantasyTeams/t1', 'fantasyTeams/t2']);
+  assert.deepEqual(retireBackupPaths('ocon', null, []), ['drivers/ocon']);
+});
+
+test('the script writes each team with set + mergeFields, never update() (#305)', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'setDriverSeat.js'), 'utf8');
   assert.match(src, /tx\.set\(teamRef, data, \{ mergeFields: Object\.keys\(data\)/);
   assert.doesNotMatch(src, /tx\.update\(teamRef/);
-  assert.ok(src.indexOf('await batch.commit()') < src.indexOf('fs.runTransaction'), 'isActive: false goes in before any refund');
 });

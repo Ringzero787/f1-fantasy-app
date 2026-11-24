@@ -16,7 +16,8 @@ const admin = require('firebase-admin');
 const app = admin.initializeApp({ projectId: PROJECT }, 'f155-notice');
 const db = app.firestore();
 const { run } = require('../../scripts/sendSeasonNotice.js');
-const { noticeSentMs } = require('../../lib/season/offseasonNotice.js');
+const { run: stampEmail } = require('../../scripts/stampSeasonNoticeEmail.js');
+const { noticeSentMs, noticeEmailMs } = require('../../lib/season/offseasonNotice.js');
 
 const quiet = { log: () => {} };
 const tok = (n) => `ExponentPushToken[${n}]`;
@@ -65,4 +66,36 @@ test('apply: inbox for every real user, push for the token holder, nothing for t
   const again = (await db.doc('seasons/2026').get()).data();
   assert.equal(noticeSentMs(again), first, 'the gate counts from the first send');
   assert.equal(again.resetNotice.inbox, 3);
+});
+
+test('each batch pushes right after it commits; a push that throws is counted and the marker is still stamped', async () => {
+  await seed();
+  await db.doc('users/d').set({ email: 'd@x', pushToken: tok('d') });
+  const calls = [];
+  // one user per batch; the first push throws (fetch down), the second is accepted
+  const push = async (m) => { calls.push(m.map((x) => x.to)); if (calls.length === 1) throw new Error('fetch failed'); return m.length; };
+  const out = await run(db, { apply: true, resetDay: 'Monday 14 December', push, batchSize: 1, ...quiet });
+  assert.deepEqual(calls, [[tok('a')], [tok('d')]], 'a push per batch, not one at the end');
+  assert.deepEqual([out.inbox, out.pushed, out.pushFailed, out.batchesFailed], [3, 1, 1, 0]);
+  const n = (await db.doc('seasons/2026').get()).data().resetNotice;
+  assert.ok(noticeSentMs({ resetNotice: n }) > 0);
+  assert.deepEqual([n.inbox, n.push, n.pushFailed], [3, 1, 1]);
+});
+
+test('the email stamp: refuses before the notice, writes only emailAt, keeps the counts, is idempotent', async () => {
+  await seed();
+  await assert.rejects(stampEmail(db, { apply: true, ...quiet }), /sendSeasonNotice\.js has not run/);
+  await run(db, { apply: true, resetDay: 'Monday 14 December', push: async (m) => m.length, ...quiet });
+  await stampEmail(db, { apply: false, ...quiet });
+  assert.equal(noticeEmailMs((await db.doc('seasons/2026').get()).data()), null, 'dry run writes nothing');
+  await stampEmail(db, { apply: true, ...quiet });
+  const s1 = (await db.doc('seasons/2026').get()).data();
+  const at = noticeEmailMs(s1);
+  assert.ok(at > 0);
+  assert.equal(s1.resetNotice.inbox, 2, 'the notice counts stay');
+  await stampEmail(db, { apply: true, ...quiet });
+  assert.equal(noticeEmailMs((await db.doc('seasons/2026').get()).data()), at);
+  // and a later notice re-run keeps emailAt (a deep merge)
+  await run(db, { apply: true, resetDay: 'Monday 14 December', push: async (m) => m.length, ...quiet });
+  assert.equal(noticeEmailMs((await db.doc('seasons/2026').get()).data()), at);
 });

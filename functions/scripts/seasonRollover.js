@@ -139,8 +139,9 @@ async function main(conn) {
     fromSeason, currentSeason: appCfg.currentSeason,
     fromRaces: fromRaces.map((r) => ({ id: r.id, status: r.status, raceTimeMs: toMs(r.schedule && r.schedule.race) })),
     pendingResultIds, scoredRaceIds: [...scoredRaceIds], moonshots, calendarSize: calendar.length,
-    // F-155: the reset notice (sendSeasonNotice.js) must have gone out first
+    // F-155: the reset notice (sendSeasonNotice.js, 24 h before) and the owner's email stamp (stampSeasonNoticeEmail.js)
     noticeSentMs: lib('offseasonNotice.js').noticeSentMs(fromSeason),
+    noticeEmailMs: lib('offseasonNotice.js').noticeEmailMs(fromSeason),
   });
   const existingRaces = (await db.collection('races').where('seasonId', '==', TO).get()).docs.map((d) => d.id);
 

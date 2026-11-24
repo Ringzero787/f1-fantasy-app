@@ -9,7 +9,8 @@
 //     the new race id, so prices see a plausible extra race instead of a missed one;
 //   - pendingResults still pending for FROM → status 'rehearsal-cleared';
 //   - Moonshot calls of FROM not settled or cancelled → CANCELLED.
-//   - seasons/FROM.resetNotice.sentAt → 48 h ago, as if sendSeasonNotice.js had run (F-155 gate).
+//   - seasons/FROM.resetNotice.sentAt → 48 h ago and emailAt → 47 h ago, as if sendSeasonNotice.js
+//     and stampSeasonNoticeEmail.js had run (F-155 gate).
 //   - with --hostile-fields: three teams get top-level fields a player could write to their own team
 //     (`a.b`, `x*y`, `odd~[name]`), to prove the reset still clears them (F-154 security review).
 // The full procedure is scripts/ops/rollover-rehearsal.sh; the results are in .aidlc/specs/F-150.md.
@@ -51,7 +52,7 @@ async function main(write) {
     if ((d.seasonId === FROM || fromIds.has(d.raceId)) && d.status !== 'CANCELLED' && !d.settledAt) ops.push([`moonshots/${m.id}`, 'update', { status: 'CANCELLED', rehearsalDoctored: true }]);
   }
   // F-155: the rollover refuses until players were told; the copy holds no users, so nobody is
-  ops.push([`seasons/${FROM}`, 'set-merge', { resetNotice: { sentAt: Timestamp.fromMillis(now - 48 * 3600e3), rehearsalDoctored: true } }]);
+  ops.push([`seasons/${FROM}`, 'set-merge', { resetNotice: { sentAt: Timestamp.fromMillis(now - 48 * 3600e3), emailAt: Timestamp.fromMillis(now - 47 * 3600e3), rehearsalDoctored: true } }]);
   if (process.argv.includes('--hostile-fields')) {
     for (const t of (await db.collection('fantasyTeams').limit(3).get()).docs) ops.push([`fantasyTeams/${t.id}`, 'set-merge', { 'a.b': 1, 'x*y': 2, 'odd~[name]': 3 }]);
   }

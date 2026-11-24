@@ -49,23 +49,28 @@ test('the marker is read from a Timestamp, a number or an ISO string; absent is 
   assert.equal(N.noticeSentMs({ resetNotice: { sentAt: '2026-12-10T00:00:00Z' } }), Date.parse('2026-12-10T00:00:00Z'));
   assert.equal(N.noticeSentMs({}), null);
   assert.equal(N.noticeSentMs({ resetNotice: { sentAt: 'soon' } }), null);
+  assert.equal(N.noticeEmailMs({ resetNotice: { sentAt: 5, emailAt: { toMillis: () => 9 } } }), 9);
+  assert.equal(N.noticeEmailMs({ resetNotice: { sentAt: 5 } }), null);
 });
 
 const H = 3600e3;
 const NOW = Date.parse('2026-12-10T12:00:00Z');
-const ready = (noticeSentMs) => ({
+const ready = (noticeSentMs, noticeEmailMs = NOW - 1 * H) => ({
   from: '2026', to: '2027', now: NOW, settleHours: 24, fromSeason: {}, currentSeason: '2026',
   fromRaces: [{ id: 'abu_dhabi_2026', status: 'completed', raceTimeMs: NOW - 96 * H }],
-  pendingResultIds: [], scoredRaceIds: ['abu_dhabi_2026'], moonshots: [], calendarSize: 24, noticeSentMs,
+  pendingResultIds: [], scoredRaceIds: ['abu_dhabi_2026'], moonshots: [], calendarSize: 24, noticeSentMs, noticeEmailMs,
 });
 
 test('F-155 gate: the rollover refuses until the notice has been out NOTICE_LEAD_HOURS', () => {
   assert.deepEqual(R.rolloverBlockers(ready(NOW - 25 * H)), []);
   assert.match(R.rolloverBlockers(ready(null)).join(), /not been told about the reset/);
   assert.match(R.rolloverBlockers(ready(NOW - 2 * H)).join(), /went out 2\.0 h ago; wait 24 h/);
+  assert.match(R.rolloverBlockers(ready(NOW - 25 * H, null)).join(), /reset email has not been stamped/, 'push + inbox alone do not open the gate');
+  assert.equal(R.rolloverBlockers(ready(null, null)).length, 2);
   assert.equal(N.NOTICE_LEAD_HOURS, 24);
   const script = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'seasonRollover.js'), 'utf8');
   assert.match(script, /noticeSentMs: lib\('offseasonNotice\.js'\)\.noticeSentMs\(fromSeason\)/, 'the script feeds the gate from seasons/2026');
+  assert.match(script, /noticeEmailMs: lib\('offseasonNotice\.js'\)\.noticeEmailMs\(fromSeason\)/);
 });
 
 test('the send script refuses while the reset day is the placeholder', () => {

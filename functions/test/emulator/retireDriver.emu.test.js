@@ -49,6 +49,8 @@ async function seed() {
     tB: { userId: 'u2', name: 'B', budget: 0, totalSpent: 100, totalPoints: 40, lockedPoints: 5, racesSinceTransfer: 3, drivers: [entry('ocon', { pointsScored: 12 })], constructor: null },
     // only a lockout entry
     tC: { userId: 'u3', name: 'C', budget: 1000, totalSpent: 0, drivers: [], driverLockouts: { ocon: 2, norris: 4 } },
+    // an old roster entry keyed by `id`, no driverId
+    tE: { userId: 'u5', name: 'E', budget: 0, totalSpent: 100, drivers: [{ id: 'ocon', purchasePrice: 100, currentPrice: 100 }], constructor: null },
     // not a holder
     tD: { userId: 'u4', name: 'D', budget: 835, totalSpent: 165, drivers: [entry('gasly')], constructor: { constructorId: 'alpine' } },
   };
@@ -62,7 +64,7 @@ test.after(() => app.delete());
 test('the dry run writes nothing and reports every holder', async () => {
   await seed();
   const s = await run(db, DESIRED, { apply: false, ...quiet });
-  assert.equal(s.holders, 3);
+  assert.equal(s.holders, 4);
   assert.equal((await db.doc('drivers/ocon').get()).data().isActive, true);
   assert.equal((await team('tA')).drivers.length, 2);
   assert.equal((await db.doc('drivers/newbie').get()).exists, false);
@@ -71,7 +73,7 @@ test('the dry run writes nothing and reports every holder', async () => {
 test('the apply retires him, refunds every holder at his current price and touches nobody else', async () => {
   await seed();
   const s = await run(db, DESIRED, { apply: true, ...quiet });
-  assert.deepEqual([s.refunded, s.refundTotal, s.failed.length], [3, 240, 0]);
+  assert.deepEqual([s.refunded, s.refundTotal, s.failed.length], [4, 360, 0]);
   const ocon = (await db.doc('drivers/ocon').get()).data();
   assert.deepEqual([ocon.isActive, ocon.retiredFor], [false, 'newbie']);
   assert.equal((await db.doc('drivers/newbie').get()).data().price, 150);
@@ -93,6 +95,9 @@ test('the apply retires him, refunds every holder at his current price and touch
   const c = await team('tC');
   assert.deepEqual([c.budget, c.driverLockouts], [1000, { norris: 4 }]);
 
+  const e = await team('tE');
+  assert.deepEqual([e.drivers, e.budget, e.totalSpent], [[], 120, 0], 'matched on id');
+
   const d = await team('tD');
   assert.equal(d.updatedAt.toMillis(), 0, 'a team that never held him is not written');
 });
@@ -105,11 +110,29 @@ test('a re-run finds nothing left to refund', async () => {
   assert.equal((await team('tA')).budget, 130, 'refunded once');
 });
 
-test('refused: a locked holder, refundHolders off, or a live weekend — and nothing is written', async () => {
+test('a locked team is skipped while every other holder is still written; the run reports it and a re-run finishes', async () => {
   await seed();
   await db.doc('fantasyTeams/tB').set({ isLocked: true }, { merge: true });
-  await assert.rejects(run(db, DESIRED, { apply: true, ...quiet }), /holding team\(s\) are locked: tB/);
+  await assert.rejects(run(db, DESIRED, { apply: true, ...quiet }), /tB: locked/);
+  assert.equal((await team('tB')).drivers.length, 1, 'the locked team is untouched');
+  assert.equal((await team('tA')).budget, 130, 'the others are written');
+  assert.equal((await team('tE')).budget, 120);
   await db.doc('fantasyTeams/tB').set({ isLocked: false }, { merge: true });
+  const again = await run(db, DESIRED, { apply: true, ...quiet });
+  assert.deepEqual([again.holders, again.refunded], [1, 1]);
+  assert.equal((await team('tB')).budget, 120);
+});
+
+test('a weekend that goes live mid-run stops the loop before the next team', async () => {
+  await seed();
+  // the marker appears after the start check, before the retirement: every refund transaction sees it
+  const afterRead = () => db.doc('config/lockState').set({ raceId: 'australia_2027', aceLockUntil: Timestamp.fromMillis(Date.now() + 3600e3) });
+  await assert.rejects(run(db, DESIRED, { apply: true, afterRead, ...quiet }), /weekend went live/);
+  for (const id of ['tA', 'tB', 'tE']) assert.equal((await team(id)).drivers.some((d) => d.driverId === 'ocon' || d.id === 'ocon'), true, `${id} not written`);
+});
+
+test('refused before anything is written: refundHolders off, or a live weekend', async () => {
+  await seed();
   await assert.rejects(run(db, { ...DESIRED, refundHolders: false }, { apply: true, ...quiet }), /refundHolders is false/);
   await db.doc('config/lockState').set({ raceId: 'australia_2027', aceLockUntil: Timestamp.fromMillis(Date.now() + 3600e3) });
   await assert.rejects(run(db, DESIRED, { apply: true, ...quiet }), /race weekend is live/);
@@ -117,9 +140,39 @@ test('refused: a locked holder, refundHolders off, or a live weekend — and not
   assert.equal((await team('tA')).drivers.length, 2);
 });
 
+test('a team that buys him between the first read and the retirement is refunded too (holders re-read after the commit)', async () => {
+  await seed();
+  const afterRead = () => db.doc('fantasyTeams/late').set({ userId: 'u9', name: 'Late', budget: 880, totalSpent: 120, isLocked: false, drivers: [entry('ocon', { purchasePrice: 120 })] });
+  const s = await run(db, DESIRED, { apply: true, afterRead, ...quiet });
+  assert.deepEqual(s.notInBackup, ['late']);
+  const late = await team('late');
+  assert.deepEqual([late.drivers.length, late.budget], [0, 1000]);
+});
+
+test('a new driver with no price opens at seasons/<current>.newcomerPrice; none there refuses', async () => {
+  await seed();
+  const { price, previousPrice, tier, ...noPrice } = DESIRED.add;
+  const desired = { ...DESIRED, add: noPrice };
+  await assert.rejects(run(db, desired, { apply: false, ...quiet }), /no newcomer price/);
+  await db.doc('config/app').set({ currentSeason: '2027' });
+  await db.doc('seasons/2027').set({ newcomerPrice: 150 });
+  await run(db, desired, { apply: true, ...quiet });
+  const n = (await db.doc('drivers/newbie').get()).data();
+  assert.deepEqual([n.price, n.previousPrice, n.tier], [150, 150, 'B']);
+});
+
+test('a re-run on a driver already retired keeps his retiredAt', async () => {
+  await seed();
+  await run(db, DESIRED, { apply: true, ...quiet });
+  const first = (await db.doc('drivers/ocon').get()).data().retiredAt.toMillis();
+  await new Promise((r) => setTimeout(r, 20));
+  await run(db, DESIRED, { apply: true, ...quiet });
+  assert.equal((await db.doc('drivers/ocon').get()).data().retiredAt.toMillis(), first);
+});
+
 test('retiring with no replacement (add: null) and no holders', async () => {
   await seed();
-  for (const id of ['tA', 'tB', 'tC']) await db.doc(`fantasyTeams/${id}`).delete();
+  for (const id of ['tA', 'tB', 'tC', 'tE']) await db.doc(`fantasyTeams/${id}`).delete();
   const s = await run(db, { retire: 'ocon', refundHolders: false, add: null }, { apply: true, ...quiet });
   assert.equal(s.holders, 0);
   const ocon = (await db.doc('drivers/ocon').get()).data();

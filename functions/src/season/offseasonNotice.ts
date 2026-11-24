@@ -10,7 +10,8 @@
  * nothing. The channel that reaches every player is email (every user has an address), which
  * Undercut sends only from inside Cloud Functions (GMAIL_APP_PASSWORD is a functions secret, not on
  * the build box): the admin page's broadcast (sendGlobalBroadcast, "send email" ticked), which F-155
- * makes skip test accounts too.
+ * makes skip test accounts too. The owner stamps `resetNotice.emailAt` (stampSeasonNoticeEmail.js) once
+ * it has gone out, and the rollover waits for both stamps.
  */
 export const NOTICE_ID = 'season-reset-2026';
 
@@ -68,12 +69,22 @@ export function broadcastRecipients(users: Array<{ id: string; data: Doc }>): { 
   };
 }
 
-/** When the notice went out, from `seasons/{from}.resetNotice.sentAt` (a Timestamp, ms or ISO); null if never. */
-export function noticeSentMs(fromSeason: Doc): number | null {
-  const n = fromSeason.resetNotice;
-  if (!n || typeof n !== 'object') return null;
-  const v = (n as Doc).sentAt as unknown;
+const stampMs = (v: unknown): number | null => {
   const ms = v && typeof (v as { toMillis?: unknown }).toMillis === 'function' ? (v as { toMillis: () => number }).toMillis()
     : typeof v === 'number' ? v : typeof v === 'string' ? Date.parse(v) : NaN;
   return Number.isFinite(ms) ? ms : null;
+};
+const noticeField = (fromSeason: Doc, k: string): unknown => {
+  const n = fromSeason.resetNotice;
+  return n && typeof n === 'object' ? (n as Doc)[k] : undefined;
+};
+
+/** When the inbox + push notice went out, from `seasons/{from}.resetNotice.sentAt` (a Timestamp, ms or ISO); null if never. */
+export function noticeSentMs(fromSeason: Doc): number | null {
+  return stampMs(noticeField(fromSeason, 'sentAt'));
+}
+
+/** When the owner said the email broadcast went out (`resetNotice.emailAt`, stampSeasonNoticeEmail.js); null if never. */
+export function noticeEmailMs(fromSeason: Doc): number | null {
+  return stampMs(noticeField(fromSeason, 'emailAt'));
 }

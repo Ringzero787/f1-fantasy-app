@@ -3,8 +3,8 @@
  *
  * The 2027 grid seed (F-156) runs while the market is open (owner decision 2026-11-24), so teams
  * built between the rollover and the seed may hold a driver who has no 2027 seat. functions/scripts/
- * setDriverSeat.js retires him (`isActive: false`) and then writes, per holding team, the patch
- * below in its own transaction. Pure, so the patch is tested without Firestore.
+ * setDriverSeat.js retires him (`isActive: false`), then reads the holders again and writes, per
+ * holding team, the patch below in its own transaction. Pure, so the patch is tested without Firestore.
  *
  * It is the sale removeDriverSecure makes (teamOperations.ts), with three differences:
  *  - the team gets his CURRENT market price back, whole: no early-termination fee — the player did
@@ -87,14 +87,24 @@ export function retireSale(team: Doc, driverId: string, marketPrice: unknown): R
 }
 
 /**
- * Why a retirement with refunds must not write now; empty = go. A team mid-weekend (locked, or the
- * weekend's lock marker live) is being scored from its roster: taking a driver off it would change
- * that race's result. An open Moonshot on him needs a void path first (a different decision).
+ * Why a retirement with refunds must not start now; empty = go. A live weekend (the lock marker) is
+ * being scored from rosters: taking a driver off one would change that race's result. An open
+ * Moonshot on him needs a void path first (a different decision). A LOCKED holder does not stop the
+ * run: the script re-checks the lock per team inside its transaction, skips a locked team and
+ * reports it, and a re-run after the weekend finishes it.
  */
-export function retireBlockers(i: { lockedHolders: string[]; weekendLive: boolean; openMoonshots: string[] }): string[] {
+export function retireBlockers(i: { weekendLive: boolean; openMoonshots: string[] }): string[] {
   const out: string[] = [];
   if (i.weekendLive) out.push('a race weekend is live (config/lockState): retire after it is scored');
-  if (i.lockedHolders.length) out.push(`${i.lockedHolders.length} holding team(s) are locked: ${i.lockedHolders.slice(0, 10).join(', ')}`);
   if (i.openMoonshots.length) out.push(`${i.openMoonshots.length} open Moonshot call(s) on him: ${i.openMoonshots.slice(0, 10).join(', ')}`);
   return out;
+}
+
+/**
+ * The uc-script op's backup list for a retirement: the two driver documents and the holding teams,
+ * never the whole fantasyTeams collection — the market is open, and a rollback of the collection
+ * would undo every other player's changes since the backup.
+ */
+export function retireBackupPaths(retire: string, addId: string | null, holderIds: string[]): string[] {
+  return [`drivers/${retire}`, ...(addId ? [`drivers/${addId}`] : []), ...holderIds.map((id) => `fantasyTeams/${id}`)];
 }

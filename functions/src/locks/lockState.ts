@@ -32,8 +32,15 @@ export async function liveLockState(
   now = Date.now(),
 ): Promise<LockState | null> {
   const snap = await db.doc(LOCK_STATE_PATH).get();
-  if (!snap.exists) return null;
-  const d = snap.data() as Partial<LockState> | undefined;
+  return lockStateFrom(snap.exists ? snap.data() : undefined, now);
+}
+
+/**
+ * The same judgement from a document already read — inside a transaction, where the read must go
+ * through `tx.get` (F-155: the retire-with-refund script re-checks it per team).
+ */
+export function lockStateFrom(data: unknown, now = Date.now()): LockState | null {
+  const d = data as Partial<LockState> | undefined;
   const until = d?.aceLockUntil;
   if (!d?.raceId || !until || typeof until.toMillis !== 'function') return null;
   if (until.toMillis() <= now) return null;
