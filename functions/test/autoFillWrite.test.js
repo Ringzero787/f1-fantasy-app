@@ -145,6 +145,28 @@ test('F-170: a fill counts as a transfer: the stale-roster counter goes back to 
   assert.ok(options.mergeFields.includes('racesSinceTransfer'), 'written, not merged around');
 });
 
+test('F-170: a team auto-fill does not touch keeps its counter (no write at all)', async () => {
+  const full = { ...EMPTY_TEAM, racesSinceTransfer: 14, drivers: CTX.drivers.slice(0, 5).map((d) => ({ driverId: d.id })), constructor: { constructorId: 'red_bull' } };
+  for (const team of [full, { ...EMPTY_TEAM, racesSinceTransfer: 14, scoredRaces: [] }, { ...EMPTY_TEAM, racesSinceTransfer: 14, isLocked: true }]) {
+    const { db, ref, calls } = recordingDb(team);
+    assert.equal(await autoFillTeamTx(db, ref, CTX, 'las_vegas_2026'), null);
+    assert.equal(calls.length, 0);
+  }
+});
+
+test('F-170 ordering: the lock sweep is the only caller of a fill, so it always precedes race scoring', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+  const callers = walk(path.join(__dirname, '..', 'src')).filter((f) => f.endsWith('.ts') && !f.endsWith('autoFill.ts'))
+    .filter((f) => /autoFillTeamTx\(/.test(fs.readFileSync(f, 'utf8'))).map((f) => path.relative(path.join(__dirname, '..'), f));
+  assert.deepEqual(callers, [path.join('src', 'locks', 'teamLocks.ts')], 'a new fill path must be checked against the stale-roster penalty order');
+  const locks = fs.readFileSync(path.join(__dirname, '..', 'src', 'locks', 'teamLocks.ts'), 'utf8');
+  const call = locks.indexOf('autoFillTeamTx(db');
+  const enclosing = locks.slice(locks.lastIndexOf('export const ', call)).match(/^export const (\w+)/)[1];
+  assert.equal(enclosing, 'autoLockTeams', 'called inside the lock sweep');
+});
+
 test('a team that already has a constructor keeps it: written back unchanged, nothing bought', () => {
   const owned = { constructorId: 'aston_martin', name: 'aston_martin', purchasePrice: 9, currentPrice: 9 };
   const team = { ...EMPTY_TEAM, constructor: owned };
