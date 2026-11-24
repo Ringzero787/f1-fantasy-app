@@ -2214,7 +2214,7 @@ features:
   - id: F-172
     name: "UC: compare every race of the season with the official classification"
     summary: "The ops check compares races of the last 7 days every hour and every completed race of the season once a day (07 UTC), with the ingestion car table under each race's own map; known differences are acknowledged by exact set, so any further change fails again"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-172.md
     created_at: 2026-11-24
     keywords:
