@@ -75,6 +75,6 @@ test('F-155 gate: the rollover refuses until the notice has been out NOTICE_LEAD
 
 test('the send script refuses while the reset day is the placeholder', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'sendSeasonNotice.js'), 'utf8');
-  assert.match(src, new RegExp(`const RESET_DAY = '${N.DAY_PLACEHOLDER.replace(/[<>]/g, '\\$&')}'`));
+  assert.ok(src.includes(`const RESET_DAY = '${N.DAY_PLACEHOLDER}'`), 'RESET_DAY is committed as the placeholder');
   assert.match(src, /resetDay === N\.DAY_PLACEHOLDER/);
 });
