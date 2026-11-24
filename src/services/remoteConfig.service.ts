@@ -65,6 +65,8 @@ export interface AppVersionConfig {
   currentSeason?: string | null;
   /** F-108: the Moonshot block, parsed by src/simple/grid/moonshot.ts (absent → off) */
   moonshot?: unknown;
+  /** F-174: the Team panel notice, parsed fail-closed by src/simple/grid/notice.ts (absent → no banner) */
+  notice?: unknown;
 }
 
 const DEFAULT_APP_CONFIG: AppVersionConfig = {
