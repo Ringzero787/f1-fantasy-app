@@ -54,6 +54,9 @@ describe('lock status', () => {
   it('formats the round line and progress', () => {
     expect(formatRoundStatus(17, 24, 'Baku')).toBe('RD 17 / 24 · BAKU');
     expect(formatRoundStatus(17, 24, '')).toBe('RD 17 / 24');
+    // F-157: no round yet → the app's season, never the device clock's year
+    expect(formatRoundStatus(null, 0, null, '2026')).toBe('SEASON 2026');
+    expect(formatRoundStatus(null, 0)).toBe('SEASON');
     expect(seasonProgress(16, 24)).toBeCloseTo(0.6667, 3);
     expect(seasonProgress(30, 24)).toBe(1);
   });

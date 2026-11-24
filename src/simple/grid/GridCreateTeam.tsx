@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
+import { useCurrentSeasonId } from '../../hooks/useCurrentSeason';
 import { GridField, AuthError } from './GridAuthBits';
 import { MonoLabel, PillButton } from './GridBits';
 
@@ -14,6 +15,7 @@ interface Props {
 // with the optional league code kept. Lands on the Team grid with 6 open slots.
 export const GridCreateTeam = React.memo(function GridCreateTeam({ onCreate, isSecondTeam, onCancel }: Props) {
   const { colors, family, spacing, scaled, title } = useSimpleTheme();
+  const seasonId = useCurrentSeasonId();
   const [name, setName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -32,7 +34,7 @@ export const GridCreateTeam = React.memo(function GridCreateTeam({ onCreate, isS
     <View style={{ flex: 1, paddingHorizontal: spacing.xl, paddingTop: 24, gap: 14 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <MonoLabel>{isSecondTeam ? 'SECOND TEAM' : 'FIRST RUN'}</MonoLabel>
-        <MonoLabel>{`SEASON ${new Date().getFullYear()}`}</MonoLabel>
+        <MonoLabel>{`SEASON ${seasonId}`}</MonoLabel>
       </View>
       <Text style={title}>Name your team</Text>
       <Text style={{ fontFamily: family.ui.regular, fontSize: scaled(12), lineHeight: scaled(18), color: colors.text.muted, marginBottom: 8 }}>

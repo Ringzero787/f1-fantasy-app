@@ -50,25 +50,31 @@ export function pickSeasonRow<T extends { raceId: string; round: number; seasonI
   return best;
 }
 
-/** The first driver row of a query ordered by round desc, below `beforeRound` when given; null when empty or on error. */
-async function topDriverRow(scoped: string | null, beforeRound?: number): Promise<RaceScore | null> {
+/**
+ * The top driver rows of a query ordered by round desc, below `beforeRound` when given; [] when empty
+ * or (scoped) on error. The unscoped read takes a few rounds' worth (UNSCOPED_ROWS), not one: its
+ * first row may belong to another season (a 2027 R1 tied with 2026 R1), and the current season's
+ * unstamped rows must still be found below it.
+ */
+const UNSCOPED_ROWS = 80;
+async function topDriverRows(scoped: string | null, beforeRound?: number): Promise<RaceScore[]> {
   const clauses = [where('entityType', '==', 'driver')];
   if (scoped) clauses.push(where('seasonId', '==', scoped));
   if (beforeRound !== undefined) clauses.push(where('round', '<', beforeRound));
   try {
-    const snap = await getDocs(query(raceScoresCollection, ...clauses, orderBy('round', 'desc'), limit(1)));
-    return snap.empty ? null : (snap.docs[0].data() as RaceScore);
+    const snap = await getDocs(query(raceScoresCollection, ...clauses, orderBy('round', 'desc'), limit(scoped ? 1 : UNSCOPED_ROWS)));
+    return snap.docs.map((d) => d.data() as RaceScore);
   } catch (e) {
     if (!scoped) throw e;
     // the scoped index may not be deployed yet: the unscoped read still answers for pre-F-168 rows
     console.warn('[RaceScores] season-scoped query failed, using the unscoped one:', e);
-    return null;
+    return [];
   }
 }
 
 async function topRowInSeason(seasonId: string, raceSeasons?: ReadonlyMap<string, string>, beforeRound?: number): Promise<RaceScore | null> {
-  const [scoped, unscoped] = await Promise.all([topDriverRow(seasonId, beforeRound), topDriverRow(null, beforeRound)]);
-  return pickSeasonRow([scoped, unscoped], seasonId, raceSeasons);
+  const [scoped, unscoped] = await Promise.all([topDriverRows(seasonId, beforeRound), topDriverRows(null, beforeRound)]);
+  return pickSeasonRow([...scoped, ...unscoped], seasonId, raceSeasons);
 }
 
 export const raceScoresService = {

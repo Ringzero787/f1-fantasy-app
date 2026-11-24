@@ -6,6 +6,7 @@ import Constants from 'expo-constants';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { getGoogleIdToken, getAppleCredential } from '../../components/SocialAuthButtons';
 import { isAmazonBuild } from '../../utils/storeDetection';
+import { useCurrentSeasonId } from '../../hooks/useCurrentSeason';
 import { appleWebSignIn, appleWebSignInAvailable } from '../../utils/appleWebSignIn';
 import { amazonWebSignInAvailable } from '../../utils/amazonSignIn';
 import { googleWebSignIn, googleWebSignInAvailable } from '../../utils/googleWebSignIn';
@@ -27,6 +28,7 @@ const GOOGLE_BUTTON_FACE = 'GoogleSans_500Medium';
 // ── Shell: surface background, wordmark header, centred content ────────────
 export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?: string; onWordmarkLongPress?: () => void; children: React.ReactNode }) {
   const { colors, family, spacing, scaled, isDark } = useSimpleTheme();
+  const seasonId = useCurrentSeasonId();
   // The long-press demo entry is a testing hook: dev and Expo Go builds, plus
   // verification builds made with EXPO_PUBLIC_ALLOW_DEMO=1 (store builds never set it).
   const demoAllowed = __DEV__ || isExpoGo || process.env.EXPO_PUBLIC_ALLOW_DEMO === '1';
@@ -41,7 +43,7 @@ export function AuthShell({ caption, onWordmarkLongPress, children }: { caption?
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: 24, paddingBottom: 34 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <MonoLabel>{caption ?? 'FANTASY · SEASON ' + new Date().getFullYear()}</MonoLabel>
+            <MonoLabel>{caption ?? 'FANTASY · SEASON ' + seasonId}</MonoLabel>
           </View>
           <Pressable onLongPress={longPress} accessibilityRole="header" accessibilityLabel="Undercut">
             <Text numberOfLines={1} ellipsizeMode="clip" style={{ fontFamily: family.ui.black, fontSize: wordmarkSize, lineHeight: wordmarkSize, letterSpacing: -wordmarkSize * 0.05, textTransform: 'uppercase', color: colors.text.primary, marginTop: 10 }}>

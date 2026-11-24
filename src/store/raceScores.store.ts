@@ -13,6 +13,8 @@ interface RaceScoresState {
   prevRaceScores: Record<string, RaceScore>;
   /** All scores keyed by entityId for trending */
   entityHistory: Record<string, RaceScore[]>;
+  /** F-157: the season entityHistory was read for; a different season empties it so screens refetch */
+  entityHistorySeason: string | null;
   /** The raceId of the last scored race of the current season (F-157) */
   lastRaceId: string | null;
   prevRaceId: string | null;
@@ -50,6 +52,7 @@ export const useRaceScoresStore = create<RaceScoresState>((set, get) => ({
   lastRaceScores: {},
   prevRaceScores: {},
   entityHistory: {},
+  entityHistorySeason: null,
   lastRaceId: null,
   prevRaceId: null,
   lastFetched: null,
@@ -90,7 +93,8 @@ export const useRaceScoresStore = create<RaceScoresState>((set, get) => ({
       const { seasonId, raceSeasons } = seasonScope();
       const scores = await raceScoresService.getScoresForEntity(entityId, seasonId, raceSeasons);
       set(state => ({
-        entityHistory: { ...state.entityHistory, [entityId]: scores },
+        entityHistory: { ...(state.entityHistorySeason === seasonId ? state.entityHistory : {}), [entityId]: scores },
+        entityHistorySeason: seasonId,
       }));
       return scores;
     } catch (e) {

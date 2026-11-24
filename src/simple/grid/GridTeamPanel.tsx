@@ -215,7 +215,7 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
   const seasonLength = seasonId ? races.filter((r) => r.seasonId === seasonId).length : races.length;
   const nextRound = lockoutInfo.nextRace?.round ?? null;
   const completedRounds = nextRound ? nextRound - 1 : seasonLength;
-  const roundStatus = formatRoundStatus(nextRound, seasonLength, lockoutInfo.nextRace?.city || lockoutInfo.nextRace?.country);
+  const roundStatus = formatRoundStatus(nextRound, seasonLength, lockoutInfo.nextRace?.city || lockoutInfo.nextRace?.country, seasonId);
   const lockStatus = formatLockStatus({
     isLocked: lockoutInfo.isLocked,
     lockTime: lockoutInfo.lockTime,

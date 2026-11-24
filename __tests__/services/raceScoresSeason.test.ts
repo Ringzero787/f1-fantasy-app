@@ -69,6 +69,13 @@ describe('getLatestRound (season-scoped)', () => {
     await expect(raceScoresService.getLatestRound('2026')).resolves.toEqual({ raceId: 'qatar_2026', round: 24 });
   });
 
+  it('an unscoped top row from another season does not hide the current season (round tie, index not deployed)', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    answer(new Error('FAILED_PRECONDITION'), [{ raceId: 'australia_2027', round: 1, seasonId: '2027' }, { raceId: 'bahrain_2026', round: 1 }]);
+    await expect(raceScoresService.getLatestRound('2026')).resolves.toEqual({ raceId: 'bahrain_2026', round: 1 });
+    warn.mockRestore();
+  });
+
   it('works before the season index is deployed (the scoped query fails)', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     answer(new Error('FAILED_PRECONDITION: The query requires an index'), [{ raceId: 'qatar_2026', round: 24 }]);

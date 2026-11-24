@@ -74,8 +74,9 @@ export function formatLockStatus(i: LockStatusInput): string {
 }
 
 /** `RD 17 / 24 · BAKU` — the next race's round over the season length. */
-export function formatRoundStatus(round: number | null, total: number, city?: string | null): string {
-  if (!round || total <= 0) return `SEASON ${new Date().getFullYear()}`;
+export function formatRoundStatus(round: number | null, total: number, city?: string | null, seasonId?: string | null): string {
+  // F-157: the app's season, not the device clock's year (they differ from 1 Jan until the rollover)
+  if (!round || total <= 0) return seasonId ? `SEASON ${seasonId}` : 'SEASON';
   const place = (city ?? '').trim().toUpperCase();
   return place ? `RD ${round} / ${total} · ${place}` : `RD ${round} / ${total}`;
 }

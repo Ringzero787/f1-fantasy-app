@@ -104,4 +104,19 @@ describe('F-157 season scope', () => {
     await useRaceScoresStore.getState().fetchEntityHistory('norris');
     expect(raceScoresService.getScoresForEntity).toHaveBeenCalledWith('norris', '2027', new Map());
   });
+
+  it('a history read for another season is dropped when the season changes', async () => {
+    const { raceScoresService } = jest.requireMock('../../src/services/raceScores.service');
+    useRaceScoresStore.setState({ entityHistory: {}, entityHistorySeason: null });
+    raceScoresService.getScoresForEntity.mockResolvedValue([score('abu_dhabi_2026', 25, 'norris', 20)]);
+    await useRaceScoresStore.getState().fetchEntityHistory('norris');
+    expect(useRaceScoresStore.getState().entityHistorySeason).toBe('2026');
+    season = '2027';
+    raceScoresService.getScoresForEntity.mockResolvedValue([]);
+    await useRaceScoresStore.getState().fetchEntityHistory('piastri');
+    const st = useRaceScoresStore.getState();
+    expect(st.entityHistorySeason).toBe('2027');
+    expect(st.entityHistory.norris).toBeUndefined();
+    expect(st.entityHistory.piastri).toEqual([]);
+  });
 });
