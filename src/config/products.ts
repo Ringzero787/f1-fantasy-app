@@ -9,6 +9,12 @@ export const PRODUCT_IDS = {
    * writes the pass, a trigger stamps the auth claim, and the Firestore rules read that claim.
    */
   PITWALL_PASS: 'pitwall.pass.season',
+  /**
+   * Charter (F-175): Pit Wall for every approved member of ONE league, for one season, bought by
+   * that league's owner. Server-granted like the pass, but onto the league (`leagues/{id}.charter`)
+   * and each member's `charterAccess`, never onto anyone's pass. Play, App Store and Stripe only.
+   */
+  PITWALL_CHARTER: 'pitwall.charter.season',
 } as const;
 
 export const AVATAR_PACK_CREDITS = 20;
@@ -56,6 +62,17 @@ export const PRODUCTS = {
       'Projections, ranges and retirement risk for the whole grid',
       'Recommended swaps with the points behind each one',
       'League Pro for every league you own',
+    ],
+  },
+  [PRODUCT_IDS.PITWALL_CHARTER]: {
+    title: 'Charter',
+    description: 'Pit Wall for every player in one league, for the season.',
+    price: '$39.99',
+    icon: 'ribbon' as const,
+    benefits: [
+      'Pit Wall for every approved player in this league',
+      'Your league listed in search, above unchartered leagues',
+      'Valid for the whole season',
     ],
   },
   [PRODUCT_IDS.LEAGUE_SLOT]: {

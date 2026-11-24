@@ -6,7 +6,9 @@ import { warnIfNoAppCheck } from '../utils/appCheck';
 import { verifyAppleTransaction } from './appleTransaction';
 import { PASS_PRODUCT, saleSeason } from '../pitwall/pass';
 import { grantPass } from '../pitwall/passStore';
-import { isAmazonReceiptId, isKnownProduct, isPlayToken } from './productGuards';
+import { CHARTER_PRODUCT_ID, isAmazonReceiptId, isKnownProduct, isPlayToken } from './productGuards';
+import { charterEnabled } from '../charter/charter';
+import { grantCharter, type GrantCharterResult } from '../charter/charterStore';
 import { createHash } from 'crypto';
 
 const db = admin.firestore();
@@ -116,7 +118,7 @@ async function verifyAppleReceipt(
 async function verifyGooglePlayPurchase(
   productId: string,
   purchaseToken: string
-): Promise<{ valid: boolean; error?: string }> {
+): Promise<{ valid: boolean; test?: boolean; error?: string }> {
   try {
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/androidpublisher'],
@@ -145,7 +147,8 @@ async function verifyGooglePlayPurchase(
       return { valid: false, error: 'Purchase already consumed' };
     }
 
-    return { valid: true };
+    // purchaseType 0 is a license-tester purchase: no money changed hands (F-175 sandbox testing).
+    return { valid: true, test: data.purchaseType === 0 };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('Google Play verification failed:', message);
@@ -200,7 +203,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
   }
   warnIfNoAppCheck(context, 'validatePurchase');
 
-  const { productId, purchaseToken, transactionReceipt, transactionId, platform, userIdAmazon } = data;
+  const { productId, purchaseToken, transactionReceipt, transactionId, platform, userIdAmazon, leagueId } = data;
   const isIOS = platform === 'ios';
   const isAmazon = platform === 'amazon';
   /** 'Production' or 'Sandbox' when the store says so. */
@@ -211,9 +214,16 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
    * the store's own endpoint has just accepted, and which the caller cannot forge.
    */
   let storeTransactionId = '';
+  /** A store test purchase (Apple sandbox, Play license tester): allowed to charter while the flag is off. */
+  let testPurchase = false;
 
   if (!isKnownProduct(productId)) {
     throw new functions.https.HttpsError('invalid-argument', 'productId is not a product this app sells');
+  }
+
+  // Charter is sold on Play, Apple and Stripe only (BUILD.md, "Do not build": no Amazon IAP).
+  if (productId === CHARTER_PRODUCT_ID && isAmazon) {
+    throw new functions.https.HttpsError('invalid-argument', 'Charter is not sold on this store');
   }
 
   if (isIOS && !transactionReceipt) {
@@ -291,7 +301,9 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
       throw new functions.https.HttpsError('permission-denied', 'Invalid purchase token');
     }
     storeTransactionId = String(purchaseToken);
+    testPurchase = verification.test === true;
   }
+  if (isIOS && environment === 'Sandbox') testPurchase = true;
 
   // Only now is there something worth trusting. The duplicate check runs on the identifier the
   // store confirmed, never on one the caller supplied: a caller can send a valid receipt with any
@@ -327,6 +339,9 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
       console.warn(`purchase already belongs to another account; refusing to entitle ${userId}`);
       throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.', { reason: 'claimed-by-another-account' });
     }
+    // A charter that did not apply the first time (the call failed after the record was written) is
+    // tried again on the replay; grantCharter is idempotent on the purchase id.
+    if (productId === CHARTER_PRODUCT_ID) return { success: true, purchaseId, duplicate: true, charter: await applyCharter() };
     return { success: true, purchaseId, duplicate: true };
   }
 
@@ -341,6 +356,8 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
     ...(environment ? { environment } : {}),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
+
+  if (productId === CHARTER_PRODUCT_ID && typeof leagueId === 'string') purchaseRecord.leagueId = leagueId;
 
   if (isIOS) {
     purchaseRecord.transactionReceipt = transactionReceipt;
@@ -362,7 +379,10 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
       throw new functions.https.HttpsError('internal', 'Could not record the purchase. Please try again.');
     }
     const owner = await claimedBy();
-    if (owner === userId) return { success: true, purchaseId, duplicate: true };
+    if (owner === userId) {
+      if (productId === CHARTER_PRODUCT_ID) return { success: true, purchaseId, duplicate: true, charter: await applyCharter() };
+      return { success: true, purchaseId, duplicate: true };
+    }
     console.warn(`purchase lost a race to another account; refusing to entitle ${userId}`);
     throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.', { reason: 'claimed-by-another-account' });
   }
@@ -376,7 +396,57 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
     console.log(`[pw] pass granted from ${platform} for ${userId} until ${new Date(pass.expiresAt).toISOString()}`);
   }
 
+  if (productId === CHARTER_PRODUCT_ID) return { success: true, purchaseId: purchaseRef.id, charter: await applyCharter() };
+
   return { success: true, purchaseId: purchaseRef.id };
+
+  /**
+   * Charter one league from this purchase (F-175). The buyer has paid by now, so a refusal is not
+   * an error the device should retry: it is recorded on the purchase and on charter_grants for
+   * support, and the device is told, so it can finish the transaction and say so.
+   */
+  async function applyCharter(): Promise<{ applied: boolean; reason?: string; leagueId?: string; expiresAt?: number }> {
+    const record = (await purchaseDoc.get()).data() ?? {};
+    if (record.status === 'refunded') return { applied: false, reason: 'refunded' };
+    if (record.charterApplied === true) {
+      // Applied once; say what is true now, which is not "chartered" after a refund.
+      const grant = (await db.collection('charter_grants').doc(purchaseId).get()).data();
+      if (grant?.clearedAt) return { applied: false, reason: 'refunded' };
+      return { applied: true, leagueId: record.charterLeagueId as string, expiresAt: record.charterExpiresAt as number };
+    }
+    // The league named when the purchase was first recorded wins over one sent on a replay, so one
+    // payment can never charter two leagues. A league first named on a replay is stored before use.
+    const target = typeof record.leagueId === 'string' ? record.leagueId : leagueId;
+    if (typeof record.leagueId !== 'string' && typeof leagueId === 'string') await purchaseDoc.set({ leagueId }, { merge: true });
+    let result: GrantCharterResult;
+    const appCfg = (await db.doc('config/app').get()).data();
+    // A store test purchase (Apple Sandbox, TestFlight, Play license tester) moves no money, so it
+    // charters only for an account marked `testAccount` (F-164, server-owned; the App Review
+    // accounts are marked) — with the sale on or off. A real purchase needs the sale flag.
+    const tester = testPurchase && (await db.doc(`users/${userId}`).get()).data()?.testAccount === true;
+    if (testPurchase && !tester) {
+      result = { applied: false, reason: 'disabled' };
+    } else if (!charterEnabled(appCfg) && !tester) {
+      result = { applied: false, reason: 'disabled' };
+    } else {
+      result = await grantCharter(db, {
+        leagueId: target,
+        buyerId: userId,
+        // The season on sale when it was bought, not when a replay happens to arrive.
+        season: saleSeason(typeof record.createdAt?.toMillis === 'function' ? record.createdAt.toMillis() : Date.now()),
+        source: isIOS ? 'apple' : 'play',
+        ref: purchaseId,
+      });
+    }
+    if (result.applied) {
+      await purchaseDoc.set({ charterApplied: true, charterLeagueId: result.leagueId, charterExpiresAt: result.charter.expiresAt, ...(testPurchase ? { charterTest: true } : {}) }, { merge: true });
+      console.log(`[charter] ${result.leagueId} chartered from ${platform} by ${userId} until ${new Date(result.charter.expiresAt).toISOString()} (${result.members} with access)`);
+      return { applied: true, leagueId: result.leagueId, expiresAt: result.charter.expiresAt };
+    }
+    await purchaseDoc.set({ charterApplied: false, charterRefused: result.reason }, { merge: true });
+    console.error(`[charter] paid purchase ${purchaseId} by ${userId} NOT applied: ${result.reason}; needs a refund or a support fix`);
+    return { applied: false, reason: result.reason };
+  }
 });
 
 /**

@@ -12,6 +12,8 @@
  * No firebase-admin here on purpose, so these can be tested without a Firebase app.
  */
 export const PASS_PRODUCT_ID = 'pitwall.pass.season';
+/** Charter (F-175): one league, one season. Same id as CHARTER_PRODUCT in charter/charter.ts. */
+export const CHARTER_PRODUCT_ID = 'pitwall.charter.season';
 
 /**
  * Every product this server will verify. A name that is not on this list never reaches a URL and
@@ -19,6 +21,7 @@ export const PASS_PRODUCT_ID = 'pitwall.pass.season';
  */
 export const KNOWN_PRODUCTS: ReadonlySet<string> = new Set([
   PASS_PRODUCT_ID,
+  CHARTER_PRODUCT_ID,
   'league.expansion',
   'avatar.pack',
   'league.slot',

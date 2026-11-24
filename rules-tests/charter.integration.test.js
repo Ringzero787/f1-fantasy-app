@@ -1,0 +1,114 @@
+// Charter purchase writes (F-175 slice 2), run against the Firestore emulator by `npm run test:rules`.
+// The real Admin SDK, real transactions, real FieldValue.delete inside a merge, and the real
+// FieldPath query on a map key — the parts the unit test's fake cannot prove.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
+
+if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error('needs FIRESTORE_EMULATOR_HOST (run via npm run test:rules)');
+const app = admin.apps.find((a) => a && a.name === 'charter') || admin.initializeApp({ projectId: 'demo-uc-charter' }, 'charter');
+const db = app.firestore();
+const store = require('../functions/lib/charter/charterStore.js');
+const passStore = require('../functions/lib/pitwall/passStore.js');
+const { seasonExpiry } = require('../functions/lib/pitwall/pass.js');
+
+const NOW = Date.parse('2027-03-01T12:00:00Z');
+const END = seasonExpiry('2027');
+const data = async (p) => (await db.doc(p).get()).data();
+
+async function seed(id) {
+  const owner = `${id}-owner`, amy = `${id}-amy`, pat = `${id}-pat`;
+  await db.doc(`leagues/${id}`).set({ ownerId: owner, name: id, isPublic: false, settings: { requireApproval: false, scoring: 'std' } });
+  await db.doc(`leagues/${id}2`).set({ ownerId: owner, name: `${id} second` });
+  await db.doc(`leagues/${id}/members/${owner}`).set({ status: 'approved' });
+  await db.doc(`leagues/${id}/members/${amy}`).set({ status: 'approved' });
+  await db.doc(`leagues/${id}/members/${pat}`).set({ status: 'pending' });
+  await db.doc(`users/${owner}`).set({ pass: { tier: 'pitwall', season: '2027', expiresAt: END - 86400000, source: 'play' } });
+  await db.doc(`users/${amy}`).set({ pass: { tier: 'pitwall', season: '2027', expiresAt: END, source: 'stripe' }, displayName: 'Amy' });
+  return { owner, amy, pat };
+}
+
+test('grant charters one league, gives the owner and approved members access, never writes a pass, and a replay changes nothing', async () => {
+  const { owner, amy, pat } = await seed('CA');
+  const amyPass = JSON.stringify((await data(`users/${amy}`)).pass);
+  const r = await store.grantCharter(db, { leagueId: 'CA', buyerId: owner, season: '2027', source: 'play', ref: 'purA', now: NOW });
+  assert.equal(r.applied, true);
+  const L = await data('leagues/CA');
+  assert.equal(L.chartered, true);
+  assert.equal(L.isPublic, true);
+  assert.deepEqual(L.settings, { requireApproval: true, scoring: 'std' });
+  assert.equal(L.proUntil, END);
+  assert.equal((await data('leagues/CA2')).pro, undefined, 'the other league the buyer owns is untouched');
+  assert.equal((await data(`users/${amy}`)).charterAccess.leagues.CA, END);
+  assert.equal((await data(`users/${owner}`)).charterAccess.leagues.CA, END);
+  assert.equal(await data(`users/${pat}`), undefined);
+  assert.equal(JSON.stringify((await data(`users/${amy}`)).pass), amyPass);
+  const again = await store.grantCharter(db, { leagueId: 'CA', buyerId: owner, season: '2027', source: 'play', ref: 'purA', now: NOW + 9 });
+  assert.equal(again.replay, true);
+  assert.equal((await data('leagues/CA')).charter.purchasedAt, NOW);
+  assert.deepEqual(await store.grantCharter(db, { leagueId: 'CA', buyerId: amy, season: '2027', source: 'play', ref: 'purX', now: NOW }), { applied: false, reason: 'not-owner' });
+});
+
+test('refund clears that league and every member\'s access through the map-key query, keeps passes, and a refunded receipt never charters again', async () => {
+  const { owner, amy } = await seed('CB');
+  await store.grantCharter(db, { leagueId: 'CB', buyerId: owner, season: '2027', source: 'play', ref: 'purB', now: NOW });
+  // a former member who left still holds access: only the map-key query finds them
+  await db.doc('users/CB-gone').set({ charterAccess: { leagues: { CB: END, OTHER: END } } });
+  assert.equal(await store.clearCharter(db, { leagueId: 'CB', ref: 'someone-else', reason: 'refund', now: NOW }), false);
+  assert.equal(await store.clearCharter(db, { leagueId: 'CB', ref: 'purB', reason: 'refund', now: NOW }), true);
+  const L = await data('leagues/CB');
+  assert.equal(L.charter, undefined);
+  assert.equal(L.chartered, undefined);
+  assert.equal(L.isPublic, false);
+  assert.deepEqual(L.settings, { requireApproval: false, scoring: 'std' });
+  assert.equal(L.pro, true, "the owner's own pass keeps it Pro");
+  assert.equal(L.proUntil, END - 86400000);
+  assert.deepEqual((await data(`users/${amy}`)).charterAccess.leagues, {});
+  assert.equal((await data(`users/${amy}`)).pass.source, 'stripe');
+  assert.deepEqual((await data('users/CB-gone')).charterAccess.leagues, { OTHER: END });
+  assert.deepEqual(await store.grantCharter(db, { leagueId: 'CB', buyerId: owner, season: '2027', source: 'play', ref: 'purB', now: NOW }), { applied: false, reason: 'refunded' });
+});
+
+test('a refund retried after a partial failure still removes access; it never strips a newer charter\'s members', async () => {
+  const { owner, amy } = await seed('CC');
+  await store.grantCharter(db, { leagueId: 'CC', buyerId: owner, season: '2027', source: 'stripe', ref: 'stripe:pi_C', now: NOW });
+  await store.clearCharter(db, { leagueId: 'CC', ref: 'stripe:pi_C', reason: 'charge.refunded', now: NOW });
+  // simulate the access sweep having failed after the league transaction committed
+  await db.doc(`users/${amy}`).set({ charterAccess: { leagues: { CC: END } } }, { merge: true });
+  assert.equal(await store.clearCharter(db, { leagueId: 'CC', ref: 'stripe:pi_C', reason: 'charge.refunded', now: NOW }), false, 'nothing left on the league');
+  assert.deepEqual((await data(`users/${amy}`)).charterAccess.leagues, {}, 'but the retry finished the sweep');
+  // the owner charters again with a new payment; a late retry of the old refund must not touch it
+  await store.grantCharter(db, { leagueId: 'CC', buyerId: owner, season: '2027', source: 'stripe', ref: 'stripe:pi_D', now: NOW + 1 });
+  assert.equal(await store.clearCharter(db, { leagueId: 'CC', ref: 'stripe:pi_C', reason: 'charge.refunded', now: NOW + 2 }), false);
+  assert.equal((await data(`users/${amy}`)).charterAccess.leagues.CC, END);
+  assert.equal((await data('leagues/CC')).chartered, true);
+});
+
+test('revoking the owner\'s pass leaves a chartered league Pro; expiry clears only ended charters', async () => {
+  const { owner, amy } = await seed('CD');
+  await store.grantCharter(db, { leagueId: 'CD', buyerId: owner, season: '2027', source: 'apple', ref: 'purD', now: NOW });
+  await passStore.revokePass(db, owner, 'test', NOW);
+  assert.equal((await data('leagues/CD')).pro, true);
+  assert.equal((await data('leagues/CD')).proUntil, END);
+  assert.equal((await data('leagues/CD2')).pro, false);
+  assert.equal((await data(`users/${amy}`)).charterAccess.leagues.CD, END);
+  assert.equal(await store.expireCharters(db, NOW), 0);
+  assert.ok((await store.expireCharters(db, END + 1)) >= 1);
+  const L = await data('leagues/CD');
+  assert.equal(L.chartered, undefined);
+  assert.equal(L.pro, false, 'no pass and no charter left');
+  assert.deepEqual((await data(`users/${amy}`)).charterAccess.leagues, {});
+});
+
+test('parallel replays of one purchase naming different leagues charter exactly one', async () => {
+  const { owner } = await seed('CE');
+  await db.doc('leagues/CF').set({ ownerId: owner, name: 'CF' });
+  await db.doc('leagues/CG').set({ ownerId: owner, name: 'CG' });
+  const results = await Promise.all(['CE', 'CF', 'CG'].map((leagueId, k) =>
+    store.grantCharter(db, { leagueId, buyerId: owner, season: '2027', source: 'play', ref: 'purE', now: NOW + k })));
+  const chartered = [];
+  for (const id of ['CE', 'CF', 'CG']) if ((await data(`leagues/${id}`)).chartered === true) chartered.push(id);
+  assert.equal(chartered.length, 1, `one purchase chartered ${chartered.join(', ')}`);
+  for (const r of results) { assert.equal(r.applied, true); assert.equal(r.leagueId, chartered[0]); }
+});

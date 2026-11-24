@@ -4,6 +4,7 @@
  */
 import * as admin from 'firebase-admin';
 import { mergePass, newPass, PASS_CLAIM, trialPass, type Pass, type PassSource } from './pass';
+import { ownerProPatch } from '../charter/charter';
 
 /**
  * This module writes Firestore only. The auth claim that gates paid payloads is stamped by the
@@ -67,7 +68,9 @@ export async function revokePass(db: Db, uid: string, reason: string, now = Date
   await db.doc(`users/${uid}`).set({ pass: admin.firestore.FieldValue.delete(), pwRevoked: { at: now, reason } }, { merge: true });
   const leagues = await db.collection('leagues').where('ownerId', '==', uid).get();
   const batch = db.batch();
-  leagues.docs.forEach((l) => batch.set(l.ref, { pro: false }, { merge: true }));
+  // F-175: a league the owner chartered stays Pro until its charter ends; only Pro that came from
+  // this pass is taken away. The charter itself is never touched here.
+  leagues.docs.forEach((l) => batch.set(l.ref, ownerProPatch(l.data(), null, now), { merge: true }));
   if (!leagues.empty) await batch.commit();
 
   // Take the idempotency records with it. They say "this reference has already been honoured",
@@ -110,11 +113,12 @@ export async function stampClaim(uid: string, accessExpiresAt: number | null, au
 }
 
 /** League Pro is derived, never bought: every league this user owns is Pro while their pass lasts. */
-export async function markOwnedLeaguesPro(db: Db, uid: string, pass: Pass): Promise<number> {
+export async function markOwnedLeaguesPro(db: Db, uid: string, pass: Pass, now = Date.now()): Promise<number> {
   const leagues = await db.collection('leagues').where('ownerId', '==', uid).get();
   if (leagues.empty) return 0;
   const batch = db.batch();
-  leagues.docs.forEach((l) => batch.set(l.ref, { pro: true, proUntil: pass.expiresAt }, { merge: true }));
+  // F-175: on a chartered league `proUntil` is the later of the pass and the charter, never shortened.
+  leagues.docs.forEach((l) => batch.set(l.ref, ownerProPatch(l.data(), pass.expiresAt, now), { merge: true }));
   await batch.commit();
   return leagues.size;
 }
