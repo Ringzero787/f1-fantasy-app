@@ -9,6 +9,8 @@ import { NO_PASS, PITWALL_CONTENT_OPEN, passFromClaims, payloadForAccess, type P
 import { executePlan, loadMarket, loadTeams, saveErrorText, watchTeams } from './lib/teamApi';
 import { loadPayload } from './lib/payloadApi';
 import { loadLeagueDoc } from './lib/leagueApi';
+import { loadOffSeason } from './lib/seasonApi';
+import { offSeasonText, type OffSeason } from './data/offseason';
 import { renameErrorText, renameTeam as renameTeamApi, renameUser as renameUserApi } from './lib/profileApi';
 import { withLeague, type LeagueDoc } from './data/league';
 import { loadWirePrefs, saveWirePrefs } from './lib/wirePrefs';
@@ -130,6 +132,8 @@ export function App() {
   const [redeeming, setRedeeming] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
   const [displayName, setDisplayName] = useState<string | null>(null);
+  // F-155: undefined until checked; null = in season
+  const [offseason, setOffseason] = useState<OffSeason | null | undefined>(undefined);
   // after a rename the shell's bar re-reads the team document; a sign-out mid-flight drops the result
   const reloadAccount = useCallback(async () => { const uid = uidRef.current; if (!uid) return; const a = await loadAccount(uid).catch(() => EMPTY_ACCOUNT); if (uidRef.current === uid) setAccount(a); }, []);
 
@@ -226,6 +230,14 @@ export function App() {
     return () => { live = false; };
   }, [leagueId, roundNo, published?.payload.asOf]);
 
+  // F-155: once per sign-in — has the server's season moved past the one this build reads?
+  useEffect(() => {
+    if (!uid) { setOffseason(undefined); return; }
+    let live = true;
+    void loadOffSeason().then((o) => { if (live) setOffseason(o); });
+    return () => { live = false; };
+  }, [uid]);
+
   // The reader's wire history, loaded once per sign-in and saved on every change.
   useEffect(() => {
     if (!uid) { setWirePrefs(undefined); return; }
@@ -314,6 +326,22 @@ export function App() {
   // A signed-in reader is never shown the example set. It has news, a weather panel, rivals and a
   // full board, so falling back to it looks exactly like a working page carrying last week's
   // product, and the swap when the real payload lands reads as the page resetting itself.
+  // F-155: from the rollover, last season's final round is advice for teams that were reset
+  if (offseason) {
+    const t = offSeasonText(offseason);
+    return (
+      <main className="signin">
+        <div className="card" role="status">
+          <span className="lbl">Undercut · analytics · off-season</span>
+          <div className="brand"><h1>Pit Wall</h1></div>
+          <h2 style={{ margin: 0, fontFamily: 'var(--disp)', fontSize: 18 }}>{t.title}</h2>
+          <p style={{ color: 'var(--fg2)', margin: 0, fontFamily: 'var(--disp)', fontSize: 13, lineHeight: 1.6 }}>{t.body}</p>
+          <button type="button" className="btn line" onClick={() => void signOut(auth())}>Sign out</button>
+          <p className="mut" style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', margin: 0 }}>{DISCLAIMER}</p>
+        </div>
+      </main>
+    );
+  }
   const current = payloadForAccess(published, pass.access);
   if (!current) {
     return (
