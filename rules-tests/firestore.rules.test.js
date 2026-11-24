@@ -222,6 +222,26 @@ test('fantasyTeams: owner edits metadata, never the server-owned fields; shipped
   await assertFails(getDocs(query(collection(d, 'fantasyTeams'), where('name', '==', 'Apex'), limit(1))));
 });
 
+// ── F-170: the auto-fill stamp and the stale-penalty refund record are server-owned ──
+// refundStalePenalties.js gives back every 2026 stale penalty to the teams whose lastAutoFill names
+// Las Vegas, and records what it gave in staleRefund: a client able to write either could claim a
+// refund it is not owed, or block one it is.
+test('F-170 fantasyTeams: lastAutoFill and staleRefund cannot be written by the owner, on update or create', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'fantasyTeams', 'T1'), { userId: ALICE, leagueId: null, name: 'Apex', drivers: [], constructor: null, budget: 1000, totalSpent: 0, totalPoints: 0,
+      lastAutoFill: { raceId: 'brazil_2026', driverIds: ['lawson'], constructorId: null, cost: 61 } });
+  });
+  const d = db(ALICE);
+  await assertSucceeds(updateDoc(doc(d, 'fantasyTeams', 'T1'), { name: 'Apex Two' }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { lastAutoFill: { raceId: 'las_vegas_2026', driverIds: ['lawson'], constructorId: null, cost: 61 } }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { 'lastAutoFill.raceId': 'las_vegas_2026' }));
+  await assertFails(updateDoc(doc(d, 'fantasyTeams', 'T1'), { staleRefund: { races: { brazil_2026: 45 }, total: 45 } }));
+  const fresh = { userId: BOB, leagueId: null, name: 'Bob Racing', budget: 1000, totalSpent: 0, totalPoints: 0, drivers: [], constructor: null };
+  await assertSucceeds(setDoc(doc(db(BOB), 'fantasyTeams', 'tB'), fresh));
+  await assertFails(setDoc(doc(db(BOB), 'fantasyTeams', 'tB1'), { ...fresh, lastAutoFill: { raceId: 'las_vegas_2026' } }));
+  await assertFails(setDoc(doc(db(BOB), 'fantasyTeams', 'tB2'), { ...fresh, staleRefund: { races: {}, total: 0 } }));
+});
+
 // ── F-105: creating a league cannot hand yourself the paid features ──
 // `allow create: if isAuthenticated()` constrained nothing, so a signed-in player could mint a
 // league with `pro: true` (which is what startLeagueTrial checks before granting a Pit Wall pass
