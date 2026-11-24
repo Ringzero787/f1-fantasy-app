@@ -1,0 +1,63 @@
+id: OP-240
+title: "F-168: repair Las Vegas 2026 contract-expiry sale prices"
+kind: uc-script
+status: applied
+params:
+  script: repairExpirySale.js
+  backup: fantasyTeams
+created_at: 2026-11-23T03:53:54.339Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-23T03:54:35.523Z
+    head_sha: beaed1bb74c770badd1fa8ac6e6859d21351f31e
+    command: node scripts/ops/run-script.js undercut 'repairExpirySale.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-240/dry-run-2026-11-23T03-54-35-523Z.log
+    log_sha256: 5154997d47e2a3103b03daf528537a58bda27859868fd492eb6f8f1f6d1d1c6a
+    lines: 7
+  - step: dry-run
+    at: 2026-11-24T02:16:33.264Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    command: node scripts/ops/run-script.js undercut 'repairExpirySale.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-240/dry-run-2026-11-24T02-16-33-264Z.log
+    log_sha256: 19f63438dd71fb3f7b886de9c26e21e37e14586737a06d763c8a1c741346d63a
+    lines: 7
+  - step: dry-run
+    at: 2026-11-24T15:32:12.759Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: node scripts/ops/run-script.js undercut 'repairExpirySale.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-240/dry-run-2026-11-24T15-32-12-759Z.log
+    log_sha256: 19f63438dd71fb3f7b886de9c26e21e37e14586737a06d763c8a1c741346d63a
+    lines: 7
+  - step: backup
+    at: 2026-11-24T15:36:16.092Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-240'/backup.json 'fantasyTeams'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-240/backup-2026-11-24T15-36-16-092Z.log
+    log_sha256: 6584570d9c267423f48e059ae996d6cdab9a2fe9410642fefa191a01778cd53d
+    lines: 1
+  - step: gates
+    at: 2026-11-24T15:36:17.062Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-24T15:36:17.064Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: node scripts/ops/run-script.js undercut 'repairExpirySale.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-240/apply-2026-11-24T15-36-17-064Z.log
+    log_sha256: 8ddc47a80efdd0ad47580e29ffaf10412f360834c4637321c302d30b99b1070c
+    lines: 6
+  - step: gates
+    at: 2026-11-24T15:36:35.456Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,86 @@
+id: OP-239
+title: "F-168: apply the Las Vegas 2026 corrected classification (Hadjar/Lawson)"
+kind: uc-script
+status: applied
+params:
+  script: correctRaceResults.js
+  backup: fantasyTeams,raceScores,races/las_vegas_2026,leagues/D5932uRNEvM56RtUvbmd/members,leagues/E17EKWuXWuvVvVFEU5Kl/members,leagues/5ubXdQIEE3DPnbOq33HH/members,leagues/fFXwWrQm3sOkO1pmlMpI/members,leagues/bOsMNmgGFd27evuCTyMF/members,leagues/kCI7qANcPBNUciTrNufn/members,leagues/5HskmlSBBg0kXS5jPt9J/members,leagues/lf1MhUkADVzzr5LjWfxk/members,leagues/isbdFIijANpen4YXu4u5/members,leagues/pu81nhDywyN34jGFGkhH/members,leagues/rU3kWC2s6mYAjVBDjVqS/members,leagues/exKzZQJ10jBNjkY7Uuun/members,leagues/sbZD7V4eyGDqtPwBLISK/members,leagues/E77n3HKjz3FXASuSbTLJ/members,leagues/jWZhTLDrH27gNz9wPHhp/members,leagues/DNcibnByUjO2SnI6bC2T/members,leagues/Ty5R8LwJdWt7n7IeLdMb/members,leagues/my2JhRGiMb0AnU9a19id/members,leagues/HysV2nvgZrVaRK76es7S/members
+created_at: 2026-11-23T03:53:54.017Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-23T03:54:21.010Z
+    head_sha: beaed1bb74c770badd1fa8ac6e6859d21351f31e
+    command: node scripts/ops/run-script.js undercut 'correctRaceResults.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-239/dry-run-2026-11-23T03-54-21-010Z.log
+    log_sha256: 7db12bf936eaba63fdb4647e22bbdd13bf13a359f935ee096895c804f3228c31
+    lines: 37
+  - step: dry-run
+    at: 2026-11-24T02:16:21.418Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    command: node scripts/ops/run-script.js undercut 'correctRaceResults.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-239/dry-run-2026-11-24T02-16-21-418Z.log
+    log_sha256: c0f06fee38d8b8c7a33369a65cc5bfd1813f79aa26f80bb31810f7523e585a61
+    lines: 36
+  - step: backup
+    at: 2026-11-24T02:23:48.724Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-239'/backup.json 'fantasyTeams,raceScores,races/las_vegas_2026,leagues/D5932uRNEvM56RtUvbmd/members,leagues/E17EKWuXWuvVvVFEU5Kl/members,leagues/5ubXdQIEE3DPnbOq33HH/members,leagues/fFXwWrQm3sOkO1pmlMpI/members,leagues/bOsMNmgGFd27evuCTyMF/members,leagues/kCI7qANcPBNUciTrNufn/members,leagues/5HskmlSBBg0kXS5jPt9J/members,leagues/lf1MhUkADVzzr5LjWfxk/members,leagues/isbdFIijANpen4YXu4u5/members,leagues/pu81nhDywyN34jGFGkhH/members,leagues/rU3kWC2s6mYAjVBDjVqS/members,leagues/exKzZQJ10jBNjkY7Uuun/members,leagues/sbZD7V4eyGDqtPwBLISK/members,leagues/E77n3HKjz3FXASuSbTLJ/members,leagues/jWZhTLDrH27gNz9wPHhp/members,leagues/DNcibnByUjO2SnI6bC2T/members,leagues/Ty5R8LwJdWt7n7IeLdMb/members,leagues/my2JhRGiMb0AnU9a19id/members,leagues/HysV2nvgZrVaRK76es7S/members'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-239/backup-2026-11-24T02-23-48-724Z.log
+    log_sha256: 00a30b8b7f4442268321411c25329ae33c9ccdbb5a5f94fae4a5443d33c7a587
+    lines: 1
+  - step: gates
+    at: 2026-11-24T02:23:52.128Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-24T02:23:52.130Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    command: node scripts/ops/run-script.js undercut 'correctRaceResults.js' --apply
+    exit: 1
+    log: /mnt/smb/f1-app/aidlc-ops/OP-239/apply-2026-11-24T02-23-52-130Z.log
+    log_sha256: be2041b9cd5a775e171ac5dad260f8bed60e208d4f81b723bf4fe6be04a1dd0e
+    lines: 21
+  - step: dry-run
+    at: 2026-11-24T15:32:00.122Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: node scripts/ops/run-script.js undercut 'correctRaceResults.js'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-239/dry-run-2026-11-24T15-32-00-122Z.log
+    log_sha256: c0f06fee38d8b8c7a33369a65cc5bfd1813f79aa26f80bb31810f7523e585a61
+    lines: 36
+  - step: backup
+    at: 2026-11-24T15:35:10.994Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-239'/backup.json 'fantasyTeams,raceScores,races/las_vegas_2026,leagues/D5932uRNEvM56RtUvbmd/members,leagues/E17EKWuXWuvVvVFEU5Kl/members,leagues/5ubXdQIEE3DPnbOq33HH/members,leagues/fFXwWrQm3sOkO1pmlMpI/members,leagues/bOsMNmgGFd27evuCTyMF/members,leagues/kCI7qANcPBNUciTrNufn/members,leagues/5HskmlSBBg0kXS5jPt9J/members,leagues/lf1MhUkADVzzr5LjWfxk/members,leagues/isbdFIijANpen4YXu4u5/members,leagues/pu81nhDywyN34jGFGkhH/members,leagues/rU3kWC2s6mYAjVBDjVqS/members,leagues/exKzZQJ10jBNjkY7Uuun/members,leagues/sbZD7V4eyGDqtPwBLISK/members,leagues/E77n3HKjz3FXASuSbTLJ/members,leagues/jWZhTLDrH27gNz9wPHhp/members,leagues/DNcibnByUjO2SnI6bC2T/members,leagues/Ty5R8LwJdWt7n7IeLdMb/members,leagues/my2JhRGiMb0AnU9a19id/members,leagues/HysV2nvgZrVaRK76es7S/members'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-239/backup-2026-11-24T15-35-10-994Z.log
+    log_sha256: e6f74c693a8c97eea075eb1826e84e77d5fad6f962747766af570edaf11a586c
+    lines: 1
+  - step: gates
+    at: 2026-11-24T15:35:14.715Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-24T15:35:14.716Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: node scripts/ops/run-script.js undercut 'correctRaceResults.js' --apply
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-239/apply-2026-11-24T15-35-14-716Z.log
+    log_sha256: 919f5fa4493eec8e22bd4a09e4eef79ab3f653859c1aacfe8823f6c296414da0
+    lines: 36
+  - step: gates
+    at: 2026-11-24T15:36:10.925Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    exit: 0
+    gates:
+      G15: skip

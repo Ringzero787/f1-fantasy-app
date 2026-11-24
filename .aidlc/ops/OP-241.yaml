@@ -1,0 +1,53 @@
+id: OP-241
+title: "F-169: driverStreaks server-owned in firestore.rules"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-11-23T03:53:54.957Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-23T03:54:43.804Z
+    head_sha: beaed1bb74c770badd1fa8ac6e6859d21351f31e
+    command: git --no-pager diff '3945afa073eb2abf851077a1ad305920715fefce' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-241/dry-run-2026-11-23T03-54-43-804Z.log
+    log_sha256: 5522d6d08ca6d4db93ae11e6ed4b3278dbe65dfe70155026cdadb2b3b6a933c1
+    lines: 23
+  - step: dry-run
+    at: 2026-11-24T02:16:41.369Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    command: git --no-pager diff '3945afa073eb2abf851077a1ad305920715fefce' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-241/dry-run-2026-11-24T02-16-41-369Z.log
+    log_sha256: 5522d6d08ca6d4db93ae11e6ed4b3278dbe65dfe70155026cdadb2b3b6a933c1
+    lines: 23
+  - step: dry-run
+    at: 2026-11-24T15:32:20.572Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: git --no-pager diff '3945afa073eb2abf851077a1ad305920715fefce' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-241/dry-run-2026-11-24T15-32-20-572Z.log
+    log_sha256: 5522d6d08ca6d4db93ae11e6ed4b3278dbe65dfe70155026cdadb2b3b6a933c1
+    lines: 23
+  - step: gates
+    at: 2026-11-24T15:36:41.364Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-24T15:36:41.368Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-241/apply-2026-11-24T15-36-41-368Z.log
+    log_sha256: fe42d8e3ca6f8a349366b30d8bf2a85124a818119ca2bb8b1bad98c33fff3e23
+    lines: 15
+  - step: gates
+    at: 2026-11-24T15:36:44.799Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    exit: 0
+    gates:
+      G15: skip

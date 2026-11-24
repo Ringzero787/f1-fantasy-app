@@ -2170,7 +2170,7 @@ features:
   - id: F-168
     name: "UC: post-race result corrections re-grade teams"
     summary: "A classification changed after scoring is applied to every team as a per-pick delta (onRaceCompleted, 72 h correction window), contract expiry sells at post-race prices, the ops check pages on a missed correction, and repair ops fix Las Vegas 2026"
-    status: building
+    status: shipped
     spec: .aidlc/specs/F-168.md
     created_at: 2026-11-22
     keywords:
@@ -2181,7 +2181,7 @@ features:
   - id: F-169
     name: "UC: contract length capped by the season and six races in a row"
     summary: "Every purchase clamps the contract to 6, the races left this season and 6 minus the driver's current run (sell and re-buy in one window keeps the run); a full run locks the driver out for a race; buildTeam honours lockouts; auto-fill on the season clock; picker offers only allowed lengths"
-    status: building
+    status: implemented
     spec: .aidlc/specs/F-169.md
     created_at: 2026-11-23
     keywords:
