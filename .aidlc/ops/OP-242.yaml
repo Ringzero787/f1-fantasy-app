@@ -1,0 +1,46 @@
+id: OP-242
+title: "F-168 + F-169: deploy Undercut functions (result corrections, contract limits)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:onRaceCompleted,functions:calculatePointsManually,functions:repairTeamScoring,functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:approveRaceResults,functions:autoLockTeams,functions:createTeamSecure,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure,functions:buildTeamSecure,functions:quoteSaleSecure
+created_at: 2026-11-23T03:54:13.966Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-23T03:54:44.134Z
+    head_sha: beaed1bb74c770badd1fa8ac6e6859d21351f31e
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-242/dry-run-2026-11-23T03-54-44-134Z.log
+    log_sha256: f39107d6696cb72e18b95cff99f464a7e814d234490b7672957b14d4db723889
+    lines: 87
+  - step: dry-run
+    at: 2026-11-24T02:16:18.744Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-242/dry-run-2026-11-24T02-16-18-744Z.log
+    log_sha256: f39107d6696cb72e18b95cff99f464a7e814d234490b7672957b14d4db723889
+    lines: 87
+  - step: gates
+    at: 2026-11-24T02:21:52.888Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-24T02:21:52.892Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:onRaceCompleted,functions:calculatePointsManually,functions:repairTeamScoring,functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:approveRaceResults,functions:autoLockTeams,functions:createTeamSecure,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure,functions:buildTeamSecure,functions:quoteSaleSecure' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-242/apply-2026-11-24T02-21-52-892Z.log
+    log_sha256: 2537e5519cbe640a4d56ceceba0a7897cbf73f0d1c6c458274c21b5c4d11811f
+    lines: 59
+  - step: gates
+    at: 2026-11-24T02:23:43.265Z
+    head_sha: 3b9ef9b21841e912336ac87e307164f8f70f45c8
+    exit: 0
+    gates:
+      G15: skip

@@ -1,0 +1,38 @@
+id: OP-243
+title: "F-168: redeploy scoring with the set+mergeFields team write (#305)"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:onRaceCompleted,functions:calculatePointsManually,functions:repairTeamScoring,functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:approveRaceResults,functions:autoLockTeams,functions:createTeamSecure,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure,functions:buildTeamSecure,functions:quoteSaleSecure
+created_at: 2026-11-24T15:31:51.162Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-24T15:31:57.379Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: git --no-pager diff --stat '3b9ef9b21841e912336ac87e307164f8f70f45c8' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-243/dry-run-2026-11-24T15-31-57-379Z.log
+    log_sha256: 43c365a976ac86501b60a95ad23eb8a3f7e6aad6ba827eabd9bc0e65d0163986
+    lines: 4
+  - step: gates
+    at: 2026-11-24T15:33:38.324Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-24T15:33:38.327Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:onRaceCompleted,functions:calculatePointsManually,functions:repairTeamScoring,functions:checkOpenF1Results,functions:checkQualifyingResults,functions:checkSprintResults,functions:approveRaceResults,functions:autoLockTeams,functions:createTeamSecure,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure,functions:buildTeamSecure,functions:quoteSaleSecure' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-243/apply-2026-11-24T15-33-38-327Z.log
+    log_sha256: 2a3a97839af73232b0e3a2d2a1365c19cc7e1ee925fcb38fa6f3e9ad805be7a4
+    lines: 59
+  - step: gates
+    at: 2026-11-24T15:35:05.058Z
+    head_sha: 247e418257b2fbe1dbecede79c6d3a73462868d5
+    exit: 0
+    gates:
+      G15: skip
