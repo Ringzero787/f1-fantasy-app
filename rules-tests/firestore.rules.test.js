@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, writeBatch, collection, query, where, limit, increment, serverTimestamp } = require('firebase/firestore');
+const { doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, writeBatch, collection, query, where, limit, increment, serverTimestamp, deleteField } = require('firebase/firestore');
 
 let env;
 const OWNER = 'owner1', ALICE = 'alice', BOB = 'bob', MALLORY = 'mallory';
@@ -1107,4 +1107,115 @@ test('TL members cannot mint or rewrite scoring fields', async () => {
   }));
   await assertFails(updateDoc(doc(db(ALICE), 'tl_leagues', 'TL1', 'members', ALICE), { totalPoints: 500 }));
   await assertSucceeds(updateDoc(doc(db(ALICE), 'tl_leagues', 'TL1', 'members', ALICE), { displayName: 'A' }));
+});
+
+// ── F-175 Charter: server-owned league fields, a chartered league stays open, server-owned access ──
+const CHARTER_FIELDS = { charter: { season: '2026', expiresAt: 9e12, buyerId: ALICE, source: 'stripe', ref: 'r', purchasedAt: 0 }, chartered: true, searchPoints: 1000, rankUpsWeek: { weekId: '2026-W48', count: 3 } };
+const APPROVAL_ON = { allowLateJoin: true, lockDeadline: 'qualifying', requireApproval: true };
+/** A chartered league as the purchase leaves it: public, approval on, charter until `expiresAt` (ms). */
+async function seedChartered(id, expiresAt) {
+  await seedLeague(id, {
+    isPublic: true, settings: APPROVAL_ON, chartered: true, searchPoints: 620, rankUpsWeek: { weekId: '2026-W48', count: 1 },
+    charter: { season: '2026', expiresAt, buyerId: OWNER, source: 'stripe', ref: 'evt_1', purchasedAt: 0 },
+  });
+  await seedMember(id, ALICE);
+}
+
+test('F-175 league create: no charter field can be written, not even an "off" value', async () => {
+  const d = db(ALICE);
+  for (const [k, v] of Object.entries(CHARTER_FIELDS)) {
+    await assertFails(setDoc(doc(d, 'leagues', `C_${k}`), newLeague({ [k]: v })));
+  }
+  await assertFails(setDoc(doc(d, 'leagues', 'C_off1'), newLeague({ chartered: false })));
+  await assertFails(setDoc(doc(d, 'leagues', 'C_off2'), newLeague({ searchPoints: 0 })));
+  await assertFails(setDoc(doc(d, 'leagues', 'C_off3'), newLeague({ charter: null })));
+  // and in the batch a real client commits
+  const batch = writeBatch(d);
+  batch.set(doc(d, 'leagues', 'C_batch'), newLeague({ chartered: true }));
+  batch.set(doc(d, 'leagues', 'C_batch', 'members', ALICE), ownerMember('C_batch', ALICE));
+  await assertFails(batch.commit());
+  await assertSucceeds(setDoc(doc(d, 'leagues', 'C_ok'), newLeague()));
+});
+
+test('F-175 league update: neither the owner nor a member can write a charter field', async () => {
+  await seedLeague('U1'); await seedMember('U1', ALICE);
+  await seedChartered('U2', Date.now() + 1e10);
+  for (const id of ['U1', 'U2']) {
+    // U2 is already chartered, so `chartered: true` there would be a no-op write; flip it instead
+    const fields = id === 'U2' ? { ...CHARTER_FIELDS, chartered: false } : CHARTER_FIELDS;
+    for (const [k, v] of Object.entries(fields)) {
+      await assertFails(updateDoc(doc(db(OWNER), 'leagues', id), { [k]: v }));
+      await assertFails(updateDoc(doc(db(ALICE), 'leagues', id), { [k]: v }));
+    }
+    // riding along with a count change a member is allowed to make
+    await assertFails(updateDoc(doc(db(ALICE), 'leagues', id), { memberCount: increment(1), searchPoints: 1e9 }));
+  }
+  // the owner cannot clear or expire a charter either
+  await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'U2'), { charter: null, chartered: false }));
+  await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'U2'), { 'charter.expiresAt': 0 }));
+  await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'U2'), { rankUpsWeek: deleteField() }));
+});
+
+test('F-175: while chartered the owner cannot clear requireApproval or make the league private', async () => {
+  await seedChartered('CH', Date.now() + 1e10);
+  const o = db(OWNER);
+  await assertFails(updateDoc(doc(o, 'leagues', 'CH'), { isPublic: false }));
+  await assertFails(updateDoc(doc(o, 'leagues', 'CH'), { isPublic: deleteField() }));
+  await assertFails(updateDoc(doc(o, 'leagues', 'CH'), { 'settings.requireApproval': false }));
+  await assertFails(updateDoc(doc(o, 'leagues', 'CH'), { 'settings.requireApproval': deleteField() }));
+  await assertFails(updateDoc(doc(o, 'leagues', 'CH'), { settings: { allowLateJoin: true, lockDeadline: 'qualifying' } }));
+  await assertFails(updateDoc(doc(o, 'leagues', 'CH'), { settings: deleteField() }));
+  // a member has no route to it either
+  await assertFails(updateDoc(doc(db(ALICE), 'leagues', 'CH'), { 'settings.requireApproval': false }));
+  // ordinary owner edits still work, including the other settings and an explicit true
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'CH'), { name: 'Chartered Pals', updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'CH'), { 'settings.allowLateJoin': false }));
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'CH'), { isPublic: true, 'settings.requireApproval': true }));
+  // and the owner still approves a pending request (slice 3 moves this to a callable)
+  await seedMember('CH', BOB, { status: 'pending', totalPoints: 0 });
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'CH', 'members', BOB), { status: 'approved' }));
+});
+
+test('F-175: after the charter expires the owner may close the league again', async () => {
+  await seedChartered('EX', Date.now() - 1000);
+  const o = db(OWNER);
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'EX'), { 'settings.requireApproval': false }));
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'EX'), { isPublic: false }));
+  // the fields themselves are still the server's to clear
+  await assertFails(updateDoc(doc(o, 'leagues', 'EX'), { chartered: false }));
+  // an unchartered league was never locked
+  await seedLeague('PLAIN', { isPublic: true, settings: APPROVAL_ON });
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'PLAIN'), { isPublic: false, 'settings.requireApproval': false }));
+  // nor is one whose charter was cleared to null by a refund
+  await seedLeague('REFUNDED', { isPublic: true, settings: APPROVAL_ON, charter: null, chartered: false });
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'REFUNDED'), { isPublic: false }));
+});
+
+test('F-175: a user cannot write their own charterAccess', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users', ALICE), { displayName: 'Alice', charterAccess: { leagues: { CH: 1 } } });
+  });
+  const access = { leagues: { CH: 9e15 } };
+  await assertFails(setDoc(doc(db(BOB), 'users', BOB), { displayName: 'Bob', charterAccess: access }));
+  await assertFails(updateDoc(doc(db(ALICE), 'users', ALICE), { charterAccess: access }));
+  await assertFails(updateDoc(doc(db(ALICE), 'users', ALICE), { 'charterAccess.leagues.OTHER': 9e15 }));
+  await assertFails(updateDoc(doc(db(ALICE), 'users', ALICE), { charterAccess: deleteField() }));
+  await assertSucceeds(updateDoc(doc(db(ALICE), 'users', ALICE), { displayName: 'Alice B' }));
+});
+
+test('F-175: Rank Ups are written by the server only; approved members read them', async () => {
+  await seedChartered('RK', Date.now() + 1e10);
+  await seedMember('RK', BOB, { status: 'pending', totalPoints: 0 });
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'leagues', 'RK', 'rankUps', `2026-W48_${OWNER}`), { fromUid: OWNER, toUid: ALICE, at: 0 });
+  });
+  const gift = { fromUid: ALICE, toUid: OWNER, at: 0 };
+  await assertFails(setDoc(doc(db(ALICE), 'leagues', 'RK', 'rankUps', `2026-W48_${ALICE}`), gift));
+  await assertFails(setDoc(doc(db(OWNER), 'leagues', 'RK', 'rankUps', `2026-W48_${OWNER}`), gift));
+  await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'RK', 'rankUps', `2026-W48_${OWNER}`), { toUid: OWNER }));
+  await assertFails(deleteDoc(doc(db(OWNER), 'leagues', 'RK', 'rankUps', `2026-W48_${OWNER}`)));
+  await assertSucceeds(getDocs(collection(db(ALICE), 'leagues', 'RK', 'rankUps')));
+  await assertSucceeds(getDocs(collection(db(OWNER), 'leagues', 'RK', 'rankUps')));
+  await assertFails(getDocs(collection(db(BOB), 'leagues', 'RK', 'rankUps')));
+  await assertFails(getDocs(collection(db(MALLORY), 'leagues', 'RK', 'rankUps')));
 });
