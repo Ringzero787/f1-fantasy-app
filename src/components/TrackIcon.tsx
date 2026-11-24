@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getTrackImage } from '../data/trackImages';
 import { COLORS } from '../config/constants';
 
@@ -14,14 +15,20 @@ export function TrackIcon({ country, city, size = 48, style }: TrackIconProps) {
   const trackImage = getTrackImage(country, city);
 
   if (!trackImage) {
-    // Fallback: show empty container
+    // F-157: a circuit with no artwork (new to the calendar: Portimão and Istanbul Park in 2027)
+    // shows a neutral flag, never a blank tile and never another circuit's outline.
     return (
-      <View style={[
-        styles.container,
-        styles.fallback,
-        { width: size, height: size, borderRadius: size * 0.15 },
-        style
-      ]} />
+      <View
+        accessibilityLabel={city || country}
+        style={[
+          styles.container,
+          styles.fallback,
+          { width: size, height: size, borderRadius: size * 0.15 },
+          style
+        ]}
+      >
+        <Ionicons name="flag-outline" size={Math.round(size * 0.45)} color={COLORS.gray[500]} />
+      </View>
     );
   }
 

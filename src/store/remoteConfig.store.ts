@@ -5,6 +5,7 @@ import type { Driver, Constructor, Race } from '../types';
 import { TEAM_COLORS } from '../config/constants';
 import { firebaseAuth } from '../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { resolveSeasonId } from '../utils/season';
 
 interface RemoteConfigState {
   // Config
@@ -15,6 +16,8 @@ interface RemoteConfigState {
   drivers: Driver[];
   constructors: Constructor[];
   races: Race[];
+  /** F-157: `races` came from the server, not the bundled demo calendar (which must never decide the season) */
+  racesLive: boolean;
   teamColors: Record<string, { primary: string; secondary: string }>;
 
   // State
@@ -36,6 +39,8 @@ interface RemoteConfigState {
   getActiveDrivers: () => Driver[];
   getActiveConstructors: () => Constructor[];
   getUpcomingRaces: () => Race[];
+  /** F-157: the season the app is in (src/utils/season.ts): pinned, else the live calendar, else the last resort */
+  getCurrentSeasonId: () => string;
 }
 
 export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
@@ -44,6 +49,7 @@ export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
   drivers: demoDrivers,
   constructors: demoConstructors,
   races: demoRaces,
+  racesLive: false,
   teamColors: TEAM_COLORS,
   isLoaded: false,
   fetchedSignedIn: false,
@@ -77,6 +83,7 @@ export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
   getActiveDrivers: () => get().drivers.filter(d => d.isActive),
   getActiveConstructors: () => get().constructors.filter(c => c.isActive),
   getUpcomingRaces: () => get().races.filter(r => r.status === 'upcoming'),
+  getCurrentSeasonId: () => selectCurrentSeasonId(get()),
 
   ensureSignedInConfig: async () => {
     if (get().fetchedSignedIn) return;
@@ -89,6 +96,14 @@ export const useRemoteConfigStore = create<RemoteConfigState>((set, get) => ({
 }));
 
 let inflight: Promise<void> | null = null;
+
+/**
+ * F-157: the current season from store state. A selector (stable string) so components can
+ * `useRemoteConfigStore(selectCurrentSeasonId)`. The bundled demo calendar is 2026 data and is never read.
+ */
+export function selectCurrentSeasonId(s: Pick<RemoteConfigState, 'races' | 'racesLive' | 'appConfig'>, nowMs: number = Date.now()): string {
+  return resolveSeasonId(s.racesLive ? s.races : [], nowMs, s.appConfig?.currentSeason);
+}
 
 /** Resolves once Firebase has a signed-in user; never resolves while there is none (nothing to fetch for). */
 function firebaseUser(): Promise<void> {
@@ -110,6 +125,7 @@ async function runInitialize(set: (p: Partial<RemoteConfigState>) => void, get: 
         drivers: data.drivers.length > 0 ? data.drivers : demoDrivers,
         constructors: data.constructors.length > 0 ? data.constructors : demoConstructors,
         races: data.races.length > 0 ? data.races : demoRaces,
+        racesLive: data.races.length > 0 || get().racesLive,
         teamColors: Object.keys(data.teamColors).length > 0 ? data.teamColors : TEAM_COLORS,
         isLoaded: true,
         isLoading: false,

@@ -12,6 +12,7 @@
  */
 
 import type { Race, RaceSchedule } from '../types';
+import { parseSeasonId } from './season';
 
 export interface LockoutInfo {
   isLocked: boolean;
@@ -23,7 +24,9 @@ export interface LockoutInfo {
 }
 
 /**
- * Find the next incomplete race (lowest round not in completedRaceIds).
+ * Find the next incomplete race (earliest season, then lowest round, not in completedRaceIds).
+ * F-157: by season first — with next season's calendar seeded, 2027's round 1 must not come
+ * before 2026's round 25.
  * Races whose scheduled race time is more than 4 hours in the past are
  * treated as implicitly complete — this prevents stale locks when
  * syncCompletedRaces hasn't run or failed silently.
@@ -33,7 +36,8 @@ export function getNextIncompleteRace(
   completedRaceIds: Set<string>,
   now?: Date,
 ): Race | null {
-  const sorted = [...races].sort((a, b) => a.round - b.round);
+  const season = (r: Race) => Number(parseSeasonId(r.seasonId) ?? 0);
+  const sorted = [...races].sort((a, b) => season(a) - season(b) || a.round - b.round);
   const nowMs = (now ?? new Date()).getTime();
   const IMPLICIT_COMPLETE_MS = 4 * 60 * 60 * 1000; // 4 hours after race start
   return sorted.find((r) => {

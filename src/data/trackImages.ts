@@ -66,6 +66,10 @@ export const trackImages: Record<string, any> = {
   'netherlands': require('../../pics/tracks/zandvoort.png'),
 };
 
+// F-157: circuits with no artwork here render TrackIcon's neutral flag (never a blank tile, never
+// another circuit's outline). On the 2027 calendar that is Portimão (Portugal) and Istanbul Park
+// (Turkey): add real outlines to pics/tracks and key them by city and country when they exist.
+
 // Helper function to get track image by country and/or city
 export function getTrackImage(country: string, city?: string): any {
   const normalizedCountry = country.toLowerCase().trim();

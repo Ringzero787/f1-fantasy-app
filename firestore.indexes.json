@@ -165,6 +165,15 @@
       "collectionGroup": "raceScores",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "entityType", "order": "ASCENDING" },
+        { "fieldPath": "seasonId", "order": "ASCENDING" },
+        { "fieldPath": "round", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "raceScores",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "raceId", "order": "ASCENDING" },
         { "fieldPath": "entityType", "order": "ASCENDING" }
       ]

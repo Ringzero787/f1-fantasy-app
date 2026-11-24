@@ -7,6 +7,7 @@ import { useLockoutStatus } from '../../hooks/useLockoutStatus';
 import { useAuthStore } from '../../store/auth.store';
 import { useLeagueStore } from '../../store/league.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
+import { useCurrentSeasonId } from '../../hooks/useCurrentSeason';
 import { useRaceScoresStore } from '../../store/raceScores.store';
 import { useAdminStore } from '../../store/admin.store';
 import { TEAM_SIZE } from '../../config/constants';
@@ -207,8 +208,10 @@ export const GridTeamPanel = React.memo(function GridTeamPanel({ refreshing, onR
     if (isFull && !reviewed.current) { reviewed.current = true; maybeRequestReview(); }
   }, [isFull]);
 
-  // One season only: the races collection is ordered by round, not filtered.
-  const seasonId = lockoutInfo.nextRace?.seasonId ?? races[races.length - 1]?.seasonId;
+  // One season only: the races collection is ordered by round, not filtered. F-157: with no next
+  // race, the current season (pinned, else the calendar), not the season of the highest round on file.
+  const currentSeasonId = useCurrentSeasonId();
+  const seasonId = lockoutInfo.nextRace?.seasonId ?? currentSeasonId;
   const seasonLength = seasonId ? races.filter((r) => r.seasonId === seasonId).length : races.length;
   const nextRound = lockoutInfo.nextRace?.round ?? null;
   const completedRounds = nextRound ? nextRound - 1 : seasonLength;

@@ -2041,7 +2041,7 @@ features:
       - seed
   - id: F-157
     name: "UC: app reads the current season everywhere (2027-ready build)"
-    status: planned
+    status: building
     spec: .aidlc/specs/F-157.md
     created_at: 2026-11-17
     keywords:

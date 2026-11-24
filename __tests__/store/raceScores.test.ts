@@ -15,6 +15,13 @@ jest.mock('../../src/services/raceScores.service', () => ({
   },
 }));
 
+// F-157: every read is scoped to the current season, read from the remote-config store at call time
+let season = '2026';
+let liveRaces: Array<{ id: string; seasonId: string }> = [];
+jest.mock('../../src/store/remoteConfig.store', () => ({
+  useRemoteConfigStore: { getState: () => ({ racesLive: liveRaces.length > 0, races: liveRaces, getCurrentSeasonId: () => season }) },
+}));
+
 import { useRaceScoresStore } from '../../src/store/raceScores.store';
 
 const score = (raceId: string, round: number, entityId: string, totalPoints: number) => ({
@@ -23,6 +30,8 @@ const score = (raceId: string, round: number, entityId: string, totalPoints: num
 
 beforeEach(() => {
   jest.clearAllMocks();
+  season = '2026';
+  liveRaces = [];
   useRaceScoresStore.setState({ lastRaceScores: {}, prevRaceScores: {}, lastRaceId: null, prevRaceId: null, lastFetched: null, isLoading: false });
 });
 
@@ -40,7 +49,8 @@ describe('fetchLastRaceScores', () => {
     expect(s.lastRaceScores.norris.totalPoints).toBe(25);
     expect(s.lastRaceScores.mclaren.totalPoints).toBe(43);
     expect(s.prevRaceScores.norris.totalPoints).toBe(18);
-    expect(getPreviousRaceScores).toHaveBeenCalledWith(17);
+    expect(getLatestRound).toHaveBeenCalledWith('2026', new Map());
+    expect(getPreviousRaceScores).toHaveBeenCalledWith(17, '2026', new Map());
     expect(s.isLoading).toBe(false);
   });
 
@@ -74,5 +84,24 @@ describe('fetchLastRaceScores', () => {
     expect(useRaceScoresStore.getState().isLoading).toBe(false);
     expect(useRaceScoresStore.getState().lastFetched).toBeNull();
     warn.mockRestore();
+  });
+});
+
+describe('F-157 season scope', () => {
+  it('asks for the current season, with each live race mapped to its season', async () => {
+    season = '2027';
+    liveRaces = [{ id: 'australia_2027', seasonId: '2027' }, { id: 'abu_dhabi_2026', seasonId: '2026' }];
+    getLatestRound.mockResolvedValue(null);
+    await useRaceScoresStore.getState().fetchLastRaceScores();
+    expect(getLatestRound).toHaveBeenCalledWith('2027', new Map([['australia_2027', '2027'], ['abu_dhabi_2026', '2026']]));
+    expect(useRaceScoresStore.getState().lastRaceId).toBeNull();
+  });
+
+  it('scopes an entity history to the current season', async () => {
+    const { raceScoresService } = jest.requireMock('../../src/services/raceScores.service');
+    raceScoresService.getScoresForEntity.mockResolvedValue([]);
+    season = '2027';
+    await useRaceScoresStore.getState().fetchEntityHistory('norris');
+    expect(raceScoresService.getScoresForEntity).toHaveBeenCalledWith('norris', '2027', new Map());
   });
 });

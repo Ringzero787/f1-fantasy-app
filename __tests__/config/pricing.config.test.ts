@@ -16,7 +16,8 @@ import {
 describe('PRICING_CONFIG', () => {
   it('should have correct season structure', () => {
     expect(PRICING_CONFIG.RACES_PER_SEASON).toBe(24);
-    expect(PRICING_CONFIG.SPRINTS_PER_SEASON).toBe(6);
+    // F-157: no sprint count is bundled; it is read off the season's races (seasonShape)
+    expect('SPRINTS_PER_SEASON' in PRICING_CONFIG).toBe(false);
   });
 
   it('should have correct price calculation constants', () => {

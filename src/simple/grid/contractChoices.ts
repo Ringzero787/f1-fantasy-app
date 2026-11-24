@@ -8,18 +8,12 @@
  *    next race keeps the run, and a driver at six is locked out until a race has passed.
  */
 import type { Race } from '../../types';
+import { currentSeasonId } from '../../utils/season';
 
 export const MAX_CONTRACT = 6;
 export const MAX_IN_A_ROW = 6;
 
 type RaceLike = Pick<Race, 'seasonId' | 'status'> & { schedule?: { race?: unknown } | null };
-
-const ms = (v: unknown): number => {
-  if (v && typeof (v as { toMillis?: unknown }).toMillis === 'function') return (v as { toMillis: () => number }).toMillis();
-  if (v && typeof (v as { toDate?: unknown }).toDate === 'function') return (v as { toDate: () => Date }).toDate().getTime();
-  if (typeof v === 'string' || typeof v === 'number' || v instanceof Date) return new Date(v).getTime();
-  return NaN;
-};
 
 /**
  * The season the game is in, as the server reads it (functions/src/season/current.ts): the season
@@ -28,15 +22,9 @@ const ms = (v: unknown): number => {
  * and the races still to run. Null with neither a pinned season nor dated races.
  */
 export function seasonClock(races: ReadonlyArray<RaceLike>, nowMs: number, pinned?: string | null): { season: string; completed: number; racesLeft: number } | null {
-  let season: string;
-  if (typeof pinned === 'string' && /^\d{4}$/.test(pinned)) {
-    season = pinned;
-  } else {
-    const dated = races.filter((r) => r.seasonId && r.status !== 'cancelled' && Number.isFinite(ms(r.schedule?.race)));
-    if (!dated.length) return null;
-    const started = dated.filter((r) => ms(r.schedule?.race) <= nowMs).sort((a, b) => ms(b.schedule?.race) - ms(a.schedule?.race));
-    season = String((started[0] ?? [...dated].sort((a, b) => ms(a.schedule?.race) - ms(b.schedule?.race))[0]).seasonId);
-  }
+  // F-157: one rule for the whole app (src/utils/season.ts)
+  const season = currentSeasonId(races, nowMs, pinned);
+  if (season === null) return null;
   const inSeason = races.filter((r) => String(r.seasonId) === season);
   return {
     season,

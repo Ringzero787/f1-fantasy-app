@@ -14,9 +14,8 @@ import { Loading, RaceCard, EmptyState } from '../../../src/components';
 import { COLORS, SPACING, FONTS, BORDER_RADIUS } from '../../../src/config/constants';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { useLayout } from '../../../src/hooks/useLayout';
+import { useCurrentSeasonId } from '../../../src/hooks/useCurrentSeason';
 import type { Race } from '../../../src/types';
-
-const CURRENT_SEASON_ID = '2026';
 
 type FilterOption = 'all' | 'upcoming' | 'completed';
 
@@ -24,7 +23,7 @@ export default function CalendarScreen() {
   const theme = useTheme();
   const { numColumns } = useLayout();
   const [filter, setFilter] = useState<FilterOption>('all');
-  const { data: races, isLoading, refetch } = useSeasonRaces(CURRENT_SEASON_ID);
+  const { data: races, isLoading, refetch } = useSeasonRaces(useCurrentSeasonId()); // F-157
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {

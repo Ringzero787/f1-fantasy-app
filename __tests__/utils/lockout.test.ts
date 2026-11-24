@@ -405,3 +405,12 @@ describe('serverRosterLock', () => {
     expect(serverRosterLock({ lockStatus: { canModify: false, isSeasonLocked: true } }, now).seasonLocked).toBe(true);
   });
 });
+
+describe('getNextIncompleteRace across seasons (F-157)', () => {
+  it("with next season seeded, this season's last round still comes before next season's round 1", () => {
+    const abuDhabi = { ...makeRace({ id: 'abu_dhabi_2026', round: 25 }), schedule: { race: new Date('2026-12-06T13:00:00Z') } } as Race;
+    const opener = { ...makeRace({ id: 'australia_2027', round: 1 }), seasonId: '2027', schedule: { race: new Date('2027-03-14T05:00:00Z') } } as Race;
+    expect(getNextIncompleteRace([opener, abuDhabi], new Set(), new Date('2026-12-01T00:00:00Z'))?.id).toBe('abu_dhabi_2026');
+    expect(getNextIncompleteRace([opener, abuDhabi], new Set(['abu_dhabi_2026']), new Date('2026-12-07T00:00:00Z'))?.id).toBe('australia_2027');
+  });
+});

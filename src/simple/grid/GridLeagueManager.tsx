@@ -12,6 +12,7 @@ import { useLeagueStore } from '../../store/league.store';
 import { usePurchaseStore } from '../../store/purchase.store';
 import { markDirty } from '../../utils/syncDirty';
 import { useTeamStore } from '../../store/team.store';
+import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../config/firebase';
 import { PurchaseModal } from '../../components/PurchaseModal';
@@ -100,7 +101,7 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
     if (leagues.length > 0 && team?.leagueId) { setError('Leave your current league first.'); return; }
     setBusy(true); setError(null);
     try {
-      const created = await createLeague(userId, userName, { name: n, isPublic: false, maxMembers: DEFAULT_MAX_MEMBERS }, '2026');
+      const created = await createLeague(userId, userName, { name: n, isPublic: false, maxMembers: DEFAULT_MAX_MEMBERS }, useRemoteConfigStore.getState().getCurrentSeasonId());
       if (created) await attachTeam(created.id);
       setName('');
     } catch (e) {

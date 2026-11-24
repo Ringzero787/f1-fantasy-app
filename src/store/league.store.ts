@@ -6,6 +6,7 @@ import type { League, LeagueMember, CreateLeagueForm, LeagueSettings } from '../
 import { leagueService } from '../services/league.service';
 import { useAuthStore } from './auth.store';
 import { useTeamStore } from './team.store';
+import { useRemoteConfigStore } from './remoteConfig.store';
 import { errorLogService } from '../services/errorLog.service';
 import {
   RACE_POINTS,
@@ -602,7 +603,7 @@ export const useLeagueStore = create<LeagueState>()(
           isPublic: false,
           maxMembers: 20,
           memberCount: 5, // Simulated existing members
-          seasonId: '2026',
+          seasonId: useRemoteConfigStore.getState().getCurrentSeasonId(),
           createdAt: new Date(),
           updatedAt: new Date(),
           settings: { ...DEFAULT_LEAGUE_SETTINGS, requireApproval: true },
