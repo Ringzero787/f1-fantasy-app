@@ -1,4 +1,4 @@
-next_id: 164
+next_id: 171
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -2189,3 +2189,14 @@ features:
       - lockout
       - season
       - streak
+  - id: F-170
+    name: "UC: auto-fill resets the stale-roster counter like a transfer"
+    summary: "A lock-time auto-fill that buys a driver or constructor resets racesSinceTransfer to 0, as a player's own purchase does, so an abandoned team kept full by auto-fill stops taking a growing stale-roster penalty"
+    status: building
+    spec: .aidlc/specs/F-170.md
+    created_at: 2026-11-24
+    keywords:
+      - autofill
+      - stale
+      - penalty
+      - transfer

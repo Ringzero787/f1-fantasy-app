@@ -382,6 +382,10 @@ export function autoFillWrite(
     ...(plan.constructor ? { constructor: plan.constructor } : {}),
     budget: plan.budget,
     totalSpent: Math.round(totalSpent + plan.cost),
+    // F-170 (owner decision 2026-11-24): a fill is a transfer, as a player's own purchase is
+    // (teamOperations.ts). Without it, an abandoned team kept full by auto-fill took a growing
+    // stale-roster penalty, (racesSinceTransfer - 5) x 5 a race: 58 teams, -2675 at Las Vegas.
+    racesSinceTransfer: 0,
     lastAutoFill: {
       raceId,
       driverIds: plan.filledDriverIds,
