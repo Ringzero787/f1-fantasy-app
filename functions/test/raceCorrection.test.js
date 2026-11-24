@@ -156,12 +156,14 @@ function fakeDb(seed) {
     }
     docs.set(path, cur);
   };
+  // The SDK's update() cannot serialize a top-level `constructor` key; the fake refuses it the same way.
+  const strictUpdate = (path, d) => { if (Object.prototype.hasOwnProperty.call(d, 'constructor')) throw new Error("Can't merge current value into a nested object"); apply(path, d, true); };
   const snapOf = (path) => ({ id: path.split('/').pop(), exists: docs.has(path), ref: ref(path), data: () => (docs.has(path) ? JSON.parse(JSON.stringify(docs.get(path))) : undefined) });
   function ref(path) {
     return {
       path, id: path.split('/').pop(),
       get: async () => snapOf(path),
-      update: async (d) => apply(path, d, true),
+      update: async (d) => strictUpdate(path, d),
       set: async (d, o) => apply(path, d, !!(o && o.merge)),
       collection: (c) => collection(`${path}/${c}`),
     };
@@ -181,7 +183,8 @@ function fakeDb(seed) {
     docs,
     collection: (c) => collection(c),
     batch: () => { const ops = []; return { set: (r, d) => ops.push(() => apply(r.path, d, false)), commit: async () => ops.forEach((f) => f()) }; },
-    runTransaction: async (fn) => { const ops = []; const tx = { get: (r) => r.get(), update: (r, d) => ops.push(() => apply(r.path, d, true)) }; const out = await fn(tx); ops.forEach((f) => f()); return out; },
+    runTransaction: async (fn) => { const ops = []; const tx = { get: (r) => r.get(), update: (r, d) => ops.push(() => strictUpdate(r.path, d)),
+      set: (r, d, o) => ops.push(() => { if (!(o && (o.merge || o.mergeFields))) throw new Error('fake: set without merge would replace the team'); apply(r.path, d, true); }) }; const out = await fn(tx); ops.forEach((f) => f()); return out; },
   };
 }
 
@@ -263,4 +266,51 @@ test('contract expiry sells at the post-race price and keeps negative banked poi
   assert.match(expiry, /lockedPoints: lockedPoints !== 0 \? lockedPoints/);
   assert.ok(!/lockedPoints > 0 \?/.test(expiry));
   assert.match(cp, /scoringCompletedAt: admin\.firestore\.FieldValue\.serverTimestamp\(\)/);
+});
+
+// ─── the team write must survive the real SDK's serializer (OP-239 failed here) ───
+
+test('a team write carrying `constructor` serializes as set+mergeFields, not as update()', () => {
+  const { Firestore } = require('@google-cloud/firestore');
+  const db = new Firestore({ projectId: 'offline-test' });
+  const ref = db.doc('fantasyTeams/t1');
+  // _ops is the SDK's private queue; if an upgrade renames it, fail loudly rather than pass vacuously
+  const serialize = (fn) => { const b = db.batch(); fn(b); assert.ok(Array.isArray(b._ops) && b._ops.length === 1, 'SDK internals moved: rewrite this test'); b._ops.forEach((o) => o.op()); };
+  for (const ctor of [{ constructorId: 'red_bull', racesHeld: 2 }, null]) {
+    const data = { drivers: [], constructor: ctor, totalPoints: 10 };
+    assert.throws(() => serialize((b) => b.update(ref, data)), /Can't merge current value/, 'the premise: update() cannot');
+    assert.doesNotThrow(() => serialize((b) => b.set(ref, data, { mergeFields: Object.keys(data) })));
+  }
+});
+
+test('both team writers use set+mergeFields for the team doc', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const rc = read('src/scoring/raceCorrection.ts');
+  assert.match(rc, /tx\.set\(teamDoc\.ref, teamUpdate, \{ mergeFields: Object\.keys\(teamUpdate\) \}\)/);
+  assert.ok(!/tx\.update\(teamDoc\.ref/.test(rc), 'raceCorrection: no update() of the team doc');
+  const rx = read('scripts/repairExpirySale.js');
+  assert.match(rx, /tx\.set\(teamDoc\.ref, teamWrite, \{ mergeFields: Object\.keys\(teamWrite\) \}\)/);
+  assert.ok(!/tx\.update\(teamDoc\.ref/.test(rx), 'repairExpirySale: no update() of the team doc');
+});
+
+test('applyRaceCorrection: a team deleted after the list was read is not recreated', async () => {
+  const db = fakeDb(vegasSeed());
+  const run = db.runTransaction;
+  db.runTransaction = async (fn) => { db.docs.delete('fantasyTeams/t1'); return run(fn); };
+  const s = await applyRaceCorrection(db, 'las_vegas_2026', raceMeta, { raceResults: scored }, { raceResults: official }, { dryRun: false, log: () => {} });
+  assert.ok(!db.docs.has('fantasyTeams/t1'), 'no partial team doc');
+  assert.deepEqual(s.teams, []);
+});
+
+test('repairExpirySale skips a missing team before its set', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'scripts/repairExpirySale.js'), 'utf8');
+  assert.match(src, /if \(!s\.exists \|\| !t\.exists\) return null;/);
+});
+
+test('repairExpirySale: a team doc with no constructor field plans constructor null, not Object', () => {
+  const { planTeam } = require('../scripts/repairExpirySale.js');
+  const plan = planTeam({ roster: { drivers: [], constructor: null } }, { budget: 10, drivers: [] }, () => undefined, () => undefined);
+  assert.equal(plan.constructor, null);
 });
