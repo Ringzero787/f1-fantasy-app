@@ -139,6 +139,9 @@ async function main(conn) {
     fromSeason, currentSeason: appCfg.currentSeason,
     fromRaces: fromRaces.map((r) => ({ id: r.id, status: r.status, raceTimeMs: toMs(r.schedule && r.schedule.race) })),
     pendingResultIds, scoredRaceIds: [...scoredRaceIds], moonshots, calendarSize: calendar.length,
+    // F-155: the reset notice (sendSeasonNotice.js, 24 h before) and the owner's email stamp (stampSeasonNoticeEmail.js)
+    noticeSentMs: lib('offseasonNotice.js').noticeSentMs(fromSeason),
+    noticeEmailMs: lib('offseasonNotice.js').noticeEmailMs(fromSeason),
   });
   const existingRaces = (await db.collection('races').where('seasonId', '==', TO).get()).docs.map((d) => d.id);
 
@@ -159,6 +162,10 @@ async function main(conn) {
     const active = rows.filter((p) => !p.inactive);
     console.log(`  active ${coll}: average opening $${avg(active.map((p) => p.out.price))} (today's ${FROM} prices average $${avg(active.map((p) => p.from))})`);
   }
+  // F-155: the newcomer price (owner 2026-11-24: the median driver) and what the median of today's prices would have been
+  const todays = R.median(plan.prices.filter((p) => p.coll === 'drivers' && !p.inactive && p.out.perRace !== null).map((p) => p.from));
+  console.log(`\n== newcomer price (fewer than ${R.MIN_PRICED_RACES} scored ${FROM} races, and a driver new in ${TO} — seasons/${TO}.newcomerPrice): drivers $${plan.newcomer.drivers ?? R.NEWCOMER_PRICE}, constructors $${plan.newcomer.constructors ?? R.NEWCOMER_PRICE}`);
+  console.log(`  = the median ${TO} opening price of the active ones priced from their own results (the median of their ${FROM} prices today would be $${todays})`);
   const act = (coll) => plan.prices.filter((p) => p.coll === coll && !p.inactive).map((p) => p.out.price).sort((a, b) => a - b);
   const dr = act('drivers'), co = act('constructors'), sum = (a) => a.reduce((n, v) => n + v, 0);
   console.log(`\n  budget ${R.START_BUDGET}: cheapest lineup (5 drivers + 1 constructor) $${sum(dr.slice(0, 5)) + co[0]}; dearest $${sum(dr.slice(-5)) + co[co.length - 1]}`);

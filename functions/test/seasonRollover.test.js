@@ -99,6 +99,59 @@ test('opening prices: points per race × rate, a floor, newcomers below five rac
   assert.deepEqual(patch, { price: 603, previousPrice: 603, tier: 'A', seasonPoints: 947, fantasyPoints: 0 });
 });
 
+test('F-155: the median — odd count the middle value, even count the rounded mean of the middle two, none is null', () => {
+  assert.equal(R.median([300, 5, 150]), 150);
+  assert.equal(R.median([100, 151, 10, 400]), 126);
+  assert.equal(R.median([]), null);
+  assert.equal(R.median([NaN, 7]), 7);
+  assert.equal(R.newcomerPrice([{ price: 10 }, { price: 900, inactive: true }, { price: 30 }, { price: 20 }]), 20, 'a retired driver is not in the market median');
+  assert.equal(R.newcomerPrice([{ price: 9, inactive: true }]), null);
+});
+
+// The production drivers on 2026-11-24 (21 of 23 races scored): race count and points from raceScores, today's price.
+const DRIVERS_2026_11_24 = [
+  ['antonelli', 21, 1255, 664], ['verstappen', 21, 1038, 655], ['norris', 21, 936, 611], ['hamilton', 21, 1049, 588], ['leclerc', 21, 938, 570],
+  ['piastri', 21, 801, 553], ['russell', 21, 931, 526], ['lawson', 21, 698, 353], ['gasly', 21, 579, 254], ['colapinto', 21, 495, 246],
+  ['bortoleto', 21, 438, 244], ['sainz', 21, 349, 217], ['hadjar', 18, 647, 204], ['lindblad', 21, 524, 193], ['bearman', 21, 326, 184],
+  ['hulkenberg', 21, 421, 173], ['albon', 21, 177, 128], ['perez', 21, 206, 60], ['alonso', 21, 197, 56], ['bottas', 21, 62, 17], ['stroll', 21, 54, 17],
+];
+
+test('F-155: newcomers open at the median driver — on 2026\'s data, Câmara (2 races) and a driver with no 2026 races at $150, not $5', () => {
+  const entities = [
+    ...DRIVERS_2026_11_24.map(([id, , , price]) => ({ coll: 'drivers', id, data: { price, fantasyPoints: 1 } })),
+    // retired mid-season: priced, but not in the market median
+    { coll: 'drivers', id: 'ocon', data: { price: 256, fantasyPoints: 249, isActive: false } },
+    { coll: 'drivers', id: 'camara', data: { price: 127, fantasyPoints: 11 } },
+    { coll: 'drivers', id: 'rookie', data: { price: 120, fantasyPoints: 0 } },
+    { coll: 'constructors', id: 'mclaren', data: { price: 662, fantasyPoints: 1172 } },
+  ];
+  const scores = Object.fromEntries(DRIVERS_2026_11_24.map(([id, races, points]) => [id, { races, points }]));
+  Object.assign(scores, { ocon: { races: 18, points: 361 }, camara: { races: 2, points: 12 }, mclaren: { races: 20, points: 1628 } });
+  const plan = R.planRollover(input({ entities, scores }));
+  const price = (id) => plan.prices.find((p) => p.id === id).out;
+  assert.equal(plan.newcomer.drivers, 150, 'the 11th of 21 active drivers by 2027 opening price (Lindblad 524/21 × $6)');
+  assert.equal(price('lindblad').price, 150);
+  for (const id of ['camara', 'rookie']) {
+    assert.equal(price(id).price, 150, id);
+    assert.equal(price(id).tier, 'B');
+    assert.match(price(id).basis, /newcomer price/);
+  }
+  assert.equal(price('ocon').price, 120, 'a retired driver is still re-priced from his own races');
+  assert.equal(plan.newcomer.constructors, 244, 'the only constructor priced from results');
+  const season = plan.groups.at(-1).ops.find((o) => o.path === 'seasons/2027');
+  assert.equal(season.data.newcomerPrice, 150, 'F-156 prices a driver new in 2027 from here');
+  // a re-run with everything already priced still states the same newcomer price
+  const stamped = entities.map((e) => ({ ...e, data: { ...e.data, pricedFor: '2027' } }));
+  assert.equal(R.planRollover(input({ entities: stamped, scores })).newcomer.drivers, 150);
+});
+
+test('F-155: with no driver priced from results the newcomer price falls back to the old $5', () => {
+  const plan = R.planRollover(input({ entities: [{ coll: 'drivers', id: 'x', data: { price: 50 } }], scores: {} }));
+  assert.equal(plan.newcomer.drivers, null);
+  assert.equal(plan.prices[0].out.price, R.NEWCOMER_PRICE);
+  assert.equal(plan.groups.at(-1).ops[0].data.newcomerPrice, R.NEWCOMER_PRICE);
+});
+
 // A hand-built calendar in OpenF1's shape: testing, a sprint weekend, a normal weekend out of
 // date order, a cancelled meeting.
 const S = (meeting_key, session_name, iso, extra = {}) => ({ meeting_key, session_name, date_start: iso, date_end: iso, year: 2027, ...extra });
@@ -271,6 +324,8 @@ const ready = (over = {}) => ({
     { id: 'c', status: 'CANCELLED', settledAt: null, raceId: 'abu_dhabi_2026' },
   ],
   calendarSize: 24,
+  noticeSentMs: NOW_MS - 72 * H,
+  noticeEmailMs: NOW_MS - 48 * H,
   ...over,
 });
 
@@ -393,4 +448,10 @@ test('F-154: how each write is sent — the team reset replaces its named fields
   assert.throws(() => R.writeCall({ kind: 'upsert', path: 'x/y', data: {} }), /unknown write kind/);
   // every replace in the plan sits after an update of the same document in the same group
   for (const g of plan.groups) g.ops.forEach((o, i) => { if (o.kind === 'replace') assert.ok(g.ops.slice(0, i).some((p) => p.kind === 'update' && p.path === o.path), `${g.label}: unguarded replace`); });
+});
+
+test('F-155: the reset email needs the same lead time as the inbox notice', () => {
+  const recent = R.rolloverBlockers(ready({ noticeEmailMs: NOW_MS - 2 * H }));
+  assert.ok(recent.some((b) => /reset email was stamped 2\.0 h ago/.test(b)), recent.join(' | '));
+  assert.ok(!R.rolloverBlockers(ready({ noticeEmailMs: NOW_MS - 25 * H })).some((b) => /reset email/.test(b)));
 });
