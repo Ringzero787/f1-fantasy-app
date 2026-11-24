@@ -132,6 +132,7 @@ test('grant decision: owner only, one per season, replay is a no-op, renewal for
   assert.equal(d(live, 'r2'), 'refuse:already-chartered');
   assert.equal(d({ ...live, charter: { ...live.charter, season: '2026', expiresAt: NOW + 1000, ref: 'old' } }, 'r2'), 'grant', 'a live 2026 charter does not block buying 2027');
   assert.equal(d({ ...live, charter: { ...live.charter, expiresAt: NOW - 1 } }, 'r2'), 'grant', 'an expired charter does not block');
+  assert.equal(d({ ...live, charter: { ...live.charter, season: '2028', expiresAt: END_2027 + 1e10, ref: 'new' } }, 'old', '2027'), 'refuse:already-chartered', 'a late 2027 replay never replaces a 2028 charter');
 });
 
 test('access goes to the owner and approved members; pending members get nothing', () => {
@@ -323,4 +324,5 @@ test('validatePurchase: refunded purchases and non-test accounts in the sandbox 
   assert.match(fn, /record\.status === 'refunded'\) return \{ applied: false, reason: 'refunded' \}/);
   assert.match(fn, /testPurchase && \(await db\.doc\(`users\/\$\{userId\}`\)\.get\(\)\)\.data\(\)\?\.testAccount === true/);
   assert.match(fn, /const target = typeof record\.leagueId === 'string' \? record\.leagueId : leagueId/);
+  assert.match(fn, /if \(testPurchase && !tester\) \{\s*result = \{ applied: false, reason: 'disabled' \};\s*\} else if \(!charterEnabled\(appCfg\) && !tester\)/, 'a test purchase needs a test account even with the sale on');
 });

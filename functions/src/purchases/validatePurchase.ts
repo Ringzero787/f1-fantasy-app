@@ -420,11 +420,13 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
     if (typeof record.leagueId !== 'string' && typeof leagueId === 'string') await purchaseDoc.set({ leagueId }, { merge: true });
     let result: GrantCharterResult;
     const appCfg = (await db.doc('config/app').get()).data();
-    // While the sale is off, only a store test purchase by a marked test account (F-164,
-    // server-owned) may charter, so the sandbox runs in slice 5 work and nobody else's tester
-    // build gets a free charter. Once the flag is on, every verified purchase is a sale.
+    // A store test purchase (Apple Sandbox, TestFlight, Play license tester) moves no money, so it
+    // charters only for an account marked `testAccount` (F-164, server-owned; the App Review
+    // accounts are marked) — with the sale on or off. A real purchase needs the sale flag.
     const tester = testPurchase && (await db.doc(`users/${userId}`).get()).data()?.testAccount === true;
-    if (!charterEnabled(appCfg) && !tester) {
+    if (testPurchase && !tester) {
+      result = { applied: false, reason: 'disabled' };
+    } else if (!charterEnabled(appCfg) && !tester) {
       result = { applied: false, reason: 'disabled' };
     } else {
       result = await grantCharter(db, {

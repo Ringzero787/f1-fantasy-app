@@ -172,6 +172,8 @@ export function charterGrantDecision(i: CharterGrantInput): CharterGrantDecision
   if (charterActive(l, i.now)) {
     if (l.charter?.ref === i.ref) return { kind: 'replay' };
     if (l.charter?.season === i.season) return { kind: 'refuse', reason: 'already-chartered' };
+    // A late replay of last season's purchase must not replace a newer season's charter.
+    if (typeof l.charter?.season === 'string' && Number(l.charter.season) > Number(i.season)) return { kind: 'refuse', reason: 'already-chartered' };
   }
   // A league grown past the cap by the retired slot pack is not chartered: one charter is never
   // more than 22 players' worth of Pit Wall.
