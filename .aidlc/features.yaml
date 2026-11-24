@@ -661,9 +661,7 @@ features:
       - entitlement
       - purchase
       - verification
-    status_note: "Superseded by F-175 (Charter, owner decision 2026-11-24): League Pro is now bought per league, not derived from the personal pass alone. Purchase validation and the pass grant are live (functions deploy OP-038, 2026-09-25; in 2.4.x). League
-      Pro itself is closed (F-105) and the spec criteria are unticked: the remaining scope needs restating. Kept at
-      planned on purpose: the release run stamps every building feature shipped (G13)."
+    status_note: "Superseded by F-175 (Charter, owner decision 2026-11-24): League Pro is now bought per league, not derived from the personal pass alone. Purchase validation and the pass grant stay live (functions deploy OP-038, 2026-09-25; in 2.4.x)."
   - id: F-061
     name: "UC: League Pro upgrade screen and free-tier changes"
     summary: Grid League Manager shows League Pro as included with Pit Wall Pass and opens the one upgrade sheet; league
@@ -2249,7 +2247,8 @@ features:
   - id: F-175
     name: "UC: Charter, Pit Wall for every player in one league"
     summary: "A second product beside the Pit Wall Pass: pitwall.charter.season ($39.99) charters one league for one season, so every approved member reads paid Pit Wall while they stay in it, and chartered leagues rank above other public leagues with weekly Rank Ups (owner decision 2026-11-24; plan in docs/design/charter/BUILD.md)"
-    status: building
+    status: planned
+    status_note: "Slice 1 (ADR, types, rules, helpers) on feat/F-175-charter; kept at planned until the last slice so a release run does not stamp it shipped (G13)."
     spec: .aidlc/specs/F-175.md
     created_at: 2026-11-24
     keywords:
