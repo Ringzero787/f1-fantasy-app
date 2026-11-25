@@ -195,8 +195,10 @@ export function PillButton({ label, onPress, variant = 'primary', disabled, styl
 
 // ── Screen header ──────────────────────────────────────────────────────────
 // Mono status row (left muted / right red or muted) over the 26px title.
-export function ScreenHeader({ statusLeft, statusRight, statusRightAccent = true, onStatusLeftPress, title, titleNode, right, children }: {
+export function ScreenHeader({ statusLeft, statusLeftAfter, statusRight, statusRightAccent = true, onStatusLeftPress, title, titleNode, right, children }: {
   statusLeft: string;
+  /** Drawn right after the left status, e.g. the Charter square after a league name (F-175). */
+  statusLeftAfter?: React.ReactNode;
   statusRight?: string;
   statusRightAccent?: boolean;
   onStatusLeftPress?: () => void;
@@ -206,7 +208,12 @@ export function ScreenHeader({ statusLeft, statusRight, statusRightAccent = true
   children?: React.ReactNode;
 }) {
   const { colors, spacing, title: titleStyle } = useSimpleTheme();
-  const left = (
+  const left = statusLeftAfter ? (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <MonoLabel color={colors.text.muted}>{statusLeft}</MonoLabel>
+      {statusLeftAfter}
+    </View>
+  ) : (
     <MonoLabel color={colors.text.muted}>{statusLeft}</MonoLabel>
   );
   return (

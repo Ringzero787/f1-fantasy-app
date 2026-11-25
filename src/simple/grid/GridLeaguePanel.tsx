@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, FlatList, Pressable, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
@@ -20,6 +20,16 @@ import { standingsText } from './shareStandings';
 import { shareText } from './shareText';
 import { SHOWCASE_RESULT_ROUND, showcaseRaceResult } from './showcaseData';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
+import { usePurchaseStore } from '../../store/purchase.store';
+import { leagueService } from '../../services/league.service';
+import { PRODUCT_IDS } from '../../config/products';
+import { PITWALL_CONTENT_OPEN } from '../../pitwall/gates';
+import { isAmazonBuild } from '../../utils/storeDetection';
+import { approvalCap, charterFlagOn, charterOfferVisible, charterShareText, isChartered, rankUpLabel, rankUpsReceived, shouldShowUnlock, weekId, CHARTER_RED } from './charter';
+import { CharterMemberLine, CharterOfferCard, CharterOnCard, CharterRequestSheet, CharterSquare, CharterUnlockSheet } from './GridCharter';
+
+/** Leagues whose unlock sheet was shown this session, in case the "seen" write did not land. */
+const unlockShownThisSession = new Set<string>();
 
 // LEAGUE tab: standings (TRANSITION.md §4) or the "Racing solo." empty state.
 export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
@@ -67,6 +77,61 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
 
   // The user's league: the active team's, else their first.
   const league = leagueId ? leagues.find((l) => l.id === leagueId) ?? null : leagues[0] ?? null;
+
+  // F-175 slice 4: Charter on the league page.
+  const now = Date.now();
+  const chartered = isChartered(league, now);
+  const isOwner = !!league && !!userId && league.ownerId === userId;
+  const pendingLeagueIds = useLeagueStore((s) => s.pendingLeagueIds);
+  const pending = !!league && pendingLeagueIds.includes(league.id);
+  const requestCount = useLeagueStore((s) => (league ? s.pendingCountsByLeague[league.id] ?? 0 : 0));
+  const charterFlag = useRemoteConfigStore((s) => charterFlagOn(s.appConfig?.charter));
+  const charterPrice = usePurchaseStore((s) => s.storePrices[PRODUCT_IDS.PITWALL_CHARTER]);
+  const charterBusy = usePurchaseStore((s) => s.isPurchasing);
+  const offerVisible = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice });
+  const [requestsOpen, setRequestsOpen] = useState(false);
+  const [gifts, setGifts] = useState<Array<{ fromUid: string; toUid: string }>>([]);
+  const thisWeek = weekId(now);
+  const loadGifts = useCallback(async () => {
+    if (!league || !chartered || pending || isDemoMode) { setGifts([]); return; }
+    setGifts(await leagueService.getRankUpsForWeek(league.id, thisWeek));
+  }, [league?.id, chartered, pending, isDemoMode, thisWeek]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void loadGifts(); }, [loadGifts]);
+  const received = useMemo(() => rankUpsReceived(gifts), [gifts]);
+  const rankUpSpent = !!userId && gifts.some((g) => g.fromUid === userId);
+  const me = league ? members.find((m) => m.leagueId === league.id && m.userId === userId) : undefined;
+  const [unlockDismissed, setUnlockDismissed] = useState(false);
+  const showUnlock = !!league && !!me && !unlockDismissed && !unlockShownThisSession.has(league.id)
+    && shouldShowUnlock({ chartered, isOwner, pending, seen: me.charterUnlockSeen === true });
+  const closeUnlock = useCallback(() => {
+    if (!league || !userId) return;
+    unlockShownThisSession.add(league.id);
+    setUnlockDismissed(true);
+    leagueService.markCharterUnlockSeen(league.id, userId).catch(() => {});
+  }, [league, userId]);
+  const unlock = useCallback(() => {
+    if (league && isOwner && offerVisible) void usePurchaseStore.getState().purchaseCharter(league.id);
+  }, [league, isOwner, offerVisible]);
+  const shareCharter = useCallback(async () => {
+    if (!league) return;
+    await shareText(charterShareText(league.name, user?.displayName ?? league.ownerName, league.inviteCode), `${league.name} is chartered`, 'charter');
+  }, [league, user?.displayName]);
+  const giveRankUp = useCallback((toUid: string, label: string) => {
+    if (!league) return;
+    Alert.alert(`Rank up ${label}?`, `One a week. It lifts ${league.name} in search; nobody's points change.`, [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Rank up', onPress: async () => {
+        try {
+          await leagueService.giveRankUp(league.id, toUid);
+        } catch (e) {
+          const msg = (e as { message?: unknown })?.message;
+          Alert.alert('Rank Up', typeof msg === 'string' && msg ? msg : 'Could not give your Rank Up. Try again.');
+        }
+        await loadGifts();
+        if (userId) loadUserLeagues(userId);
+      } },
+    ]);
+  }, [league, loadGifts, userId, loadUserLeagues]);
 
   useEffect(() => { if (userId) loadUserLeagues(userId); }, [userId, leagueId, loadUserLeagues]);
 
@@ -153,6 +218,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const header = (
     <ScreenHeader
       statusLeft={league ? league.name.toUpperCase() : 'LEAGUE'}
+      statusLeftAfter={chartered ? <CharterSquare /> : undefined}
       onStatusLeftPress={league ? () => goManager() : undefined}
       statusRight={league ? playersCaption(rows.length || league.memberCount) : 'NOT JOINED'}
       statusRightAccent={false}
@@ -186,10 +252,41 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
             </View>
             <Text style={{ fontFamily: family.ui.black, fontSize: scaled(18), color: colors.text.muted }}>›</Text>
           </Pressable>
+          <Pressable onPress={() => router.push('/(simple)/league-search' as never)} accessibilityRole="button" style={({ pressed }) => ({ alignItems: 'center', paddingVertical: 14, opacity: pressed ? 0.7 : 1 })}>
+            <MonoLabel color={colors.text.primary}>FIND A PUBLIC LEAGUE ›</MonoLabel>
+          </Pressable>
         </View>
       </View>
     );
   }
+
+  // F-175: asked to join, not approved yet. League content is for approved members only.
+  if (pending) {
+    return (
+      <View style={{ flex: 1 }}>
+        {header}
+        <View style={{ flex: 1, paddingHorizontal: spacing.xl, justifyContent: 'center', gap: 12 }}>
+          <Text style={{ fontFamily: family.ui.black, fontSize: scaled(34), lineHeight: scaled(34) * 0.98, letterSpacing: -scaled(34) * 0.04, textTransform: 'uppercase', color: colors.text.primary }}>
+            {`Waiting on ${league.ownerName || 'the owner'}`}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const charterBlock = (
+    <>
+      {isOwner && requestCount > 0 ? (
+        <Pressable onPress={() => setRequestsOpen(true)} accessibilityRole="button" accessibilityLabel={`${requestCount} ${requestCount === 1 ? 'request' : 'requests'} to join`}
+          style={({ pressed }) => ({ marginTop: 12, paddingVertical: scaled(12), paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: CHARTER_RED, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
+          <MonoLabel color={colors.text.primary}>{`${requestCount} ${requestCount === 1 ? 'REQUEST' : 'REQUESTS'} TO JOIN`}</MonoLabel>
+          <MonoLabel color={CHARTER_RED}>REVIEW ›</MonoLabel>
+        </Pressable>
+      ) : null}
+      {isOwner && chartered ? <View style={{ marginTop: 12 }}><CharterOnCard leagueName={league.name} onShare={shareCharter} /></View> : null}
+      {isOwner && !chartered && offerVisible && charterPrice ? <View style={{ marginTop: 12 }}><CharterOfferCard leagueName={league.name} price={charterPrice} onUnlock={unlock} busy={charterBusy} /></View> : null}
+    </>
+  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -214,6 +311,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
           ) : null}
         </View>
       </View>
+      {chartered && !isOwner ? <View style={{ marginHorizontal: spacing.xl, marginTop: 8 }}><CharterMemberLine ownerName={league.ownerName || 'The owner'} /></View> : null}
       {raceId && raceResult?.estimated ? (
         <Text style={[mono(10, 'medium'), { color: colors.text.muted, marginHorizontal: spacing.xl, marginTop: 8 }]}>RACE-DAY POINTS ONLY · NOT COUNTED AS A WIN</Text>
       ) : null}
@@ -232,9 +330,14 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
         </Pressable>
       ) : null}
       {picking ? <GridRaceSelectSheet options={selectorOptions} value={selectorValue} onPick={onPick} onClose={() => setPicking(false)} /> : null}
+      {requestsOpen ? (
+        <CharterRequestSheet leagueId={league.id} leagueName={league.name} approved={rows.length || league.memberCount} cap={approvalCap(league, now)} chartered={chartered}
+          onClose={() => setRequestsOpen(false)} onChanged={() => { if (userId) loadUserLeagues(userId); loadLeagueMembers(league.id, true).catch(() => {}); }} />
+      ) : null}
+      {showUnlock ? <CharterUnlockSheet ownerName={league.ownerName || 'The owner'} leagueName={league.name} onClose={closeUnlock} /> : null}
       {reporting && league && reportRaceId ? <GridRoundReportSheet leagueId={league.id} raceId={reportRaceId} resultIds={league.raceResultIds} leagueName={league.name} inviteCode={league.inviteCode} onClose={() => setReporting(false)} /> : null}
       <FlatList
-        ListHeaderComponent={feed}
+        ListHeaderComponent={<>{charterBlock}{feed}</>}
         data={rows}
         keyExtractor={(r) => r.userId}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: 12 }}
@@ -265,6 +368,16 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
               <Text style={[mono(18), { letterSpacing: -scaled(18) * 0.02 }]}>{item.shown}</Text>
               <Text style={[mono(11), { color: item.isLeader ? colors.primary : colors.text.muted }]}>{item.delta}</Text>
               {item.moonshot ? <Text style={[mono(10), { color: item.moonshot.startsWith('+') ? colors.positive : colors.primary }]}>🚀 {item.moonshot}</Text> : null}
+              {/* F-175: Rank Up on another player's row in a chartered league; hidden on your own */}
+              {chartered && !raceId && !item.isMe && userId && !isDemoMode ? (
+                rankUpSpent ? (
+                  <Text accessibilityLabel={`${received.get(item.userId) ?? 0} Rank Ups this week`} style={[mono(10), { color: colors.text.muted }]}>{`▲ ${rankUpLabel(true, received.get(item.userId) ?? 0)}`}</Text>
+                ) : (
+                  <Pressable onPress={() => giveRankUp(item.userId, item.team || item.name)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Rank up ${item.team || item.name}`}>
+                    <Text style={[mono(10), { color: CHARTER_RED }]}>{rankUpLabel(false, 0)}</Text>
+                  </Pressable>
+                )
+              ) : null}
             </View>
           </Pressable>
         )}

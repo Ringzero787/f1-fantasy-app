@@ -115,6 +115,8 @@ export interface League {
   searchPoints?: number;
   /** Rank Ups received in the ISO week `weekId` ("YYYY-Www"). */
   rankUpsWeek?: { weekId: string; count: number };
+  /** Member slots bought as slot packs (server-counted); a charter covers 22 plus these. */
+  paidSlots?: number;
 }
 
 /** F-175: `leagues/{id}.charter`. Mirrors `Charter` in functions/src/charter/charter.ts. */
@@ -158,6 +160,7 @@ export interface LeagueMember {
   previousRank?: number; // Rank before the last race (server-written, F-054)
   lastRacePoints?: number; // Points in the most recent scored race (server-written)
   moonshotPoints?: number; // F-107: the Moonshot share of totalPoints (server-written)
+  charterUnlockSeen?: boolean; // F-175: the joiner's one-time "PIT WALL IS ON" sheet was shown
 }
 
 export interface LeagueInvite {

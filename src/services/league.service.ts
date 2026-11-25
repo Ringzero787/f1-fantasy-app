@@ -698,6 +698,27 @@ export const leagueService = {
   },
 
   /**
+   * This week's Rank Ups in a league (F-175): `leagues/{id}/rankUps` documents for `week`. Approved
+   * members and the owner may read them; anyone else gets an empty list.
+   */
+  async getRankUpsForWeek(leagueId: string, week: string): Promise<Array<{ fromUid: string; toUid: string }>> {
+    try {
+      const snap = await getDocs(query(collection(db, 'leagues', leagueId, 'rankUps'), where('weekId', '==', week)));
+      return snap.docs.map((d) => ({ fromUid: String(d.data().fromUid ?? ''), toUid: String(d.data().toUid ?? '') }));
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Remember that this member saw the one-time "PIT WALL IS ON" sheet (F-175). The only field a
+   * member may set on their own member document besides their display name; the rules allow `true` only.
+   */
+  async markCharterUnlockSeen(leagueId: string, userId: string): Promise<void> {
+    await updateDoc(doc(db, 'leagues', leagueId, 'members', userId), { charterUnlockSeen: true });
+  },
+
+  /**
    * Reject a pending member (deletes the doc so they can re-request)
    */
   async rejectMember(leagueId: string, userId: string): Promise<void> {

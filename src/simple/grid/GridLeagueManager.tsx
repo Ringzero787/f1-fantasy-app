@@ -21,6 +21,9 @@ import { playersCaption } from './standings';
 import { expansionNext, callableErrorCode } from './expansionFallback';
 import { PRODUCT_IDS, SLOTS_PER_PACK } from '../../config/products';
 import { isAmazonBuild } from '../../utils/storeDetection';
+import { PITWALL_CONTENT_OPEN } from '../../pitwall/gates';
+import { approvalCap, charterFlagOn, charterOfferVisible, isChartered, CHARTER_RED } from './charter';
+import { CharterCreateOption, CharterRequestSheet, CharterSquare } from './GridCharter';
 
 export type ManagerStep = 'none' | 'join' | 'create' | 'done';
 const MIN_CODE = 6;
@@ -72,6 +75,15 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const [copied, setCopied] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [email, setEmail] = useState('');
+  // F-175 slice 4: the create step's "UNLOCK PIT WALL" option, off by default
+  const [unlockOnCreate, setUnlockOnCreate] = useState(false);
+  const charterFlag = useRemoteConfigStore((s) => charterFlagOn(s.appConfig?.charter));
+  const charterPrice = storePrices[PRODUCT_IDS.PITWALL_CHARTER];
+  const charterOffer = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice });
+  const pendingHere = useLeagueStore((s) => (league ? s.pendingLeagueIds.includes(league.id) : false));
+  // the owner's join requests: the email "Approve" button and the join link land here
+  const requestCount = useLeagueStore((s) => (league ? s.pendingCountsByLeague[league.id] ?? 0 : 0));
+  const [requestsOpen, setRequestsOpen] = useState(false);
 
   useEffect(() => { if (userId) loadUserLeagues(userId); }, [userId, loadUserLeagues]);
   useEffect(() => { if (joinCode) { setCode(joinCode.toUpperCase()); setStep('join'); } }, [joinCode]);
@@ -106,11 +118,13 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
       const created = await createLeague(userId, userName, { name: n, isPublic: false, maxMembers: DEFAULT_MAX_MEMBERS }, useRemoteConfigStore.getState().getCurrentSeasonId());
       if (created) await attachTeam(created.id);
       setName('');
+      // Create first, then pay (BUILD.md): a dismissed sheet leaves an ordinary league with the offer on its page.
+      if (created && unlockOnCreate && charterOffer) void usePurchaseStore.getState().purchaseCharter(created.id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not create the league.';
       setError(msg.includes('permission') ? 'Could not create the league. Try again.' : msg);
     } finally { setBusy(false); }
-  }, [name, leagues.length, team?.leagueId, createLeague, userId, userName, attachTeam]);
+  }, [name, leagues.length, team?.leagueId, createLeague, userId, userName, attachTeam, unlockOnCreate, charterOffer]);
 
   // Code + the join link the app's deep-link handler accepts (app/_layout.tsx).
   const inviteMessage = league
@@ -277,6 +291,9 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
               </View>
               <Text style={{ fontFamily: family.ui.black, fontSize: scaled(18), color: colors.text.muted }}>›</Text>
             </Pressable>
+            <Pressable onPress={() => router.push('/(simple)/league-search' as never)} accessibilityRole="button" style={({ pressed }) => ({ alignItems: 'center', paddingVertical: 14, opacity: pressed ? 0.7 : 1 })}>
+              <MonoLabel color={colors.text.primary}>FIND A PUBLIC LEAGUE ›</MonoLabel>
+            </Pressable>
           </>
         )}
 
@@ -317,26 +334,46 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
               />
             </View>
             <Text style={[mono(10, 'medium'), { color: colors.text.muted }]}>UP TO {DEFAULT_MAX_MEMBERS} PLAYERS. ADD MORE ANY TIME FROM THE LEAGUE PAGE.</Text>
+            {charterOffer && charterPrice ? <CharterCreateOption on={unlockOnCreate} price={charterPrice} onToggle={() => setUnlockOnCreate((v) => !v)} /> : null}
             {error ? <Text style={[mono(11), { color: colors.primary }]}>{error.toUpperCase()}</Text> : null}
-            <PillButton label={busy ? 'CREATING…' : 'CREATE LEAGUE'} variant={name.trim().length >= MIN_LEAGUE_NAME_LENGTH ? 'primary' : 'muted'} disabled={busy || name.trim().length < MIN_LEAGUE_NAME_LENGTH} onPress={doCreate} style={{ marginTop: 8 }} />
+            <PillButton label={busy ? 'CREATING…' : unlockOnCreate && charterOffer && charterPrice ? `CREATE AND UNLOCK · ${charterPrice}` : 'CREATE LEAGUE'} variant={name.trim().length >= MIN_LEAGUE_NAME_LENGTH ? 'primary' : 'muted'} disabled={busy || name.trim().length < MIN_LEAGUE_NAME_LENGTH} onPress={doCreate} style={{ marginTop: 8 }} />
             <Pressable onPress={() => { setStep('none'); setError(null); }} style={{ alignItems: 'center', paddingVertical: 12 }}><MonoLabel color={colors.text.muted}>BACK</MonoLabel></Pressable>
           </>
         )}
 
-        {effectiveStep === 'done' && league && (
+        {effectiveStep === 'done' && league && pendingHere && (
+          <>
+            <View style={{ borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 18, padding: 22, paddingHorizontal: 20, gap: 10 }}>
+              <MonoLabel color={colors.text.muted}>REQUEST SENT</MonoLabel>
+              <Text style={{ fontFamily: family.ui.black, fontSize: scaled(24), lineHeight: scaled(25), letterSpacing: -scaled(24) * 0.03, textTransform: 'uppercase', color: colors.text.primary }}>{`Waiting on ${league.ownerName || 'the owner'}`}</Text>
+            </View>
+            <Pressable onPress={leaveOrDelete} accessibilityRole="button" style={{ marginTop: 'auto', alignItems: 'center', paddingVertical: 14 }}>
+              <MonoLabel color={colors.primary} style={{ letterSpacing: scaled(11) * 0.14 }}>CANCEL REQUEST</MonoLabel>
+            </Pressable>
+          </>
+        )}
+
+        {effectiveStep === 'done' && league && !pendingHere && (
           <>
             <View style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.primary, borderRadius: 18, padding: 22, paddingHorizontal: 20, gap: 10 }}>
               <MonoLabel color={colors.primary}>INVITE CODE</MonoLabel>
               <Text selectable style={{ fontFamily: family.mono.bold, fontSize: scaled(34), lineHeight: scaled(36), letterSpacing: scaled(34) * 0.08, color: colors.text.primary }}>{league.inviteCode}</Text>
               <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>{playersCaption(memberCount, league.maxMembers)}{memberCount <= 1 ? ' · JUST YOU SO FAR' : ''}</Text>
             </View>
+            {isOwner && requestCount > 0 ? (
+              <Pressable onPress={() => setRequestsOpen(true)} accessibilityRole="button" accessibilityLabel={`${requestCount} ${requestCount === 1 ? 'request' : 'requests'} to join`}
+                style={({ pressed }) => ({ paddingVertical: scaled(14), paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: CHARTER_RED, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
+                <MonoLabel color={colors.text.primary}>{`${requestCount} ${requestCount === 1 ? 'REQUEST' : 'REQUESTS'} TO JOIN`}</MonoLabel>
+                <MonoLabel color={CHARTER_RED}>REVIEW ›</MonoLabel>
+              </Pressable>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <SquareButton label="EMAIL" onPress={() => setEmailOpen(true)} />
               <SquareButton label="SMS" onPress={smsInvite} />
               <SquareButton label={copied ? 'COPIED' : 'COPY'} onPress={copyCode} inverse />
             </View>
             <View style={{ marginTop: 12 }}>
-              <View style={rowStyle}><MonoLabel>NAME</MonoLabel><Text numberOfLines={1} style={[rowValue, { flexShrink: 1 }]}>{league.name}</Text></View>
+              <View style={rowStyle}><MonoLabel>NAME</MonoLabel><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}><Text numberOfLines={1} style={[rowValue, { flexShrink: 1 }]}>{league.name}</Text>{isChartered(league, Date.now()) ? <CharterSquare /> : null}</View></View>
               <View style={rowStyle}><MonoLabel>PLAYERS</MonoLabel><Text style={rowValue}>{memberCount} / {league.maxMembers}</Text></View>
               <View style={rowStyle}><MonoLabel>OWNER</MonoLabel><Text numberOfLines={1} style={[rowValue, { flexShrink: 1 }]}>{isOwner ? 'You' : league.ownerName}</Text></View>
               {isOwner && !isDemoMode && !!slotPrice && (
@@ -364,6 +401,11 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
           </>
         )}
       </View>
+
+      {requestsOpen && league ? (
+        <CharterRequestSheet leagueId={league.id} leagueName={league.name} approved={memberCount} cap={approvalCap(league, Date.now())} chartered={isChartered(league, Date.now())}
+          onClose={() => setRequestsOpen(false)} onChanged={() => { void loadUserLeagues(userId); }} />
+      ) : null}
 
       {/* Email invite */}
       <Modal visible={emailOpen} transparent animationType="fade" onRequestClose={() => setEmailOpen(false)}>
