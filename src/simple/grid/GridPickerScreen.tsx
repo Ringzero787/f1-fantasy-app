@@ -10,6 +10,7 @@ import { useConstructors } from '../../hooks/useConstructors';
 import { useLockoutStatus } from '../../hooks/useLockoutStatus';
 import { serverRosterLock } from '../../utils/lockout';
 import { useTeamStore, isDriverLockedOut } from '../../store/team.store';
+import { useAuthStore } from '../../store/auth.store';
 import { useAdminStore } from '../../store/admin.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useRaceScoresStore } from '../../store/raceScores.store';
@@ -326,6 +327,18 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       done.push(label);
     };
     try {
+      // F-176: the whole change in one server call. The single-move calls below are what demo mode
+      // uses, and the fallback for a build that reaches players before applyLineupSecure is deployed.
+      const ctorBuyPlan = plan.buys.find((x) => x.kind === 'constructor');
+      const oneCall = useAuthStore.getState().isDemoMode ? 'unavailable' : await store.applyLineup({
+        sellDrivers: plan.sells.filter((x) => x.kind === 'driver').map((x) => x.id),
+        sellConstructor: !!current.constructor && !pending.constructorId,
+        buyConstructor: ctorBuyPlan ? { id: ctorBuyPlan.id, contractLength: ctorBuyPlan.contract } : null,
+        buyDrivers: plan.buys.filter((x) => x.kind === 'driver').map((x) => ({ id: x.id, contractLength: x.contract })),
+      });
+      if (oneCall === 'done') {
+        done.push('lineup');
+      } else {
       for (const s of plan.sells.filter((x) => x.kind === 'driver')) {
         await step(`Sell ${s.name}`, () => store.removeDriver(s.id));
       }
@@ -341,6 +354,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         const d = (allDrivers ?? []).find((x) => x.id === b.id);
         await step(`Add ${b.name}`, () => store.addDriver(b.id, b.contract, d ? { id: d.id, name: d.name, shortName: d.shortName, constructorId: d.constructorId, price: d.price } : undefined));
       }
+      }
       setSummaryOpen(false);
       // F-143: the Team screen opens Pit Wall's ace call on the new lineup
       if (done.length > 0) useAceCallPrompt.getState().request();
@@ -350,7 +364,8 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       setLeaving(false);
       const reason = e instanceof Error ? e.message : 'Something went wrong.';
       const applied = done.length ? `Already applied: ${done.join(', ')}.\n\n` : '';
-      Alert.alert('Lineup partly saved', `${applied}${reason}\n\nYour roster below shows what the server holds.`);
+      // F-176: the one-call save is all or nothing, so a refusal there changed nothing at all
+      Alert.alert(done.length ? 'Lineup partly saved' : 'Lineup not saved', `${applied}${reason}\n\nYour roster below shows what the server holds.`);
       const latest = useTeamStore.getState().currentTeam;
       if (latest) setSeededFor(null); // re-seed pending from the server's roster
     } finally {

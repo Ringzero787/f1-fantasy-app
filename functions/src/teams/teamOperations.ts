@@ -6,6 +6,7 @@ import { LockState, creationLock, liveLockState, lockedTeamStatus, stampedForWee
 import { pickDueRace } from '../utils/lockTime';
 import { START_BUDGET, UNLOCKED_LOCK_STATUS } from '../season/rollover';
 import { completedRaceCount, currentSeason } from '../season/current';
+import { LineupError, applyPlan, parsePlan, startState, type LineupPlan } from './lineupSteps';
 import {
   MIN_CONTRACT_LENGTH, MAX_CONTRACT_LENGTH, MAX_CONSECUTIVE_RACES,
   allowedContractLength, priorStreak, racesLeftInSeason, streaksAfterSale,
@@ -248,14 +249,14 @@ export const addDriverSecure = functions.https.onCall(async (data, context) => {
   const requestedLength = validateContractLength(data.contractLength);
 
   const userId = context.auth.uid;
-  const { completedRaceCount, racesLeft } = await getSeasonClock();
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const driverRef = db.collection('drivers').doc(driverId);
 
   // F-118: read outside the transaction on purpose — this is an advisory gate, and the
   // authoritative state is still the team's own isLocked, which the same sweep writes. The
   // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
-  const liveLock = await liveLockState(db);
+  // F-176: both advisory reads at once, not one after the other.
+  const [{ completedRaceCount, racesLeft }, liveLock] = await Promise.all([getSeasonClock(), liveLockState(db)]);
   const result = await db.runTransaction(async (tx) => {
     const [teamSnap, driverSnap] = await Promise.all([tx.get(teamRef), tx.get(driverRef)]);
     const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
@@ -347,12 +348,11 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const driverRef = db.collection('drivers').doc(driverId);
   // F-169: the clock the sale is stamped on, so a re-buy in this window continues the run
-  const completedRaceCount = await getCompletedRaceCount();
-
   // F-118: read outside the transaction on purpose — this is an advisory gate, and the
   // authoritative state is still the team's own isLocked, which the same sweep writes. The
   // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
-  const liveLock = await liveLockState(db);
+  // F-176: both advisory reads at once.
+  const [completedRaceCount, liveLock] = await Promise.all([getCompletedRaceCount(), liveLockState(db)]);
   const result = await db.runTransaction(async (tx) => {
     const [teamSnap, driverSnap] = await Promise.all([tx.get(teamRef), tx.get(driverRef)]);
     const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
@@ -423,16 +423,12 @@ export const setConstructorSecure = functions.https.onCall(async (data, context)
   }
 
   const userId = context.auth.uid;
-  const { completedRaceCount, racesLeft } = await getSeasonClock();
+  // F-118 / F-176: the two advisory reads at once (see addDriverSecure)
+  const [{ completedRaceCount, racesLeft }, liveLock] = await Promise.all([getSeasonClock(), liveLockState(db)]);
   // F-169: never past the season's end (the six-in-a-row run is a driver rule)
   const contractLength = allowedContractLength(validateContractLength(data.contractLength), racesLeft);
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const newCtorRef = db.collection('constructors').doc(constructorId);
-
-  // F-118: read outside the transaction on purpose — this is an advisory gate, and the
-  // authoritative state is still the team's own isLocked, which the same sweep writes. The
-  // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
-  const liveLock = await liveLockState(db);
   const result = await db.runTransaction(async (tx) => {
     const [teamSnap, newCtorSnap] = await Promise.all([tx.get(teamRef), tx.get(newCtorRef)]);
     const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
@@ -597,6 +593,98 @@ export const removeConstructorSecure = functions.https.onCall(async (data, conte
 
   return { success: true, ...result };
 });
+
+/**
+ * F-176: a whole lineup change in ONE call and one transaction — the driver sales, a constructor
+ * sale or swap, and the driver buys the Save button used to send as one callable each, in series.
+ * Each callable could start cold (they ran ~30 times a month, so almost always), and a three-move
+ * save measured ~10 s end to end in production. This is one round trip, all or nothing: a refusal
+ * at any step writes nothing, so a lineup can no longer be left half saved.
+ *
+ * The rules are the single-move callables' own, as pure steps in lineupSteps.ts. 512 MB, because a
+ * first-generation function's CPU scales with its memory and the cold start is mostly CPU.
+ */
+export const applyLineupSecure = functions.runWith({ memory: '512MB' }).https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+  const teamId = (data as { teamId?: unknown } | undefined)?.teamId;
+  if (!teamId || typeof teamId !== 'string' || teamId.includes('/')) {
+    throw new functions.https.HttpsError('invalid-argument', 'teamId required');
+  }
+  let plan: LineupPlan;
+  try { plan = parsePlan(data); } catch (e) { throw asHttps(e); }
+
+  // The two advisory reads run together, not one after the other (see the F-118 note above).
+  const [clock, liveLock] = await Promise.all([getSeasonClock(), liveLockState(db)]);
+  try {
+    return { success: true, ...(await applyLineupTx(teamId, context.auth.uid, plan, clock, liveLock)) };
+  } catch (e) {
+    throw asHttps(e);
+  }
+});
+
+/** The transaction behind applyLineupSecure; exported so the emulator test runs the real write. */
+export async function applyLineupTx(
+  teamId: string, userId: string, plan: LineupPlan, clock: { completedRaceCount: number; racesLeft: number }, liveLock: LockState | null,
+) {
+  const teamRef = db.collection('fantasyTeams').doc(teamId);
+  return db.runTransaction(async (tx) => {
+      const teamSnap = await tx.get(teamRef);
+      const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
+      const held = getTeamCtor(team);
+      // Every price this plan can need, read in parallel: sold and bought drivers, the held and the new constructor.
+      const driverIds = [...new Set([...plan.sellDrivers, ...plan.buyDrivers.map((b) => b.id)])];
+      const ctorIds = [...new Set([held?.constructorId, plan.buyConstructor?.id].filter((x): x is string => typeof x === 'string' && !!x))];
+      const [dSnaps, cSnaps] = await Promise.all([
+        Promise.all(driverIds.map((id) => tx.get(db.collection('drivers').doc(id)))),
+        Promise.all(ctorIds.map((id) => tx.get(db.collection('constructors').doc(id)))),
+      ]);
+      const drivers = new Map(driverIds.map((id, i) => [id, dSnaps[i].exists ? dSnaps[i].data()! : null]));
+      const constructors = new Map(ctorIds.map((id, i) => [id, cSnaps[i].exists ? cSnaps[i].data()! : null]));
+
+      const state = startState(team, BUDGET);
+      const bought = applyPlan(state, plan, { drivers, constructors }, clock);
+
+      const updateData: Record<string, any> = {
+        drivers: state.drivers,
+        constructor: state.constructor,
+        budget: state.budget,
+        totalSpent: state.totalSpent,
+        racesSinceTransfer: 0,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      if (state.banked !== 0) {
+        updateData.lockedPoints = admin.firestore.FieldValue.increment(state.banked);
+        updateData.totalPoints = admin.firestore.FieldValue.increment(-state.banked);
+      }
+      if (state.driverStreaksTouched) updateData.driverStreaks = state.driverStreaks ?? {};
+      if (state.aceDriverId !== team.aceDriverId) updateData.aceDriverId = state.aceDriverId ?? null;
+      if (state.aceConstructorId !== team.aceConstructorId) updateData.aceConstructorId = state.aceConstructorId ?? null;
+
+      // set() with mergeFields: each listed field is REPLACED (driverStreaks must not deep-merge and
+      // keep stale keys, which is why removeDriverSecure uses update()), and, unlike update(), the
+      // top-level `constructor` key is written as data, not expanded as a field path (the HTTP 500
+      // the constructor callables avoid with set-merge).
+      tx.set(teamRef, updateData, { mergeFields: Object.keys(updateData) });
+
+      return {
+        newBudget: state.budget,
+        sales: state.sales,
+        boughtDrivers: bought.boughtDrivers,
+        boughtConstructor: bought.boughtConstructor,
+        team: projectTeam(teamId, team, updateData, state.banked !== 0 ? {
+          lockedPoints: (team.lockedPoints || 0) + state.banked,
+          totalPoints: (team.totalPoints || 0) - state.banked,
+        } : {}),
+      };
+  });
+}
+
+/** A step's refusal as the callable error the single-move callables throw for it. */
+function asHttps(e: unknown): unknown {
+  return e instanceof LineupError ? new functions.https.HttpsError(e.code, e.message) : e;
+}
 
 /**
  * Server-side initial team build: the whole roster (up to 5 drivers + a

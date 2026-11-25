@@ -1,4 +1,4 @@
-next_id: 176
+next_id: 177
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -2266,3 +2266,16 @@ features:
       - purchase
       - rank-up
       - entitlement
+  - id: F-176
+    name: "UC: Save a lineup in one call"
+    summary: "Saving a lineup sent one roster callable per move (sell, sell, buy...) in series, each usually starting cold, so a three-move save took 5-10 s. applyLineupSecure applies the whole change in one call and one transaction (all or nothing) with the single moves' own rules as pure steps; the app falls back to the single moves in demo mode and when the callable is not deployed"
+    status: building
+    spec: .aidlc/specs/F-176.md
+    created_at: 2026-11-25
+    keywords:
+      - lineup
+      - save
+      - roster
+      - performance
+      - callable
+      - cold-start

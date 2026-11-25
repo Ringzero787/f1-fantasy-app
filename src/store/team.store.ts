@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { adoptServer, clearDirty, markDirty } from '../utils/syncDirty';
 import type { FantasyTeam, FantasyDriver, FantasyConstructor, Driver, Constructor, TeamSelectionState, LockStatus } from '../types';
-import { teamService } from '../services/team.service';
+import { teamService, isMissingCallable, type LineupPlanInput } from '../services/team.service';
 import { useAuthStore } from './auth.store';
 import { BUDGET, TEAM_SIZE, SALE_COMMISSION_RATE } from '../config/constants';
 import { PRICING_CONFIG } from '../config/pricing.config';
@@ -281,6 +281,11 @@ interface TeamState {
   confirmSelection: () => Promise<void>;
   updateTeamName: (name: string) => Promise<void>;
   removeConstructor: () => Promise<void>;
+  /**
+   * F-176: a whole lineup change in one server call. Resolves 'done', 'unavailable' (the callable is
+   * not deployed: use the single moves), or throws with the refusal, having changed nothing.
+   */
+  applyLineup: (plan: LineupPlanInput) => Promise<'done' | 'unavailable'>;
   deleteTeam: () => Promise<void>;
 
   // Points calculation
@@ -1374,6 +1379,22 @@ export const useTeamStore = create<TeamState>()(
       set({ error: message, isSavingRoster: false });
     } finally {
       inFlightRosterOps.delete(rosterOpKey);
+    }
+  },
+
+  applyLineup: async (plan) => {
+    const { currentTeam } = get();
+    if (!currentTeam) throw new Error('No team loaded');
+    set({ isSavingRoster: true, error: null });
+    try {
+      const fresh = await teamService.applyLineup(currentTeam.id, plan);
+      updateTeamAndSync(get, set, fresh, { isSavingRoster: false });
+      return 'done';
+    } catch (error) {
+      set({ isSavingRoster: false });
+      if (isMissingCallable(error)) return 'unavailable';
+      errorLogService.logError('applyLineup', error);
+      throw error instanceof Error ? error : new Error('Could not save your lineup');
     }
   },
 
