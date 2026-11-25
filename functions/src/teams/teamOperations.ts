@@ -6,70 +6,23 @@ import { LockState, creationLock, liveLockState, lockedTeamStatus, stampedForWee
 import { pickDueRace } from '../utils/lockTime';
 import { START_BUDGET, UNLOCKED_LOCK_STATUS } from '../season/rollover';
 import { completedRaceCount, currentSeason } from '../season/current';
-import { LineupError, applyPlan, parsePlan, startState, type LineupPlan } from './lineupSteps';
+import { LineupError, applyPlan, buyConstructor, buyDriver, parsePlan, quoteSale, requestedLength, sellConstructor, sellDriver, startState, teamCtor as getTeamCtor, TEAM_SIZE, type LineupPlan } from './lineupSteps';
 import {
-  MIN_CONTRACT_LENGTH, MAX_CONTRACT_LENGTH, MAX_CONSECUTIVE_RACES,
-  allowedContractLength, priorStreak, racesLeftInSeason, streaksAfterSale,
+  MAX_CONTRACT_LENGTH, MAX_CONSECUTIVE_RACES,
+  allowedContractLength, priorStreak, racesLeftInSeason,
 } from './contractRules';
 
 
 const db = admin.firestore();
 
 const BUDGET = START_BUDGET;
-const TEAM_SIZE = 5;
 const MAX_TEAMS_PER_USER = 2;
 
-// Contract system — keep in sync with src/config/pricing.config.ts. The length limits (season end,
-// six in a row) live in contractRules.ts (F-169).
-const CONTRACT_LENGTH_DEFAULT = 3;
-
-// Early termination fee — keep in sync with PRICING_CONFIG.EARLY_TERMINATION_RATE.
-// This is the fee the app has always actually charged (3%/race, floor, with
-// grace-period and reserve-pick waivers). The old server callable charged
-// 10%/race with no waivers and the UI dialog quoted yet another number —
-// this is now the single authoritative implementation.
-const EARLY_TERMINATION_RATE = 0.03;
-
-interface SaleQuote {
-  marketPrice: number;
-  earlyTermFee: number;
-  saleReturn: number;
-  feeWaived: boolean;
-}
-
-/**
- * Single source of truth for sale proceeds.
- * Fee = floor(marketPrice * 3% * races remaining on contract), waived entirely
- * during the grace period (entity has not yet been held through a race) and
- * for auto-filled reserve picks.
- */
-function quoteSale(entity: {
-  currentPrice?: number;
-  contractLength?: number;
-  racesHeld?: number;
-  isReservePick?: boolean;
-}, marketPrice: number): SaleQuote {
-  const racesHeld = entity.racesHeld || 0;
-  const contractLength = entity.contractLength || CONTRACT_LENGTH_DEFAULT;
-  const racesLeft = contractLength - racesHeld;
-  const feeWaived = racesHeld === 0 || entity.isReservePick === true || racesLeft <= 0;
-  const earlyTermFee = feeWaived ? 0 : Math.floor(marketPrice * EARLY_TERMINATION_RATE * racesLeft);
-  return { marketPrice, earlyTermFee, saleReturn: marketPrice - earlyTermFee, feeWaived };
-}
+// F-176: TEAM_SIZE, the default contract length, the early-termination rate, quoteSale and
+// getTeamCtor live once, in lineupSteps.ts (keep in sync with src/config/pricing.config.ts there).
 
 function validateContractLength(raw: unknown): number {
-  if (raw === undefined || raw === null) return CONTRACT_LENGTH_DEFAULT;
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n < MIN_CONTRACT_LENGTH) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      `contractLength must be an integer of at least ${MIN_CONTRACT_LENGTH}`
-    );
-  }
-  // F-169: too long is not an error — the purchase clamps it to MAX_CONTRACT_LENGTH, the races left
-  // this season and the driver's run. Shipped builds send 3 whatever the calendar says, and refusing
-  // would block every purchase at the end of a season.
-  return Math.min(n, MAX_CONTRACT_LENGTH);
+  try { return requestedLength(raw); } catch (e) { throw asHttps(e); }
 }
 
 /** F-169: the refusal for a driver re-bought straight after a full run (the one-race lockout). */
@@ -113,17 +66,6 @@ function assertOwnedUnlockedTeam(
   return team;
 }
 
-/**
- * Safely read a team's fantasy constructor (a doc with no `constructor` field
- * returns Object.prototype.constructor — a truthy function — via property access).
- */
-function getTeamCtor(team: Record<string, any>): Record<string, any> | null {
-  const c = Object.prototype.hasOwnProperty.call(team, 'constructor') ? team['constructor'] : null;
-  if (c && typeof c === 'object' && !Array.isArray(c) && typeof c.constructorId === 'string') {
-    return c;
-  }
-  return null;
-}
 
 /**
  * F-151: completed races in the current season — the clock purchases are stamped on (`addedAtRace`)
@@ -257,70 +199,22 @@ export const addDriverSecure = functions.https.onCall(async (data, context) => {
   // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
   // F-176: both advisory reads at once, not one after the other.
   const [{ completedRaceCount, racesLeft }, liveLock] = await Promise.all([getSeasonClock(), liveLockState(db)]);
+  // F-176: the rules live once, in lineupSteps.ts, shared with applyLineupSecure.
   const result = await db.runTransaction(async (tx) => {
     const [teamSnap, driverSnap] = await Promise.all([tx.get(teamRef), tx.get(driverRef)]);
     const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
-
-    if (!driverSnap.exists) throw new functions.https.HttpsError('not-found', 'Driver not found');
-    const driver = driverSnap.data()!;
-    if (driver.isActive === false) {
-      throw new functions.https.HttpsError('failed-precondition', 'Driver is not active');
-    }
-
-    const drivers: any[] = team.drivers || [];
-    if (drivers.length >= TEAM_SIZE) {
-      throw new functions.https.HttpsError('failed-precondition', 'Team is full');
-    }
-    if (drivers.some((d: any) => d.driverId === driverId)) {
-      throw new functions.https.HttpsError('already-exists', 'Driver already on team');
-    }
-
-    // Contract-expiry lockout: a driver who just cycled off the team cannot be
-    // re-bought until the lockout race count passes (mirrors Phase 3.5).
-    const lockouts: Record<string, number> = team.driverLockouts || {};
-    const lockExpiry = lockouts[driverId];
-    if (lockExpiry !== undefined && completedRaceCount < lockExpiry) {
-      throw new functions.https.HttpsError('failed-precondition', 'Driver is locked out after contract expiry');
-    }
-
-    // F-169: sold and re-bought in one window is one run; it may not pass six races, nor the season.
-    const prior = priorStreak(team.driverStreaks, driverId, completedRaceCount);
-    const contractLength = allowedContractLength(requestedLength, racesLeft, prior);
-    if (contractLength === 0) throw streakLockedOut(driver.name);
-
-    // Cash-ledger budget check at the server price (source of truth)
-    const price: number = typeof driver.price === 'number' ? driver.price : 0;
-    const budget: number = typeof team.budget === 'number' ? team.budget : BUDGET;
-    if (price > budget) {
-      throw new functions.https.HttpsError('failed-precondition',
-        `Cannot afford ${driver.name} ($${price}). Budget: $${budget}`);
-    }
-
-    const fantasyDriver = {
-      driverId: driver.id || driverId,
-      name: driver.name || '',
-      shortName: driver.shortName || '',
-      constructorId: driver.constructorId || '',
-      purchasePrice: price,
-      currentPrice: price,
-      pointsScored: 0,
-      racesHeld: 0,
-      contractLength,
-      ...(prior > 0 ? { streakBefore: prior } : {}),
-      addedAtRace: completedRaceCount,
-    };
-
+    const state = startState(team, BUDGET);
+    const fantasyDriver = buyDriver(state, driverId, driverSnap.exists ? driverSnap.data()! : null, requestedLength, { completedRaceCount, racesLeft });
     const updateData = {
-      drivers: [...drivers, fantasyDriver],
-      budget: budget - price,
-      totalSpent: (team.totalSpent || 0) + price,
+      drivers: state.drivers,
+      budget: state.budget,
+      totalSpent: state.totalSpent,
       racesSinceTransfer: 0,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     tx.set(teamRef, updateData, { merge: true });
-
-    return { driver: fantasyDriver, newBudget: budget - price, team: projectTeam(teamId, team, updateData) };
-  });
+    return { driver: fantasyDriver, newBudget: state.budget, team: projectTeam(teamId, team, updateData) };
+  }).catch((e) => { throw asHttps(e); });
 
   return { success: true, ...result };
 });
@@ -353,36 +247,27 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
   // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
   // F-176: both advisory reads at once.
   const [completedRaceCount, liveLock] = await Promise.all([getCompletedRaceCount(), liveLockState(db)]);
+  // F-176: the rules live once, in lineupSteps.ts, shared with applyLineupSecure.
   const result = await db.runTransaction(async (tx) => {
     const [teamSnap, driverSnap] = await Promise.all([tx.get(teamRef), tx.get(driverRef)]);
     const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
-
-    const drivers: any[] = team.drivers || [];
-    const driver = drivers.find((d: any) => d.driverId === driverId);
-    if (!driver) throw new functions.https.HttpsError('not-found', 'Driver not on team');
-
-    // Current market price from the server (source of truth)
-    const marketPrice: number = driverSnap.exists && typeof driverSnap.data()!.price === 'number'
-      ? driverSnap.data()!.price
-      : (driver.currentPrice || 0);
-
-    const quote = quoteSale(driver, marketPrice);
-    const bankedPoints = driver.pointsScored || 0;
+    const state = startState(team, BUDGET);
+    const marketPrice = driverSnap.exists && typeof driverSnap.data()!.price === 'number' ? (driverSnap.data()!.price as number) : null;
+    sellDriver(state, driverId, marketPrice, completedRaceCount);
+    const sale = state.sales[0];
 
     const updateData: Record<string, any> = {
-      drivers: drivers.filter((d: any) => d.driverId !== driverId),
-      budget: (team.budget || 0) + quote.saleReturn,
-      totalSpent: Math.max(0, (team.totalSpent || 0) - (driver.purchasePrice || 0)),
-      lockedPoints: admin.firestore.FieldValue.increment(bankedPoints),
-      totalPoints: admin.firestore.FieldValue.increment(-bankedPoints),
+      drivers: state.drivers,
+      budget: state.budget,
+      totalSpent: state.totalSpent,
+      lockedPoints: admin.firestore.FieldValue.increment(sale.bankedPoints),
+      totalPoints: admin.firestore.FieldValue.increment(-sale.bankedPoints),
       racesSinceTransfer: 0,
       // F-169: the whole map, written with update (set-merge would keep stale keys): this window's sales
-      driverStreaks: streaksAfterSale(team.driverStreaks, driver, completedRaceCount) ?? {},
+      driverStreaks: state.driverStreaks ?? {},
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
-    if (team.aceDriverId === driverId) {
-      updateData.aceDriverId = null;
-    }
+    if (state.aceDriverId !== team.aceDriverId) updateData.aceDriverId = null;
 
     // F-169: update(), not set(merge) like the constructor callables below: driverStreaks must
     // REPLACE the stored map (set-merge deep-merges it and keeps stale keys). Safe here because
@@ -392,17 +277,17 @@ export const removeDriverSecure = functions.https.onCall(async (data, context) =
     tx.update(teamRef, updateData);
 
     return {
-      saleReturn: quote.saleReturn,
-      earlyTermFee: quote.earlyTermFee,
-      feeWaived: quote.feeWaived,
-      bankedPoints,
-      newBudget: (team.budget || 0) + quote.saleReturn,
+      saleReturn: sale.saleReturn,
+      earlyTermFee: sale.earlyTermFee,
+      feeWaived: sale.feeWaived,
+      bankedPoints: sale.bankedPoints,
+      newBudget: state.budget,
       team: projectTeam(teamId, team, updateData, {
-        lockedPoints: (team.lockedPoints || 0) + bankedPoints,
-        totalPoints: (team.totalPoints || 0) - bankedPoints,
+        lockedPoints: (team.lockedPoints || 0) + sale.bankedPoints,
+        totalPoints: (team.totalPoints || 0) - sale.bankedPoints,
       }),
     };
-  });
+  }).catch((e) => { throw asHttps(e); });
 
   return { success: true, ...result };
 });
@@ -429,73 +314,37 @@ export const setConstructorSecure = functions.https.onCall(async (data, context)
   const contractLength = allowedContractLength(validateContractLength(data.contractLength), racesLeft);
   const teamRef = db.collection('fantasyTeams').doc(teamId);
   const newCtorRef = db.collection('constructors').doc(constructorId);
+  // F-176: the rules live once, in lineupSteps.ts, shared with applyLineupSecure.
   const result = await db.runTransaction(async (tx) => {
     const [teamSnap, newCtorSnap] = await Promise.all([tx.get(teamRef), tx.get(newCtorRef)]);
     const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
-
-    if (!newCtorSnap.exists) throw new functions.https.HttpsError('not-found', 'Constructor not found');
-    const newCtor = newCtorSnap.data()!;
-    if (newCtor.isActive === false) {
-      throw new functions.https.HttpsError('failed-precondition', 'Constructor is not active');
-    }
-
-    const currentCtor = getTeamCtor(team);
-    if (currentCtor && currentCtor.constructorId === constructorId) {
-      throw new functions.https.HttpsError('already-exists', 'Constructor already on team');
-    }
-
-    let budget: number = typeof team.budget === 'number' ? team.budget : BUDGET;
-    let totalSpent: number = team.totalSpent || 0;
-    let bankedPoints = 0;
-    let saleReturn = 0;
-    let earlyTermFee = 0;
-
-    // Sell current constructor at the server market price (same quote as a
-    // standalone remove — no separate swap fee math)
+    const state = startState(team, BUDGET);
+    // The buy's own checks first (missing, inactive, the same constructor), as before the sale.
+    if (!newCtorSnap.exists) throw new LineupError('not-found', 'Constructor not found');
+    if (newCtorSnap.data()!.isActive === false) throw new LineupError('failed-precondition', 'Constructor is not active');
+    const currentCtor = state.constructor;
+    if (currentCtor && currentCtor.constructorId === constructorId) throw new LineupError('already-exists', 'Constructor already on team');
     if (currentCtor) {
       const curCtorDoc = await tx.get(db.collection('constructors').doc(currentCtor.constructorId));
-      const marketPrice: number = curCtorDoc.exists && typeof curCtorDoc.data()!.price === 'number'
-        ? curCtorDoc.data()!.price
-        : (currentCtor.currentPrice || 0);
-      const quote = quoteSale(currentCtor, marketPrice);
-      saleReturn = quote.saleReturn;
-      earlyTermFee = quote.earlyTermFee;
-      bankedPoints = currentCtor.pointsScored || 0;
-      budget += quote.saleReturn;
-      totalSpent = Math.max(0, totalSpent - (currentCtor.purchasePrice || 0));
+      sellConstructor(state, curCtorDoc.exists && typeof curCtorDoc.data()!.price === 'number' ? (curCtorDoc.data()!.price as number) : null);
     }
-
-    const price: number = typeof newCtor.price === 'number' ? newCtor.price : 0;
-    if (price > budget) {
-      throw new functions.https.HttpsError('failed-precondition',
-        `Cannot afford ${newCtor.name} ($${price}). Budget: $${budget}`);
-    }
-
-    const fantasyCtor = {
-      constructorId,
-      name: newCtor.name || '',
-      purchasePrice: price,
-      currentPrice: price,
-      pointsScored: 0,
-      racesHeld: 0,
-      contractLength,
-      addedAtRace: completedRaceCount,
-    };
+    const fantasyCtor = buyConstructor(state, constructorId, newCtorSnap.data()!, contractLength, { completedRaceCount, racesLeft });
+    const sale = state.sales[0];
 
     const updateData: Record<string, any> = {
       constructor: fantasyCtor,
-      budget: budget - price,
-      totalSpent: totalSpent + price,
+      budget: state.budget,
+      totalSpent: state.totalSpent,
       racesSinceTransfer: 0,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
-    if (bankedPoints > 0) {
-      updateData.lockedPoints = admin.firestore.FieldValue.increment(bankedPoints);
-      updateData.totalPoints = admin.firestore.FieldValue.increment(-bankedPoints);
+    // F-176: banked whenever there is something to bank, negative included, as removeConstructorSecure
+    // always has; the swap used to skip a negative total and leave it counting.
+    if (state.banked !== 0) {
+      updateData.lockedPoints = admin.firestore.FieldValue.increment(state.banked);
+      updateData.totalPoints = admin.firestore.FieldValue.increment(-state.banked);
     }
-    if (currentCtor && team.aceConstructorId === currentCtor.constructorId) {
-      updateData.aceConstructorId = null;
-    }
+    if (state.aceConstructorId !== team.aceConstructorId) updateData.aceConstructorId = null;
 
     // set(merge), NOT update(): tx.update() expands top-level keys as field
     // paths and the literal key `constructor` collides with
@@ -507,16 +356,16 @@ export const setConstructorSecure = functions.https.onCall(async (data, context)
 
     return {
       constructor: fantasyCtor,
-      newBudget: budget - price,
-      saleReturn,
-      earlyTermFee,
-      bankedPoints,
-      team: projectTeam(teamId, team, updateData, bankedPoints > 0 ? {
-        lockedPoints: (team.lockedPoints || 0) + bankedPoints,
-        totalPoints: (team.totalPoints || 0) - bankedPoints,
+      newBudget: state.budget,
+      saleReturn: sale?.saleReturn ?? 0,
+      earlyTermFee: sale?.earlyTermFee ?? 0,
+      bankedPoints: state.banked,
+      team: projectTeam(teamId, team, updateData, state.banked !== 0 ? {
+        lockedPoints: (team.lockedPoints || 0) + state.banked,
+        totalPoints: (team.totalPoints || 0) - state.banked,
       } : {}),
     };
-  });
+  }).catch((e) => { throw asHttps(e); });
 
   return { success: true, ...result };
 });
@@ -542,33 +391,26 @@ export const removeConstructorSecure = functions.https.onCall(async (data, conte
   // authoritative state is still the team's own isLocked, which the same sweep writes. The
   // gap between the sweep publishing config/lockState and flipping the race is milliseconds.
   const liveLock = await liveLockState(db);
+  // F-176: the rules live once, in lineupSteps.ts, shared with applyLineupSecure.
   const result = await db.runTransaction(async (tx) => {
     const teamSnap = await tx.get(teamRef);
     const team = assertOwnedUnlockedTeam(teamSnap, userId, liveLock);
-
-    const ctor = getTeamCtor(team);
-    if (!ctor) throw new functions.https.HttpsError('not-found', 'No constructor on team');
-
-    const ctorDoc = await tx.get(db.collection('constructors').doc(ctor.constructorId));
-    const marketPrice: number = ctorDoc.exists && typeof ctorDoc.data()!.price === 'number'
-      ? ctorDoc.data()!.price
-      : (ctor.currentPrice || 0);
-
-    const quote = quoteSale(ctor, marketPrice);
-    const bankedPoints = ctor.pointsScored || 0;
+    const state = startState(team, BUDGET);
+    if (!state.constructor) throw new LineupError('not-found', 'No constructor on team');
+    const ctorDoc = await tx.get(db.collection('constructors').doc(state.constructor.constructorId));
+    sellConstructor(state, ctorDoc.exists && typeof ctorDoc.data()!.price === 'number' ? (ctorDoc.data()!.price as number) : null);
+    const sale = state.sales[0];
 
     const updateData: Record<string, any> = {
       constructor: null,
-      budget: (team.budget || 0) + quote.saleReturn,
-      totalSpent: Math.max(0, (team.totalSpent || 0) - (ctor.purchasePrice || 0)),
-      lockedPoints: admin.firestore.FieldValue.increment(bankedPoints),
-      totalPoints: admin.firestore.FieldValue.increment(-bankedPoints),
+      budget: state.budget,
+      totalSpent: state.totalSpent,
+      lockedPoints: admin.firestore.FieldValue.increment(sale.bankedPoints),
+      totalPoints: admin.firestore.FieldValue.increment(-sale.bankedPoints),
       racesSinceTransfer: 0,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
-    if (team.aceConstructorId === ctor.constructorId) {
-      updateData.aceConstructorId = null;
-    }
+    if (state.aceConstructorId !== team.aceConstructorId) updateData.aceConstructorId = null;
 
     // set(merge), NOT update(): tx.update() expands top-level keys as field
     // paths and the literal key `constructor` collides with
@@ -579,17 +421,17 @@ export const removeConstructorSecure = functions.https.onCall(async (data, conte
     tx.set(teamRef, updateData, { merge: true });
 
     return {
-      saleReturn: quote.saleReturn,
-      earlyTermFee: quote.earlyTermFee,
-      feeWaived: quote.feeWaived,
-      bankedPoints,
-      newBudget: (team.budget || 0) + quote.saleReturn,
+      saleReturn: sale.saleReturn,
+      earlyTermFee: sale.earlyTermFee,
+      feeWaived: sale.feeWaived,
+      bankedPoints: sale.bankedPoints,
+      newBudget: state.budget,
       team: projectTeam(teamId, team, updateData, {
-        lockedPoints: (team.lockedPoints || 0) + bankedPoints,
-        totalPoints: (team.totalPoints || 0) - bankedPoints,
+        lockedPoints: (team.lockedPoints || 0) + sale.bankedPoints,
+        totalPoints: (team.totalPoints || 0) - sale.bankedPoints,
       }),
     };
-  });
+  }).catch((e) => { throw asHttps(e); });
 
   return { success: true, ...result };
 });
@@ -635,7 +477,9 @@ export async function applyLineupTx(
       const held = getTeamCtor(team);
       // Every price this plan can need, read in parallel: sold and bought drivers, the held and the new constructor.
       const driverIds = [...new Set([...plan.sellDrivers, ...plan.buyDrivers.map((b) => b.id)])];
-      const ctorIds = [...new Set([held?.constructorId, plan.buyConstructor?.id].filter((x): x is string => typeof x === 'string' && !!x))];
+      // The held constructor's price only when this plan sells or swaps it.
+      const touchesCtor = plan.sellConstructor || !!plan.buyConstructor;
+      const ctorIds = [...new Set([touchesCtor ? held?.constructorId : null, plan.buyConstructor?.id].filter((x): x is string => typeof x === 'string' && !!x))];
       const [dSnaps, cSnaps] = await Promise.all([
         Promise.all(driverIds.map((id) => tx.get(db.collection('drivers').doc(id)))),
         Promise.all(ctorIds.map((id) => tx.get(db.collection('constructors').doc(id)))),

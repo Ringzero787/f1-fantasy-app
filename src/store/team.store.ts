@@ -1393,7 +1393,9 @@ export const useTeamStore = create<TeamState>()(
     } catch (error) {
       set({ isSavingRoster: false });
       if (isMissingCallable(error)) return 'unavailable';
-      errorLogService.logError('applyLineup', error);
+      // A refusal (budget, lock, lockout) is the game working, not a fault: log only the rest.
+      const code = String((error as { code?: unknown })?.code ?? '').replace(/^functions\//, '');
+      if (!['failed-precondition', 'already-exists', 'not-found', 'invalid-argument', 'permission-denied'].includes(code)) errorLogService.logError('applyLineup', error);
       throw error instanceof Error ? error : new Error('Could not save your lineup');
     }
   },

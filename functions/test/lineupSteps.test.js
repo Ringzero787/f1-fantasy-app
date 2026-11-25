@@ -22,10 +22,13 @@ test('the sale quote is the single-move one: 3% a race left, waived in the grace
   assert.equal(L.quoteSale({ racesHeld: 0, contractLength: 3 }, 200).feeWaived, true);
   assert.equal(L.quoteSale({ racesHeld: 1, contractLength: 3, isReservePick: true }, 200).earlyTermFee, 0);
   assert.equal(L.quoteSale({ racesHeld: 3, contractLength: 3 }, 200).feeWaived, true, 'contract run out');
-  // and the formula agrees with teamOperations.ts, which still serves the single moves
+  // one copy of the rules: the single-move callables run the same steps and keep no rules of their own
   const ops = fs.readFileSync(path.join(__dirname, '..', 'src', 'teams', 'teamOperations.ts'), 'utf8');
-  assert.match(ops, /const EARLY_TERMINATION_RATE = 0\.03;/);
-  assert.match(ops, /Math\.floor\(marketPrice \* EARLY_TERMINATION_RATE \* racesLeft\)/);
+  assert.doesNotMatch(ops, /EARLY_TERMINATION_RATE\s*=|function quoteSale\(|function getTeamCtor\(|const TEAM_SIZE\s*=/);
+  for (const [callable, step] of [['addDriverSecure', 'buyDriver('], ['removeDriverSecure', 'sellDriver('], ['setConstructorSecure', 'buyConstructor('], ['removeConstructorSecure', 'sellConstructor(']]) {
+    const body = ops.slice(ops.indexOf(`export const ${callable}`));
+    assert.ok(body.slice(0, body.indexOf('\n});')).includes(step), `${callable} runs ${step}`);
+  }
 });
 
 test('sell two, buy one: banks the points, clears the ace, prices at the market, stamps the streak', () => {
@@ -102,4 +105,37 @@ test('the app saves in one call, with the single moves kept for demo mode and a 
   const ops = fs.readFileSync(path.join(__dirname, '..', 'src', 'teams', 'teamOperations.ts'), 'utf8');
   assert.match(ops, /tx\.set\(teamRef, updateData, \{ mergeFields: Object\.keys\(updateData\) \}\)/);
   assert.match(ops, /export const applyLineupSecure = functions\.runWith\(\{ memory: '512MB' \}\)/);
+});
+
+test('edge cases the review asked for', () => {
+  const plan = (p) => ({ sellDrivers: [], sellConstructor: false, buyConstructor: null, buyDrivers: [], ...p });
+  // a swap banks a NEGATIVE constructor total too, as removeConstructorSecure always has
+  const neg = L.startState(team({ constructor: { constructorId: 'mcl', purchasePrice: 300, pointsScored: -12, racesHeld: 1, contractLength: 3 } }), 1000);
+  L.applyPlan(neg, plan({ buyConstructor: { id: 'fer' } }), maps({}, { mcl: { price: 300 }, fer: { price: 300 } }), clock);
+  assert.equal(neg.banked, -12);
+  // a driver with no price doc sells at the price held
+  const noDoc = L.startState(team(), 1000);
+  L.applyPlan(noDoc, plan({ sellDrivers: ['nor'] }), maps({}), clock);
+  assert.equal(noDoc.budget, 100 + 200, 'grace period: the full held price');
+  // a swap whose new constructor is missing or inactive
+  assert.throws(() => L.applyPlan(L.startState(team(), 1000), plan({ buyConstructor: { id: 'fer' } }), maps({}, { mcl: { price: 300 } }), clock), /Constructor not found/);
+  assert.throws(() => L.applyPlan(L.startState(team(), 1000), plan({ buyConstructor: { id: 'fer' } }), maps({}, { mcl: { price: 300 }, fer: { price: 1, isActive: false } }), clock), /not active/);
+  // a swap affordable only after the held one's sale
+  const tight = L.startState(team({ budget: 0 }), 1000);
+  L.applyPlan(tight, plan({ buyConstructor: { id: 'fer' } }), maps({}, { mcl: { price: 320 }, fer: { price: 301 } }), clock);
+  assert.equal(tight.budget, 0);
+  // sellConstructor alongside a buy is the buy's own sale, done once
+  const both = L.startState(team(), 1000);
+  L.applyPlan(both, plan({ sellConstructor: true, buyConstructor: { id: 'fer' } }), maps({}, { mcl: { price: 320 }, fer: { price: 300 } }), clock);
+  assert.equal(both.sales.length, 1);
+  // sold and re-bought in one call: the run carries over (F-169), the sale fee is still charged
+  const again = L.startState(team(), 1000);
+  const out = L.applyPlan(again, plan({ sellDrivers: ['ver'], buyDrivers: [{ id: 'ver', contractLength: 6 }] }), maps({ ver: { price: 250 } }), clock);
+  assert.equal(out.boughtDrivers[0].streakBefore, 2);
+  assert.equal(out.boughtDrivers[0].contractLength, 4, 'six in a row at most: 2 held + 4');
+  assert.equal(again.sales[0].earlyTermFee, 7);
+  // a team without a budget field starts from the default, on a sale as on a buy
+  const noBudget = L.startState(team({ budget: undefined }), 1000);
+  L.applyPlan(noBudget, plan({ sellDrivers: ['nor'] }), maps({ nor: { price: 180 } }), clock);
+  assert.equal(noBudget.budget, 1180);
 });

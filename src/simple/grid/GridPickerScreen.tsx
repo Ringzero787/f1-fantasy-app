@@ -364,8 +364,14 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       setLeaving(false);
       const reason = e instanceof Error ? e.message : 'Something went wrong.';
       const applied = done.length ? `Already applied: ${done.join(', ')}.\n\n` : '';
-      // F-176: the one-call save is all or nothing, so a refusal there changed nothing at all
-      Alert.alert(done.length ? 'Lineup partly saved' : 'Lineup not saved', `${applied}${reason}\n\nYour roster below shows what the server holds.`);
+      // F-176: the one-call save is all or nothing, so a refusal there changed nothing at all. A
+      // timeout or a dropped connection is different: the save may have gone through with the reply
+      // lost, so it is "not confirmed", and the roster below is re-read from the server.
+      const code = String((e as { code?: unknown })?.code ?? '').replace(/^functions\//, '');
+      const refused = ['failed-precondition', 'already-exists', 'not-found', 'invalid-argument', 'permission-denied'].includes(code);
+      const title = done.length ? 'Lineup partly saved' : refused ? 'Lineup not saved' : 'Save not confirmed';
+      Alert.alert(title, `${applied}${reason}\n\nYour roster below shows what the server holds.`);
+      if (!refused && team) void useTeamStore.getState().loadUserTeams?.(team.userId);
       const latest = useTeamStore.getState().currentTeam;
       if (latest) setSeededFor(null); // re-seed pending from the server's roster
     } finally {
