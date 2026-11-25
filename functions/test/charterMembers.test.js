@@ -175,12 +175,16 @@ test('daily cap: a stranger-caused mail stops at the cap and resets the next day
 test('recipient: the sign-in address, not users.email; one token, made once', async () => {
   const db = fakeDb();
   db.docs.set('users/u1', { email: 'attacker@evil.example', charterEmailOptOut: false });
-  const auth = { getUser: async () => ({ email: 'real@player.example' }) };
+  const auth = { getUser: async () => ({ email: 'real@player.example', emailVerified: true }) };
   const r1 = await Mail.recipient(db, 'u1', true, auth);
   assert.equal(r1.email, 'real@player.example');
   assert.match(r1.unsubscribeUrl, /charter-unsubscribe\?u=u1&t=[a-f0-9]{48}$/);
   const r2 = await Mail.recipient(db, 'u1', true, auth);
   assert.equal(r2.unsubscribeUrl, r1.unsubscribeUrl, 'the token is not replaced');
+  const google = await Mail.recipient(db, 'u3', false, { getUser: async () => ({ email: 'g@x.example', emailVerified: false, providerData: [{ providerId: 'google.com', email: 'g@x.example' }] }) });
+  assert.equal(google.email, 'g@x.example', 'a provider that vouches for the address');
+  const unverified = await Mail.recipient(db, 'u4', false, { getUser: async () => ({ email: 'someone@else.example', emailVerified: false, providerData: [{ providerId: 'password', email: 'someone@else.example' }] }) });
+  assert.equal(unverified.email, null, 'an unverified password account gets no mail');
   const none = await Mail.recipient(db, 'u2', true, { getUser: async () => { throw new Error('no user'); } });
   assert.equal(none.email, null);
   assert.equal(none.unsubscribeUrl, null, 'no address, no token');

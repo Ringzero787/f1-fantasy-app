@@ -24,10 +24,10 @@ import { weekId } from './rankUp';
 import { isApproved, wantsRankUpReminder } from './membership';
 import { approve, giveRankUp as giveRankUpTx, recomputeSearchPoints, Refused, syncCharterMember } from './memberStore';
 import { approvedMail, charteredMail, cleanText, recipient, rankUpMail, requestMail, scoredMail, sendOnce, takeDailySlot, type Transport } from './mail';
+import { isUsableLeagueId } from '../utils/leagueId';
 
 /** Join-request emails one owner can receive per league per day; requests past it still show in the app. */
 const REQUEST_MAIL_DAILY_CAP = 25;
-import { isUsableLeagueId } from '../utils/leagueId';
 
 const db = admin.firestore();
 // Already set in Secret Manager (sendInviteEmail uses it), so declaring it here cannot block a deploy.
@@ -50,6 +50,8 @@ export const onMemberWritten = onDocumentWritten(
     const synced = await syncCharterMember(db, leagueId, memberId, before, after);
     if (!synced || (!synced.change.requested && !synced.change.approvedNow)) return;
     const { league, change } = synced;
+    // the welcome mail only if they are still in: a late event must not welcome someone who left
+    const welcome = change.approvedNow && synced.approvedNow;
     const t = transport();
     if (!t) return;
     const name = cleanText(league.name, 'your league');
@@ -57,12 +59,16 @@ export const onMemberWritten = onDocumentWritten(
     // A join request is something a stranger can cause, so it is capped per league per day as well
     // as once per player per day: a leave-and-ask-again loop cannot flood the owner or use up the
     // sender's daily quota.
-    if (change.requested && typeof league.ownerId === 'string' && await takeDailySlot(db, `request_${leagueId}`, REQUEST_MAIL_DAILY_CAP)) {
+    // One request email per player per league per day, checked BEFORE a league slot is taken, so
+    // one account asking again and again cannot use up the day's slots for everyone else.
+    const requestKey = `request_${leagueId}_${memberId}_${Math.floor(Date.now() / 86400000)}`;
+    if (change.requested && typeof league.ownerId === 'string'
+      && !(await db.collection('mail_log').doc(requestKey).get()).exists
+      && await takeDailySlot(db, `request_${leagueId}`, REQUEST_MAIL_DAILY_CAP)) {
       const owner = await recipient(db, league.ownerId);
-      // one request email per player per league per day: leaving and asking again does not spam the owner
-      await sendOnce(db, t, `request_${leagueId}_${memberId}_${Math.floor(Date.now() / 86400000)}`, owner.email, requestMail(cleanText(after?.displayName, 'A player'), name, code));
+      await sendOnce(db, t, requestKey, owner.email, requestMail(cleanText(after?.displayName, 'A player'), name, code));
     }
-    if (change.approvedNow) {
+    if (welcome) {
       const player = await recipient(db, memberId);
       await sendOnce(db, t, `approved_${leagueId}_${memberId}_${league.charter.expiresAt}`, player.email, approvedMail(name, code));
     }

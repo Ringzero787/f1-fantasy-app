@@ -16,7 +16,7 @@ type Data = FirebaseFirestore.DocumentData;
  */
 export async function syncCharterMember(
   db: Db, leagueId: string, memberId: string, before: Data | undefined, after: Data | undefined, now = Date.now(),
-): Promise<{ league: Data; change: MemberChange } | null> {
+): Promise<{ league: Data; change: MemberChange; approvedNow: boolean } | null> {
   const change = memberChange(before, after);
   if (!change.joined && !change.left && !change.requested && !change.pointsMayChange) return null;
   const leagueRef = db.doc(`leagues/${leagueId}`);
@@ -27,10 +27,12 @@ export async function syncCharterMember(
   // from this event's before/after: deliveries are not ordered and a retry can arrive days later,
   // so an old "approved" event must not give access back to someone who has since left. The owner
   // keeps access while the league is chartered, whatever happens to their own member document.
+  let approvedNow = false;
   const league = await db.runTransaction(async (tx) => {
     const [leagueSnap, memberSnap] = await Promise.all([tx.get(leagueRef), tx.get(leagueRef.collection('members').doc(memberId))]);
     const l = leagueSnap.data();
     if (!l || !charterActive(l, now)) return null;
+    approvedNow = memberSnap.exists && isApproved(memberSnap.data());
     if (change.joined || change.left) {
       const inLeague = memberId === l.ownerId || (memberSnap.exists && isApproved(memberSnap.data()));
       tx.set(userRef, { charterAccess: { leagues: { [leagueId]: inLeague ? (l.charter.expiresAt as number) : del } } }, { merge: true });
@@ -40,7 +42,7 @@ export async function syncCharterMember(
   if (!league) return null;
 
   if (change.pointsMayChange) await recomputeSearchPoints(db, leagueId, now);
-  return { league, change };
+  return { league, change, approvedNow };
 }
 
 /**

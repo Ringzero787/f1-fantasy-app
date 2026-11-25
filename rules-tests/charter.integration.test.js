@@ -216,6 +216,8 @@ test('slice 3: a late or retried "approved" event cannot give access back to som
   // the approval event is delivered again, after the leave
   await members.syncCharterMember(db, 'M5', 'late', { status: 'pending' }, { status: 'approved' }, NOW3);
   assert.equal((await data('users/late')).charterAccess.leagues.M5, undefined, 'access follows the member as they are now');
+  const replay = await members.syncCharterMember(db, 'M5', 'late', { status: 'pending' }, { status: 'approved' }, NOW3);
+  assert.equal(replay.approvedNow, false, 'so no welcome email goes to someone who left');
 });
 
 test('slice 3: two approvals racing for the last of 22 places: one wins', async () => {

@@ -209,7 +209,10 @@ export async function recipient(db: Db, uid: string, withUnsubscribe = false, au
   let email: string | null = null;
   try {
     const u = await auth.getUser(uid);
-    email = typeof u.email === 'string' ? u.email : null;
+    // Only an address the account has shown it owns: verified, or from a provider that vouches for
+    // it (Google, Apple, Amazon). An email/password account can be opened with anyone's address.
+    const vouched = u.emailVerified === true || (u.providerData ?? []).some((p) => p.providerId !== 'password' && p.email === u.email);
+    email = typeof u.email === 'string' && vouched ? u.email : null;
   } catch {
     email = null;
   }
