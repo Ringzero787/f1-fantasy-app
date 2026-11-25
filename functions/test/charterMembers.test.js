@@ -89,7 +89,7 @@ test('emails: black card, red accent, one button, footer Undercut, escaped, no w
     assert.ok(m.html.includes('background:#000000'));
     assert.equal((m.html.match(/<a href=[^>]*display:inline-block/g) || []).length, 1, 'one button');
     assert.match(m.html, />Undercut(<br>|<\/td>)/);
-    assert.doesNotMatch(m.html, /<script>/);
+    assert.ok(!m.html.includes('<script'), 'user text is escaped');
     assert.doesNotMatch(m.html, /Leave Me To It|#14B8A6/, 'the teal template is gone');
     assert.ok(m.html.includes('https://undercut.humannpc.com/join?code=ABC123'), 'the join route, not /join/{code}');
     for (const w of [/\bF1\b/, /Formula 1/i, /\bFIA\b/, /Grand Prix/i]) { assert.doesNotMatch(m.subject, w); }

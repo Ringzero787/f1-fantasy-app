@@ -14,9 +14,11 @@ const HOST = 'undercut.humannpc.com';
 const cfg = (() => { const c = require(path.join(ROOT, 'app.config.js')); return c.expo ?? c.default?.expo ?? c; })();
 
 test('the app claims the same host the invite email sends people to', () => {
-  const email = read('functions/src/invites/sendInviteEmail.ts');
+  // F-175: every email's link (the invite included) is built in functions/src/charter/mail.ts
+  const email = read('functions/src/charter/mail.ts');
   const base = email.match(/const BASE_URL = '([^']+)'/);
-  assert.ok(base, 'sendInviteEmail no longer has a BASE_URL');
+  assert.ok(base, 'charter/mail.ts no longer has a BASE_URL');
+  assert.match(read('functions/src/invites/sendInviteEmail.ts'), /from '\.\.\/charter\/mail'/, 'the invite email builds its link there');
   assert.equal(new URL(base[1]).host, HOST,
     'the email host and the App Links host must match, or the link opens a browser');
 
