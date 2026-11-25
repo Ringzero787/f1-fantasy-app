@@ -27,7 +27,7 @@ pitwall.charter.season
 
 ## Before you start
 
-1. **Apple's Paid Applications agreement must be active.** App Store Connect → Business → Agreements, Tax, and Banking. A lapsed agreement shows up as "cannot locate the In-App Purchases" (see memory `reference_asc_agreement_lapse`).
+1. **Apple's Paid Applications agreement must be active.** App Store Connect → Business → Agreements, Tax, and Banking. A lapsed agreement shows up as "cannot locate the In-App Purchases".
 2. **Play's purchase verification permission** is already in place for the pass. Charter is verified by the same `validatePurchase` function and service account. Nothing new to grant.
 3. **Test buyers must be marked `testAccount` in Firestore** (F-164). Otherwise their sandbox or license-tester purchase is refused. The App Review accounts already are. A new tester account is marked by running `markTestAccounts` through `aidlc op` after they sign in once.
 
@@ -59,8 +59,8 @@ price, track, or setting.
    If Play asks whether the product is consumable or multi-quantity, leave quantity at 1. The
    app consumes it after validation, as it does for pitwall.pass.season. Open that product and
    copy its settings if you are unsure.
-4. Save, then Activate the product (and its purchase option, if there is a separate toggle).
-   An inactive product returns "item unavailable" even to license testers.
+4. Save. Do NOT activate the product or its purchase option: leave it Inactive. Tell me its
+   status.
 5. Go to Settings (account level, the gear icon outside the app) → License testing, and list
    the Gmail addresses already there. Do not add or remove any; just report them.
 6. Report back: the product's status (Active or Inactive), its price in USD, and a
@@ -70,7 +70,9 @@ Never click anything that publishes a release, sends an app for review, or chang
 profile or banking settings.
 ```
 
-### Then test it (once slice 4 puts the button in the app)
+**Activation.** BUILD.md says the products stay inactive in production until the flag flip, so the prompt leaves the Play product **Inactive**. Play will not sell an inactive product, even to a license tester. So the slice 5 sandbox purchase on Play needs the product **activated** first. That is safe while the flag is off: the server charters only test purchases by `testAccount` users, and records anything else unapplied. It is still the owner's call, made when slice 5 testing starts.
+
+### Then test it (once slice 4 puts the button in the app, and the product is activated)
 
 1. Use a license-tester Google account whose Undercut account is marked `testAccount`.
 2. Install from the **internal testing** track. Play only sells to an app it delivered, so a sideloaded APK cannot buy.
@@ -135,6 +137,17 @@ Tax, and Banking or Payments and Financial Reports.
 - **Submit the IAP for review with the first build that shows the Charter offer.** Apple reviews a first in-app purchase together with an app version. A build without the screen would be rejected for an IAP the reviewer cannot find.
 
 ---
+
+## Stripe test payment and refund (slice 5)
+
+Use a Stripe **test** secret key (`sk_test_…`) on the functions. With that key, `createCheckout` sells a charter while the flag is off. Run these steps:
+
+1. Pay with card `4242 4242 4242 4242`.
+2. Expect `charter_grants/stripe:{payment_intent}` with `grantedAt`, and the league chartered.
+3. Refund the payment in full from the Stripe dashboard.
+4. Expect `clearedAt` on the same record, the league no longer chartered, and members' `charterAccess` emptied.
+
+A partial refund keeps the charter.
 
 ## Not part of this setup
 

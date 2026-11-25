@@ -197,8 +197,35 @@ test('slice 3: search points are the approved members\' totals, set at grant and
   await db.doc(`leagues/M4/members/${s.pat}`).set({ status: 'pending', totalPoints: 999 });
   await store.grantCharter(db, { leagueId: 'M4', buyerId: s.owner, season: '2027', source: 'play', ref: 'pur_M4', now: NOW3 });
   assert.equal((await data('leagues/M4')).searchPoints, 150);
-  await write('M4', s.amy, { status: 'approved', totalPoints: 80 }); // a race scored
+  await write('M4', s.amy, { status: 'approved', totalPoints: 80 }); // a race scored: no recount per member write
+  assert.equal((await data('leagues/M4')).searchPoints, 150);
+  await members.recomputeSearchPoints(db, 'M4', NOW3); // what charter-onRaceResult does once per race
   assert.equal((await data('leagues/M4')).searchPoints, 180);
   await write('M4', s.amy, null);
   assert.equal((await data('leagues/M4')).searchPoints, 100);
+});
+
+test('slice 3: a late or retried "approved" event cannot give access back to someone who left', async () => {
+  const { owner } = await chartered('M5');
+  await db.doc('leagues/M5/members/late').set({ status: 'pending' });
+  await members.approve(db, 'M5', 'late', owner, NOW3);
+  await members.syncCharterMember(db, 'M5', 'late', { status: 'pending' }, { status: 'approved' }, NOW3);
+  assert.equal((await data('users/late')).charterAccess.leagues.M5, END);
+  await write('M5', 'late', null); // leaves
+  assert.equal((await data('users/late')).charterAccess.leagues.M5, undefined);
+  // the approval event is delivered again, after the leave
+  await members.syncCharterMember(db, 'M5', 'late', { status: 'pending' }, { status: 'approved' }, NOW3);
+  assert.equal((await data('users/late')).charterAccess.leagues.M5, undefined, 'access follows the member as they are now');
+});
+
+test('slice 3: two approvals racing for the last of 22 places: one wins', async () => {
+  const { owner, amy } = await chartered('M6');
+  for (let k = 0; k < 19; k += 1) await db.doc(`leagues/M6/members/f${k}`).set({ status: 'approved' });
+  await db.doc('leagues/M6/members/r1').set({ status: 'pending' });
+  await db.doc('leagues/M6/members/r2').set({ status: 'pending' });
+  // owner + amy + 19 = 21 approved
+  const both = await Promise.allSettled([members.approve(db, 'M6', 'r1', owner, NOW3), members.approve(db, 'M6', 'r2', owner, NOW3)]);
+  assert.equal(both.filter((b) => b.status === 'fulfilled').length, 1);
+  assert.equal(both.find((b) => b.status === 'rejected').reason.reason, 'full');
+  void amy;
 });

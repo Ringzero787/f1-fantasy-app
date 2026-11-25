@@ -14,7 +14,7 @@ describe('lastOpenAt', () => {
     const root = fs.readFileSync(path.join(__dirname, '..', '..', 'app', '_layout.tsx'), 'utf8');
     expect(root).toMatch(/useLastOpenAt\(\);/);
     const hook = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'hooks', 'useLastOpenAt.ts'), 'utf8');
-    expect(hook).toMatch(/if \(!isAuthenticated \|\| isDemoMode\) return;/);
+    expect(hook).toMatch(/if \(!isAuthenticated \|\| isDemoMode \|\| !userId\) return;/);
     expect(hook).toMatch(/lastOpenAt: serverTimestamp\(\)/);
   });
 

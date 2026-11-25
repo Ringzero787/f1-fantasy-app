@@ -20,25 +20,43 @@ export async function syncCharterMember(
   const change = memberChange(before, after);
   if (!change.joined && !change.left && !change.requested && !change.pointsMayChange) return null;
   const leagueRef = db.doc(`leagues/${leagueId}`);
-  const league = (await leagueRef.get()).data();
-  if (!league || !charterActive(league, now)) return null;
-  const expiresAt = league.charter.expiresAt as number;
+  const userRef = db.doc(`users/${memberId}`);
   const del = admin.firestore.FieldValue.delete();
 
-  // Access follows approval. The owner keeps access while the league is chartered, whatever
-  // happens to their own member document.
-  if (change.joined) {
-    await db.doc(`users/${memberId}`).set({ charterAccess: { leagues: { [leagueId]: expiresAt } } }, { merge: true });
-  } else if (change.left && memberId !== league.ownerId) {
-    await db.doc(`users/${memberId}`).set({ charterAccess: { leagues: { [leagueId]: del } } }, { merge: true });
-  }
+  // Access is set from the member as they are NOW, read in a transaction with the write, never
+  // from this event's before/after: deliveries are not ordered and a retry can arrive days later,
+  // so an old "approved" event must not give access back to someone who has since left. The owner
+  // keeps access while the league is chartered, whatever happens to their own member document.
+  const league = await db.runTransaction(async (tx) => {
+    const [leagueSnap, memberSnap] = await Promise.all([tx.get(leagueRef), tx.get(leagueRef.collection('members').doc(memberId))]);
+    const l = leagueSnap.data();
+    if (!l || !charterActive(l, now)) return null;
+    if (change.joined || change.left) {
+      const inLeague = memberId === l.ownerId || (memberSnap.exists && isApproved(memberSnap.data()));
+      tx.set(userRef, { charterAccess: { leagues: { [leagueId]: inLeague ? (l.charter.expiresAt as number) : del } } }, { merge: true });
+    }
+    return l;
+  });
+  if (!league) return null;
 
-  if (change.pointsMayChange) {
-    const members = await leagueRef.collection('members').get();
-    const sp = searchPoints(members.docs.map((d) => d.data()));
-    if (league.searchPoints !== sp) await leagueRef.set({ searchPoints: sp }, { merge: true });
-  }
+  if (change.pointsMayChange) await recomputeSearchPoints(db, leagueId, now);
   return { league, change };
+}
+
+/**
+ * Recount `searchPoints` from the approved members, in a transaction, so two recounts racing each
+ * other cannot leave the older sum behind. Only for a chartered league. Returns the new value.
+ */
+export async function recomputeSearchPoints(db: Db, leagueId: string, now = Date.now()): Promise<number | null> {
+  const leagueRef = db.doc(`leagues/${leagueId}`);
+  return db.runTransaction(async (tx) => {
+    const [leagueSnap, members] = await Promise.all([tx.get(leagueRef), tx.get(leagueRef.collection('members'))]);
+    const league = leagueSnap.data();
+    if (!league || !charterActive(league, now)) return null;
+    const sp = searchPoints(members.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => d.data()));
+    if (league.searchPoints !== sp) tx.set(leagueRef, { searchPoints: sp }, { merge: true });
+    return sp;
+  });
 }
 
 export class Refused<R extends string> extends Error {

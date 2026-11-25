@@ -113,8 +113,10 @@ export function inviteMail(owner: string, league: string, code: string, chartere
 }
 
 export function requestMail(name: string, league: string, code: string): Mail {
+  // The requester's name is theirs to choose, so it stays out of the subject line of mail from
+  // the official address; the heading is the plan's wording, escaped.
   return {
-    subject: `${name} wants in to ${league}`,
+    subject: `New request to join ${league}`,
     html: cardHtml({
       heading: `${name} wants in to ${league}`,
       paragraphs: ['Approve them from the league page. Pit Wall turns on for them when you do.'],
@@ -169,6 +171,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * Send one email at most once per key. The log row is created first (create fails if it exists),
  * so two deliveries of the same trigger send once; a failed send removes the row and rethrows, so
  * the trigger's retry sends it then. Returns false when skipped (already sent, or no address).
+ *
+ * The usual at-most-once trade-offs remain: an instance that dies between the row and the send
+ * loses that email, and a send that times out after the server accepted it is sent again.
  */
 export async function sendOnce(db: Db, transport: Transport, key: string, to: unknown, mail: Mail): Promise<boolean> {
   if (typeof to !== 'string' || !EMAIL_RE.test(to)) return false;
@@ -197,19 +202,46 @@ export interface Recipient { uid: string; email: string | null; optedOut: boolea
  * document (`mailToken`, server-written), so no signing secret is needed and a link names one
  * account only.
  */
-export async function recipient(db: Db, uid: string, withUnsubscribe = false): Promise<Recipient> {
+export async function recipient(db: Db, uid: string, withUnsubscribe = false, auth: Pick<admin.auth.Auth, 'getUser'> = admin.auth()): Promise<Recipient> {
   const ref = db.doc(`users/${uid}`);
-  const data = (await ref.get()).data() ?? {};
-  const email = typeof data.email === 'string' ? data.email : null;
-  let token = typeof data.mailToken === 'string' && data.mailToken.length >= 32 ? data.mailToken : null;
-  if (withUnsubscribe && !token && email) {
-    token = randomBytes(24).toString('hex');
-    await ref.set({ mailToken: token }, { merge: true });
+  // The sign-in address, not `users/{uid}.email`: that field is client-writable, and mail from the
+  // official address must not be pointed at whoever a player likes.
+  let email: string | null = null;
+  try {
+    const u = await auth.getUser(uid);
+    email = typeof u.email === 'string' ? u.email : null;
+  } catch {
+    email = null;
   }
+  // The token is created at most once, in a transaction, so two emails going out together cannot
+  // each make one and leave the first link dead.
+  const { token, optedOut } = await db.runTransaction(async (tx) => {
+    const data = (await tx.get(ref)).data() ?? {};
+    let t = typeof data.mailToken === 'string' && data.mailToken.length >= 32 ? (data.mailToken as string) : null;
+    if (withUnsubscribe && !t && email) {
+      t = randomBytes(24).toString('hex');
+      tx.set(ref, { mailToken: t }, { merge: true });
+    }
+    return { token: t, optedOut: data.charterEmailOptOut === true };
+  });
   return {
     uid,
     email,
-    optedOut: data.charterEmailOptOut === true,
+    optedOut,
     unsubscribeUrl: withUnsubscribe && token ? `${UNSUBSCRIBE_URL}?u=${encodeURIComponent(uid)}&t=${token}` : null,
   };
+}
+
+/**
+ * A per-key daily allowance, for mail a stranger can cause (a join request). Returns true when a
+ * slot was taken. The count lives in mail_log, which no client can read or write.
+ */
+export async function takeDailySlot(db: Db, key: string, cap: number, now = Date.now()): Promise<boolean> {
+  const ref = db.collection('mail_log').doc(`cap_${key.replace(/\//g, '_')}_${Math.floor(now / 86400000)}`);
+  return db.runTransaction(async (tx) => {
+    const n = ((await tx.get(ref)).data()?.n as number | undefined) ?? 0;
+    if (n >= cap) return false;
+    tx.set(ref, { n: n + 1 }, { merge: true });
+    return true;
+  });
 }

@@ -19,7 +19,7 @@ test('member changes: join, leave, request, approval, points', () => {
   assert.equal(c({ status: 'pending' }, undefined).left, false, 'a rejected request had no access to take');
   assert.equal(c({ status: 'approved' }, { status: 'pending' }).left, true);
   assert.equal(c({}, {}).joined, false, 'a legacy doc with no status was already approved');
-  assert.equal(c({ status: 'approved', totalPoints: 10 }, { status: 'approved', totalPoints: 12 }).pointsMayChange, true);
+  assert.equal(c({ status: 'approved', totalPoints: 10 }, { status: 'approved', totalPoints: 12 }).pointsMayChange, false, 'a scoring write does not recount; the race result does, once');
   assert.equal(c({ status: 'approved', totalPoints: 10, displayName: 'a' }, { status: 'approved', totalPoints: 10, displayName: 'b' }).pointsMayChange, false, 'a rename is not a points change');
   assert.equal(c({ status: 'pending', totalPoints: 0 }, { status: 'pending', totalPoints: 5 }).pointsMayChange, false, 'pending members contribute nothing');
 });
@@ -96,7 +96,8 @@ test('emails: black card, red accent, one button, footer Undercut, escaped, no w
   }
   assert.equal(Mail.charteredMail('Pit Lane', 'C').subject, 'Pit Lane is chartered');
   assert.equal(Mail.inviteMail('Sam', 'Pit Lane', 'C', true).subject, 'Sam chartered Pit Lane');
-  assert.equal(Mail.requestMail('Pat', 'Pit Lane', 'C').subject, 'Pat wants in to Pit Lane');
+  assert.equal(Mail.requestMail('Pat', 'Pit Lane', 'C').subject, 'New request to join Pit Lane', 'the requester\'s own text stays out of the subject');
+  assert.match(Mail.requestMail('Pat', 'Pit Lane', 'C').html, /Pat wants in to Pit Lane/);
   assert.equal(Mail.approvedMail('Pit Lane', 'C').subject, "You're in Pit Lane. Pit Wall is on.");
   assert.equal(Mail.rankUpMail('Pit Lane', 'C', 'u').subject, 'Your rank up is back');
   assert.equal(Mail.scoredMail('Pit Lane', 'Bahrain', 'C', 'u').subject, 'Pit Lane · Bahrain is scored');
@@ -120,4 +121,67 @@ test('no Charter function calls grantPass/revokePass; Rank Up never writes point
   const fns = fs.readFileSync(path.join(__dirname, '..', 'src', 'charter', 'functions.ts'), 'utf8');
   assert.deepEqual([...fns.matchAll(/defineSecret\('([^']+)'\)/g)].map((m) => m[1]), ['GMAIL_APP_PASSWORD']);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'index.ts'), 'utf8'), /export \* as charter from '\.\/charter\/functions'/);
+});
+
+// ── sendOnce, the daily cap, recipient ──
+function fakeDb() {
+  const docs = new Map();
+  const ref = (p) => ({
+    path: p,
+    get: async () => ({ exists: docs.has(p), data: () => docs.get(p) }),
+    set: async (v, o) => docs.set(p, o?.merge ? { ...(docs.get(p) ?? {}), ...v } : v),
+    create: async (v) => { if (docs.has(p)) { const e = new Error('exists'); e.code = 6; throw e; } docs.set(p, v); },
+    delete: async () => docs.delete(p),
+  });
+  return {
+    docs,
+    doc: ref,
+    collection: (c) => ({ doc: (id) => ref(`${c}/${id}`) }),
+    runTransaction: async (fn) => fn({ get: (r) => r.get(), set: (r, v, o) => r.set(v, o) }),
+  };
+}
+const admin = require('firebase-admin');
+if (!admin.firestore.FieldValue) admin.firestore.FieldValue = {};
+admin.firestore.FieldValue.serverTimestamp = () => 'ts';
+
+test('sendOnce: once per key, skips a bad address, and a failed send can be retried', async () => {
+  const db = fakeDb();
+  const sent = [];
+  let fail = false;
+  const t = { sendMail: async (m) => { if (fail) throw new Error('smtp down'); sent.push(m); } };
+  const mail = Mail.approvedMail('L', 'C');
+  assert.equal(await Mail.sendOnce(db, t, 'k1', 'a@b.co', mail), true);
+  assert.equal(await Mail.sendOnce(db, t, 'k1', 'a@b.co', mail), false, 'a second delivery of the same trigger');
+  assert.equal(sent.length, 1);
+  assert.equal(await Mail.sendOnce(db, t, 'k2', 'not an address', mail), false);
+  assert.equal(await Mail.sendOnce(db, t, 'k3', 'a@b.co, c@d.co', mail), false, 'one recipient only');
+  fail = true;
+  await assert.rejects(Mail.sendOnce(db, t, 'k4', 'a@b.co', mail));
+  assert.equal(db.docs.has('mail_log/k4'), false, 'the log row is removed so the retry sends');
+  fail = false;
+  assert.equal(await Mail.sendOnce(db, t, 'k4', 'a@b.co', mail), true);
+  assert.equal(sent[0].from, 'Undercut <theundercutapp@gmail.com>');
+});
+
+test('daily cap: a stranger-caused mail stops at the cap and resets the next day', async () => {
+  const db = fakeDb();
+  const day = Date.parse('2027-03-01T10:00:00Z');
+  for (let k = 0; k < 3; k += 1) assert.equal(await Mail.takeDailySlot(db, 'request_L1', 3, day), true);
+  assert.equal(await Mail.takeDailySlot(db, 'request_L1', 3, day), false);
+  assert.equal(await Mail.takeDailySlot(db, 'request_L2', 3, day), true, 'per league');
+  assert.equal(await Mail.takeDailySlot(db, 'request_L1', 3, day + 86400000), true);
+});
+
+test('recipient: the sign-in address, not users.email; one token, made once', async () => {
+  const db = fakeDb();
+  db.docs.set('users/u1', { email: 'attacker@evil.example', charterEmailOptOut: false });
+  const auth = { getUser: async () => ({ email: 'real@player.example' }) };
+  const r1 = await Mail.recipient(db, 'u1', true, auth);
+  assert.equal(r1.email, 'real@player.example');
+  assert.match(r1.unsubscribeUrl, /charter-unsubscribe\?u=u1&t=[a-f0-9]{48}$/);
+  const r2 = await Mail.recipient(db, 'u1', true, auth);
+  assert.equal(r2.unsubscribeUrl, r1.unsubscribeUrl, 'the token is not replaced');
+  const none = await Mail.recipient(db, 'u2', true, { getUser: async () => { throw new Error('no user'); } });
+  assert.equal(none.email, null);
+  assert.equal(none.unsubscribeUrl, null, 'no address, no token');
 });

@@ -22,20 +22,23 @@ export interface MemberChange {
   requested: boolean;
   /** pending → approved: tell the player they are in */
   approvedNow: boolean;
-  /** the search points sum may have changed */
+  /**
+   * who counts changed, so the search points need recounting now. A points change alone does not:
+   * scoring rewrites every member's total each round, and the sum is recounted once per race from
+   * the league race result instead (charter-onRaceResult), not N times from N member writes.
+   */
   pointsMayChange: boolean;
 }
 
 export function memberChange(before: Member, after: Member): MemberChange {
   const was = isApproved(before);
   const is = isApproved(after);
-  const pts = (m: Member) => (typeof m?.totalPoints === 'number' && Number.isFinite(m.totalPoints) ? m.totalPoints : 0);
   return {
     joined: !was && is,
     left: was && !is,
     requested: !before && !!after && after.status === 'pending',
     approvedNow: !!before && before.status === 'pending' && is,
-    pointsMayChange: was !== is || (is && pts(before) !== pts(after)),
+    pointsMayChange: was !== is,
   };
 }
 

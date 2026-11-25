@@ -17,10 +17,13 @@ import { shouldStampOpen } from '../utils/lastOpen';
 export function useLastOpenAt(): void {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
+  // Re-run when the account is known, not only when the flag flips: `isAuthenticated` can be
+  // true a moment before the Firebase user is restored, and the first stamp would be skipped.
+  const userId = useAuthStore((s) => s.user?.id ?? null);
   const last = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || isDemoMode) return;
+    if (!isAuthenticated || isDemoMode || !userId) return;
     const stamp = () => {
       const uid = firebaseAuth.currentUser?.uid;
       const now = Date.now();
@@ -33,5 +36,5 @@ export function useLastOpenAt(): void {
     stamp();
     const sub = AppState.addEventListener('change', (state) => { if (state === 'active') stamp(); });
     return () => sub.remove();
-  }, [isAuthenticated, isDemoMode]);
+  }, [isAuthenticated, isDemoMode, userId]);
 }

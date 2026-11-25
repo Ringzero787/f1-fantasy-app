@@ -8,20 +8,25 @@
  * - approveMember: the only writer of `approved` in a chartered league (the rules refuse a client
  *   status change there), with the 22-player cap.
  * - giveRankUp: one per approved member per ISO week; never writes points.
- * - onLeagueChartered, onRaceScored, rankUpReminders: the owner, scored and Monday emails.
+ * - onLeagueChartered, onRaceResult, rankUpReminders: the owner, scored and Monday emails; onRaceResult
+ *   also recounts `searchPoints` once per race.
  * - unsubscribe: the link in the weekly emails.
  */
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
-import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
+import { timingSafeEqual } from 'crypto';
 import { charterActive } from './charter';
 import { weekId } from './rankUp';
 import { isApproved, wantsRankUpReminder } from './membership';
-import { approve, giveRankUp as giveRankUpTx, Refused, syncCharterMember } from './memberStore';
-import { approvedMail, charteredMail, cleanText, recipient, rankUpMail, requestMail, scoredMail, sendOnce, type Transport } from './mail';
+import { approve, giveRankUp as giveRankUpTx, recomputeSearchPoints, Refused, syncCharterMember } from './memberStore';
+import { approvedMail, charteredMail, cleanText, recipient, rankUpMail, requestMail, scoredMail, sendOnce, takeDailySlot, type Transport } from './mail';
+
+/** Join-request emails one owner can receive per league per day; requests past it still show in the app. */
+const REQUEST_MAIL_DAILY_CAP = 25;
 import { isUsableLeagueId } from '../utils/leagueId';
 
 const db = admin.firestore();
@@ -49,9 +54,13 @@ export const onMemberWritten = onDocumentWritten(
     if (!t) return;
     const name = cleanText(league.name, 'your league');
     const code = typeof league.inviteCode === 'string' ? league.inviteCode : '';
-    if (change.requested && typeof league.ownerId === 'string') {
+    // A join request is something a stranger can cause, so it is capped per league per day as well
+    // as once per player per day: a leave-and-ask-again loop cannot flood the owner or use up the
+    // sender's daily quota.
+    if (change.requested && typeof league.ownerId === 'string' && await takeDailySlot(db, `request_${leagueId}`, REQUEST_MAIL_DAILY_CAP)) {
       const owner = await recipient(db, league.ownerId);
-      await sendOnce(db, t, `request_${leagueId}_${memberId}_${event.id}`, owner.email, requestMail(cleanText(after?.displayName, 'A player'), name, code));
+      // one request email per player per league per day: leaving and asking again does not spam the owner
+      await sendOnce(db, t, `request_${leagueId}_${memberId}_${Math.floor(Date.now() / 86400000)}`, owner.email, requestMail(cleanText(after?.displayName, 'A player'), name, code));
     }
     if (change.approvedNow) {
       const player = await recipient(db, memberId);
@@ -126,31 +135,42 @@ export const onLeagueChartered = onDocumentUpdated(
   },
 );
 
-/** "{League} · {race} is scored" to each approved member, when the league's race result first lands. */
-export const onRaceScored = onDocumentCreated(
+/**
+ * When a league's race result is written (scoring writes it after the member totals; a correction
+ * rewrites it): recount `searchPoints` once for the race. When it is first created: "{League} ·
+ * {race} is scored" to each approved member. A failed send is retried by rethrowing after the
+ * loop; the mail log makes the retry send only what did not go.
+ */
+export const onRaceResult = onDocumentWritten(
   { document: 'leagues/{leagueId}/raceResults/{raceId}', retry: true, secrets: [gmailAppPassword], timeoutSeconds: 300 },
   async (event) => {
+    if (!event.data?.after.exists) return;
     const { leagueId, raceId } = event.params;
+    const now = Date.now();
+    if ((await recomputeSearchPoints(db, leagueId, now)) === null) return; // not chartered
+    if (event.data.before.exists) return; // a correction: recount only, no second email
     const leagueRef = db.doc(`leagues/${leagueId}`);
     const league = (await leagueRef.get()).data();
-    if (!league || !charterActive(league, Date.now())) return;
+    if (!league) return;
     const t = transport();
     if (!t) return;
     const name = cleanText(league.name, 'Your league');
-    const race = cleanText(event.data?.data()?.raceName, 'The race');
+    const race = cleanText(event.data.after.data()?.raceName, 'The race');
     const code = typeof league.inviteCode === 'string' ? league.inviteCode : '';
     const members = await leagueRef.collection('members').get();
+    let failed = 0;
     for (const m of members.docs) {
       if (!isApproved(m.data())) continue;
-      const r = await recipient(db, m.id, true);
-      if (r.optedOut || !r.unsubscribeUrl) continue;
       try {
+        const r = await recipient(db, m.id, true);
+        if (r.optedOut || !r.unsubscribeUrl) continue;
         await sendOnce(db, t, `scored_${leagueId}_${raceId}_${m.id}`, r.email, scoredMail(name, race, code, r.unsubscribeUrl));
       } catch (e) {
-        // One bad address must not stop the rest; sendOnce removed its log row, a retry resends only it.
+        failed += 1;
         console.error('[charter] scored mail failed for', m.id, e instanceof Error ? e.message : e);
       }
     }
+    if (failed) throw new Error(`${failed} scored email(s) failed; retrying`);
   },
 );
 
@@ -174,9 +194,9 @@ export const rankUpReminders = onSchedule({ schedule: '0 14 * * 1', timeZone: 'E
       const user = (await db.doc(`users/${m.id}`).get()).data() ?? {};
       const last = user.lastOpenAt?.toMillis?.() ?? (typeof user.lastOpenAt === 'number' ? user.lastOpenAt : null);
       if (!wantsRankUpReminder({ gaveThisWeek: gave.has(m.id), lastOpenAtMs: last, now, optedOut: user.charterEmailOptOut === true })) continue;
-      const r = await recipient(db, m.id, true);
-      if (!r.unsubscribeUrl) continue;
       try {
+        const r = await recipient(db, m.id, true);
+        if (!r.unsubscribeUrl) continue;
         if (await sendOnce(db, t, `rankup_${week}_${l.id}_${m.id}`, r.email, rankUpMail(name, code, r.unsubscribeUrl))) sent += 1;
       } catch (e) {
         console.error('[charter] rank up mail failed for', m.id, e instanceof Error ? e.message : e);
@@ -197,12 +217,14 @@ export const unsubscribe = onRequest({ region: 'us-central1' }, async (req, res)
   const t = typeof src.t === 'string' ? src.t : '';
   const page = (body: string) => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Undercut</title></head><body style="background:#000;color:#fff;font-family:-apple-system,sans-serif;padding:48px 16px;text-align:center">${body}</body></html>`;
   const invalid = () => res.status(400).send(page('<p>This link is not valid.</p>'));
-  if (!u || u.includes('/') || u.length > 128 || !/^[a-f0-9]{48}$/.test(t)) { invalid(); return; }
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(u) || !/^[a-f0-9]{48}$/.test(t)) { invalid(); return; }
   const ref = db.doc(`users/${u}`);
   const user = (await ref.get()).data();
-  if (!user || user.mailToken !== t) { invalid(); return; }
+  const given = Buffer.from(t, 'utf8');
+  const stored = Buffer.from(typeof user?.mailToken === 'string' ? user.mailToken : '', 'utf8');
+  if (!user || stored.length !== given.length || !timingSafeEqual(stored, given)) { invalid(); return; }
   if (req.method !== 'POST') {
-    res.status(200).send(page(`<p>Stop the weekly league emails (Rank Up and race reports)?</p><form method="POST"><input type="hidden" name="u" value="${u.replace(/[^A-Za-z0-9_-]/g, '')}"><input type="hidden" name="t" value="${t}"><button type="submit" style="background:#FF2E2E;color:#fff;border:0;border-radius:8px;padding:12px 28px;font-size:16px;font-weight:700">Stop these emails</button></form>`));
+    res.status(200).send(page(`<p>Stop the weekly league emails (Rank Up and race reports)?</p><form method="POST"><input type="hidden" name="u" value="${u}"><input type="hidden" name="t" value="${t}"><button type="submit" style="background:#FF2E2E;color:#fff;border:0;border-radius:8px;padding:12px 28px;font-size:16px;font-weight:700">Stop these emails</button></form>`));
     return;
   }
   await ref.set({ charterEmailOptOut: true }, { merge: true });
