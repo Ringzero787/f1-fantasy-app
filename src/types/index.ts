@@ -17,6 +17,10 @@ export interface User {
    * Server-written only (firestore.rules deny it on create and update).
    */
   charterAccess?: { leagues: Record<string, number> };
+  /** F-175: when the app last came to the foreground (server timestamp); drives the Monday Rank Up email */
+  lastOpenAt?: unknown;
+  /** F-175: set by the unsubscribe link; stops the weekly Charter emails (Rank Up, race scored) */
+  charterEmailOptOut?: boolean;
 }
 
 export interface UserSettings {

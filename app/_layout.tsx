@@ -18,6 +18,7 @@ import { LaunchReveal } from '../src/simple/grid/LaunchReveal';
 import { useLayout } from '../src/hooks/useLayout';
 import { useRemoteConfigStore } from '../src/store/remoteConfig.store';
 import { useAuthStore } from '../src/store/auth.store';
+import { useLastOpenAt } from '../src/hooks/useLastOpenAt';
 import { usePrefsStore } from '../src/store/prefs.store';
 import { usePurchaseStore } from '../src/store/purchase.store';
 import '../src/i18n/bootstrap';
@@ -75,6 +76,8 @@ export default function RootLayout() {
   // the version gate) is readable only signed in. Once sign-in is known, fetch again if needed.
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   useEffect(() => { if (isAuthenticated) void useRemoteConfigStore.getState().ensureSignedInConfig(); }, [isAuthenticated]);
+  // F-175: when this account last opened the app, for the Monday Rank Up email
+  useLastOpenAt();
 
   /**
    * Open the store connection and register the purchase listener.

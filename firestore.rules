@@ -54,12 +54,14 @@ service cloud.firestore {
                     && !('pass' in request.resource.data)
                     && !('pwTrialUsed' in request.resource.data)
                     && !('testAccount' in request.resource.data)
-                    && !('charterAccess' in request.resource.data);
+                    && !('charterAccess' in request.resource.data)
+                    && !('mailToken' in request.resource.data);
       allow update: if isOwner(userId)
                     // F-068: the pass, its trial flag and the revocation record are server-owned
                     // F-164: so is the test-account mark (set only by functions/scripts/markTestAccounts.js)
                     // F-175: so is Charter access, which the `pw` claim is stamped from
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'pass', 'pwTrialUsed', 'pwRevoked', 'testAccount', 'charterAccess']);
+                    // F-175 slice 3: the unsubscribe token for the Charter emails is server-written
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'pass', 'pwTrialUsed', 'pwRevoked', 'testAccount', 'charterAccess', 'mailToken']);
       allow delete: if isOwner(userId);
 
       // F-071: what this person has read and rated on the Pit Wall wire. Private to them: it is
@@ -214,6 +216,11 @@ service cloud.firestore {
           (
             isLeagueOwner(leagueId)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'status', 'rank'])
+            // F-175 slice 3: in a chartered league approval is server-only (charter-approveMember,
+            // which holds the 22-player cap and grants Pit Wall access). Ordinary leagues keep the
+            // client path released builds use.
+            && (!charterLive(get(/databases/$(database)/documents/leagues/$(leagueId)).data)
+                || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']))
             && request.resource.data.get('role', 'member') in ['owner', 'admin', 'member']
             && (request.resource.data.get('role', 'member') == 'owner') == (resource.data.get('role', 'member') == 'owner')
           ) || (
@@ -327,6 +334,8 @@ service cloud.firestore {
     match /pw_grants/{id} { allow read, write: if false; }
     // F-175: Charter grant records (idempotency and support), server-written only.
     match /charter_grants/{id} { allow read, write: if false; }
+    // F-175 slice 3: email send-once log, server-written only.
+    match /mail_log/{id} { allow read, write: if false; }
     // Cross-store sign-in (F-091): each document holds an Apple identity token for ten minutes
     // while the browser hands it back to the device. Written by appleAuthRedirect and read once by
     // claimAppleSignIn, both Admin SDK. A client that could read this collection could sign in as

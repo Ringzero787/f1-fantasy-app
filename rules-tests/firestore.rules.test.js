@@ -1171,9 +1171,42 @@ test('F-175: while chartered the owner cannot clear requireApproval or make the 
   await assertSucceeds(updateDoc(doc(o, 'leagues', 'CH'), { name: 'Chartered Pals', updatedAt: serverTimestamp() }));
   await assertSucceeds(updateDoc(doc(o, 'leagues', 'CH'), { 'settings.allowLateJoin': false }));
   await assertSucceeds(updateDoc(doc(o, 'leagues', 'CH'), { isPublic: true, 'settings.requireApproval': true }));
-  // and the owner still approves a pending request (slice 3 moves this to a callable)
+  // slice 3: approval in a chartered league is server-only (charter-approveMember)
   await seedMember('CH', BOB, { status: 'pending', totalPoints: 0 });
-  await assertSucceeds(updateDoc(doc(o, 'leagues', 'CH', 'members', BOB), { status: 'approved' }));
+  await assertFails(updateDoc(doc(o, 'leagues', 'CH', 'members', BOB), { status: 'approved' }));
+});
+
+test('F-175 slice 3: in a chartered league the owner cannot change a status, but can still remove, rank and set roles', async () => {
+  await seedChartered('S3', Date.now() + 1e10);
+  const o = db(OWNER);
+  await seedMember('S3', BOB, { status: 'pending', totalPoints: 0 });
+  await assertFails(updateDoc(doc(o, 'leagues', 'S3', 'members', BOB), { status: 'approved' }));
+  await assertFails(updateDoc(doc(o, 'leagues', 'S3', 'members', ALICE), { status: 'pending' }), 'no demoting an approved member back to pending either');
+  await assertFails(updateDoc(doc(o, 'leagues', 'S3', 'members', BOB), { status: 'approved', rank: 2 }));
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'S3', 'members', ALICE), { role: 'admin' }));
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'S3', 'members', ALICE), { rank: 1 }));
+  await assertSucceeds(deleteDoc(doc(o, 'leagues', 'S3', 'members', BOB)), 'rejecting a request is a delete');
+  await assertSucceeds(deleteDoc(doc(db(ALICE), 'leagues', 'S3', 'members', ALICE)), 'a member may leave');
+  // an ordinary league keeps the client approval released builds use
+  await seedLeague('S3b', { settings: APPROVAL_ON });
+  await seedMember('S3b', BOB, { status: 'pending', totalPoints: 0 });
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'S3b', 'members', BOB), { status: 'approved' }));
+  // and once the charter has expired, so does a formerly chartered one
+  await seedChartered('S3c', Date.now() - 1000);
+  await seedMember('S3c', BOB, { status: 'pending', totalPoints: 0 });
+  await assertSucceeds(updateDoc(doc(o, 'leagues', 'S3c', 'members', BOB), { status: 'approved' }));
+});
+
+test('F-175 slice 3: the email unsubscribe token and the mail log are server-only', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users', ALICE), { displayName: 'Alice', mailToken: 'a'.repeat(48) });
+    await setDoc(doc(ctx.firestore(), 'mail_log', 'k1'), { subject: 's' });
+  });
+  await assertFails(updateDoc(doc(db(ALICE), 'users', ALICE), { mailToken: 'b'.repeat(48) }));
+  await assertFails(setDoc(doc(db(BOB), 'users', BOB), { displayName: 'Bob', mailToken: 'c'.repeat(48) }));
+  await assertSucceeds(updateDoc(doc(db(ALICE), 'users', ALICE), { charterEmailOptOut: true, lastOpenAt: serverTimestamp() }));
+  await assertFails(getDoc(doc(db(ALICE), 'mail_log', 'k1')));
+  await assertFails(setDoc(doc(db(ALICE), 'mail_log', 'k2'), { subject: 's' }));
 });
 
 test('F-175: after the charter expires the owner may close the league again', async () => {
