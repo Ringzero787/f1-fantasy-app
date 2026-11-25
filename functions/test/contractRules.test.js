@@ -110,17 +110,27 @@ const src = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 test('every purchase path clamps the length; the driver paths check the run', () => {
   const ops = src('src/teams/teamOperations.ts');
   const section = (name) => { const i = ops.indexOf(`export const ${name}`); return ops.slice(i, ops.indexOf('\n});\n', i)); };
-  for (const name of ['addDriverSecure', 'buildTeamSecure']) {
-    const s = section(name);
-    assert.match(s, /getSeasonClock\(\)/, `${name} reads the season clock`);
-    assert.match(s, /priorStreak\(team\.driverStreaks, /, `${name} reads the run`);
-    assert.match(s, /if \(contractLength === 0\) throw streakLockedOut/, `${name} refuses a full run`);
-    assert.match(s, /streakBefore: prior/, `${name} carries the run onto the new row`);
-  }
+  // F-176: the single moves run the shared steps in lineupSteps.ts, so the driver rules are read there
+  const steps = src('src/teams/lineupSteps.ts');
+  const step = (name) => { const i = steps.indexOf(`export function ${name}(`); return steps.slice(i, steps.indexOf('\n}\n', i)); };
+  const s = section('buildTeamSecure');
+  assert.match(s, /getSeasonClock\(\)/, 'buildTeamSecure reads the season clock');
+  assert.match(s, /priorStreak\(team\.driverStreaks, /, 'buildTeamSecure reads the run');
+  assert.match(s, /if \(contractLength === 0\) throw streakLockedOut/, 'buildTeamSecure refuses a full run');
+  assert.match(s, /streakBefore: prior/, 'buildTeamSecure carries the run onto the new row');
+  assert.match(section('addDriverSecure'), /getSeasonClock\(\)/);
+  assert.match(section('addDriverSecure'), /buyDriver\(state, driverId,/);
+  const buy = step('buyDriver');
+  assert.match(buy, /priorStreak\(s\.driverStreaks, driverId, clock\.completedRaceCount\)/, 'a buy reads the run');
+  assert.match(buy, /if \(contractLength === 0\) \{/, 'and refuses a full run');
+  assert.match(buy, /streakBefore: prior/, 'and carries it onto the new row');
+  assert.match(buy, /clock\.completedRaceCount < lockExpiry/, 'and honours the expiry lockout');
   assert.match(section('buildTeamSecure'), /completedRaceCount < lockExpiry/, 'a rebuilt roster honours the expiry lockout too');
   assert.match(section('setConstructorSecure'), /allowedContractLength\(validateContractLength\(data\.contractLength\), racesLeft\)/);
+  assert.match(step('buyConstructor'), /allowedContractLength\(length, clock\.racesLeft\)/);
+  assert.match(step('sellDriver'), /streaksAfterSale\(s\.driverStreaks, driver, completedRaceCount\) \?\? \{\}/);
   const rm = section('removeDriverSecure');
-  assert.match(rm, /driverStreaks: streaksAfterSale\(team\.driverStreaks, driver, completedRaceCount\) \?\? \{\}/);
+  assert.match(rm, /driverStreaks: state\.driverStreaks \?\? \{\}/);
   assert.match(rm, /tx\.update\(teamRef, updateData\)/, 'update, not set-merge, so stale keys are replaced');
   assert.ok(!/n > MAX_CONTRACT_LENGTH\)/.test(ops), 'too long is clamped, not refused (shipped builds send 3)');
 });

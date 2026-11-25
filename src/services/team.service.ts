@@ -66,6 +66,18 @@ const callSetConstructor = httpsCallable(functions, 'setConstructorSecure');
 const callRemoveConstructor = httpsCallable(functions, 'removeConstructorSecure');
 const callBuildTeam = httpsCallable(functions, 'buildTeamSecure');
 const callQuoteSale = httpsCallable(functions, 'quoteSaleSecure');
+// F-176: a whole lineup change in one call
+const callApplyLineup = httpsCallable(functions, 'applyLineupSecure');
+
+/** F-176: what applyLineupSecure takes (besides the team id). */
+export interface LineupPlanInput {
+  sellDrivers: string[];
+  sellConstructor: boolean;
+  buyConstructor: { id: string; contractLength?: number } | null;
+  buyDrivers: Array<{ id: string; contractLength?: number }>;
+}
+
+export { isMissingCallable } from '../utils/callableErrors';
 const callCheckTeamName = httpsCallable<{ name: string; excludeTeamId?: string }, { available: boolean }>(functions, 'checkTeamNameAvailable');
 const callCreateTeam = httpsCallable<{ name: string; leagueId: string | null }, Record<string, unknown>>(functions, 'createTeamSecure');
 
@@ -200,6 +212,29 @@ export const teamService = {
       id: doc.id,
       ...doc.data(),
     })) as FantasyTeam[];
+  },
+
+  /**
+   * F-176: apply a whole lineup change — driver sales, a constructor sale or swap, driver buys — in
+   * ONE server call and one transaction (applyLineupSecure), instead of one call per move. All or
+   * nothing: a refusal at any step changes nothing.
+   */
+  async applyLineup(teamId: string, plan: LineupPlanInput): Promise<FantasyTeam> {
+    const res: any = await callApplyLineup({ teamId, ...plan });
+    const team = teamFromCallable(res?.data?.team, teamId) ?? await this.getTeamById(teamId);
+    if (!team) throw new Error('Team not found');
+    // The transaction log is best-effort, as for the single moves.
+    const log = (type: 'buy' | 'sell', entityType: 'driver' | 'constructor', entityId: string, entityName: string, price: number) =>
+      this.recordTransaction({ userId: team.userId, leagueId: team.leagueId, teamId, type, entityType, entityId, entityName, price }).catch(() => { /* best-effort */ });
+    for (const sale of (res?.data?.sales ?? []) as Array<{ kind: 'driver' | 'constructor'; id: string; saleReturn: number }>) {
+      void log('sell', sale.kind, sale.id, sale.id, sale.saleReturn ?? 0);
+    }
+    const ctor = res?.data?.boughtConstructor;
+    if (ctor) void log('buy', 'constructor', ctor.constructorId, ctor.name || ctor.constructorId, ctor.purchasePrice ?? 0);
+    for (const d of (res?.data?.boughtDrivers ?? []) as Array<{ driverId: string; name?: string; purchasePrice?: number }>) {
+      void log('buy', 'driver', d.driverId, d.name || d.driverId, d.purchasePrice ?? 0);
+    }
+    return team;
   },
 
   /**
