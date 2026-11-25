@@ -181,8 +181,10 @@ export function CharterUnlockSheet({ ownerName, leagueName, onClose }: { ownerNa
  * (`charter-approveMember`), which holds the cap and gives a chartered league's new member Pit
  * Wall; Decline deletes the request so the player can ask again.
  */
-export function CharterRequestSheet({ leagueId, leagueName, approved, cap, chartered, onClose, onChanged }: {
+export function CharterRequestSheet({ leagueId, leagueName, approved, cap, chartered, onClose, onChanged, loadPending = (id) => leagueService.getPendingMembers(id) }: {
   leagueId: string; leagueName: string; approved: number; cap: number; chartered: boolean; onClose: () => void; onChanged: () => void;
+  /** Where the requests come from; the league's pending members unless a caller supplies them. */
+  loadPending?: (leagueId: string) => Promise<LeagueMember[]>;
 }) {
   const { colors, mono } = useSimpleTheme();
   const approveMember = useLeagueStore((s) => s.approveMember);
@@ -195,9 +197,9 @@ export function CharterRequestSheet({ leagueId, leagueName, approved, cap, chart
 
   useEffect(() => {
     let live = true;
-    leagueService.getPendingMembers(leagueId).then((p) => { if (live) setQueue(p); }).catch(() => { if (live) setQueue([]); });
+    loadPending(leagueId).then((p) => { if (live) setQueue(p); }).catch(() => { if (live) setQueue([]); });
     return () => { live = false; };
-  }, [leagueId]);
+  }, [leagueId]); // eslint-disable-line react-hooks/exhaustive-deps -- the loader is read once per league
 
   const current = queue?.[0] ?? null;
   const full = count >= cap;
