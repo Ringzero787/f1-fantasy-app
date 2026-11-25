@@ -68,17 +68,16 @@ export type VerifyResult =
 
 const b64url = (s: string): Buffer => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 
+export type JwsResult =
+  | { valid: true; payload: Record<string, unknown> }
+  | { valid: false; error: string };
+
 /**
- * Verify a JWS signed transaction and return its payload.
- *
- * `now` is injected so expiry is testable. `expectedBundleId` and `expectedProductId` are checked
- * here rather than by the caller: a valid signature on somebody else's transaction is still not a
- * purchase of this product in this app.
+ * Verify any JWS Apple's App Store signs (a transaction, or a server notification, F-175) and
+ * return its payload. Both are signed by the same App Store chain, so both get the same check.
+ * `now` is injected so expiry is testable.
  */
-export function verifyAppleTransaction(
-  jws: string,
-  opts: { expectedBundleId: string; expectedProductId: string; now?: Date; rootCa?: string }
-): VerifyResult {
+export function verifyAppleJws(jws: string, opts: { now?: Date; rootCa?: string } = {}): JwsResult {
   const now = opts.now ?? new Date();
   const parts = typeof jws === 'string' ? jws.split('.') : [];
   if (parts.length !== 3) return { valid: false, error: 'not a JWS' };
@@ -132,12 +131,28 @@ export function verifyAppleTransaction(
   const ok = verifySignature('sha256', signed, { key: chain[0].publicKey, dsaEncoding: 'ieee-p1363' }, b64url(rawSignature));
   if (!ok) return { valid: false, error: 'signature does not match' };
 
-  let transaction: AppleTransaction;
   try {
-    transaction = JSON.parse(b64url(rawPayload).toString('utf8'));
+    const payload = JSON.parse(b64url(rawPayload).toString('utf8'));
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { valid: false, error: 'unreadable payload' };
+    return { valid: true, payload };
   } catch {
     return { valid: false, error: 'unreadable payload' };
   }
+}
+
+/**
+ * Verify a JWS signed transaction and return its payload.
+ *
+ * `expectedBundleId` and `expectedProductId` are checked here rather than by the caller: a valid
+ * signature on somebody else's transaction is still not a purchase of this product in this app.
+ */
+export function verifyAppleTransaction(
+  jws: string,
+  opts: { expectedBundleId: string; expectedProductId: string; now?: Date; rootCa?: string }
+): VerifyResult {
+  const verified = verifyAppleJws(jws, opts);
+  if (!verified.valid) return verified;
+  const transaction = verified.payload as AppleTransaction;
 
   if (transaction.bundleId !== opts.expectedBundleId) return { valid: false, error: `transaction is for ${String(transaction.bundleId)}` };
   if (transaction.productId !== opts.expectedProductId) return { valid: false, error: `transaction is for ${String(transaction.productId)}` };

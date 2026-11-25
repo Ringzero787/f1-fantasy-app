@@ -178,6 +178,20 @@ overrides:
         backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --paths-file=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
         apply: "node scripts/ops/run-script.js undercut seasonRollover.js --apply --paths-check=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
         rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only-file=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt --write"
+      uc-charter-support:
+        summary: "F-175 Charter support (functions/scripts/charterSupport.js): action = list | apply | clear; ref = purchases/{id} or stripe:pi_… (or -); league = league id (or -). apply charters the league a paid but unapplied purchase was for; clear takes a league's charter back. The dry run writes the exact document list it can touch; the backup takes that list and the apply refuses any write outside it"
+        params: [ action, ref, league ]
+        dryrun: "node scripts/ops/run-script.js undercut charterSupport.js --action={action} --ref={ref} --league={league} --paths-out=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --paths-file=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
+        apply: "node scripts/ops/run-script.js undercut charterSupport.js --action={action} --ref={ref} --league={league} --apply --paths-check=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only-file=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt --write"
+      uc-charter-sale:
+        summary: "F-175 the Charter sale switch (state = on | off) in config/app.charter.enabled. on first clears every live charter except support applies (before the flip those are test charters) and prints minVersion, which must already be the first build with slices 3 and 4. Same path-list backup as uc-charter-support"
+        params: [ state ]
+        dryrun: "node scripts/ops/run-script.js undercut charterSupport.js --action=sale-{state} --paths-out=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
+        backup: "node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --paths-file=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
+        apply: "node scripts/ops/run-script.js undercut charterSupport.js --action=sale-{state} --apply --paths-check=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt"
+        rollback: "node scripts/ops/firestore-restore.js --from=/mnt/smb/f1-app/aidlc-ops/{op}/backup.json --only-file=/mnt/smb/f1-app/aidlc-ops/{op}/backup-paths.txt --write"
       uc-script:
         summary: "Undercut repair/backfill script that dry-runs by default and writes with --apply (script = file name in functions/scripts; backup = comma-separated doc/collection paths it touches)"
         params: [ script, backup ]

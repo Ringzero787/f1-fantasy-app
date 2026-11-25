@@ -14,7 +14,8 @@ const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { X509Certificate, createPrivateKey, sign } = require('node:crypto');
 
-const { verifyAppleTransaction, APPLE_ROOT_CA_G3 } = require('../lib/purchases/appleTransaction.js');
+const { verifyAppleTransaction, verifyAppleJws, APPLE_ROOT_CA_G3 } = require('../lib/purchases/appleTransaction.js');
+const { appleNotificationAction } = require('../lib/pitwall/appleNotifications.js');
 
 const b64u = (b) => Buffer.from(b).toString('base64url');
 const BUNDLE = 'com.undercut.app';
@@ -58,13 +59,15 @@ function makeFixture({ markings = true } = {}) {
     environment: 'Sandbox', type: 'Non-Renewing Subscription',
   };
   const h = b64u(JSON.stringify({ alg: 'ES256', x5c: [der('leaf.pem'), der('int.pem'), der('root.pem')] }));
-  const p = b64u(JSON.stringify(payload));
-  const signature = sign('sha256', Buffer.from(`${h}.${p}`), {
-    key: createPrivateKey(readFileSync(path.join(dir, 'leaf.key'))), dsaEncoding: 'ieee-p1363',
-  });
+  const leafKey = createPrivateKey(readFileSync(path.join(dir, 'leaf.key')));
+  /** Sign any payload with this chain: a transaction, or a server notification (F-175 slice 5). */
+  const signJws = (body) => {
+    const p = b64u(JSON.stringify(body));
+    return `${h}.${p}.${sign('sha256', Buffer.from(`${h}.${p}`), { key: leafKey, dsaEncoding: 'ieee-p1363' }).toString('base64url')}`;
+  };
   const testRootCa = readFileSync(path.join(dir, 'root.pem'), 'utf8').trim();
   rmSync(dir, { recursive: true, force: true });
-  return { jws: `${h}.${p}.${signature.toString('base64url')}`, payload, testRootCa };
+  return { jws: signJws(payload), payload, testRootCa, signJws };
 }
 
 // openssl is the only way to mint an X.509 chain from Node. It is on the build box and on the CI
@@ -157,4 +160,62 @@ test('the pinned certificate really is Apple Root CA - G3', () => {
     root.fingerprint256,
     '63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79',
   );
+});
+
+// ---- F-175 slice 5: App Store Server Notifications v2 (the StoreKit 2 refund signal) ----
+
+const notification = (type, tx = {}, extra = {}) => fixture.signJws({
+  notificationType: type, notificationUUID: 'uuid-1', version: '2.0', signedDate: Date.now(),
+  data: { bundleId: BUNDLE, environment: 'Sandbox', signedTransactionInfo: fixture.signJws({ ...fixture.payload, revocationDate: Date.now(), revocationReason: 0, ...tx }) },
+  ...extra,
+});
+const NOPTS = () => ({ bundleId: BUNDLE, rootCa: fixture.testRootCa });
+
+chainTest('verifyAppleJws returns any payload the App Store chain signed, and a revoked transaction is still readable', () => {
+  const r = verifyAppleJws(fixture.signJws({ hello: 1, revocationDate: 5 }), { rootCa: fixture.testRootCa });
+  assert.equal(r.valid, true, r.error);
+  assert.deepEqual(r.payload, { hello: 1, revocationDate: 5 });
+  // But a purchase is still refused once it carries a revocation.
+  assert.match(verifyAppleTransaction(fixture.signJws({ ...fixture.payload, revocationDate: 5 }), OPTS()).error, /refunded or revoked/);
+});
+
+chainTest('notification: REFUND and REVOKE name the refunded transaction', () => {
+  for (const type of ['REFUND', 'REVOKE']) {
+    assert.deepEqual(appleNotificationAction(notification(type), NOPTS()), {
+      kind: 'refund', transactionId: '2000000123', productId: PRODUCT, environment: 'Sandbox', type, uuid: 'uuid-1',
+    });
+  }
+  const charter = appleNotificationAction(notification('REFUND', { productId: 'pitwall.charter.season', transactionId: '77' }), NOPTS());
+  assert.equal(charter.productId, 'pitwall.charter.season');
+  assert.equal(charter.transactionId, '77');
+});
+
+chainTest('notification: everything else is ignored, and a reversed refund asks for a person', () => {
+  for (const type of ['TEST', 'CONSUMPTION_REQUEST', 'REFUND_DECLINED', 'ONE_TIME_CHARGE', '']) {
+    const a = appleNotificationAction(notification(type), NOPTS());
+    assert.equal(a.kind, 'ignore', type);
+    assert.ok(!a.loud, type);
+  }
+  const reversed = appleNotificationAction(notification('REFUND_REVERSED'), NOPTS());
+  assert.equal(reversed.kind, 'ignore');
+  assert.equal(reversed.loud, true);
+});
+
+chainTest('notification: refused unless Apple signed it for this app, outside and inside', () => {
+  assert.equal(appleNotificationAction(undefined, NOPTS()).kind, 'reject');
+  assert.equal(appleNotificationAction('a.b.c', NOPTS()).kind, 'reject');
+  // Signed by a chain that is not Apple's.
+  assert.match(appleNotificationAction(notification('REFUND'), { bundleId: BUNDLE, rootCa: APPLE_ROOT_CA_G3 }).why, /Apple root/);
+  // Another app's notification, or another app's transaction inside ours.
+  assert.match(appleNotificationAction(notification('REFUND', {}, { data: { bundleId: 'com.other', signedTransactionInfo: '' } }), NOPTS()).why, /com\.other/);
+  assert.match(appleNotificationAction(notification('REFUND', { bundleId: 'com.other' }), NOPTS()).why, /transaction is for com\.other/);
+  // A forged inner transaction (signed by nobody) inside a genuine notification.
+  const forged = fixture.signJws({ notificationType: 'REFUND', data: { bundleId: BUNDLE, signedTransactionInfo: 'x.y.z' } });
+  assert.equal(appleNotificationAction(forged, NOPTS()).kind, 'reject');
+});
+
+chainTest('notification: a refund without a transaction id is not acted on, and says so', () => {
+  const a = appleNotificationAction(notification('REFUND', { transactionId: undefined }), NOPTS());
+  assert.equal(a.kind, 'ignore');
+  assert.equal(a.loud, true);
 });

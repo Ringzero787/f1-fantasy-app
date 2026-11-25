@@ -138,16 +138,99 @@ Tax, and Banking or Payments and Financial Reports.
 
 ---
 
+## App Store refund notifications (slice 5, before the flip)
+
+The daily refund sweep cannot re-check a StoreKit 2 purchase, so without this a refunded App Store pass or charter stays live until the season ends. Apple pushes the refund to `pw-appStoreNotifications` instead. That function verifies the notification against Apple's certificate chain, so it needs no secret. It then takes back what the purchase paid for: the pass, the charter or the slots.
+
+**1. Deploy the function first** (`aidlc op new functions-deploy -p only=functions:pw-appStoreNotifications`). Once it is deployed, check that it answers:
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' https://us-central1-f1-app-18077.cloudfunctions.net/pw-appStoreNotifications              # 405
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' -d '{}' https://us-central1-f1-app-18077.cloudfunctions.net/pw-appStoreNotifications   # 400
+```
+
+**2. Set the URL in App Store Connect.** Paste this into Claude in Chrome:
+
+```
+In App Store Connect, app "Undercut" (com.undercut.app, Apple ID 6759428075) only.
+Go to the app → General → App Information → App Store Server Notifications.
+1. Report what is there now for Production Server URL and Sandbox Server URL, and the version
+   (Version 1 or Version 2). If either URL is already set to something, STOP and tell me.
+2. Set both Production Server URL and Sandbox Server URL to:
+   https://us-central1-f1-app-18077.cloudfunctions.net/pw-appStoreNotifications
+   and choose Version 2 notifications for both. STOP before saving and show me, and wait
+   for me to say "confirmed".
+3. Save and report the result.
+Do not change anything else on the page or in the app.
+```
+
+**3. Prove it.** Apple sends a `TEST` notification when asked through the App Store Server API, which needs an In-App Purchase key this project does not hold. Without one, the proof is a sandbox refund on the slice 5 test charter. Then check:
+
+- `firebase functions:log --only pw-appStoreNotifications` shows `[apple] REFUND pitwall.charter.season … uncharted`;
+- the purchase has `status: refunded`;
+- the league is no longer chartered.
+
+A `rejected` line in the log means the notification did not verify. Fix that before the flip.
+
+What it does with each notification:
+
+| Type | Action |
+|---|---|
+| `REFUND`, `REVOKE` | Takes back what that purchase paid for. A pass is taken only if that purchase granted it. |
+| `REFUND_REVERSED` | Nothing automatic. It is logged as an error: re-apply by hand with `uc-charter-support`, or with `pitwallPass.js` for a pass. |
+| A refund for a purchase the app never validated | Writes a refunded record under that purchase's id, so a later replay of the receipt is refused. |
+| Anything else | Answered 200 and ignored. |
+
+## Support: a paid charter that did not apply
+
+A purchase is recorded unapplied (`charterApplied: false`, or a `charter_grants` refusal) in these cases:
+
+- the buyer was not the owner;
+- the league was already chartered;
+- the league was too large;
+- the sale was off.
+
+To find them:
+
+```
+aidlc op new uc-charter-support -t "list unapplied charters" -p action=list -p ref=- -p league=-
+```
+
+Then do one of:
+
+- **Apply it** (the buyer owns the league): `-p action=apply -p ref=<purchase id or stripe:pi_…> -p league=-`. The league recorded on the purchase is used; pass `league=<id>` only when none was recorded. The sale flag is not checked, because the buyer has paid. The usual checks still apply: owner only, one charter per season, never after a refund. The grant is marked `support: true`, so the sale flip keeps it.
+- **Refund it**. Refund in the store console (Play Console → Order management; for Apple, the buyer asks at reportaproblem.apple.com, so send them there; the Stripe dashboard for web). The sweep, the App Store notification or the Stripe webhook records it. If the charter was applied and the refund cannot reach those paths, take it back with `-p action=clear -p ref=<id> -p league=<id>`.
+
+Each op's dry run lists every document it can write. The backup takes exactly that list, and the apply refuses to write anything outside it.
+
+## The sale flip
+
+```
+aidlc op new uc-charter-sale -t "Charter on sale" -p state=on
+```
+
+Before the flag is on, the only ways to charter are a test purchase and a support apply. So the flip first clears every live charter that is not a support apply, then sets `config/app.charter.enabled: true`. Once the sale is on, `state=on` clears nothing. `state=off` only turns the flag off and keeps live charters.
+
+**Before running it**, check all of these:
+
+- `minVersion` is the first build carrying slices 3 and 4 (the dry run prints it);
+- the App Store notification URL is proven;
+- the trademark search is done;
+- `PITWALL_CONTENT_OPEN` is false in the build that is live.
+
 ## Stripe test payment and refund (slice 5)
 
-Use a Stripe **test** secret key (`sk_test_…`) on the functions. With that key, `createCheckout` sells a charter while the flag is off. Run these steps:
+`createCheckout` sells a charter while the flag is off only on a **test** key (`sk_test_…`). The live functions hold the live key, so this test means swapping **both** Stripe secrets to their test values and back afterwards: `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. The second comes from a test-mode webhook endpoint pointing at `pw-stripeWebhook`. Redeploy `pw-createCheckout` and `pw-stripeWebhook` through `aidlc op` after each swap, because a secret is bound at deploy.
+
+While the test key is in, web checkout takes no real money, and the personal pass is not on sale anyway while `PITWALL_CONTENT_OPEN` is true. The swap is still an owner decision.
 
 1. Pay with card `4242 4242 4242 4242`.
 2. Expect `charter_grants/stripe:{payment_intent}` with `grantedAt`, and the league chartered.
 3. Refund the payment in full from the Stripe dashboard.
 4. Expect `clearedAt` on the same record, the league no longer chartered, and members' `charterAccess` emptied.
+5. Optional: a second checkout with the dispute card `4000 0000 0000 0259`. Expect the same clear, found through `charter_grants` by the PaymentIntent.
 
-A partial refund keeps the charter.
+A partial refund keeps the charter. A dispute on a **personal pass** payment now revokes that pass. The webhook asks Stripe for the payment's Checkout Session. It takes the pass only if the live pass is a Stripe pass for the same season.
 
 ## Not part of this setup
 
@@ -157,11 +240,6 @@ A partial refund keeps the charter.
   - `checkout.session.async_payment_succeeded`
   - `charge.refunded`
   - `charge.dispute.created`
-- **The sale switch:** turning on `config/app.charter.enabled` is the separate flag-flip op. It runs only after the pre-flip items in spec F-175 are done:
-  - Apple StoreKit 2 refund notifications;
-  - the support op for unapplied charters;
-  - clearing test charters;
-  - the trademark search.
 
 ---
 

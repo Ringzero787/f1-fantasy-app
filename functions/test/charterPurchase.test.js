@@ -119,6 +119,9 @@ test('charterStore and the webhook charter branches never call grantPass or revo
   assert.doesNotMatch(charterArm.replace(/\/\/.*$/gm, ''), /grantPass\(|revokePass\(/);
   assert.match(charterArm, /grantCharter\(db/);
   assert.match(charterArm, /clearCharter\(db/);
+  // Slice 5: a dispute with no charter grant may be a personal pass. That revoke lives in its own
+  // helper, which acts only when Stripe's session says the payment bought a pass (disputedPass).
+  assert.match(charterArm, /revokeDisputedPass\(action\.ref/);
 });
 
 // ── decisions ──
@@ -320,7 +323,9 @@ test('slot packs: +3 each, on the known list, the Charter price is its own produ
   assert.match(slots, /testPurchase && \(await db\.doc\(`users\/\$\{userId\}`\)\.get\(\)\)\.data\(\)\?\.testAccount !== true/, 'a store test purchase adds slots only for a test account');
   const sweep = fs.readFileSync(path.join(__dirname, '..', 'src', 'pitwall', 'refundSweep.ts'), 'utf8');
   assert.match(sweep, /where\('productId', 'in', \[SLOT_PACK_PRODUCT, SLOT_PACK_CHARTER_PRODUCT\]\)/, 'refunded packs are swept');
-  assert.match(sweep, /paidSlots: Math\.max\(0,/);
+  // What a refund takes back moved to refundApply.ts (slice 5), shared with the App Store notification.
+  const apply = fs.readFileSync(path.join(__dirname, '..', 'src', 'pitwall', 'refundApply.ts'), 'utf8');
+  assert.match(apply, /paidSlots: Math\.max\(0,/);
   assert.ok(G.isKnownProduct('league.slots3'));
   assert.ok(G.isKnownProduct('league.slots3.charter'));
   assert.ok(SP.isSlotPack('league.slots3') && SP.isSlotPack('league.slots3.charter') && !SP.isSlotPack('league.expansion'));
@@ -381,4 +386,60 @@ test('validatePurchase: refunded purchases and non-test accounts in the sandbox 
   assert.match(fn, /testPurchase && \(await db\.doc\(`users\/\$\{userId\}`\)\.get\(\)\)\.data\(\)\?\.testAccount === true/);
   assert.match(fn, /const target = typeof record\.leagueId === 'string' \? record\.leagueId : leagueId/);
   assert.match(fn, /if \(testPurchase && !tester\) \{\s*result = \{ applied: false, reason: 'disabled' \};\s*\} else if \(!charterEnabled\(appCfg\) && !tester\)/, 'a test purchase needs a test account even with the sale on');
+});
+
+// ── slice 5: what a refund takes back (shared by the sweep and the App Store notification) ──
+stub(admin.firestore.FieldValue, 'serverTimestamp', () => 'TS');
+const RA = require('../lib/pitwall/refundApply.js');
+const PID = require('../lib/purchases/purchaseId.js');
+
+test('refundPurchase: a refunded charter purchase clears its league and no pass; repeated, it is a no-op', async () => {
+  const db = fakeDb(seedLeague());
+  await store.grantCharter(db, { leagueId: 'L1', buyerId: 'owner', season: '2027', source: 'apple', ref: 'pa', now: NOW });
+  db.docs.set('purchases/pa', { userId: 'owner', productId: 'pitwall.charter.season', status: 'validated', charterLeagueId: 'L1', platform: 'ios' });
+  const passes = JSON.stringify([db.docs.get('users/owner').pass, db.docs.get('users/amy').pass]);
+  assert.equal(await RA.refundPurchase(db, db.doc('purchases/pa'), db.docs.get('purchases/pa'), 'apple refund'), 'uncharted');
+  assert.equal(db.docs.get('leagues/L1').chartered, undefined);
+  assert.equal(db.docs.get('purchases/pa').status, 'refunded');
+  assert.equal(JSON.stringify([db.docs.get('users/owner').pass, db.docs.get('users/amy').pass]), passes, 'no pass touched');
+  assert.equal(await RA.refundPurchase(db, db.doc('purchases/pa'), db.docs.get('purchases/pa'), 'apple refund'), 'already');
+});
+
+test('refundPurchase: a refunded pass purchase revokes only the pass it granted', async () => {
+  const seed = seedLeague();
+  seed['users/owner'] = { pass: { tier: 'pitwall', season: '2027', expiresAt: END_2027, source: 'apple', ref: 'p1' } };
+  seed['purchases/p1'] = { userId: 'owner', productId: 'pitwall.pass.season', status: 'validated' };
+  seed['purchases/p0'] = { userId: 'owner', productId: 'pitwall.pass.season', status: 'validated' };
+  const db = fakeDb(seed);
+  assert.equal(await RA.refundPurchase(db, db.doc('purchases/p0'), db.docs.get('purchases/p0'), 'r'), 'superseded', 'an older purchase never takes the newer pass');
+  assert.ok(db.docs.get('users/owner').pass);
+  assert.equal(await RA.refundPurchase(db, db.doc('purchases/p1'), db.docs.get('purchases/p1'), 'r'), 'revoked');
+  assert.equal(db.docs.get('users/owner').pass, undefined);
+  assert.equal(db.docs.get('purchases/p1').status, 'refunded');
+});
+
+test('refundPurchase: a product we do not sell is left alone', async () => {
+  const db = fakeDb({ 'purchases/x': { userId: 'u', productId: 'avatar.pack', status: 'validated' } });
+  assert.equal(await RA.refundPurchase(db, db.doc('purchases/x'), db.docs.get('purchases/x'), 'r'), 'not-ours');
+  assert.equal(db.docs.get('purchases/x').status, 'validated');
+});
+
+test('the App Store notification finds the purchase by the same id validatePurchase writes', () => {
+  assert.equal(PID.purchaseIdFor('ios', '2000000123'), require('node:crypto').createHash('sha256').update('ios:2000000123').digest('hex').slice(0, 40));
+  const vp = fs.readFileSync(path.join(__dirname, '..', 'src', 'purchases', 'validatePurchase.ts'), 'utf8');
+  assert.match(vp, /const purchaseId = purchaseIdFor\(/);
+  const idx = fs.readFileSync(path.join(__dirname, '..', 'src', 'pitwall', 'index.ts'), 'utf8');
+  assert.match(idx, /purchaseIdFor\('ios', action\.transactionId\)/);
+  assert.match(idx, /export const appStoreNotifications = onRequest/);
+});
+
+test('Stripe dispute: the session says whether a payment bought a pass; a charter or unpaid session never revokes', () => {
+  const pass = { payment_status: 'paid', metadata: { uid: 'amy', season: '2027', product: 'pitwall.pass.season' } };
+  assert.deepEqual(S.disputedPass({ data: [pass] }), { uid: 'amy', season: '2027' });
+  // A pass sold before `product` was in the metadata: known by its price.
+  assert.deepEqual(S.disputedPass({ data: [{ payment_status: 'paid', client_reference_id: 'amy', metadata: { season: '2027' }, amount_subtotal: 1499 }] }), { uid: 'amy', season: '2027' });
+  assert.equal(S.disputedPass({ data: [{ ...pass, metadata: { ...pass.metadata, product: 'pitwall.charter.season', leagueId: 'L1' } }] }), null);
+  assert.equal(S.disputedPass({ data: [{ ...pass, payment_status: 'unpaid' }] }), null);
+  assert.equal(S.disputedPass({ data: [{ payment_status: 'paid', metadata: { uid: 'x', season: '2027' }, amount_subtotal: 999 }] }), null, 'not something we sold');
+  for (const bad of [null, undefined, {}, { data: 'x' }]) assert.equal(S.disputedPass(bad), null);
 });

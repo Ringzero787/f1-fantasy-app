@@ -16,19 +16,23 @@ const fs = require('node:fs');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'pitwall', 'refundSweep.ts'), 'utf8');
 const body = SRC.slice(SRC.indexOf('export const sweepRefundedPasses'));
+// F-175 slice 5: what a refund takes back moved to refundApply.ts, shared by the sweep and the
+// App Store refund notification. The pass rules below are pinned there.
+const APPLY = fs.readFileSync(path.join(__dirname, '..', 'src', 'pitwall', 'refundApply.ts'), 'utf8');
+const passBody = APPLY.slice(APPLY.indexOf('async function refundPass'), APPLY.indexOf('async function refundCharter'));
 
 test('the live pass is compared with the purchase being refunded before anything is taken', () => {
   // Revoking on uid alone was the blocking finding: refund, repurchase, and the sweep deletes the
   // pass the second purchase paid for.
-  assert.match(body, /pass\.ref !== doc\.id/, 'must compare the granting purchase with this one');
-  const revokeAt = body.indexOf('revokePass(');
-  const compareAt = body.indexOf('pass.ref !== doc.id');
+  assert.match(passBody, /pass\.ref !== doc\.id/, 'must compare the granting purchase with this one');
+  const revokeAt = passBody.indexOf('revokePass(');
+  const compareAt = passBody.indexOf('pass.ref !== doc.id');
   assert.ok(compareAt > 0 && compareAt < revokeAt, 'the comparison has to come before the revoke');
 });
 
 test('a purchase superseded by a newer one is recorded, not revoked', () => {
-  const branch = body.slice(body.indexOf('pass.ref !== doc.id'), body.indexOf('// Revoke first'));
-  assert.match(branch, /status: 'refunded'/, 'the refund is still recorded');
+  const branch = passBody.slice(passBody.indexOf('pass.ref !== doc.id'), passBody.indexOf('// Revoke first'));
+  assert.match(branch, /refundedNow\(\)/, 'the refund is still recorded');
   assert.ok(!/revokePass\(/.test(branch), 'but nothing is taken away');
   assert.match(branch, /supersededBy/, 'and it says which pass replaced it');
 });
@@ -36,12 +40,13 @@ test('a purchase superseded by a newer one is recorded, not revoked', () => {
 test('the revoke happens before the record is marked', () => {
   // The other order drops the document out of the query forever, so a failed revoke leaves a
   // refunded pass alive with nothing left to find it.
-  const section = body.slice(body.indexOf('// Revoke first'));
-  assert.ok(section.indexOf('revokePass(') < section.indexOf("status: 'refunded'"), 'revoke, then mark');
+  const section = passBody.slice(passBody.indexOf('// Revoke first'));
+  assert.ok(section.indexOf('revokePass(') < section.indexOf('refundedNow()'), 'revoke, then mark');
+  assert.match(APPLY, /const refundedNow = \(\) => \(\{ status: 'refunded'/);
 });
 
 test('one bad document cannot end the sweep', () => {
-  assert.match(body, /for \(const doc of snap\.docs\) \{\s*try \{/, 'each document is handled on its own');
+  assert.match(body, /for \(const doc of \[\.\.\.packs\.docs, \.\.\.charters\.docs, \.\.\.snap\.docs\]\) \{\s*try \{/, 'each document is handled on its own');
   assert.match(body, /failed \+= 1/);
   assert.match(body, /if \(failed\) console\.error/, 'a failure has to be loud, not a line in a summary');
 });
