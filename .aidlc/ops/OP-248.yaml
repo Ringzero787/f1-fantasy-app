@@ -1,0 +1,37 @@
+id: OP-248
+title: "F-175: Charter + slot-pack rules (server-owned charter fields, chartered approval, mail_log)"
+kind: rules-deploy
+status: applied
+params: {}
+created_at: 2026-11-25T13:53:10.069Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-25T13:53:13.802Z
+    head_sha: 177df963320bcf4e9232e18a7bfd56a5a309bf51
+    command: git --no-pager diff '17f9acdc7e86976a6fa03ec81f0646588c0a2823' HEAD -- firestore.rules
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-248/dry-run-2026-11-25T13-53-13-802Z.log
+    log_sha256: b022137b9e62e7fdb3bc41b08fab02ec19a2c47e0802f9a8fb1a46843a7bf142
+    lines: 145
+  - step: gates
+    at: 2026-11-25T13:53:28.886Z
+    head_sha: 177df963320bcf4e9232e18a7bfd56a5a309bf51
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-25T13:53:28.890Z
+    head_sha: 177df963320bcf4e9232e18a7bfd56a5a309bf51
+    command: bash scripts/ops/firebase-deploy.sh --only firestore:rules --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-248/apply-2026-11-25T13-53-28-890Z.log
+    log_sha256: da16aa3dda5a5d1641e5582e7e7b2b122b07aef21c02dbd92bd65c6826501d31
+    lines: 15
+  - step: gates
+    at: 2026-11-25T13:53:32.625Z
+    head_sha: 177df963320bcf4e9232e18a7bfd56a5a309bf51
+    exit: 0
+    gates:
+      G15: skip
