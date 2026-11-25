@@ -21,6 +21,8 @@ export interface User {
   lastOpenAt?: unknown;
   /** F-175: set by the unsubscribe link; stops the weekly Charter emails (Rank Up, race scored) */
   charterEmailOptOut?: boolean;
+  /** F-164: a store tester or reviewer account (server-owned). F-175: sees the Charter offer before the sale opens. */
+  testAccount?: boolean;
 }
 
 export interface UserSettings {

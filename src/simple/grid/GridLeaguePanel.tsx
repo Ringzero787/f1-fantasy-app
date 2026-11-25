@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, FlatList, Pressable, RefreshControl, Alert } from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
@@ -25,7 +25,7 @@ import { leagueService } from '../../services/league.service';
 import { PRODUCT_IDS } from '../../config/products';
 import { PITWALL_CONTENT_OPEN } from '../../pitwall/gates';
 import { isAmazonBuild } from '../../utils/storeDetection';
-import { approvalCap, charterFlagOn, charterOfferVisible, isChartered, rankUpLabel, rankUpsReceived, shouldShowUnlock, weekId, CHARTER_RED } from './charter';
+import { approvalCap, charterFlagOn, charterOfferVisible, charterTester, isChartered, rankUpLabel, rankUpsReceived, shouldShowUnlock, weekId, CHARTER_RED } from './charter';
 import { CharterMemberLine, CharterOfferCard, CharterOnCard, CharterRequestRow, CharterRequestSheet, CharterSquare, CharterUnlockSheet, shareCharter } from './GridCharter';
 
 /** Leagues whose unlock sheet was shown this session, in case the "seen" write did not land. */
@@ -88,7 +88,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const charterFlag = useRemoteConfigStore((s) => charterFlagOn(s.appConfig?.charter));
   const charterPrice = usePurchaseStore((s) => s.storePrices[PRODUCT_IDS.PITWALL_CHARTER]);
   const charterBusy = usePurchaseStore((s) => s.isPurchasing);
-  const offerVisible = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice });
+  const offerVisible = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice, tester: charterTester(Platform.OS, user?.testAccount) });
   const [requestsOpen, setRequestsOpen] = useState(false);
   // null = not loaded or the read failed: no Rank Up control shows rather than a wrong one
   const [gifts, setGifts] = useState<Array<{ fromUid: string; toUid: string }> | null>(null);

@@ -22,7 +22,7 @@ import { expansionNext, callableErrorCode } from './expansionFallback';
 import { PRODUCT_IDS, SLOTS_PER_PACK } from '../../config/products';
 import { isAmazonBuild } from '../../utils/storeDetection';
 import { PITWALL_CONTENT_OPEN } from '../../pitwall/gates';
-import { approvalCap, charterFlagOn, charterOfferVisible, isChartered } from './charter';
+import { approvalCap, charterFlagOn, charterOfferVisible, charterTester, isChartered } from './charter';
 import { joinByCodeAndAttach } from './joinLeague';
 import { CharterCreateOption, CharterRequestRow, CharterRequestSheet, CharterSquare } from './GridCharter';
 
@@ -79,7 +79,7 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const [unlockOnCreate, setUnlockOnCreate] = useState(false);
   const charterFlag = useRemoteConfigStore((s) => charterFlagOn(s.appConfig?.charter));
   const charterPrice = storePrices[PRODUCT_IDS.PITWALL_CHARTER];
-  const charterOffer = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice });
+  const charterOffer = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice, tester: charterTester(Platform.OS, user?.testAccount) });
   const pendingHere = useLeagueStore((s) => (league ? s.pendingLeagueIds.includes(league.id) : false));
   // the owner's join requests: the email "Approve" button and the join link land here
   const requestCount = useLeagueStore((s) => (league ? s.pendingCountsByLeague[league.id] ?? 0 : 0));
