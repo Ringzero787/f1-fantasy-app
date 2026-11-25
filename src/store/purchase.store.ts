@@ -42,6 +42,8 @@ interface ServerPurchase {
 
 /** What validatePurchase says about a Charter purchase (F-175). */
 export interface CharterResult { applied: boolean; reason?: string; leagueId?: string; expiresAt?: number }
+/** What validatePurchase says about a slot pack. */
+export interface SlotsResult { applied: boolean; reason?: string; leagueId?: string; maxMembers?: number }
 
 interface PurchaseState {
   // Persisted
@@ -62,6 +64,8 @@ interface PurchaseState {
    * later launch (a pending payment, an app killed at the till), and the server needs the league.
    */
   pendingCharterLeagueId: string | null;
+  /** The league a slot-pack purchase is for; persisted for the same reason. */
+  pendingSlotLeagueId: string | null;
 
   // Transient
   isInitialized: boolean;
@@ -83,6 +87,12 @@ interface PurchaseState {
    * it checks the sale flag and ownership first; the server checks both again.
    */
   purchaseCharter: (leagueId: string) => Promise<void>;
+  /**
+   * Buy +3 member slots for a league the signed-in user owns. The server applies them to that
+   * league when the purchase validates; nothing is granted on the device. `chartered` picks the
+   * $3.99 product (not on Amazon, which has no Charter).
+   */
+  purchaseSlotPack: (leagueId: string, chartered: boolean) => Promise<void>;
   isLeagueExpanded: (leagueId: string) => boolean;
   getBonusCredits: (userId: string) => number;
   consumeBonusCredit: (userId: string) => void;
@@ -96,7 +106,7 @@ interface PurchaseState {
   handlePurchaseComplete: (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, opts?: { isReplay?: boolean }) => Promise<void>;
   handlePurchaseError: (error: { code: string; message: string }) => void;
   /** @returns whether the server had already recorded this store transaction. */
-  recordPurchaseOnServer: (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string, extra?: { leagueId?: string }) => Promise<{ duplicate: boolean; charter?: CharterResult }>;
+  recordPurchaseOnServer: (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, platform: string, extra?: { leagueId?: string }) => Promise<{ duplicate: boolean; charter?: CharterResult; slots?: SlotsResult }>;
   syncPurchasesFromServer: () => Promise<void>;
   /** Finish anything the store is still holding from a previous run. */
   replayHeldPurchases: () => Promise<void>;
@@ -114,6 +124,7 @@ export const usePurchaseStore = create<PurchaseState>()(
       lastSyncedAt: null,
       honouredTransactions: [],
       pendingCharterLeagueId: null,
+      pendingSlotLeagueId: null,
 
       // Transient state
       isInitialized: false,
@@ -218,9 +229,13 @@ export const usePurchaseStore = create<PurchaseState>()(
        * tried again next start, exactly as the pass has always been.
        */
       recordPurchaseOnServer: async (productId: string, verificationData: { purchaseToken?: string; transactionReceipt?: string; transactionId?: string; userIdAmazon?: string }, platform: string, extra?: { leagueId?: string }) => {
-        const validatePurchaseFn = httpsCallable<Record<string, unknown>, { success?: boolean; purchaseId?: string; duplicate?: boolean; charter?: CharterResult }>(functions, 'validatePurchase');
+        const validatePurchaseFn = httpsCallable<Record<string, unknown>, { success?: boolean; purchaseId?: string; duplicate?: boolean; charter?: CharterResult; slots?: SlotsResult }>(functions, 'validatePurchase');
         const result = await validatePurchaseFn({ productId, ...verificationData, platform, ...(extra?.leagueId ? { leagueId: extra.leagueId } : {}) });
-        return { duplicate: result.data?.duplicate === true, ...(result.data?.charter ? { charter: result.data.charter } : {}) };
+        return {
+          duplicate: result.data?.duplicate === true,
+          ...(result.data?.charter ? { charter: result.data.charter } : {}),
+          ...(result.data?.slots ? { slots: result.data.slots } : {}),
+        };
       },
 
       replayHeldPurchases: async () => {
@@ -492,6 +507,25 @@ export const usePurchaseStore = create<PurchaseState>()(
         }
       },
 
+      purchaseSlotPack: async (leagueId: string, chartered: boolean) => {
+        const { useAuthStore } = require('./auth.store');
+        if (useAuthStore.getState().isDemoMode) {
+          Alert.alert('Demo mode', 'Slots cannot be bought in demo mode.');
+          return;
+        }
+        if (!leagueId || get().isPurchasing) return;
+        const sku = chartered && !isAmazonBuild ? PRODUCT_IDS.SLOT_PACK_CHARTER : PRODUCT_IDS.SLOT_PACK;
+        set({ isPurchasing: true, pendingSlotLeagueId: leagueId });
+        try {
+          await buy(sku);
+        } catch (err: any) {
+          set({ isPurchasing: false, pendingSlotLeagueId: null });
+          if (err?.code !== 'E_USER_CANCELLED') {
+            Alert.alert('Purchase Unavailable', 'League slots are not available right now. Please try again later.');
+          }
+        }
+      },
+
       handlePurchaseComplete: async (purchase: { productId: string; purchaseToken?: string; transactionReceipt?: string; transactionId?: string }, opts?: { isReplay?: boolean }) => {
         const isReplay = opts?.isReplay === true;
         try {
@@ -602,6 +636,28 @@ export const usePurchaseStore = create<PurchaseState>()(
             // Pick up the claim now rather than an hour from now, when the token would refresh.
             await usePitWallStore.getState().refresh(true);
             Alert.alert('Pit Wall Pass', 'Your pass is active. Open Pit Wall from your profile.');
+            return;
+          }
+
+          if (productId === PRODUCT_IDS.SLOT_PACK || productId === PRODUCT_IDS.SLOT_PACK_CHARTER) {
+            // Server-applied to the league the purchase names: no credit on the device, so a
+            // replayed purchase cannot add slots twice (the server keys it on the purchase record).
+            const leagueId = get().pendingSlotLeagueId ?? undefined;
+            const { slots } = await get().recordPurchaseOnServer(productId, receiptOf(purchase, Platform.OS), storeOf(purchase, Platform.OS), { leagueId });
+            await require('expo-iap').finishTransaction({ purchase, isConsumable: true });
+            set((state) => ({
+              pendingSlotLeagueId: null,
+              purchaseHistory: [...state.purchaseHistory, { sku: productId, date: new Date().toISOString(), leagueId: slots?.leagueId ?? leagueId }],
+            }));
+            if (slots?.applied) {
+              if (slots.leagueId) {
+                const { useLeagueStore } = require('./league.store');
+                await useLeagueStore.getState().loadLeague(slots.leagueId).catch(() => {});
+              }
+              if (!isReplay) Alert.alert('League slots', `3 more players can join. Your league now holds ${slots.maxMembers ?? 'more'}.`);
+            } else {
+              Alert.alert('League slots', 'Your payment went through but the slots could not be added. It is recorded on your account; contact support and we will sort it out.');
+            }
             return;
           }
 
@@ -721,6 +777,7 @@ export const usePurchaseStore = create<PurchaseState>()(
         lastSyncedAt: state.lastSyncedAt,
         honouredTransactions: state.honouredTransactions,
         pendingCharterLeagueId: state.pendingCharterLeagueId,
+        pendingSlotLeagueId: state.pendingSlotLeagueId,
       }),
     }
   )

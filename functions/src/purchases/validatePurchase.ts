@@ -9,6 +9,7 @@ import { grantPass } from '../pitwall/passStore';
 import { CHARTER_PRODUCT_ID, isAmazonReceiptId, isKnownProduct, isPlayToken } from './productGuards';
 import { charterEnabled } from '../charter/charter';
 import { grantCharter, type GrantCharterResult } from '../charter/charterStore';
+import { applySlotPack, isSlotPack, SLOT_PACK_CHARTER_PRODUCT } from './slotPack';
 import { createHash } from 'crypto';
 
 const db = admin.firestore();
@@ -222,7 +223,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
   }
 
   // Charter is sold on Play, Apple and Stripe only (BUILD.md, "Do not build": no Amazon IAP).
-  if (productId === CHARTER_PRODUCT_ID && isAmazon) {
+  if ((productId === CHARTER_PRODUCT_ID || productId === SLOT_PACK_CHARTER_PRODUCT) && isAmazon) {
     throw new functions.https.HttpsError('invalid-argument', 'Charter is not sold on this store');
   }
 
@@ -342,6 +343,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
     // A charter that did not apply the first time (the call failed after the record was written) is
     // tried again on the replay; grantCharter is idempotent on the purchase id.
     if (productId === CHARTER_PRODUCT_ID) return { success: true, purchaseId, duplicate: true, charter: await applyCharter() };
+    if (isSlotPack(productId)) return { success: true, purchaseId, duplicate: true, slots: await applySlots() };
     return { success: true, purchaseId, duplicate: true };
   }
 
@@ -357,7 +359,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
-  if (productId === CHARTER_PRODUCT_ID && typeof leagueId === 'string') purchaseRecord.leagueId = leagueId;
+  if ((productId === CHARTER_PRODUCT_ID || isSlotPack(productId)) && typeof leagueId === 'string') purchaseRecord.leagueId = leagueId;
 
   if (isIOS) {
     purchaseRecord.transactionReceipt = transactionReceipt;
@@ -381,6 +383,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
     const owner = await claimedBy();
     if (owner === userId) {
       if (productId === CHARTER_PRODUCT_ID) return { success: true, purchaseId, duplicate: true, charter: await applyCharter() };
+      if (isSlotPack(productId)) return { success: true, purchaseId, duplicate: true, slots: await applySlots() };
       return { success: true, purchaseId, duplicate: true };
     }
     console.warn(`purchase lost a race to another account; refusing to entitle ${userId}`);
@@ -397,8 +400,23 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
   }
 
   if (productId === CHARTER_PRODUCT_ID) return { success: true, purchaseId: purchaseRef.id, charter: await applyCharter() };
+  if (isSlotPack(productId)) return { success: true, purchaseId: purchaseRef.id, slots: await applySlots() };
 
   return { success: true, purchaseId: purchaseRef.id };
+
+  /**
+   * Add a slot pack's three places to the league this purchase names (owner decision 2026-11-25).
+   * Applied here, on the server, never by the device; a refusal is recorded for support.
+   */
+  async function applySlots(): Promise<{ applied: boolean; reason?: string; leagueId?: string; maxMembers?: number }> {
+    const r = await applySlotPack(db, purchaseId, userId, leagueId, productId);
+    if (!r.applied) {
+      console.error(`[slots] paid pack ${purchaseId} by ${userId} NOT applied: ${r.reason}; needs a refund or a support fix`);
+      return { applied: false, reason: r.reason };
+    }
+    if (!r.replay) console.log(`[slots] +3 on ${r.leagueId} by ${userId} (now ${r.maxMembers})${r.charterPriceOnUnchartered ? ' — Charter price on an unchartered league' : ''}`);
+    return { applied: true, leagueId: r.leagueId, maxMembers: r.maxMembers };
+  }
 
   /**
    * Charter one league from this purchase (F-175). The buyer has paid by now, so a refusal is not

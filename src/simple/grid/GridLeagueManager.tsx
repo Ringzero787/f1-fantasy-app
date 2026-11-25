@@ -19,6 +19,8 @@ import { DEFAULT_MAX_MEMBERS, MIN_LEAGUE_NAME_LENGTH, MAX_LEAGUE_NAME_LENGTH, SL
 import { MonoLabel, PillButton, ScreenHeader } from './GridBits';
 import { playersCaption } from './standings';
 import { expansionNext, callableErrorCode } from './expansionFallback';
+import { PRODUCT_IDS, SLOTS_PER_PACK } from '../../config/products';
+import { isAmazonBuild } from '../../utils/storeDetection';
 
 export type ManagerStep = 'none' | 'join' | 'create' | 'done';
 const MIN_CODE = 6;
@@ -50,6 +52,10 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const consumeExpansionCredit = usePurchaseStore((s) => s.consumeExpansionCredit);
   // F-175: the slot pack is retired; only a credit already paid for can still be applied.
   const expansionCredits = usePurchaseStore((s) => s.pendingExpansionCredits);
+  // Slot packs (owner decision 2026-11-25): +3 a pack, server-applied. The row shows only once the
+  // store has priced the product, so nothing is offered before it exists in Play / App Store / Amazon.
+  const storePrices = usePurchaseStore((s) => s.storePrices);
+  const isPurchasingSlots = usePurchaseStore((s) => s.isPurchasing);
   const expandLeagueCapacity = useLeagueStore((s) => s.expandLeagueCapacity);
   const [expanding, setExpanding] = useState(false);
 
@@ -186,6 +192,23 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
     }
   }, [league, isOwner, expanding, hasExpansionCredit, isDemoMode, consumeExpansionCredit, expandLeagueCapacity, loadUserLeagues, userId]);
 
+  const leagueChartered = !!league && league.chartered === true && typeof league.charter?.expiresAt === 'number' && league.charter.expiresAt > Date.now();
+  const slotSku = leagueChartered && !isAmazonBuild ? PRODUCT_IDS.SLOT_PACK_CHARTER : PRODUCT_IDS.SLOT_PACK;
+  const slotPrice = storePrices[slotSku];
+  const buySlots = useCallback(() => {
+    if (!league || !isOwner) return;
+    Alert.alert(
+      `Add ${SLOTS_PER_PACK} slots for ${slotPrice}?`,
+      leagueChartered
+        ? `${league.name} grows to ${(league.maxMembers ?? DEFAULT_MAX_MEMBERS) + SLOTS_PER_PACK} players, and everyone you approve gets Pit Wall.`
+        : `${league.name} grows to ${(league.maxMembers ?? DEFAULT_MAX_MEMBERS) + SLOTS_PER_PACK} players.`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Buy', onPress: () => { void usePurchaseStore.getState().purchaseSlotPack(league.id, leagueChartered); } },
+      ],
+    );
+  }, [league, isOwner, leagueChartered, slotPrice]);
+
   const confirmExpand = useCallback(() => {
     Alert.alert('Apply your slot pack?', `Adds ${SLOTS_PER_EXPANSION} member slots to ${league?.name ?? 'this league'}. A pack can be applied once.`, [
       { text: 'Not now', style: 'cancel' },
@@ -316,6 +339,15 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
               <View style={rowStyle}><MonoLabel>NAME</MonoLabel><Text numberOfLines={1} style={[rowValue, { flexShrink: 1 }]}>{league.name}</Text></View>
               <View style={rowStyle}><MonoLabel>PLAYERS</MonoLabel><Text style={rowValue}>{memberCount} / {league.maxMembers}</Text></View>
               <View style={rowStyle}><MonoLabel>OWNER</MonoLabel><Text numberOfLines={1} style={[rowValue, { flexShrink: 1 }]}>{isOwner ? 'You' : league.ownerName}</Text></View>
+              {isOwner && !isDemoMode && !!slotPrice && (
+                <Pressable onPress={buySlots} disabled={isPurchasingSlots} accessibilityRole="button" accessibilityLabel={`Add ${SLOTS_PER_PACK} member slots for ${slotPrice}`} style={({ pressed }) => [rowStyle, { opacity: pressed || isPurchasingSlots ? 0.7 : 1 }]}>
+                  <MonoLabel>LEAGUE SIZE</MonoLabel>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Text style={rowValue}>{`+${SLOTS_PER_PACK} · ${slotPrice}`}</Text>
+                    <Text style={{ color: colors.text.muted, fontSize: scaled(14) }}>›</Text>
+                  </View>
+                </Pressable>
+              )}
               {isOwner && expansionCredits > 0 && (
                 <Pressable onPress={confirmExpand} disabled={expanding} accessibilityRole="button" accessibilityLabel={`Apply your slot pack: ${SLOTS_PER_EXPANSION} more member slots`} style={({ pressed }) => [rowStyle, { opacity: pressed || expanding ? 0.7 : 1 }]}>
                   <MonoLabel>SLOT PACK</MonoLabel>

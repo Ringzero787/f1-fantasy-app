@@ -40,3 +40,8 @@ from making their own leagues Pro, or losing a pass they paid for when they leav
 - The +20 slot pack (`league.expansion`) is retired (owner decision 2026-11-24): the app no longer
   sells it; credits already paid for still apply; the server keeps validating and applying it until
   the store listings are removed. Leagues stay at 22 members.
+- Superseded in part, 2026-11-25 (owner):
+  - Leagues grow again with +3 slot packs: `league.slots3` costs $4.99; `league.slots3.charter` costs $3.99 and is for chartered leagues.
+  - Packs stack with no ceiling and are applied by the server.
+  - A charter covers every approved member, so each extra player in a chartered league gets Pit Wall.
+  - `league.expansion` (+20) stays retired.

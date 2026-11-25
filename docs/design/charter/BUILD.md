@@ -286,3 +286,14 @@ What slice 1 built: `functions/src/charter/charter.ts` (`charterActive`, `charte
 - `orderChartered` walks the points order top-down and moves each league up its climb in the list as it stands at that moment. A league at the top cannot climb, so two climbers in first and second place end up swapped once (second passes first), never twice.
 - Unchartered leagues are listed only when `isPublic === true`, by `memberCount` desc then id asc. A league with an expired charter or a cleared flag is listed with them.
 - The rules lock on a chartered league checks only values that change: an update may leave `isPublic` or `requireApproval` as they are, but may not set either to anything other than `true`, or remove it, while `charter.expiresAt` is in the future.
+
+## Owner decision, 2026-11-25: slot packs are back
+
+The cap is no longer 22. The owner wrote: "let commissioners buy those slots again … +3 slots … no reason to restrict … 3.99 if you purchased charter, 4.99 for folks that haven't". The lines above that say "Cap stays 22", "Do not sell `league.expansion`" and "Do not raise the cap" are superseded as follows:
+- A league is 22 free, then +3 per slot pack, with no ceiling.
+- `league.slots3` costs $4.99. `league.slots3.charter` costs $3.99 and is for a chartered league only; it is not sold on Amazon.
+- The server applies the pack to the league named on the purchase.
+- A charter covers every approved member, however many there are.
+- `league.expansion` (+20) stays retired.
+
+See spec F-175, "Slot packs".

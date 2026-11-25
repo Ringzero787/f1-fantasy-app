@@ -22,6 +22,9 @@ export const CHARTER_PRODUCT_ID = 'pitwall.charter.season';
 export const KNOWN_PRODUCTS: ReadonlySet<string> = new Set([
   PASS_PRODUCT_ID,
   CHARTER_PRODUCT_ID,
+  // League slot packs, +3 each (owner decision 2026-11-25): purchases/slotPack.ts
+  'league.slots3',
+  'league.slots3.charter',
   'league.expansion',
   'avatar.pack',
   'league.slot',

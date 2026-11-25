@@ -15,7 +15,18 @@ export const PRODUCT_IDS = {
    * and each member's `charterAccess`, never onto anyone's pass. Play, App Store and Stripe only.
    */
   PITWALL_CHARTER: 'pitwall.charter.season',
+  /**
+   * League slot packs (owner decision 2026-11-25): +3 member slots, stackable, no ceiling, bought by
+   * the league owner and applied by the server to the league the purchase names. Two products
+   * because a store product has one price: $3.99 for a chartered league (each extra player gets
+   * Pit Wall), $4.99 otherwise. Not on Amazon at the Charter price (Charter is not sold there).
+   */
+  SLOT_PACK: 'league.slots3',
+  SLOT_PACK_CHARTER: 'league.slots3.charter',
 } as const;
+
+/** Member slots one pack adds. Same number as SLOTS_PER_PACK in functions/src/purchases/slotPack.ts. */
+export const SLOTS_PER_PACK = 3;
 
 export const AVATAR_PACK_CREDITS = 20;
 
@@ -74,6 +85,20 @@ export const PRODUCTS = {
       'Your league listed in search, above unchartered leagues',
       'Valid for the whole season',
     ],
+  },
+  [PRODUCT_IDS.SLOT_PACK]: {
+    title: 'League Slots',
+    description: 'Add 3 more member slots to your league',
+    price: '$4.99',
+    icon: 'people' as const,
+    benefits: ['+3 member slots', 'Buy as many as you like', 'Added to your league straight away'],
+  },
+  [PRODUCT_IDS.SLOT_PACK_CHARTER]: {
+    title: 'League Slots',
+    description: 'Add 3 more member slots to your chartered league',
+    price: '$3.99',
+    icon: 'people' as const,
+    benefits: ['+3 member slots', 'Every player you add gets Pit Wall', 'Buy as many as you like'],
   },
   [PRODUCT_IDS.LEAGUE_SLOT]: {
     title: 'Extra League Slot',

@@ -29,14 +29,15 @@ test('search points: approved members only', () => {
   assert.equal(M.searchPoints([]), 0);
 });
 
-test('approve: owner only, pending only, 22 in a chartered league, maxMembers otherwise', () => {
+test('approve: owner only, pending only, up to the league\'s own size, chartered or not', () => {
   const base = { callerId: 'o', ownerId: 'o', member: { status: 'pending' }, approvedCount: 5, chartered: false, maxMembers: 22 };
   assert.deepEqual(M.approveDecision(base), { ok: true });
   assert.deepEqual(M.approveDecision({ ...base, callerId: 'admin' }), { ok: false, reason: 'not-owner' });
   assert.deepEqual(M.approveDecision({ ...base, member: { status: 'approved' } }), { ok: false, reason: 'not-pending' });
   assert.deepEqual(M.approveDecision({ ...base, member: null }), { ok: false, reason: 'not-pending' });
-  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 22, maxMembers: 42 }), { ok: false, reason: 'full' }, 'a chartered league stops at 22 even if grown');
-  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 21 }), { ok: true });
+  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 22, maxMembers: 25 }), { ok: true }, 'a chartered league grown by a slot pack takes its extra players');
+  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 25, maxMembers: 25 }), { ok: false, reason: 'full' });
+  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 22, maxMembers: undefined }), { ok: false, reason: 'full' }, 'no size recorded: the free 22');
   assert.deepEqual(M.approveDecision({ ...base, approvedCount: 22, maxMembers: 42 }), { ok: true }, 'an ordinary grown league keeps its own size');
   assert.deepEqual(M.approveDecision({ ...base, approvedCount: 42, maxMembers: 42 }), { ok: false, reason: 'full' });
 });
