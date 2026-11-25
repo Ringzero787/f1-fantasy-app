@@ -17,6 +17,20 @@ let pendingLeagueId: string | null = null;
 let pendingUserId: string | null = null;
 
 /** One purchase request, shaped per platform the way the library expects. */
+/**
+ * After the server changed a league (a charter, a slot pack), reload it where the grid reads it:
+ * the user's league list, and the open league. Best effort; a failed reload only leaves the old
+ * numbers on screen until the next refresh.
+ */
+async function reloadLeagues(leagueId: string): Promise<void> {
+  const { useLeagueStore } = require('./league.store');
+  const uid = firebaseAuth.currentUser?.uid;
+  await Promise.all([
+    useLeagueStore.getState().loadLeague(leagueId).catch(() => {}),
+    uid ? useLeagueStore.getState().loadUserLeagues(uid).catch(() => {}) : Promise.resolve(),
+  ]);
+}
+
 const buy = async (sku: string): Promise<void> => {
   const Iap = require('expo-iap');
   await Iap.requestPurchase({ request: { apple: { sku }, google: { skus: [sku] } }, type: 'in-app' });
@@ -68,6 +82,13 @@ interface PurchaseState {
   pendingSlotLeagueId: string | null;
 
   // Transient
+  /**
+   * The league whose Charter just went through on this device (F-175 slice 4): the grid shows the
+   * owner's "{LEAGUE} IS CHARTERED" ceremony once, then clears it. Not persisted: a replay at a later
+   * launch never shows it.
+   */
+  charterCeremonyLeagueId: string | null;
+  clearCharterCeremony: () => void;
   isInitialized: boolean;
   isPurchasing: boolean;
   /** product id -> the price string the store itself formatted, in the buyer's currency. */
@@ -127,6 +148,8 @@ export const usePurchaseStore = create<PurchaseState>()(
       pendingSlotLeagueId: null,
 
       // Transient state
+      charterCeremonyLeagueId: null,
+      clearCharterCeremony: () => set({ charterCeremonyLeagueId: null }),
       isInitialized: false,
       isPurchasing: false,
       // Not persisted: a price belongs to the storefront and the currency of the moment, so it is
@@ -650,10 +673,7 @@ export const usePurchaseStore = create<PurchaseState>()(
               purchaseHistory: [...state.purchaseHistory, { sku: productId, date: new Date().toISOString(), leagueId: slots?.leagueId ?? leagueId }],
             }));
             if (slots?.applied) {
-              if (slots.leagueId) {
-                const { useLeagueStore } = require('./league.store');
-                await useLeagueStore.getState().loadLeague(slots.leagueId).catch(() => {});
-              }
+              if (slots.leagueId) await reloadLeagues(slots.leagueId);
               if (!isReplay) Alert.alert('League slots', `3 more players can join. Your league now holds ${slots.maxMembers ?? 'more'}.`);
             } else {
               Alert.alert('League slots', 'Your payment went through but the slots could not be added. It is recorded on your account; contact support and we will sort it out.');
@@ -675,7 +695,10 @@ export const usePurchaseStore = create<PurchaseState>()(
             }));
             await usePitWallStore.getState().refresh(true);
             if (charter?.applied) {
-              if (!isReplay) Alert.alert('Charter', 'Your league is chartered. Pit Wall is on for every approved player.');
+              const chartered = charter.leagueId ?? leagueId ?? null;
+              if (chartered) await reloadLeagues(chartered);
+              // the owner's ceremony (GridCharterCeremonyHost), once, only when someone just paid
+              if (!isReplay && chartered) set({ charterCeremonyLeagueId: chartered });
             } else {
               // Paid and recorded, but not applied: say so every time, replay or not, because only
               // support can put it right.

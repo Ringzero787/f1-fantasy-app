@@ -67,6 +67,8 @@ export interface AppVersionConfig {
   moonshot?: unknown;
   /** F-174: the Team panel notice, parsed fail-closed by src/simple/grid/notice.ts (absent → no banner) */
   notice?: unknown;
+  /** F-175: `{ enabled }`, the Charter sale switch, read fail-closed by src/simple/grid/charter.ts */
+  charter?: unknown;
 }
 
 const DEFAULT_APP_CONFIG: AppVersionConfig = {

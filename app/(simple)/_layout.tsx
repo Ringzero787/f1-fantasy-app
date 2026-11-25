@@ -5,6 +5,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { Loading } from '../../src/components/Loading';
 import { SHOWCASE_ENABLED } from '../../src/simple/grid/showcaseData';
 import { applyShowcase } from '../../src/simple/grid/showcase';
+import { GridCharterCeremonyHost } from '../../src/simple/grid/GridCharter';
 
 // Grid navigation: two tabs live in `index`; Picker, Profile, League Manager
 // and member team views are real pushed screens with native transitions.
@@ -27,6 +28,7 @@ export default function SimpleLayout() {
   if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
 
   return (
+    <>
     <Stack
       screenOptions={{
         headerShown: false,
@@ -41,6 +43,10 @@ export default function SimpleLayout() {
       <Stack.Screen name="profile" />
       <Stack.Screen name="league-manager" />
       <Stack.Screen name="member/[userId]" />
+      <Stack.Screen name="league-search" />
     </Stack>
+    {/* F-175: the owner's "{LEAGUE} IS CHARTERED" ceremony, wherever the purchase finished */}
+    <GridCharterCeremonyHost />
+    </>
   );
 }
