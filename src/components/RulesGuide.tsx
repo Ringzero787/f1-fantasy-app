@@ -341,7 +341,7 @@ const SECTIONS: RuleSection[] = [
       {
         type: 'bullets',
         items: [
-          'Up to 22 members per league',
+          '22 members free; the owner can add 3 more at a time',
           'League owner can post announcements',
           'Co-admins can help manage the league',
           'Invite friends via a shareable code',

@@ -16,7 +16,7 @@ import { createHandoff, deleteOldHandoffs, redeemHandoff, takeRateSlot } from '.
 import { passActive, PASS_PRICE_USD, PASS_PRODUCT, saleSeason, type Pass } from './pass';
 import { expirePasses, grantPass, grantTrial, revokePass, stampClaim } from './passStore';
 import { CHARTER_PRODUCT_ID, checkoutSessionParams, verifyStripeSignature, webhookAction } from './stripe';
-import { CHARTER_MEMBER_CAP, charterActive, charterEnabled, charterGrantDecision, charterMemberIds, claimExpiry, claimInputsChanged, CHARTER_PRICE_CENTS, type CharterAccess } from '../charter/charter';
+import { charterActive, charterCap, charterEnabled, charterGrantDecision, charterMemberIds, claimExpiry, claimInputsChanged, CHARTER_PRICE_CENTS, type CharterAccess } from '../charter/charter';
 import { clearCharter, expireCharters, grantCharter, markRefunded } from '../charter/charterStore';
 import { isUsableLeagueId } from '../utils/leagueId';
 
@@ -92,7 +92,7 @@ export const createCheckout = onCall({ region: 'us-central1', secrets: [stripeSe
     const decision = charterGrantDecision({ league, buyerId: uid, season, ref: '', now, memberCount });
     if (decision.kind === 'refuse') {
       if (decision.reason === 'not-owner' || decision.reason === 'no-league') throw new HttpsError('permission-denied', 'Only the league owner can charter it.');
-      if (decision.reason === 'too-large') throw new HttpsError('failed-precondition', `A Charter covers up to ${CHARTER_MEMBER_CAP} players; this league has ${memberCount}.`);
+      if (decision.reason === 'too-large') throw new HttpsError('failed-precondition', `A Charter covers ${charterCap(league)} players (22, plus 3 for each slot pack); this league has ${memberCount}. Add slots first.`);
       throw new HttpsError('already-exists', `This league is already chartered for ${season}.`);
     }
     params = checkoutSessionParams({ uid, season, email, product: CHARTER_PRODUCT_ID, leagueId },

@@ -61,6 +61,9 @@ export const applyLeagueExpansion = functions.https.onCall(async (data, context)
       if (!isUnusedExpansion(fresh.data())) continue;
       const maxMembers = (league.data()?.maxMembers || 0) + SLOTS_PER_EXPANSION;
       tx.update(c.ref, { status: 'applied', appliedToLeagueId: leagueId, appliedAt: admin.firestore.FieldValue.serverTimestamp() });
+      // F-175: the retired +20 pack still adds its places, but NOT to `paidSlots`: it is $4.99 for 20,
+      // test purchases of it were never tester-checked and its refunds are not swept, so it does not
+      // extend what a charter covers. A charter grows with the +3 packs only.
       tx.update(leagueRef, { maxMembers, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
       return { applied: true, maxMembers, purchaseId: c.id };
     }

@@ -24,6 +24,7 @@ import { PASS_PRODUCT } from './pass';
 import { revokePass } from './passStore';
 import { CHARTER_PRODUCT } from '../charter/charter';
 import { clearCharter, markRefunded } from '../charter/charterStore';
+import { SLOT_PACK_CHARTER_PRODUCT, SLOT_PACK_PRODUCT } from '../purchases/slotPack';
 import { amazonVerdict, appleLegacyVerdict, checkable, isJws, playVerdict, type RefundVerdict } from './refundCheck';
 
 const db = admin.firestore();
@@ -128,7 +129,40 @@ export const sweepRefundedPasses = functions
       .where('status', '==', 'validated')
       .get();
 
-    let checked = 0, revoked = 0, skipped = 0, stale = 0, failed = 0, uncharted = 0;
+    // Slot packs (owner decision 2026-11-25): an applied pack that the store refunded takes its slots
+    // back out of `paidSlots`, so a charter no longer covers them (charterCap). maxMembers is left as
+    // it is: approved players are not removed, and an ordinary league's size is free anyway.
+    // Its own try: a failed query here must not stop the pass and charter refunds below.
+    const packs = await db.collection('purchases').where('status', '==', 'applied').where('productId', 'in', [SLOT_PACK_PRODUCT, SLOT_PACK_CHARTER_PRODUCT]).get()
+      .catch((err) => { console.error('[refunds] slot pack query failed:', msg(err)); return { docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] }; });
+
+    let checked = 0, revoked = 0, skipped = 0, stale = 0, failed = 0, uncharted = 0, unslotted = 0;
+    for (const doc of packs.docs) {
+      try {
+        const purchase = doc.data();
+        const verdict = await verdictFor(purchase);
+        if (verdict === 'unknown') { skipped += 1; continue; }
+        checked += 1;
+        if (verdict !== 'refunded') continue;
+        const leagueId = typeof purchase.appliedToLeagueId === 'string' ? purchase.appliedToLeagueId : null;
+        const slots = typeof purchase.slots === 'number' ? purchase.slots : 3;
+        await db.runTransaction(async (tx) => {
+          const fresh = (await tx.get(doc.ref)).data();
+          if (fresh?.status !== 'applied') return;
+          if (leagueId) {
+            const leagueRef = db.doc(`leagues/${leagueId}`);
+            const league = (await tx.get(leagueRef)).data();
+            if (league) tx.set(leagueRef, { paidSlots: Math.max(0, (typeof league.paidSlots === 'number' ? league.paidSlots : 0) - slots) }, { merge: true });
+          }
+          tx.set(doc.ref, { status: 'refunded', refundedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        });
+        unslotted += 1;
+        console.log(`[refunds] slot pack ${doc.id} refunded${leagueId ? ` (league ${leagueId}, -${slots} paid slots)` : ''}`);
+      } catch (err) {
+        failed += 1;
+        console.error(`[refunds] slot pack ${doc.id} could not be processed:`, msg(err));
+      }
+    }
     for (const doc of charters.docs) {
       try {
         const purchase = doc.data();
@@ -203,7 +237,7 @@ export const sweepRefundedPasses = functions
       }
     }
 
-    const line = `[refunds] ${snap.size} pass + ${charters.size} charter purchases · ${checked} re-checked · ${revoked} revoked · ${uncharted} charters cleared · ${stale} superseded · ${skipped} not checkable · ${failed} failed`;
+    const line = `[refunds] ${snap.size} pass + ${charters.size} charter purchases · ${checked} re-checked · ${revoked} revoked · ${uncharted} charters cleared · ${unslotted} slot packs taken back · ${stale} superseded · ${skipped} not checkable · ${failed} failed`;
     if (failed) console.error(line); else console.log(line);
     return null;
   });

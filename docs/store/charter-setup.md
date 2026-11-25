@@ -162,3 +162,56 @@ A partial refund keeps the charter.
   - the support op for unapplied charters;
   - clearing test charters;
   - the trademark search.
+
+---
+
+## Slot packs (owner decision 2026-11-25)
+
+Two more products, both **+3 member slots**. They are consumable, bought again and again, and the server applies each one to the league named on the purchase.
+
+| Product ID | Price | Where | Description |
+|---|---|---|---|
+| `league.slots3` | **$4.99** | Play, App Store, **Amazon** | `Add 3 more member slots to your league` |
+| `league.slots3.charter` | **$3.99** | Play, App Store (not Amazon) | `Add 3 more member slots to your chartered league` |
+
+The app shows the "LEAGUE SIZE +3" row only once the store returns a price for the product, so creating the products is what turns the row on. Unlike Charter, there is no server flag. **Activating these products puts them on sale in the next build that carries this code.** Builds already in the stores never show the row.
+
+Apple type: **Consumable**. Play: one-time product, consumed after validation. Amazon: Consumable.
+
+### Prompt for Claude in Chrome (Play Console)
+
+```
+In Google Play Console, app "Undercut" (com.undercut.app) only. Do not change any other product.
+Create two one-time products, one at a time. For each, STOP before saving and show me the
+Product ID field, and wait for me to say "confirmed" (IDs can never be changed or reused).
+  1. Product ID: league.slots3          Name: League Slots   Description: Add 3 more member slots to your league            Price: USD 4.99
+  2. Product ID: league.slots3.charter  Name: League Slots   Description: Add 3 more member slots to your chartered league  Price: USD 3.99
+One purchase option "buy", quantity 1, consumed after purchase (same settings as avatar.pack;
+open it and copy them if unsure). Let Play convert local prices. Leave both Inactive and tell me
+their status; I will activate them when the build that sells them is ready.
+Do not touch league.expansion. Never publish a release or change payments settings.
+```
+
+### Prompt for Claude in Chrome (App Store Connect)
+
+```
+In App Store Connect, app "Undercut" (com.undercut.app, Apple ID 6759428075) only. Do not change
+any other in-app purchase. Create two in-app purchases of type Consumable, one at a time. For
+each, STOP before clicking Create and show me the Product ID, and wait for me to say "confirmed".
+  1. Reference Name: League Slots 4.99   Product ID: league.slots3
+     Price: USD 4.99   Display Name: League Slots   Description: Add 3 more member slots to your league
+  2. Reference Name: League Slots 3.99   Product ID: league.slots3.charter
+     Price: USD 3.99   Display Name: League Slots   Description: Add 3 more member slots to your chartered league
+Availability: match avatar.pack. Review notes: "Bought by a league's owner from the league
+page; adds 3 member slots to that league." Leave the screenshot empty. Do NOT add them to any
+app version and do NOT submit anything for review. Report each one's status and price.
+```
+
+### Amazon (by hand)
+
+Amazon Developer Console → Undercut → In-App Items → **Add a Consumable**:
+- SKU: `league.slots3`
+- Title: `League Slots`
+- Price: $4.99
+
+Submit it with the app version that sells it. There is no `league.slots3.charter` on Amazon.

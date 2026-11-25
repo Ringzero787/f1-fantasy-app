@@ -20,7 +20,7 @@ Status: accepted (owner decision)
 5. A chartered league is public with approval on, and stays so until the charter ends. Chartered
    leagues rank above other public leagues in search, by members' points, lifted up to three places
    a week by Rank Ups.
-6. The member cap stays 22 approved members.
+6. The member cap stays 22 approved members. *(Superseded 2026-11-25: 22 free plus +3 slot packs; a charter covers 22 + paid slots. See the notes below.)*
 7. The personal pass keeps making the leagues its holder owns Pro (`markOwnedLeaguesPro`), as before. A Charter makes Pro only the league it was bought for. Charter access never makes any league Pro.
 
 ## Why
@@ -40,3 +40,8 @@ from making their own leagues Pro, or losing a pass they paid for when they leav
 - The +20 slot pack (`league.expansion`) is retired (owner decision 2026-11-24): the app no longer
   sells it; credits already paid for still apply; the server keeps validating and applying it until
   the store listings are removed. Leagues stay at 22 members.
+- Superseded in part, 2026-11-25 (owner):
+  - Leagues grow again with +3 slot packs: `league.slots3` costs $4.99; `league.slots3.charter` costs $3.99 and is for chartered leagues.
+  - Packs stack with no ceiling and are applied by the server.
+  - A charter covers every approved member, so each extra player in a chartered league gets Pit Wall.
+  - `league.expansion` (+20) stays retired.

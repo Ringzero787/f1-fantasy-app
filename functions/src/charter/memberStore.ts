@@ -81,6 +81,7 @@ export async function approve(db: Db, leagueId: string, userId: string, callerId
       approvedCount,
       chartered: charterActive(league, now),
       maxMembers: league.maxMembers,
+      paidSlots: league.paidSlots,
     });
     if (!decision.ok) throw new Refused<ApproveRefusal | 'no-league'>(decision.reason);
     tx.update(memberRef, { status: 'approved', rank: approvedCount + 1 });

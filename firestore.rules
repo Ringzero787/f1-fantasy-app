@@ -85,7 +85,8 @@ service cloud.firestore {
 
     // F-175 Charter: fields only the server writes on a league. A client may never set them on
     // create or change them on update, whatever the league's state.
-    function charterKeys() { return ['charter', 'chartered', 'searchPoints', 'rankUpsWeek']; }
+    // `paidSlots` (2026-11-25): the server's count of slots bought, which a charter's cover reads
+    function charterKeys() { return ['charter', 'chartered', 'searchPoints', 'rankUpsWeek', 'paidSlots']; }
 
     // F-175: while a league's charter is unexpired (`charter.expiresAt`, epoch ms), it stays public
     // and approval stays on: an update may not make `isPublic` or `settings.requireApproval`
