@@ -290,8 +290,14 @@ test('one purchase charters one league: a replay naming another league gets the 
   assert.equal(db.docs.get('charter_grants/pur1').leagueId, 'L1');
 });
 
-test('a league grown past 22 by slot packs is chartered, and every approved member gets access', async () => {
-  const seed = seedLeague({ maxMembers: 25 });
+test('a league grown past 22 by PAID slot packs is chartered; one grown by a free maxMembers raise is not', async () => {
+  const free = seedLeague({ maxMembers: 1000 });
+  for (let k = 0; k < 21; k += 1) free[`leagues/L1/members/m${k}`] = { status: 'approved' };
+  assert.deepEqual(await store.grantCharter(fakeDb(free), { leagueId: 'L1', buyerId: 'owner', season: '2027', source: 'play', ref: 'free', now: NOW }), { applied: false, reason: 'too-large' });
+  assert.equal(C.charterCap({}), 22);
+  assert.equal(C.charterCap({ paidSlots: 6 }), 28);
+  assert.equal(C.charterCap({ paidSlots: -5 }), 22);
+  const seed = seedLeague({ maxMembers: 25, paidSlots: 3 });
   for (let k = 0; k < 21; k += 1) seed[`leagues/L1/members/m${k}`] = { status: 'approved' };
   const db = fakeDb(seed);
   const r = await store.grantCharter(db, { leagueId: 'L1', buyerId: 'owner', season: '2027', source: 'play', ref: 'big', now: NOW });
@@ -309,6 +315,12 @@ test('slot packs: +3 each, on the known list, the Charter price is its own produ
   assert.equal(SP.nextMaxMembers(25), 28, 'stackable');
   assert.equal(SP.nextMaxMembers(undefined), 25, 'no size recorded: the free 22');
   assert.equal(SP.nextMaxMembers(1000), 1003, 'no ceiling');
+  const vp = fs.readFileSync(path.join(__dirname, '..', 'src', 'purchases', 'validatePurchase.ts'), 'utf8');
+  const slots = vp.slice(vp.indexOf('async function applySlots'));
+  assert.match(slots, /testPurchase && \(await db\.doc\(`users\/\$\{userId\}`\)\.get\(\)\)\.data\(\)\?\.testAccount !== true/, 'a store test purchase adds slots only for a test account');
+  const sweep = fs.readFileSync(path.join(__dirname, '..', 'src', 'pitwall', 'refundSweep.ts'), 'utf8');
+  assert.match(sweep, /where\('productId', 'in', \[SLOT_PACK_PRODUCT, SLOT_PACK_CHARTER_PRODUCT\]\)/, 'refunded packs are swept');
+  assert.match(sweep, /paidSlots: Math\.max\(0,/);
   assert.ok(G.isKnownProduct('league.slots3'));
   assert.ok(G.isKnownProduct('league.slots3.charter'));
   assert.ok(SP.isSlotPack('league.slots3') && SP.isSlotPack('league.slots3.charter') && !SP.isSlotPack('league.expansion'));
@@ -324,6 +336,7 @@ test('slot packs: applied once to the owner\'s league; a non-owner or a missing 
   assert.equal(r.applied, true);
   assert.equal(r.leagueId, 'L1', 'the league recorded on the purchase wins over one sent later');
   assert.equal(db.docs.get('leagues/L1').maxMembers, 25);
+  assert.equal(db.docs.get('leagues/L1').paidSlots, 3, 'the server counts what was paid for');
   const again = await SP.applySlotPack(db, 'p1', 'owner', 'L1', 'league.slots3', NOW);
   assert.equal(again.replay, true);
   assert.equal(db.docs.get('leagues/L1').maxMembers, 25, 'a replay adds nothing');

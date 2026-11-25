@@ -20,7 +20,7 @@ Status: accepted (owner decision)
 5. A chartered league is public with approval on, and stays so until the charter ends. Chartered
    leagues rank above other public leagues in search, by members' points, lifted up to three places
    a week by Rank Ups.
-6. The member cap stays 22 approved members.
+6. The member cap stays 22 approved members. *(Superseded 2026-11-25: 22 free plus +3 slot packs; a charter covers 22 + paid slots. See the notes below.)*
 7. The personal pass keeps making the leagues its holder owns Pro (`markOwnedLeaguesPro`), as before. A Charter makes Pro only the league it was bought for. Charter access never makes any league Pro.
 
 ## Why

@@ -65,7 +65,10 @@ export async function applySlotPack(db: Db, purchaseId: string, buyerId: string,
     // The Charter price on a league that is not chartered (a stale screen, a charter that just
     // ended) is applied anyway: the buyer paid, and a $1 difference is not worth a refund. Logged.
     const charterPriceOnUnchartered = productId === SLOT_PACK_CHARTER_PRODUCT && !charterActive(league, now);
-    tx.set(leagueRef, { maxMembers, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    // `paidSlots` is the server's own count of slots bought (charterCap reads it); maxMembers can
+    // also be raised from released builds, so it is not proof of payment.
+    const paidSlots = (typeof league.paidSlots === 'number' && league.paidSlots > 0 ? league.paidSlots : 0) + SLOTS_PER_PACK;
+    tx.set(leagueRef, { maxMembers, paidSlots, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     tx.set(purchaseRef, {
       leagueId: target,
       slotsApplied: true,

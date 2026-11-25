@@ -409,6 +409,11 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
    * Applied here, on the server, never by the device; a refusal is recorded for support.
    */
   async function applySlots(): Promise<{ applied: boolean; reason?: string; leagueId?: string; maxMembers?: number }> {
+    // A store test purchase moves no money: it adds slots only for a marked test account, as for Charter.
+    if (testPurchase && (await db.doc(`users/${userId}`).get()).data()?.testAccount !== true) {
+      await purchaseDoc.set({ slotsApplied: false, slotsRefused: 'test-purchase' }, { merge: true });
+      return { applied: false, reason: 'test-purchase' };
+    }
     const r = await applySlotPack(db, purchaseId, userId, leagueId, productId);
     if (!r.applied) {
       console.error(`[slots] paid pack ${purchaseId} by ${userId} NOT applied: ${r.reason}; needs a refund or a support fix`);

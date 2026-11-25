@@ -5,7 +5,7 @@
  * functions decide, from one member document's before and after, what has to happen: access
  * given or taken, the search points recounted, and which email (if any) goes out.
  */
-import { FREE_LEAGUE_SIZE } from './charter';
+import { FREE_LEAGUE_SIZE, charterCap } from './charter';
 import { weekId } from './rankUp';
 
 type Member = { status?: unknown; totalPoints?: unknown; displayName?: unknown } | null | undefined;
@@ -60,8 +60,9 @@ export function searchPoints(members: Member[]): number {
 export type ApproveRefusal = 'not-owner' | 'not-pending' | 'full';
 
 /**
- * Whether the owner may approve a pending request: up to the league's own `maxMembers` (22 free,
- * +3 per slot pack), chartered or not. A charter covers everyone approved.
+ * Whether the owner may approve a pending request: up to the league's `maxMembers`, and in a
+ * chartered league also no more than the charter covers (charterCap: 22 + paid slots), so a size
+ * raised for free cannot turn into Pit Wall for more players than were paid for.
  */
 export function approveDecision(i: {
   callerId: string;
@@ -70,10 +71,12 @@ export function approveDecision(i: {
   approvedCount: number;
   chartered: boolean;
   maxMembers: unknown;
+  paidSlots?: unknown;
 }): { ok: true } | { ok: false; reason: ApproveRefusal } {
   if (typeof i.ownerId !== 'string' || i.ownerId !== i.callerId) return { ok: false, reason: 'not-owner' };
   if (!i.member || i.member.status !== 'pending') return { ok: false, reason: 'not-pending' };
-  const cap = typeof i.maxMembers === 'number' && Number.isFinite(i.maxMembers) && i.maxMembers > 0 ? i.maxMembers : FREE_LEAGUE_SIZE;
+  const size = typeof i.maxMembers === 'number' && Number.isFinite(i.maxMembers) && i.maxMembers > 0 ? i.maxMembers : FREE_LEAGUE_SIZE;
+  const cap = i.chartered ? Math.min(size, charterCap({ paidSlots: i.paidSlots })) : size;
   if (i.approvedCount >= cap) return { ok: false, reason: 'full' };
   return { ok: true };
 }

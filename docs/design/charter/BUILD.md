@@ -289,11 +289,11 @@ What slice 1 built: `functions/src/charter/charter.ts` (`charterActive`, `charte
 
 ## Owner decision, 2026-11-25: slot packs are back
 
-The cap is no longer 22. The owner wrote: "let commissioners buy those slots again … +3 slots … no reason to restrict … 3.99 if you purchased charter, 4.99 for folks that haven't". The lines above that say "Cap stays 22", "Do not sell `league.expansion`" and "Do not raise the cap" are superseded as follows:
+The cap is no longer 22, and "Do not build: … a capacity pack" no longer applies to slot packs. The owner wrote: "let commissioners buy those slots again … +3 slots … no reason to restrict … 3.99 if you purchased charter, 4.99 for folks that haven't". The lines above that say "Cap stays 22", "Do not sell `league.expansion`" and "Do not raise the cap" are superseded as follows:
 - A league is 22 free, then +3 per slot pack, with no ceiling.
 - `league.slots3` costs $4.99. `league.slots3.charter` costs $3.99 and is for a chartered league only; it is not sold on Amazon.
 - The server applies the pack to the league named on the purchase.
-- A charter covers every approved member, however many there are.
+- A charter covers the free 22 plus every slot actually paid for (server-counted `paidSlots`), not a `maxMembers` raised for free.
 - `league.expansion` (+20) stays retired.
 
 See spec F-175, "Slot packs".

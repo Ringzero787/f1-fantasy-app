@@ -35,8 +35,9 @@ test('approve: owner only, pending only, up to the league\'s own size, chartered
   assert.deepEqual(M.approveDecision({ ...base, callerId: 'admin' }), { ok: false, reason: 'not-owner' });
   assert.deepEqual(M.approveDecision({ ...base, member: { status: 'approved' } }), { ok: false, reason: 'not-pending' });
   assert.deepEqual(M.approveDecision({ ...base, member: null }), { ok: false, reason: 'not-pending' });
-  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 22, maxMembers: 25 }), { ok: true }, 'a chartered league grown by a slot pack takes its extra players');
-  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 25, maxMembers: 25 }), { ok: false, reason: 'full' });
+  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 22, maxMembers: 25, paidSlots: 3 }), { ok: true }, 'a chartered league grown by a PAID pack takes its extra players');
+  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 25, maxMembers: 25, paidSlots: 3 }), { ok: false, reason: 'full' });
+  assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 22, maxMembers: 1000 }), { ok: false, reason: 'full' }, 'a size raised for free gives a charter no extra cover');
   assert.deepEqual(M.approveDecision({ ...base, chartered: true, approvedCount: 22, maxMembers: undefined }), { ok: false, reason: 'full' }, 'no size recorded: the free 22');
   assert.deepEqual(M.approveDecision({ ...base, approvedCount: 22, maxMembers: 42 }), { ok: true }, 'an ordinary grown league keeps its own size');
   assert.deepEqual(M.approveDecision({ ...base, approvedCount: 42, maxMembers: 42 }), { ok: false, reason: 'full' });

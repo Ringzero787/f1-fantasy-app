@@ -75,7 +75,7 @@ export async function grantCharter(db: Db, i: GrantCharterInput): Promise<GrantC
       typeof league?.ownerId === 'string' ? tx.get(db.doc(`users/${league.ownerId}`)) : Promise.resolve(null),
     ]);
     const ids = charterMemberIds(league?.ownerId, members.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, status: d.data()?.status })));
-    const decision = charterGrantDecision({ league, buyerId: i.buyerId, season: i.season, ref: i.ref, now });
+    const decision = charterGrantDecision({ league, buyerId: i.buyerId, season: i.season, ref: i.ref, now, memberCount: ids.length });
     if (decision.kind === 'refuse') {
       tx.set(record, { leagueId, buyerId: i.buyerId, season: i.season, source: i.source, refusedAt: now, refused: decision.reason }, { merge: true });
       return { applied: false as const, reason: decision.reason };

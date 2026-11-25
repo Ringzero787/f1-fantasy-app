@@ -1110,7 +1110,7 @@ test('TL members cannot mint or rewrite scoring fields', async () => {
 });
 
 // ── F-175 Charter: server-owned league fields, a chartered league stays open, server-owned access ──
-const CHARTER_FIELDS = { charter: { season: '2026', expiresAt: 9e12, buyerId: ALICE, source: 'stripe', ref: 'r', purchasedAt: 0 }, chartered: true, searchPoints: 1000, rankUpsWeek: { weekId: '2026-W48', count: 3 } };
+const CHARTER_FIELDS = { charter: { season: '2026', expiresAt: 9e12, buyerId: ALICE, source: 'stripe', ref: 'r', purchasedAt: 0 }, chartered: true, searchPoints: 1000, rankUpsWeek: { weekId: '2026-W48', count: 3 }, paidSlots: 300 };
 const APPROVAL_ON = { allowLateJoin: true, lockDeadline: 'qualifying', requireApproval: true };
 /** A chartered league as the purchase leaves it: public, approval on, charter until `expiresAt` (ms). */
 async function seedChartered(id, expiresAt) {

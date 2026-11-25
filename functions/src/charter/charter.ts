@@ -125,13 +125,24 @@ export function claimInputsChanged(
 // ─── Slice 2: purchase ───
 
 /** Why a paid charter was not applied. Recorded on the purchase / grant record for support. */
-export type CharterRefusal = 'no-league' | 'not-owner' | 'already-chartered' | 'disabled' | 'refunded';
+export type CharterRefusal = 'no-league' | 'not-owner' | 'already-chartered' | 'too-large' | 'disabled' | 'refunded';
 
 /**
  * The free league size. A league grows past it only by slot packs (+3, owner decision 2026-11-25),
  * and a charter covers every approved member, however many packs the owner bought.
  */
 export const FREE_LEAGUE_SIZE = 22;
+
+/**
+ * How many approved players a charter covers: the free 22 plus the slots actually paid for
+ * (`leagues/{id}.paidSlots`, server-written by the slot pack and the legacy expansion). Not
+ * `maxMembers`: an owner can still raise that from a released build for free, and one $39.99
+ * charter must not cover a league grown that way (security review, 2026-11-25).
+ */
+export function charterCap(league: { paidSlots?: unknown } | null | undefined): number {
+  const paid = league?.paidSlots;
+  return FREE_LEAGUE_SIZE + (typeof paid === 'number' && Number.isFinite(paid) && paid > 0 ? Math.floor(paid) : 0);
+}
 
 /** What a member document must look like to count: the same test as the rules and memberCount. */
 const approved = (m: { status?: unknown } | null | undefined): boolean => !!m && m.status !== 'pending';
@@ -153,6 +164,8 @@ export interface CharterGrantInput {
   season: string;
   ref: string;
   now: number;
+  /** owner + approved members who would get access; over charterCap(league) is refused */
+  memberCount?: number;
 }
 
 export type CharterGrantDecision =
@@ -176,6 +189,7 @@ export function charterGrantDecision(i: CharterGrantInput): CharterGrantDecision
     // A late replay of last season's purchase must not replace a newer season's charter.
     if (typeof l.charter?.season === 'string' && Number(l.charter.season) > Number(i.season)) return { kind: 'refuse', reason: 'already-chartered' };
   }
+  if (typeof i.memberCount === 'number' && i.memberCount > charterCap(l as { paidSlots?: unknown })) return { kind: 'refuse', reason: 'too-large' };
   return { kind: 'grant' };
 }
 
