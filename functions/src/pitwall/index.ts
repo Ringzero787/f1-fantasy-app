@@ -15,10 +15,13 @@ import { CREATE_LIMIT, REDEEM_LIMIT, cleanSource, clientIpOf, ipKey, isWellForme
 import { createHandoff, deleteOldHandoffs, redeemHandoff, takeRateSlot } from './handoffStore';
 import { passActive, PASS_PRICE_USD, PASS_PRODUCT, saleSeason, type Pass } from './pass';
 import { expirePasses, grantPass, grantTrial, revokePass, stampClaim } from './passStore';
-import { CHARTER_PRODUCT_ID, checkoutSessionParams, verifyStripeSignature, webhookAction } from './stripe';
+import { CHARTER_PRODUCT_ID, checkoutSessionParams, disputedPass, disputeTakesPass, verifyStripeSignature, webhookAction } from './stripe';
 import { charterActive, charterCap, charterEnabled, charterGrantDecision, charterMemberIds, claimExpiry, claimInputsChanged, CHARTER_PRICE_CENTS, type CharterAccess } from '../charter/charter';
 import { clearCharter, expireCharters, grantCharter, markRefunded } from '../charter/charterStore';
 import { isUsableLeagueId } from '../utils/leagueId';
+import { appleNotificationAction } from './appleNotifications';
+import { refundAppleTransaction } from './refundApply';
+import { IOS_BUNDLE_ID } from '../purchases/purchaseId';
 
 const db = admin.firestore();
 
@@ -117,11 +120,43 @@ export const createCheckout = onCall({ region: 'us-central1', secrets: [stripeSe
   return { url: body.url, priceUsd: input.product === CHARTER_PRODUCT_ID ? CHARTER_PRICE_CENTS / 100 : PASS_PRICE_USD, season };
 });
 
+/** The paid Checkout Session behind a PaymentIntent, read back from Stripe: whose pass it bought. */
+async function disputedPassFor(ref: string): Promise<{ uid: string; season: string } | null> {
+  const pi = ref.startsWith('stripe:') ? ref.slice('stripe:'.length) : '';
+  if (!/^pi_[A-Za-z0-9]+$/.test(pi)) return null;
+  const r = await fetch(`https://api.stripe.com/v1/checkout/sessions?payment_intent=${encodeURIComponent(pi)}&limit=3`, {
+    headers: { authorization: `Bearer ${stripeSecretKey.value()}` },
+    signal: AbortSignal.timeout(15000),
+  });
+  // Thrown, not swallowed: the webhook answers 500 and Stripe retries the dispute.
+  if (!r.ok) throw new Error(`stripe session lookup ${r.status}`);
+  return disputedPass(await r.json());
+}
+
+/**
+ * A dispute on a payment that bought a personal pass (a Dispute carries no metadata, so the
+ * payment's Checkout Session says who bought what). Revokes only the pass that payment bought: a
+ * Stripe pass for the same season; one bought since in a store, or for another season, is left.
+ * True when the payment was a pass, whatever was done; false for a charter or an unknown payment.
+ */
+async function revokeDisputedPass(ref: string, reason: string): Promise<boolean> {
+  const owner = await disputedPassFor(ref);
+  if (!owner) return false;
+  const pass = (await db.doc(`users/${owner.uid}`).get()).data()?.pass as Partial<Pass> | undefined;
+  if (disputeTakesPass(pass, owner)) {
+    await revokePass(db, owner.uid, reason);
+    console.log('[pw] pass revoked on a dispute', owner.uid, ref);
+  } else {
+    console.log('[pw] disputed pass payment, but the live pass is not that one', owner.uid, ref);
+  }
+  return true;
+}
+
 /**
  * Stripe webhook. Verified against the signing secret on the RAW body, idempotent on the event id,
  * and it answers 200 to anything it means to ignore so Stripe stops retrying.
  */
-export const stripeWebhook = onRequest({ region: 'us-central1', secrets: [stripeWebhookSecret] }, async (req, res) => {
+export const stripeWebhook = onRequest({ region: 'us-central1', secrets: [stripeWebhookSecret, stripeSecretKey] }, async (req, res) => {
   const raw = (req.rawBody ?? Buffer.from('')).toString('utf8');
   const verified = verifyStripeSignature(raw, req.get('stripe-signature'), stripeWebhookSecret.value(), Math.floor(Date.now() / 1000));
   if (!verified.ok) {
@@ -147,8 +182,15 @@ export const stripeWebhook = onRequest({ region: 'us-central1', secrets: [stripe
       // Never revokePass: only this league's charter, and only if this payment is the one that bought it.
       const leagueId = action.leagueId ?? ((await db.collection('charter_grants').doc(action.ref).get()).data()?.leagueId as string | undefined) ?? null;
       const done = leagueId ? await clearCharter(db, { leagueId, ref: action.ref, reason: action.reason }) : false;
-      // A dispute that arrives before its charter was granted still has to stop that grant.
-      if (!leagueId) await markRefunded(db, action.ref, action.reason);
+      if (!leagueId) {
+        // Not a charter we granted: it may be a personal pass (F-175 slice 5; pre-existing gap).
+        if (action.reason === 'charge.dispute.created' && await revokeDisputedPass(action.ref, action.reason)) {
+          res.status(200).send('ok');
+          return;
+        }
+        // A dispute that arrives before its charter was granted still has to stop that grant.
+        await markRefunded(db, action.ref, action.reason);
+      }
       console.log('[charter] stripe', action.reason, action.ref, leagueId ?? '(no charter for this payment)', done ? 'cleared' : 'nothing to clear');
     } else {
       console.log('[pw] stripe webhook ignored:', action.why);
@@ -205,3 +247,37 @@ export const onUserPassWritten = onDocumentWritten({ document: 'users/{uid}', re
 
 // Deployed as pw-sweepRefundedPasses, inside the group, so `--only functions:pw` reaches it.
 export { sweepRefundedPasses } from './refundSweep';
+
+/**
+ * App Store Server Notifications v2 (F-175 slice 5), set as both the Production and the Sandbox
+ * URL in App Store Connect. A StoreKit 2 refund takes back what that purchase paid for (pass,
+ * charter or slots) through the same code as the daily sweep. Answers 200 to anything genuine it
+ * means to ignore, 400 to anything not signed by Apple for this app, and 500 when acting failed so
+ * Apple retries (it retries a failed delivery several times over the following days).
+ */
+export const appStoreNotifications = onRequest({ region: 'us-central1' }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).send('POST only'); return; }
+  const action = appleNotificationAction((req.body as { signedPayload?: unknown } | undefined)?.signedPayload, { bundleId: IOS_BUNDLE_ID });
+  if (action.kind === 'reject') {
+    console.warn('[apple] notification rejected:', action.why);
+    res.status(400).send('rejected');
+    return;
+  }
+  if (action.kind === 'ignore') {
+    if (action.loud) console.error('[apple] notification needs a person:', action.why);
+    else console.log('[apple] notification ignored:', action.why);
+    res.status(200).send('ok');
+    return;
+  }
+  try {
+    const reason = `apple ${action.type.toLowerCase()} · ${action.environment || 'unknown env'}`;
+    const outcome = await refundAppleTransaction(db, { transactionId: action.transactionId, productId: action.productId, reason });
+    if (outcome === 'no-user') console.error('[apple] refunded purchase has no user', action.transactionId);
+    else console.log('[apple]', action.type, action.productId, outcome);
+  } catch (e) {
+    console.error('[apple] refund handling failed:', e instanceof Error ? e.message : 'unknown error');
+    res.status(500).send('handler failed');
+    return;
+  }
+  res.status(200).send('ok');
+});

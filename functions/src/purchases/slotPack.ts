@@ -24,7 +24,7 @@ export const SLOTS_PER_PACK = 3;
 
 export const isSlotPack = (productId: unknown): boolean => productId === SLOT_PACK_PRODUCT || productId === SLOT_PACK_CHARTER_PRODUCT;
 
-export type SlotPackRefusal = 'no-league' | 'not-owner';
+export type SlotPackRefusal = 'no-league' | 'not-owner' | 'refunded';
 export type SlotPackResult =
   | { applied: true; leagueId: string; maxMembers: number; replay: boolean; charterPriceOnUnchartered: boolean }
   | { applied: false; reason: SlotPackRefusal };
@@ -44,6 +44,8 @@ export async function applySlotPack(db: Db, purchaseId: string, buyerId: string,
   const purchaseRef = db.collection('purchases').doc(purchaseId);
   return db.runTransaction(async (tx) => {
     const purchase = (await tx.get(purchaseRef)).data() ?? {};
+    // A refunded pack never applies, whatever league a replay names (F-175 slice 5 review).
+    if (purchase.status === 'refunded' && purchase.slotsApplied !== true) return { applied: false as const, reason: 'refunded' as const };
     if (purchase.slotsApplied === true && typeof purchase.appliedToLeagueId === 'string') {
       const l = (await tx.get(db.doc(`leagues/${purchase.appliedToLeagueId}`))).data();
       return { applied: true as const, leagueId: purchase.appliedToLeagueId, maxMembers: (l?.maxMembers as number) ?? 0, replay: true, charterPriceOnUnchartered: false };

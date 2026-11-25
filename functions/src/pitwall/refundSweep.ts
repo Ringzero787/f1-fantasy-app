@@ -12,6 +12,10 @@
  * visibly. A season pass can tolerate a day's latency; it cannot tolerate a revocation path nobody
  * can tell is broken.
  *
+ * The one store this cannot re-check is StoreKit 2 (refundCheck.checkable): Apple's re-check needs an
+ * In-App Purchase key. Those refunds arrive as App Store Server Notifications instead
+ * (appleNotifications.ts, F-175 slice 5), and both paths take back through refundApply.ts.
+ *
  * It only ever takes a pass away on a definite refund. Everything else — a store that times out, a
  * shape we do not recognise, a purchase we cannot re-check at all — leaves the pass alone and says
  * so in the log. See refundCheck.ts.
@@ -21,9 +25,8 @@ import * as admin from 'firebase-admin';
 import { GoogleAuth } from 'google-auth-library';
 import { defineSecret } from 'firebase-functions/params';
 import { PASS_PRODUCT } from './pass';
-import { revokePass } from './passStore';
+import { refundPurchase } from './refundApply';
 import { CHARTER_PRODUCT } from '../charter/charter';
-import { clearCharter, markRefunded } from '../charter/charterStore';
 import { SLOT_PACK_CHARTER_PRODUCT, SLOT_PACK_PRODUCT } from '../purchases/slotPack';
 import { amazonVerdict, appleLegacyVerdict, checkable, isJws, playVerdict, type RefundVerdict } from './refundCheck';
 
@@ -137,101 +140,22 @@ export const sweepRefundedPasses = functions
       .catch((err) => { console.error('[refunds] slot pack query failed:', msg(err)); return { docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] }; });
 
     let checked = 0, revoked = 0, skipped = 0, stale = 0, failed = 0, uncharted = 0, unslotted = 0;
-    for (const doc of packs.docs) {
+    // Each purchase is handled on its own: one bad document must not end the sweep, the rest of
+    // the refunds still need finding. What a refund takes back lives in refundApply.ts.
+    for (const doc of [...packs.docs, ...charters.docs, ...snap.docs]) {
       try {
         const purchase = doc.data();
         const verdict = await verdictFor(purchase);
         if (verdict === 'unknown') { skipped += 1; continue; }
         checked += 1;
         if (verdict !== 'refunded') continue;
-        const leagueId = typeof purchase.appliedToLeagueId === 'string' ? purchase.appliedToLeagueId : null;
-        const slots = typeof purchase.slots === 'number' ? purchase.slots : 3;
-        await db.runTransaction(async (tx) => {
-          const fresh = (await tx.get(doc.ref)).data();
-          if (fresh?.status !== 'applied') return;
-          if (leagueId) {
-            const leagueRef = db.doc(`leagues/${leagueId}`);
-            const league = (await tx.get(leagueRef)).data();
-            if (league) tx.set(leagueRef, { paidSlots: Math.max(0, (typeof league.paidSlots === 'number' ? league.paidSlots : 0) - slots) }, { merge: true });
-          }
-          tx.set(doc.ref, { status: 'refunded', refundedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        });
-        unslotted += 1;
-        console.log(`[refunds] slot pack ${doc.id} refunded${leagueId ? ` (league ${leagueId}, -${slots} paid slots)` : ''}`);
+        const outcome = await refundPurchase(db, doc.ref, purchase, `store refund · ${purchase.platform}`);
+        if (outcome === 'revoked') revoked += 1;
+        else if (outcome === 'superseded') stale += 1;
+        else if (outcome === 'uncharted') uncharted += 1;
+        else if (outcome === 'unslotted') unslotted += 1;
+        else if (outcome === 'no-user') failed += 1;
       } catch (err) {
-        failed += 1;
-        console.error(`[refunds] slot pack ${doc.id} could not be processed:`, msg(err));
-      }
-    }
-    for (const doc of charters.docs) {
-      try {
-        const purchase = doc.data();
-        const verdict = await verdictFor(purchase);
-        if (verdict === 'unknown') { skipped += 1; continue; }
-        checked += 1;
-        if (verdict !== 'refunded') continue;
-        const leagueId = typeof purchase.charterLeagueId === 'string' ? purchase.charterLeagueId : null;
-        // Clear first, then mark, for the reason given below for the pass. clearCharter only
-        // touches a charter this purchase paid for (its ref is the purchase id).
-        if (leagueId && await clearCharter(db, { leagueId, ref: doc.id, reason: `store refund · ${purchase.platform}` })) uncharted += 1;
-        // Not applied (refused, or never sent a league): record the refund anyway, so a later
-        // replay of this receipt can never charter.
-        if (!leagueId) await markRefunded(db, doc.id, `store refund · ${purchase.platform}`);
-        await doc.ref.set({ status: 'refunded', refundedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        console.log(`[refunds] charter purchase ${doc.id} refunded${leagueId ? ` (league ${leagueId})` : ''}`);
-      } catch (err) {
-        failed += 1;
-        console.error(`[refunds] charter ${doc.id} could not be processed:`, msg(err));
-      }
-    }
-
-    for (const doc of snap.docs) {
-      try {
-        const purchase = doc.data();
-        const verdict = await verdictFor(purchase);
-        if (verdict === 'unknown') { skipped += 1; continue; }
-        checked += 1;
-        if (verdict !== 'refunded') continue;
-
-        const uid = String(purchase.userId ?? '');
-        if (!uid) { failed += 1; continue; }
-
-        // Only take away the pass this purchase paid for.
-        //
-        // A refund is about one transaction, and the user may well have bought again since: refund,
-        // repurchase, and the new pass is live under a different purchase document. Revoking on the
-        // user id alone would reach the wrong one, delete a pass somebody had just paid for, and not
-        // heal — validatePurchase answers a replayed receipt with `duplicate: true` before it ever
-        // reaches the grant. The same shape across seasons: a late refund of last year's purchase
-        // taking this year's pass.
-        //
-        // grantPass records the purchase it came from in `pass.ref`, so the correlation already
-        // exists and simply was not consulted.
-        const userSnap = await db.doc(`users/${uid}`).get();
-        const pass = userSnap.data()?.pass as { ref?: string | null } | undefined;
-        if (!pass) {
-          // Nothing to take. Mark it so the refund is recorded and the sweep stops re-asking.
-          await doc.ref.set({ status: 'refunded', refundedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-          continue;
-        }
-        if (pass.ref !== doc.id) {
-          // The live pass was paid for by something else. Record the refund, leave the pass, and say
-          // so — this is the case worth seeing in a log rather than silently skipping.
-          stale += 1;
-          await doc.ref.set({ status: 'refunded', refundedAt: admin.firestore.FieldValue.serverTimestamp(), supersededBy: pass.ref ?? null }, { merge: true });
-          console.log(`[refunds] ${uid} refunded ${doc.id} but holds a pass from ${pass.ref ?? 'elsewhere'}; left alone`);
-          continue;
-        }
-
-        // Revoke first, then mark. The other order looked safer and was not: the query selects
-        // `status == validated`, so a document marked before a revoke that then failed would drop
-        // out of scope forever and the refunded pass would survive with nothing to surface it.
-        await revokePass(db, uid, `store refund · ${purchase.platform}`);
-        await doc.ref.set({ status: 'refunded', refundedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        revoked += 1;
-        console.log(`[refunds] revoked the pass for ${uid} after a ${purchase.platform} refund`);
-      } catch (err) {
-        // One bad document must not end the sweep; the rest of the refunds still need finding.
         failed += 1;
         console.error(`[refunds] ${doc.id} could not be processed:`, msg(err));
       }

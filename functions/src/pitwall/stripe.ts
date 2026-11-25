@@ -123,6 +123,38 @@ const charterRef = (paymentIntent: unknown): string | null => {
   return pi ? `stripe:${pi}` : null;
 };
 
+/**
+ * Whose pass a disputed payment bought, from the Checkout Session Stripe lists for its
+ * PaymentIntent (`GET /v1/checkout/sessions?payment_intent=…`). A Dispute carries no metadata, and
+ * passes sold before the PaymentIntent carried metadata only have it on the session. Null for a
+ * charter (handled through charter_grants), an unpaid session, or anything we did not sell.
+ */
+export function disputedPass(sessions: unknown): { uid: string; season: string } | null {
+  const list = (sessions as { data?: unknown })?.data;
+  if (!Array.isArray(list)) return null;
+  for (const s of list as Array<Record<string, any>>) {
+    if (s?.payment_status !== 'paid') continue;
+    const product = String(s?.metadata?.product ?? '');
+    if (product === CHARTER_PRODUCT_ID) return null;
+    // Passes sold before `product` was set in the metadata have none; their price says what they were.
+    if (product !== PASS_PRODUCT_ID && !(product === '' && s?.amount_subtotal === PASS_AMOUNT_CENTS)) continue;
+    const uid = String(s?.metadata?.uid ?? s?.client_reference_id ?? '');
+    const season = String(s?.metadata?.season ?? '');
+    if (uid && season) return { uid, season };
+  }
+  return null;
+}
+
+/**
+ * A disputed pass payment takes the live pass only if that payment bought it: a Stripe pass for the
+ * same season. `pass.ref` holds the checkout EVENT id, which the session does not carry, so it cannot
+ * be matched exactly; a second Stripe pass in one season is refused at checkout while one is live,
+ * so the only miss is refund → rebuy → a late dispute of the refunded charge (security review, low).
+ */
+export function disputeTakesPass(pass: { source?: unknown; season?: unknown } | null | undefined, owner: { season: string }): boolean {
+  return pass?.source === 'stripe' && pass.season === owner.season;
+}
+
 /** What a verified Stripe event should do. Only paid checkouts grant; refunds and disputes revoke. */
 export function webhookAction(event: Record<string, any>): WebhookAction {
   const type = String(event?.type ?? '');

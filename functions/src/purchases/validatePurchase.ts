@@ -10,7 +10,7 @@ import { CHARTER_PRODUCT_ID, isAmazonReceiptId, isKnownProduct, isPlayToken } fr
 import { charterEnabled } from '../charter/charter';
 import { grantCharter, type GrantCharterResult } from '../charter/charterStore';
 import { applySlotPack, isSlotPack, SLOT_PACK_CHARTER_PRODUCT } from './slotPack';
-import { createHash } from 'crypto';
+import { IOS_BUNDLE_ID, purchaseIdFor } from './purchaseId';
 
 const db = admin.firestore();
 
@@ -44,7 +44,7 @@ const appleSharedSecret = defineSecret('APPLE_SHARED_SECRET');
 // (a pre-launch id), which made every Google Play verification fail.
 export const PLAY_PACKAGE_NAME = 'com.undercut.app';
 /** The same identifier on the App Store; a signed transaction names the app it belongs to. */
-export const IOS_BUNDLE_ID = 'com.undercut.app';
+export { IOS_BUNDLE_ID };
 const PACKAGE_NAME = PLAY_PACKAGE_NAME;
 
 /**
@@ -314,7 +314,7 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
   // at once, both see nothing, and both be entitled — the dedupe below was doing the right
   // comparison on the wrong primitive. `create` fails if the id exists, and Firestore decides the
   // winner, so one store transaction can only ever produce one purchase record.
-  const purchaseId = createHash('sha256').update(`${isIOS ? 'ios' : isAmazon ? 'amazon' : 'android'}:${storeTransactionId}`).digest('hex').slice(0, 40);
+  const purchaseId = purchaseIdFor(isIOS ? 'ios' : isAmazon ? 'amazon' : 'android', storeTransactionId);
   const purchaseDoc = db.collection('purchases').doc(purchaseId);
 
   const claimedBy = async (): Promise<string | null> => {
@@ -385,6 +385,13 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
       if (productId === CHARTER_PRODUCT_ID) return { success: true, purchaseId, duplicate: true, charter: await applyCharter() };
       if (isSlotPack(productId)) return { success: true, purchaseId, duplicate: true, slots: await applySlots() };
       return { success: true, purchaseId, duplicate: true };
+    }
+    // F-175 slice 5: Apple's refund notification arrived before this purchase was ever validated and
+    // left a refunded record with no owner. Refused the same way (that reason is what lets released
+    // builds finish the transaction instead of retrying it forever), but said truthfully.
+    if ((await purchaseDoc.get()).data()?.refundedBeforeValidation === true) {
+      console.warn(`purchase ${purchaseId} was refunded before it was validated; refusing to entitle ${userId}`);
+      throw new functions.https.HttpsError('permission-denied', 'That purchase was refunded.', { reason: 'claimed-by-another-account' });
     }
     console.warn(`purchase lost a race to another account; refusing to entitle ${userId}`);
     throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.', { reason: 'claimed-by-another-account' });
