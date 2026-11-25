@@ -135,7 +135,8 @@ export const FREE_LEAGUE_SIZE = 22;
 
 /**
  * How many approved players a charter covers: the free 22 plus the slots actually paid for
- * (`leagues/{id}.paidSlots`, server-written by the slot pack and the legacy expansion). Not
+ * (`leagues/{id}.paidSlots`, server-written by the +3 slot pack only; the retired +20 expansion
+ * adds places but not cover). Not
  * `maxMembers`: an owner can still raise that from a released build for free, and one $39.99
  * charter must not cover a league grown that way (security review, 2026-11-25).
  */

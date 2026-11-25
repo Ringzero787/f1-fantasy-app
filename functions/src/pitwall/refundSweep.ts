@@ -132,7 +132,9 @@ export const sweepRefundedPasses = functions
     // Slot packs (owner decision 2026-11-25): an applied pack that the store refunded takes its slots
     // back out of `paidSlots`, so a charter no longer covers them (charterCap). maxMembers is left as
     // it is: approved players are not removed, and an ordinary league's size is free anyway.
-    const packs = await db.collection('purchases').where('status', '==', 'applied').where('productId', 'in', [SLOT_PACK_PRODUCT, SLOT_PACK_CHARTER_PRODUCT]).get();
+    // Its own try: a failed query here must not stop the pass and charter refunds below.
+    const packs = await db.collection('purchases').where('status', '==', 'applied').where('productId', 'in', [SLOT_PACK_PRODUCT, SLOT_PACK_CHARTER_PRODUCT]).get()
+      .catch((err) => { console.error('[refunds] slot pack query failed:', msg(err)); return { docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] }; });
 
     let checked = 0, revoked = 0, skipped = 0, stale = 0, failed = 0, uncharted = 0, unslotted = 0;
     for (const doc of packs.docs) {
