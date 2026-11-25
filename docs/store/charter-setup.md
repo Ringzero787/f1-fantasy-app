@@ -74,6 +74,8 @@ profile or banking settings.
 
 ### Then test it (once slice 4 puts the button in the app, and the product is activated)
 
+In builds from 2.10.0, an account marked `testAccount` sees the Charter offer on **Android** before the sale opens (`charterTester`). It does not see it on iOS: the App Review accounts are testers too. Every such account must also be on Play's **License testing** list, or its purchase is a real charge that the server records unapplied. A newly marked tester signs out and back in.
+
 1. Use a license-tester Google account whose Undercut account is marked `testAccount`.
 2. Install from the **internal testing** track. Play only sells to an app it delivered, so a sideloaded APK cannot buy.
 3. Charter a league you own. Expect, in order:

@@ -3,7 +3,7 @@
  * functions/src/charter/rankUp.ts (the app cannot bundle server code, so it keeps a copy).
  */
 import {
-  approvalCap, charterFlagOn, charterOfferVisible, charterShareText, climb, climbedThisWeek, isChartered,
+  approvalCap, charterFlagOn, charterOfferVisible, charterTester, charterShareText, climb, climbedThisWeek, isChartered,
   orderChartered, rankUpLabel, rankUpsCaption, rankUpsReceived, rankUpsThisWeek, requestCaption, shouldShowUnlock, weekId,
 } from '../../src/simple/grid/charter';
 import * as server from '../../functions/src/charter/rankUp';
@@ -32,6 +32,13 @@ describe('the offer', () => {
     expect(charterOfferVisible({ ...on, demo: true })).toBe(false);
     expect(charterOfferVisible({ ...on, price: undefined })).toBe(false);
     expect(charterOfferVisible({ ...on, price: '' })).toBe(false);
+  });
+  it('the pre-sale tester offer is Android only (App Review accounts are testers too)', () => {
+    expect(charterTester('android', true)).toBe(true);
+    expect(charterTester('ios', true)).toBe(false);
+    expect(charterTester('web', true)).toBe(false);
+    expect(charterTester('android', false)).toBe(false);
+    expect(charterTester('android', 'true')).toBe(false);
   });
   it('a store tester sees it before the sale opens, but never on Amazon, in demo or without a price', () => {
     const closed = { ...on, flagOn: false, contentOpen: true, tester: true };
