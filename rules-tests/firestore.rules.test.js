@@ -1197,6 +1197,19 @@ test('F-175 slice 3: in a chartered league the owner cannot change a status, but
   await assertSucceeds(updateDoc(doc(o, 'leagues', 'S3c', 'members', BOB), { status: 'approved' }));
 });
 
+test('F-175 slice 4: a member may mark the unlock sheet seen on their own document, true only, nothing else', async () => {
+  await seedChartered('S4', Date.now() + 1e10);
+  await seedMember('S4', BOB, { status: 'approved', totalPoints: 0 });
+  const bob = db(BOB);
+  await assertSucceeds(updateDoc(doc(bob, 'leagues', 'S4', 'members', BOB), { charterUnlockSeen: true }));
+  await assertFails(updateDoc(doc(bob, 'leagues', 'S4', 'members', BOB), { charterUnlockSeen: false }), 'true only');
+  await assertFails(updateDoc(doc(bob, 'leagues', 'S4', 'members', BOB), { charterUnlockSeen: true, totalPoints: 999 }), 'nothing else with it');
+  await assertFails(updateDoc(doc(bob, 'leagues', 'S4', 'members', BOB), { charterUnlockSeen: true, status: 'approved', role: 'owner' }));
+  await assertFails(updateDoc(doc(bob, 'leagues', 'S4', 'members', ALICE), { charterUnlockSeen: true }), 'not on someone else\'s document');
+  // ALICE has not set it yet, so this is a real change (on BOB it would now be a no-op write)
+  await assertFails(updateDoc(doc(db(OWNER), 'leagues', 'S4', 'members', ALICE), { charterUnlockSeen: true }), 'not by the owner for them');
+});
+
 test('F-175 slice 3: the email unsubscribe token and the mail log are server-only', async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), 'users', ALICE), { displayName: 'Alice', mailToken: 'a'.repeat(48) });

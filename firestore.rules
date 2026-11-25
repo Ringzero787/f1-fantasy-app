@@ -229,6 +229,12 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName'])
             && request.resource.data.displayName is string
             && request.resource.data.displayName.size() <= 60
+          ) || (
+            // F-175 slice 4: a member marks the one-time "PIT WALL IS ON" sheet as seen. Only
+            // `true`, only on their own document, and nothing else in the same write.
+            isOwner(memberId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['charterUnlockSeen'])
+            && request.resource.data.charterUnlockSeen == true
           )
         );
         allow delete: if isLeagueOwner(leagueId) || isOwner(memberId);
