@@ -11,6 +11,7 @@ import { useLockoutStatus } from '../../hooks/useLockoutStatus';
 import { serverRosterLock } from '../../utils/lockout';
 import { useTeamStore, isDriverLockedOut } from '../../store/team.store';
 import { useAuthStore } from '../../store/auth.store';
+import { isRefusal } from '../../utils/callableErrors';
 import { useAdminStore } from '../../store/admin.store';
 import { useRemoteConfigStore } from '../../store/remoteConfig.store';
 import { useRaceScoresStore } from '../../store/raceScores.store';
@@ -319,6 +320,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
     setApplying(true);
     const store = useTeamStore.getState();
     const done: string[] = [];
+    let usedOneCall = false;
     const step = async (label: string, fn: () => Promise<void>) => {
       useTeamStore.setState({ error: null });
       await fn();
@@ -336,6 +338,7 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
         buyConstructor: ctorBuyPlan ? { id: ctorBuyPlan.id, contractLength: ctorBuyPlan.contract } : null,
         buyDrivers: plan.buys.filter((x) => x.kind === 'driver').map((x) => ({ id: x.id, contractLength: x.contract })),
       });
+      usedOneCall = oneCall === 'done';
       if (oneCall === 'done') {
         done.push('lineup');
       } else {
@@ -367,11 +370,15 @@ export function GridPickerScreen({ initialTab = 'drivers' }: Props) {
       // F-176: the one-call save is all or nothing, so a refusal there changed nothing at all. A
       // timeout or a dropped connection is different: the save may have gone through with the reply
       // lost, so it is "not confirmed", and the roster below is re-read from the server.
-      const code = String((e as { code?: unknown })?.code ?? '').replace(/^functions\//, '');
-      const refused = ['failed-precondition', 'already-exists', 'not-found', 'invalid-argument', 'permission-denied'].includes(code);
-      const title = done.length ? 'Lineup partly saved' : refused ? 'Lineup not saved' : 'Save not confirmed';
+      // The single-move fallback (demo, or no callable deployed) keeps its old wording.
+      const refused = isRefusal(e);
+      const title = !usedOneCall && e instanceof Error && !(e as { code?: unknown }).code
+        ? (done.length ? 'Lineup partly saved' : 'Lineup not saved')
+        : refused ? 'Lineup not saved' : 'Save not confirmed';
       Alert.alert(title, `${applied}${reason}\n\nYour roster below shows what the server holds.`);
-      if (!refused && team) void useTeamStore.getState().loadUserTeams?.(team.userId);
+      // After a timeout the save may have landed: read the server's roster BEFORE re-seeding, so
+      // the picker does not offer the already-saved moves again.
+      if (!refused && team) await useTeamStore.getState().loadUserTeams(team.userId).catch(() => undefined);
       const latest = useTeamStore.getState().currentTeam;
       if (latest) setSeededFor(null); // re-seed pending from the server's roster
     } finally {

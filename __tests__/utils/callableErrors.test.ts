@@ -13,3 +13,14 @@ describe('isMissingCallable', () => {
     expect(isMissingCallable(new Error('network'))).toBe(false);
   });
 });
+
+import { isRefusal } from '../../src/utils/callableErrors';
+describe('isRefusal', () => {
+  it('is a game-rule refusal from our callables, not a fault', () => {
+    expect(isRefusal({ code: 'functions/failed-precondition' })).toBe(true);
+    expect(isRefusal({ code: 'already-exists' })).toBe(true);
+    expect(isRefusal({ code: 'functions/deadline-exceeded' })).toBe(false);
+    expect(isRefusal({ code: 'functions/internal' })).toBe(false);
+    expect(isRefusal(new Error('Sell X failed: Cannot afford'))).toBe(false);
+  });
+});

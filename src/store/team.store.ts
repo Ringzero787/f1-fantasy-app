@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { adoptServer, clearDirty, markDirty } from '../utils/syncDirty';
 import type { FantasyTeam, FantasyDriver, FantasyConstructor, Driver, Constructor, TeamSelectionState, LockStatus } from '../types';
 import { teamService, isMissingCallable, type LineupPlanInput } from '../services/team.service';
+import { isRefusal } from '../utils/callableErrors';
 import { useAuthStore } from './auth.store';
 import { BUDGET, TEAM_SIZE, SALE_COMMISSION_RATE } from '../config/constants';
 import { PRICING_CONFIG } from '../config/pricing.config';
@@ -1394,8 +1395,7 @@ export const useTeamStore = create<TeamState>()(
       set({ isSavingRoster: false });
       if (isMissingCallable(error)) return 'unavailable';
       // A refusal (budget, lock, lockout) is the game working, not a fault: log only the rest.
-      const code = String((error as { code?: unknown })?.code ?? '').replace(/^functions\//, '');
-      if (!['failed-precondition', 'already-exists', 'not-found', 'invalid-argument', 'permission-denied'].includes(code)) errorLogService.logError('applyLineup', error);
+      if (!isRefusal(error)) errorLogService.logError('applyLineup', error);
       throw error instanceof Error ? error : new Error('Could not save your lineup');
     }
   },
