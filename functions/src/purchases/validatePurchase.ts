@@ -386,6 +386,13 @@ export const validatePurchase = functions.runWith({ secrets: [amazonSharedSecret
       if (isSlotPack(productId)) return { success: true, purchaseId, duplicate: true, slots: await applySlots() };
       return { success: true, purchaseId, duplicate: true };
     }
+    // F-175 slice 5: Apple's refund notification arrived before this purchase was ever validated and
+    // left a refunded record with no owner. Refused the same way (that reason is what lets released
+    // builds finish the transaction instead of retrying it forever), but said truthfully.
+    if ((await purchaseDoc.get()).data()?.refundedBeforeValidation === true) {
+      console.warn(`purchase ${purchaseId} was refunded before it was validated; refusing to entitle ${userId}`);
+      throw new functions.https.HttpsError('permission-denied', 'That purchase was refunded.', { reason: 'claimed-by-another-account' });
+    }
     console.warn(`purchase lost a race to another account; refusing to entitle ${userId}`);
     throw new functions.https.HttpsError('permission-denied', 'That purchase is already on another account.', { reason: 'claimed-by-another-account' });
   }

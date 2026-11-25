@@ -142,6 +142,9 @@ test('refuses a header with no certificate chain', () => {
   const shortChain = b64u(JSON.stringify({ alg: 'ES256', x5c: ['only-one'] }));
   assert.match(verifyAppleTransaction(`${noChain}.${body}.sig`, PLAIN).error, /certificate chain/);
   assert.match(verifyAppleTransaction(`${shortChain}.${body}.sig`, PLAIN).error, /certificate chain/);
+  // The endpoint is public: a long attacker chain is refused before any certificate is parsed.
+  const longChain = b64u(JSON.stringify({ alg: 'ES256', x5c: ['a', 'b', 'c', 'd', 'e'] }));
+  assert.match(verifyAppleTransaction(`${longChain}.${body}.sig`, PLAIN).error, /certificate chain/);
 });
 
 test('refuses malformed input rather than throwing', () => {

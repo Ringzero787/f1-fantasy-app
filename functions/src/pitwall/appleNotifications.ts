@@ -42,8 +42,10 @@ export function appleNotificationAction(
   if (str(data.bundleId) !== opts.bundleId) return { kind: 'reject', why: `notification is for ${str(data.bundleId) || '(no bundle)'}` };
 
   if (type === 'REFUND_REVERSED') {
-    // Apple took a refund back. Nothing re-grants automatically: support re-applies it by hand.
-    return { kind: 'ignore', why: `REFUND_REVERSED ${uuid}: the buyer paid again; re-grant by support op`, loud: true };
+    // Apple took a refund back. Nothing re-grants automatically, and the support op will not re-apply a
+    // refunded purchase (by design: a replay must never undo a refund). A person decides: a pass by
+    // pitwallPass.js grant; a charter by a fresh support grant (charter-setup.md, REFUND_REVERSED).
+    return { kind: 'ignore', why: `REFUND_REVERSED ${uuid}: the buyer paid again; needs a manual re-grant (charter-setup.md)`, loud: true };
   }
   if (!REFUND_TYPES.has(type)) return { kind: 'ignore', why: `${type || '(no type)'}${n.subtype ? `/${str(n.subtype)}` : ''}` };
 

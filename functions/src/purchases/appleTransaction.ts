@@ -92,7 +92,9 @@ export function verifyAppleJws(jws: string, opts: { now?: Date; rootCa?: string 
   // ES256 only. Anything else, including "none", is refused rather than interpreted.
   if (header.alg !== 'ES256') return { valid: false, error: `unexpected algorithm ${String(header.alg)}` };
   const x5c = header.x5c;
-  if (!Array.isArray(x5c) || x5c.length < 2 || !x5c.every((c) => typeof c === 'string')) {
+  // Apple's chain is leaf, intermediate, root. A longer one is not Apple's, and the endpoint that
+  // calls this is public, so it is refused before any certificate is parsed.
+  if (!Array.isArray(x5c) || x5c.length < 2 || x5c.length > 4 || !x5c.every((c) => typeof c === 'string')) {
     return { valid: false, error: 'missing certificate chain' };
   }
 

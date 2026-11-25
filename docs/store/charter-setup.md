@@ -142,7 +142,7 @@ Tax, and Banking or Payments and Financial Reports.
 
 The daily refund sweep cannot re-check a StoreKit 2 purchase, so without this a refunded App Store pass or charter stays live until the season ends. Apple pushes the refund to `pw-appStoreNotifications` instead. That function verifies the notification against Apple's certificate chain, so it needs no secret. It then takes back what the purchase paid for: the pass, the charter or the slots.
 
-**1. Deploy the function first** (`aidlc op new functions-deploy -p only=functions:pw-appStoreNotifications`). Once it is deployed, check that it answers:
+**1. Deploy the function first**, with the rest of slice 5 (`aidlc op new functions-deploy -p only=functions:pw-appStoreNotifications,functions:pw-stripeWebhook,functions:pw-sweepRefundedPasses,functions:validatePurchase`). Once it is deployed, check that it answers:
 
 ```
 curl -s -o /dev/null -w '%{http_code}\n' https://us-central1-f1-app-18077.cloudfunctions.net/pw-appStoreNotifications              # 405
@@ -177,7 +177,7 @@ What it does with each notification:
 | Type | Action |
 |---|---|
 | `REFUND`, `REVOKE` | Takes back what that purchase paid for. A pass is taken only if that purchase granted it. |
-| `REFUND_REVERSED` | Nothing automatic. It is logged as an error: re-apply by hand with `uc-charter-support`, or with `pitwallPass.js` for a pass. |
+| `REFUND_REVERSED` | Nothing automatic. It is logged as an error. A pass is re-granted with `pitwallPass.js grant`. A charter cannot be re-applied from its purchase: a refunded purchase never charters again, by design, so that a replay can never undo a refund. Re-granting a reversed charter needs a hand-written support grant, decided case by case. |
 | A refund for a purchase the app never validated | Writes a refunded record under that purchase's id, so a later replay of the receipt is refused. |
 | Anything else | Answered 200 and ignored. |
 
@@ -209,14 +209,19 @@ Each op's dry run lists every document it can write. The backup takes exactly th
 aidlc op new uc-charter-sale -t "Charter on sale" -p state=on
 ```
 
-Before the flag is on, the only ways to charter are a test purchase and a support apply. So the flip first clears every live charter that is not a support apply, then sets `config/app.charter.enabled: true`. Once the sale is on, `state=on` clears nothing. `state=off` only turns the flag off and keeps live charters.
+Before the first launch, the only ways to charter are a test purchase and a support apply. So the first flip clears every live charter that is not a support apply, then sets `config/app.charter.enabled: true`. Once the sale is on, `state=on` clears nothing. `state=off` only turns the flag off and keeps live charters.
 
 **Before running it**, check all of these:
 
 - `minVersion` is the first build carrying slices 3 and 4 (the dry run prints it);
 - the App Store notification URL is proven;
+- the sandbox purchases on Play and Apple, and the Stripe test payment and refund, are done;
+- the Play product is active;
 - the trademark search is done;
+- the privacy read and the store data-safety check for the slice 3 emails are done;
 - `PITWALL_CONTENT_OPEN` is false in the build that is live.
+
+The first `state=on` records `launchedAt`. After that, a pause (`state=off`) and a resume (`state=on`) never clear anything, because live charters may be paid ones.
 
 ## Stripe test payment and refund (slice 5)
 

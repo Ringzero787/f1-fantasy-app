@@ -45,6 +45,7 @@ function fakeDb(seed = {}) {
     id: p.split('/').pop(),
     get: async () => ({ exists: docs.has(p), id: p.split('/').pop(), data: () => docs.get(p), ref: ref(p) }),
     set: async (v, o) => apply(p, v, o),
+    create: async (v) => { if (docs.has(p)) { const e = new Error('exists'); e.code = 6; throw e; } apply(p, v); },
     collection: (name) => coll(`${p}/${name}`),
   });
   const snapOf = (hits) => ({ empty: !hits.length, size: hits.length, docs: hits.map(([p, d]) => ({ id: p.split('/').pop(), ref: ref(p), data: () => d })) });
@@ -52,7 +53,7 @@ function fakeDb(seed = {}) {
   const coll = (prefix) => ({
     doc: (id) => ref(`${prefix}/${id}`),
     get: async () => snapOf(children(prefix)),
-    where: (field, op, value) => {
+    where: function where(field, op, value, base = children(prefix)) {
       const segs = field instanceof FakeFieldPath ? field.segments : String(field).split('.');
       const test = (d) => {
         const v = getPath(d, segs);
@@ -61,7 +62,8 @@ function fakeDb(seed = {}) {
         if (op === '<=') return typeof v === 'number' && v <= value;
         throw new Error(`op ${op}`);
       };
-      const q = { get: async () => snapOf(children(prefix).filter(([, d]) => test(d))), limit: () => q };
+      const hits = base.filter(([, d]) => test(d));
+      const q = { get: async () => snapOf(hits), limit: () => q, where: (f, o, v) => where(f, o, v, hits) };
       return q;
     },
   });
@@ -429,7 +431,9 @@ test('the App Store notification finds the purchase by the same id validatePurch
   const vp = fs.readFileSync(path.join(__dirname, '..', 'src', 'purchases', 'validatePurchase.ts'), 'utf8');
   assert.match(vp, /const purchaseId = purchaseIdFor\(/);
   const idx = fs.readFileSync(path.join(__dirname, '..', 'src', 'pitwall', 'index.ts'), 'utf8');
-  assert.match(idx, /purchaseIdFor\('ios', action\.transactionId\)/);
+  assert.match(idx, /refundAppleTransaction\(db, \{ transactionId: action\.transactionId/);
+  const ra = fs.readFileSync(path.join(__dirname, '..', 'src', 'pitwall', 'refundApply.ts'), 'utf8');
+  assert.match(ra, /purchaseIdFor\('ios', a\.transactionId\)/);
   assert.match(idx, /export const appStoreNotifications = onRequest/);
 });
 
@@ -442,4 +446,47 @@ test('Stripe dispute: the session says whether a payment bought a pass; a charte
   assert.equal(S.disputedPass({ data: [{ ...pass, payment_status: 'unpaid' }] }), null);
   assert.equal(S.disputedPass({ data: [{ payment_status: 'paid', metadata: { uid: 'x', season: '2027' }, amount_subtotal: 999 }] }), null, 'not something we sold');
   for (const bad of [null, undefined, {}, { data: 'x' }]) assert.equal(S.disputedPass(bad), null);
+});
+
+// ── slice 5 review fixes ──
+test('App Store refund: found by the derived id, by the legacy field (ios only), or left as a refunded record', async () => {
+  const id = PID.purchaseIdFor('ios', 't1');
+  const seed = seedLeague();
+  seed['users/owner'] = { pass: { tier: 'pitwall', season: '2027', expiresAt: END_2027, source: 'apple', ref: id } };
+  seed[`purchases/${id}`] = { userId: 'owner', productId: 'pitwall.pass.season', status: 'validated', platform: 'ios' };
+  seed['purchases/legacyRandom'] = { userId: 'amy', productId: 'pitwall.pass.season', status: 'validated', platform: 'ios', storeTransactionId: 't2' };
+  seed['purchases/playOne'] = { userId: 'amy', productId: 'pitwall.pass.season', status: 'validated', platform: 'android', storeTransactionId: 't3' };
+  const db = fakeDb(seed);
+  assert.equal(await RA.refundAppleTransaction(db, { transactionId: 't1', productId: 'pitwall.pass.season', reason: 'r' }), 'revoked');
+  assert.equal(db.docs.get('users/owner').pass, undefined);
+  // amy's live pass came from elsewhere: the legacy record is marked, the pass stays.
+  assert.equal(await RA.refundAppleTransaction(db, { transactionId: 't2', productId: 'pitwall.pass.season', reason: 'r' }), 'superseded');
+  assert.equal(db.docs.get('purchases/legacyRandom').status, 'refunded');
+  // A Play record with the same transaction string is never matched.
+  assert.equal(await RA.refundAppleTransaction(db, { transactionId: 't3', productId: 'pitwall.pass.season', reason: 'r' }), 'tombstone');
+  assert.equal(db.docs.get('purchases/playOne').status, 'validated');
+  // Never validated: a refunded record under the id validation would use; a charter also gets clearedAt.
+  const cid = PID.purchaseIdFor('ios', 't4');
+  assert.equal(await RA.refundAppleTransaction(db, { transactionId: 't4', productId: 'pitwall.charter.season', reason: 'r' }), 'tombstone');
+  assert.equal(db.docs.get(`purchases/${cid}`).refundedBeforeValidation, true);
+  assert.ok(db.docs.get(`charter_grants/${cid}`).clearedAt);
+  assert.equal(await RA.refundAppleTransaction(db, { transactionId: 't5', productId: 'something.else', reason: 'r' }), 'not-ours');
+  assert.equal(db.docs.has(`purchases/${PID.purchaseIdFor('ios', 't5')}`), false);
+});
+
+test('a refunded slot pack that never applied is recorded, and a replay can no longer apply it', async () => {
+  const seed = seedLeague({ maxMembers: 22 });
+  seed['purchases/sp'] = { userId: 'owner', productId: 'league.slots3', status: 'validated', slotsApplied: false, slotsRefused: 'no-league' };
+  const db = fakeDb(seed);
+  assert.equal(await RA.refundPurchase(db, db.doc('purchases/sp'), db.docs.get('purchases/sp'), 'r'), 'unslotted');
+  assert.equal(db.docs.get('purchases/sp').status, 'refunded');
+  assert.deepEqual(await SP.applySlotPack(db, 'sp', 'owner', 'L1', 'league.slots3', NOW), { applied: false, reason: 'refunded' });
+  assert.equal(db.docs.get('leagues/L1').maxMembers, 22);
+});
+
+test('a disputed pass payment takes only a Stripe pass for that season', () => {
+  assert.equal(S.disputeTakesPass({ source: 'stripe', season: '2027' }, { season: '2027' }), true);
+  assert.equal(S.disputeTakesPass({ source: 'play', season: '2027' }, { season: '2027' }), false, 'bought since in a store');
+  assert.equal(S.disputeTakesPass({ source: 'stripe', season: '2028' }, { season: '2027' }), false, 'another season');
+  assert.equal(S.disputeTakesPass(undefined, { season: '2027' }), false);
 });

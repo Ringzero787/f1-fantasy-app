@@ -145,6 +145,16 @@ export function disputedPass(sessions: unknown): { uid: string; season: string }
   return null;
 }
 
+/**
+ * A disputed pass payment takes the live pass only if that payment bought it: a Stripe pass for the
+ * same season. `pass.ref` holds the checkout EVENT id, which the session does not carry, so it cannot
+ * be matched exactly; a second Stripe pass in one season is refused at checkout while one is live,
+ * so the only miss is refund → rebuy → a late dispute of the refunded charge (security review, low).
+ */
+export function disputeTakesPass(pass: { source?: unknown; season?: unknown } | null | undefined, owner: { season: string }): boolean {
+  return pass?.source === 'stripe' && pass.season === owner.season;
+}
+
 /** What a verified Stripe event should do. Only paid checkouts grant; refunds and disputes revoke. */
 export function webhookAction(event: Record<string, any>): WebhookAction {
   const type = String(event?.type ?? '');

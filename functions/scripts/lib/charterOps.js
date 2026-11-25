@@ -52,16 +52,19 @@ function supportApplyPlan({ ref, leagueArg, purchase, grant, saleSeasonAt }) {
 }
 
 /**
- * The sale flip. Before the flag is on, nothing real can charter except a support apply (which
+ * The sale flip. Before the FIRST launch, nothing real can charter except a support apply (which
  * marks its grant record `support: true`), so every other live charter is a test charter and is
- * cleared first (spec F-175 slice 5). With the flag already on, nothing is cleared.
+ * cleared first (spec F-175 slice 5). Once the sale has ever been on (`launchedAt` on
+ * config/app.charter, kept by sale-off), live charters may be paid ones, so a resume after a
+ * pause clears nothing; nor does sale-on while the sale is already on.
  *
  * `live` is [{ leagueId, ref, test, support }] for every league with a live charter.
  */
-function salePlan({ state, flagOn, live }) {
+function salePlan({ state, flagOn, launched, live }) {
   if (state !== 'on' && state !== 'off') return { ok: false, why: 'state must be on or off' };
   if (state === 'off') return { ok: true, clear: [], keep: live, set: false };
   if (flagOn) return { ok: true, clear: [], keep: live, set: true, already: true };
+  if (launched) return { ok: true, clear: [], keep: live, set: true, resumed: true };
   const clear = live.filter((c) => !c.support);
   const keep = live.filter((c) => c.support);
   return { ok: true, clear, keep, set: true };

@@ -15,13 +15,13 @@ import { CREATE_LIMIT, REDEEM_LIMIT, cleanSource, clientIpOf, ipKey, isWellForme
 import { createHandoff, deleteOldHandoffs, redeemHandoff, takeRateSlot } from './handoffStore';
 import { passActive, PASS_PRICE_USD, PASS_PRODUCT, saleSeason, type Pass } from './pass';
 import { expirePasses, grantPass, grantTrial, revokePass, stampClaim } from './passStore';
-import { CHARTER_PRODUCT_ID, checkoutSessionParams, disputedPass, verifyStripeSignature, webhookAction } from './stripe';
+import { CHARTER_PRODUCT_ID, checkoutSessionParams, disputedPass, disputeTakesPass, verifyStripeSignature, webhookAction } from './stripe';
 import { charterActive, charterCap, charterEnabled, charterGrantDecision, charterMemberIds, claimExpiry, claimInputsChanged, CHARTER_PRICE_CENTS, type CharterAccess } from '../charter/charter';
 import { clearCharter, expireCharters, grantCharter, markRefunded } from '../charter/charterStore';
 import { isUsableLeagueId } from '../utils/leagueId';
 import { appleNotificationAction } from './appleNotifications';
-import { refundPurchase } from './refundApply';
-import { IOS_BUNDLE_ID, purchaseIdFor } from '../purchases/purchaseId';
+import { refundAppleTransaction } from './refundApply';
+import { IOS_BUNDLE_ID } from '../purchases/purchaseId';
 
 const db = admin.firestore();
 
@@ -120,10 +120,6 @@ export const createCheckout = onCall({ region: 'us-central1', secrets: [stripeSe
   return { url: body.url, priceUsd: input.product === CHARTER_PRODUCT_ID ? CHARTER_PRICE_CENTS / 100 : PASS_PRICE_USD, season };
 });
 
-/**
- * Stripe webhook. Verified against the signing secret on the RAW body, idempotent on the event id,
- * and it answers 200 to anything it means to ignore so Stripe stops retrying.
- */
 /** The paid Checkout Session behind a PaymentIntent, read back from Stripe: whose pass it bought. */
 async function disputedPassFor(ref: string): Promise<{ uid: string; season: string } | null> {
   const pi = ref.startsWith('stripe:') ? ref.slice('stripe:'.length) : '';
@@ -147,7 +143,7 @@ async function revokeDisputedPass(ref: string, reason: string): Promise<boolean>
   const owner = await disputedPassFor(ref);
   if (!owner) return false;
   const pass = (await db.doc(`users/${owner.uid}`).get()).data()?.pass as Partial<Pass> | undefined;
-  if (pass?.source === 'stripe' && pass.season === owner.season) {
+  if (disputeTakesPass(pass, owner)) {
     await revokePass(db, owner.uid, reason);
     console.log('[pw] pass revoked on a dispute', owner.uid, ref);
   } else {
@@ -156,6 +152,10 @@ async function revokeDisputedPass(ref: string, reason: string): Promise<boolean>
   return true;
 }
 
+/**
+ * Stripe webhook. Verified against the signing secret on the RAW body, idempotent on the event id,
+ * and it answers 200 to anything it means to ignore so Stripe stops retrying.
+ */
 export const stripeWebhook = onRequest({ region: 'us-central1', secrets: [stripeWebhookSecret, stripeSecretKey] }, async (req, res) => {
   const raw = (req.rawBody ?? Buffer.from('')).toString('utf8');
   const verified = verifyStripeSignature(raw, req.get('stripe-signature'), stripeWebhookSecret.value(), Math.floor(Date.now() / 1000));
@@ -271,25 +271,9 @@ export const appStoreNotifications = onRequest({ region: 'us-central1' }, async 
   }
   try {
     const reason = `apple ${action.type.toLowerCase()} · ${action.environment || 'unknown env'}`;
-    const id = purchaseIdFor('ios', action.transactionId);
-    let doc = db.collection('purchases').doc(id);
-    let snap = await doc.get();
-    if (!snap.exists) {
-      // Records from before the id was derived from the transaction carry a random id.
-      const byField = await db.collection('purchases').where('storeTransactionId', '==', action.transactionId).limit(1).get();
-      if (!byField.empty) { doc = byField.docs[0].ref; snap = byField.docs[0]; }
-    }
-    if (!snap.exists) {
-      // Refunded before the app ever validated it. Leave a refunded record under the id a later
-      // validation would use, so that replaying the old transaction is refused, never granted.
-      await doc.set({ status: 'refunded', productId: action.productId, platform: 'ios', storeTransactionId: action.transactionId, refundedBeforeValidation: true, refundedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      if (action.productId === CHARTER_PRODUCT_ID) await markRefunded(db, id, reason);
-      console.log('[apple] refund for a purchase never validated', action.productId, id);
-    } else {
-      const outcome = await refundPurchase(db, doc, snap.data() ?? {}, reason);
-      if (outcome === 'no-user') console.error('[apple] refunded purchase has no user', doc.id);
-      else console.log('[apple]', action.type, action.productId, doc.id, outcome);
-    }
+    const outcome = await refundAppleTransaction(db, { transactionId: action.transactionId, productId: action.productId, reason });
+    if (outcome === 'no-user') console.error('[apple] refunded purchase has no user', action.transactionId);
+    else console.log('[apple]', action.type, action.productId, outcome);
   } catch (e) {
     console.error('[apple] refund handling failed:', e instanceof Error ? e.message : 'unknown error');
     res.status(500).send('handler failed');

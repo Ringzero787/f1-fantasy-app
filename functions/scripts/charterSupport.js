@@ -59,7 +59,9 @@ const day = (ms) => (typeof ms === 'number' ? new Date(ms).toISOString().slice(0
 async function touchedUids(leagueId) {
   const holders = await db.collection('users').where(new admin.firestore.FieldPath('charterAccess', 'leagues', leagueId), '>', 0).get();
   const members = await db.collection(`leagues/${leagueId}/members`).get();
-  return [...new Set([...holders.docs.map((d) => d.id), ...members.docs.map((d) => d.id)])];
+  // The owner gets access whether or not they have a member document (charterMemberIds).
+  const ownerId = (await db.doc(`leagues/${leagueId}`).get()).data()?.ownerId;
+  return [...new Set([...holders.docs.map((d) => d.id), ...members.docs.map((d) => d.id), ...(typeof ownerId === 'string' && ownerId ? [ownerId] : [])])];
 }
 
 /** Write or check the backup path list. Returns false when an apply must not go ahead. */
@@ -164,11 +166,13 @@ async function sale(state) {
   const cfg = (await db.doc('config/app').get()).data() || {};
   const flagOn = charterEnabled(cfg);
   const live = await liveCharters();
-  const plan = OPS.salePlan({ state, flagOn, live });
+  const launchedAt = typeof cfg.charter?.launchedAt === 'number' ? cfg.charter.launchedAt : null;
+  const plan = OPS.salePlan({ state, flagOn, launched: launchedAt !== null, live });
   if (!plan.ok) { console.error(plan.why); process.exit(2); }
   console.log(`${APPLY ? 'APPLY' : 'DRY RUN'} · sale ${state} · now ${flagOn ? 'ON' : 'off'} · minVersion ${cfg.minVersion ?? '(none)'}`);
   if (state === 'on') console.log('  CHECK: minVersion must be the first build carrying slices 3 and 4, or owners on older builds cannot approve (spec F-175 slice 5).');
   if (plan.already) console.log('  the sale is already on: nothing is cleared');
+  if (plan.resumed) console.log(`  the sale was first launched ${day(launchedAt)}: live charters may be paid, so nothing is cleared`);
   for (const c of plan.clear) console.log(`  clear test charter ${c.leagueId} ${c.name ?? ''} (${c.source}, ref ${c.ref}${c.test ? ', charterTest' : ''})`);
   for (const c of plan.keep) console.log(`  keep ${c.leagueId} ${c.name ?? ''} (${c.source}, ref ${c.ref}${c.support ? ', support apply' : ''})`);
   const writes = ['config/app'];
@@ -179,7 +183,8 @@ async function sale(state) {
     const done = await store.clearCharter(db, { leagueId: c.leagueId, ref: c.ref || null, reason: 'test charter cleared at the sale flip' });
     console.log(`  ${c.leagueId}: ${done ? 'cleared' : 'nothing to clear'}`);
   }
-  await db.doc('config/app').set({ charter: { enabled: state === 'on' } }, { merge: true });
+  // launchedAt marks the first launch; sale-off keeps it, so a later resume never clears paid charters.
+  await db.doc('config/app').set({ charter: { enabled: state === 'on', ...(state === 'on' && launchedAt === null ? { launchedAt: Date.now() } : {}) } }, { merge: true });
   console.log(`config/app.charter.enabled = ${state === 'on'}`);
 }
 

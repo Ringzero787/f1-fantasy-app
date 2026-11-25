@@ -51,6 +51,11 @@ test('the sale flip clears every live charter but support applies, and nothing o
   assert.deepEqual(again.clear, [], 'with the sale on, live charters are real');
   assert.equal(again.already, true);
   assert.deepEqual(OPS.salePlan({ state: 'off', flagOn: true, live }).clear, []);
+  // A pause and resume: the sale was on before, so live charters may be paid ones. Nothing is cleared.
+  const resume = OPS.salePlan({ state: 'on', flagOn: false, launched: true, live });
+  assert.deepEqual(resume.clear, []);
+  assert.equal(resume.resumed, true);
+  assert.equal(resume.keep.length, 3);
   assert.equal(OPS.salePlan({ state: 'maybe', flagOn: false, live }).ok, false);
 });
 

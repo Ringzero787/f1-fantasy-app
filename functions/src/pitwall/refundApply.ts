@@ -13,6 +13,8 @@ import { revokePass } from './passStore';
 import { CHARTER_PRODUCT } from '../charter/charter';
 import { clearCharter, markRefunded } from '../charter/charterStore';
 import { SLOT_PACK_CHARTER_PRODUCT, SLOT_PACK_PRODUCT } from '../purchases/slotPack';
+import { isKnownProduct } from '../purchases/productGuards';
+import { purchaseIdFor } from '../purchases/purchaseId';
 
 type Db = FirebaseFirestore.Firestore;
 type Ref = FirebaseFirestore.DocumentReference;
@@ -21,7 +23,9 @@ export type RefundOutcome =
   | 'revoked' | 'superseded' | 'no-pass' | 'no-user'
   | 'uncharted' | 'charter-recorded'
   | 'unslotted'
-  | 'already' | 'not-ours';
+  | 'already' | 'not-ours'
+  /** App Store: refunded before the app validated it; a refunded record now blocks a replay */
+  | 'tombstone';
 
 const refundedNow = () => ({ status: 'refunded', refundedAt: admin.firestore.FieldValue.serverTimestamp() });
 
@@ -83,7 +87,12 @@ async function refundSlotPack(db: Db, doc: Ref, purchase: Record<string, unknown
   const slots = typeof purchase.slots === 'number' ? purchase.slots : 3;
   const done = await db.runTransaction(async (tx) => {
     const fresh = (await tx.get(doc)).data();
-    if (fresh?.status !== 'applied') return false;
+    if (fresh?.status === 'refunded') return false;
+    if (fresh?.status !== 'applied' || fresh?.slotsApplied !== true) {
+      // Validated but never applied (refused, no league): record the refund so a replay never applies it.
+      tx.set(doc, refundedNow(), { merge: true });
+      return true;
+    }
     if (leagueId) {
       const leagueRef = db.doc(`leagues/${leagueId}`);
       const league = (await tx.get(leagueRef)).data();
@@ -107,4 +116,34 @@ export async function refundPurchase(db: Db, doc: Ref, purchase: Record<string, 
   if (productId === CHARTER_PRODUCT) return refundCharter(db, doc, purchase, reason);
   if (productId === SLOT_PACK_PRODUCT || productId === SLOT_PACK_CHARTER_PRODUCT) return refundSlotPack(db, doc, purchase);
   return 'not-ours';
+}
+
+/**
+ * A StoreKit 2 refund from App Store Server Notifications (appleNotifications.ts): find the purchase
+ * by the id validatePurchase writes (or, for records older than that id, by the transaction field)
+ * and take back what it paid for.
+ */
+export async function refundAppleTransaction(db: Db, a: { transactionId: string; productId: string; reason: string }): Promise<RefundOutcome> {
+  const id = purchaseIdFor('ios', a.transactionId);
+  let doc = db.collection('purchases').doc(id);
+  let snap = await doc.get();
+  if (!snap.exists) {
+    const byField = await db.collection('purchases').where('storeTransactionId', '==', a.transactionId).where('platform', '==', 'ios').limit(1).get();
+    if (!byField.empty) { doc = byField.docs[0].ref; snap = byField.docs[0]; }
+  }
+  if (snap.exists) return refundPurchase(db, doc, snap.data() ?? {}, a.reason);
+  // Refunded before the app ever validated it. For a product we sell, leave a refunded record under
+  // the id a later validation would use, so replaying the old transaction is refused, never granted.
+  if (!isKnownProduct(a.productId)) return 'not-ours';
+  try {
+    // create, not set: if validation wins the race and writes the purchase first, take back what it granted.
+    await doc.create({ status: 'refunded', productId: a.productId, platform: 'ios', storeTransactionId: a.transactionId, refundedBeforeValidation: true, refundedAt: admin.firestore.FieldValue.serverTimestamp() });
+  } catch (err) {
+    const code = (err as { code?: number | string } | null)?.code;
+    if (code !== 6 && code !== 'already-exists') throw err;
+    const fresh = await doc.get();
+    return refundPurchase(db, doc, fresh.data() ?? {}, a.reason);
+  }
+  if (a.productId === CHARTER_PRODUCT) await markRefunded(db, id, a.reason);
+  return 'tombstone';
 }
