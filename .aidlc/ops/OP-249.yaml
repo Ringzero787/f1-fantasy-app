@@ -1,0 +1,38 @@
+id: OP-249
+title: "F-175/F-176: purchases (Charter, slot packs), invite email, one-call lineup save"
+kind: functions-deploy
+status: applied
+params:
+  only: functions:validatePurchase,functions:getUserPurchases,functions:sendInviteEmail,functions:createTeamSecure,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure,functions:applyLineupSecure,functions:buildTeamSecure,functions:quoteSaleSecure
+created_at: 2026-11-25T13:53:10.379Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-25T13:53:14.165Z
+    head_sha: 177df963320bcf4e9232e18a7bfd56a5a309bf51
+    command: git --no-pager diff --stat '4b825dc642cb6eb9a060e54bf8d69288fbee4904' HEAD -- functions/src functions/package.json firebase.json && npm --prefix functions run build
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-249/dry-run-2026-11-25T13-53-14-165Z.log
+    log_sha256: a259e53e111cf93b7676259ca40a3e6d2fffc83dc44753eb20b9bb0dda73cd42
+    lines: 98
+  - step: gates
+    at: 2026-11-25T13:53:39.332Z
+    head_sha: 177df963320bcf4e9232e18a7bfd56a5a309bf51
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-25T13:53:39.336Z
+    head_sha: 177df963320bcf4e9232e18a7bfd56a5a309bf51
+    command: bash scripts/ops/firebase-deploy.sh --only 'functions:validatePurchase,functions:getUserPurchases,functions:sendInviteEmail,functions:createTeamSecure,functions:addDriverSecure,functions:removeDriverSecure,functions:setConstructorSecure,functions:removeConstructorSecure,functions:applyLineupSecure,functions:buildTeamSecure,functions:quoteSaleSecure' --project 'f1-app-18077'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-249/apply-2026-11-25T13-53-39-336Z.log
+    log_sha256: c7aafdf703e9f0ce26e40e2f69fbc56ba17f3783979d8fa80fa9f2cf6756e1cb
+    lines: 51
+  - step: gates
+    at: 2026-11-25T13:55:16.644Z
+    head_sha: 177df963320bcf4e9232e18a7bfd56a5a309bf51
+    exit: 0
+    gates:
+      G15: skip
