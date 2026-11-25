@@ -79,7 +79,7 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const [unlockOnCreate, setUnlockOnCreate] = useState(false);
   const charterFlag = useRemoteConfigStore((s) => charterFlagOn(s.appConfig?.charter));
   const charterPrice = storePrices[PRODUCT_IDS.PITWALL_CHARTER];
-  const charterOffer = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice });
+  const charterOffer = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice, tester: user?.testAccount === true });
   const pendingHere = useLeagueStore((s) => (league ? s.pendingLeagueIds.includes(league.id) : false));
   // the owner's join requests: the email "Approve" button and the join link land here
   const requestCount = useLeagueStore((s) => (league ? s.pendingCountsByLeague[league.id] ?? 0 : 0));

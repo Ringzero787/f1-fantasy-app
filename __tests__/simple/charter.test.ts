@@ -33,6 +33,14 @@ describe('the offer', () => {
     expect(charterOfferVisible({ ...on, price: undefined })).toBe(false);
     expect(charterOfferVisible({ ...on, price: '' })).toBe(false);
   });
+  it('a store tester sees it before the sale opens, but never on Amazon, in demo or without a price', () => {
+    const closed = { ...on, flagOn: false, contentOpen: true, tester: true };
+    expect(charterOfferVisible(closed)).toBe(true);
+    expect(charterOfferVisible({ ...closed, tester: false })).toBe(false);
+    expect(charterOfferVisible({ ...closed, amazon: true })).toBe(false);
+    expect(charterOfferVisible({ ...closed, demo: true })).toBe(false);
+    expect(charterOfferVisible({ ...closed, price: undefined })).toBe(false);
+  });
   it('reads config/app.charter fail-closed', () => {
     expect(charterFlagOn({ enabled: true })).toBe(true);
     for (const v of [undefined, null, true, 'true', { enabled: 'true' }, { enabled: 1 }, {}]) expect(charterFlagOn(v)).toBe(false);

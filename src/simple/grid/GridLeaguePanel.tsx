@@ -88,7 +88,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const charterFlag = useRemoteConfigStore((s) => charterFlagOn(s.appConfig?.charter));
   const charterPrice = usePurchaseStore((s) => s.storePrices[PRODUCT_IDS.PITWALL_CHARTER]);
   const charterBusy = usePurchaseStore((s) => s.isPurchasing);
-  const offerVisible = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice });
+  const offerVisible = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice, tester: user?.testAccount === true });
   const [requestsOpen, setRequestsOpen] = useState(false);
   // null = not loaded or the read failed: no Rank Up control shows rather than a wrong one
   const [gifts, setGifts] = useState<Array<{ fromUid: string; toUid: string }> | null>(null);

@@ -36,8 +36,11 @@ export function charterFlagOn(raw: unknown): boolean {
  * open to everyone (PITWALL_CONTENT_OPEN), on Amazon (Charter is not sold there), in demo mode, and
  * until the store has priced the product (nothing is offered that the store cannot sell).
  */
-export function charterOfferVisible(o: { flagOn: boolean; contentOpen: boolean; amazon: boolean; demo: boolean; price: string | null | undefined }): boolean {
-  return o.flagOn && !o.contentOpen && !o.amazon && !o.demo && typeof o.price === 'string' && o.price.length > 0;
+export function charterOfferVisible(o: { flagOn: boolean; contentOpen: boolean; amazon: boolean; demo: boolean; price: string | null | undefined; tester?: boolean }): boolean {
+  // A store tester (users.testAccount, server-owned) sees the offer before the sale opens, so the
+  // sandbox purchase can be made (F-175 slice 5); the server charters only test purchases by them then.
+  const open = o.tester === true || (o.flagOn && !o.contentOpen);
+  return open && !o.amazon && !o.demo && typeof o.price === 'string' && o.price.length > 0;
 }
 
 /** The approved-member cap the owner approves against: 22 + paid slots while chartered, else maxMembers. */
