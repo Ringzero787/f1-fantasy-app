@@ -20,7 +20,7 @@ import {
   QueryDocumentSnapshot,
   DocumentData,
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, functions, httpsCallable } from '../config/firebase';
 import {
   INVITE_CODE_LENGTH,
   INVITE_EXPIRY_DAYS,
@@ -675,26 +675,26 @@ export const leagueService = {
    * Approve a pending member
    */
   async approveMember(leagueId: string, userId: string): Promise<void> {
-    const league = await this.getLeagueById(leagueId);
-    if (!league) {
-      throw new Error('League not found');
+    // F-175: approval is server-side (charter-approveMember). It holds the cap — 22 approved in a
+    // chartered league, `maxMembers` otherwise — and gives a chartered league's new member Pit
+    // Wall. The rules refuse a client status change in a chartered league.
+    const approve = httpsCallable<{ leagueId: string; userId: string }, { ok: boolean }>(functions, 'charter-approveMember');
+    try {
+      await approve({ leagueId, userId });
+    } catch (e) {
+      const msg = (e as { message?: unknown })?.message;
+      throw new Error(typeof msg === 'string' && msg ? msg : 'Could not approve this player. Try again.');
     }
+  },
 
-    if (league.memberCount >= league.maxMembers) {
-      throw new Error('League is full. Remove a member before approving.');
-    }
-
-    const memberRef = doc(db, 'leagues', leagueId, 'members', userId);
-    const memberSnap = await getDoc(memberRef);
-    if (!memberSnap.exists() || memberSnap.data()?.status !== 'pending') {
-      throw new Error('No pending request found for this user');
-    }
-
-    await updateDoc(memberRef, {
-      status: 'approved',
-      rank: league.memberCount + 1,
-    });
-    // memberCount is server-owned (F-059): approval flips the member into the recount.
+  /**
+   * Give this week's Rank Up to another approved member of a chartered league (F-175). It moves
+   * the league in search and never changes anyone's points. One a week, back on Monday.
+   */
+  async giveRankUp(leagueId: string, toUid: string): Promise<{ weekId: string; count: number }> {
+    const give = httpsCallable<{ leagueId: string; toUid: string }, { weekId: string; count: number }>(functions, 'charter-giveRankUp');
+    const res = await give({ leagueId, toUid });
+    return res.data;
   },
 
   /**

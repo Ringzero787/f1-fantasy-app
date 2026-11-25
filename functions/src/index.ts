@@ -31,6 +31,8 @@ export { moonshotLiveSweep } from './moonshot/liveSweep';
 export { onFantasyTeamDeleted } from './teams/teamSnapshotsCleanup';
 // Undercut Pit Wall (F-075): deployed as the `pw` group, e.g. pw-createPortalHandoff
 export * as pw from './pitwall';
+// Charter (F-175): deployed as the `charter` group, e.g. charter-approveMember
+export * as charter from './charter/functions';
 export { onLeagueMemberWritten, onLeagueMemberCountChanged, reconcileAllLeagueMemberCounts } from './leagues/memberCount';
 export * from './auth/signInWithAmazon';
 export { appleAuthRedirect, claimAppleSignIn } from './auth/appleWebSignIn';

@@ -25,6 +25,7 @@ import {
   type CharterSource,
 } from './charter';
 import { isUsableLeagueId } from '../utils/leagueId';
+import { searchPoints } from './membership';
 
 type Db = FirebaseFirestore.Firestore;
 
@@ -84,7 +85,11 @@ export async function grantCharter(db: Db, i: GrantCharterInput): Promise<GrantC
     }
     const charter = newCharter(i.season, i.buyerId, i.source, i.ref, now, seasonExpiry(i.season));
     const ownerPass = ownerSnap?.data()?.pass as Partial<Pass> | undefined;
-    tx.set(leagueRef, charterLeaguePatch(charter, passActive(ownerPass, now) ? (ownerPass!.expiresAt as number) : null), { merge: true });
+    tx.set(leagueRef, {
+      ...charterLeaguePatch(charter, passActive(ownerPass, now) ? (ownerPass!.expiresAt as number) : null),
+      // slice 3: the search order starts from the approved members' totals at the moment of purchase
+      searchPoints: searchPoints(members.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => d.data())),
+    }, { merge: true });
     tx.set(record, { leagueId, buyerId: i.buyerId, season: i.season, source: i.source, grantedAt: now, expiresAt: charter.expiresAt }, { merge: true });
     return { applied: true as const, leagueId, charter, ids, replay: false };
   });
