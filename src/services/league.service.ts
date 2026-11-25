@@ -21,6 +21,7 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db, functions, httpsCallable } from '../config/firebase';
+import { approvalCap } from '../simple/grid/charter';
 import {
   INVITE_CODE_LENGTH,
   INVITE_EXPIRY_DAYS,
@@ -260,7 +261,9 @@ export const leagueService = {
       throw new Error('League not found');
     }
 
-    if (league.memberCount >= league.maxMembers) {
+    // A chartered league is full at its cover (22 + paid slots), which can be below a maxMembers
+    // raised for free from an older build (F-175); memberCount is the server's approved count.
+    if (league.memberCount >= approvalCap(league, Date.now())) {
       throw new Error('League is full');
     }
 
@@ -701,12 +704,13 @@ export const leagueService = {
    * This week's Rank Ups in a league (F-175): `leagues/{id}/rankUps` documents for `week`. Approved
    * members and the owner may read them; anyone else gets an empty list.
    */
-  async getRankUpsForWeek(leagueId: string, week: string): Promise<Array<{ fromUid: string; toUid: string }>> {
+  async getRankUpsForWeek(leagueId: string, week: string): Promise<Array<{ fromUid: string; toUid: string }> | null> {
+    // null, not [], when the read fails: an empty list would show a spent Rank Up as still to give
     try {
       const snap = await getDocs(query(collection(db, 'leagues', leagueId, 'rankUps'), where('weekId', '==', week)));
       return snap.docs.map((d) => ({ fromUid: String(d.data().fromUid ?? ''), toUid: String(d.data().toUid ?? '') }));
     } catch {
-      return [];
+      return null;
     }
   },
 

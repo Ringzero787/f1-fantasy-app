@@ -14,7 +14,27 @@ import { usePurchaseStore } from '../../store/purchase.store';
 import { useLeagueStore } from '../../store/league.store';
 import { useAuthStore } from '../../store/auth.store';
 import { leagueService } from '../../services/league.service';
-import type { LeagueMember } from '../../types';
+import type { League, LeagueMember } from '../../types';
+
+/** How long the ceremony waits for its league to load before it is dropped. */
+const CEREMONY_WAIT_MS = 8000;
+
+/** Share the owner's charter text (ceremony and the "PIT WALL · ON" card). */
+export async function shareCharter(league: Pick<League, 'name' | 'inviteCode'>, ownerName: string): Promise<void> {
+  await shareText(charterShareText(league.name, ownerName, league.inviteCode), `${league.name} is chartered`, 'charter');
+}
+
+/** The owner's "N REQUESTS TO JOIN · REVIEW ›" row (league page and League Manager). */
+export function CharterRequestRow({ count, onPress }: { count: number; onPress: () => void }) {
+  const { colors, scaled } = useSimpleTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${count} ${count === 1 ? 'request' : 'requests'} to join`}
+      style={({ pressed }) => ({ paddingVertical: scaled(13), paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: CHARTER_RED, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
+      <MonoLabel color={colors.text.primary}>{`${count} ${count === 1 ? 'REQUEST' : 'REQUESTS'} TO JOIN`}</MonoLabel>
+      <MonoLabel color={CHARTER_RED}>REVIEW ›</MonoLabel>
+    </Pressable>
+  );
+}
 
 /** The 8px red square after a chartered league's name, everywhere the name is shown. */
 export function CharterSquare({ size = 8 }: { size?: number }) {
@@ -121,10 +141,17 @@ export function GridCharterCeremonyHost() {
   const clear = usePurchaseStore((s) => s.clearCharterCeremony);
   const league = useLeagueStore((s) => (leagueId ? s.leagues.find((l) => l.id === leagueId) ?? (s.currentLeague?.id === leagueId ? s.currentLeague : null) : null));
   const ownerName = useAuthStore((s) => s.user?.displayName ?? 'The owner');
-  const onShare = useCallback(async () => {
-    if (!league) return;
-    await shareText(charterShareText(league.name, ownerName, league.inviteCode), `${league.name} is chartered`, 'charter');
-  }, [league, ownerName]);
+  const signedIn = useAuthStore((s) => !!s.user);
+  // The ceremony belongs to the moment of purchase: drop it on sign-out, and if the league has not
+  // loaded within a few seconds, rather than let it pop up later on some other screen.
+  useEffect(() => {
+    if (!leagueId) return;
+    if (!signedIn) { clear(); return; }
+    if (league) return;
+    const t = setTimeout(clear, CEREMONY_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [leagueId, league, signedIn, clear]);
+  const onShare = useCallback(async () => { if (league) await shareCharter(league, ownerName); }, [league, ownerName]);
   if (!leagueId || !league) return null;
   return (
     <Sheet visible onClose={clear}>

@@ -25,8 +25,8 @@ import { leagueService } from '../../services/league.service';
 import { PRODUCT_IDS } from '../../config/products';
 import { PITWALL_CONTENT_OPEN } from '../../pitwall/gates';
 import { isAmazonBuild } from '../../utils/storeDetection';
-import { approvalCap, charterFlagOn, charterOfferVisible, charterShareText, isChartered, rankUpLabel, rankUpsReceived, shouldShowUnlock, weekId, CHARTER_RED } from './charter';
-import { CharterMemberLine, CharterOfferCard, CharterOnCard, CharterRequestSheet, CharterSquare, CharterUnlockSheet } from './GridCharter';
+import { approvalCap, charterFlagOn, charterOfferVisible, isChartered, rankUpLabel, rankUpsReceived, shouldShowUnlock, weekId, CHARTER_RED } from './charter';
+import { CharterMemberLine, CharterOfferCard, CharterOnCard, CharterRequestRow, CharterRequestSheet, CharterSquare, CharterUnlockSheet, shareCharter } from './GridCharter';
 
 /** Leagues whose unlock sheet was shown this session, in case the "seen" write did not land. */
 const unlockShownThisSession = new Set<string>();
@@ -90,31 +90,32 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
   const charterBusy = usePurchaseStore((s) => s.isPurchasing);
   const offerVisible = charterOfferVisible({ flagOn: charterFlag, contentOpen: PITWALL_CONTENT_OPEN, amazon: isAmazonBuild, demo: isDemoMode, price: charterPrice });
   const [requestsOpen, setRequestsOpen] = useState(false);
-  const [gifts, setGifts] = useState<Array<{ fromUid: string; toUid: string }>>([]);
+  // null = not loaded or the read failed: no Rank Up control shows rather than a wrong one
+  const [gifts, setGifts] = useState<Array<{ fromUid: string; toUid: string }> | null>(null);
   const thisWeek = weekId(now);
   const loadGifts = useCallback(async () => {
-    if (!league || !chartered || pending || isDemoMode) { setGifts([]); return; }
+    if (!league || !chartered || pending || isDemoMode) { setGifts(null); return; }
     setGifts(await leagueService.getRankUpsForWeek(league.id, thisWeek));
   }, [league?.id, chartered, pending, isDemoMode, thisWeek]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void loadGifts(); }, [loadGifts]);
-  const received = useMemo(() => rankUpsReceived(gifts), [gifts]);
-  const rankUpSpent = !!userId && gifts.some((g) => g.fromUid === userId);
+  const received = useMemo(() => rankUpsReceived(gifts ?? []), [gifts]);
+  const rankUpSpent = !!userId && !!gifts && gifts.some((g) => g.fromUid === userId);
   const me = league ? members.find((m) => m.leagueId === league.id && m.userId === userId) : undefined;
-  const [unlockDismissed, setUnlockDismissed] = useState(false);
-  const showUnlock = !!league && !!me && !unlockDismissed && !unlockShownThisSession.has(league.id)
+  // the league whose sheet was just closed (re-renders; the module set covers the rest of the session)
+  const [unlockDismissed, setUnlockDismissed] = useState<string | null>(null);
+  const showUnlock = !!league && !!me && unlockDismissed !== league.id && !unlockShownThisSession.has(league.id)
     && shouldShowUnlock({ chartered, isOwner, pending, seen: me.charterUnlockSeen === true });
   const closeUnlock = useCallback(() => {
     if (!league || !userId) return;
     unlockShownThisSession.add(league.id);
-    setUnlockDismissed(true);
+    setUnlockDismissed(league.id);
     leagueService.markCharterUnlockSeen(league.id, userId).catch(() => {});
   }, [league, userId]);
   const unlock = useCallback(() => {
     if (league && isOwner && offerVisible) void usePurchaseStore.getState().purchaseCharter(league.id);
   }, [league, isOwner, offerVisible]);
-  const shareCharter = useCallback(async () => {
-    if (!league) return;
-    await shareText(charterShareText(league.name, user?.displayName ?? league.ownerName, league.inviteCode), `${league.name} is chartered`, 'charter');
+  const onShareCharter = useCallback(async () => {
+    if (league) await shareCharter(league, user?.displayName ?? league.ownerName);
   }, [league, user?.displayName]);
   const giveRankUp = useCallback((toUid: string, label: string) => {
     if (!league) return;
@@ -276,14 +277,8 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
 
   const charterBlock = (
     <>
-      {isOwner && requestCount > 0 ? (
-        <Pressable onPress={() => setRequestsOpen(true)} accessibilityRole="button" accessibilityLabel={`${requestCount} ${requestCount === 1 ? 'request' : 'requests'} to join`}
-          style={({ pressed }) => ({ marginTop: 12, paddingVertical: scaled(12), paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: CHARTER_RED, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
-          <MonoLabel color={colors.text.primary}>{`${requestCount} ${requestCount === 1 ? 'REQUEST' : 'REQUESTS'} TO JOIN`}</MonoLabel>
-          <MonoLabel color={CHARTER_RED}>REVIEW ›</MonoLabel>
-        </Pressable>
-      ) : null}
-      {isOwner && chartered ? <View style={{ marginTop: 12 }}><CharterOnCard leagueName={league.name} onShare={shareCharter} /></View> : null}
+      {isOwner && requestCount > 0 ? <View style={{ marginTop: 12 }}><CharterRequestRow count={requestCount} onPress={() => setRequestsOpen(true)} /></View> : null}
+      {isOwner && chartered ? <View style={{ marginTop: 12 }}><CharterOnCard leagueName={league.name} onShare={onShareCharter} /></View> : null}
       {isOwner && !chartered && offerVisible && charterPrice ? <View style={{ marginTop: 12 }}><CharterOfferCard leagueName={league.name} price={charterPrice} onUnlock={unlock} busy={charterBusy} /></View> : null}
     </>
   );
@@ -331,7 +326,7 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
       ) : null}
       {picking ? <GridRaceSelectSheet options={selectorOptions} value={selectorValue} onPick={onPick} onClose={() => setPicking(false)} /> : null}
       {requestsOpen ? (
-        <CharterRequestSheet leagueId={league.id} leagueName={league.name} approved={rows.length || league.memberCount} cap={approvalCap(league, now)} chartered={chartered}
+        <CharterRequestSheet leagueId={league.id} leagueName={league.name} approved={Math.max(members.filter((m) => m.leagueId === league.id).length, league.memberCount || 0)} cap={approvalCap(league, now)} chartered={chartered}
           onClose={() => setRequestsOpen(false)} onChanged={() => { if (userId) loadUserLeagues(userId); loadLeagueMembers(league.id, true).catch(() => {}); }} />
       ) : null}
       {showUnlock ? <CharterUnlockSheet ownerName={league.ownerName || 'The owner'} leagueName={league.name} onClose={closeUnlock} /> : null}
@@ -369,9 +364,9 @@ export const GridLeaguePanel = React.memo(function GridLeaguePanel() {
               <Text style={[mono(11), { color: item.isLeader ? colors.primary : colors.text.muted }]}>{item.delta}</Text>
               {item.moonshot ? <Text style={[mono(10), { color: item.moonshot.startsWith('+') ? colors.positive : colors.primary }]}>🚀 {item.moonshot}</Text> : null}
               {/* F-175: Rank Up on another player's row in a chartered league; hidden on your own */}
-              {chartered && !raceId && !item.isMe && userId && !isDemoMode ? (
+              {chartered && gifts && !raceId && !item.isMe && userId && !isDemoMode ? (
                 rankUpSpent ? (
-                  <Text accessibilityLabel={`${received.get(item.userId) ?? 0} Rank Ups this week`} style={[mono(10), { color: colors.text.muted }]}>{`▲ ${rankUpLabel(true, received.get(item.userId) ?? 0)}`}</Text>
+                  <Text accessibilityLabel={`${received.get(item.userId) ?? 0} Rank Ups this week`} style={[mono(10), { color: colors.text.muted }]}>{rankUpLabel(true, received.get(item.userId) ?? 0)}</Text>
                 ) : (
                   <Pressable onPress={() => giveRankUp(item.userId, item.team || item.name)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Rank up ${item.team || item.name}`}>
                     <Text style={[mono(10), { color: CHARTER_RED }]}>{rankUpLabel(false, 0)}</Text>

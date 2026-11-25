@@ -4,7 +4,7 @@
  */
 import {
   approvalCap, charterFlagOn, charterOfferVisible, charterShareText, climb, climbedThisWeek, isChartered,
-  orderChartered, rankUpLabel, rankUpsReceived, rankUpsThisWeek, requestCaption, shouldShowUnlock, weekId,
+  orderChartered, rankUpLabel, rankUpsCaption, rankUpsReceived, rankUpsThisWeek, requestCaption, shouldShowUnlock, weekId,
 } from '../../src/simple/grid/charter';
 import * as server from '../../functions/src/charter/rankUp';
 
@@ -58,6 +58,11 @@ describe('copy', () => {
     expect(t).toBe('PADDOCK PALS is chartered.\nPit Wall is on for everyone in it.\nSam paid for the season.\n\nAsk to join with PAD-1234\nhttps://undercut.humannpc.com/join?code=PAD-1234');
   });
   it('request caption', () => expect(requestCaption('Paddock Pals', 21, 22)).toBe('Paddock Pals · 21 of 22'));
+  it('public row caption is singular for one', () => {
+    expect(rankUpsCaption(1)).toBe('1 RANK UP');
+    expect(rankUpsCaption(0)).toBe('0 RANK UPS');
+    expect(rankUpsCaption(4)).toBe('4 RANK UPS');
+  });
   it('rank up label: RANK UP until spent, then the count only', () => {
     expect(rankUpLabel(false, 4)).toBe('RANK UP');
     expect(rankUpLabel(true, 4)).toBe('4');

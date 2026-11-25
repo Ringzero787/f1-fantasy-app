@@ -22,8 +22,9 @@ import { expansionNext, callableErrorCode } from './expansionFallback';
 import { PRODUCT_IDS, SLOTS_PER_PACK } from '../../config/products';
 import { isAmazonBuild } from '../../utils/storeDetection';
 import { PITWALL_CONTENT_OPEN } from '../../pitwall/gates';
-import { approvalCap, charterFlagOn, charterOfferVisible, isChartered, CHARTER_RED } from './charter';
-import { CharterCreateOption, CharterRequestSheet, CharterSquare } from './GridCharter';
+import { approvalCap, charterFlagOn, charterOfferVisible, isChartered } from './charter';
+import { joinByCodeAndAttach } from './joinLeague';
+import { CharterCreateOption, CharterRequestRow, CharterRequestSheet, CharterSquare } from './GridCharter';
 
 export type ManagerStep = 'none' | 'join' | 'create' | 'done';
 const MIN_CODE = 6;
@@ -48,7 +49,6 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
   const members = useLeagueStore((s) => s.members);
   const loadUserLeagues = useLeagueStore((s) => s.loadUserLeagues);
   const createLeague = useLeagueStore((s) => s.createLeague);
-  const joinLeagueByCode = useLeagueStore((s) => s.joinLeagueByCode);
   const leaveLeague = useLeagueStore((s) => s.leaveLeague);
   const deleteLeague = useLeagueStore((s) => s.deleteLeague);
   const hasExpansionCredit = usePurchaseStore((s) => s.hasExpansionCredit);
@@ -100,14 +100,12 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
     if (c.length < MIN_CODE) return;
     setBusy(true); setError(null);
     try {
-      await joinLeagueByCode(c, userId, userName);
-      const joined = useLeagueStore.getState().currentLeague;
-      if (joined) await attachTeam(joined.id);
+      await joinByCodeAndAttach(c, userId, userName, attachTeam);
       setCode('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not join that league.');
     } finally { setBusy(false); }
-  }, [code, userId, userName, joinLeagueByCode, attachTeam]);
+  }, [code, userId, userName, attachTeam]);
 
   const doCreate = useCallback(async () => {
     const n = name.trim();
@@ -360,13 +358,7 @@ export function GridLeagueManager({ initialStep = 'none', joinCode }: Props) {
               <Text selectable style={{ fontFamily: family.mono.bold, fontSize: scaled(34), lineHeight: scaled(36), letterSpacing: scaled(34) * 0.08, color: colors.text.primary }}>{league.inviteCode}</Text>
               <Text style={[mono(11, 'medium'), { color: colors.text.muted }]}>{playersCaption(memberCount, league.maxMembers)}{memberCount <= 1 ? ' · JUST YOU SO FAR' : ''}</Text>
             </View>
-            {isOwner && requestCount > 0 ? (
-              <Pressable onPress={() => setRequestsOpen(true)} accessibilityRole="button" accessibilityLabel={`${requestCount} ${requestCount === 1 ? 'request' : 'requests'} to join`}
-                style={({ pressed }) => ({ paddingVertical: scaled(14), paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: CHARTER_RED, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
-                <MonoLabel color={colors.text.primary}>{`${requestCount} ${requestCount === 1 ? 'REQUEST' : 'REQUESTS'} TO JOIN`}</MonoLabel>
-                <MonoLabel color={CHARTER_RED}>REVIEW ›</MonoLabel>
-              </Pressable>
-            ) : null}
+            {isOwner && requestCount > 0 ? <CharterRequestRow count={requestCount} onPress={() => setRequestsOpen(true)} /> : null}
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <SquareButton label="EMAIL" onPress={() => setEmailOpen(true)} />
               <SquareButton label="SMS" onPress={smsInvite} />

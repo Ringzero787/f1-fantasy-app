@@ -10,11 +10,11 @@ import { router } from 'expo-router';
 import { useSimpleTheme } from '../hooks/useSimpleTheme';
 import { useSimpleTeam } from '../hooks/useSimpleTeam';
 import { useAuthStore } from '../../store/auth.store';
-import { useLeagueStore } from '../../store/league.store';
 import { leagueService } from '../../services/league.service';
 import { MonoLabel, ScreenHeader } from './GridBits';
 import { CharterSquare } from './GridCharter';
-import { CHARTER_RED, climbedThisWeek, isChartered, orderChartered, rankUpsThisWeek } from './charter';
+import { joinByCodeAndAttach } from './joinLeague';
+import { CHARTER_RED, climbedThisWeek, isChartered, orderChartered, rankUpsCaption, rankUpsThisWeek } from './charter';
 import type { League } from '../../types';
 
 /** Enough to sort before slicing at launch size; past ~200 this moves to a server-side rank (BUILD.md). */
@@ -26,7 +26,6 @@ export function GridLeagueSearch() {
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const userId = user?.id ?? '';
   const { team, assignTeamToLeague, syncToFirebase } = useSimpleTeam();
-  const joinLeagueByCode = useLeagueStore((s) => s.joinLeagueByCode);
   const [leagues, setLeagues] = useState<League[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -49,16 +48,16 @@ export function GridLeagueSearch() {
       { text: 'Ask to join', onPress: async () => {
         setBusyId(l.id);
         try {
-          await joinLeagueByCode(l.inviteCode, userId, user?.displayName ?? 'Player');
-          const joined = useLeagueStore.getState().currentLeague;
-          if (joined && team) { await assignTeamToLeague(team.id, joined.id); await syncToFirebase(); }
+          await joinByCodeAndAttach(l.inviteCode, userId, user?.displayName ?? 'Player', async (id) => {
+            if (team) { await assignTeamToLeague(team.id, id); await syncToFirebase(); }
+          });
           router.replace('/(simple)' as never);
         } catch (e) {
           Alert.alert('Could not join', e instanceof Error ? e.message : 'Try again.');
         } finally { setBusyId(null); }
       } },
     ]);
-  }, [team, joinLeagueByCode, userId, user?.displayName, assignTeamToLeague, syncToFirebase]);
+  }, [team, userId, user?.displayName, assignTeamToLeague, syncToFirebase]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -84,7 +83,7 @@ export function GridLeagueSearch() {
                   {chartered ? <CharterSquare /> : null}
                 </View>
                 <Text numberOfLines={1} style={[mono(10, 'medium'), { color: colors.text.muted }]}>
-                  {`${item.memberCount} PLAYERS${chartered ? ` · ${rankUps} RANK UPS` : ''}`}
+                  {`${item.memberCount} PLAYERS${chartered ? ` · ${rankUpsCaption(rankUps)}` : ''}`}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>

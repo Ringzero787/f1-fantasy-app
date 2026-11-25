@@ -80,6 +80,11 @@ export function rankUpsReceived(gifts: readonly { toUid?: unknown }[]): Map<stri
   return out;
 }
 
+/** "{n} RANK UPS" on a public row; one is "1 RANK UP". */
+export function rankUpsCaption(n: number): string {
+  return `${n} ${n === 1 ? 'RANK UP' : 'RANK UPS'}`;
+}
+
 /** "RANK UP" until this week's is spent, then the count only (BUILD.md, "Rank Up"). */
 export function rankUpLabel(spent: boolean, received: number): string {
   return spent ? String(received) : 'RANK UP';
