@@ -1,0 +1,48 @@
+id: OP-253
+title: Moonshot model for Qatar R24 from MODELS_15
+kind: uc-moonshot-model-seed
+status: applied
+params:
+  race: qatar_2026
+  doc: /mnt/smb/share/tracklimits/MODELS_15.md
+  source: ben_model_R24
+created_at: 2026-11-26T02:26:00.823Z
+by: nathan
+steps:
+  - step: dry-run
+    at: 2026-11-26T02:26:03.231Z
+    head_sha: 8d35b6355abe4c9168695458e972f346a83565c5
+    command: cd functions && npm run build >/dev/null && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_15.md' --race='qatar_2026' --source='ben_model_R24'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-253/dry-run-2026-11-26T02-26-03-231Z.log
+    log_sha256: 8b9545c934d691422a00a95299e7066742b65651223fa8b627e3135bd050ba48
+    lines: 26
+  - step: backup
+    at: 2026-11-26T03:03:56.142Z
+    head_sha: 8d35b6355abe4c9168695458e972f346a83565c5
+    command: node scripts/ops/firestore-backup.js --out=/mnt/smb/f1-app/aidlc-ops/'OP-253'/backup.json moonshotModels/'qatar_2026'
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-253/backup-2026-11-26T03-03-56-142Z.log
+    log_sha256: cc23922a8f67ffe831505068aa2905e2275c561ec46c7ce7acf138321ad58234
+    lines: 1
+  - step: gates
+    at: 2026-11-26T03:03:56.924Z
+    head_sha: 8d35b6355abe4c9168695458e972f346a83565c5
+    exit: 0
+    gates:
+      G14: pass
+      G15: skip
+  - step: apply
+    at: 2026-11-26T03:03:56.925Z
+    head_sha: 8d35b6355abe4c9168695458e972f346a83565c5
+    command: cd functions && node scripts/seedMoonshotModel.js --doc='/mnt/smb/share/tracklimits/MODELS_15.md' --race='qatar_2026' --source='ben_model_R24' --write
+    exit: 0
+    log: /mnt/smb/f1-app/aidlc-ops/OP-253/apply-2026-11-26T03-03-56-925Z.log
+    log_sha256: 4159b6c1743e5fd967fa8d6759e5cc6c5c61133d3c9d37a9dd661d61fb8fb865
+    lines: 26
+  - step: gates
+    at: 2026-11-26T03:03:57.846Z
+    head_sha: 8d35b6355abe4c9168695458e972f346a83565c5
+    exit: 0
+    gates:
+      G15: skip
