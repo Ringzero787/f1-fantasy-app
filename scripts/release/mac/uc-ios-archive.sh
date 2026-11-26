@@ -12,7 +12,7 @@ set -euo pipefail
 export PATH=/opt/homebrew/bin:$PATH LANG=en_US.UTF-8
 
 : "${UC_VERSION:?}" "${UC_BUILD:?}"
-# Which Xcode builds the app. iOS 27 refuses to launch an app linked against the iOS 27 SDK that has
+# Which Xcode builds the app (F-177 lifts this pin). iOS 27 refuses to launch an app linked against the iOS 27 SDK that has
 # not adopted the UIScene lifecycle, and Expo SDK 55 does not generate one: App Review rejected
 # 2.10.0 build 65 (Xcode 27.2) on 2026-11-26 for crashing at launch. Until the app adopts scenes,
 # build with Xcode 26.x installed beside the default one; the guard after export enforces it.
