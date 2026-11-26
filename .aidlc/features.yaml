@@ -1,4 +1,4 @@
-next_id: 177
+next_id: 178
 features:
   - id: F-001
     name: Pre-AIDLC baseline
@@ -2281,3 +2281,13 @@ features:
       - performance
       - callable
       - cold-start
+  - id: F-177
+    name: "UC: iOS UIScene lifecycle adoption (iOS 27 SDK)"
+    summary: "Adopt the UIScene lifecycle (scene manifest + scene delegate) so Undercut launches when linked against the iOS 27 SDK; until then iOS builds use Xcode 26.x (#335) because a scene-less iOS 27 SDK build crashes at launch (2.10.0 build 65 rejection, 2026-11-26)"
+    status: planned
+    spec: .aidlc/specs/F-177.md
+    created_at: 2026-11-26
+    keywords:
+      - uiscene
+      - lifecycle
+      - xcode

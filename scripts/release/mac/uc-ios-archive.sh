@@ -12,6 +12,14 @@ set -euo pipefail
 export PATH=/opt/homebrew/bin:$PATH LANG=en_US.UTF-8
 
 : "${UC_VERSION:?}" "${UC_BUILD:?}"
+# Which Xcode builds the app (F-177 lifts this pin). iOS 27 refuses to launch an app linked against the iOS 27 SDK that has
+# not adopted the UIScene lifecycle, and Expo SDK 55 does not generate one: App Review rejected
+# 2.10.0 build 65 (Xcode 27.2) on 2026-11-26 for crashing at launch. Until the app adopts scenes,
+# build with Xcode 26.x installed beside the default one; the guard after export enforces it.
+XCODE="${UC_XCODE:-/Applications/Xcode-26.5.app}"
+[ -d "$XCODE/Contents/Developer" ] || { echo "Xcode not found at $XCODE (set UC_XCODE)" >&2; exit 2; }
+export DEVELOPER_DIR="$XCODE/Contents/Developer"
+echo "== xcode: $(xcodebuild -version | tr '\n' ' ')"
 DIR="$HOME/${UC_MAC_DIR:-projects/f1-app}"
 TEAM="${UC_APPLE_TEAM:-MWVD9BU5VW}"
 PROFILE="${UC_IOS_PROFILE:-Undercut AppStore Distribution}"
@@ -134,7 +142,14 @@ FONTS=$(ls "$APP"/*.ttf 2>/dev/null | wc -l | tr -d ' ')
 [ "$FONTS" -ge 6 ] || { echo "IPA embeds $FONTS font files, expected 6 (expo-font plugin)" >&2; exit 4; }
 SIGNATURE=$(codesign -dvv "$APP" 2>&1 || true)
 grep -q "Authority=Apple Distribution" <<<"$SIGNATURE" || { echo "IPA is not signed with Apple Distribution:" >&2; echo "$SIGNATURE" | head -5 >&2; exit 4; }
-echo "IPA ok: $V ($B) $ID, profile '$PROF', $FONTS fonts, $(du -h "$IPA" | cut -f1)"
+SDK=$(plutil -extract DTSDKName raw "$APP/Info.plist")
+SDK_MAJOR=$(sed -E 's/^iphoneos([0-9]+).*/\1/' <<<"$SDK")
+# Fail closed: an unparseable SDK would make the -ge below error, and in an if-condition set -e ignores that.
+[[ "$SDK_MAJOR" =~ ^[0-9]+$ ]] || { echo "cannot read the SDK major version from DTSDKName '$SDK'" >&2; exit 4; }
+if [ "$SDK_MAJOR" -ge 27 ] && ! plutil -extract UIApplicationSceneManifest xml1 -o /dev/null "$APP/Info.plist" 2>/dev/null; then
+  echo "IPA is linked against $SDK with no UIApplicationSceneManifest: it crashes at launch on iOS 27 (build 65 rejection). Build with Xcode 26.x (UC_XCODE)." >&2; exit 4
+fi
+echo "IPA ok: $V ($B) $ID, profile '$PROF', $FONTS fonts, $SDK, $(du -h "$IPA" | cut -f1)"
 
 if [ "${UC_SKIP_PUBLISH:-}" = 1 ]; then
   echo "UC_SKIP_PUBLISH=1: not uploading"
