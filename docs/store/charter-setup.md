@@ -164,7 +164,8 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/j
 In App Store Connect, app "Undercut" (com.undercut.app, Apple ID 6759428075) only.
 Go to the app → General → App Information → App Store Server Notifications.
 1. Report what is there now for Production Server URL and Sandbox Server URL, and the version
-   (Version 1 or Version 2). If either URL is already set to something, STOP and tell me.
+   (Version 1 or Version 2). If either URL is set to anything other than the URL below, STOP
+   and tell me what it is. If both already equal it with Version 2, report that and stop.
 2. Set both Production Server URL and Sandbox Server URL to:
    https://humannpc.com/undercut/app-store-notifications
    and choose Version 2 notifications for both. STOP before saving and show me, and wait
