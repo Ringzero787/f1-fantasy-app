@@ -144,6 +144,8 @@ SIGNATURE=$(codesign -dvv "$APP" 2>&1 || true)
 grep -q "Authority=Apple Distribution" <<<"$SIGNATURE" || { echo "IPA is not signed with Apple Distribution:" >&2; echo "$SIGNATURE" | head -5 >&2; exit 4; }
 SDK=$(plutil -extract DTSDKName raw "$APP/Info.plist")
 SDK_MAJOR=$(sed -E 's/^iphoneos([0-9]+).*/\1/' <<<"$SDK")
+# Fail closed: an unparseable SDK would make the -ge below error, and in an if-condition set -e ignores that.
+[[ "$SDK_MAJOR" =~ ^[0-9]+$ ]] || { echo "cannot read the SDK major version from DTSDKName '$SDK'" >&2; exit 4; }
 if [ "$SDK_MAJOR" -ge 27 ] && ! plutil -extract UIApplicationSceneManifest xml1 -o /dev/null "$APP/Info.plist" 2>/dev/null; then
   echo "IPA is linked against $SDK with no UIApplicationSceneManifest: it crashes at launch on iOS 27 (build 65 rejection). Build with Xcode 26.x (UC_XCODE)." >&2; exit 4
 fi

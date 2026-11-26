@@ -34,6 +34,11 @@ if ! grep -qE '^EXPO_PUBLIC_FIREBASE_API_KEY=.+' "$ROOT/.env" 2>/dev/null; then
   echo ".env with EXPO_PUBLIC_FIREBASE_API_KEY missing at the repo root (untracked; copy it from the main checkout) — the bundle would ship without a Firebase config and crash at launch" >&2; exit 6
 fi
 
+# UC_XCODE goes inside single quotes in the remote command below; keep it to path characters.
+if [[ ! "${UC_XCODE:-}" =~ ^[A-Za-z0-9\ ._/-]*$ ]]; then
+  echo "UC_XCODE must be a plain path (letters, digits, space, . _ / -): '${UC_XCODE}'" >&2; exit 7
+fi
+
 BUILD=$(node "$ROOT/scripts/release/bump-app-version.js" "$ROOT/app.config.js" "$VERSION" --ios)
 
 cd "$ROOT"
