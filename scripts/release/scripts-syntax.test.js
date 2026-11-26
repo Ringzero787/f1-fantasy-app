@@ -54,3 +54,14 @@ test('the Mac script never puts the provisioning profile on the xcodebuild comma
   assert.ok(!/PROVISIONING_PROFILE_SPECIFIER/.test(archiveLine), 'profile must be set in the pbxproj, not passed to every Pods target');
   assert.match(src, /trap cleanup EXIT/);
 });
+
+test('the Mac script pins Xcode and refuses an iOS 27 SDK build without scenes (2.10.0 build 65 rejection)', () => {
+  const src = fs.readFileSync(path.join(here, 'mac/uc-ios-archive.sh'), 'utf8');
+  // DEVELOPER_DIR must be exported before the first Xcode tool runs (prebuild/pod install are fine either way).
+  const pin = src.indexOf('export DEVELOPER_DIR=');
+  assert.ok(pin > 0 && pin < src.indexOf('xcodebuild -workspace'), 'DEVELOPER_DIR is set before the archive');
+  assert.match(src, /UIApplicationSceneManifest/, 'the post-export guard checks for a scene manifest');
+  assert.match(src, /DTSDKName/, 'the guard reads the SDK the IPA was linked against');
+  const wrapper = fs.readFileSync(path.join(here, 'build-uc-ios.sh'), 'utf8');
+  assert.match(wrapper, /UC_XCODE='\$\{UC_XCODE:-\}'/, 'the wrapper passes UC_XCODE to the Mac');
+});

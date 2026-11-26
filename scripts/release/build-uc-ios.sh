@@ -49,7 +49,7 @@ rsync -a --delete \
   ./ "$MAC:$MAC_DIR/"
 
 ssh -o BatchMode=yes -o ServerAliveInterval=30 "$MAC" \
-  "UC_VERSION='$VERSION' UC_BUILD='$BUILD' UC_SKIP_PUBLISH='${UC_SKIP_PUBLISH:-}' bash ~/$MAC_DIR/scripts/release/mac/uc-ios-archive.sh"
+  "UC_VERSION='$VERSION' UC_BUILD='$BUILD' UC_SKIP_PUBLISH='${UC_SKIP_PUBLISH:-}' UC_XCODE='${UC_XCODE:-}' bash ~/$MAC_DIR/scripts/release/mac/uc-ios-archive.sh"
 
 NAME="undercut-$VERSION-build$BUILD.ipa"
 if [ "${UC_SKIP_PUBLISH:-}" = 1 ]; then
